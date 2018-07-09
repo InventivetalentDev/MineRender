@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Fullscreen Demo | SkinRender - quick, easy, interactive 3D Minecraft Skins</title>
+        <link id="favicon" rel="icon" type="image/png" href="https://skinrender.ga/favicon.png"/>
+        <style>
+            body, html {
+                overflow-x: hidden;
+                overflow-y: hidden;
+            }
+
+            body {
+                margin: 0;
+            }
+
+            canvas {
+                width: 100%;
+                height: 100%;
+
+                /* Drop Shadow */
+                -webkit-filter: drop-shadow(5px 5px 5px #222);
+                filter: drop-shadow(5px 5px 5px #222);
+            }
+        </style>
+
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js" integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4=" crossorigin="anonymous"></script>
+    </head>
+    <body>
+        <div style="position: fixed; right:10px; top:10px; background-color:lightgray; opacity: 50;z-index:10">
+            <div style="margin: 10px;">
+                <div>
+                    <label for="nameInput">Username or URL</label>
+                    <input type="text" id="nameInput" placeholder="URL or Username" value="inventivetalent">
+                </div>
+                <div>
+                    <label for="capeInput">Cape URL</label>
+                    <input type="url" id="capeInput" placeholder="URL" value="https://crafatar.com/capes/md_5">
+                </div>
+            </div>
+            <div style="margin: 10px;">
+                <span><input type="checkbox" class="partToggle" id="hat" checked><label for="hat">Hat</label></span>
+                <span><input type="checkbox" class="partToggle" id="jacket" checked><label for="jacket">Jacket</label></span>
+                <br/>
+                <span><input type="checkbox" class="partToggle" id="leftSleeve" checked><label for="leftSleeve">Left Sleeve</label></span>
+                <span><input type="checkbox" class="partToggle" id="rightSleeve" checked><label for="rightSleeve">Right Sleeve</label></span>
+                <br/>
+                <span><input type="checkbox" class="partToggle" id="leftTrousers" checked><label for="leftTrousers">Left Trousers</label></span>
+                <span><input type="checkbox" class="partToggle" id="rightTrousers" checked><label for="rightTrousers">Right Trousers</label></span>
+                <br/>
+                <span><input type="checkbox" class="partToggle" id="cape" checked><label for="cape">Cape</label></span>
+            </div>
+            <div style="margin:10px">
+                <span><input type="checkbox" id="animate" checked><label for="animate">Animate</label></span>
+            </div>
+        </div>
+
+        <script src="../../dist/skin.min.js"></script>
+        <script>
+            var skinRender = new SkinRender({
+                autoResize: true,
+                render: {
+                    taa: true
+                }
+            }, document.body);
+            skinRender.render({
+                username: location.hash ? location.hash.substring(1) : "inventivetalent",
+                capeUrl: "https://crafatar.com/capes/af74a02d19cb445bb07f6866a861f783"
+            });
+            if (location.hash) $("#nameInput").val(location.hash.substring(1));
+            $("#nameInput,#capeInput").on("change", function () {
+                skinRender.reset();
+                var skin = $("#nameInput").val();
+                var cape = $("#capeInput").val();
+                var options = {};
+                if (skin.indexOf("http") === 0) {
+                    options.url = skin;
+                } else {
+                    options.username = skin;
+                    location.hash = skin;
+                }
+                if (cape && cape.length > 0) {
+                    options.capeUrl = cape;
+                }
+                skinRender.render(options);
+            })
+
+            $(".partToggle").on("change", function () {
+                skinRender.getModelByName($(this).attr("id")).visible = $(this).is(":checked");
+            });
+
+            var animate = true;
+            $("#animate").on("change", function () {
+                animate = $(this).is(":checked");
+            });
+
+            var startTime = Date.now();
+            document.body.addEventListener("skinRender", function (e) {
+                if (animate) {
+                    var t = (Date.now() - startTime) / 1000;
+                    e.detail.playerModel.children[2].rotation.x = Math.sin(t * 5) / 2;
+                    e.detail.playerModel.children[3].rotation.x = -Math.sin(t * 5) / 2;
+                    e.detail.playerModel.children[4].rotation.x = Math.sin(t * 5) / 2;
+                    e.detail.playerModel.children[5].rotation.x = -Math.sin(t * 5) / 2;
+                }
+            })
+        </script>
+    </body>
+</html>
