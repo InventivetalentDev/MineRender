@@ -10,6 +10,8 @@
   "license": "MIT",
   "dependencies": {
     "@johh/three-effectcomposer": "0.0.4",
+    "jquery": "^3.3.1",
+    "js-base64": "^2.4.5",
     "three": "^0.94.0",
     "threejs-ext": "^0.92.0"
   },

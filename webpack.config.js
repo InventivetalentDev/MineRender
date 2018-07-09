@@ -20,6 +20,27 @@ let skinConfigFull = {
     }
 };
 
+let modelConfig = {
+    context: path.resolve(__dirname),
+    entry: './src/model/index.js',
+    output: {
+        path: path.resolve(__dirname, './dist'),
+        filename: 'model.min.js'
+    }
+};
+let modelConfigFull = {
+    context: path.resolve(__dirname),
+    entry: './src/model/index.js',
+    output: {
+        path: path.resolve(__dirname, './dist'),
+        filename: 'model.js'
+    },
+    optimization: {
+        minimize: false
+    }
+};
+
 module.exports = [
-    skinConfig, skinConfigFull
+    /*skinConfig,*/ skinConfigFull,
+    /*modelConfig,*/modelConfigFull
 ];

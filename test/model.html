@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+    <head>
+
+    </head>
+    <body>
+        <script src="../dist/model.js"></script>
+        <script>
+            (function () {
+                let modelRender = new ModelRender([
+                    {
+                        model: "block/birch_fence_post",
+                        offset: [0, 0, 0]
+                    },
+                    {
+                        model: "block/birch_fence_side",
+                        offset: [0, 0, -3]
+                    },
+                    {
+                        model: "block/birch_fence_post",
+                        offset: [0, 0, -13]
+                    }
+                ], {
+                    showAxes: true,
+                    showGrid: true
+                })
+            })();
+        </script>
+    </body>
+</html>
