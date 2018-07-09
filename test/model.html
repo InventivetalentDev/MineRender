@@ -7,7 +7,7 @@
         <script src="../dist/model.js"></script>
         <script>
             (function () {
-                let modelRender = new ModelRender([
+                let fence = [
                     {
                         model: "block/birch_fence_post",
                         offset: [0, 0, 0]
@@ -20,9 +20,19 @@
                         model: "block/birch_fence_post",
                         offset: [0, 0, -13]
                     }
+                ];
+
+                let modelRender = new ModelRender([
+                    {
+                        // model: "block/orange_tulip"
+                        // model:"block/normal_torch"
+                        // model:"block/black_stained_glass_pane_side",
+                        model: "block/" + (location.hash.substr(1) || "stone")
+                    }
                 ], {
                     showAxes: true,
-                    showGrid: true
+                    showGrid: true,
+                    showOutlines:true
                 })
             })();
         </script>

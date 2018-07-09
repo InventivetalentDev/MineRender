@@ -22,9 +22,12 @@ const colors = [
 
 const FACE_ORDER = ["east", "west", "up", "down", "south", "north"];
 
+const TINTS = ["lightgreen"]
+
 let defaultOptions = {
     showAxes: false,
     showGrid: false,
+    showOutlines: false,
     controls: {
         enabled: true,
         zoom: true,
@@ -85,10 +88,18 @@ function ModelRender(models, options) {
             .then(modelData => mergeParents(modelData))
             .then((mergedModel) => {
                 console.log(mergedModel);
+
+                if (!mergedModel.textures) {
+                    console.warn("The model doesn't have any textures!");
+                    console.warn("Please make sure you're using the proper file.")
+                    console.warn("(e.g. 'grass.json' is invalid - 'grass_normal.json' would be the correct file.");
+                    return;
+                }
+
                 loadTextures(mergedModel.textures).then((textures) => {
                     console.log(textures);
 
-                    renderModel(modelRender, mergedModel, textures, model, offset, rotation);
+                    renderModel(modelRender, mergedModel, textures, type, model, offset, rotation);
                 });
             });
     }
@@ -195,38 +206,132 @@ let initScene = function (modelRender) {
     animate();
 };
 
-let renderModel = function (modelRender, model, textures, name, offset, rotation) {
+let renderModel = function (modelRender, model, textures, type, name, offset, rotation) {
+
+    //TODO: properly handle items
+
+    let promises = [];
 
     // Render the elements
     for (let i = 0; i < model.elements.length; i++) {
         let element = model.elements[i];
 
-        createCube(element.to[0] - element.from[0], element.to[1] - element.from[1], element.to[2] - element.from[2], name + "_" + Date.now(), element.faces, textures)
-            .then((cube) => {
-                let cubeGroup = new THREE.Object3D();
-                cubeGroup.applyMatrix(new THREE.Matrix4().makeTranslation(element.from[0], element.from[1], element.from[2]));
-                if (offset) {
-                    cubeGroup.applyMatrix(new THREE.Matrix4().makeTranslation(offset[0], offset[1], offset[2]))
-                }
-                if (rotation) {
-                    cubeGroup.rotation.set(rotation[0], rotation[1], rotation[2]);
-                }
+        // // From net.minecraft.client.renderer.block.model.BlockPart.java#47 - https://yeleha.co/2JcqSr4
+        let fallbackFaces = {
+            down: {
+                uv: [element.from[0], 16 - element.to[2], element.to[0], 16 - element.from[2]],
+                texture: "#down"
+            },
+            up: {
+                uv: [element.from[0], element.from[2], element.to[0], element.to[2]],
+                texture: "#up"
+            },
+            north: {
+                uv: [16 - element.to[0], 16 - element.to[1], 16 - element.from[0], 16 - element.from[1]],
+                texture: "#north"
+            },
+            south: {
+                uv: [element.from[0], 16 - element.to[1], element.to[0], 16 - element.from[1]],
+                texture: "#south"
+            },
+            west: {
+                uv: [element.from[2], 16 - element.to[1], element.to[2], 16 - element.from[2]],
+                texture: "#west"
+            },
+            east: {
+                uv: [16 - element.to[2], 16 - element.to[1], 16 - element.from[2], 16 - element.from[1]],
+                texture: "#east"
+            }
+        };
 
-                // center
-                cube.applyMatrix(new THREE.Matrix4().makeTranslation((element.to[0] - element.from[0]) / 2, (element.to[1] - element.from[1]) / 2, (element.to[2] - element.from[2]) / 2));
+        promises.push(new Promise((resolve) => {
+            createCube(element.to[0] - element.from[0], element.to[1] - element.from[1], element.to[2] - element.from[2], name + "_" + Date.now(), element.faces, fallbackFaces, textures)
+                .then((cube) => {
+                    cube.applyMatrix(new THREE.Matrix4().makeTranslation(element.from[0], element.from[1], element.from[2]));
+                    cube.applyMatrix(new THREE.Matrix4().makeTranslation((element.to[0] - element.from[0]) / 2, (element.to[1] - element.from[1]) / 2, (element.to[2] - element.from[2]) / 2));
+
+                    if (element.rotation) {
+                        rotateAboutPoint(cube,
+                            new THREE.Vector3(element.rotation.origin[0], element.rotation.origin[1], element.rotation.origin[2]),
+                            new THREE.Vector3(element.rotation.axis === "x" ? 1 : 0, element.rotation.axis === "y" ? 1 : 0, element.rotation.axis === "z" ? 1 : 0),
+                            toRadians(element.rotation.angle));
+                    }
+
+                    resolve(cube, element);
+                })
+        }));
 
 
-                cubeGroup.add(cube);
-                modelRender._scene.add(cubeGroup);
-            })
+        //
+        // createCube(element.to[0] - element.from[0], element.to[1] - element.from[1], element.to[2] - element.from[2], name + "_" + Date.now(), element.faces, textures)
+        //     .then((cube) => {
+        //         let cubeGroup = new THREE.Object3D();
+        //         cubeGroup.applyMatrix(new THREE.Matrix4().makeTranslation(element.from[0], element.from[1], element.from[2]));
+        //         if (offset) {
+        //             cubeGroup.applyMatrix(new THREE.Matrix4().makeTranslation(offset[0], offset[1], offset[2]))
+        //         }
+        //         if (rotation) {
+        //             cubeGroup.rotation.set(rotation[0], rotation[1], rotation[2]);
+        //         }
+        //
+        //         // center
+        //         cube.applyMatrix(new THREE.Matrix4().makeTranslation((element.to[0] - element.from[0]) / 2, (element.to[1] - element.from[1]) / 2, (element.to[2] - element.from[2]) / 2));
+        //
+        //
+        //         cubeGroup.add(cube);
+        //         modelRender._scene.add(cubeGroup);
+        //     })
 
     }
+
+    Promise.all(promises).then((cubes, meshes) => {
+        let cubeGroup = new THREE.Object3D();
+
+        // cubeGroup.applyMatrix(new THREE.Matrix4().makeTranslation(-8, 0, -8));
+
+        if (offset) {
+            cubeGroup.applyMatrix(new THREE.Matrix4().makeTranslation(offset[0], offset[1], offset[2]))
+        }
+        if (rotation) {
+            cubeGroup.rotation.set(rotation[0], rotation[1], rotation[2]);
+        }
+
+        for (let i = 0; i < cubes.length; i++) {
+            cubeGroup.add(cubes[i]);
+
+            if (modelRender.options.showOutlines) {
+                let geo = new THREE.WireframeGeometry(cubes[i].geometry);
+                let mat = new THREE.LineBasicMaterial({color: 0x000000, linewidth: 2});
+                let line = new THREE.LineSegments(geo, mat);
+
+                line.position.x = cubes[i].position.x;
+                line.position.y = cubes[i].position.y;
+                line.position.z = cubes[i].position.z
+
+                line.rotation.x = cubes[i].rotation.x;
+                line.rotation.y = cubes[i].rotation.y;
+                line.rotation.z = cubes[i].rotation.z;
+
+                line.scale.set(1.01, 1.01, 1.01);
+
+                cubeGroup.add(line);
+
+
+                let box = new THREE.BoxHelper(cubes[i], 0xff0000);
+                cubeGroup.add(box);
+            }
+
+        }
+
+
+        modelRender._scene.add(cubeGroup);
+    })
 
 };
 
 
 /// From https://github.com/InventivetalentDev/SkinRender/blob/master/js/render/skin.js#L353
-let createCube = function (width, height, depth, name, faces, textures) {
+let createCube = function (width, height, depth, name, faces, fallbackFaces, textures) {
     return new Promise((resolve) => {
         let geometry = new THREE.BoxGeometry(width, height, depth);
 
@@ -249,10 +354,19 @@ let createCube = function (width, height, depth, name, faces, textures) {
                     }
                     let face = faces[f];
                     let textureRef = face.texture.substr(1);
+                    if (!textures.hasOwnProperty(textureRef)) {
+                        console.warn("Missing texture '" + textureRef + "' for face " + f + " in model " + name);
+                        resolve(null);
+                        return;
+                    }
 
                     let img = new Image();
                     img.onload = function () {
                         let uv = face.uv;
+                        if (!uv) {
+                            console.warn("Missing UV mapping for face " + f + " in model " + name + ". Using defaults");
+                            uv = fallbackFaces[f].uv;
+                        }
 
                         let canvas = document.createElement("canvas");
                         canvas.width = uv[2] - uv[0];
@@ -260,15 +374,36 @@ let createCube = function (width, height, depth, name, faces, textures) {
                         let context = canvas.getContext("2d");
                         context.drawImage(img, uv[0], uv[1], uv[2] - uv[0], uv[3] - uv[1], 0, 0, uv[2] - uv[0], uv[3] - uv[1]);
 
+                        if (face.hasOwnProperty("tintindex")) {
+                            context.fillStyle = TINTS[face.tintindex];
+                            context.globalCompositeOperation = 'multiply';
+                            context.fillRect(0, 0, uv[2] - uv[0], uv[3] - uv[1]);
+
+                            context.globalAlpha = 1;
+                            context.globalCompositeOperation = 'destination-in';
+                            context.drawImage(img, uv[0], uv[1], uv[2] - uv[0], uv[3] - uv[1], 0, 0, uv[2] - uv[0], uv[3] - uv[1]);
+
+                            // context.globalAlpha = 0.5;
+                            // context.beginPath();
+                            // context.fillStyle = "green";
+                            // context.rect(0, 0, uv[2] - uv[0], uv[3] - uv[1]);
+                            // context.fill();
+                            // context.globalAlpha = 1.0;
+                        }
+
+                        console.log(canvas.toDataURL("image/png"))
                         let texture = new THREE.TextureLoader().load(canvas.toDataURL("image/png"), function () {
                             texture.magFilter = THREE.NearestFilter;
                             texture.minFilter = THREE.NearestFilter;
                             texture.anisotropy = 0;
                             texture.needsUpdate = true;
 
-                            let material = new THREE.MeshPhongMaterial({
+                            let material = new THREE.MeshLambertMaterial({
                                 map: texture,
-                                side: THREE.FrontSide
+                                transparent: true,
+                                side: THREE.FrontSide,
+                                depthWrite: false,
+                                depthTest: false
                             });
 
                             // mapUV(geometry, texture, face, i);
@@ -299,6 +434,19 @@ let createCube = function (width, height, depth, name, faces, textures) {
 
     })
 };
+
+/// https://stackoverflow.com/questions/42812861/three-js-pivot-point/42866733#42866733
+// obj - your object (THREE.Object3D or derived)
+// point - the point of rotation (THREE.Vector3)
+// axis - the axis of rotation (normalized THREE.Vector3)
+// theta - radian value of rotation
+function rotateAboutPoint(obj, point, axis, theta) {
+    obj.position.sub(point); // remove the offset
+    obj.position.applyAxisAngle(axis, theta); // rotate the POSITION
+    obj.position.add(point); // re-add the offset
+
+    obj.rotateOnAxis(axis, theta); // rotate the OBJECT
+}
 
 let mapUV = function (geometry, texture, uv, i) {
     //TODO: don't guess the dimensions
@@ -417,15 +565,15 @@ let loadModel = function (model, type/* block OR item */) {
     });
 };
 
-let loadTextures = function (textures) {
+let loadTextures = function (textureNames) {
     return new Promise((resolve) => {
         let promises = [];
         let filteredNames = [];
 
-        let names = Object.keys(textures);
+        let names = Object.keys(textureNames);
         for (let i = 0; i < names.length; i++) {
             let name = names[i];
-            let texture = textures[name];
+            let texture = textureNames[name];
             if (texture.startsWith("#")) {// reference to another texture, no need to load
                 continue;
             }
@@ -439,9 +587,10 @@ let loadTextures = function (textures) {
             }
 
             // Fill in the referenced textures
-            for (let name in names) {
-                if (!mappedTextures.hasOwnProperty(name) && textures.hasOwnProperty(name)) {
-                    let ref = textures[name].substr(1);
+            for (let i = 0; i < names.length; i++) {
+                let name = names[i];
+                if (!mappedTextures.hasOwnProperty(name) && textureNames.hasOwnProperty(name)) {
+                    let ref = textureNames[name].substr(1);
                     mappedTextures[name] = mappedTextures[ref];
                 }
             }
@@ -478,7 +627,7 @@ let mergeParents = function (model) {
 let mergeParents_ = function (model, stack, resolve, reject) {
     stack.push(model);
 
-    if (!model.hasOwnProperty("parent")) {// already at the highest parent
+    if (!model.hasOwnProperty("parent") || model["parent"] === "builtin/generated") {// already at the highest parent OR we reach the builtin parent which seems to be the hardcoded stuff that's not in the json files
         let merged = {};
         for (let i = stack.length - 1; i >= 0; i--) {
             console.log(stack[i])
@@ -499,5 +648,10 @@ let mergeParents_ = function (model, stack, resolve, reject) {
     });
 
 };
+
+function toRadians(angle) {
+    return angle * (Math.PI / 180);
+}
+
 
 window.ModelRender = ModelRender;
