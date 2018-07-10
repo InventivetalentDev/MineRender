@@ -4,6 +4,7 @@ import { SSAARenderPass, OrbitControls } from 'threejs-ext';
 import * as $ from 'jquery';
 import mergeDeep from "../lib/merge";
 import { Base64 } from 'js-base64';
+import { initScene, loadTexture } from "../renderBase";
 
 String.prototype.replaceAll = function (search, replacement) {
     let target = this;
@@ -130,86 +131,6 @@ let parseModelType = function (string) {
     }
 };
 
-let initScene = function (modelRender) {
-    // Scene INIT
-    let scene = new THREE.Scene();
-    modelRender._scene = scene;
-    let camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 5, 100);
-    modelRender._camera = camera;
-
-    let renderer = new THREE.WebGLRenderer({alpha: true, antialias: true, preserveDrawingBuffer: true});
-    modelRender._renderer = renderer;
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setClearColor(0x000000, 0);
-    renderer.setPixelRatio(window.devicePixelRatio);
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    modelRender.element.appendChild(modelRender._canvas = renderer.domElement);
-
-    let composer = new EffectComposer(renderer);
-    modelRender._composer = composer;
-    let ssaaRenderPass = new SSAARenderPass(scene, camera);
-    ssaaRenderPass.unbiased = true;
-    composer.addPass(ssaaRenderPass);
-    // let renderPass = new RenderPass(scene, camera);
-    // renderPass.enabled = false;
-    // composer.addPass(renderPass);
-    let copyPass = new ShaderPass(CopyShader);
-    copyPass.renderToScreen = true;
-    composer.addPass(copyPass);
-
-    window.addEventListener("resize", function () {
-        let width = modelRender.element ? modelRender.element.offsetWidth : window.innerWidth;
-        let height = modelRender.element ? modelRender.element.offsetHeight : window.innerHeight;
-
-        modelRender._resize(width, height);
-    }, false)
-    modelRender._resize = function (width, height) {
-        camera.aspect = width / height;
-        camera.updateProjectionMatrix();
-
-        renderer.setSize(width, height);
-
-        let pixelRatio = renderer.getPixelRatio();
-        let newWidth = Math.floor(width / pixelRatio) || 1;
-        let newHeight = Math.floor(height / pixelRatio) || 1;
-        composer.setSize(newWidth, newHeight);
-    };
-
-    // Helpers
-    if (modelRender.options.showAxes) {
-        scene.add(new THREE.AxesHelper(50));
-    }
-    if (modelRender.options.showGrid) {
-        scene.add(new THREE.GridHelper(100, 100));
-    }
-
-    let light = new THREE.AmbientLight(0xFFFFFF); // soft white light
-    scene.add(light);
-
-    // Init controls
-    let controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableZoom = modelRender.options.controls.zoom;
-    controls.enableRotate = modelRender.options.controls.rotate;
-    controls.enablePan = modelRender.options.controls.pan;
-    controls.target.set(0, 18, 0);
-
-    // Set camera location & target
-    camera.position.x = modelRender.options.camera.x;
-    camera.position.y = modelRender.options.camera.y;
-    camera.position.z = modelRender.options.camera.z;
-    camera.lookAt(new THREE.Vector3(0, 18, 0));
-
-    // Do the render!
-    let animate = function () {
-        modelRender._animId = requestAnimationFrame(animate);
-
-        composer.render();
-    };
-    modelRender._animate = animate;
-
-    animate();
-};
 
 ModelRender.prototype.clearScene = function () {
     while (this._scene.children.length > 0) {
@@ -647,7 +568,7 @@ let loadTextures = function (textureNames) {
                 continue;
             }
             filteredNames.push(name);
-            promises.push(loadTexture(texture));
+            promises.push(loadTexture("minecraft", "/", texture));
         }
         Promise.all(promises).then((textures) => {
             let mappedTextures = {};
@@ -669,24 +590,6 @@ let loadTextures = function (textureNames) {
     })
 };
 
-let loadTexture = function (name) {
-    return new Promise((resolve, reject) => {
-        let path = "/res/mc/assets/minecraft/textures/" + name + ".png";
-
-        // https://gist.github.com/oliyh/db3d1a582aefe6d8fee9 / https://stackoverflow.com/questions/20035615/using-raw-image-data-from-ajax-request-for-data-uri
-        let xhr = new XMLHttpRequest();
-        xhr.open('GET', path, true);
-        xhr.responseType = 'arraybuffer';
-        xhr.onload = function () {
-            let arr = new Uint8Array(this.response);
-            let raw = String.fromCharCode.apply(null, arr);
-            let b64 = btoa(raw);
-            let dataURL = "data:image/png;base64," + b64;
-            resolve(dataURL);
-        };
-        xhr.send();
-    })
-};
 
 let mergeParents = function (model) {
     return new Promise((resolve, reject) => {
