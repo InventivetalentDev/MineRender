@@ -1,9 +1,6 @@
 import * as THREE from "three";
-import EffectComposer, { RenderPass, ShaderPass, CopyShader } from "@johh/three-effectcomposer";
-import { SSAARenderPass, OrbitControls } from 'threejs-ext';
 import * as $ from 'jquery';
 import mergeDeep from "../lib/merge";
-import { Base64 } from 'js-base64';
 import { initScene, loadTexture } from "../renderBase";
 
 String.prototype.replaceAll = function (search, replacement) {
