@@ -6,7 +6,7 @@ export function initScene(renderObj) {
     // Scene INIT
     let scene = new THREE.Scene();
     renderObj._scene = scene;
-    let camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 5, 100);
+    let camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 5, 500);
     renderObj._camera = camera;
 
     let renderer = new THREE.WebGLRenderer({alpha: true, antialias: true, preserveDrawingBuffer: true});
@@ -61,6 +61,7 @@ export function initScene(renderObj) {
 
     // Init controls
     let controls = new OrbitControls(camera, renderer.domElement);
+    renderObj._controls=controls;
     controls.enableZoom = renderObj.options.controls.zoom;
     controls.enableRotate = renderObj.options.controls.rotate;
     controls.enablePan = renderObj.options.controls.pan;
@@ -83,9 +84,9 @@ export function initScene(renderObj) {
     animate();
 };
 
-export function loadTexture(namespace, path, name) {
+export function loadTextureAsBase64(namespace, dir, name) {
     return new Promise((resolve, reject) => {
-        let path = "/res/mc/assets/" + namespace + "/textures" + path + name + ".png";
+        let path = "/res/mc/assets/" + namespace + "/textures" + dir + name + ".png";
 
         // https://gist.github.com/oliyh/db3d1a582aefe6d8fee9 / https://stackoverflow.com/questions/20035615/using-raw-image-data-from-ajax-request-for-data-uri
         let xhr = new XMLHttpRequest();

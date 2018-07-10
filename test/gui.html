@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+    <head>
+
+        <style>
+            body, html {
+                overflow-x: hidden;
+                overflow-y: hidden;
+            }
+
+            body {
+                margin: 0;
+            }
+
+            canvas {
+                width: 100%;
+                height: 100%;
+            }
+        </style>
+    </head>
+    <body>
+        <script src="../dist/gui.js"></script>
+        <script>
+            (function () {
+                window.guiRender = new GuiRender([
+                    {
+                        name: "base",
+                        texture: "/gui/book",
+                        uv: GuiRender.Positions.book.base.uv,
+                        pos: [0, 0]
+                    },
+                    {
+                        name: "button_prev",
+                        texture: "/gui/book",
+                        uv: GuiRender.Positions.book.button_prev.uv,
+                        pos: GuiRender.Positions.book.button_prev.pos
+                    },
+                    {
+                        name: "button_next",
+                        texture: "/gui/book",
+                        uv: GuiRender.Positions.book.button_next.uv,
+                        pos: GuiRender.Positions.book.button_next.pos
+                    }
+                ], {
+                    showOutlines: true,
+                    showAxes:true,
+                    controls:{
+                        enabled:true,
+                        rotate:true,
+                        zoom:true,
+                        pan:true
+                    }
+                });
+            })();
+        </script>
+    </body>
+</html>

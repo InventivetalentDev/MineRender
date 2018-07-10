@@ -40,7 +40,28 @@ let modelConfigFull = {
     }
 };
 
+let guiConfig = {
+    context: path.resolve(__dirname),
+    entry: './src/gui/index.js',
+    output: {
+        path: path.resolve(__dirname, './dist'),
+        filename: 'gui.min.js'
+    }
+};
+let guiConfigFull = {
+    context: path.resolve(__dirname),
+    entry: './src/gui/index.js',
+    output: {
+        path: path.resolve(__dirname, './dist'),
+        filename: 'gui.js'
+    },
+    optimization: {
+        minimize: false
+    }
+};
+
 module.exports = [
     /*skinConfig,*/ skinConfigFull,
-    /*modelConfig,*/modelConfigFull
+    /*modelConfig,*/modelConfigFull,
+    /*guiConfig,*/guiConfigFull
 ];

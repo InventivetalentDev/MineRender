@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import * as $ from 'jquery';
 import mergeDeep from "../lib/merge";
-import { initScene, loadTexture } from "../renderBase";
+import { initScene, loadTextureAsBase64 } from "../renderBase";
 
 String.prototype.replaceAll = function (search, replacement) {
     let target = this;
@@ -128,6 +128,13 @@ let parseModelType = function (string) {
     }
 };
 
+ModelRender.prototype.attachTo = function (scene, camera, renderer, composer, canvas) {
+    this._scene = scene;
+    this._camera = camera;
+    this._renderer = renderer;
+    this._composer = composer;
+    this._canvas = canvas;
+};
 
 ModelRender.prototype.clearScene = function () {
     while (this._scene.children.length > 0) {
@@ -565,7 +572,7 @@ let loadTextures = function (textureNames) {
                 continue;
             }
             filteredNames.push(name);
-            promises.push(loadTexture("minecraft", "/", texture));
+            promises.push(loadTextureAsBase64("minecraft", "/", texture));
         }
         Promise.all(promises).then((textures) => {
             let mappedTextures = {};
