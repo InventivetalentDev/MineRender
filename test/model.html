@@ -22,12 +22,12 @@
                     }
                 ];
 
-                let modelRender = new ModelRender([
+             window. modelRender = new ModelRender([
                     {
                         // model: "block/orange_tulip"
                         // model:"block/normal_torch"
                         // model:"block/black_stained_glass_pane_side",
-                        model: "block/" + (location.hash.substr(1) || "stone")
+                        model: (location.hash.substr(1) || "block/stone")
                     }
                 ], {
                     showAxes: true,
