@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <title>Fullscreen Demo | SkinRender - quick, easy, interactive 3D Minecraft Skins</title>
-        <link id="favicon" rel="icon" type="image/png" href="https://skinrender.ga/favicon.png"/>
+        <title>MineRender - quick, easy, interactive Minecraft renders - Skins, Blocks, Items & more</title>
+        <link id="favicon" rel="icon" href="https://minerender.org/favicon.ico"/>
         <style>
             body, html {
                 overflow-x: hidden;
@@ -54,7 +54,7 @@
             </div>
         </div>
 
-        <script src="../../dist/skin.min.js"></script>
+        <script src="../../dist/skin.js"></script>
         <script>
             var skinRender = new SkinRender({
                 autoResize: true,
@@ -64,7 +64,7 @@
             }, document.body);
             skinRender.render({
                 username: location.hash ? location.hash.substring(1) : "inventivetalent",
-                capeUrl: "https://crafatar.com/capes/af74a02d19cb445bb07f6866a861f783"
+                capeUrl: "https://crafatar.com/capes/af74a02d19cb445bb07f6866a861f783",
             });
             if (location.hash) $("#nameInput").val(location.hash.substring(1));
             $("#nameInput,#capeInput").on("change", function () {
@@ -80,6 +80,7 @@
                 }
                 if (cape && cape.length > 0) {
                     options.capeUrl = cape;
+                    options.optifine = cape.toLowerCase().indexOf("optifine") > 0;
                 }
                 skinRender.render(options);
             })

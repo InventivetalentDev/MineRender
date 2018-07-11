@@ -826,6 +826,44 @@ const texturePositions =  {
             w: 10,
             h: 1
         }
+    },
+    capeOptifine: {
+        right: {
+            x: 22,
+            y: 0,
+            w: 2,
+            h: 16
+        },
+        front: {
+            x: 2,
+            y: 0,
+            w: 20,
+            h: 32
+        },
+        left: {
+            x: 0,
+            y: 0,
+            w:2,
+            h: 16
+        },
+        back: {
+            x: 24,
+            y: 0,
+            w: 10,
+            h: 16
+        },
+        top: {
+            x: 2,
+            y: 33,
+            w: 20,
+            h: 2
+        },
+        bottom: {
+            x: 22,
+            y: 32,
+            w: 20,
+            h: 2
+        }
     }
 };
 

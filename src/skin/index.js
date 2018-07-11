@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import EffectComposer, { RenderPass, ShaderPass, CopyShader } from "@johh/three-effectcomposer";
-import { SSAARenderPass, OrbitControls } from 'threejs-ext';
+import OrbitControls from "../lib/OrbitControls";
+import { SSAARenderPass } from 'threejs-ext';
 
 import texturePositions from "./texturePositions";
 
@@ -146,7 +147,7 @@ SkinRender.prototype.render = function (texture, cb) {
         }
 
         console.log("Slim: " + slim)
-        let playerModel = createPlayerModel(skinTexture, capeTexture, textureVersion, slim);
+        let playerModel = createPlayerModel(skinTexture, capeTexture, textureVersion, slim, texture.optifine);
         scene.add(playerModel);
         // console.log(playerModel);
         skinRender.playerModel = playerModel;
@@ -409,7 +410,9 @@ let createCube = function (texture, width, height, depth, textures, slim, name, 
     return cube;
 };
 
-let createPlayerModel = function (skinTexture, capeTexture, v, slim) {
+let createPlayerModel = function (skinTexture, capeTexture, v, slim, optifineCape) {
+    console.log("optifine cape: " + optifineCape);
+
     let headGroup = new THREE.Object3D();
     headGroup.position.x = 0;
     headGroup.position.y = 28;
@@ -574,7 +577,7 @@ let createPlayerModel = function (skinTexture, capeTexture, v, slim) {
         capeGroup.translateOnAxis(new THREE.Vector3(0, 0, 1), 0.5);
         let cape = createCube(capeTexture,
             8, 16, 1,
-            texturePositions.cape,
+            optifineCape ? texturePositions.capeOptifine : texturePositions.cape,
             false,
             "cape");
         cape.translateOnAxis(new THREE.Vector3(0, 1, 0), -8);
