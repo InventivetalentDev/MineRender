@@ -22,7 +22,8 @@
         <script src="../dist/gui.js"></script>
         <script>
             (function () {
-                window.guiRender = new GuiRender([
+
+                let book = [
                     {
                         name: "base",
                         texture: "/gui/book",
@@ -41,14 +42,68 @@
                         uv: GuiRender.Positions.book.button_next.uv,
                         pos: GuiRender.Positions.book.button_next.pos
                     }
-                ], {
+                ];
+
+                let chest = [
+                    {
+                        name: "base",
+                        texture: "/gui/container/generic_54",
+                        uv: GuiRender.Positions.container.generic_54.uv,
+                        pos: [0, 0],
+                        layer:0
+                    },
+                    {
+                        name: "bone",
+                        texture: "/items/bone",
+                        uv: [0, 0, 16, 16],
+                        pos:GuiRender.Positions.inventorySlot([0,0],GuiRender.Positions.container.generic_54.top_origin,GuiRender.Positions.container.generic_54.item_offset),
+                        layer:1
+                    },
+                    {
+                        name: "brick",
+                        texture: "/items/brick",
+                        uv: [0, 0, 16, 16],
+                        pos:GuiRender.Positions.inventorySlot([0,1],GuiRender.Positions.container.generic_54.top_origin,GuiRender.Positions.container.generic_54.item_offset),
+                        layer:1
+                    },
+                    {
+                        name: "brick",
+                        texture: "/items/apple",
+                        uv: [0, 0, 16, 16],
+                        pos:GuiRender.Positions.inventorySlot([1,0],GuiRender.Positions.container.generic_54.top_origin,GuiRender.Positions.container.generic_54.item_offset),
+                        layer:1
+                    },
+                    {
+                        name: "brick",
+                        texture: "/items/clock_09",
+                        uv: [0, 0, 16, 16],
+                        pos:GuiRender.Positions.inventorySlot([0,2],GuiRender.Positions.container.generic_54.top_origin,GuiRender.Positions.container.generic_54.item_offset),
+                        layer:1
+                    },
+                    {
+                        name: "brick",
+                        texture: "/items/egg",
+                        uv: [0, 0, 16, 16],
+                        pos:GuiRender.Positions.inventorySlot([2,5],GuiRender.Positions.container.generic_54.top_origin,GuiRender.Positions.container.generic_54.item_offset),
+                        layer:1
+                    },
+                    {
+                        name: "brick",
+                        texture: "/items/feather",
+                        uv: [0, 0, 16, 16],
+                        pos:GuiRender.Positions.inventorySlot([8,5],GuiRender.Positions.container.generic_54.top_origin,GuiRender.Positions.container.generic_54.item_offset),
+                        layer:1
+                    }
+                ];
+
+                window.guiRender = new GuiRender(chest, {
                     showOutlines: true,
-                    showAxes:true,
-                    controls:{
-                        enabled:true,
-                        rotate:true,
-                        zoom:true,
-                        pan:true
+                    showAxes: true,
+                    controls: {
+                        enabled: true,
+                        rotate: false,
+                        zoom: true,
+                        pan: true
                     }
                 });
             })();

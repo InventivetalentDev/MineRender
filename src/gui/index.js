@@ -100,19 +100,24 @@ function GuiRender(layers, options) {
 
             let geometry = new THREE.PlaneGeometry(width, height);
             let plane = new THREE.Mesh(geometry, material);
-            plane.name = material.userData.layer.texture.toLowerCase()+(material.userData.layer.name?"_"+material.userData.layer.name.toLowerCase():"");
+            plane.name = material.userData.layer.texture.toLowerCase() + (material.userData.layer.name ? "_" + material.userData.layer.name.toLowerCase() : "");
             plane.position.set(0, 0, 0);
 
             console.log(plane.name);
-            console.log(material.userData.layer.pos)
+            console.log(material.userData.layer.pos);
 
-            plane.applyMatrix(new THREE.Matrix4().makeTranslation((material.userData.layer.uv[2]-material.userData.layer.uv[0])/2, (material.userData.layer.uv[3]-material.userData.layer.uv[1])/2, 0));
+            let uv = material.userData.layer.uv;
+            if (!uv) {
+                // default to full image size if uv isn't set
+                uv = [0, 0, width, height];
+            }
 
-            console.log(i * LAYER_OFFSET)
+            plane.applyMatrix(new THREE.Matrix4().makeTranslation((uv[2] - uv[0]) / 2, (uv[3] - uv[1]) / 2, 0));
+
             if (material.userData.layer.pos) {
-                plane.applyMatrix(new THREE.Matrix4().makeTranslation(material.userData.layer.pos[0],-(material.userData.layer.uv[3]-material.userData.layer.uv[1])- material.userData.layer.pos[1], i * LAYER_OFFSET));
+                plane.applyMatrix(new THREE.Matrix4().makeTranslation(material.userData.layer.pos[0], -(uv[3] - uv[1]) - material.userData.layer.pos[1], (material.userData.layer.layer?material.userData.layer.layer:i) * LAYER_OFFSET));
             } else {
-                plane.applyMatrix(new THREE.Matrix4().makeTranslation(0, 0, i * LAYER_OFFSET));
+                plane.applyMatrix(new THREE.Matrix4().makeTranslation(0, 0, (material.userData.layer.layer?material.userData.layer.layer:i) * LAYER_OFFSET));
             }
 
             planeGroup.add(plane);
@@ -124,7 +129,7 @@ function GuiRender(layers, options) {
             }
         }
 
-        planeGroup.applyMatrix(new THREE.Matrix4().makeTranslation(-w/2, h/2, 0));
+        planeGroup.applyMatrix(new THREE.Matrix4().makeTranslation(-w / 2, h / 2, 0));
         guiRender._scene.add(planeGroup);
 
         guiRender._camera.position.set(0, 0, Math.max(w, h));
