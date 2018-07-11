@@ -40,7 +40,8 @@ let defaultOptions = {
     camera: {
         x: 35,
         y: 25,
-        z: 20
+        z: 20,
+        target: [0, 0, 0]
     },
     canvas: {
         width: undefined,
@@ -199,7 +200,7 @@ let renderModel = function (modelRender, model, textures, type, name, offset, ro
                     element.faces, fallbackFaces, textures)
                     .then((cube) => {
                         cube.applyMatrix(new THREE.Matrix4().makeTranslation(element.from[0], element.from[1], element.from[2]));
-                        cube.applyMatrix(new THREE.Matrix4().makeTranslation((element.to[0] - element.from[0]) / 2, (element.to[1] - element.from[1]) / 2, (element.to[2] - element.from[2]) / 2));
+                        // cube.applyMatrix(new THREE.Matrix4().makeTranslation((element.to[0] - element.from[0]) / 2, (element.to[1] - element.from[1]) / 2, (element.to[2] - element.from[2]) / 2));
 
                         if (element.rotation) {
                             rotateAboutPoint(cube,
@@ -217,8 +218,6 @@ let renderModel = function (modelRender, model, textures, type, name, offset, ro
 
         Promise.all(promises).then((cubes) => {
             let cubeGroup = new THREE.Object3D();
-
-            // cubeGroup.applyMatrix(new THREE.Matrix4().makeTranslation(-8, 0, -8));
 
             if (offset) {
                 cubeGroup.applyMatrix(new THREE.Matrix4().makeTranslation(offset[0], offset[1], offset[2]))

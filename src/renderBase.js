@@ -1,9 +1,9 @@
 import OrbitControls from "./lib/OrbitControls";
-import {  SSAARenderPass } from "threejs-ext";
+import { SSAARenderPass } from "threejs-ext";
 import EffectComposer, { RenderPass, ShaderPass, CopyShader } from "@johh/three-effectcomposer";
 import * as THREE from "three";
 
-export function initScene(renderObj,renderCb) {
+export function initScene(renderObj, renderCb) {
     // Scene INIT
     let scene = new THREE.Scene();
     renderObj._scene = scene;
@@ -66,19 +66,19 @@ export function initScene(renderObj,renderCb) {
     controls.enableZoom = renderObj.options.controls.zoom;
     controls.enableRotate = renderObj.options.controls.rotate;
     controls.enablePan = renderObj.options.controls.pan;
-    controls.target.set(0, 0, 0);
+    controls.target.set(renderObj.options.camera.target[0], renderObj.options.camera.target[1], renderObj.options.camera.target[2]);
 
     // Set camera location & target
     camera.position.x = renderObj.options.camera.x;
     camera.position.y = renderObj.options.camera.y;
     camera.position.z = renderObj.options.camera.z;
-    camera.lookAt(new THREE.Vector3(0, 0, 0));
+    camera.lookAt(new THREE.Vector3(renderObj.options.camera.target[0], renderObj.options.camera.target[1], renderObj.options.camera.target[2]));
 
     // Do the render!
     let animate = function () {
         renderObj._animId = requestAnimationFrame(animate);
 
-        if(typeof renderCb==="function") renderCb();
+        if (typeof renderCb === "function") renderCb();
 
         composer.render();
     };
