@@ -1421,76 +1421,16 @@ guis = [
     ]
 ];
 
-guis = [
-    [
-        {
-            name: "base",
-            texture: "/gui/container/generic_54",
-            uv: GuiRender.Positions.container.generic_54.uv,
-            pos: [0, 0],
-            layer: 0
-        },
-        {
-            name: "bone",
-            texture: "/items/bone",
-            uv: [0, 0, 16, 16],
-            pos: GuiRender.Helper.inventorySlot([0, 0], GuiRender.Positions.container.generic_54.top_origin, GuiRender.Positions.container.generic_54.item_offset),
-            layer: 1
-        },
-        {
-            name: "brick",
-            texture: "/items/brick",
-            uv: [0, 0, 16, 16],
-            pos: GuiRender.Helper.inventorySlot([8, 4], GuiRender.Positions.container.generic_54.top_origin, GuiRender.Positions.container.generic_54.item_offset),
-            layer: 1
-        },
-        {
-            name: "brick",
-            texture: "/items/apple",
-            uv: [0, 0, 16, 16],
-            pos: GuiRender.Helper.inventorySlot([1, 0], GuiRender.Positions.container.generic_54.top_origin, GuiRender.Positions.container.generic_54.item_offset),
-            layer: 1
-        },
-        {
-            name: "brick",
-            texture: "/items/clock_09",
-            uv: [0, 0, 16, 16],
-            pos: GuiRender.Helper.inventorySlot([0, 2], GuiRender.Positions.container.generic_54.top_origin, GuiRender.Positions.container.generic_54.item_offset),
-            layer: 1
-        },
-        {
-            name: "brick",
-            texture: "/items/egg",
-            uv: [0, 0, 16, 16],
-            pos: GuiRender.Helper.inventorySlot([2, 5], GuiRender.Positions.container.generic_54.top_origin, GuiRender.Positions.container.generic_54.item_offset),
-            layer: 1
-        },
-        {
-            name: "feather",
-            texture: "/items/feather",
-            uv: [0, 0, 16, 16],
-            pos: GuiRender.Helper.inventorySlot([5, 3], GuiRender.Positions.container.generic_54.top_origin, GuiRender.Positions.container.generic_54.item_offset),
-            layer: 1
+recipes = [
+    {
+        recipe: "ender_eye",
+        map: {}
+    },
+    {
+        recipe: "comparator",
+        map: {
+            "redstone_torch": "/blocks/redstone_torch_on",
+            "stone": "/blocks/stone"
         }
-    ],
-    [
-        {
-            name: "base",
-            texture: "/gui/book",
-            uv: GuiRender.Positions.book.base.uv,
-            pos: [0, 0]
-        },
-        {
-            name: "button_prev",
-            texture: "/gui/book",
-            uv: GuiRender.Positions.book.button_prev.uv,
-            pos: GuiRender.Positions.book.button_prev.pos
-        },
-        {
-            name: "button_next",
-            texture: "/gui/book",
-            uv: GuiRender.Positions.book.button_next.uv,
-            pos: GuiRender.Positions.book.button_next.pos
-        }
-    ]
+    }
 ];
