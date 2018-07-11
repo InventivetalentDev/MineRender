@@ -61,7 +61,7 @@ let guiConfigFull = {
 };
 
 module.exports = [
-    /*skinConfig,*/ skinConfigFull,
-    /*modelConfig,*/modelConfigFull,
-    /*guiConfig,*/guiConfigFull
+    skinConfig, skinConfigFull,
+    modelConfig, modelConfigFull,
+    guiConfig, guiConfigFull
 ];
