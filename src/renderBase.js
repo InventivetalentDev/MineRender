@@ -61,17 +61,17 @@ export function initScene(renderObj) {
 
     // Init controls
     let controls = new OrbitControls(camera, renderer.domElement);
-    renderObj._controls=controls;
+    renderObj._controls = controls;
     controls.enableZoom = renderObj.options.controls.zoom;
     controls.enableRotate = renderObj.options.controls.rotate;
     controls.enablePan = renderObj.options.controls.pan;
-    controls.target.set(0, 18, 0);
+    controls.target.set(0, 0, 0);
 
     // Set camera location & target
     camera.position.x = renderObj.options.camera.x;
     camera.position.y = renderObj.options.camera.y;
     camera.position.z = renderObj.options.camera.z;
-    camera.lookAt(new THREE.Vector3(0, 18, 0));
+    camera.lookAt(new THREE.Vector3(0, 0, 0));
 
     // Do the render!
     let animate = function () {

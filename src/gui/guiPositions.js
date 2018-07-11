@@ -73,7 +73,7 @@ const guiPositions = {
         recipe_background: {
             uv: [0, 0, 140, 78],
             left_origin: [13, 13],
-            right_origin: [106, 32],
+            right_origin: [106, 30],
             item_offset: [18, 18]
         }
     }

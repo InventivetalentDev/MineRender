@@ -53,8 +53,8 @@ const guiHelper = {
             col = n % rowSize;
         }
 
-        let x = origin[0] + (row * offset[0]);
-        let y = origin[1] + (col * offset[1]);
+        let x = origin[0] + (col * offset[0]);
+        let y = origin[1] + (row * offset[1]);
 
         return [x, y];
     },
@@ -101,8 +101,29 @@ const guiHelper = {
                     });
                 }
             }
-        }else{
-            //TODO: shapeless
+        }else if(recipeData.type==="crafting_shapeless"){
+            for(let i=0;i<recipeData.ingredients.length;i++){
+                let ingredient = recipeData.ingredients[i];
+
+                let slot = this.inventorySlot(i, guiPositions.container.recipe_background.left_origin, guiPositions.container.recipe_background.item_offset, 3);
+                let item = ingredient.item;
+                let itemSplit = item.split(":");
+                let itemNamespace = itemSplit[0];
+                let itemName = itemSplit[1];
+
+                if (textureMap.hasOwnProperty(itemName)) {
+                    itemName = textureMap[itemName];
+                } else {
+                    itemName = "/items/" + itemName;
+                }
+
+                renderData.push({
+                    name: item,
+                    texture: itemName,
+                    layer: 1,
+                    pos: slot
+                });
+            }
         }
 
         let resultItem = recipeData.result.item;
