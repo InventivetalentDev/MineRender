@@ -19,6 +19,7 @@
         </style>
     </head>
     <body>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js" integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4=" crossorigin="anonymous"></script>
         <script src="../dist/gui.js"></script>
         <script>
             (function () {
@@ -50,62 +51,68 @@
                         texture: "/gui/container/generic_54",
                         uv: GuiRender.Positions.container.generic_54.uv,
                         pos: [0, 0],
-                        layer:0
+                        layer: 0
                     },
                     {
                         name: "bone",
                         texture: "/items/bone",
                         uv: [0, 0, 16, 16],
-                        pos:GuiRender.Positions.inventorySlot([0,0],GuiRender.Positions.container.generic_54.top_origin,GuiRender.Positions.container.generic_54.item_offset),
-                        layer:1
+                        pos: GuiRender.Helper.inventorySlot([0, 0], GuiRender.Positions.container.generic_54.top_origin, GuiRender.Positions.container.generic_54.item_offset),
+                        layer: 1
                     },
                     {
                         name: "brick",
                         texture: "/items/brick",
                         uv: [0, 0, 16, 16],
-                        pos:GuiRender.Positions.inventorySlot([0,1],GuiRender.Positions.container.generic_54.top_origin,GuiRender.Positions.container.generic_54.item_offset),
-                        layer:1
+                        pos: GuiRender.Helper.inventorySlot([0, 1], GuiRender.Positions.container.generic_54.top_origin, GuiRender.Positions.container.generic_54.item_offset),
+                        layer: 1
                     },
                     {
                         name: "brick",
                         texture: "/items/apple",
                         uv: [0, 0, 16, 16],
-                        pos:GuiRender.Positions.inventorySlot([1,0],GuiRender.Positions.container.generic_54.top_origin,GuiRender.Positions.container.generic_54.item_offset),
-                        layer:1
+                        pos: GuiRender.Helper.inventorySlot([1, 0], GuiRender.Positions.container.generic_54.top_origin, GuiRender.Positions.container.generic_54.item_offset),
+                        layer: 1
                     },
                     {
                         name: "brick",
                         texture: "/items/clock_09",
                         uv: [0, 0, 16, 16],
-                        pos:GuiRender.Positions.inventorySlot([0,2],GuiRender.Positions.container.generic_54.top_origin,GuiRender.Positions.container.generic_54.item_offset),
-                        layer:1
+                        pos: GuiRender.Helper.inventorySlot([0, 2], GuiRender.Positions.container.generic_54.top_origin, GuiRender.Positions.container.generic_54.item_offset),
+                        layer: 1
                     },
                     {
                         name: "brick",
                         texture: "/items/egg",
                         uv: [0, 0, 16, 16],
-                        pos:GuiRender.Positions.inventorySlot([2,5],GuiRender.Positions.container.generic_54.top_origin,GuiRender.Positions.container.generic_54.item_offset),
-                        layer:1
+                        pos: GuiRender.Helper.inventorySlot([2, 5], GuiRender.Positions.container.generic_54.top_origin, GuiRender.Positions.container.generic_54.item_offset),
+                        layer: 1
                     },
                     {
                         name: "brick",
                         texture: "/items/feather",
                         uv: [0, 0, 16, 16],
-                        pos:GuiRender.Positions.inventorySlot([8,5],GuiRender.Positions.container.generic_54.top_origin,GuiRender.Positions.container.generic_54.item_offset),
-                        layer:1
+                        pos: GuiRender.Helper.inventorySlot([8, 5], GuiRender.Positions.container.generic_54.top_origin, GuiRender.Positions.container.generic_54.item_offset),
+                        layer: 1
                     }
                 ];
 
-                window.guiRender = new GuiRender(chest, {
-                    showOutlines: true,
-                    showAxes: true,
-                    controls: {
-                        enabled: true,
-                        rotate: false,
-                        zoom: true,
-                        pan: true
-                    }
-                });
+                $.ajax("/res/mc/assets/minecraft/recipes/comparator.json").done(function (recipe) {
+                    console.log(recipe);
+                    window.guiRender = new GuiRender(GuiRender.Helper.recipe(recipe,{
+                        "redstone_torch":"/blocks/redstone_torch_on",
+                        "stone":"/blocks/stone"
+                    }), {
+                        showOutlines: true,
+                        showAxes: true,
+                        controls: {
+                            enabled: true,
+                            rotate: false,
+                            zoom: true,
+                            pan: true
+                        }
+                    });
+                })
             })();
         </script>
     </body>

@@ -3,6 +3,7 @@ import * as $ from 'jquery';
 import mergeDeep from "../lib/merge";
 import { loadTextureAsBase64, initScene } from "../renderBase";
 import guiPositions from "./guiPositions";
+import guiHelper from "./guiHelper";
 
 let defaultOptions = {
     showOutlines: false,
@@ -139,3 +140,4 @@ function GuiRender(layers, options) {
 
 window.GuiRender = GuiRender;
 window.GuiRender.Positions = guiPositions;
+window.GuiRender.Helper = guiHelper;

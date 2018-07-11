@@ -69,64 +69,13 @@ const guiPositions = {
             uv: [0, 0, 176, 222],
             top_origin: [8, 18],
             item_offset: [18, 18]
+        },
+        recipe_background: {
+            uv: [0, 0, 140, 78],
+            left_origin: [13, 13],
+            right_origin: [106, 32],
+            item_offset: [18, 18]
         }
-    },
-
-    add: function (arr1, arr2, a) {
-        if (arr1.length === 2 && arr2.length === 2) {
-            if (!a || a === "xy") {
-                return [arr1[0] + arr2[0], arr1[1] + arr2[1]];
-            }
-            if (a === "x") {
-                return [arr1[0] + arr2[0], arr1[1]];
-            }
-            if (a === "y") {
-                return [arr1[0], arr1[1] + arr2[1]];
-            }
-        }
-    },
-    subtract: function (arr1, arr2, a) {
-        if (arr1.length === 2 && arr2.length === 2) {
-            if (!a || a === "xy") {
-                return [arr1[0] - arr2[0], arr1[1] - arr2[1]];
-            }
-            if (a === "x") {
-                return [arr1[0] - arr2[0], arr1[1]];
-            }
-            if (a === "y") {
-                return [arr1[0], arr1[1] - arr2[1]];
-            }
-        }
-    },
-    multiply: function (arr1, n, a) {
-        if (arr1.length === 2) {
-            if (!a || a === "xy") {
-                return [arr1[0] * n, arr1[1] * n];
-            }
-            if (a === "x") {
-                return [arr1[0] * n, arr1[1]];
-            }
-            if (a === "y") {
-                return [arr1[0], arr1[1] * n];
-            }
-        }
-    },
-
-    inventorySlot: function (n, origin, offset) {
-        let row, col;
-
-        if (n instanceof Array) {
-            row = n[0];
-            col = n[1];
-        } else {
-            row = Math.floor(n);
-            col = n % 9;
-        }
-
-        let x = origin[0] + (row * offset[0]);
-        let y = origin[1] + (col * offset[1]);
-
-        return [x, y];
     }
 };
 
