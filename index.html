@@ -40,7 +40,6 @@
                 display: block;
                 margin: 0 auto;
             }
-
             .skinContainer > img {
                 height: 50vh;
                 padding: 10vh 5vh 5vh;
@@ -51,11 +50,19 @@
                 display: block;
                 margin: 0 auto;
             }
+            .blockContainer > img {
+                height: 30vh;
+                padding: 10vh 5vh 5vh;
+            }
 
             .itemContainer {
                 height: 30vh;
                 display: block;
                 margin: 0 auto;
+            }
+            .itemContainer > img {
+                height: 30vh;
+                padding: 10vh 5vh 5vh;
             }
 
             .guiContainer {
@@ -63,11 +70,19 @@
                 display: block;
                 margin: 0 auto;
             }
+            .guiContainer > img {
+                height: 40vh;
+                padding: 10vh 5vh 5vh;
+            }
 
             .recipeContainer {
                 height: 30vh;
                 display: block;
                 margin: 0 auto;
+            }
+            .recipeContainer > img {
+                height: 40vh;
+                padding: 10vh 5vh 5vh;
             }
 
             .shadow > canvas {
@@ -153,6 +168,7 @@
                             <div class="card-panel">
                                 <div class="center">
                                     <div class="blockContainer shadow" id="blockExample1">
+                                        <img src="/img/minerender_block_gray.png" id="blockPlaceholder1">
                                     </div>
                                     <a target="_blank">
                                         <pre id="blockName1"></pre>
@@ -164,6 +180,7 @@
                             <div class="card-panel">
                                 <div class="center">
                                     <div class="blockContainer shadow" id="blockExample2">
+                                        <img src="/img/minerender_block_gray.png" id="blockPlaceholder2">
                                     </div>
                                     <a target="_blank">
                                         <pre id="blockName2"></pre>
@@ -175,6 +192,7 @@
                             <div class="card-panel">
                                 <div class="center">
                                     <div class="blockContainer shadow" id="blockExample3">
+                                        <img src="/img/minerender_block_gray.png" id="blockPlaceholder3">
                                     </div>
                                     <a target="_blank">
                                         <pre id="blockName3"></pre>
@@ -197,6 +215,7 @@
                             <div class="card-panel">
                                 <div class="center">
                                     <div class="itemContainer shadow" id="itemExample1">
+                                        <img src="/img/minerender_block_gray.png" id="itemPlaceholder1">
                                     </div>
                                     <a target="_blank">
                                         <pre id="itemName1"></pre>
@@ -208,6 +227,7 @@
                             <div class="card-panel">
                                 <div class="center">
                                     <div class="itemContainer shadow" id="itemExample2">
+                                        <img src="/img/minerender_block_gray.png" id="itemPlaceholder2">
                                     </div>
                                     <a target="_blank">
                                         <pre id="itemName2"></pre>
@@ -219,6 +239,7 @@
                             <div class="card-panel">
                                 <div class="center">
                                     <div class="itemContainer shadow" id="itemExample3">
+                                        <img src="/img/minerender_block_gray.png" id="itemPlaceholder3">
                                     </div>
                                     <a target="_blank">
                                         <pre id="itemName3"></pre>
@@ -241,6 +262,7 @@
                             <div class="card-panel">
                                 <div class="center">
                                     <div class="guiContainer shadow" id="guiExample1">
+                                        <img src="/img/minerender_block_gray.png" id="guiPlaceholder1">
                                     </div>
                                 </div>
                             </div>
@@ -249,6 +271,7 @@
                             <div class="card-panel">
                                 <div class="center">
                                     <div class="guiContainer shadow" id="guiExample2">
+                                        <img src="/img/minerender_block_gray.png" id="guiPlaceholder2">
                                     </div>
                                 </div>
                             </div>
@@ -268,6 +291,7 @@
                             <div class="card-panel">
                                 <div class="center">
                                     <div class="recipeContainer shadow" id="recipeExample1">
+                                        <img src="/img/minerender_block_gray.png" id="recipePlaceholder1">
                                     </div>
                                 </div>
                             </div>
@@ -276,6 +300,7 @@
                             <div class="card-panel">
                                 <div class="center">
                                     <div class="recipeContainer shadow" id="recipeExample2">
+                                        <img src="/img/minerender_block_gray.png" id="recipePlaceholder2">
                                     </div>
                                 </div>
                             </div>
@@ -362,7 +387,7 @@
                         var element = $("#blockExample" + (i + 1));
                         $("#blockName" + (i + 1)).text(block);
                         $("#blockName" + (i + 1)).parent().attr("href", "https://github.com/InventivetalentDev/minecraft-assets/blob/1.12.2/assets/minecraft/models/block/" + block + ".json")
-                        var modelRender = new ModelRender(["block/" + block], {
+                        var modelRender = new ModelRender({
                             element: element[0],
                             autoResize: true,
                             canvas: {
@@ -371,6 +396,11 @@
                             },
                             centerCubes: true
                         });
+                        (function (i) {
+                            modelRender.render(["block/" + block], function () {
+                                $("#blockPlaceholder" + (i + 1)).remove();
+                            })
+                        })(i);
                         element.on("modelRender", function (e) {
                             let models = e.detail.models;
                             for (var j = 0; j < models.length; j++) {
@@ -389,7 +419,7 @@
                         var element = $("#itemExample" + (i + 1));
                         $("#itemName" + (i + 1)).text(item);
                         $("#itemName" + (i + 1)).parent().attr("href", "https://github.com/InventivetalentDev/minecraft-assets/blob/1.12.2/assets/minecraft/models/item/" + item + ".json")
-                        var modelRender = new ModelRender(["item/" + item], {
+                        var modelRender = new ModelRender({
                             element: element[0],
                             autoResize: true,
                             canvas: {
@@ -398,6 +428,11 @@
                             },
                             centerCubes: true
                         });
+                        (function (i) {
+                            modelRender.render(["item/" + item], function () {
+                                $("#itemPlaceholder" + (i + 1)).remove();
+                            })
+                        })(i);
                         element.on("modelRender", function (e) {
                             let models = e.detail.models;
                             for (var j = 0; j < models.length; j++) {
@@ -487,7 +522,7 @@
                     for (var i = 0; i < 2; i++) {
                         var gui = guis[i];
                         var element = $("#guiExample" + (i + 1));
-                        var guiRender = new GuiRender(gui, {
+                        var guiRender = new GuiRender({
                             element: element[0],
                             autoResize: true,
                             canvas: {
@@ -495,6 +530,11 @@
                                 height: element[0].offsetHeight
                             }
                         });
+                        (function (i) {
+                            guiRender.render(gui, function () {
+                                $("#guiPlaceholder" + (i + 1)).remove();
+                            })
+                        })(i);
                         renders[i] = guiRender;
                     }
                 }
@@ -517,9 +557,9 @@
                     for (var i = 0; i < 2; i++) {
                         var recipe = recipes[i];
                         var element = $("#recipeExample" + (i + 1));
-                        (function (recipe, element) {
-                            $.ajax("/res/mc/assets/minecraft/recipes/"+recipe.recipe).done(function (r) {
-                                var guiRender = new GuiRender(GuiRender.Helper.recipe(r,recipe.map), {
+                        (function (i,recipe, element) {
+                            $.ajax("/res/mc/assets/minecraft/recipes/" + recipe.recipe).done(function (r) {
+                                var guiRender = new GuiRender({
                                     element: element[0],
                                     autoResize: true,
                                     canvas: {
@@ -527,8 +567,11 @@
                                         height: element[0].offsetHeight
                                     }
                                 });
+                                guiRender.render(GuiRender.Helper.recipe(r, recipe.map), function () {
+                                    $("#recipePlaceholder" + (i + 1)).remove();
+                                })
                             });
-                        })(recipe, element);
+                        })(i,recipe, element);
                     }
                 }
 
