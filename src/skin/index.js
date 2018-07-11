@@ -43,7 +43,7 @@ function SkinRender(options, element) {
         this.options.controls.enabled = false;
     }
 
-    if (options.render.taa) options.render.postprocessing = options.render.taa;
+    if (this.options.render.taa) this.options.render.postprocessing = this.options.render.taa;
 
     // bind this renderer to the element
     this._element.skinRender = this;
