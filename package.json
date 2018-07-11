@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "webpack --progress",
+    "build:w": "webpack --progress --watch"
   },
   "author": "Haylee Schäfer",
   "license": "MIT",
