@@ -28,16 +28,20 @@ let defaultOptions = {
 
 let LAYER_OFFSET = 0.5;
 
-function GuiRender(layers, options) {
+function GuiRender(options) {
 
     this.options = Object.assign({}, defaultOptions, options);
     this.element = this.options.element || document.body;
 
+    this.gui = null;
+}
+
+GuiRender.prototype.render = function (layers, cb) {
     let guiRender = this;
+
     initScene(this, function () {
         guiRender.element.dispatchEvent(new CustomEvent("guiRender", {detail: {gui: guiRender.gui}}));
     });
-    guiRender.gui = null;
 
     guiRender._controls.target.set(0, 0, 0);
     guiRender._camera.lookAt(new THREE.Vector3(0, 0, 0));
@@ -147,9 +151,10 @@ function GuiRender(layers, options) {
         // https://stackoverflow.com/a/11278936
         guiRender._camera.fov = 2 * Math.atan(Math.max(w, h) / (2 * Math.max(w, h))) * (180 / Math.PI);
         guiRender._camera.updateProjectionMatrix();
-    });
 
-}
+        if (typeof cb === "function") cb();
+    });
+};
 
 window.GuiRender = GuiRender;
 window.GuiRender.Positions = guiPositions;

@@ -37,19 +37,19 @@
                     }
                 ];
 
-                window.modelRender = new ModelRender([
+                window.modelRender = new ModelRender( {
+                    showAxes: true,
+                    showGrid: false,
+                    showOutlines: false,
+                    centerCubes: true
+                }).render([
                     {
                         // model: "block/orange_tulip"
                         // model:"block/normal_torch"
                         // model:"block/black_stained_glass_pane_side",
                         model: (location.hash.substr(1) || "block/stone")
                     }
-                ], {
-                    showAxes: true,
-                    showGrid: false,
-                    showOutlines: false,
-                    centerCubes: true
-                })
+                ]);
             })();
         </script>
     </body>
