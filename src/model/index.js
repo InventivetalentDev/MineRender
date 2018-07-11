@@ -51,10 +51,10 @@ let defaultOptions = {
     centerCubes: false
 };
 
-function ModelRender(options) {
+function ModelRender(options,element) {
 
     this.options = Object.assign({}, defaultOptions, options);
-    this.element = this.options.element || document.body;
+    this.element = element || document.body;
 
     this.models = [];
 }

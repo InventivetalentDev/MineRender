@@ -28,10 +28,10 @@ let defaultOptions = {
 
 let LAYER_OFFSET = 0.5;
 
-function GuiRender(options) {
+function GuiRender(options,element) {
 
     this.options = Object.assign({}, defaultOptions, options);
-    this.element = this.options.element || document.body;
+    this.element = element || document.body;
 
     this.gui = null;
 }
