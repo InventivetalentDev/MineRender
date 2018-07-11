@@ -3,16 +3,16 @@ import {  SSAARenderPass } from "threejs-ext";
 import EffectComposer, { RenderPass, ShaderPass, CopyShader } from "@johh/three-effectcomposer";
 import * as THREE from "three";
 
-export function initScene(renderObj) {
+export function initScene(renderObj,renderCb) {
     // Scene INIT
     let scene = new THREE.Scene();
     renderObj._scene = scene;
-    let camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 5, 500);
+    let camera = new THREE.PerspectiveCamera(75, (renderObj.options.canvas.width || window.innerWidth) / (renderObj.options.canvas.height || window.innerHeight), 5, 1000);
     renderObj._camera = camera;
 
     let renderer = new THREE.WebGLRenderer({alpha: true, antialias: true, preserveDrawingBuffer: true});
     renderObj._renderer = renderer;
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setSize((renderObj.options.canvas.width || window.innerWidth), (renderObj.options.canvas.height || window.innerHeight));
     renderer.setClearColor(0x000000, 0);
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.shadowMap.enabled = true;
@@ -77,6 +77,8 @@ export function initScene(renderObj) {
     // Do the render!
     let animate = function () {
         renderObj._animId = requestAnimationFrame(animate);
+
+        if(typeof renderCb==="function") renderCb();
 
         composer.render();
     };

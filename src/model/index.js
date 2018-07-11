@@ -54,7 +54,11 @@ function ModelRender(models, options) {
     this.options = Object.assign({}, defaultOptions, options);
     this.element = this.options.element || document.body;
 
-    initScene(this);
+    let modelRender = this;
+    initScene(modelRender, function () {
+        modelRender.element.dispatchEvent(new CustomEvent("modelRender", {detail: {models: modelRender.models}}));
+    });
+    this.models = [];
 
     let type = this.options.type;
     for (let i = 0; i < models.length; i++) {
@@ -85,7 +89,6 @@ function ModelRender(models, options) {
         }
 
 
-        let modelRender = this;
         console.log("Loading model " + model + " of type " + type + "...");
         loadModel(model, type)
             .then(modelData => mergeParents(modelData))
@@ -252,6 +255,7 @@ let renderModel = function (modelRender, model, textures, type, name, offset, ro
             }
 
             modelRender._scene.add(cubeGroup);
+            modelRender.models.push(cubeGroup);
         })
     } else {// 2d item
         createPlane(name + "_" + Date.now(), textures).then((plane) => {
