@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>MineRender - quick, easy, interactive Minecraft renders - Skins, Blocks, Items & more</title>
+        <link id="favicon" rel="icon" href="https://minerender.org/favicon.icon"/>
+
+        <!-- SEO -->
+        <meta name="keywords" content="minerender,skinrender,skin,block,item,gui,3d,inventory,minecraft">
+        <meta name="description" content="MineRender provides really easy ways to add interactive 3D Minecraft renders of Skins, Blocks, Items and more to your website.">
+        <meta name="author" content="inventivetalent">
+
+        <meta property="og:type" content="website">
+        <meta property="og:title" content="MineRender">
+        <meta property="og:image" content="https://minerender.org/img/minerender-x256.png">
+        <meta property="og:description" content="MineRender provides really easy ways to add interactive 3D Minecraft renders of Skins, Blocks, Items and more to your website.">
+
+        <meta property="twitter:title" content="MineRender">
+        <meta property="twitter:image" content="https://minerender.org/img/minerender-x256.png">
+        <meta property="twitter:description" content="MineRender provides really easy ways to add interactive 3D Minecraft renders of Skins, Blocks, Items and more to your website.">
+        <meta property="twitter:creator" content="@Inventivtalent">
+        <meta property="twitter:card" content="summary">
+
+
+        <!-- Style -->
+        <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/material-design-icons/3.0.1/iconfont/material-icons.min.css" integrity="sha256-x8PYmLKD83R9T/sYmJn1j3is/chhJdySyhet/JuHnfY=" crossorigin="anonymous"/>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.100.1/css/materialize.min.css" integrity="sha256-mkKV3FUh67dtli09bVbaYyM1526XgR92cz1uKarE1jo=" crossorigin="anonymous"/>
+        <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet" integrity="sha384-T8Gy5hrqNKT+hzMclPo118YTQO6cYprQmhrYwIiQ/3axmI1hQomh7Ud2hPOy8SP1" crossorigin="anonymous">
+
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.8.3/themes/prism.min.css" integrity="sha256-DJJDQyzflMYiUb2jX3gilm9m3gAkHPC4WLv9BAk4rTE=" crossorigin="anonymous"/>
+
+        <meta name=viewport content="width=device-width, initial-scale=1">
+
+        <meta name="fragment" content="!">
+        <base href="/">
+
+        <style>
+            .skinContainer {
+                height: 60vh;
+                display: block;
+                margin: 0 auto;
+            }
+
+            .skinContainer > img {
+                height: 50vh;
+                padding: 10vh 5vh 5vh;
+            }
+
+            .blockContainer {
+                height: 30vh;
+                display: block;
+                margin: 0 auto;
+            }
+
+            .itemContainer {
+                height: 30vh;
+                display: block;
+                margin: 0 auto;
+            }
+
+            .guiContainer {
+                height: 55vh;
+                display: block;
+                margin: 0 auto;
+            }
+
+            .recipeContainer {
+                height: 30vh;
+                display: block;
+                margin: 0 auto;
+            }
+
+            .shadow > canvas {
+                -webkit-filter: drop-shadow(5px 5px 5px #222);
+                filter: drop-shadow(5px 5px 5px #222);
+            }
+
+        </style>
+    </head>
+
+    <body>
+        <main>
+            <br/>
+            <br/>
+            <div class="section" id="header">
+                <div class="container">
+                    <div class="row center">
+                        <img src="/img/minerender-x256.png" style="margin-bottom:-30px;">
+                        <h1 class="header center indigo-text">MineRender</h1>
+                    </div>
+                    <div class="row center">
+                        <h4>Quick, Easy, Interactive 3D/2D Renders for Minecraft</h4>
+                        <h5>Skins, Blocks, Items, GUIs and more</h5>
+                    </div>
+                    <div class="row center">
+                        <a href="" class="btn-large waves-effect waves-light blue">Get Started</a>
+                    </div>
+                </div>
+            </div>
+            <br/>
+            <br/>
+            <div class="divider"></div>
+            <div class="section" id="skins">
+                <div class="container">
+                    <div class="row center">
+                        <h3 class="indigo-text darken-1" style="margin-bottom: -5px;">Skins</h3>
+                        <span class="grey-text" style="font-size: 80%;">(previously served by SkinRender.ga)</span>
+                    </div>
+
+                    <div class="row">
+                        <div class="col s12 m4">
+                            <div class="card-panel">
+                                <div class="center">
+                                    <div class="skinContainer shadow" id="skinExample1">
+                                        <img src="/img/minerender_steve_gray_blur.png" id="skinPlaceholder1">
+                                    </div>
+                                    <pre id="skinName1"></pre>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col s12 m4">
+                            <div class="card-panel">
+                                <div class="center">
+                                    <div class="skinContainer shadow" id="skinExample2">
+                                        <img src="/img/minerender_steve_gray_blur.png" id="skinPlaceholder2">
+                                    </div>
+                                    <pre id="skinName2"></pre>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col s12 m4">
+                            <div class="card-panel">
+                                <div class="center">
+                                    <div class="skinContainer shadow" id="skinExample3">
+                                        <img src="/img/minerender_steve_gray_blur.png" id="skinPlaceholder3">
+                                    </div>
+                                    <pre id="skinName3"></pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <br/>
+            <br/>
+            <div class="divider"></div>
+            <div class="section" id="blocks">
+                <div class="container">
+                    <h3 class="center indigo-text darken-1">Blocks</h3>
+
+                    <div class="row">
+                        <div class="col s12 m4">
+                            <div class="card-panel">
+                                <div class="center">
+                                    <div class="blockContainer shadow" id="blockExample1">
+                                    </div>
+                                    <a target="_blank">
+                                        <pre id="blockName1"></pre>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col s12 m4">
+                            <div class="card-panel">
+                                <div class="center">
+                                    <div class="blockContainer shadow" id="blockExample2">
+                                    </div>
+                                    <a target="_blank">
+                                        <pre id="blockName2"></pre>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col s12 m4">
+                            <div class="card-panel">
+                                <div class="center">
+                                    <div class="blockContainer shadow" id="blockExample3">
+                                    </div>
+                                    <a target="_blank">
+                                        <pre id="blockName3"></pre>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <br/>
+            <br/>
+            <div class="divider"></div>
+            <div class="section" id="items">
+                <div class="container">
+                    <h3 class="center indigo-text darken-1">Items</h3>
+
+                    <div class="row">
+                        <div class="col s12 m4">
+                            <div class="card-panel">
+                                <div class="center">
+                                    <div class="itemContainer shadow" id="itemExample1">
+                                    </div>
+                                    <a target="_blank">
+                                        <pre id="itemName1"></pre>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col s12 m4">
+                            <div class="card-panel">
+                                <div class="center">
+                                    <div class="itemContainer shadow" id="itemExample2">
+                                    </div>
+                                    <a target="_blank">
+                                        <pre id="itemName2"></pre>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col s12 m4">
+                            <div class="card-panel">
+                                <div class="center">
+                                    <div class="itemContainer shadow" id="itemExample3">
+                                    </div>
+                                    <a target="_blank">
+                                        <pre id="itemName3"></pre>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <br/>
+            <br/>
+            <div class="divider"></div>
+            <div class="section" id="guis">
+                <div class="container">
+                    <h3 class="center indigo-text darken-1">GUIs & Inventories</h3>
+
+                    <div class="row">
+                        <div class="col s12 m6">
+                            <div class="card-panel">
+                                <div class="center">
+                                    <div class="guiContainer shadow" id="guiExample1">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col s12 m6">
+                            <div class="card-panel">
+                                <div class="center">
+                                    <div class="guiContainer shadow" id="guiExample2">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <br/>
+            <br/>
+            <div class="divider"></div>
+            <div class="section" id="recipes">
+                <div class="container">
+                    <h3 class="center indigo-text darken-1">Recipes</h3>
+
+                    <div class="row">
+                        <div class="col s12 m6">
+                            <div class="card-panel">
+                                <div class="center">
+                                    <div class="recipeContainer shadow" id="recipeExample1">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col s12 m6">
+                            <div class="card-panel">
+                                <div class="center">
+                                    <div class="recipeContainer shadow" id="recipeExample2">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js" integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4=" crossorigin="anonymous"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.100.1/js/materialize.min.js" integrity="sha256-3mqgTUhHNgfXgjrzjPOaW03DdQ9hgW92BApzLREoRoA=" crossorigin="anonymous"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.8.3/prism.min.js" integrity="sha256-haEv2ilTk2sXcJaGbkTtErRCHy/qGt3g+bGbgPf5OTY=" crossorigin="anonymous"></script>
+
+        <script src="/dist/skin.js"></script>
+        <script src="/dist/model.js"></script>
+        <script src="/dist/gui.js"></script>
+
+        <script src="/js/data.js"></script>
+        <script>
+            // Showcases
+
+            $(document).ready(function () {
+                var randomSkins = skins.splice(0);
+                var randomBlocks = blocks.splice(0);
+                var randomItems = items.splice(0);
+
+                function getRandomSkin() {
+                    var skin = randomSkins.splice(Math.floor(Math.random() * randomSkins.length), 1)[0];
+                    if (skin.indexOf("|") !== -1) {
+                        var split = skin.split("|");
+                        return {
+                            name: split[0],
+                            skin: split[1]
+                        }
+                    }
+                    return {
+                        name: skin,
+                        skin: skin
+                    }
+                }
+
+                function getRandomBlock() {
+                    return randomBlocks.splice(Math.floor(Math.random() * randomBlocks.length), 1)[0];
+                }
+
+                function getRandomItem() {
+                    return randomItems.splice(Math.floor(Math.random() * randomItems.length), 1)[0];
+                }
+
+                function renderSkinShowcases() {
+                    var renders = [];
+                    for (var i = 0; i < 3; i++) {
+                        var skin = getRandomSkin();
+                        var element = $("#skinExample" + (i + 1));
+                        $("#skinName" + (i + 1)).text(skin.name)
+                        var skinRender = new SkinRender({
+                            autoResize: true,
+                            canvas: {
+                                width: element[0].offsetWidth,
+                                height: element[0].offsetHeight
+                            },
+                            render: {
+                                taa: true
+                            }
+                        }, element[0]);
+                        element.on("skinRender", function (e) {
+                            e.detail.playerModel.rotation.y += 0.01;
+                            e.detail.playerModel.children[2].rotation.z = -0.1;
+                            e.detail.playerModel.children[3].rotation.z = 0.1;
+                        })
+                        renders[i] = skinRender;
+                        (function (i) {
+                            skinRender.render(skin.skin, function () {
+                                $("#skinPlaceholder" + (i + 1)).remove();
+                            })
+                        })(i);
+                    }
+                }
+
+                function renderBlockShowcases() {
+                    var renders = [];
+                    for (var i = 0; i < 3; i++) {
+                        var block = getRandomBlock();
+                        var element = $("#blockExample" + (i + 1));
+                        $("#blockName" + (i + 1)).text(block);
+                        $("#blockName" + (i + 1)).parent().attr("href", "https://github.com/InventivetalentDev/minecraft-assets/blob/1.12.2/assets/minecraft/models/block/" + block + ".json")
+                        var modelRender = new ModelRender(["block/" + block], {
+                            element: element[0],
+                            autoResize: true,
+                            canvas: {
+                                width: element[0].offsetWidth,
+                                height: element[0].offsetHeight
+                            },
+                            centerCubes: true
+                        });
+                        element.on("modelRender", function (e) {
+                            let models = e.detail.models;
+                            for (var j = 0; j < models.length; j++) {
+                                models[j].rotation.y += 0.01;
+                            }
+                        })
+                        renders[i] = modelRender;
+                    }
+                }
+
+
+                function renderItemShowcases() {
+                    var renders = [];
+                    for (var i = 0; i < 3; i++) {
+                        var item = getRandomItem();
+                        var element = $("#itemExample" + (i + 1));
+                        $("#itemName" + (i + 1)).text(item);
+                        $("#itemName" + (i + 1)).parent().attr("href", "https://github.com/InventivetalentDev/minecraft-assets/blob/1.12.2/assets/minecraft/models/item/" + item + ".json")
+                        var modelRender = new ModelRender(["item/" + item], {
+                            element: element[0],
+                            autoResize: true,
+                            canvas: {
+                                width: element[0].offsetWidth,
+                                height: element[0].offsetHeight
+                            },
+                            centerCubes: true
+                        });
+                        element.on("modelRender", function (e) {
+                            let models = e.detail.models;
+                            for (var j = 0; j < models.length; j++) {
+                                models[j].rotation.y += 0.01;
+                            }
+                        })
+                        renders[i] = modelRender;
+                    }
+                }
+
+                function renderGUIShowcases() {
+                    var guis = [
+                        [
+                            {
+                                name: "base",
+                                texture: "/gui/container/generic_54",
+                                uv: GuiRender.Positions.container.generic_54.uv,
+                                pos: [0, 0],
+                                layer: 0
+                            },
+                            {
+                                name: "bone",
+                                texture: "/items/bone",
+                                uv: [0, 0, 16, 16],
+                                pos: GuiRender.Helper.inventorySlot([0, 0], GuiRender.Positions.container.generic_54.top_origin, GuiRender.Positions.container.generic_54.item_offset),
+                                layer: 1
+                            },
+                            {
+                                name: "brick",
+                                texture: "/items/brick",
+                                uv: [0, 0, 16, 16],
+                                pos: GuiRender.Helper.inventorySlot([8, 4], GuiRender.Positions.container.generic_54.top_origin, GuiRender.Positions.container.generic_54.item_offset),
+                                layer: 1
+                            },
+                            {
+                                name: "brick",
+                                texture: "/items/apple",
+                                uv: [0, 0, 16, 16],
+                                pos: GuiRender.Helper.inventorySlot([1, 0], GuiRender.Positions.container.generic_54.top_origin, GuiRender.Positions.container.generic_54.item_offset),
+                                layer: 1
+                            },
+                            {
+                                name: "brick",
+                                texture: "/items/clock_09",
+                                uv: [0, 0, 16, 16],
+                                pos: GuiRender.Helper.inventorySlot([0, 2], GuiRender.Positions.container.generic_54.top_origin, GuiRender.Positions.container.generic_54.item_offset),
+                                layer: 1
+                            },
+                            {
+                                name: "brick",
+                                texture: "/items/egg",
+                                uv: [0, 0, 16, 16],
+                                pos: GuiRender.Helper.inventorySlot([2, 5], GuiRender.Positions.container.generic_54.top_origin, GuiRender.Positions.container.generic_54.item_offset),
+                                layer: 1
+                            },
+                            {
+                                name: "feather",
+                                texture: "/items/feather",
+                                uv: [0, 0, 16, 16],
+                                pos: GuiRender.Helper.inventorySlot([5, 3], GuiRender.Positions.container.generic_54.top_origin, GuiRender.Positions.container.generic_54.item_offset),
+                                layer: 1
+                            }
+                        ],
+                        [
+                            {
+                                name: "base",
+                                texture: "/gui/book",
+                                uv: GuiRender.Positions.book.base.uv,
+                                pos: [0, 0]
+                            },
+                            {
+                                name: "button_prev",
+                                texture: "/gui/book",
+                                uv: GuiRender.Positions.book.button_prev.uv,
+                                pos: GuiRender.Positions.book.button_prev.pos
+                            },
+                            {
+                                name: "button_next",
+                                texture: "/gui/book",
+                                uv: GuiRender.Positions.book.button_next.uv,
+                                pos: GuiRender.Positions.book.button_next.pos
+                            }
+                        ]
+                    ];
+
+                    var renders = [];
+                    for (var i = 0; i < 2; i++) {
+                        var gui = guis[i];
+                        var element = $("#guiExample" + (i + 1));
+                        var guiRender = new GuiRender(gui, {
+                            element: element[0],
+                            autoResize: true,
+                            canvas: {
+                                width: element[0].offsetWidth,
+                                height: element[0].offsetHeight
+                            }
+                        });
+                        renders[i] = guiRender;
+                    }
+                }
+
+                function renderRecipeShowcases() {
+                    var recipes = [
+                        {
+                            recipe: "ender_eye",
+                            map: {}
+                        },
+                        {
+                            recipe: "comparator",
+                            map: {
+                                "redstone_torch": "/blocks/redstone_torch_on",
+                                "stone": "/blocks/stone"
+                            }
+                        }
+                    ];
+
+                    for (var i = 0; i < 2; i++) {
+                        var recipe = recipes[i];
+                        var element = $("#recipeExample" + (i + 1));
+                        (function (recipe, element) {
+                            $.ajax("/res/mc/assets/minecraft/recipes/"+recipe.recipe).done(function (r) {
+                                var guiRender = new GuiRender(GuiRender.Helper.recipe(r,recipe.map), {
+                                    element: element[0],
+                                    autoResize: true,
+                                    canvas: {
+                                        width: element[0].offsetWidth,
+                                        height: element[0].offsetHeight
+                                    }
+                                });
+                            });
+                        })(recipe, element);
+                    }
+                }
+
+                renderSkinShowcases();
+                renderBlockShowcases();
+                renderItemShowcases();
+                renderGUIShowcases();
+                renderRecipeShowcases();
+            })
+        </script>
+    </body>
+</html>
