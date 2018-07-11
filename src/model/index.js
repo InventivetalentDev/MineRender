@@ -47,7 +47,8 @@ let defaultOptions = {
         width: undefined,
         height: undefined
     },
-    type: "block"
+    type: "block",
+    centerCubes:false
 };
 
 function ModelRender(models, options) {
@@ -200,7 +201,7 @@ let renderModel = function (modelRender, model, textures, type, name, offset, ro
                     element.faces, fallbackFaces, textures)
                     .then((cube) => {
                         cube.applyMatrix(new THREE.Matrix4().makeTranslation(element.from[0], element.from[1], element.from[2]));
-                        // cube.applyMatrix(new THREE.Matrix4().makeTranslation((element.to[0] - element.from[0]) / 2, (element.to[1] - element.from[1]) / 2, (element.to[2] - element.from[2]) / 2));
+                        cube.applyMatrix(new THREE.Matrix4().makeTranslation((element.to[0] - element.from[0]) / 2, (element.to[1] - element.from[1]) / 2, (element.to[2] - element.from[2]) / 2));
 
                         if (element.rotation) {
                             rotateAboutPoint(cube,
@@ -224,6 +225,10 @@ let renderModel = function (modelRender, model, textures, type, name, offset, ro
             }
             if (rotation) {
                 cubeGroup.rotation.set(rotation[0], rotation[1], rotation[2]);
+            }
+
+            if(modelRender.options.centerCubes) {
+                cubeGroup.applyMatrix(new THREE.Matrix4().makeTranslation(-8, -8, -8));
             }
 
             for (let i = 0; i < cubes.length; i++) {
@@ -253,8 +258,11 @@ let renderModel = function (modelRender, model, textures, type, name, offset, ro
 
             }
 
-            modelRender._scene.add(cubeGroup);
-            modelRender.models.push(cubeGroup);
+            let cubeContainer = new THREE.Object3D();
+            cubeContainer.add(cubeGroup);
+
+            modelRender._scene.add(cubeContainer);
+            modelRender.models.push(cubeContainer);
         })
     } else {// 2d item
         createPlane(name + "_" + Date.now(), textures).then((plane) => {
