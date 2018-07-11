@@ -144,6 +144,9 @@ function GuiRender(layers, options) {
         guiRender.gui = planeGroup;
 
         guiRender._camera.position.set(0, 0, Math.max(w, h));
+        // https://stackoverflow.com/a/11278936
+        guiRender._camera.fov = 2 * Math.atan(Math.max(w, h) / (2 * Math.max(w, h))) * (180 / Math.PI);
+        guiRender._camera.updateProjectionMatrix();
     });
 
 }
