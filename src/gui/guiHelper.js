@@ -46,8 +46,8 @@ const guiHelper = {
         let row, col;
 
         if (n instanceof Array) {
-            row = n[0];
-            col = n[1];
+            row = n[1];
+            col = n[0];
         } else {
             row = Math.floor(n / rowSize);
             col = n % rowSize;

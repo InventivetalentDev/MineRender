@@ -17,7 +17,12 @@ let defaultOptions = {
     camera: {
         x: 0,
         y: 0,
-        z: 50
+        z: 50,
+        target: [0, 0, 0]
+    },
+    canvas: {
+        width: undefined,
+        height: undefined
     },
 };
 
@@ -28,8 +33,11 @@ function GuiRender(layers, options) {
     this.options = Object.assign({}, defaultOptions, options);
     this.element = this.options.element || document.body;
 
-    initScene(this);
     let guiRender = this;
+    initScene(this, function () {
+        guiRender.element.dispatchEvent(new CustomEvent("guiRender", {detail: {gui: guiRender.gui}}));
+    });
+    guiRender.gui = null;
 
     guiRender._controls.target.set(0, 0, 0);
     guiRender._camera.lookAt(new THREE.Vector3(0, 0, 0));
@@ -116,9 +124,9 @@ function GuiRender(layers, options) {
             plane.applyMatrix(new THREE.Matrix4().makeTranslation((uv[2] - uv[0]) / 2, (uv[3] - uv[1]) / 2, 0));
 
             if (material.userData.layer.pos) {
-                plane.applyMatrix(new THREE.Matrix4().makeTranslation(material.userData.layer.pos[0], -(uv[3] - uv[1]) - material.userData.layer.pos[1], (material.userData.layer.layer?material.userData.layer.layer:i) * LAYER_OFFSET));
+                plane.applyMatrix(new THREE.Matrix4().makeTranslation(material.userData.layer.pos[0], -(uv[3] - uv[1]) - material.userData.layer.pos[1], (material.userData.layer.layer ? material.userData.layer.layer : i) * LAYER_OFFSET));
             } else {
-                plane.applyMatrix(new THREE.Matrix4().makeTranslation(0, 0, (material.userData.layer.layer?material.userData.layer.layer:i) * LAYER_OFFSET));
+                plane.applyMatrix(new THREE.Matrix4().makeTranslation(0, 0, (material.userData.layer.layer ? material.userData.layer.layer : i) * LAYER_OFFSET));
             }
 
             planeGroup.add(plane);
@@ -132,6 +140,8 @@ function GuiRender(layers, options) {
 
         planeGroup.applyMatrix(new THREE.Matrix4().makeTranslation(-w / 2, h / 2, 0));
         guiRender._scene.add(planeGroup);
+
+        guiRender.gui = planeGroup;
 
         guiRender._camera.position.set(0, 0, Math.max(w, h));
     });

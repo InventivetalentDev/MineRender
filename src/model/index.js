@@ -48,7 +48,7 @@ let defaultOptions = {
         height: undefined
     },
     type: "block",
-    centerCubes:false
+    centerCubes: false
 };
 
 function ModelRender(models, options) {
@@ -227,7 +227,7 @@ let renderModel = function (modelRender, model, textures, type, name, offset, ro
                 cubeGroup.rotation.set(rotation[0], rotation[1], rotation[2]);
             }
 
-            if(modelRender.options.centerCubes) {
+            if (modelRender.options.centerCubes) {
                 cubeGroup.applyMatrix(new THREE.Matrix4().makeTranslation(-8, -8, -8));
             }
 
@@ -267,6 +267,7 @@ let renderModel = function (modelRender, model, textures, type, name, offset, ro
     } else {// 2d item
         createPlane(name + "_" + Date.now(), textures).then((plane) => {
             modelRender._scene.add(plane);
+            modelRender.models.push(plane);
         })
     }
 
