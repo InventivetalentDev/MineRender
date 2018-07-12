@@ -332,7 +332,7 @@ let createPlane = function (name, textures) {
                     texture.anisotropy = 0;
                     texture.needsUpdate = true;
 
-                    let material = new THREE.MeshLambertMaterial({
+                    let material = new THREE.MeshBasicMaterial({
                         map: texture,
                         transparent: true,
                         side: THREE.DoubleSide,
@@ -415,7 +415,7 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                             texture.anisotropy = 0;
                             texture.needsUpdate = true;
 
-                            let material = new THREE.MeshLambertMaterial({
+                            let material = new THREE.MeshBasicMaterial({
                                 map: texture,
                                 transparent: true,
                                 side: THREE.FrontSide,

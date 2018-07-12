@@ -65,7 +65,7 @@ GuiRender.prototype.render = function (layers, cb) {
                         texture.anisotropy = 0;
                         texture.needsUpdate = true;
 
-                        let material = new THREE.MeshLambertMaterial({
+                        let material = new THREE.MeshBasicMaterial({
                             map: texture,
                             transparent: true,
                             side: THREE.DoubleSide,
