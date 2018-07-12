@@ -66,7 +66,7 @@ let combinedConfig = {
     entry: './src/combined/index.js',
     output: {
         path: path.resolve(__dirname, './dist'),
-        filename: 'combined.min.js'
+        filename: 'all.min.js'
     }
 };
 let combinedConfigFull = {
@@ -74,7 +74,7 @@ let combinedConfigFull = {
     entry: './src/combined/index.js',
     output: {
         path: path.resolve(__dirname, './dist'),
-        filename: 'combined.js'
+        filename: 'all.js'
     },
     optimization: {
         minimize: false
