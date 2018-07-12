@@ -1,10 +1,8 @@
 import * as THREE from "three";
-import EffectComposer, { RenderPass, ShaderPass, CopyShader } from "@johh/three-effectcomposer";
 import OrbitControls from "../lib/OrbitControls";
-import { SSAARenderPass } from 'threejs-ext';
 
 import texturePositions from "./texturePositions";
-import { attachTo, initScene, defaultOptions } from "../renderBase";
+import { initScene, defaultOptions } from "../renderBase";
 
 
 function SkinRender(options, element) {

@@ -1,11 +1,7 @@
 import * as THREE from "three";
-import * as $ from 'jquery';
-import mergeDeep from "../lib/merge";
-import { loadTextureAsBase64, initScene, attachTo, defaultOptions } from "../renderBase";
+import { loadTextureAsBase64, initScene, defaultOptions } from "../renderBase";
 import guiPositions from "./guiPositions";
 import guiHelper from "./guiHelper";
-import SkinRender from "../skin";
-
 
 let LAYER_OFFSET = 0.5;
 

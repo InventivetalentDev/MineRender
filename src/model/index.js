@@ -1,8 +1,7 @@
 import * as THREE from "three";
 import * as $ from 'jquery';
 import mergeDeep from "../lib/merge";
-import { initScene, loadTextureAsBase64, attachTo, defaultOptions } from "../renderBase";
-import SkinRender from "../skin";
+import { initScene, loadTextureAsBase64, defaultOptions } from "../renderBase";
 
 String.prototype.replaceAll = function (search, replacement) {
     let target = this;

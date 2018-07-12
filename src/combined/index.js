@@ -1,7 +1,4 @@
-import * as THREE from "three";
-import * as $ from 'jquery';
-import mergeDeep from "../lib/merge";
-import { loadTextureAsBase64, initScene, attachTo } from "../renderBase";
+import { initScene, attachTo } from "../renderBase";
 
 import GuiRender from "../gui/index";
 import ModelRender from "../model/index";

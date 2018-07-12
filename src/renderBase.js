@@ -1,6 +1,6 @@
 import OrbitControls from "./lib/OrbitControls";
 import { SSAARenderPass } from "threejs-ext";
-import EffectComposer, { RenderPass, ShaderPass, CopyShader } from "@johh/three-effectcomposer";
+import EffectComposer, { ShaderPass, CopyShader } from "@johh/three-effectcomposer";
 import * as THREE from "three";
 
 export const defaultOptions = {
