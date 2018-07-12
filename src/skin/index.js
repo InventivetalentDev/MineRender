@@ -168,8 +168,6 @@ SkinRender.prototype.render = function (texture, cb) {
             skinRender._animate = animate;
 
             animate();
-
-            if (typeof cb === "function") cb();
         }
 
         console.log("Slim: " + slim)
@@ -178,7 +176,7 @@ SkinRender.prototype.render = function (texture, cb) {
         // console.log(playerModel);
         skinRender.playerModel = playerModel;
 
-
+        if (typeof cb === "function") cb();
     }
 
     skinRender._skinImage = new Image();
