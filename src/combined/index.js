@@ -64,8 +64,9 @@ CombinedRender.prototype.toImage = function () {
 CombinedRender.prototype.constructor = CombinedRender;
 
 window.CombinedRender = CombinedRender;
-window.CombinedRender.GuiRender = GuiRender;
-window.CombinedRender.ModelRender = ModelRender;
-window.CombinedRender.SkinRender = SkinRender;
+
+window.GuiRender = GuiRender;
+window.ModelRender = ModelRender;
+window.SkinRender = SkinRender;
 
 export default CombinedRender;
