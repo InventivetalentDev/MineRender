@@ -25,9 +25,6 @@ let defaultOptions = {
     canvas: {
         width: undefined,
         height: undefined
-    },
-    render: {
-        postprocessing: false
     }
 };
 
@@ -44,8 +41,6 @@ function SkinRender(options, element) {
         console.warn("OrbitControls not found. Disabling skin controls.");
         this.options.controls.enabled = false;
     }
-
-    if (this.options.render.taa) this.options.render.postprocessing = this.options.render.taa;
 
     // bind this renderer to the element
     this._element.skinRender = this;
