@@ -3,6 +3,28 @@ import { SSAARenderPass } from "threejs-ext";
 import EffectComposer, { RenderPass, ShaderPass, CopyShader } from "@johh/three-effectcomposer";
 import * as THREE from "three";
 
+export const defaultOptions = {
+    showAxes: false,
+    showGrid: false,
+    autoResize: false,
+    controls: {
+        enabled: true,
+        zoom: true,
+        rotate: true,
+        pan: true
+    },
+    camera: {
+        type: "perspective",
+        x: 20,
+        y: 35,
+        z: 20
+    },
+    canvas: {
+        width: undefined,
+        height: undefined
+    }
+};
+
 export function initScene(renderObj, renderCb, doNotAnimate) {
     // Scene INIT
     let scene = new THREE.Scene();

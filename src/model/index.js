@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import * as $ from 'jquery';
 import mergeDeep from "../lib/merge";
-import { initScene, loadTextureAsBase64, attachTo } from "../renderBase";
+import { initScene, loadTextureAsBase64, attachTo, defaultOptions } from "../renderBase";
 import SkinRender from "../skin";
 
 String.prototype.replaceAll = function (search, replacement) {
@@ -28,34 +28,14 @@ const FACE_ORDER = ["east", "west", "up", "down", "south", "north"];
 
 const TINTS = ["lightgreen"]
 
-let defaultOptions = {
-    showAxes: false,
-    showGrid: false,
-    showOutlines: false,
-    controls: {
-        enabled: true,
-        zoom: true,
-        rotate: true,
-        pan: true
-    },
-    camera: {
-        type: "perspective",
-        x: 35,
-        y: 25,
-        z: 20,
-        target: [0, 0, 0]
-    },
-    canvas: {
-        width: undefined,
-        height: undefined
-    },
+let defOptions = {
     type: "block",
     centerCubes: false
-};
+}
 
 function ModelRender(options, element) {
 
-    this.options = Object.assign({}, defaultOptions, options);
+    this.options = Object.assign({}, defaultOptions, defOptions, options);
     this.element = element || document.body;
 
     this.models = [];

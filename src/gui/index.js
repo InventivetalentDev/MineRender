@@ -1,32 +1,11 @@
 import * as THREE from "three";
 import * as $ from 'jquery';
 import mergeDeep from "../lib/merge";
-import { loadTextureAsBase64, initScene, attachTo } from "../renderBase";
+import { loadTextureAsBase64, initScene, attachTo, defaultOptions } from "../renderBase";
 import guiPositions from "./guiPositions";
 import guiHelper from "./guiHelper";
 import SkinRender from "../skin";
 
-let defaultOptions = {
-    showOutlines: false,
-    showAxes: false,
-    controls: {
-        enabled: true,
-        zoom: true,
-        rotate: false,
-        pan: true
-    },
-    camera: {
-        type: "perspective",
-        x: 0,
-        y: 0,
-        z: 50,
-        target: [0, 0, 0]
-    },
-    canvas: {
-        width: undefined,
-        height: undefined
-    },
-};
 
 let LAYER_OFFSET = 0.5;
 

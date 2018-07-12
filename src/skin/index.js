@@ -4,29 +4,8 @@ import OrbitControls from "../lib/OrbitControls";
 import { SSAARenderPass } from 'threejs-ext';
 
 import texturePositions from "./texturePositions";
-import { attachTo, initScene } from "../renderBase";
+import { attachTo, initScene, defaultOptions } from "../renderBase";
 
-let defaultOptions = {
-    showAxes: false,
-    showGrid: false,
-    autoResize: false,
-    controls: {
-        enabled: true,
-        zoom: true,
-        rotate: true,
-        pan: true
-    },
-    camera: {
-        type: "perspective",
-        x: 20,
-        y: 35,
-        z: 20
-    },
-    canvas: {
-        width: undefined,
-        height: undefined
-    }
-};
 
 function SkinRender(options, element) {
     console.log(element);
