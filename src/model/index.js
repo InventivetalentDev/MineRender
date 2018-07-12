@@ -38,6 +38,7 @@ let defaultOptions = {
         pan: true
     },
     camera: {
+        type: "perspective",
         x: 35,
         y: 25,
         z: 20,
@@ -57,7 +58,7 @@ function ModelRender(options, element) {
     this.element = element || document.body;
 
     this.models = [];
-    this.attached=false;
+    this.attached = false;
 }
 
 ModelRender.prototype.render = function (models, cb) {
@@ -67,66 +68,66 @@ ModelRender.prototype.render = function (models, cb) {
         initScene(modelRender, function () {
             modelRender.element.dispatchEvent(new CustomEvent("modelRender", {detail: {models: modelRender.models}}));
         });
-    }else{
+    } else {
         console.log("[ModelRender] is attached - skipping scene init");
     }
 
     let type = this.options.type;
     let promises = [];
     for (let i = 0; i < models.length; i++) {
-       promises.push(new Promise((resolve)=>{
-           let model = models[i];
+        promises.push(new Promise((resolve) => {
+            let model = models[i];
 
-           let offset;
-           let rotation;
-           if (typeof model === "string") {
-               let parsed = parseModelType(model);
-               model = parsed.model;
-               type = parsed.type;
-           } else if (typeof model === "object") {
-               if (model.hasOwnProperty("offset")) {
-                   offset = model["offset"];
-               }
-               if (model.hasOwnProperty("rotation")) {
-                   rotation = model["rotation"];
-               }
+            let offset;
+            let rotation;
+            if (typeof model === "string") {
+                let parsed = parseModelType(model);
+                model = parsed.model;
+                type = parsed.type;
+            } else if (typeof model === "object") {
+                if (model.hasOwnProperty("offset")) {
+                    offset = model["offset"];
+                }
+                if (model.hasOwnProperty("rotation")) {
+                    rotation = model["rotation"];
+                }
 
-               if (model.hasOwnProperty("type")) {
-                   type = model["type"];
-               } else {
-                   let parsed = parseModelType(model["model"]);
-                   model = parsed.model;
-                   type = parsed.type;
-               }
+                if (model.hasOwnProperty("type")) {
+                    type = model["type"];
+                } else {
+                    let parsed = parseModelType(model["model"]);
+                    model = parsed.model;
+                    type = parsed.type;
+                }
 
-           }
+            }
 
 
-           console.log("Loading model " + model + " of type " + type + "...");
-           loadModel(model, type)
-               .then(modelData => mergeParents(modelData))
-               .then((mergedModel) => {
-                   console.log(mergedModel);
+            console.log("Loading model " + model + " of type " + type + "...");
+            loadModel(model, type)
+                .then(modelData => mergeParents(modelData))
+                .then((mergedModel) => {
+                    console.log(mergedModel);
 
-                   if (!mergedModel.textures) {
-                       console.warn("The model doesn't have any textures!");
-                       console.warn("Please make sure you're using the proper file.")
-                       console.warn("(e.g. 'grass.json' is invalid - 'grass_normal.json' would be the correct file.");
-                       return;
-                   }
+                    if (!mergedModel.textures) {
+                        console.warn("The model doesn't have any textures!");
+                        console.warn("Please make sure you're using the proper file.")
+                        console.warn("(e.g. 'grass.json' is invalid - 'grass_normal.json' would be the correct file.");
+                        return;
+                    }
 
-                   loadTextures(mergedModel.textures).then((textures) => {
-                       console.log(textures);
+                    loadTextures(mergedModel.textures).then((textures) => {
+                        console.log(textures);
 
-                       renderModel(modelRender, mergedModel, textures, type, model, offset, rotation).then(() => {
-                          resolve();
-                       })
-                   });
-               });
-       }))
+                        renderModel(modelRender, mergedModel, textures, type, model, offset, rotation).then(() => {
+                            resolve();
+                        })
+                    });
+                });
+        }))
     }
 
-    Promise.all(promises).then(()=>{
+    Promise.all(promises).then(() => {
         if (typeof cb === "function") cb();
     })
 };

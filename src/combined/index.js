@@ -18,6 +18,7 @@ let defaultOptions = {
         pan: true
     },
     camera: {
+        type: "perspective",
         x: 20,
         y: 20,
         z: 20,

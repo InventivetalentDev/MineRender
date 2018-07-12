@@ -3,12 +3,21 @@ import { SSAARenderPass } from "threejs-ext";
 import EffectComposer, { RenderPass, ShaderPass, CopyShader } from "@johh/three-effectcomposer";
 import * as THREE from "three";
 
-export function initScene(renderObj, renderCb,doNotAnimate) {
+export function initScene(renderObj, renderCb, doNotAnimate) {
     // Scene INIT
     let scene = new THREE.Scene();
     renderObj._scene = scene;
-    let camera = new THREE.PerspectiveCamera(75, (renderObj.options.canvas.width || window.innerWidth) / (renderObj.options.canvas.height || window.innerHeight), 5, 1000);
+    let camera;
+    if (renderObj.options.camera.type === "orthographic") {
+        camera = new THREE.OrthographicCamera((renderObj.options.canvas.width || window.innerWidth) / -2, (renderObj.options.canvas.width || window.innerWidth) / 2, (renderObj.options.canvas.height || window.innerHeight) / 2, (renderObj.options.canvas.height || window.innerHeight) / -2, 1, 1000);
+    } else {
+        camera = new THREE.PerspectiveCamera(75, (renderObj.options.canvas.width || window.innerWidth) / (renderObj.options.canvas.height || window.innerHeight), 5, 1000);
+    }
     renderObj._camera = camera;
+
+    if (renderObj.options.camera.zoom) {
+        camera.zoom = renderObj.options.camera.zoom;
+    }
 
     let renderer = new THREE.WebGLRenderer({alpha: true, antialias: true, preserveDrawingBuffer: true});
     renderObj._renderer = renderer;
@@ -38,7 +47,14 @@ export function initScene(renderObj, renderCb,doNotAnimate) {
         renderObj._resize(width, height);
     }, false)
     renderObj._resize = function (width, height) {
-        camera.aspect = width / height;
+        if (renderObj.options.camera.type === "orthographic") {
+            camera.left = width / -2;
+            camera.right = width / 2;
+            camera.top = height / 2;
+            camera.bottom = height / -2;
+        } else {
+            camera.aspect = width / height;
+        }
         camera.updateProjectionMatrix();
 
         renderer.setSize(width, height);
@@ -84,7 +100,7 @@ export function initScene(renderObj, renderCb,doNotAnimate) {
     };
     renderObj._animate = animate;
 
-    if(!doNotAnimate) {
+    if (!doNotAnimate) {
         animate();
     }
 };

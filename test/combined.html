@@ -33,9 +33,11 @@
                     showOutlines: true,
                     showAxes: true,
                     camera: {
+                        type: "orthographic",
+                        zoom:4,
                         x: 0,
                         y: 0,
-                        z: 110,
+                        z: 100,
                         target: [0, 0, 0]
                     },
                     controls: {
@@ -77,12 +79,9 @@
                     });
 
                     skinRender.render("inventivetalent", function () {
-                        console.log("SKIN RENDERED!!!")
-
-                        console.log(skinRender.playerModel)
                         skinRender.playerModel.scale.set(1.75, 1.75, 1.75)
 
-                        skinRender.playerModel.position.set(-40,8,15)
+                        skinRender.playerModel.position.set(-40, 8, 15)
                     });
 
                     combinedRender.render();

@@ -15,6 +15,7 @@ let defaultOptions = {
         pan: true
     },
     camera: {
+        type: "perspective",
         x: 0,
         y: 0,
         z: 50,
@@ -34,20 +35,20 @@ function GuiRender(options, element) {
     this.element = element || document.body;
 
     this.gui = null;
-    this.attached=false;
+    this.attached = false;
 }
 
 GuiRender.prototype.render = function (layers, cb) {
     let guiRender = this;
 
-    if(!guiRender.attached) {// Don't init scene if attached, since we already have an available scene
+    if (!guiRender.attached) {// Don't init scene if attached, since we already have an available scene
         initScene(this, function () {
             guiRender.element.dispatchEvent(new CustomEvent("guiRender", {detail: {gui: guiRender.gui}}));
         });
 
         guiRender._controls.target.set(0, 0, 0);
         guiRender._camera.lookAt(new THREE.Vector3(0, 0, 0));
-    }else{
+    } else {
         console.log("[GuiRender] is attached - skipping scene init");
     }
 
@@ -154,7 +155,7 @@ GuiRender.prototype.render = function (layers, cb) {
 
         guiRender.gui = planeGroup;
 
-        if(!guiRender.attached) {
+        if (!guiRender.attached) {
             guiRender._camera.position.set(0, 0, Math.max(w, h));
             // https://stackoverflow.com/a/11278936
             guiRender._camera.fov = 2 * Math.atan(Math.max(w, h) / (2 * Math.max(w, h))) * (180 / Math.PI);
