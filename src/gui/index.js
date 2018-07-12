@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import * as $ from 'jquery';
 import mergeDeep from "../lib/merge";
-import { loadTextureAsBase64, initScene } from "../renderBase";
+import { loadTextureAsBase64, initScene, attachTo } from "../renderBase";
 import guiPositions from "./guiPositions";
 import guiHelper from "./guiHelper";
 
@@ -34,17 +34,22 @@ function GuiRender(options, element) {
     this.element = element || document.body;
 
     this.gui = null;
+    this.attached=false;
 }
 
 GuiRender.prototype.render = function (layers, cb) {
     let guiRender = this;
 
-    initScene(this, function () {
-        guiRender.element.dispatchEvent(new CustomEvent("guiRender", {detail: {gui: guiRender.gui}}));
-    });
+    if(!guiRender.attached) {// Don't init scene if attached, since we already have an available scene
+        initScene(this, function () {
+            guiRender.element.dispatchEvent(new CustomEvent("guiRender", {detail: {gui: guiRender.gui}}));
+        });
 
-    guiRender._controls.target.set(0, 0, 0);
-    guiRender._camera.lookAt(new THREE.Vector3(0, 0, 0));
+        guiRender._controls.target.set(0, 0, 0);
+        guiRender._camera.lookAt(new THREE.Vector3(0, 0, 0));
+    }else{
+        console.log("[GuiRender] is attached - skipping scene init");
+    }
 
     let promises = [];
     for (let i = 0; i < layers.length; i++) {
@@ -144,12 +149,17 @@ GuiRender.prototype.render = function (layers, cb) {
         planeGroup.applyMatrix(new THREE.Matrix4().makeTranslation(-w / 2, h / 2, 0));
         guiRender._scene.add(planeGroup);
 
+        console.log("[GuiRender] scene")
+        console.log(guiRender._scene)
+
         guiRender.gui = planeGroup;
 
-        guiRender._camera.position.set(0, 0, Math.max(w, h));
-        // https://stackoverflow.com/a/11278936
-        guiRender._camera.fov = 2 * Math.atan(Math.max(w, h) / (2 * Math.max(w, h))) * (180 / Math.PI);
-        guiRender._camera.updateProjectionMatrix();
+        if(!guiRender.attached) {
+            guiRender._camera.position.set(0, 0, Math.max(w, h));
+            // https://stackoverflow.com/a/11278936
+            guiRender._camera.fov = 2 * Math.atan(Math.max(w, h) / (2 * Math.max(w, h))) * (180 / Math.PI);
+            guiRender._camera.updateProjectionMatrix();
+        }
 
         if (typeof cb === "function") cb();
     });

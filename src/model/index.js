@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import * as $ from 'jquery';
 import mergeDeep from "../lib/merge";
-import { initScene, loadTextureAsBase64 } from "../renderBase";
+import { initScene, loadTextureAsBase64, attachTo } from "../renderBase";
 
 String.prototype.replaceAll = function (search, replacement) {
     let target = this;
@@ -57,14 +57,19 @@ function ModelRender(options, element) {
     this.element = element || document.body;
 
     this.models = [];
+    this.attached=false;
 }
 
 ModelRender.prototype.render = function (models, cb) {
     let modelRender = this;
 
-    initScene(modelRender, function () {
-        modelRender.element.dispatchEvent(new CustomEvent("modelRender", {detail: {models: modelRender.models}}));
-    });
+    if (!modelRender.attached) {// Don't init scene if attached, since we already have an available scene
+        initScene(modelRender, function () {
+            modelRender.element.dispatchEvent(new CustomEvent("modelRender", {detail: {models: modelRender.models}}));
+        });
+    }else{
+        console.log("[ModelRender] is attached - skipping scene init");
+    }
 
     let type = this.options.type;
     for (let i = 0; i < models.length; i++) {
@@ -139,14 +144,6 @@ let parseModelType = function (string) {
     }
 };
 
-ModelRender.prototype.attachTo = function (scene, camera, renderer, composer, canvas) {
-    this._scene = scene;
-    this._camera = camera;
-    this._renderer = renderer;
-    this._composer = composer;
-    this._canvas = canvas;
-    this.attached = true;
-};
 
 ModelRender.prototype.clearScene = function () {
     while (this._scene.children.length > 0) {
@@ -168,6 +165,9 @@ ModelRender.prototype.dispose = function () {
 
 let renderModel = function (modelRender, model, textures, type, name, offset, rotation) {
     return new Promise((resolve) => {
+
+        console.log("rendering model: ")
+        console.log(model);
 
         if (model.hasOwnProperty("elements")) {// block OR item with block parent
             // Render the elements
@@ -269,8 +269,13 @@ let renderModel = function (modelRender, model, textures, type, name, offset, ro
                 let cubeContainer = new THREE.Object3D();
                 cubeContainer.add(cubeGroup);
 
+                console.log(modelRender);
+
                 modelRender._scene.add(cubeContainer);
                 modelRender.models.push(cubeContainer);
+
+                console.log("[ModelRender] scene")
+                console.log(modelRender._scene)
 
                 resolve();
             })

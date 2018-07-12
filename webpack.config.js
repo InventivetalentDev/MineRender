@@ -60,8 +60,31 @@ let guiConfigFull = {
     }
 };
 
+
+let combinedConfig = {
+    context: path.resolve(__dirname),
+    entry: './src/combined/index.js',
+    output: {
+        path: path.resolve(__dirname, './dist'),
+        filename: 'combined.min.js'
+    }
+};
+let combinedConfigFull = {
+    context: path.resolve(__dirname),
+    entry: './src/combined/index.js',
+    output: {
+        path: path.resolve(__dirname, './dist'),
+        filename: 'combined.js'
+    },
+    optimization: {
+        minimize: false
+    }
+};
+
 module.exports = [
     skinConfig, skinConfigFull,
     modelConfig, modelConfigFull,
-    guiConfig, guiConfigFull
+    guiConfig, guiConfigFull,
+
+    combinedConfig, combinedConfigFull
 ];

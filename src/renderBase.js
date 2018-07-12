@@ -3,7 +3,7 @@ import { SSAARenderPass } from "threejs-ext";
 import EffectComposer, { RenderPass, ShaderPass, CopyShader } from "@johh/three-effectcomposer";
 import * as THREE from "three";
 
-export function initScene(renderObj, renderCb) {
+export function initScene(renderObj, renderCb,doNotAnimate) {
     // Scene INIT
     let scene = new THREE.Scene();
     renderObj._scene = scene;
@@ -84,7 +84,9 @@ export function initScene(renderObj, renderCb) {
     };
     renderObj._animate = animate;
 
-    animate();
+    if(!doNotAnimate) {
+        animate();
+    }
 };
 
 export function loadTextureAsBase64(namespace, dir, name) {
@@ -105,3 +107,14 @@ export function loadTextureAsBase64(namespace, dir, name) {
         xhr.send();
     })
 };
+
+export function attachTo(self, target) {
+    console.log("Attaching " + self.constructor.name + " to " + target.constructor.name);
+
+    self._scene = target._scene;
+    // self._camera = target._camera;
+    // self._renderer = target._renderer;
+    // self._composer = target._composer;
+    // self._canvas = target._canvas;
+    self.attached = true;
+}
