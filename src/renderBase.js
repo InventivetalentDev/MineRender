@@ -40,12 +40,14 @@ export function initScene(renderObj, renderCb, doNotAnimate) {
     copyPass.renderToScreen = true;
     composer.addPass(copyPass);
 
-    window.addEventListener("resize", function () {
-        let width = renderObj.element ? renderObj.element.offsetWidth : window.innerWidth;
-        let height = renderObj.element ? renderObj.element.offsetHeight : window.innerHeight;
+    if (renderObj.options.autoResize) {
+        window.addEventListener("resize", function () {
+            let width = renderObj.element ? renderObj.element.offsetWidth : window.innerWidth;
+            let height = renderObj.element ? renderObj.element.offsetHeight : window.innerHeight;
 
-        renderObj._resize(width, height);
-    }, false)
+            renderObj._resize(width, height);
+        }, false);
+    }
     renderObj._resize = function (width, height) {
         if (renderObj.options.camera.type === "orthographic") {
             camera.left = width / -2;
