@@ -28,16 +28,15 @@
             (function () {
 
 
-
                 window.combinedRender = new CombinedRender({
                     showGrid: false,
                     showOutlines: true,
                     showAxes: true,
-                    camera:{
-                        x:0,
-                        y:0,
-                        z:110,
-                        target:[0,0,0]
+                    camera: {
+                        x: 0,
+                        y: 0,
+                        z: 110,
+                        target: [0, 0, 0]
                     },
                     controls: {
                         enabled: true,
@@ -50,7 +49,7 @@
                 window.skinRender = new CombinedRender.SkinRender();
                 window.guiRender = new CombinedRender.GuiRender();
                 window.modelRender = new CombinedRender.ModelRender({
-                    centerCubes:true
+                    centerCubes: true
                 });
 
                 combinedRender.init([skinRender, guiRender, modelRender], function () {
@@ -63,16 +62,27 @@
                             layer: 0
                         },
                     ], function () {
-                        modelRender.render(["block/grass_normal","item/diamond_sword"], function () {
 
-                            for (let i = 0; i < modelRender.models.length; i++) {
-                                modelRender.models[i].scale.set(0.5, 0.5, 0.5)
-                            }
+                    });
 
-                            modelRender.models[0].position.set(-50,-8,10); // grass
+                    modelRender.render(["block/grass_normal", "item/diamond_sword"], function () {
 
-                            modelRender.models[1].position.set(-65,-45,10); // sword
-                        });
+                        for (let i = 0; i < modelRender.models.length; i++) {
+                            modelRender.models[i].scale.set(0.6, 0.6, 0.6)
+                        }
+
+                        modelRender.models[0].position.set(-54, -8, 6.5); // grass
+
+                        modelRender.models[1].position.set(-72, -68, 6.5); // sword
+                    });
+
+                    skinRender.render("inventivetalent", function () {
+                        console.log("SKIN RENDERED!!!")
+
+                        console.log(skinRender.playerModel)
+                        skinRender.playerModel.scale.set(1.75, 1.75, 1.75)
+
+                        skinRender.playerModel.position.set(-40,8,15)
                     });
 
                     combinedRender.render();
@@ -84,6 +94,9 @@
                         // modelRender.models[i].rotation.x += 0.1;
                         modelRender.models[i].rotation.y += 0.01;
                     }
+
+                    if (skinRender.playerModel)
+                        skinRender.playerModel.rotation.y += 0.01;
                 })
 
 
