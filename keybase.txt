@@ -1,0 +1,68 @@
+==================================================================
+https://keybase.io/inventivetalent
+--------------------------------------------------------------------
+
+I hereby claim:
+
+  * I am an admin of https://minerender.org
+  * I am inventivetalent (https://keybase.io/inventivetalent) on keybase.
+  * I have a public key with fingerprint B794 0567 2F13 8459 61D7  32C7 C700 3F26 A4C4 CFB9
+
+To do so, I am signing this object:
+
+{
+  "body": {
+    "key": {
+      "eldest_kid": "0101c11b05cfa671b7d674fc25393d439656306206693c4d9a0868ec806d63837baf0a",
+      "fingerprint": "b79405672f13845961d732c7c7003f26a4c4cfb9",
+      "host": "keybase.io",
+      "key_id": "c7003f26a4c4cfb9",
+      "kid": "0101c11b05cfa671b7d674fc25393d439656306206693c4d9a0868ec806d63837baf0a",
+      "uid": "1187871a9a00b431acad4cde08d41d19",
+      "username": "inventivetalent"
+    },
+    "service": {
+      "hostname": "minerender.org",
+      "protocol": "https:"
+    },
+    "type": "web_service_binding",
+    "version": 1
+  },
+  "ctime": 1531402392,
+  "expire_in": 157680000,
+  "prev": "b27b18094f254ab77172bb9d9dbb28f60ea4c725fd4e81597aee8f8c257dda09",
+  "seqno": 75,
+  "tag": "signature"
+}
+
+which yields the signature:
+
+-----BEGIN PGP MESSAGE-----
+Version: Keybase OpenPGP v2.0.77
+Comment: https://keybase.io/crypto
+
+yMIzAnicrVJbSBVBGD6miQrZhVQk01wIM0Rm9ja7B6IbpUGl9RBBl8PMzuxxvewe
+9+w5aSoFRUgXCCuIegh76EKS1VOFRZkKJlaWRRfy8pCRYRlFFF1npd56bF7m8n/f
+93//P3/XjMRAWkL5ieb93zNaPyb03W6NBbaUbD7eIBCH1gvBBqGKTW2smrKoF6qy
+qBAUAATQgJAAxTCxiiBBVEWyaYiKpEtUlnRVUSWgikBVdcmQqY6BpmrM0IBKVUmT
+EMEmwEKRYFp2mLkR17I9LkuQLgNFRaIJJU1WdBVSJIkGMhAAkimqWDZkwyQ6J1Y4
+UZ/BzREcZcWWw9/4JTRl7x/4/+w7NiUHoYY0BDGHASJLEBuYygZlQKMypNDPG4sy
+18Y1jKMtO85sz4ozD1fzg9BUJPBg3DKY31+/oD/AGstmLrMpc4sdN8xFIq7jOYZT
+zWMVnheJBn2uVx/xwTsYCf2RCRHLpryhnBFnbtRybCEIOdLwLF8XKhKUgSjpYpHA
+6iKWy0KWj1CQqgG+/Dws7n+DiAjUgC6boiJjghBEIiE61SkhomaqgPHGIlExqcw0
+qOgIM6aZGu8iohQDv+woq7UdIYgU7hOHuWbUCtvYi7lMaOq8tTUpkJAWSJ4+zZ+0
+QFrqrL/zV78vJdCyOfvSyPWnRyoySDxlQRVeerM5bXL0LU79cD+2J6l269DgaSkx
+3Nr19XhKx4pN66YtPDS6s6p5fG3FwHhv67OMWwcmG2n3JSv5wsuSvevPdOwMzR3+
+uSEraXnungXjj5f0jh07lTl0bm3O/BPpu18Mlo2+Gvh2uYyFfsw2rmzctT/c/q46
+oe/wxSH7WN22gv4zw182znrTnj+RmHtn2xzY05yRr+c9Lyw1x9oKes96JU/a1pw1
+H7WMd/V8et+Zna7kPwyvvnr+ZuLRzNKyvNWL7lqV28du1NesxK9X5cc6aFb/vWvG
+spHuwi04eXHJ55wHJ6+UV/5SOrMOFk5sWhOZ1904M0/7DfLcQx4=
+=YxEM
+-----END PGP MESSAGE-----
+
+And finally, I am proving ownership of this host by posting or
+appending to this document.
+
+View my publicly-auditable identity here: https://keybase.io/inventivetalent
+
+==================================================================
