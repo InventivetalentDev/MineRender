@@ -4,7 +4,7 @@ import OrbitControls from "../lib/OrbitControls";
 import { SSAARenderPass } from 'threejs-ext';
 
 import texturePositions from "./texturePositions";
-import { attachTo } from "../renderBase";
+import { attachTo, initScene } from "../renderBase";
 
 let defaultOptions = {
     showAxes: false,
@@ -83,92 +83,11 @@ SkinRender.prototype.render = function (texture, cb) {
         }
 
         if (!skinRender.attached) {// Don't init scene if attached, since we already have an available scene
-            let scene = new THREE.Scene();
-            skinRender._scene = scene;
-            let camera = new THREE.PerspectiveCamera(75, (skinRender.options.canvas.width || window.innerWidth) / (skinRender.options.canvas.height || window.innerHeight), 0.1, 1000);
-
-            // scene.background = new THREE.Color( 0xff0000 );
-
-            let renderer = new THREE.WebGLRenderer({alpha: true, antialias: true});
-            skinRender._renderer = renderer;
-            renderer.setSize((skinRender.options.canvas.width || window.innerWidth), (skinRender.options.canvas.height || window.innerHeight));
-            renderer.setClearColor(0x000000, 0);
-            skinRender._element.appendChild(skinRender._canvas = renderer.domElement);
-
-            let composer;
-            if (skinRender.options.render.postprocessing) {
-
-                composer = new EffectComposer(renderer);
-                skinRender._composer = composer;
-
-                let ssaaRenderPass = new SSAARenderPass(scene, camera);
-                ssaaRenderPass.unbiased = true;
-                composer.addPass(ssaaRenderPass);
-
-                let renderPass = new RenderPass(scene, camera);
-                renderPass.enabled = false;
-                composer.addPass(renderPass);
-
-                let copyPass = new ShaderPass(CopyShader);
-                copyPass.renderToScreen = true;
-                composer.addPass(copyPass);
-            }
-
-            if (skinRender.options.controls.enabled) {
-                let controls = new OrbitControls(camera, renderer.domElement);
-                controls.enableZoom = skinRender.options.controls.zoom;
-                controls.enableRotate = skinRender.options.controls.rotate;
-                controls.enablePan = skinRender.options.controls.pan;
-                controls.target.set(0, 18, 0)
-            }
-            if (skinRender.options.autoResize) {
-                window.addEventListener("resize", function () {
-                    let width = skinRender.element ? skinRender.element.offsetWidth : window.innerWidth;
-                    let height = skinRender.element ? skinRender.element.offsetHeight : window.innerHeight;
-
-                    skinRender._resize(width, height);
-                }, false)
-            }
-            skinRender._resize = function (width, height) {
-                camera.aspect = width / height;
-                camera.updateProjectionMatrix();
-
-                renderer.setSize(width, height);
-
-                if (skinRender.options.render.postprocessing) {
-                    let pixelRatio = renderer.getPixelRatio();
-                    let newWidth = Math.floor(width / pixelRatio) || 1;
-                    let newHeight = Math.floor(height / pixelRatio) || 1;
-                    composer.setSize(newWidth, newHeight);
-                }
-            };
-
-            if (skinRender.options.showAxes) {
-                scene.add(buildAxes(100));
-            }
-            if (skinRender.options.showGrid) {
-                scene.add(new THREE.GridHelper(100, 100));
-            }
-
-            camera.position.x = skinRender.options.camera.x;
-            camera.position.y = skinRender.options.camera.y;
-            camera.position.z = skinRender.options.camera.z;
-            camera.lookAt(new THREE.Vector3(0, 18, 0))
-
-            let animate = function () {
-                skinRender._animId = requestAnimationFrame(animate);
-
-                skinRender.getElement().dispatchEvent(new CustomEvent("skinRender", {detail: {playerModel: skinRender.playerModel}}));
-
-                if (skinRender.options.render.postprocessing) {
-                    composer.render();
-                } else {
-                    renderer.render(scene, camera);
-                }
-            };
-            skinRender._animate = animate;
-
-            animate();
+            initScene(skinRender, function () {
+                skinRender.element.dispatchEvent(new CustomEvent("skinRender", {detail: {playerModel: skinRender.playerModel}}));
+            });
+        } else {
+            console.log("[SkinRender] is attached - skipping scene init");
         }
 
         console.log("Slim: " + slim)
