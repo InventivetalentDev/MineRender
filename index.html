@@ -596,9 +596,7 @@ guiRender.render(gui);</code></pre>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.100.1/js/materialize.min.js" integrity="sha256-3mqgTUhHNgfXgjrzjPOaW03DdQ9hgW92BApzLREoRoA=" crossorigin="anonymous"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.8.3/prism.min.js" integrity="sha256-haEv2ilTk2sXcJaGbkTtErRCHy/qGt3g+bGbgPf5OTY=" crossorigin="anonymous"></script>
 
-        <script src="/dist/skin.min.js"></script>
-        <script src="/dist/model.min.js"></script>
-        <script src="/dist/gui.min.js"></script>
+        <script src="/dist/all.min.js"></script>
 
         <script src="/js/data.js"></script>
         <script>
@@ -655,10 +653,12 @@ guiRender.render(gui);</code></pre>
                             }
                         }, element[0]);
                         element.on("skinRender", function (e) {
-                            e.detail.playerModel.rotation.y += 0.01;
-                            e.detail.playerModel.children[2].rotation.z = -0.1;
-                            e.detail.playerModel.children[3].rotation.z = 0.1;
-                            e.detail.playerModel.children[6].rotation.x = 0.1;
+                           if(e.detail.playerModel){
+                               e.detail.playerModel.rotation.y += 0.01;
+                               e.detail.playerModel.children[2].rotation.z = -0.1;
+                               e.detail.playerModel.children[3].rotation.z = 0.1;
+                               e.detail.playerModel.children[6].rotation.x = 0.1;
+                           }
                         })
                         renders[i] = skinRender;
                         (function (i) {
