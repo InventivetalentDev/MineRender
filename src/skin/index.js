@@ -342,7 +342,7 @@ let createCube = function (texture, width, height, depth, textures, slim, name, 
 
     let geometry = new THREE.BoxGeometry(width, height, depth);
     let material = new THREE.MeshBasicMaterial({
-        /*color: 0x00ff00,*/map: texture, transparent: transparent || false, side: transparent ? THREE.DoubleSide : THREE.FrontSide//TODO: double sided not working properly
+        /*color: 0x00ff00,*/map: texture, transparent: transparent || false, alphaTest: 0.5, side: transparent ? THREE.DoubleSide : THREE.FrontSide//TODO: double sided not working properly
     });
 
     geometry.computeBoundingBox();

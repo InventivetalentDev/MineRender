@@ -69,8 +69,7 @@ GuiRender.prototype.render = function (layers, cb) {
                             map: texture,
                             transparent: true,
                             side: THREE.DoubleSide,
-                            depthWrite: false,
-                            depthTest: false
+                            alphaTest: 0.5
                         });
 
                         material.userData.layer = layer;

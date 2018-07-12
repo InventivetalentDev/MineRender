@@ -336,8 +336,7 @@ let createPlane = function (name, textures) {
                         map: texture,
                         transparent: true,
                         side: THREE.DoubleSide,
-                        depthWrite: false,
-                        depthTest: false
+                        alphaTest: 0.5
                     });
 
                     materialLoaded(material, w, h);
@@ -420,8 +419,7 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                                 map: texture,
                                 transparent: true,
                                 side: THREE.FrontSide,
-                                depthWrite: false,
-                                depthTest: false
+                                alphaTest:0.5
                             });
 
                             // mapUV(geometry, texture, face, i);
