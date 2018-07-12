@@ -51,7 +51,7 @@ let defaultOptions = {
     centerCubes: false
 };
 
-function ModelRender(options,element) {
+function ModelRender(options, element) {
 
     this.options = Object.assign({}, defaultOptions, options);
     this.element = element || document.body;
@@ -59,7 +59,7 @@ function ModelRender(options,element) {
     this.models = [];
 }
 
-ModelRender.prototype.render = function (models,cb) {
+ModelRender.prototype.render = function (models, cb) {
     let modelRender = this;
 
     initScene(modelRender, function () {
@@ -419,7 +419,7 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                                 map: texture,
                                 transparent: true,
                                 side: THREE.FrontSide,
-                                alphaTest:0.5
+                                alphaTest: 0.5
                             });
 
                             // mapUV(geometry, texture, face, i);
@@ -652,4 +652,8 @@ function toRadians(angle) {
 }
 
 
+ModelRender.prototype.constructor = ModelRender;
+
 window.ModelRender = ModelRender;
+
+export default ModelRender;

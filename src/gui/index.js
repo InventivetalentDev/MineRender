@@ -28,7 +28,7 @@ let defaultOptions = {
 
 let LAYER_OFFSET = 0.5;
 
-function GuiRender(options,element) {
+function GuiRender(options, element) {
 
     this.options = Object.assign({}, defaultOptions, options);
     this.element = element || document.body;
@@ -155,6 +155,10 @@ GuiRender.prototype.render = function (layers, cb) {
     });
 };
 
+GuiRender.prototype.constructor = GuiRender;
+
 window.GuiRender = GuiRender;
 window.GuiRender.Positions = guiPositions;
 window.GuiRender.Helper = guiHelper;
+
+export default GuiRender;

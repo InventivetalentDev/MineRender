@@ -641,5 +641,8 @@ function getJSON(url, callback) {
     xhr.send();
 }
 
+SkinRender.prototype.constructor = SkinRender;
 
 window.SkinRender = SkinRender;
+
+export default SkinRender;
