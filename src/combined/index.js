@@ -56,6 +56,10 @@ CombinedRender.prototype.render = function (cb) {
     if (typeof cb === "function") cb();
 };
 
+CombinedRender.prototype.toImage = function () {
+    return this._renderer.domElement.toDataURL("image/png");
+};
+
 
 CombinedRender.prototype.constructor = CombinedRender;
 

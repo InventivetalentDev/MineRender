@@ -2,6 +2,7 @@ import * as THREE from "three";
 import * as $ from 'jquery';
 import mergeDeep from "../lib/merge";
 import { initScene, loadTextureAsBase64, attachTo } from "../renderBase";
+import SkinRender from "../skin";
 
 String.prototype.replaceAll = function (search, replacement) {
     let target = this;
@@ -130,6 +131,10 @@ ModelRender.prototype.render = function (models, cb) {
     Promise.all(promises).then(() => {
         if (typeof cb === "function") cb();
     })
+};
+
+ModelRender.prototype.toImage = function () {
+    return this._renderer.domElement.toDataURL("image/png");
 };
 
 let parseModelType = function (string) {

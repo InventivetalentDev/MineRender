@@ -307,6 +307,11 @@ SkinRender.prototype.render = function (texture, cb) {
     }
 };
 
+SkinRender.prototype.toImage = function () {
+    return this._renderer.domElement.toDataURL("image/png");
+};
+
+
 SkinRender.prototype.resize = function (width, height) {
     return this._resize(width, height);
 };

@@ -4,6 +4,7 @@ import mergeDeep from "../lib/merge";
 import { loadTextureAsBase64, initScene, attachTo } from "../renderBase";
 import guiPositions from "./guiPositions";
 import guiHelper from "./guiHelper";
+import SkinRender from "../skin";
 
 let defaultOptions = {
     showOutlines: false,
@@ -164,6 +165,10 @@ GuiRender.prototype.render = function (layers, cb) {
 
         if (typeof cb === "function") cb();
     });
+};
+
+GuiRender.prototype.toImage = function () {
+    return this._renderer.domElement.toDataURL("image/png");
 };
 
 GuiRender.prototype.constructor = GuiRender;
