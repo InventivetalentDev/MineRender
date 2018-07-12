@@ -345,6 +345,38 @@
                         <a href="#guis" class="btn waves-effect waves-light blue lighten guisInstructions">GUIs</a>
                         <a href="#recipes" class="btn waves-effect waves-light blue lighten recipeInstructions">Recipes</a>
                     </div>
+                    <br/>
+                    <br/>
+                    <div class="row">
+                        <h4>Options</h4>
+
+                        <p>
+                            These are <i>optional</i> options which can be passed to all of the renderers in JavaScript.<br/>
+                            The options below are available for every renderer, but some of them have additional options.
+                        </p>
+                        <pre><code class="language-javascript">{
+    showOutlines: false,    // Debugging - Show bounding boxes
+    showAxes: false,        // Debugging - Show the scene's axes
+    showGrid: false,        // Debugging - Show coordinate grid
+    autoResize: false,      // Whether to automatically resize the canvas
+    controls: {
+        enabled: true,      // Toggle controls
+        zoom: true,         // Toggle zooming
+        rotate: false,      // Toggle rotation
+        pan: true           // Toggle panning
+    },
+    camera: {               // Camera position
+        x: 20,
+        y: 25,
+        z: 30,
+        target: [0, 0, 0]   // Where the camera should look
+    },
+    canvas: {               // Dimensions the canvas starts off with
+        width: undefined,
+        height: undefined
+    }
+};</code></pre>
+                    </div>
                 </div>
             </div>
         </main>
