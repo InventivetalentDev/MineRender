@@ -478,6 +478,12 @@ skinRender.modelRender(["item/</code><span id="js-example-item" style="font-weig
                             },
                             render: {
                                 taa: true
+                            },
+                            controls: {
+                                enabled: true,
+                                zoom: false,
+                                rotate: true,
+                                pan: true
                             }
                         }, element[0]);
                         element.on("skinRender", function (e) {
@@ -507,7 +513,13 @@ skinRender.modelRender(["item/</code><span id="js-example-item" style="font-weig
                                 width: element[0].offsetWidth,
                                 height: element[0].offsetHeight
                             },
-                            centerCubes: true
+                            centerCubes: true,
+                            controls: {
+                                enabled: true,
+                                zoom: false,
+                                rotate: true,
+                                pan: true
+                            }
                         }, element[0]);
                         (function (i) {
                             modelRender.render(["block/" + block], function () {
@@ -538,7 +550,13 @@ skinRender.modelRender(["item/</code><span id="js-example-item" style="font-weig
                                 width: element[0].offsetWidth,
                                 height: element[0].offsetHeight
                             },
-                            centerCubes: true
+                            centerCubes: true,
+                            controls: {
+                                enabled: true,
+                                zoom: false,
+                                rotate: true,
+                                pan: true
+                            }
                         }, element[0]);
                         (function (i) {
                             modelRender.render(["item/" + item], function () {
@@ -565,6 +583,12 @@ skinRender.modelRender(["item/</code><span id="js-example-item" style="font-weig
                             canvas: {
                                 width: element[0].offsetWidth,
                                 height: element[0].offsetHeight
+                            },
+                            controls: {
+                                enabled: true,
+                                zoom: false,
+                                rotate: true,
+                                pan: true
                             }
                         }, element[0]);
                         (function (i) {
@@ -587,6 +611,12 @@ skinRender.modelRender(["item/</code><span id="js-example-item" style="font-weig
                                     canvas: {
                                         width: element[0].offsetWidth,
                                         height: element[0].offsetHeight
+                                    },
+                                    controls: {
+                                        enabled: true,
+                                        zoom: false,
+                                        rotate: true,
+                                        pan: true
                                     }
                                 }, element[0]);
                                 guiRender.render(GuiRender.Helper.recipe(r, recipe.map), function () {
