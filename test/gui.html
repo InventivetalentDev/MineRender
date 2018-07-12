@@ -97,7 +97,7 @@
                     }
                 ];
 
-                $.ajax("/res/mc/assets/minecraft/recipes/ender_eye.json").done(function (recipe) {
+                $.ajax("/res/mc/assets/minecraft/recipes/rail.json").done(function (recipe) {
                     console.log(recipe);
                     window.guiRender = new GuiRender( {
                         showOutlines: true,
@@ -109,8 +109,7 @@
                             pan: true
                         }
                     }).render(GuiRender.Helper.recipe(recipe,{
-                        "redstone_torch":"/blocks/redstone_torch_on",
-                        "stone":"/blocks/stone"
+                        "rail":"/blocks/rail_normal"
                     }));
                 })
             })();

@@ -291,6 +291,9 @@
                             </div>
                         </div>
                     </div>
+                    <div class="row center">
+                        <a href="#guis" class="btn waves-effect waves-light blue lighten-1 guiInstructions" id="guiInstructions">How To</a>
+                    </div>
                 </div>
             </div>
             <br/>
@@ -319,6 +322,9 @@
                                 </div>
                             </div>
                         </div>
+                    </div>
+                    <div class="row center">
+                        <a href="#recipes" class="btn waves-effect waves-light blue lighten-1 recipeInstructions" id="recipeInstructions">How To</a>
                     </div>
                 </div>
             </div>
@@ -380,7 +386,7 @@ skinRender.render("</code><span id="js-example-skin" style="font-weight: bold"><
                         <div class="row">
                             <pre><code class="language-markup">&lt;script src="https://minerender.org/dist/model.min.js"&gt;&lt;/script&gt;</code></pre>
                             <pre><code class="language-javascript">var modelRender = new ModelRender({/* options */}, document.getElementById("myBlockContainer"));
-skinRender.modelRender(["block/</code><span id="js-example-block" style="font-weight: bold"><code>stone</code></span><code class="language-javascript">"]);</code></pre>
+modelRender.render(["block/</code><span id="js-example-block" style="font-weight: bold"><code>stone</code></span><code class="language-javascript">"]);</code></pre>
                         </div>
                     </div>
                     <div class="col s6">
@@ -407,7 +413,7 @@ skinRender.modelRender(["block/</code><span id="js-example-block" style="font-we
                         <div class="row">
                             <pre><code class="language-markup">&lt;script src="https://minerender.org/dist/model.min.js"&gt;&lt;/script&gt;</code></pre>
                             <pre><code class="language-javascript">var modelRender = new ModelRender({/* options */}, document.getElementById("myItemContainer"));
-skinRender.modelRender(["item/</code><span id="js-example-item" style="font-weight: bold"><code>diamond_axe</code></span><code class="language-javascript">"]);</code></pre>
+modelRender.render(["item/</code><span id="js-example-item" style="font-weight: bold"><code>diamond_axe</code></span><code class="language-javascript">"]);</code></pre>
                         </div>
                     </div>
                     <div class="col s6">
@@ -421,6 +427,101 @@ skinRender.modelRender(["item/</code><span id="js-example-item" style="font-weig
                 </div>
             </div>
         </div>
+
+        <!-- GUI Instructions -->
+        <div id="gui-modal" class="modal bottom-sheet">
+            <div class="modal-content">
+                <h4 class="center">GUI</h4>
+                <div class="row">
+                    <div class="col s12">
+                        <h5>JavaScript</h5>
+
+                        <br/>
+                        <div class="row">
+                            <pre><code class="language-markup">&lt;script src="https://minerender.org/dist/gui.min.js"&gt;&lt;/script&gt;</code></pre>
+                            <pre><code class="language-javascript">var guiRender = new GuiRender({/* options */}, document.getElementById("myGuiContainer"));
+var gui = [
+        {
+            name: "base",
+            texture: "/gui/container/generic_54",
+            uv: GuiRender.Positions.container.generic_54.uv,
+            pos: [0, 0],
+            layer: 0
+        },
+        {
+            name: "bone",
+            texture: "/items/bone",
+            uv: [0, 0, 16, 16],
+            pos: GuiRender.Helper.inventorySlot([0, 0], GuiRender.Positions.container.generic_54.top_origin, GuiRender.Positions.container.generic_54.item_offset),
+            layer: 1
+        },
+        {
+            name: "brick",
+            texture: "/items/brick",
+            uv: [0, 0, 16, 16],
+            pos: GuiRender.Helper.inventorySlot([8, 4], GuiRender.Positions.container.generic_54.top_origin, GuiRender.Positions.container.generic_54.item_offset),
+            layer: 1
+        },
+        {
+            name: "brick",
+            texture: "/items/apple",
+            uv: [0, 0, 16, 16],
+            pos: GuiRender.Helper.inventorySlot([1, 0], GuiRender.Positions.container.generic_54.top_origin, GuiRender.Positions.container.generic_54.item_offset),
+            layer: 1
+        },
+        {
+            name: "brick",
+            texture: "/items/clock_09",
+            uv: [0, 0, 16, 16],
+            pos: GuiRender.Helper.inventorySlot([0, 2], GuiRender.Positions.container.generic_54.top_origin, GuiRender.Positions.container.generic_54.item_offset),
+            layer: 1
+        },
+        {
+            name: "brick",
+            texture: "/items/egg",
+            uv: [0, 0, 16, 16],
+            pos: GuiRender.Helper.inventorySlot([2, 5], GuiRender.Positions.container.generic_54.top_origin, GuiRender.Positions.container.generic_54.item_offset),
+            layer: 1
+        },
+        {
+            name: "feather",
+            texture: "/items/feather",
+            uv: [0, 0, 16, 16],
+            pos: GuiRender.Helper.inventorySlot([5, 3], GuiRender.Positions.container.generic_54.top_origin, GuiRender.Positions.container.generic_54.item_offset),
+            layer: 1
+        }
+    ];
+guiRender.render(gui);</code></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- GUI Instructions -->
+        <div id="recipe-modal" class="modal bottom-sheet">
+            <div class="modal-content">
+                <h4 class="center">Recipes</h4>
+                <div class="row">
+                    <div class="col s12">
+                        <h5>JavaScript</h5>
+
+                        <br/>
+                        <div class="row">
+                            <pre><code class="language-markup">&lt;script src="https://minerender.org/dist/gui.min.js"&gt;&lt;/script&gt;</code></pre>
+                            <pre><code class="language-javascript">$.ajax("/res/mc/assets/minecraft/recipes/rail.json").done(function (recipe) {
+    var guiRender = new GuiRender({/* options */}, document.getElementById("myRecipeContainer"));
+    guiRender.render(GuiRender.Helper.recipe(recipe, {
+                                  /* Some recipes require extra data to map the correct textures */
+                                  "rail": "/blocks/rail_normal"
+                                }))
+});</code></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
 
         <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js" integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4=" crossorigin="anonymous"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.100.1/js/materialize.min.js" integrity="sha256-3mqgTUhHNgfXgjrzjPOaW03DdQ9hgW92BApzLREoRoA=" crossorigin="anonymous"></script>
@@ -671,9 +772,23 @@ skinRender.modelRender(["item/</code><span id="js-example-item" style="font-weig
                     $("#item-modal").modal("open");
                 }
 
+                function openGuiModal() {
+                    $("#gui-modal").modal();
+
+                    $("#gui-modal").modal("open");
+                }
+
+                function openRecipeModal() {
+                    $("#recipe-modal").modal();
+
+                    $("#recipe-modal").modal("open");
+                }
+
                 $(".skinInstructions").click(openSkinModal);
                 $(".blockInstructions").click(openBlockModal);
                 $(".itemInstructions").click(openItemModal);
+                $(".guiInstructions").click(openGuiModal);
+                $(".recipeInstructions").click(openRecipeModal);
 
             })
         </script>
