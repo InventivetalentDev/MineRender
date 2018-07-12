@@ -65,6 +65,7 @@ CombinedRender.prototype.constructor = CombinedRender;
 
 window.CombinedRender = CombinedRender;
 
+// Add the other render classes here, because adding them as separate scripts bugs out THREE.js
 window.GuiRender = GuiRender;
 window.ModelRender = ModelRender;
 window.SkinRender = SkinRender;
