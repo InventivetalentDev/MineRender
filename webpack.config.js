@@ -113,10 +113,32 @@ let combinedConfigFull = {
     }
 };
 
+// Index scripts
+let dataConfig = {
+    context: path.resolve(__dirname),
+    entry: './js/data.js',
+    output: {
+        path: path.resolve(__dirname, './js'),
+        filename: 'data.min.js'
+    }
+};
+
+let mainConfig = {
+    context: path.resolve(__dirname),
+    entry: './js/main.js',
+    output: {
+        path: path.resolve(__dirname, './js'),
+        filename: 'main.min.js'
+    }
+};
+
 module.exports = [
     skinConfig, skinConfigFull,
     modelConfig, modelConfigFull,
     guiConfig, guiConfigFull,
 
-    combinedConfig, combinedConfigFull
+    combinedConfig, combinedConfigFull,
+
+    dataConfig,
+    mainConfig
 ];
