@@ -4,6 +4,8 @@ import EffectComposer, { ShaderPass, CopyShader } from "@johh/three-effectcompos
 import * as THREE from "three";
 import OnScreen from "onscreen";
 
+const DEFAULT_ROOT = "https://minerender.org/res/mc";
+
 export const defaultOptions = {
     showAxes: false,
     showGrid: false,
@@ -177,7 +179,7 @@ function loadTexture(root, namespace, dir, name, resolve, reject) {
             let dataURL = "data:image/png;base64," + b64;
             resolve(dataURL);
         } else {
-            loadTexture("/res/mc", namespace, dir, name, resolve, reject)
+            loadTexture(DEFAULT_ROOT, namespace, dir, name, resolve, reject)
         }
     };
     xhr.send();

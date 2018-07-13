@@ -25,7 +25,7 @@ const colors = [
 
 const FACE_ORDER = ["east", "west", "up", "down", "south", "north"];
 const TINTS = ["lightgreen"];
-const DEFAULT_ROOT = "/res/mc";
+const DEFAULT_ROOT = "https://minerender.org/res/mc";
 
 let defOptions = {
     camera: {

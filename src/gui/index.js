@@ -4,7 +4,7 @@ import guiPositions from "./guiPositions";
 import guiHelper from "./guiHelper";
 
 let LAYER_OFFSET = 0.5;
-const DEFAULT_ROOT = "/res/mc";
+const DEFAULT_ROOT = "https://minerender.org/res/mc";
 
 let defOptions = {
     controls: {
