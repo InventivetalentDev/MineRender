@@ -10,7 +10,7 @@ let defOptions = {
         x: 20,
         y: 35,
         z: 20,
-        target: [0, 0, 0]
+        target: [0, 18, 0]
     }
 };
 
