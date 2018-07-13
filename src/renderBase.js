@@ -57,6 +57,7 @@ export function initScene(renderObj, renderCb, doNotAnimate) {
     renderObj.element.appendChild(renderObj._canvas = renderer.domElement);
 
     let composer = new EffectComposer(renderer);
+    composer.setSize((renderObj.options.canvas.width || window.innerWidth), (renderObj.options.canvas.height || window.innerHeight));
     renderObj._composer = composer;
     let ssaaRenderPass = new SSAARenderPass(scene, camera);
     ssaaRenderPass.unbiased = true;
@@ -70,11 +71,11 @@ export function initScene(renderObj, renderCb, doNotAnimate) {
 
     if (renderObj.options.autoResize) {
         window.addEventListener("resize", function () {
-            let width = renderObj.element ? renderObj.element.offsetWidth : window.innerWidth;
-            let height = renderObj.element ? renderObj.element.offsetHeight : window.innerHeight;
+            let width = (renderObj.element && renderObj.element !== document.body) ? renderObj.element.offsetWidth : window.innerWidth;
+            let height = (renderObj.element && renderObj.element !== document.body) ? renderObj.element.offsetHeight : window.innerHeight;
 
             renderObj._resize(width, height);
-        }, false);
+        });
     }
     renderObj._resize = function (width, height) {
         if (renderObj.options.camera.type === "orthographic") {
@@ -88,11 +89,7 @@ export function initScene(renderObj, renderCb, doNotAnimate) {
         camera.updateProjectionMatrix();
 
         renderer.setSize(width, height);
-
-        let pixelRatio = renderer.getPixelRatio();
-        let newWidth = Math.floor(width / pixelRatio) || 1;
-        let newHeight = Math.floor(height / pixelRatio) || 1;
-        composer.setSize(newWidth, newHeight);
+        composer.setSize(width, height);
     };
 
     // Helpers

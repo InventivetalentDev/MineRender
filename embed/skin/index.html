@@ -38,7 +38,8 @@
         <a style="position: absolute; left: 2px; bottom: 2px; opacity: 0.5; font-size: 10px; text-decoration: none; z-index:10;" href="https://minerender.org" target="_blank">
             <pre>MineRender.org</pre>
         </a>
-        <script src="../../dist/skin.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/94/three.min.js" integrity="sha256-NGC9JEuTWN4GhTj091wctgjzftr+8WNDmw0H8J5YPYE=" crossorigin="anonymous"></script>
+        <script src="../../dist/skin.min.js"></script>
         <script>
             /*
             URL Options:
@@ -92,7 +93,8 @@
                     camera: {
                         x: 20,
                         y: 35,
-                        z: 20
+                        z: 20,
+                        target: [0, 18, 0]
                     },
                     render: {
                         taa: true
