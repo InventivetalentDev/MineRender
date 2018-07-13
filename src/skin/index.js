@@ -4,6 +4,14 @@ import OrbitControls from "../lib/OrbitControls";
 import texturePositions from "./texturePositions";
 import { initScene, defaultOptions } from "../renderBase";
 
+let defOptions = {
+    camera: {
+        type: "perspective",
+        x: 20,
+        y: 35,
+        z: 20
+    }
+};
 
 function SkinRender(options, element) {
     console.log(element);
@@ -13,7 +21,7 @@ function SkinRender(options, element) {
     this._element = element || window.document.body;
     this._animId = -1;
 
-    this.options = Object.assign({}, defaultOptions, options);
+    this.options = Object.assign({}, defaultOptions, defOptions, options);
     if (!OrbitControls) {
         console.warn("OrbitControls not found. Disabling skin controls.");
         this.options.controls.enabled = false;

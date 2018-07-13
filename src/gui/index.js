@@ -5,9 +5,25 @@ import guiHelper from "./guiHelper";
 
 let LAYER_OFFSET = 0.5;
 
+let defOptions = {
+    controls: {
+        enabled: true,
+        zoom: true,
+        rotate: false,
+        pan: true
+    },
+    camera: {
+        type: "perspective",
+        x: 0,
+        y: 0,
+        z: 50,
+        target: [0, 0, 0]
+    },
+};
+
 function GuiRender(options, element) {
 
-    this.options = Object.assign({}, defaultOptions, options);
+    this.options = Object.assign({}, defaultOptions, defOptions, options);
     this.element = element || document.body;
 
     this.gui = null;

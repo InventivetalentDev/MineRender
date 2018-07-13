@@ -28,6 +28,13 @@ const FACE_ORDER = ["east", "west", "up", "down", "south", "north"];
 const TINTS = ["lightgreen"]
 
 let defOptions = {
+    camera: {
+        type: "perspective",
+        x: 35,
+        y: 25,
+        z: 20,
+        target: [0, 0, 0]
+    },
     type: "block",
     centerCubes: false
 }
