@@ -18,7 +18,7 @@ function SkinRender(options, element) {
     console.log(element);
     console.log(options);
 
-    this.element = element;
+    this.element = element || document.body;
     this._element = element || window.document.body;
     this._animId = -1;
 
