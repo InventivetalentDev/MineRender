@@ -12,10 +12,10 @@ $(".three-hash").text(THREE_HASH);
 // Showcases
 
 
-var randomSkins ;
-var randomBlocks ;
-var randomItems ;
-var randomResourcePacks ;
+var randomSkins;
+var randomBlocks;
+var randomItems;
+var randomResourcePacks;
 
 function getRandomSkin() {
     var skin = randomSkins.splice(Math.floor(Math.random() * randomSkins.length), 1)[0];
@@ -76,11 +76,16 @@ function renderSkinShowcases() {
         })
         renders[i] = skinRender;
         (function (i) {
-            skinRender.render({
-                username: skin.skin,
+            let data = {
                 capeUrl: "https://minerender.org/img/optifine_cape.png",
                 optifine: true
-            }, function () {
+            };
+            if (skin.skin.length > 16) {
+                data.data = skin.skin;
+            } else {
+                data.username = skin.skin;
+            }
+            skinRender.render(data, function () {
                 $("#skinPlaceholder" + (i + 1)).remove();
             })
         })(i);
@@ -299,10 +304,10 @@ function openRecipeModal() {
 $(document).ready(function () {
     console.log("Document is ready!")
 
-     randomSkins = skins.splice(0);
-     randomBlocks = blocks.splice(0);
-     randomItems = items.splice(0);
-     randomResourcePacks = resourcePacks.splice(0);
+    randomSkins = skins.splice(0);
+    randomBlocks = blocks.splice(0);
+    randomItems = items.splice(0);
+    randomResourcePacks = resourcePacks.splice(0);
 
     setTimeout(function () {
         renderSkinShowcases();
