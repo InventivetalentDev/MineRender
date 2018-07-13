@@ -9,7 +9,7 @@ let skinConfig = {
     },
     externals: {
         jquery: 'jQuery',
-        three: "three"
+        three: "THREE"
     }
 };
 let skinConfigFull = {
@@ -21,7 +21,7 @@ let skinConfigFull = {
     },
     externals: {
         jquery: 'jQuery',
-        three: "three"
+        three: "THREE"
     },
     optimization: {
         minimize: false
@@ -37,7 +37,7 @@ let modelConfig = {
     },
     externals: {
         jquery: 'jQuery',
-        three: "three"
+        three: "THREE"
     }
 };
 let modelConfigFull = {
@@ -49,7 +49,7 @@ let modelConfigFull = {
     },
     externals: {
         jquery: 'jQuery',
-        three: "three"
+        three: "THREE"
     },
     optimization: {
         minimize: false
@@ -65,7 +65,7 @@ let guiConfig = {
     },
     externals: {
         jquery: 'jQuery',
-        three: "three"
+        three: "THREE"
     }
 };
 let guiConfigFull = {
@@ -77,7 +77,7 @@ let guiConfigFull = {
     },
     externals: {
         jquery: 'jQuery',
-        three: "three"
+        three: "THREE"
     },
     optimization: {
         minimize: false
@@ -94,7 +94,7 @@ let combinedConfig = {
     },
     externals: {
         jquery: 'jQuery',
-        three: "three"
+        three: "THREE"
     }
 };
 let combinedConfigFull = {
@@ -106,7 +106,7 @@ let combinedConfigFull = {
     },
     externals: {
         jquery: 'jQuery',
-        three: "three"
+        three: "THREE"
     },
     optimization: {
         minimize: false
