@@ -555,8 +555,6 @@ blocks = [
     "orange_tulip",
     "orange_wool",
     "orchid",
-    "orientable",
-    "orientable_vertical",
     "outer_stairs",
     "packed_ice",
     "pane_post",
