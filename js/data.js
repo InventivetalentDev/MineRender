@@ -37,8 +37,7 @@ skins = [
     "MrWouter",
     "rickmartensnl",
     "DusDavid",
-    "GravelCZLP",
-    "NoPxl"
+    "GravelCZLP"
 ];
 
 blocks = [
