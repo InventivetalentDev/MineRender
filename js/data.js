@@ -1434,3 +1434,26 @@ recipes = [
         }
     }
 ];
+
+resourcePacks = [
+    {
+        name: "PureBDCraft 512x",
+        path: "bdcraft512",
+        url: "http://bdcraft.net/purebdcraft-minecraft"
+    },
+    {
+        name: "ChromaHills 128x",
+        path: "chromahills128",
+        url: "http://www.chromahills.com/forum/welcome.php"
+    },
+    {
+        name: "oCd 16x",
+        path: "ocd",
+        url: "https://www.planetminecraft.com/texture_pack/ocd-pack/"
+    },
+    {
+        name: "Coterie Craft 32x",
+        path: "coterie32",
+        url: "http://www.coteriecraft.us/"
+    }
+]

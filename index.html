@@ -327,6 +327,53 @@
                     </div>
                 </div>
             </div>
+            <br/>
+            <br/>
+            <div class="divider"></div>
+            <div class="section" id="resourcepacks">
+                <div class="container">
+                    <h3 class="center indigo-text darken-1">Resource Packs</h3>
+
+                    <div class="row">
+                        <div class="col s12 m4">
+                            <div class="card-panel">
+                                <div class="center">
+                                    <div class="blockContainer shadow" id="resourcepackExample1">
+                                        <img src="/img/minerender_block_gray.png" id="resourcepackPlaceholder1">
+                                    </div>
+                                    <a target="_blank" rel="noopener">
+                                        <pre id="resourcepackName1"></pre>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col s12 m4">
+                            <div class="card-panel">
+                                <div class="center">
+                                    <div class="blockContainer shadow" id="resourcepackExample2">
+                                        <img src="/img/minerender_block_gray.png" id="resourcepackPlaceholder2">
+                                    </div>
+                                    <a target="_blank" rel="noopener">
+                                        <pre id="resourcepackName2"></pre>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col s12 m4">
+                            <div class="card-panel">
+                                <div class="center">
+                                    <div class="blockContainer shadow" id="resourcepackExample3">
+                                        <img src="/img/minerender_block_gray.png" id="resourcepackPlaceholder3">
+                                    </div>
+                                    <a target="_blank" rel="noopener">
+                                        <pre id="resourcepackName3"></pre>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <br/>
             <br/>
@@ -631,6 +678,7 @@ guiRender.render(gui);</code></pre>
                 var randomSkins = skins.splice(0);
                 var randomBlocks = blocks.splice(0);
                 var randomItems = items.splice(0);
+                var randomResourcePacks = resourcePacks.splice(0);
 
                 function getRandomSkin() {
                     var skin = randomSkins.splice(Math.floor(Math.random() * randomSkins.length), 1)[0];
@@ -653,6 +701,10 @@ guiRender.render(gui);</code></pre>
 
                 function getRandomItem() {
                     return randomItems.splice(Math.floor(Math.random() * randomItems.length), 1)[0];
+                }
+
+                function getRandomResourcePack() {
+                    return randomResourcePacks.splice(Math.floor(Math.random() * randomResourcePacks.length), 1)[0];
                 }
 
                 function renderSkinShowcases() {
@@ -825,11 +877,50 @@ guiRender.render(gui);</code></pre>
                     }
                 }
 
+                function renderResourcePackShowcases() {
+                    var renders = [];
+                    for (var i = 0; i < 3; i++) {
+                        var pack = getRandomResourcePack();
+                        var block = getRandomBlock();
+                        var element = $("#resourcepackExample" + (i + 1));
+                        $("#resourcepackName" + (i + 1)).text(pack.name + " / " + block);
+                        $("#resourcepackName" + (i + 1)).parent().attr("href", pack.url)
+                        var modelRender = new ModelRender({
+                            autoResize: true,
+                            canvas: {
+                                width: element[0].offsetWidth,
+                                height: element[0].offsetHeight
+                            },
+                            centerCubes: true,
+                            controls: {
+                                enabled: true,
+                                zoom: false,
+                                rotate: true,
+                                pan: true
+                            },
+                            assetRoot: "/res/rp/" + pack.path
+                        }, element[0]);
+                        (function (i) {
+                            modelRender.render(["block/" + block], function () {
+                                $("#resourcepackPlaceholder" + (i + 1)).remove();
+                            })
+                        })(i);
+                        element.on("modelRender", function (e) {
+                            let models = e.detail.models;
+                            for (var j = 0; j < models.length; j++) {
+                                models[j].rotation.y += 0.01;
+                            }
+                        })
+                        renders[i] = modelRender;
+                    }
+                }
+
                 renderSkinShowcases();
                 renderBlockShowcases();
                 renderItemShowcases();
                 renderGUIShowcases();
                 renderRecipeShowcases();
+                renderResourcePackShowcases();
 
 
                 // Modal functions
