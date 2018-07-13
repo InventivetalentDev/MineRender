@@ -1437,7 +1437,7 @@ resourcePacks = [
     {
         name: "PureBDCraft 512x",
         path: "bdcraft512",
-        url: "http://bdcraft.net/purebdcraft-minecraft"
+        url: "http://bdcraft.net"
     },
     {
         name: "ChromaHills 128x",
