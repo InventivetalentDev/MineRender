@@ -330,7 +330,6 @@ let createPlane = function (name, textures) {
                 }
 
 
-                console.log(canvas.toDataURL("image/png"))
                 let texture = new THREE.TextureLoader().load(canvas.toDataURL("image/png"), function () {
                     texture.magFilter = THREE.NearestFilter;
                     texture.minFilter = THREE.NearestFilter;
