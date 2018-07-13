@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "build": "webpack --progress",
-    "build:w": "webpack --progress --watch"
+    "build:w": "webpack --progress --watch",
+    "build:silent": "webpack"
   },
   "author": "Haylee Schäfer",
   "license": "MIT",
