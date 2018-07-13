@@ -8,7 +8,8 @@ let skinConfig = {
         filename: 'skin.min.js'
     },
     externals: {
-        jquery: 'jQuery'
+        jquery: 'jQuery',
+        three: "three"
     }
 };
 let skinConfigFull = {
@@ -19,7 +20,8 @@ let skinConfigFull = {
         filename: 'skin.js'
     },
     externals: {
-        jquery: 'jQuery'
+        jquery: 'jQuery',
+        three: "three"
     },
     optimization: {
         minimize: false
@@ -34,7 +36,8 @@ let modelConfig = {
         filename: 'model.min.js'
     },
     externals: {
-        jquery: 'jQuery'
+        jquery: 'jQuery',
+        three: "three"
     }
 };
 let modelConfigFull = {
@@ -45,7 +48,8 @@ let modelConfigFull = {
         filename: 'model.js'
     },
     externals: {
-        jquery: 'jQuery'
+        jquery: 'jQuery',
+        three: "three"
     },
     optimization: {
         minimize: false
@@ -60,7 +64,8 @@ let guiConfig = {
         filename: 'gui.min.js'
     },
     externals: {
-        jquery: 'jQuery'
+        jquery: 'jQuery',
+        three: "three"
     }
 };
 let guiConfigFull = {
@@ -71,7 +76,8 @@ let guiConfigFull = {
         filename: 'gui.js'
     },
     externals: {
-        jquery: 'jQuery'
+        jquery: 'jQuery',
+        three: "three"
     },
     optimization: {
         minimize: false
@@ -87,7 +93,8 @@ let combinedConfig = {
         filename: 'all.min.js'
     },
     externals: {
-        jquery: 'jQuery'
+        jquery: 'jQuery',
+        three: "three"
     }
 };
 let combinedConfigFull = {
@@ -98,7 +105,8 @@ let combinedConfigFull = {
         filename: 'all.js'
     },
     externals: {
-        jquery: 'jQuery'
+        jquery: 'jQuery',
+        three: "three"
     },
     optimization: {
         minimize: false
