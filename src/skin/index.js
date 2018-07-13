@@ -9,7 +9,8 @@ let defOptions = {
         type: "perspective",
         x: 20,
         y: 35,
-        z: 20
+        z: 20,
+        target: [0, 0, 0]
     }
 };
 
