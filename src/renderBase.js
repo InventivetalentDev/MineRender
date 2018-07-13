@@ -25,7 +25,8 @@ export const defaultOptions = {
         width: undefined,
         height: undefined
     },
-    pauseHidden: true
+    pauseHidden: true,
+    forceContext: false
 };
 
 export function initScene(renderObj, renderCb, doNotAnimate) {
@@ -142,9 +143,15 @@ export function initScene(renderObj, renderCb, doNotAnimate) {
 
         os.on("enter", "#" + id, (element, event) => {
             renderObj.onScreen = true;
+            if (renderObj.options.forceContext) {
+                renderObj._renderer.forceContextRestore();
+            }
         })
         os.on("leave", "#" + id, (element, event) => {
             renderObj.onScreen = false;
+            if (renderObj.options.forceContext) {
+                renderObj._renderer.forceContextLoss();
+            }
         });
     }
 };
