@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import * as $ from 'jquery';
 import mergeDeep from "../lib/merge";
-import { initScene, loadTextureAsBase64, defaultOptions } from "../renderBase";
+import { initScene, loadTextureAsBase64, scaleUv, defaultOptions } from "../renderBase";
 
 String.prototype.replaceAll = function (search, replacement) {
     let target = this;
@@ -24,8 +24,8 @@ const colors = [
 ];
 
 const FACE_ORDER = ["east", "west", "up", "down", "south", "north"];
-
-const TINTS = ["lightgreen"]
+const TINTS = ["lightgreen"];
+const DEFAULT_ROOT = "/res/mc";
 
 let defOptions = {
     camera: {
@@ -36,8 +36,9 @@ let defOptions = {
         target: [0, 0, 0]
     },
     type: "block",
-    centerCubes: false
-}
+    centerCubes: false,
+    assetRoot: DEFAULT_ROOT
+};
 
 function ModelRender(options, element) {
 
@@ -91,8 +92,8 @@ ModelRender.prototype.render = function (models, cb) {
 
 
             console.log("Loading model " + model + " of type " + type + "...");
-            loadModel(model, type)
-                .then(modelData => mergeParents(modelData))
+            loadModel(model, type, modelRender.options.assetRoot)
+                .then(modelData => mergeParents(modelData, modelRender.options.assetRoot))
                 .then((mergedModel) => {
                     console.log(mergedModel);
 
@@ -103,7 +104,7 @@ ModelRender.prototype.render = function (models, cb) {
                         return;
                     }
 
-                    loadTextures(mergedModel.textures).then((textures) => {
+                    loadTextures(mergedModel.textures, modelRender.options.assetRoot).then((textures) => {
                         console.log(textures);
 
                         renderModel(modelRender, mergedModel, textures, type, model, offset, rotation).then(() => {
@@ -390,6 +391,14 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                             uv = fallbackFaces[f].uv;
                         }
 
+                        // Scale the uv values to match the image width, so we can support resource packs with higher-resolution textures
+                        uv = [
+                            scaleUv(uv[0], img.width),
+                            scaleUv(uv[1], img.height),
+                            scaleUv(uv[2], img.width),
+                            scaleUv(uv[3], img.height)
+                        ];
+
                         let canvas = document.createElement("canvas");
                         canvas.width = uv[2] - uv[0];
                         canvas.height = uv[3] - uv[1];
@@ -561,7 +570,7 @@ let mapUV = function (geometry, texture, uv, i) {
     geometry.uvsNeedUpdate = true;
 };
 
-let loadModel = function (model, type/* block OR item */) {
+let loadModel = function (model, type/* block OR item */, assetRoot) {
     return new Promise((resolve, reject) => {
         if (typeof model === "string") {
             if (model.startsWith("{") && model.endsWith("}")) {// JSON string
@@ -571,10 +580,18 @@ let loadModel = function (model, type/* block OR item */) {
                     resolve(data);
                 })
             } else {// model name -> use local data
-                let path = "/res/mc/assets/minecraft/models/" + (type || "block") + "/" + model + ".json";
-                $.ajax(path).done((data) => {
-                    resolve(data);
-                });
+                let path = assetRoot + "/assets/minecraft/models/" + (type || "block") + "/" + model + ".json";
+                $.ajax(path)
+                    .done((data) => {
+                        resolve(data);
+                    })
+                    .fail(() => {
+                        // Try again with default root
+                        let path = DEFAULT_ROOT + "/assets/minecraft/models/" + (type || "block") + "/" + model + ".json";
+                        $.ajax(path).done((data) => {
+                            resolve(data);
+                        })
+                    })
             }
         } else if (typeof model === "object") {// JSON object
             resolve(model);
@@ -585,7 +602,7 @@ let loadModel = function (model, type/* block OR item */) {
     });
 };
 
-let loadTextures = function (textureNames) {
+let loadTextures = function (textureNames, assetRoot) {
     return new Promise((resolve) => {
         let promises = [];
         let filteredNames = [];
@@ -598,7 +615,7 @@ let loadTextures = function (textureNames) {
                 continue;
             }
             filteredNames.push(name);
-            promises.push(loadTextureAsBase64("minecraft", "/", texture));
+            promises.push(loadTextureAsBase64(assetRoot, "minecraft", "/", texture));
         }
         Promise.all(promises).then((textures) => {
             let mappedTextures = {};
@@ -621,12 +638,12 @@ let loadTextures = function (textureNames) {
 };
 
 
-let mergeParents = function (model) {
+let mergeParents = function (model, assetRoot) {
     return new Promise((resolve, reject) => {
-        mergeParents_(model, [], resolve, reject);
+        mergeParents_(model, [], assetRoot, resolve, reject);
     });
 };
-let mergeParents_ = function (model, stack, resolve, reject) {
+let mergeParents_ = function (model, stack, assetRoot, resolve, reject) {
     stack.push(model);
 
     if (!model.hasOwnProperty("parent") || model["parent"] === "builtin/generated" || model["parent"] === "builtin/entity") {// already at the highest parent OR we reach the builtin parent which seems to be the hardcoded stuff that's not in the json files
@@ -643,11 +660,22 @@ let mergeParents_ = function (model, stack, resolve, reject) {
     let parent = model["parent"];
     delete model["parent"];// remove the child's parent so it will be replaced by the parent's parent
 
-    let path = "/res/mc/assets/minecraft/models/" + parent + ".json";
-    $.ajax(path).done((parentData) => {
-        let mergedModel = Object.assign({}, model, parentData);
-        mergeParents_(mergedModel, stack, resolve, reject);
-    });
+    let path = assetRoot + "/assets/minecraft/models/" + parent + ".json";
+    $.ajax(path)
+        .done((parentData) => {
+            let mergedModel = Object.assign({}, model, parentData);
+            mergeParents_(mergedModel, stack, assetRoot, resolve, reject);
+        })
+        .fail(() => {
+            // Try again with the default root
+            let path = DEFAULT_ROOT + "/assets/minecraft/models/" + parent + ".json";
+            $.ajax(path)
+                .done((parentData) => {
+                    let mergedModel = Object.assign({}, model, parentData);
+                    mergeParents_(mergedModel, stack, assetRoot, resolve, reject);
+                })
+
+        })
 
 };
 

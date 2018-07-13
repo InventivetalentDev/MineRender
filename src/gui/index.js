@@ -1,9 +1,10 @@
 import * as THREE from "three";
-import { loadTextureAsBase64, initScene, defaultOptions } from "../renderBase";
+import { loadTextureAsBase64, initScene, defaultOptions, scaleUv } from "../renderBase";
 import guiPositions from "./guiPositions";
 import guiHelper from "./guiHelper";
 
 let LAYER_OFFSET = 0.5;
+const DEFAULT_ROOT = "/res/mc";
 
 let defOptions = {
     controls: {
@@ -19,6 +20,7 @@ let defOptions = {
         z: 50,
         target: [0, 0, 0]
     },
+    assetRoot: DEFAULT_ROOT
 };
 
 function GuiRender(options, element) {
@@ -53,8 +55,10 @@ GuiRender.prototype.render = function (layers, cb) {
                     texture: layer
                 }
             }
+            if (!layer.textureScale) layer.textureScale = 1;
 
-            loadTextureAsBase64("minecraft", "", layer.texture).then((url) => {
+            loadTextureAsBase64(guiRender.options.assetRoot, "minecraft", "", layer.texture).then((url) => {
+                console.log(url)
 
                 let imgDone = function (url) {
                     let texture = new THREE.TextureLoader().load(url, function () {
@@ -79,8 +83,30 @@ GuiRender.prototype.render = function (layers, cb) {
                 if (!layer.uv) {
                     imgDone(url);
                 } else {
+                    layer.uv = [
+                        layer.uv[0] * layer.textureScale,
+                        layer.uv[1] * layer.textureScale,
+                        layer.uv[2] * layer.textureScale,
+                        layer.uv[3] * layer.textureScale
+                    ];
+
+                    console.log(layer.uv);
+
                     let img = new Image();
                     img.onload = function () {
+                        console.log(img);
+                        console.log(img.src);
+
+                        // let oUv =layer.uv;
+                        // layer.uv=[
+                        //     scaleUv(layer.uv[0],img.width,512),
+                        //     scaleUv(layer.uv[1],img.height,512),
+                        //     scaleUv(layer.uv[2],img.width,512),
+                        //     scaleUv(layer.uv[3],img.height,512),
+                        // ]
+                        console.log(layer.uv);
+
+
                         let canvas = document.createElement("canvas");
                         canvas.width = layer.uv[2] - layer.uv[0];
                         canvas.height = layer.uv[3] - layer.uv[1];
@@ -89,6 +115,7 @@ GuiRender.prototype.render = function (layers, cb) {
 
                         imgDone(canvas.toDataURL("image/png"));
                     };
+                    img.crossOrigin = "anonymous";
                     img.src = url;
                 }
             });
@@ -105,10 +132,26 @@ GuiRender.prototype.render = function (layers, cb) {
             let width = material.map.image.width;
             let height = material.map.image.height;
 
-            if (width > w) w = width;
-            if (height > h) h = height;
 
-            let geometry = new THREE.PlaneGeometry(width, height);
+            let uv = material.userData.layer.uv;
+            if (!uv) {
+                // default to full image size if uv isn't set
+                uv = [0, 0, width, height];
+            }
+            // uv = [
+            //     uv[0]/4,
+            //     uv[1]/4,
+            //     uv[2]/4,
+            //     uv[3]/4
+            // ];
+
+            let uvW = (uv[2] - uv[0]) / material.userData.layer.textureScale;
+            let uvH = (uv[3] - uv[1]) / material.userData.layer.textureScale;
+
+            if (uvW > w) w = uvW;
+            if (uvH > h) h = uvH;
+
+            let geometry = new THREE.PlaneGeometry(uvW, uvH);
             let plane = new THREE.Mesh(geometry, material);
             plane.name = material.userData.layer.texture.toLowerCase() + (material.userData.layer.name ? "_" + material.userData.layer.name.toLowerCase() : "");
             plane.position.set(0, 0, 0);
@@ -116,18 +159,13 @@ GuiRender.prototype.render = function (layers, cb) {
             console.log(plane.name);
             console.log(material.userData.layer.pos);
 
-            let uv = material.userData.layer.uv;
-            if (!uv) {
-                // default to full image size if uv isn't set
-                uv = [0, 0, width, height];
-            }
 
-            plane.applyMatrix(new THREE.Matrix4().makeTranslation((uv[2] - uv[0]) / 2, (uv[3] - uv[1]) / 2, 0));
+            plane.applyMatrix(new THREE.Matrix4().makeTranslation(uvW / 2, uvH / 2, 0));
 
             if (material.userData.layer.pos) {
-                plane.applyMatrix(new THREE.Matrix4().makeTranslation(material.userData.layer.pos[0], -(uv[3] - uv[1]) - material.userData.layer.pos[1], (material.userData.layer.layer ? material.userData.layer.layer : i) * LAYER_OFFSET));
+                plane.applyMatrix(new THREE.Matrix4().makeTranslation(material.userData.layer.pos[0], -uvH - material.userData.layer.pos[1], (material.userData.layer.layer ? material.userData.layer.layer : i) * LAYER_OFFSET));
             } else {
-                plane.applyMatrix(new THREE.Matrix4().makeTranslation(0, 0, (material.userData.layer.layer ? material.userData.layer.layer : i) * LAYER_OFFSET));
+                plane.applyMatrix(new THREE.Matrix4().makeTranslation(0, -uvH, (material.userData.layer.layer ? material.userData.layer.layer : i) * LAYER_OFFSET));
             }
 
             planeGroup.add(plane);

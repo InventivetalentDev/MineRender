@@ -7,3 +7,4 @@
 *.project
 package-lock.json
 dist/
+res/rp/*

@@ -130,24 +130,37 @@ export function initScene(renderObj, renderCb, doNotAnimate) {
     }
 };
 
-export function loadTextureAsBase64(namespace, dir, name) {
+export function loadTextureAsBase64(root, namespace, dir, name) {
     return new Promise((resolve, reject) => {
-        let path = "/res/mc/assets/" + namespace + "/textures" + dir + name + ".png";
+        loadTexture(root, namespace, dir, name, resolve, reject);
+    })
+};
 
-        // https://gist.github.com/oliyh/db3d1a582aefe6d8fee9 / https://stackoverflow.com/questions/20035615/using-raw-image-data-from-ajax-request-for-data-uri
-        let xhr = new XMLHttpRequest();
-        xhr.open('GET', path, true);
-        xhr.responseType = 'arraybuffer';
-        xhr.onload = function () {
+function loadTexture(root, namespace, dir, name, resolve, reject) {
+    let path = root + "/assets/" + namespace + "/textures" + dir + name + ".png";
+
+    // https://gist.github.com/oliyh/db3d1a582aefe6d8fee9 / https://stackoverflow.com/questions/20035615/using-raw-image-data-from-ajax-request-for-data-uri
+    let xhr = new XMLHttpRequest();
+    xhr.open('GET', path, true);
+    xhr.responseType = 'arraybuffer';
+    xhr.onloadend = function () {
+        if (xhr.status === 200) {
             let arr = new Uint8Array(this.response);
             let raw = String.fromCharCode.apply(null, arr);
             let b64 = btoa(raw);
             let dataURL = "data:image/png;base64," + b64;
             resolve(dataURL);
-        };
-        xhr.send();
-    })
-};
+        } else {
+            loadTexture("/res/mc", namespace, dir, name, resolve, reject)
+        }
+    };
+    xhr.send();
+}
+
+export function scaleUv(uv, size, scale) {
+    if (uv === 0) return 0;
+    return size / (scale || 16) * uv;
+}
 
 export function attachTo(self, target) {
     console.log("Attaching " + self.constructor.name + " to " + target.constructor.name);
