@@ -428,10 +428,11 @@
         z: 30,
         target: [0, 0, 0]   // Where the camera should look
     },
-    canvas: {               // Dimensions the canvas starts off with
+    canvas: {               // Dimensions the canvas starts off with (undefined -> use window size)
         width: undefined,
         height: undefined
-    }
+    },
+    pauseHidden: true       // Whether to pause animations that aren't currently visible
 };</code></pre>
                     </div>
                 </div>
