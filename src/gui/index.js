@@ -94,19 +94,6 @@ GuiRender.prototype.render = function (layers, cb) {
 
                     let img = new Image();
                     img.onload = function () {
-                        console.log(img);
-                        console.log(img.src);
-
-                        // let oUv =layer.uv;
-                        // layer.uv=[
-                        //     scaleUv(layer.uv[0],img.width,512),
-                        //     scaleUv(layer.uv[1],img.height,512),
-                        //     scaleUv(layer.uv[2],img.width,512),
-                        //     scaleUv(layer.uv[3],img.height,512),
-                        // ]
-                        console.log(layer.uv);
-
-
                         let canvas = document.createElement("canvas");
                         canvas.width = layer.uv[2] - layer.uv[0];
                         canvas.height = layer.uv[3] - layer.uv[1];
@@ -155,10 +142,6 @@ GuiRender.prototype.render = function (layers, cb) {
             let plane = new THREE.Mesh(geometry, material);
             plane.name = material.userData.layer.texture.toLowerCase() + (material.userData.layer.name ? "_" + material.userData.layer.name.toLowerCase() : "");
             plane.position.set(0, 0, 0);
-
-            console.log(plane.name);
-            console.log(material.userData.layer.pos);
-
 
             plane.applyMatrix(new THREE.Matrix4().makeTranslation(uvW / 2, uvH / 2, 0));
 
