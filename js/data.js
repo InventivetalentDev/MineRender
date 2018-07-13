@@ -1331,12 +1331,202 @@ items = ["acacia_boat",
     "yellow_stained_hardened_clay"
 ];
 
+gui = {
+    Helper: {
+        inventorySlot: function (n, origin, offset, rowSize) {
+            if (!rowSize) rowSize = 9;
+            let row, col;
+
+            if (n instanceof Array) {
+                row = n[1];
+                col = n[0];
+            } else {
+                row = Math.floor(n / rowSize);
+                col = n % rowSize;
+            }
+
+            let x = origin[0] + (col * offset[0]);
+            let y = origin[1] + (row * offset[1]);
+
+            return [x, y];
+        },
+        recipe: function (recipeData, textureMap) {
+
+            let renderData = [];
+            renderData.push({
+                name: "base",
+                texture: "/gui/container/recipe_background",
+                layer: 0,
+                uv: guiPositions.container.recipe_background.uv,
+                pos: [0, 0]
+            });
+
+            if (recipeData.type === "crafting_shaped") {
+                let pattern = recipeData.pattern;
+                for (let l = 0; l < pattern.length; l++) {
+                    let line = pattern[l];
+                    for (let c = 0; c < line.length; c++) {
+                        let char = line[c];
+                        if (char === ' ') continue;
+                        if (!recipeData.key.hasOwnProperty(char)) {
+                            console.warn("Missing recipe key " + char);
+                            continue;
+                        }
+
+                        let slot = this.inventorySlot([c, l], guiPositions.container.recipe_background.left_origin, guiPositions.container.recipe_background.item_offset, 3);
+                        let item = recipeData.key[char].item;
+                        let itemSplit = item.split(":");
+                        let itemNamespace = itemSplit[0];
+                        let itemName = itemSplit[1];
+
+                        if (textureMap.hasOwnProperty(itemName)) {
+                            itemName = textureMap[itemName];
+                        } else {
+                            itemName = "/items/" + itemName;
+                        }
+
+                        renderData.push({
+                            name: item,
+                            texture: itemName,
+                            layer: 1,
+                            pos: slot
+                        });
+                    }
+                }
+            } else if (recipeData.type === "crafting_shapeless") {
+                for (let i = 0; i < recipeData.ingredients.length; i++) {
+                    let ingredient = recipeData.ingredients[i];
+
+                    let slot = this.inventorySlot(i, guiPositions.container.recipe_background.left_origin, guiPositions.container.recipe_background.item_offset, 3);
+                    let item = ingredient.item;
+                    let itemSplit = item.split(":");
+                    let itemNamespace = itemSplit[0];
+                    let itemName = itemSplit[1];
+
+                    if (textureMap.hasOwnProperty(itemName)) {
+                        itemName = textureMap[itemName];
+                    } else {
+                        itemName = "/items/" + itemName;
+                    }
+
+                    renderData.push({
+                        name: item,
+                        texture: itemName,
+                        layer: 1,
+                        pos: slot
+                    });
+                }
+            }
+
+            let resultItem = recipeData.result.item;
+            let itemSplit = resultItem.split(":");
+            let itemNamespace = itemSplit[0];
+            let itemName = itemSplit[1];
+            if (textureMap.hasOwnProperty(itemName)) {
+                itemName = textureMap[itemName];
+            } else {
+                itemName = "/items/" + itemName;
+            }
+
+            renderData.push({
+                name: resultItem,
+                texture: itemName,
+                layer: 1,
+                pos: guiPositions.container.recipe_background.right_origin
+            });
+
+
+            return renderData;
+        }
+    },
+    Positions: {
+        bars: {
+            pink_empty: {
+                uv: [0, 0, 182, 5]
+            },
+            pink_full: {
+                uv: [0, 5, 182, 10]
+            },
+            cyan_empty: {
+                uv: [0, 10, 182, 15]
+            },
+            cyan_full: {
+                uv: [0, 15, 182, 20]
+            },
+            orange_empty: {
+                uv: [0, 20, 182, 25]
+            },
+            orange_full: {
+                uv: [0, 25, 182, 30]
+            },
+            green_empty: {
+                uv: [0, 30, 182, 35]
+            },
+            green_full: {
+                uv: [0, 35, 182, 40]
+            },
+            yellow_empty: {
+                uv: [0, 40, 182, 45]
+            },
+            yellow_full: {
+                uv: [0, 45, 182, 50]
+            },
+            purple_empty: {
+                uv: [0, 50, 182, 55]
+            },
+            purple_full: {
+                uv: [0, 55, 182, 60]
+            },
+            white_empty: {
+                uv: [0, 60, 182, 65]
+            },
+            white_full: {
+                uv: [0, 65, 182, 70]
+            }
+        },
+        book: {
+            base: {
+                uv: [0, 0, 192, 192],// 192 is actually bigger than the book background, but that's the coordinates MC itself uses
+            },
+            button_next: {
+                uv: [0, 192, 23, 205],
+                pos: [120, 156]
+            },
+            button_next_hover: {
+                uv: [23, 192, 46, 205],
+                pos: [120, 156]
+            },
+            button_prev: {
+                uv: [0, 205, 23, 218],
+                pos: [38, 156]
+            },
+            button_prev_hover: {
+                uv: [23, 205, 46, 218],
+                pos: [38, 156]
+            }
+        },
+        container: {
+            generic_54: {
+                uv: [0, 0, 176, 222],
+                top_origin: [8, 18],
+                item_offset: [18, 18]
+            },
+            recipe_background: {
+                uv: [0, 0, 140, 78],
+                left_origin: [13, 13],
+                right_origin: [106, 30],
+                item_offset: [18, 18]
+            }
+        }
+    }
+};
+
 guis = [
     [
         {
             name: "base",
             texture: "/gui/container/generic_54",
-            uv: GuiRender.Positions.container.generic_54.uv,
+            uv: gui.Positions.container.generic_54.uv,
             pos: [0, 0],
             layer: 0
         },
@@ -1344,42 +1534,42 @@ guis = [
             name: "bone",
             texture: "/items/bone",
             uv: [0, 0, 16, 16],
-            pos: GuiRender.Helper.inventorySlot([0, 0], GuiRender.Positions.container.generic_54.top_origin, GuiRender.Positions.container.generic_54.item_offset),
+            pos: gui.Helper.inventorySlot([0, 0], gui.Positions.container.generic_54.top_origin, gui.Positions.container.generic_54.item_offset),
             layer: 1
         },
         {
             name: "brick",
             texture: "/items/brick",
             uv: [0, 0, 16, 16],
-            pos: GuiRender.Helper.inventorySlot([8, 4], GuiRender.Positions.container.generic_54.top_origin, GuiRender.Positions.container.generic_54.item_offset),
+            pos: gui.Helper.inventorySlot([8, 4], gui.Positions.container.generic_54.top_origin, gui.Positions.container.generic_54.item_offset),
             layer: 1
         },
         {
             name: "brick",
             texture: "/items/apple",
             uv: [0, 0, 16, 16],
-            pos: GuiRender.Helper.inventorySlot([1, 0], GuiRender.Positions.container.generic_54.top_origin, GuiRender.Positions.container.generic_54.item_offset),
+            pos: gui.Helper.inventorySlot([1, 0], gui.Positions.container.generic_54.top_origin, gui.Positions.container.generic_54.item_offset),
             layer: 1
         },
         {
             name: "brick",
             texture: "/items/clock_09",
             uv: [0, 0, 16, 16],
-            pos: GuiRender.Helper.inventorySlot([0, 2], GuiRender.Positions.container.generic_54.top_origin, GuiRender.Positions.container.generic_54.item_offset),
+            pos: gui.Helper.inventorySlot([0, 2], gui.Positions.container.generic_54.top_origin, gui.Positions.container.generic_54.item_offset),
             layer: 1
         },
         {
             name: "brick",
             texture: "/items/egg",
             uv: [0, 0, 16, 16],
-            pos: GuiRender.Helper.inventorySlot([2, 5], GuiRender.Positions.container.generic_54.top_origin, GuiRender.Positions.container.generic_54.item_offset),
+            pos: gui.Helper.inventorySlot([2, 5], gui.Positions.container.generic_54.top_origin, gui.Positions.container.generic_54.item_offset),
             layer: 1
         },
         {
             name: "feather",
             texture: "/items/feather",
             uv: [0, 0, 16, 16],
-            pos: GuiRender.Helper.inventorySlot([5, 3], GuiRender.Positions.container.generic_54.top_origin, GuiRender.Positions.container.generic_54.item_offset),
+            pos: gui.Helper.inventorySlot([5, 3], gui.Positions.container.generic_54.top_origin, gui.Positions.container.generic_54.item_offset),
             layer: 1
         }
     ],
@@ -1387,20 +1577,20 @@ guis = [
         {
             name: "base",
             texture: "/gui/book",
-            uv: GuiRender.Positions.book.base.uv,
+            uv: gui.Positions.book.base.uv,
             pos: [0, 0]
         },
         {
             name: "button_prev",
             texture: "/gui/book",
-            uv: GuiRender.Positions.book.button_prev.uv,
-            pos: GuiRender.Positions.book.button_prev.pos
+            uv: gui.Positions.book.button_prev.uv,
+            pos: gui.Positions.book.button_prev.pos
         },
         {
             name: "button_next",
             texture: "/gui/book",
-            uv: GuiRender.Positions.book.button_next.uv,
-            pos: GuiRender.Positions.book.button_next.pos
+            uv: gui.Positions.book.button_next.uv,
+            pos: gui.Positions.book.button_next.pos
         }
     ]
 ];
