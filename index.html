@@ -874,6 +874,26 @@ guiRender.render(gui);</code></pre>
                 $(".guiInstructions").click(openGuiModal);
                 $(".recipeInstructions").click(openRecipeModal);
 
+
+                $("pre").click(function () {
+                    SelectText(this);
+                });
+
+                /// https://stackoverflow.com/a/8803160/6257838
+                function SelectText(text) {
+                    if (document.body.createTextRange) { // ms
+                        var range = document.body.createTextRange();
+                        range.moveToElementText(text);
+                        range.select();
+                    } else if (window.getSelection) {
+                        var selection = window.getSelection();
+                        var range = document.createRange();
+                        range.selectNodeContents(text);
+                        selection.removeAllRanges();
+                        selection.addRange(range);
+
+                    }
+                }
             })
         </script>
     </body>
