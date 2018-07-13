@@ -6,6 +6,9 @@ let skinConfig = {
     output: {
         path: path.resolve(__dirname, './dist'),
         filename: 'skin.min.js'
+    },
+    externals: {
+        jquery: 'jQuery'
     }
 };
 let skinConfigFull = {
@@ -14,6 +17,9 @@ let skinConfigFull = {
     output: {
         path: path.resolve(__dirname, './dist'),
         filename: 'skin.js'
+    },
+    externals: {
+        jquery: 'jQuery'
     },
     optimization: {
         minimize: false
@@ -26,6 +32,9 @@ let modelConfig = {
     output: {
         path: path.resolve(__dirname, './dist'),
         filename: 'model.min.js'
+    },
+    externals: {
+        jquery: 'jQuery'
     }
 };
 let modelConfigFull = {
@@ -34,6 +43,9 @@ let modelConfigFull = {
     output: {
         path: path.resolve(__dirname, './dist'),
         filename: 'model.js'
+    },
+    externals: {
+        jquery: 'jQuery'
     },
     optimization: {
         minimize: false
@@ -46,6 +58,9 @@ let guiConfig = {
     output: {
         path: path.resolve(__dirname, './dist'),
         filename: 'gui.min.js'
+    },
+    externals: {
+        jquery: 'jQuery'
     }
 };
 let guiConfigFull = {
@@ -54,6 +69,9 @@ let guiConfigFull = {
     output: {
         path: path.resolve(__dirname, './dist'),
         filename: 'gui.js'
+    },
+    externals: {
+        jquery: 'jQuery'
     },
     optimization: {
         minimize: false
@@ -67,6 +85,9 @@ let combinedConfig = {
     output: {
         path: path.resolve(__dirname, './dist'),
         filename: 'all.min.js'
+    },
+    externals: {
+        jquery: 'jQuery'
     }
 };
 let combinedConfigFull = {
@@ -75,6 +96,9 @@ let combinedConfigFull = {
     output: {
         path: path.resolve(__dirname, './dist'),
         filename: 'all.js'
+    },
+    externals: {
+        jquery: 'jQuery'
     },
     optimization: {
         minimize: false

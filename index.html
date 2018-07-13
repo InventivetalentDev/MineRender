@@ -424,7 +424,9 @@
 
                         <br/>
                         <div class="row">
+                            <pre><code class="language-markup">&lt;script src=&quot;https://code.jquery.com/jquery-<span class="jquery-version"></span>.min.js&quot; integrity=&quot;<span class="jquery-hash"></span>&quot; crossorigin=&quot;anonymous&quot;&gt;&lt;/script&gt;</code></pre>
                             <pre><code class="language-markup">&lt;script src="https://minerender.org/dist/skin.min.js"&gt;&lt;/script&gt;</code></pre>
+                            <br/>
                             <pre><code class="language-javascript">var skinRender = new SkinRender({/* options */}, document.getElementById("mySkinContainer"));
 skinRender.render("</code><span id="js-example-skin" style="font-weight: bold"><code>inventivetalent</code></span><code class="language-javascript">");</code></pre>
                         </div>
@@ -451,7 +453,9 @@ skinRender.render("</code><span id="js-example-skin" style="font-weight: bold"><
 
                         <br/>
                         <div class="row">
+                            <pre><code class="language-markup">&lt;script src=&quot;https://code.jquery.com/jquery-<span class="jquery-version"></span>.min.js&quot; integrity=&quot;<span class="jquery-hash"></span>&quot; crossorigin=&quot;anonymous&quot;&gt;&lt;/script&gt;</code></pre>
                             <pre><code class="language-markup">&lt;script src="https://minerender.org/dist/model.min.js"&gt;&lt;/script&gt;</code></pre>
+                            <br/>
                             <pre><code class="language-javascript">var modelRender = new ModelRender({/* options */}, document.getElementById("myBlockContainer"));
 modelRender.render(["block/</code><span id="js-example-block" style="font-weight: bold"><code>stone</code></span><code class="language-javascript">"]);</code></pre>
                         </div>
@@ -478,7 +482,9 @@ modelRender.render(["block/</code><span id="js-example-block" style="font-weight
 
                         <br/>
                         <div class="row">
+                            <pre><code class="language-markup">&lt;script src=&quot;https://code.jquery.com/jquery-<span class="jquery-version"></span>.min.js&quot; integrity=&quot;<span class="jquery-hash"></span>&quot; crossorigin=&quot;anonymous&quot;&gt;&lt;/script&gt;</code></pre>
                             <pre><code class="language-markup">&lt;script src="https://minerender.org/dist/model.min.js"&gt;&lt;/script&gt;</code></pre>
+                            <br/>
                             <pre><code class="language-javascript">var modelRender = new ModelRender({/* options */}, document.getElementById("myItemContainer"));
 modelRender.render(["item/</code><span id="js-example-item" style="font-weight: bold"><code>diamond_axe</code></span><code class="language-javascript">"]);</code></pre>
                         </div>
@@ -505,7 +511,9 @@ modelRender.render(["item/</code><span id="js-example-item" style="font-weight: 
 
                         <br/>
                         <div class="row">
+                            <pre><code class="language-markup">&lt;script src=&quot;https://code.jquery.com/jquery-<span class="jquery-version"></span>.min.js&quot; integrity=&quot;<span class="jquery-hash"></span>&quot; crossorigin=&quot;anonymous&quot;&gt;&lt;/script&gt;</code></pre>
                             <pre><code class="language-markup">&lt;script src="https://minerender.org/dist/gui.min.js"&gt;&lt;/script&gt;</code></pre>
+                            <br/>
                             <pre><code class="language-javascript">var guiRender = new GuiRender({/* options */}, document.getElementById("myGuiContainer"));
 var gui = [
         {
@@ -565,7 +573,7 @@ guiRender.render(gui);</code></pre>
             </div>
         </div>
 
-        <!-- GUI Instructions -->
+        <!-- Recipe Instructions -->
         <div id="recipe-modal" class="modal bottom-sheet">
             <div class="modal-content">
                 <h4 class="center">Recipes</h4>
@@ -575,7 +583,9 @@ guiRender.render(gui);</code></pre>
 
                         <br/>
                         <div class="row">
+                            <pre><code class="language-markup">&lt;script src=&quot;https://code.jquery.com/jquery-<span class="jquery-version"></span>.min.js&quot; integrity=&quot;<span class="jquery-hash"></span>&quot; crossorigin=&quot;anonymous&quot;&gt;&lt;/script&gt;</code></pre>
                             <pre><code class="language-markup">&lt;script src="https://minerender.org/dist/gui.min.js"&gt;&lt;/script&gt;</code></pre>
+                            <br/>
                             <pre><code class="language-javascript">$.ajax("https://minerender.org/res/mc/assets/minecraft/recipes/rail.json").done(function (recipe) {
     var guiRender = new GuiRender({/* options */}, document.getElementById("myRecipeContainer"));
     guiRender.render(GuiRender.Helper.recipe(recipe, {
@@ -598,6 +608,13 @@ guiRender.render(gui);</code></pre>
         <script src="/js/data.js"></script>
 
         <script>
+            var JQUERY_VERSION = "3.3.1";
+            var JQUERY_HASH = "sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=";
+
+            $(".jquery-version").text(JQUERY_VERSION);
+            $(".jquery-hash").text(JQUERY_HASH);
+
+
             // Showcases
 
             $(document).ready(function () {
@@ -651,12 +668,12 @@ guiRender.render(gui);</code></pre>
                             }
                         }, element[0]);
                         element.on("skinRender", function (e) {
-                           if(e.detail.playerModel){
-                               e.detail.playerModel.rotation.y += 0.01;
-                               e.detail.playerModel.children[2].rotation.z = -0.1;
-                               e.detail.playerModel.children[3].rotation.z = 0.1;
-                               e.detail.playerModel.children[6].rotation.x = 0.1;
-                           }
+                            if (e.detail.playerModel) {
+                                e.detail.playerModel.rotation.y += 0.01;
+                                e.detail.playerModel.children[2].rotation.z = -0.1;
+                                e.detail.playerModel.children[3].rotation.z = 0.1;
+                                e.detail.playerModel.children[6].rotation.x = 0.1;
+                            }
                         })
                         renders[i] = skinRender;
                         (function (i) {
