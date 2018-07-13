@@ -1,31 +1,8 @@
-import { initScene, attachTo } from "../renderBase";
+import { initScene, attachTo, defaultOptions } from "../renderBase";
 
 import GuiRender from "../gui/index";
 import ModelRender from "../model/index";
 import SkinRender from "../skin/index";
-
-let defaultOptions = {
-    showOutlines: false,
-    showAxes: false,
-    showGrid: false,
-    controls: {
-        enabled: true,
-        zoom: true,
-        rotate: true,
-        pan: true
-    },
-    camera: {
-        type: "perspective",
-        x: 20,
-        y: 20,
-        z: 20,
-        target: [0, 0, 0]
-    },
-    canvas: {
-        width: undefined,
-        height: undefined
-    },
-};
 
 function CombinedRender(options, element) {
     this.options = Object.assign({}, defaultOptions, options);
