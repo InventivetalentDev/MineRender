@@ -2,6 +2,7 @@ import OrbitControls from "./lib/OrbitControls";
 import { SSAARenderPass } from "threejs-ext";
 import EffectComposer, { ShaderPass, CopyShader } from "@johh/three-effectcomposer";
 import * as THREE from "three";
+import OnScreen from "onscreen";
 
 export const defaultOptions = {
     showAxes: false,
@@ -23,7 +24,8 @@ export const defaultOptions = {
     canvas: {
         width: undefined,
         height: undefined
-    }
+    },
+    pauseHidden: true
 };
 
 export function initScene(renderObj, renderCb, doNotAnimate) {
@@ -119,14 +121,31 @@ export function initScene(renderObj, renderCb, doNotAnimate) {
     let animate = function () {
         renderObj._animId = requestAnimationFrame(animate);
 
-        if (typeof renderCb === "function") renderCb();
+        if (renderObj.onScreen) {
+            if (typeof renderCb === "function") renderCb();
 
-        composer.render();
+            composer.render();
+        }
     };
     renderObj._animate = animate;
 
     if (!doNotAnimate) {
         animate();
+    }
+
+    renderObj.onScreen = true;// default to true, in case the checking is disabled
+    let id = "minerender-canvas-" + renderObj._scene.uuid + "-" + Date.now();
+    renderObj._canvas.id = id;
+    if (renderObj.options.pauseHidden) {
+        renderObj.onScreen = false;// set to false if the check is enabled
+        let os = new OnScreen();
+
+        os.on("enter", "#" + id, (element, event) => {
+            renderObj.onScreen = true;
+        })
+        os.on("leave", "#" + id, (element, event) => {
+            renderObj.onScreen = false;
+        });
     }
 };
 
