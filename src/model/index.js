@@ -431,7 +431,7 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                             let material = new THREE.MeshBasicMaterial({
                                 map: texture,
                                 transparent: true,
-                                side: THREE.FrontSide,
+                                side: THREE.DoubleSide,
                                 alphaTest: 0.5
                             });
 
