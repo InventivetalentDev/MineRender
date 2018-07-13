@@ -1,0 +1,7 @@
+langage: node_js
+before_script:
+  - npm install
+script: npm run build
+cache:
+  directories:
+    - "node_modules"
