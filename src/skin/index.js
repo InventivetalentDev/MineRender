@@ -22,10 +22,6 @@ function SkinRender(options, element) {
     this._animId = -1;
 
     this.options = Object.assign({}, defaultOptions, defOptions, options);
-    if (!OrbitControls) {
-        console.warn("OrbitControls not found. Disabling skin controls.");
-        this.options.controls.enabled = false;
-    }
 
     // bind this renderer to the element
     this.element.skinRender = this;
