@@ -19,7 +19,6 @@ function SkinRender(options, element) {
     console.log(options);
 
     this.element = element || document.body;
-    this._element = element || window.document.body;
     this._animId = -1;
 
     this.options = Object.assign({}, defaultOptions, defOptions, options);
@@ -29,7 +28,7 @@ function SkinRender(options, element) {
     }
 
     // bind this renderer to the element
-    this._element.skinRender = this;
+    this.element.skinRender = this;
     this.attached = false;
 }
 
