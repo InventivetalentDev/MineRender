@@ -1,5 +1,7 @@
 <?php
 
+header("Access-Control-Allow-Origin: *");
+
 if (!$_GET["url"]) {
     die(404);
 }
