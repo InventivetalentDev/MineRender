@@ -61,7 +61,7 @@
             e.g.    https://skinrender.ga/embed/?skin.name=inventivetalent&controls.zoom=false&controls.pan=false&camera.position=20,35,20&shadow=true&autoResize=true
                     https://skinrender.ga/embed/?skin.name=inventivetalent&controls.zoom=false&controls.pan=false&camera.position=-18,35,18&shadow=true
              */
-            (function () {
+            $(document).ready(function () {
                 var url = new URL(window.location.href);
                 console.log(url);
                 var params = url.searchParams;
@@ -131,7 +131,7 @@
                     }
                 });
 
-            })();
+            })
         </script>
     </body>
 </html>

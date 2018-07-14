@@ -58,7 +58,7 @@
             shadow              enable drop shadow
             autoResize          auto resize the canvas
              */
-            (function () {
+            $(document).ready(function () {
                 var url = new URL(window.location.href);
                 console.log(url);
                 var params = url.searchParams;
@@ -113,7 +113,7 @@
                     }
                 });
 
-            })();
+            })
         </script>
     </body>
 </html>
