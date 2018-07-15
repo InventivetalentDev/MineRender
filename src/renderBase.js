@@ -6,6 +6,8 @@ import OnScreen from "onscreen";
 
 export const DEFAULT_ROOT = "https://minerender.org/res/mc";
 
+const textureCache = {};
+
 export const defaultOptions = {
     showAxes: false,
     showGrid: false,
@@ -164,6 +166,11 @@ export function loadTextureAsBase64(root, namespace, dir, name) {
 function loadTexture(root, namespace, dir, name, resolve, reject) {
     let path = root + "/assets/" + namespace + "/textures" + dir + name + ".png";
 
+    if (textureCache.hasOwnProperty(path)) {
+        resolve(textureCache[path]);
+        return;
+    }
+
     // https://gist.github.com/oliyh/db3d1a582aefe6d8fee9 / https://stackoverflow.com/questions/20035615/using-raw-image-data-from-ajax-request-for-data-uri
     let xhr = new XMLHttpRequest();
     xhr.open('GET', path, true);
@@ -174,6 +181,9 @@ function loadTexture(root, namespace, dir, name, resolve, reject) {
             let raw = String.fromCharCode.apply(null, arr);
             let b64 = btoa(raw);
             let dataURL = "data:image/png;base64," + b64;
+
+            textureCache[path] = dataURL;
+
             resolve(dataURL);
         } else {
             loadTexture(DEFAULT_ROOT, namespace, dir, name, resolve, reject)
