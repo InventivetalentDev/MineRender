@@ -42,25 +42,116 @@
                 window.modelRender = new ModelRender({
                     showAxes: true,
                     showGrid: false,
-                    showOutlines: false,
+                    showOutlines: true,
                     centerCubes: true,
-                    assetRoot: "/res/rp/bdcraft512"
+                    camera: {
+                        type: "perspective",
+                        x: 150,
+                        y: 60,
+                        z: 150,
+                        target: [0, 0, 0]
+                    }
+                    // assetRoot: "/res/rp/bdcraft512"
                 });
 
-                let multiBlock = [];
+                let multiBlock = [{"blockstate": "purpur_block", "offset": [16, 0, 16]}, {"blockstate": "purpur_block", "offset": [32, 0, 16]}, {"blockstate": "purpur_block", "offset": [48, 0, 16]}, {"blockstate": "purpur_block", "offset": [64, 0, 16]}, {"blockstate": "purpur_block", "offset": [80, 0, 16]}, {"blockstate": "purpur_block", "offset": [96, 0, 16]}, {
+                    "blockstate": "purpur_block",
+                    "offset": [112, 0, 16]
+                }, {"blockstate": "purpur_block", "offset": [128, 0, 16]}, {"blockstate": "purpur_pillar", "variant": "axis=y", "offset": [16, 16, 16]}, {"blockstate": "end_bricks", "offset": [32, 16, 16]}, {"blockstate": "end_bricks", "offset": [48, 16, 16]}, {"blockstate": "end_bricks", "offset": [64, 16, 16]}, {"blockstate": "end_bricks", "offset": [80, 16, 16]}, {
+                    "blockstate": "end_bricks",
+                    "offset": [96, 16, 16]
+                }, {"blockstate": "end_bricks", "offset": [112, 16, 16]}, {"blockstate": "purpur_pillar", "variant": "axis=y", "offset": [128, 16, 16]}, {"blockstate": "purpur_pillar", "variant": "axis=y", "offset": [16, 32, 16]}, {"blockstate": "end_bricks", "offset": [32, 32, 16]}, {"blockstate": "end_bricks", "offset": [64, 32, 16]}, {
+                    "blockstate": "end_bricks",
+                    "offset": [80, 32, 16]
+                }, {"blockstate": "end_bricks", "offset": [112, 32, 16]}, {"blockstate": "purpur_pillar", "variant": "axis=y", "offset": [128, 32, 16]}, {"blockstate": "purpur_pillar", "variant": "axis=y", "offset": [16, 48, 16]}, {"blockstate": "end_bricks", "offset": [32, 48, 16]}, {"blockstate": "end_bricks", "offset": [64, 48, 16]}, {
+                    "blockstate": "end_bricks",
+                    "offset": [80, 48, 16]
+                }, {"blockstate": "end_bricks", "offset": [112, 48, 16]}, {"blockstate": "purpur_pillar", "variant": "axis=y", "offset": [128, 48, 16]}, {"blockstate": "purpur_block", "offset": [16, 0, 32]}, {"blockstate": "purpur_block", "offset": [32, 0, 32]}, {"blockstate": "purpur_block", "offset": [48, 0, 32]}, {
+                    "blockstate": "purpur_block",
+                    "offset": [64, 0, 32]
+                }, {"blockstate": "purpur_block", "offset": [80, 0, 32]}, {"blockstate": "purpur_block", "offset": [96, 0, 32]}, {"blockstate": "purpur_block", "offset": [112, 0, 32]}, {"blockstate": "purpur_block", "offset": [128, 0, 32]}, {"blockstate": "end_bricks", "offset": [16, 16, 32]}, {"blockstate": "end_bricks", "offset": [128, 16, 32]}, {
+                    "blockstate": "end_bricks",
+                    "offset": [16, 32, 32]
+                }, {"blockstate": "end_bricks", "offset": [128, 32, 32]}, {"blockstate": "end_bricks", "offset": [16, 48, 32]}, {"blockstate": "end_bricks", "offset": [128, 48, 32]}, {"blockstate": "purpur_block", "offset": [16, 0, 48]}, {"blockstate": "purpur_block", "offset": [32, 0, 48]}, {"blockstate": "purpur_block", "offset": [48, 0, 48]}, {
+                    "blockstate": "purpur_block",
+                    "offset": [64, 0, 48]
+                }, {"blockstate": "purpur_block", "offset": [80, 0, 48]}, {"blockstate": "purpur_block", "offset": [96, 0, 48]}, {"blockstate": "purpur_block", "offset": [112, 0, 48]}, {"blockstate": "purpur_block", "offset": [128, 0, 48]}, {"blockstate": "end_bricks", "offset": [16, 16, 48]}, {"blockstate": "end_bricks", "offset": [128, 16, 48]}, {
+                    "blockstate": "purpur_block",
+                    "offset": [16, 0, 64]
+                }, {"blockstate": "purpur_block", "offset": [32, 0, 64]}, {"blockstate": "purpur_block", "offset": [48, 0, 64]}, {"blockstate": "purpur_block", "offset": [64, 0, 64]}, {"blockstate": "purpur_block", "offset": [80, 0, 64]}, {"blockstate": "purpur_block", "offset": [96, 0, 64]}, {"blockstate": "purpur_block", "offset": [112, 0, 64]}, {
+                    "blockstate": "purpur_block",
+                    "offset": [128, 0, 64]
+                }, {"blockstate": "end_bricks", "offset": [16, 16, 64]}, {"blockstate": "end_bricks", "offset": [128, 16, 64]}, {"blockstate": "end_bricks", "offset": [16, 32, 64]}, {"blockstate": "end_bricks", "offset": [128, 32, 64]}, {"blockstate": "end_bricks", "offset": [16, 48, 64]}, {"blockstate": "end_bricks", "offset": [128, 48, 64]}, {
+                    "blockstate": "purpur_block",
+                    "offset": [16, 0, 80]
+                }, {"blockstate": "purpur_block", "offset": [32, 0, 80]}, {"blockstate": "purpur_block", "offset": [48, 0, 80]}, {"blockstate": "purpur_block", "offset": [64, 0, 80]}, {"blockstate": "purpur_block", "offset": [80, 0, 80]}, {"blockstate": "purpur_block", "offset": [96, 0, 80]}, {"blockstate": "purpur_block", "offset": [112, 0, 80]}, {
+                    "blockstate": "purpur_block",
+                    "offset": [128, 0, 80]
+                }, {"blockstate": "end_bricks", "offset": [16, 16, 80]}, {"blockstate": "end_bricks", "offset": [128, 16, 80]}, {"blockstate": "end_bricks", "offset": [16, 32, 80]}, {"blockstate": "end_bricks", "offset": [128, 32, 80]}, {"blockstate": "end_bricks", "offset": [16, 48, 80]}, {"blockstate": "end_bricks", "offset": [128, 48, 80]}, {
+                    "blockstate": "purpur_block",
+                    "offset": [16, 0, 96]
+                }, {"blockstate": "purpur_block", "offset": [32, 0, 96]}, {"blockstate": "purpur_block", "offset": [48, 0, 96]}, {"blockstate": "purpur_block", "offset": [64, 0, 96]}, {"blockstate": "purpur_block", "offset": [80, 0, 96]}, {"blockstate": "purpur_block", "offset": [96, 0, 96]}, {"blockstate": "purpur_block", "offset": [112, 0, 96]}, {
+                    "blockstate": "purpur_block",
+                    "offset": [128, 0, 96]
+                }, {"blockstate": "end_bricks", "offset": [16, 16, 96]}, {"blockstate": "end_bricks", "offset": [128, 16, 96]}, {"blockstate": "purpur_block", "offset": [16, 0, 112]}, {"blockstate": "purpur_block", "offset": [32, 0, 112]}, {"blockstate": "purpur_block", "offset": [48, 0, 112]}, {"blockstate": "purpur_block", "offset": [64, 0, 112]}, {
+                    "blockstate": "purpur_block",
+                    "offset": [80, 0, 112]
+                }, {"blockstate": "purpur_block", "offset": [96, 0, 112]}, {"blockstate": "purpur_block", "offset": [112, 0, 112]}, {"blockstate": "purpur_block", "offset": [128, 0, 112]}, {"blockstate": "end_bricks", "offset": [16, 16, 112]}, {"blockstate": "end_bricks", "offset": [128, 16, 112]}, {"blockstate": "end_bricks", "offset": [16, 32, 112]}, {
+                    "blockstate": "end_bricks",
+                    "offset": [128, 32, 112]
+                }, {"blockstate": "end_bricks", "offset": [16, 48, 112]}, {"blockstate": "end_bricks", "offset": [128, 48, 112]}, {"blockstate": "purpur_block", "offset": [16, 0, 128]}, {"blockstate": "purpur_block", "offset": [32, 0, 128]}, {"blockstate": "purpur_block", "offset": [48, 0, 128]}, {"blockstate": "purpur_block", "offset": [64, 0, 128]}, {
+                    "blockstate": "purpur_block",
+                    "offset": [80, 0, 128]
+                }, {"blockstate": "purpur_block", "offset": [96, 0, 128]}, {"blockstate": "purpur_block", "offset": [112, 0, 128]}, {"blockstate": "purpur_block", "offset": [128, 0, 128]}, {"blockstate": "purpur_pillar", "variant": "axis=y", "offset": [16, 16, 128]}, {"blockstate": "end_bricks", "offset": [32, 16, 128]}, {
+                    "blockstate": "end_bricks",
+                    "offset": [48, 16, 128]
+                }, {"blockstate": "end_bricks", "offset": [96, 16, 128]}, {"blockstate": "end_bricks", "offset": [112, 16, 128]}, {"blockstate": "purpur_pillar", "variant": "axis=y", "offset": [128, 16, 128]}, {"blockstate": "purpur_pillar", "variant": "axis=y", "offset": [16, 32, 128]}, {"blockstate": "end_bricks", "offset": [32, 32, 128]}, {
+                    "blockstate": "end_bricks",
+                    "offset": [48, 32, 128]
+                }, {"blockstate": "end_bricks", "offset": [96, 32, 128]}, {"blockstate": "end_bricks", "offset": [112, 32, 128]}, {"blockstate": "purpur_pillar", "variant": "axis=y", "offset": [128, 32, 128]}, {"blockstate": "purpur_pillar", "variant": "axis=y", "offset": [16, 48, 128]}, {"blockstate": "end_bricks", "offset": [32, 48, 128]}, {
+                    "blockstate": "end_bricks",
+                    "offset": [48, 48, 128]
+                }, {"blockstate": "end_bricks", "offset": [96, 48, 128]}, {"blockstate": "end_bricks", "offset": [112, 48, 128]}, {"blockstate": "purpur_pillar", "variant": "axis=y", "offset": [128, 48, 128]}, {"blockstate": "purpur_block", "offset": [48, 0, 144]}, {"blockstate": "purpur_block", "offset": [64, 0, 144]}, {
+                    "blockstate": "purpur_block",
+                    "offset": [80, 0, 144]
+                }, {"blockstate": "purpur_block", "offset": [96, 0, 144]}, {"blockstate": "structure_block", "variant": "mode=save", "offset": [48, 32, 144]}, {"blockstate": "structure_block", "variant": "mode=save", "offset": [96, 32, 144]}, {"blockstate": "magenta_stained_glass", "variant": "normal", "offset": [48, 32, 16]}, {
+                    "blockstate": "magenta_stained_glass",
+                    "variant": "normal",
+                    "offset": [96, 32, 16]
+                }, {"blockstate": "magenta_stained_glass", "variant": "normal", "offset": [48, 48, 16]}, {"blockstate": "magenta_stained_glass", "variant": "normal", "offset": [96, 48, 16]}, {"blockstate": "magenta_stained_glass", "variant": "normal", "offset": [16, 32, 48]}, {
+                    "blockstate": "magenta_stained_glass",
+                    "variant": "normal",
+                    "offset": [128, 32, 48]
+                }, {"blockstate": "magenta_stained_glass", "variant": "normal", "offset": [16, 48, 48]}, {"blockstate": "magenta_stained_glass", "variant": "normal", "offset": [128, 48, 48]}, {"blockstate": "magenta_stained_glass", "variant": "normal", "offset": [16, 32, 96]}, {
+                    "blockstate": "magenta_stained_glass",
+                    "variant": "normal",
+                    "offset": [128, 32, 96]
+                }, {"blockstate": "magenta_stained_glass", "variant": "normal", "offset": [16, 48, 96]}, {"blockstate": "magenta_stained_glass", "variant": "normal", "offset": [128, 48, 96]}, {"blockstate": "purpur_stairs", "variant": "facing=north,half=bottom,shape=straight", "offset": [32, 0, 144]}, {
+                    "blockstate": "purpur_stairs",
+                    "variant": "facing=north,half=bottom,shape=straight",
+                    "offset": [112, 0, 144]
+                }]
 
-                for (let x = 0; x < 8; x++) {
-                    for (let z = 0; z < 8; z++) {
-                        multiBlock.push({
-                            model: (location.hash.substr(1) || "block/stone"),
-                            offset: [x * 16, 0, z * 16]
-                        })
-                    }
-                }
+                // for (let x = 0; x < 8; x++) {
+                //     for (let z = 0; z < 8; z++) {
+                //         multiBlock.push({
+                //             model: (location.hash.substr(1) || "block/stone"),
+                //             offset: [x * 16, 0, z * 16]
+                //         })
+                //     }
+                // }
 
                 window.modelRender.render(multiBlock, function () {
 
                 });
+
+                // window.modelRender.render([{
+                //     model: "block/purpur_stairs",
+                //     rotation: [0, 180, 0],
+                //     offset: [16, 0, 16]
+                // }], function () {
+                //
+                // });
 
                 // let cancel = false;
                 // document.body.addEventListener("modelRender", function () {

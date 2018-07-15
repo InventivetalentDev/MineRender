@@ -211,13 +211,18 @@ function loadTexture(root, namespace, dir, name, resolve, reject, forceLoad) {
     textureCallbacks[path].push(resolve);
 }
 
+export function loadBlockState(state, assetRoot) {
+    // Not really loading a model here, but the idea is the same
+    return loadModelFromPath(assetRoot, "/assets/minecraft/blockstates/" + state + ".json")
+};
+
 export function loadModelFromPath(root, path) {
     return new Promise((resolve, reject) => {
-        loadModel(root, path, resolve, reject);
+        loadModelFromPath_(root, path, resolve, reject);
     })
 }
 
-function loadModel(root, path, resolve, reject, forceLoad) {
+function loadModelFromPath_(root, path, resolve, reject, forceLoad) {
     if (modelCache.hasOwnProperty(path)) {
         resolve(Object.assign({}, modelCache[path]));
         return;
@@ -239,7 +244,7 @@ function loadModel(root, path, resolve, reject, forceLoad) {
             })
             .fail(() => {
                 // Try again with default root
-                loadModel(DEFAULT_ROOT, path, resolve, reject, true);
+                loadModelFromPath_(DEFAULT_ROOT, path, resolve, reject, true);
             });
 
         if (!modelCallbacks.hasOwnProperty(path))

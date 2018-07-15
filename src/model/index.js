@@ -1,7 +1,8 @@
 import * as THREE from "three";
 import * as $ from 'jquery';
 import mergeDeep from "../lib/merge";
-import { initScene, loadTextureAsBase64, scaleUv, defaultOptions, DEFAULT_ROOT, loadModelFromPath } from "../renderBase";
+import { initScene, loadTextureAsBase64, scaleUv, defaultOptions, DEFAULT_ROOT, loadModelFromPath, loadBlockState } from "../renderBase";
+import ModelConverter from "./modelConverter";
 
 String.prototype.replaceAll = function (search, replacement) {
     let target = this;
@@ -69,10 +70,41 @@ ModelRender.prototype.render = function (models, cb) {
 
             let offset;
             let rotation;
+
+            let doModelLoad = function (model, type) {
+                console.log("Loading model " + model + " of type " + type + "...");
+                loadModel(model, type, modelRender.options.assetRoot)
+                    .then(modelData => mergeParents(modelData, modelRender.options.assetRoot))
+                    .then((mergedModel) => {
+                        console.log("Merged Model: ")
+                        console.log(mergedModel);
+
+                        if (!mergedModel.textures) {
+                            console.warn("The model doesn't have any textures!");
+                            console.warn("Please make sure you're using the proper file.")
+                            console.warn("(e.g. 'grass.json' is invalid - 'grass_normal.json' would be the correct file.");
+                            return;
+                        }
+
+                        loadTextures(mergedModel.textures, modelRender.options.assetRoot).then((textures) => {
+                            console.log(textures);
+
+                            renderModel(modelRender, mergedModel, textures, type, model, offset, rotation).then((renderedModel) => {
+                                modelRender.models.push(renderedModel);
+                                modelRender._scene.add(renderedModel);
+
+                                resolve();
+                            })
+                        });
+                    });
+            };
+
             if (typeof model === "string") {
                 let parsed = parseModelType(model);
                 model = parsed.model;
                 type = parsed.type;
+
+                doModelLoad(model, type);
             } else if (typeof model === "object") {
                 if (model.hasOwnProperty("offset")) {
                     offset = model["offset"];
@@ -81,39 +113,71 @@ ModelRender.prototype.render = function (models, cb) {
                     rotation = model["rotation"];
                 }
 
-                if (model.hasOwnProperty("type")) {
-                    type = model["type"];
-                } else {
-                    let parsed = parseModelType(model["model"]);
-                    model = parsed.model;
-                    type = parsed.type;
+                if (model.hasOwnProperty("model")) {
+                    if (model.hasOwnProperty("type")) {
+                        type = model["type"];
+                    } else {
+                        let parsed = parseModelType(model["model"]);
+                        model = parsed.model;
+                        type = parsed.type;
+                    }
+
+                    doModelLoad(model, type);
+                } else if (model.hasOwnProperty("blockstate")) {
+                    type = "block";
+
+                    loadBlockState(model.blockstate, modelRender.options.assetRoot).then((blockstate) => {
+                        if (blockstate.hasOwnProperty("variants")) {
+
+                            if (model.hasOwnProperty("variant")) {
+                                if (!blockstate.variants.hasOwnProperty(model.variant)) {
+                                    console.warn("Missing variant for " + model.blockstate + ": " + model.variant);
+                                    return;
+                                }
+                                let variant = blockstate.variants[model.variant];
+
+                                rotation = [0, 0, 0];
+                                if (variant.hasOwnProperty("x")) {
+                                    rotation[0] = variant.x;
+                                }
+                                if (variant.hasOwnProperty("y")) {
+                                    rotation[1] = variant.y;
+                                }
+                                if (variant.hasOwnProperty("z")) {// Not actually used by MC, but why not?
+                                    rotation[2] = variant.z;
+                                }
+
+                                doModelLoad(variant.model, "block");
+                            } else {
+                                let variant;
+                                if (blockstate.variants.hasOwnProperty("normal")) {
+                                    variant = blockstate.variants.normal;
+                                } else {
+                                    variant = blockstate.variants[Object.keys(blockstate.variants)[0]]
+                                }
+
+                                rotation = [0, 0, 0];
+                                if (variant.hasOwnProperty("x")) {
+                                    rotation[0] = variant.x;
+                                }
+                                if (variant.hasOwnProperty("y")) {
+                                    rotation[1] = variant.y;
+                                }
+                                if (variant.hasOwnProperty("z")) {// Not actually used by MC, but why not?
+                                    rotation[2] = variant.z;
+                                }
+
+                                doModelLoad(variant.model, "block");
+                            }
+                        } else if (blockstate.hasOwnProperty("multipart")) {
+
+                        }
+                    })
                 }
 
             }
 
 
-            console.log("Loading model " + model + " of type " + type + "...");
-            loadModel(model, type, modelRender.options.assetRoot)
-                .then(modelData => mergeParents(modelData, modelRender.options.assetRoot))
-                .then((mergedModel) => {
-                    console.log("Merged Model: ")
-                    console.log(mergedModel);
-
-                    if (!mergedModel.textures) {
-                        console.warn("The model doesn't have any textures!");
-                        console.warn("Please make sure you're using the proper file.")
-                        console.warn("(e.g. 'grass.json' is invalid - 'grass_normal.json' would be the correct file.");
-                        return;
-                    }
-
-                    loadTextures(mergedModel.textures, modelRender.options.assetRoot).then((textures) => {
-                        console.log(textures);
-
-                        renderModel(modelRender, mergedModel, textures, type, model, offset, rotation).then(() => {
-                            resolve();
-                        })
-                    });
-                });
         }))
     }
 
@@ -230,16 +294,6 @@ let renderModel = function (modelRender, model, textures, type, name, offset, ro
             Promise.all(promises).then((cubes) => {
                 let cubeGroup = new THREE.Object3D();
 
-                if (offset) {
-                    cubeGroup.applyMatrix(new THREE.Matrix4().makeTranslation(offset[0], offset[1], offset[2]))
-                }
-                if (rotation) {
-                    cubeGroup.rotation.set(rotation[0], rotation[1], rotation[2]);
-                }
-
-                if (modelRender.options.centerCubes) {
-                    cubeGroup.applyMatrix(new THREE.Matrix4().makeTranslation(-8, -8, -8));
-                }
 
                 for (let i = 0; i < cubes.length; i++) {
                     cubeGroup.add(cubes[i]);
@@ -268,25 +322,39 @@ let renderModel = function (modelRender, model, textures, type, name, offset, ro
 
                 }
 
+                // Note to self: apply rotation AFTER adding objects to it, or it'll just be ignored
+                if (rotation) {
+                    // cubeGroup.rotation.set(toRadians(rotation[0]), toRadians(rotation[1]), toRadians(rotation[2]));
+                    rotateAboutPoint(cubeGroup,
+                        new THREE.Vector3(8, 8, 8),
+                        new THREE.Vector3(1, 0, 0),
+                        toRadians(360 - rotation[0]));
+                    rotateAboutPoint(cubeGroup,
+                        new THREE.Vector3(8, 8, 8),
+                        new THREE.Vector3(0, 1, 0),
+                        toRadians(360 - rotation[1]));
+                }
+
                 let cubeContainer = new THREE.Object3D();
                 cubeContainer.add(cubeGroup);
 
-                console.log(modelRender);
+                if (modelRender.options.centerCubes) {
+                    cubeContainer.applyMatrix(new THREE.Matrix4().makeTranslation(-8, -8, -8));
+                }
 
-                modelRender._scene.add(cubeContainer);
-                modelRender.models.push(cubeContainer);
+                if (offset) {
+                    cubeContainer.applyMatrix(new THREE.Matrix4().makeTranslation(offset[0], offset[1], offset[2]))
+                }
 
-                console.log("[ModelRender] scene")
-                console.log(modelRender._scene)
+                let cubeContainer2 = new THREE.Object3D();
+                cubeContainer2.add(cubeContainer);
 
-                resolve();
+
+                resolve(cubeContainer2);
             })
         } else {// 2d item
             createPlane(name + "_" + Date.now(), textures).then((plane) => {
-                modelRender._scene.add(plane);
-                modelRender.models.push(plane);
-
-                resolve();
+                resolve(plane);
             })
         }
     })
@@ -668,5 +736,6 @@ function toRadians(angle) {
 ModelRender.prototype.constructor = ModelRender;
 
 window.ModelRender = ModelRender;
+window.ModelConverter = ModelConverter;
 
 export default ModelRender;
