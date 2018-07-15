@@ -172,6 +172,10 @@ function loadTexture(root, namespace, dir, name, resolve, reject, forceLoad) {
     let path = "/assets/" + namespace + "/textures" + dir + name + ".png";
 
     if (textureCache.hasOwnProperty(path)) {
+        if(textureCache[path]==="__invalid"){
+            reject();
+            return;
+        }
         resolve(textureCache[path]);
         return;
     }
@@ -193,11 +197,22 @@ function loadTexture(root, namespace, dir, name, resolve, reject, forceLoad) {
                 if (textureCallbacks.hasOwnProperty(path)) {
                     while (textureCallbacks[path].length > 0) {
                         let cb = textureCallbacks[path].shift(0);
-                        cb(dataURL);
+                        cb[0](dataURL);
                     }
                 }
             } else {
-                loadTexture(DEFAULT_ROOT, namespace, dir, name, resolve, reject, true)
+                if (DEFAULT_ROOT === root) {
+                    textureCache[path] = "__invalid";
+
+                    if (textureCallbacks.hasOwnProperty(path)) {
+                        while (textureCallbacks[path].length > 0) {
+                            let cb = textureCallbacks[path].shift(0);
+                            cb[1]();
+                        }
+                    }
+                } else {
+                    loadTexture(DEFAULT_ROOT, namespace, dir, name, resolve, reject, true)
+                }
             }
         };
         xhr.send();
@@ -208,17 +223,26 @@ function loadTexture(root, namespace, dir, name, resolve, reject, forceLoad) {
     }
 
     // add the promise callback
-    textureCallbacks[path].push(resolve);
+    textureCallbacks[path].push([resolve, reject]);
 }
+
+export function loadBlockState(state, assetRoot) {
+    // Not really loading a model here, but the idea is the same
+    return loadModelFromPath(assetRoot, "/assets/minecraft/blockstates/" + state + ".json")
+};
 
 export function loadModelFromPath(root, path) {
     return new Promise((resolve, reject) => {
-        loadModel(root, path, resolve, reject);
+        loadModelFromPath_(root, path, resolve, reject);
     })
 }
 
-function loadModel(root, path, resolve, reject, forceLoad) {
+function loadModelFromPath_(root, path, resolve, reject, forceLoad) {
     if (modelCache.hasOwnProperty(path)) {
+        if (modelCache[path] === "__invalid") {
+            reject();
+            return;
+        }
         resolve(Object.assign({}, modelCache[path]));
         return;
     }
@@ -226,27 +250,37 @@ function loadModel(root, path, resolve, reject, forceLoad) {
     if (!modelCallbacks.hasOwnProperty(path) || modelCallbacks[path].length === 0 || forceLoad) {
         $.ajax(root + path)
             .done((data) => {
-                console.log(data)
                 modelCache[path] = data;
 
                 if (modelCallbacks.hasOwnProperty(path)) {
                     while (modelCallbacks[path].length > 0) {
                         let dataCopy = Object.assign({}, data);
                         let cb = modelCallbacks[path].shift(0);
-                        cb(dataCopy);
+                        cb[0](dataCopy);
                     }
                 }
             })
             .fail(() => {
-                // Try again with default root
-                loadModel(DEFAULT_ROOT, path, resolve, reject, true);
+                if (DEFAULT_ROOT === root) {
+                    modelCache[path] = "__invalid";
+
+                    if (modelCallbacks.hasOwnProperty(path)) {
+                        while (modelCallbacks[path].length > 0) {
+                            let cb = modelCallbacks[path].shift(0);
+                            cb[1]();
+                        }
+                    }
+                } else {
+                    // Try again with default root
+                    loadModelFromPath_(DEFAULT_ROOT, path, resolve, reject, true);
+                }
             });
 
         if (!modelCallbacks.hasOwnProperty(path))
             modelCallbacks[path] = [];
     }
 
-    modelCallbacks[path].push(resolve);
+    modelCallbacks[path].push([resolve, reject]);
 }
 
 export function scaleUv(uv, size, scale) {

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+    <head>
+
+        <style>
+            body, html {
+                overflow-x: hidden;
+                overflow-y: hidden;
+            }
+
+            body {
+                margin: 0;
+            }
+
+            canvas {
+                width: 100%;
+                height: 100%;
+            }
+        </style>
+    </head>
+    <body>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js" integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4=" crossorigin="anonymous"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/94/three.min.js" integrity="sha256-NGC9JEuTWN4GhTj091wctgjzftr+8WNDmw0H8J5YPYE=" crossorigin="anonymous"></script>
+        <script src="../dist/model.js"></script>
+        <script>
+            (function () {
+
+                window.modelRender = new ModelRender({
+                    showAxes: true,
+                    showGrid: false,
+                    showOutlines: true,
+                    centerCubes: true,
+                    camera: {
+                        type: "perspective",
+                        x: 216.93226417250855, y: 181.735901611866, z: 5.102738160367441,
+                        target: [0, 0, 0]
+                    }
+                })
+
+             let modelConverter = new ModelConverter();
+             modelConverter.structureToModels({
+                 url:"https://minerender.org/res/mc/assets/minecraft/structures/endcity/fat_tower_top.nbt"
+             },function (models) {
+                 console.log(models)
+                 modelRender.render(models,function () {
+                     console.log("rendered!")
+                 })
+             })
+             
+            })();
+        </script>
+    </body>
+</html>
