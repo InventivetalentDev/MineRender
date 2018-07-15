@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import * as $ from 'jquery';
 import mergeDeep from "../lib/merge";
-import { initScene, loadTextureAsBase64, scaleUv, defaultOptions, DEFAULT_ROOT } from "../renderBase";
+import { initScene, loadTextureAsBase64, scaleUv, defaultOptions, DEFAULT_ROOT, loadModelFromPath } from "../renderBase";
 
 String.prototype.replaceAll = function (search, replacement) {
     let target = this;
@@ -96,6 +96,7 @@ ModelRender.prototype.render = function (models, cb) {
             loadModel(model, type, modelRender.options.assetRoot)
                 .then(modelData => mergeParents(modelData, modelRender.options.assetRoot))
                 .then((mergedModel) => {
+                    console.log("Merged Model: ")
                     console.log(mergedModel);
 
                     if (!mergedModel.textures) {
@@ -584,18 +585,9 @@ let loadModel = function (model, type/* block OR item */, assetRoot) {
                     resolve(data);
                 })
             } else {// model name -> use local data
-                let path = assetRoot + "/assets/minecraft/models/" + (type || "block") + "/" + model + ".json";
-                $.ajax(path)
-                    .done((data) => {
-                        resolve(data);
-                    })
-                    .fail(() => {
-                        // Try again with default root
-                        let path = DEFAULT_ROOT + "/assets/minecraft/models/" + (type || "block") + "/" + model + ".json";
-                        $.ajax(path).done((data) => {
-                            resolve(data);
-                        })
-                    })
+                loadModelFromPath(assetRoot, "/assets/minecraft/models/" + (type || "block") + "/" + model + ".json").then((data) => {
+                    resolve(data);
+                })
             }
         } else if (typeof model === "object") {// JSON object
             resolve(model);
@@ -664,22 +656,10 @@ let mergeParents_ = function (model, stack, assetRoot, resolve, reject) {
     let parent = model["parent"];
     delete model["parent"];// remove the child's parent so it will be replaced by the parent's parent
 
-    let path = assetRoot + "/assets/minecraft/models/" + parent + ".json";
-    $.ajax(path)
-        .done((parentData) => {
-            let mergedModel = Object.assign({}, model, parentData);
-            mergeParents_(mergedModel, stack, assetRoot, resolve, reject);
-        })
-        .fail(() => {
-            // Try again with the default root
-            let path = DEFAULT_ROOT + "/assets/minecraft/models/" + parent + ".json";
-            $.ajax(path)
-                .done((parentData) => {
-                    let mergedModel = Object.assign({}, model, parentData);
-                    mergeParents_(mergedModel, stack, assetRoot, resolve, reject);
-                })
-
-        })
+    loadModelFromPath(assetRoot, "/assets/minecraft/models/" + parent + ".json").then((parentData)=>{
+        let mergedModel = Object.assign({}, model, parentData);
+        mergeParents_(mergedModel, stack, assetRoot, resolve, reject);
+    })
 
 };
 

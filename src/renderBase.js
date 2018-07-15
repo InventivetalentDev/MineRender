@@ -3,10 +3,15 @@ import { SSAARenderPass } from "threejs-ext";
 import EffectComposer, { ShaderPass, CopyShader } from "@johh/three-effectcomposer";
 import * as THREE from "three";
 import OnScreen from "onscreen";
+import * as $ from "jquery";
 
 export const DEFAULT_ROOT = "https://minerender.org/res/mc";
 
 const textureCache = {};
+const textureCallbacks = {};
+
+const modelCache = {};
+const modelCallbacks = {};
 
 export const defaultOptions = {
     showAxes: false,
@@ -163,33 +168,85 @@ export function loadTextureAsBase64(root, namespace, dir, name) {
     })
 };
 
-function loadTexture(root, namespace, dir, name, resolve, reject) {
-    let path = root + "/assets/" + namespace + "/textures" + dir + name + ".png";
+function loadTexture(root, namespace, dir, name, resolve, reject, forceLoad) {
+    let path = "/assets/" + namespace + "/textures" + dir + name + ".png";
 
     if (textureCache.hasOwnProperty(path)) {
         resolve(textureCache[path]);
         return;
     }
 
-    // https://gist.github.com/oliyh/db3d1a582aefe6d8fee9 / https://stackoverflow.com/questions/20035615/using-raw-image-data-from-ajax-request-for-data-uri
-    let xhr = new XMLHttpRequest();
-    xhr.open('GET', path, true);
-    xhr.responseType = 'arraybuffer';
-    xhr.onloadend = function () {
-        if (xhr.status === 200) {
-            let arr = new Uint8Array(this.response);
-            let raw = String.fromCharCode.apply(null, arr);
-            let b64 = btoa(raw);
-            let dataURL = "data:image/png;base64," + b64;
+    if (!textureCallbacks.hasOwnProperty(path) || textureCallbacks[path].length === 0 || forceLoad) {
+        // https://gist.github.com/oliyh/db3d1a582aefe6d8fee9 / https://stackoverflow.com/questions/20035615/using-raw-image-data-from-ajax-request-for-data-uri
+        let xhr = new XMLHttpRequest();
+        xhr.open('GET', root + path, true);
+        xhr.responseType = 'arraybuffer';
+        xhr.onloadend = function () {
+            if (xhr.status === 200) {
+                let arr = new Uint8Array(this.response);
+                let raw = String.fromCharCode.apply(null, arr);
+                let b64 = btoa(raw);
+                let dataURL = "data:image/png;base64," + b64;
 
-            textureCache[path] = dataURL;
+                textureCache[path] = dataURL;
 
-            resolve(dataURL);
-        } else {
-            loadTexture(DEFAULT_ROOT, namespace, dir, name, resolve, reject)
-        }
-    };
-    xhr.send();
+                if (textureCallbacks.hasOwnProperty(path)) {
+                    while (textureCallbacks[path].length > 0) {
+                        let cb = textureCallbacks[path].shift(0);
+                        cb(dataURL);
+                    }
+                }
+            } else {
+                loadTexture(DEFAULT_ROOT, namespace, dir, name, resolve, reject, true)
+            }
+        };
+        xhr.send();
+
+        // init array
+        if (!textureCallbacks.hasOwnProperty(path))
+            textureCallbacks[path] = [];
+    }
+
+    // add the promise callback
+    textureCallbacks[path].push(resolve);
+}
+
+export function loadModelFromPath(root, path) {
+    return new Promise((resolve, reject) => {
+        loadModel(root, path, resolve, reject);
+    })
+}
+
+function loadModel(root, path, resolve, reject, forceLoad) {
+    if (modelCache.hasOwnProperty(path)) {
+        resolve(Object.assign({}, modelCache[path]));
+        return;
+    }
+
+    if (!modelCallbacks.hasOwnProperty(path) || modelCallbacks[path].length === 0 || forceLoad) {
+        $.ajax(root + path)
+            .done((data) => {
+                console.log(data)
+                modelCache[path] = data;
+
+                if (modelCallbacks.hasOwnProperty(path)) {
+                    while (modelCallbacks[path].length > 0) {
+                        let dataCopy = Object.assign({}, data);
+                        let cb = modelCallbacks[path].shift(0);
+                        cb(dataCopy);
+                    }
+                }
+            })
+            .fail(() => {
+                // Try again with default root
+                loadModel(DEFAULT_ROOT, path, resolve, reject, true);
+            });
+
+        if (!modelCallbacks.hasOwnProperty(path))
+            modelCallbacks[path] = [];
+    }
+
+    modelCallbacks[path].push(resolve);
 }
 
 export function scaleUv(uv, size, scale) {

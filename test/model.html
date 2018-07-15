@@ -47,17 +47,20 @@
                     assetRoot: "/res/rp/bdcraft512"
                 });
 
-                window.modelRender.render([
-                    {
-                        // model: "block/orange_tulip"
-                        // model:"block/normal_torch"
-                        // model:"block/black_stained_glass_pane_side",
-                        model: (location.hash.substr(1) || "block/stone")
+                let multiBlock = [];
+
+                for (let x = 0; x < 8; x++) {
+                    for (let z = 0; z < 8; z++) {
+                        multiBlock.push({
+                            model: (location.hash.substr(1) || "block/stone"),
+                            offset: [x * 16, 0, z * 16]
+                        })
                     }
-                ], function () {
+                }
+
+                window.modelRender.render(multiBlock, function () {
 
                 });
-
 
                 // let cancel = false;
                 // document.body.addEventListener("modelRender", function () {
