@@ -332,7 +332,8 @@ let createPlane = function (name, textures) {
                 }
 
 
-                let texture = new THREE.TextureLoader().load(canvas.toDataURL("image/png"), function () {
+                //TODO: figure out a good way to cache these
+                new THREE.TextureLoader().load(canvas.toDataURL("image/png"), function (texture) {
                     texture.magFilter = THREE.NearestFilter;
                     texture.minFilter = THREE.NearestFilter;
                     texture.anisotropy = 0;
@@ -423,7 +424,9 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                             // context.globalAlpha = 1.0;
                         }
 
-                        let textureLoaded = function (texture) {
+
+                        // TODO: figure out a good way to cache these
+                        new THREE.TextureLoader().load(canvas.toDataURL("image/png"), function (texture) {
                             texture.magFilter = THREE.NearestFilter;
                             texture.minFilter = THREE.NearestFilter;
                             texture.anisotropy = 0;
@@ -437,13 +440,7 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                             });
 
                             resolve(material);
-                        };
-
-                        if (textureCache.hasOwnProperty(textureRef)) {
-                            textureLoaded(textureCache[textureRef])
-                        } else {
-                            textureCache[textureRef] = new THREE.TextureLoader().load(canvas.toDataURL("image/png"), textureLoaded);
-                        }
+                        });
                     };
                     img.src = textures[textureRef];
 
@@ -656,7 +653,7 @@ let mergeParents_ = function (model, stack, assetRoot, resolve, reject) {
     let parent = model["parent"];
     delete model["parent"];// remove the child's parent so it will be replaced by the parent's parent
 
-    loadModelFromPath(assetRoot, "/assets/minecraft/models/" + parent + ".json").then((parentData)=>{
+    loadModelFromPath(assetRoot, "/assets/minecraft/models/" + parent + ".json").then((parentData) => {
         let mergedModel = Object.assign({}, model, parentData);
         mergeParents_(mergedModel, stack, assetRoot, resolve, reject);
     })
