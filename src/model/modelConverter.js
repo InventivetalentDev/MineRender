@@ -114,12 +114,12 @@ function parseStructureData(data) {
                         variantString = "normal";
                     }
 
-                    let block = {
-                        blockstate: shortBlockType,
-                        variant: variantString,
-                        offset: [pos[0] * 16, pos[1] * 16, pos[2] * 16]
-                    };
-                    arr.push(block)
+                        let block = {
+                            blockstate: shortBlockType,
+                            variant: variantString,
+                            offset: [pos[0] * 16, pos[1] * 16, pos[2] * 16]
+                        };
+                        arr.push(block)
                 }
 
                 resolve(arr);

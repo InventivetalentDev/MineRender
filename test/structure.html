@@ -25,23 +25,21 @@
         <script>
             (function () {
 
-                let modelRender = new ModelRender({
+                window.modelRender = new ModelRender({
                     showAxes: true,
                     showGrid: false,
                     showOutlines: true,
                     centerCubes: true,
                     camera: {
                         type: "perspective",
-                        x: 150,
-                        y: 60,
-                        z: 150,
+                        x: 216.93226417250855, y: 181.735901611866, z: 5.102738160367441,
                         target: [0, 0, 0]
                     }
                 })
 
              let modelConverter = new ModelConverter();
              modelConverter.structureToModels({
-                 url:"https://minerender.org/res/mc/assets/minecraft/structures/mansion/indoors_door.nbt"
+                 url:"https://minerender.org/res/mc/assets/minecraft/structures/endcity/fat_tower_top.nbt"
              },function (models) {
                  console.log(models)
                  modelRender.render(models,function () {

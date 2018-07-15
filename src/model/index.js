@@ -274,8 +274,8 @@ let renderModel = function (modelRender, model, textures, type, name, offset, ro
                         name.replaceAll(" ", "_").replaceAll("-", "_").toLowerCase() + "_" + (element.__comment ? element.__comment.replaceAll(" ", "_").replaceAll("-", "_").toLowerCase() + "_" : "") + Date.now(),
                         element.faces, fallbackFaces, textures)
                         .then((cube) => {
-                            cube.applyMatrix(new THREE.Matrix4().makeTranslation(element.from[0], element.from[1], element.from[2]));
                             cube.applyMatrix(new THREE.Matrix4().makeTranslation((element.to[0] - element.from[0]) / 2, (element.to[1] - element.from[1]) / 2, (element.to[2] - element.from[2]) / 2));
+                            cube.applyMatrix(new THREE.Matrix4().makeTranslation(element.from[0], element.from[1], element.from[2]));
 
                             if (element.rotation) {
                                 rotateAboutPoint(cube,
@@ -322,35 +322,36 @@ let renderModel = function (modelRender, model, textures, type, name, offset, ro
 
                 }
 
+
+                let centerContainer = new THREE.Object3D();
+                centerContainer.add(cubeGroup);
+
+                centerContainer.applyMatrix(new THREE.Matrix4().makeTranslation(-8, -8, -8));
+
                 // Note to self: apply rotation AFTER adding objects to it, or it'll just be ignored
-                if (rotation) {
-                    // cubeGroup.rotation.set(toRadians(rotation[0]), toRadians(rotation[1]), toRadians(rotation[2]));
-                    rotateAboutPoint(cubeGroup,
-                        new THREE.Vector3(8, 8, 8),
-                        new THREE.Vector3(1, 0, 0),
-                        toRadians(360 - rotation[0]));
-                    rotateAboutPoint(cubeGroup,
-                        new THREE.Vector3(8, 8, 8),
-                        new THREE.Vector3(0, 1, 0),
-                        toRadians(360 - rotation[1]));
-                }
 
-                let cubeContainer = new THREE.Object3D();
-                cubeContainer.add(cubeGroup);
 
-                if (modelRender.options.centerCubes) {
-                    cubeContainer.applyMatrix(new THREE.Matrix4().makeTranslation(-8, -8, -8));
-                }
+                // if (modelRender.options.centerCubes) {
+                //     cubeContainer.applyMatrix(new THREE.Matrix4().makeTranslation(-8, -8, -8));
+                // }
+
+
+                let rotationContainer = new THREE.Object3D();
+                rotationContainer.add(centerContainer);
 
                 if (offset) {
-                    cubeContainer.applyMatrix(new THREE.Matrix4().makeTranslation(offset[0], offset[1], offset[2]))
+                    rotationContainer.applyMatrix(new THREE.Matrix4().makeTranslation(offset[0], offset[1], offset[2]))
                 }
 
-                let cubeContainer2 = new THREE.Object3D();
-                cubeContainer2.add(cubeContainer);
+                if(rotation){
+                    rotationContainer.rotation.set(toRadians(rotation[0]), toRadians(Math.abs(rotation[0]) > 0 ? rotation[1] : -rotation[1]), toRadians(rotation[2]));
+                }
 
 
-                resolve(cubeContainer2);
+
+
+
+                resolve(rotationContainer);
             })
         } else {// 2d item
             createPlane(name + "_" + Date.now(), textures).then((plane) => {
@@ -358,6 +359,13 @@ let renderModel = function (modelRender, model, textures, type, name, offset, ro
             })
         }
     })
+};
+
+let createDot = function (c) {
+    let dotGeometry = new THREE.Geometry();
+    dotGeometry.vertices.push(new THREE.Vector3());
+    let dotMaterial = new THREE.PointsMaterial({size: 5, sizeAttenuation: false, color: c});
+    return new THREE.Points(dotGeometry, dotMaterial);
 };
 
 let createPlane = function (name, textures) {
@@ -425,6 +433,10 @@ let createPlane = function (name, textures) {
 
 /// From https://github.com/InventivetalentDev/SkinRender/blob/master/js/render/skin.js#L353
 let createCube = function (width, height, depth, name, faces, fallbackFaces, textures) {
+    console.log("w:" + width);
+    console.log("h:" + height);
+    console.log("d:" + depth)
+
     return new Promise((resolve) => {
         let geometry = new THREE.BoxGeometry(width, height, depth);
 
