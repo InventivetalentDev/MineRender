@@ -26,6 +26,8 @@ const colors = [
 const FACE_ORDER = ["east", "west", "up", "down", "south", "north"];
 const TINTS = ["lightgreen"];
 
+const textureCache = {};
+
 let defOptions = {
     camera: {
         type: "perspective",
@@ -420,7 +422,7 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                             // context.globalAlpha = 1.0;
                         }
 
-                        let texture = new THREE.TextureLoader().load(canvas.toDataURL("image/png"), function () {
+                        let textureLoaded = function (texture) {
                             texture.magFilter = THREE.NearestFilter;
                             texture.minFilter = THREE.NearestFilter;
                             texture.anisotropy = 0;
@@ -433,10 +435,14 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                                 alphaTest: 0.5
                             });
 
-                            // mapUV(geometry, texture, face, i);
-
                             resolve(material);
-                        });
+                        };
+
+                        if (textureCache.hasOwnProperty(textureRef)) {
+                            textureLoaded(textureCache[textureRef])
+                        } else {
+                            textureCache[textureRef] = new THREE.TextureLoader().load(canvas.toDataURL("image/png"), textureLoaded);
+                        }
                     };
                     img.src = textures[textureRef];
 
