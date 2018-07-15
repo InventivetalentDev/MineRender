@@ -4,7 +4,7 @@ import EffectComposer, { ShaderPass, CopyShader } from "@johh/three-effectcompos
 import * as THREE from "three";
 import OnScreen from "onscreen";
 
-const DEFAULT_ROOT = "https://minerender.org/res/mc";
+export const DEFAULT_ROOT = "https://minerender.org/res/mc";
 
 export const defaultOptions = {
     showAxes: false,

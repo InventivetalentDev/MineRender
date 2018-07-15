@@ -1,10 +1,9 @@
 import * as THREE from "three";
-import { loadTextureAsBase64, initScene, defaultOptions, scaleUv } from "../renderBase";
+import { loadTextureAsBase64, initScene, defaultOptions, scaleUv, DEFAULT_ROOT } from "../renderBase";
 import guiPositions from "./guiPositions";
 import guiHelper from "./guiHelper";
 
 let LAYER_OFFSET = 0.5;
-const DEFAULT_ROOT = "https://minerender.org/res/mc";
 
 let defOptions = {
     controls: {

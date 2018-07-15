@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import * as $ from 'jquery';
 import mergeDeep from "../lib/merge";
-import { initScene, loadTextureAsBase64, scaleUv, defaultOptions } from "../renderBase";
+import { initScene, loadTextureAsBase64, scaleUv, defaultOptions, DEFAULT_ROOT } from "../renderBase";
 
 String.prototype.replaceAll = function (search, replacement) {
     let target = this;
@@ -25,7 +25,6 @@ const colors = [
 
 const FACE_ORDER = ["east", "west", "up", "down", "south", "north"];
 const TINTS = ["lightgreen"];
-const DEFAULT_ROOT = "https://minerender.org/res/mc";
 
 let defOptions = {
     camera: {
