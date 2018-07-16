@@ -461,7 +461,7 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                     img.onload = function () {
                         let uv = face.uv;
                         if (!uv) {
-                            console.warn("Missing UV mapping for face " + f + " in model " + name + ". Using defaults");
+                            // console.warn("Missing UV mapping for face " + f + " in model " + name + ". Using defaults");
                             uv = fallbackFaces[f].uv;
                         }
 
