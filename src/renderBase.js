@@ -39,6 +39,11 @@ export const defaultOptions = {
 };
 
 export function initScene(renderObj, renderCb, doNotAnimate) {
+    console.log("Initializing Scene...");
+    console.log("MineRender/" + renderObj.constructor.name);
+    console.log((PRODUCTION ? "PRODUCTION" : "DEVELOPMENT") + " build");
+    console.log("Built @ " + BUILD_DATE);
+
     // Scene INIT
     let scene = new THREE.Scene();
     renderObj._scene = scene;
