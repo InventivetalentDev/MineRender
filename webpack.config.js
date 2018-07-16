@@ -1,6 +1,11 @@
 const path = require('path');
 const webpack = require('webpack');
 
+const banner = "MineRender\n" +
+    "(c) 2018, Haylee Schäfer (inventivetalent) / MIT License\n" +
+    "https://minerender.org\n" +
+    "Build: " + Date.now() + " / " + new Date().toString()
+
 let baseConfigFull = {
     mode: "development",
     context: path.resolve(__dirname),
@@ -16,8 +21,10 @@ let baseConfigFull = {
     plugins: [
         new webpack.DefinePlugin({
             PRODUCTION: JSON.stringify(false),
-            BUILD_DATE: JSON.stringify(new Date())
-        })
+            BUILD_DATE: JSON.stringify(new Date()),
+            BUILD_TIMESTAMP: JSON.stringify(Date.now())
+        }),
+        new webpack.BannerPlugin(banner)
     ]
 };
 
@@ -36,8 +43,10 @@ let baseConfigMin = {
     plugins: [
         new webpack.DefinePlugin({
             PRODUCTION: JSON.stringify(true),
-            BUILD_DATE: JSON.stringify(new Date())
-        })
+            BUILD_DATE: JSON.stringify(new Date()),
+            BUILD_TIMESTAMP: JSON.stringify(Date.now())
+        }),
+        new webpack.BannerPlugin(banner)
     ]
 };
 
