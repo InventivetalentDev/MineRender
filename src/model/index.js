@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import * as $ from 'jquery';
 import mergeDeep from "../lib/merge";
-import { initScene, loadTextureAsBase64, scaleUv, defaultOptions, DEFAULT_ROOT, loadModelFromPath, loadBlockState } from "../renderBase";
+import Render, { loadTextureAsBase64, scaleUv, defaultOptions, DEFAULT_ROOT, loadModelFromPath, loadBlockState } from "../renderBase";
 import ModelConverter from "./modelConverter";
 
 String.prototype.replaceAll = function (search, replacement) {
@@ -42,153 +42,154 @@ let defOptions = {
     assetRoot: DEFAULT_ROOT
 };
 
-function ModelRender(options, element) {
-    this.renderType = "ModelRender";
-    this.options = Object.assign({}, defaultOptions, defOptions, options);
-    this.element = element || document.body;
+class ModelRender extends Render {
 
-    this.models = [];
-    this.attached = false;
-}
+    constructor(options, element) {
+        super(options, defOptions, element);
 
-ModelRender.prototype.render = function (models, cb) {
-    let modelRender = this;
+        this.renderType = "ModelRender";
 
-    if (!modelRender.attached) {// Don't init scene if attached, since we already have an available scene
-        initScene(modelRender, function () {
-            modelRender.element.dispatchEvent(new CustomEvent("modelRender", {detail: {models: modelRender.models}}));
-        });
-    } else {
-        console.log("[ModelRender] is attached - skipping scene init");
+        this.models = [];
+        this.attached = false;
     }
 
-    let type = this.options.type;
-    let promises = [];
-    for (let i = 0; i < models.length; i++) {
-        promises.push(new Promise((resolve) => {
-            let model = models[i];
+    render(models, cb) {
+        let modelRender = this;
 
-            let offset;
-            let rotation;
+        if (!modelRender.attached) {// Don't init scene if attached, since we already have an available scene
+            super.initScene(function () {
+                modelRender.element.dispatchEvent(new CustomEvent("modelRender", {detail: {models: modelRender.models}}));
+            });
+        } else {
+            console.log("[ModelRender] is attached - skipping scene init");
+        }
 
-            let doModelLoad = function (model, type) {
-                console.log("Loading model " + model + " of type " + type + "...");
-                loadModel(model, type, modelRender.options.assetRoot)
-                    .then(modelData => mergeParents(modelData, modelRender.options.assetRoot))
-                    .then((mergedModel) => {
-                        if(!PRODUCTION) {
-                            console.log("Merged Model: ");
-                            console.log(mergedModel);
-                        }
+        let type = this.options.type;
+        let promises = [];
+        for (let i = 0; i < models.length; i++) {
+            promises.push(new Promise((resolve) => {
+                let model = models[i];
 
-                        if (!mergedModel.textures) {
-                            console.warn("The model doesn't have any textures!");
-                            console.warn("Please make sure you're using the proper file.")
-                            console.warn("(e.g. 'grass.json' is invalid - 'grass_normal.json' would be the correct file.");
-                            return;
-                        }
+                let offset;
+                let rotation;
 
-                        loadTextures(mergedModel.textures, modelRender.options.assetRoot).then((textures) => {
-                            renderModel(modelRender, mergedModel, textures, type, model, offset, rotation).then((renderedModel) => {
-                                modelRender.models.push(renderedModel);
-                                modelRender._scene.add(renderedModel);
+                let doModelLoad = function (model, type) {
+                    console.log("Loading model " + model + " of type " + type + "...");
+                    loadModel(model, type, modelRender.options.assetRoot)
+                        .then(modelData => mergeParents(modelData, modelRender.options.assetRoot))
+                        .then((mergedModel) => {
+                            if (!PRODUCTION) {
+                                console.log("Merged Model: ");
+                                console.log(mergedModel);
+                            }
 
-                                resolve();
-                            })
+                            if (!mergedModel.textures) {
+                                console.warn("The model doesn't have any textures!");
+                                console.warn("Please make sure you're using the proper file.")
+                                console.warn("(e.g. 'grass.json' is invalid - 'grass_normal.json' would be the correct file.");
+                                return;
+                            }
+
+                            loadTextures(mergedModel.textures, modelRender.options.assetRoot).then((textures) => {
+                                renderModel(modelRender, mergedModel, textures, type, model, offset, rotation).then((renderedModel) => {
+                                    modelRender.models.push(renderedModel);
+                                    modelRender._scene.add(renderedModel);
+
+                                    resolve();
+                                })
+                            });
                         });
-                    });
-            };
+                };
 
-            if (typeof model === "string") {
-                let parsed = parseModelType(model);
-                model = parsed.model;
-                type = parsed.type;
-
-                doModelLoad(model, type);
-            } else if (typeof model === "object") {
-                if (model.hasOwnProperty("offset")) {
-                    offset = model["offset"];
-                }
-                if (model.hasOwnProperty("rotation")) {
-                    rotation = model["rotation"];
-                }
-
-                if (model.hasOwnProperty("model")) {
-                    if (model.hasOwnProperty("type")) {
-                        type = model["type"];
-                    } else {
-                        let parsed = parseModelType(model["model"]);
-                        model = parsed.model;
-                        type = parsed.type;
-                    }
+                if (typeof model === "string") {
+                    let parsed = parseModelType(model);
+                    model = parsed.model;
+                    type = parsed.type;
 
                     doModelLoad(model, type);
-                } else if (model.hasOwnProperty("blockstate")) {
-                    type = "block";
+                } else if (typeof model === "object") {
+                    if (model.hasOwnProperty("offset")) {
+                        offset = model["offset"];
+                    }
+                    if (model.hasOwnProperty("rotation")) {
+                        rotation = model["rotation"];
+                    }
 
-                    loadBlockState(model.blockstate, modelRender.options.assetRoot).then((blockstate) => {
-                        if (blockstate.hasOwnProperty("variants")) {
-
-                            if (model.hasOwnProperty("variant")) {
-                                if (!blockstate.variants.hasOwnProperty(model.variant)) {
-                                    console.warn("Missing variant for " + model.blockstate + ": " + model.variant);
-                                    return;
-                                }
-                                let variant = blockstate.variants[model.variant];
-
-                                rotation = [0, 0, 0];
-                                if (variant.hasOwnProperty("x")) {
-                                    rotation[0] = variant.x;
-                                }
-                                if (variant.hasOwnProperty("y")) {
-                                    rotation[1] = variant.y;
-                                }
-                                if (variant.hasOwnProperty("z")) {// Not actually used by MC, but why not?
-                                    rotation[2] = variant.z;
-                                }
-
-                                doModelLoad(variant.model, "block");
-                            } else {
-                                let variant;
-                                if (blockstate.variants.hasOwnProperty("normal")) {
-                                    variant = blockstate.variants.normal;
-                                } else {
-                                    variant = blockstate.variants[Object.keys(blockstate.variants)[0]]
-                                }
-
-                                rotation = [0, 0, 0];
-                                if (variant.hasOwnProperty("x")) {
-                                    rotation[0] = variant.x;
-                                }
-                                if (variant.hasOwnProperty("y")) {
-                                    rotation[1] = variant.y;
-                                }
-                                if (variant.hasOwnProperty("z")) {// Not actually used by MC, but why not?
-                                    rotation[2] = variant.z;
-                                }
-
-                                doModelLoad(variant.model, "block");
-                            }
-                        } else if (blockstate.hasOwnProperty("multipart")) {
-
+                    if (model.hasOwnProperty("model")) {
+                        if (model.hasOwnProperty("type")) {
+                            type = model["type"];
+                        } else {
+                            let parsed = parseModelType(model["model"]);
+                            model = parsed.model;
+                            type = parsed.type;
                         }
-                    })
+
+                        doModelLoad(model, type);
+                    } else if (model.hasOwnProperty("blockstate")) {
+                        type = "block";
+
+                        loadBlockState(model.blockstate, modelRender.options.assetRoot).then((blockstate) => {
+                            if (blockstate.hasOwnProperty("variants")) {
+
+                                if (model.hasOwnProperty("variant")) {
+                                    if (!blockstate.variants.hasOwnProperty(model.variant)) {
+                                        console.warn("Missing variant for " + model.blockstate + ": " + model.variant);
+                                        return;
+                                    }
+                                    let variant = blockstate.variants[model.variant];
+
+                                    rotation = [0, 0, 0];
+                                    if (variant.hasOwnProperty("x")) {
+                                        rotation[0] = variant.x;
+                                    }
+                                    if (variant.hasOwnProperty("y")) {
+                                        rotation[1] = variant.y;
+                                    }
+                                    if (variant.hasOwnProperty("z")) {// Not actually used by MC, but why not?
+                                        rotation[2] = variant.z;
+                                    }
+
+                                    doModelLoad(variant.model, "block");
+                                } else {
+                                    let variant;
+                                    if (blockstate.variants.hasOwnProperty("normal")) {
+                                        variant = blockstate.variants.normal;
+                                    } else {
+                                        variant = blockstate.variants[Object.keys(blockstate.variants)[0]]
+                                    }
+
+                                    rotation = [0, 0, 0];
+                                    if (variant.hasOwnProperty("x")) {
+                                        rotation[0] = variant.x;
+                                    }
+                                    if (variant.hasOwnProperty("y")) {
+                                        rotation[1] = variant.y;
+                                    }
+                                    if (variant.hasOwnProperty("z")) {// Not actually used by MC, but why not?
+                                        rotation[2] = variant.z;
+                                    }
+
+                                    doModelLoad(variant.model, "block");
+                                }
+                            } else if (blockstate.hasOwnProperty("multipart")) {
+
+                            }
+                        })
+                    }
+
                 }
 
-            }
 
+            }))
+        }
 
-        }))
-    }
+        Promise.all(promises).then(() => {
+            if (typeof cb === "function") cb();
+        })
+    };
 
-    Promise.all(promises).then(() => {
-        if (typeof cb === "function") cb();
-    })
-};
+}
 
-ModelRender.prototype.toImage = function () {
-    return this._renderer.domElement.toDataURL("image/png");
-};
 
 let parseModelType = function (string) {
     if (string.startsWith("block/")) {
@@ -339,12 +340,9 @@ let renderModel = function (modelRender, model, textures, type, name, offset, ro
                     rotationContainer.applyMatrix(new THREE.Matrix4().makeTranslation(offset[0], offset[1], offset[2]))
                 }
 
-                if(rotation){
+                if (rotation) {
                     rotationContainer.rotation.set(toRadians(rotation[0]), toRadians(Math.abs(rotation[0]) > 0 ? rotation[1] : -rotation[1]), toRadians(rotation[2]));
                 }
-
-
-
 
 
                 resolve(rotationContainer);
@@ -735,8 +733,6 @@ function toRadians(angle) {
     return angle * (Math.PI / 180);
 }
 
-
-ModelRender.prototype.constructor = ModelRender;
 
 window.ModelRender = ModelRender;
 window.ModelConverter = ModelConverter;

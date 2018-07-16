@@ -38,136 +38,156 @@ export const defaultOptions = {
     forceContext: false
 };
 
-export function initScene(renderObj, renderCb, doNotAnimate) {
-    console.log(" ");
-    console.log('%c       ', 'font-size: 100px; background: url(https://minerender.org/img/minerender.svg) no-repeat;');
-    console.log("MineRender/" + (renderObj.renderType || renderObj.constructor.name));
-    console.log((PRODUCTION ? "PRODUCTION" : "DEVELOPMENT") + " build");
-    console.log("Built @ " + BUILD_DATE);
-    console.log(" ");
+export default class Render {
 
-    // Scene INIT
-    let scene = new THREE.Scene();
-    renderObj._scene = scene;
-    let camera;
-    if (renderObj.options.camera.type === "orthographic") {
-        camera = new THREE.OrthographicCamera((renderObj.options.canvas.width || window.innerWidth) / -2, (renderObj.options.canvas.width || window.innerWidth) / 2, (renderObj.options.canvas.height || window.innerHeight) / 2, (renderObj.options.canvas.height || window.innerHeight) / -2, 1, 1000);
-    } else {
-        camera = new THREE.PerspectiveCamera(75, (renderObj.options.canvas.width || window.innerWidth) / (renderObj.options.canvas.height || window.innerHeight), 5, 1000);
-    }
-    renderObj._camera = camera;
-
-    if (renderObj.options.camera.zoom) {
-        camera.zoom = renderObj.options.camera.zoom;
+    constructor(options, defOptions, element) {
+        this.element = element || document.body;
+        this.options = Object.assign({}, defaultOptions, defOptions, options);
     }
 
-    let renderer = new THREE.WebGLRenderer({alpha: true, antialias: true, preserveDrawingBuffer: true});
-    renderObj._renderer = renderer;
-    renderer.setSize((renderObj.options.canvas.width || window.innerWidth), (renderObj.options.canvas.height || window.innerHeight));
-    renderer.setClearColor(0x000000, 0);
-    renderer.setPixelRatio(window.devicePixelRatio);
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    renderObj.element.appendChild(renderObj._canvas = renderer.domElement);
+    /**
+     * @returns {string} The content of the renderer's canvas as a Base64 encoded image
+     */
+    toImage() {
+        if (this._renderer)
+            return this._renderer.domElement.toDataURL("image/png");
+    };
 
-    let composer = new EffectComposer(renderer);
-    composer.setSize((renderObj.options.canvas.width || window.innerWidth), (renderObj.options.canvas.height || window.innerHeight));
-    renderObj._composer = composer;
-    let ssaaRenderPass = new SSAARenderPass(scene, camera);
-    ssaaRenderPass.unbiased = true;
-    composer.addPass(ssaaRenderPass);
-    // let renderPass = new RenderPass(scene, camera);
-    // renderPass.enabled = false;
-    // composer.addPass(renderPass);
-    let copyPass = new ShaderPass(CopyShader);
-    copyPass.renderToScreen = true;
-    composer.addPass(copyPass);
+    initScene(renderCb, doNotAnimate) {
+        let renderObj = this;
 
-    if (renderObj.options.autoResize) {
-        window.addEventListener("resize", function () {
-            let width = (renderObj.element && renderObj.element !== document.body) ? renderObj.element.offsetWidth : window.innerWidth;
-            let height = (renderObj.element && renderObj.element !== document.body) ? renderObj.element.offsetHeight : window.innerHeight;
+        console.log(" ");
+        console.log('%c       ', 'font-size: 100px; background: url(https://minerender.org/img/minerender.svg) no-repeat;');
+        console.log("MineRender/" + (renderObj.renderType || renderObj.constructor.name));
+        console.log((PRODUCTION ? "PRODUCTION" : "DEVELOPMENT") + " build");
+        console.log("Built @ " + BUILD_DATE);
+        console.log(" ");
 
-            renderObj._resize(width, height);
-        });
-    }
-    renderObj._resize = function (width, height) {
+        // Scene INIT
+        let scene = new THREE.Scene();
+        renderObj._scene = scene;
+        let camera;
         if (renderObj.options.camera.type === "orthographic") {
-            camera.left = width / -2;
-            camera.right = width / 2;
-            camera.top = height / 2;
-            camera.bottom = height / -2;
+            camera = new THREE.OrthographicCamera((renderObj.options.canvas.width || window.innerWidth) / -2, (renderObj.options.canvas.width || window.innerWidth) / 2, (renderObj.options.canvas.height || window.innerHeight) / 2, (renderObj.options.canvas.height || window.innerHeight) / -2, 1, 1000);
         } else {
-            camera.aspect = width / height;
+            camera = new THREE.PerspectiveCamera(75, (renderObj.options.canvas.width || window.innerWidth) / (renderObj.options.canvas.height || window.innerHeight), 5, 1000);
         }
-        camera.updateProjectionMatrix();
+        renderObj._camera = camera;
 
-        renderer.setSize(width, height);
-        composer.setSize(width, height);
+        if (renderObj.options.camera.zoom) {
+            camera.zoom = renderObj.options.camera.zoom;
+        }
+
+        let renderer = new THREE.WebGLRenderer({alpha: true, antialias: true, preserveDrawingBuffer: true});
+        renderObj._renderer = renderer;
+        renderer.setSize((renderObj.options.canvas.width || window.innerWidth), (renderObj.options.canvas.height || window.innerHeight));
+        renderer.setClearColor(0x000000, 0);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderObj.element.appendChild(renderObj._canvas = renderer.domElement);
+
+        let composer = new EffectComposer(renderer);
+        composer.setSize((renderObj.options.canvas.width || window.innerWidth), (renderObj.options.canvas.height || window.innerHeight));
+        renderObj._composer = composer;
+        let ssaaRenderPass = new SSAARenderPass(scene, camera);
+        ssaaRenderPass.unbiased = true;
+        composer.addPass(ssaaRenderPass);
+        // let renderPass = new RenderPass(scene, camera);
+        // renderPass.enabled = false;
+        // composer.addPass(renderPass);
+        let copyPass = new ShaderPass(CopyShader);
+        copyPass.renderToScreen = true;
+        composer.addPass(copyPass);
+
+        if (renderObj.options.autoResize) {
+            window.addEventListener("resize", function () {
+                let width = (renderObj.element && renderObj.element !== document.body) ? renderObj.element.offsetWidth : window.innerWidth;
+                let height = (renderObj.element && renderObj.element !== document.body) ? renderObj.element.offsetHeight : window.innerHeight;
+
+                renderObj._resize(width, height);
+            });
+        }
+        renderObj._resize = function (width, height) {
+            if (renderObj.options.camera.type === "orthographic") {
+                camera.left = width / -2;
+                camera.right = width / 2;
+                camera.top = height / 2;
+                camera.bottom = height / -2;
+            } else {
+                camera.aspect = width / height;
+            }
+            camera.updateProjectionMatrix();
+
+            renderer.setSize(width, height);
+            composer.setSize(width, height);
+        };
+
+        // Helpers
+        if (renderObj.options.showAxes) {
+            scene.add(new THREE.AxesHelper(50));
+        }
+        if (renderObj.options.showGrid) {
+            scene.add(new THREE.GridHelper(100, 100));
+        }
+
+        let light = new THREE.AmbientLight(0xFFFFFF); // soft white light
+        scene.add(light);
+
+        // Init controls
+        let controls = new OrbitControls(camera, renderer.domElement);
+        renderObj._controls = controls;
+        controls.enableZoom = renderObj.options.controls.zoom;
+        controls.enableRotate = renderObj.options.controls.rotate;
+        controls.enablePan = renderObj.options.controls.pan;
+        controls.target.set(renderObj.options.camera.target[0], renderObj.options.camera.target[1], renderObj.options.camera.target[2]);
+
+        // Set camera location & target
+        camera.position.x = renderObj.options.camera.x;
+        camera.position.y = renderObj.options.camera.y;
+        camera.position.z = renderObj.options.camera.z;
+        camera.lookAt(new THREE.Vector3(renderObj.options.camera.target[0], renderObj.options.camera.target[1], renderObj.options.camera.target[2]));
+
+        // Do the render!
+        let animate = function () {
+            renderObj._animId = requestAnimationFrame(animate);
+
+            if (renderObj.onScreen) {
+                if (typeof renderCb === "function") renderCb();
+
+                composer.render();
+            }
+        };
+        renderObj._animate = animate;
+
+        if (!doNotAnimate) {
+            animate();
+        }
+
+        renderObj.onScreen = true;// default to true, in case the checking is disabled
+        let id = "minerender-canvas-" + renderObj._scene.uuid + "-" + Date.now();
+        renderObj._canvas.id = id;
+        if (renderObj.options.pauseHidden) {
+            renderObj.onScreen = false;// set to false if the check is enabled
+            let os = new OnScreen();
+
+            os.on("enter", "#" + id, (element, event) => {
+                renderObj.onScreen = true;
+                if (renderObj.options.forceContext) {
+                    renderObj._renderer.forceContextRestore();
+                }
+            })
+            os.on("leave", "#" + id, (element, event) => {
+                renderObj.onScreen = false;
+                if (renderObj.options.forceContext) {
+                    renderObj._renderer.forceContextLoss();
+                }
+            });
+        }
     };
 
-    // Helpers
-    if (renderObj.options.showAxes) {
-        scene.add(new THREE.AxesHelper(50));
-    }
-    if (renderObj.options.showGrid) {
-        scene.add(new THREE.GridHelper(100, 100));
-    }
+}
 
-    let light = new THREE.AmbientLight(0xFFFFFF); // soft white light
-    scene.add(light);
-
-    // Init controls
-    let controls = new OrbitControls(camera, renderer.domElement);
-    renderObj._controls = controls;
-    controls.enableZoom = renderObj.options.controls.zoom;
-    controls.enableRotate = renderObj.options.controls.rotate;
-    controls.enablePan = renderObj.options.controls.pan;
-    controls.target.set(renderObj.options.camera.target[0], renderObj.options.camera.target[1], renderObj.options.camera.target[2]);
-
-    // Set camera location & target
-    camera.position.x = renderObj.options.camera.x;
-    camera.position.y = renderObj.options.camera.y;
-    camera.position.z = renderObj.options.camera.z;
-    camera.lookAt(new THREE.Vector3(renderObj.options.camera.target[0], renderObj.options.camera.target[1], renderObj.options.camera.target[2]));
-
-    // Do the render!
-    let animate = function () {
-        renderObj._animId = requestAnimationFrame(animate);
-
-        if (renderObj.onScreen) {
-            if (typeof renderCb === "function") renderCb();
-
-            composer.render();
-        }
-    };
-    renderObj._animate = animate;
-
-    if (!doNotAnimate) {
-        animate();
-    }
-
-    renderObj.onScreen = true;// default to true, in case the checking is disabled
-    let id = "minerender-canvas-" + renderObj._scene.uuid + "-" + Date.now();
-    renderObj._canvas.id = id;
-    if (renderObj.options.pauseHidden) {
-        renderObj.onScreen = false;// set to false if the check is enabled
-        let os = new OnScreen();
-
-        os.on("enter", "#" + id, (element, event) => {
-            renderObj.onScreen = true;
-            if (renderObj.options.forceContext) {
-                renderObj._renderer.forceContextRestore();
-            }
-        })
-        os.on("leave", "#" + id, (element, event) => {
-            renderObj.onScreen = false;
-            if (renderObj.options.forceContext) {
-                renderObj._renderer.forceContextLoss();
-            }
-        });
-    }
-};
 
 export function loadTextureAsBase64(root, namespace, dir, name) {
     return new Promise((resolve, reject) => {

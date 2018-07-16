@@ -2,7 +2,7 @@ import * as THREE from "three";
 import OrbitControls from "../lib/OrbitControls";
 
 import texturePositions from "./texturePositions";
-import { initScene, defaultOptions } from "../renderBase";
+import Render, { defaultOptions } from "../renderBase";
 
 let defOptions = {
     camera: {
@@ -14,232 +14,255 @@ let defOptions = {
     }
 };
 
-function SkinRender(options, element) {
-    this.renderType = "SkinRender";
-    this.element = element || document.body;
-    this._animId = -1;
+/**
+ * A renderer for Minecraft player models/skins
+ */
+class SkinRender extends Render {
 
-    this.options = Object.assign({}, defaultOptions, defOptions, options);
+    /**
+     * @param {Object=} options (optional) The options for this renderer
+     * @param {HTMLElement=} element (optional) DOM Element to attach the renderer to - defaults to document.body
+     * @constructor
+     */
+    constructor(options, element) {
+        super(options, defOptions, element);
 
-    // bind this renderer to the element
-    this.element.skinRender = this;
-    this.attached = false;
-}
+        this.renderType = "SkinRender";
+        this._animId = -1;
 
-SkinRender.prototype.render = function (texture, cb) {
-    let skinRender = this;
+        // bind this renderer to the element
+        this.element.skinRender = this;
+        this.attached = false;
 
-    let renderStarted = false;
-
-    function imagesLoaded(skinTexture, capeTexture) {
-        renderStarted = true;
-        skinTexture.needsUpdate = true;
-        if (capeTexture) capeTexture.needsUpdate = true;
-
-        let textureVersion = -1;
-        if (skinTexture.image.height === 32) {
-            textureVersion = 0;
-        } else if (skinTexture.image.height === 64) {
-            textureVersion = 1;
-        } else {
-            console.error("Couldn't detect texture version. Invalid dimensions: " + skinTexture.image.width + "x" + skinTexture.image.height)
-        }
-        console.log("Skin Texture Version: " + textureVersion)
-
-        // To keep the pixelated texture
-        skinTexture.magFilter = THREE.NearestFilter;
-        skinTexture.minFilter = THREE.NearestFilter;
-        skinTexture.anisotropy = 0;
-        if (capeTexture) {
-            capeTexture.magFilter = THREE.NearestFilter;
-            capeTexture.minFilter = THREE.NearestFilter;
-            capeTexture.anisotropy = 0;
-        }
-
-        if (!skinRender.attached) {// Don't init scene if attached, since we already have an available scene
-            initScene(skinRender, function () {
-                skinRender.element.dispatchEvent(new CustomEvent("skinRender", {detail: {playerModel: skinRender.playerModel}}));
-            });
-        } else {
-            console.log("[SkinRender] is attached - skipping scene init");
-        }
-
-        console.log("Slim: " + slim)
-        let playerModel = createPlayerModel(skinTexture, capeTexture, textureVersion, slim, texture.optifine);
-        skinRender._scene.add(playerModel);
-        // console.log(playerModel);
-        skinRender.playerModel = playerModel;
-
-        if (typeof cb === "function") cb();
     }
 
-    skinRender._skinImage = new Image();
-    skinRender._skinImage.crossOrigin = "anonymous";
-    skinRender._capeImage = new Image();
-    skinRender._capeImage.crossOrigin = "anonymous";
-    let hasCape = texture.capeUrl !== undefined || texture.capeData !== undefined || texture.mineskin !== undefined;
-    let slim = false;
-    let skinLoaded = false;
-    let capeLoaded = false;
 
-    let skinTexture = new THREE.Texture();
-    let capeTexture = new THREE.Texture();
-    skinTexture.image = skinRender._skinImage;
-    skinRender._skinImage.onload = function () {
-        if (!skinRender._skinImage) return;
+    /**
+     * Does the actual rendering
+     *
+     * @param {(string|Object)} texture The texture to render - May be a string with the playername/URL/Base64 or an Object
+     * @param {string=} texture.url URL to the texture image
+     * @param {string=} texture.data Base64 encoded image data of the texture
+     * @param {string=} texture.username Player username
+     * @param {string=} texture.uuid Player UUID
+     * @param {number=} texture.mineskin ID of a MineSkin.org skin
+     * @param {boolean=} texture.slim Whether the provided texture uses the slim skin format
+     *
+     * @param {string=} texture.capeUrl URL to a cape texture
+     * @param {string=} texture.capeData Base64 encoded image data of the cape texture
+     * @param {string=} texture.mineskin ID of a MineSkin.org skin with a cape
+     * @param {boolean=} texture.optifine Whether the provided cape texture is an optifine cape
+     *
+     * @param cb Callback when rendering finished
+     */
+    render(texture, cb) {
+        let skinRender = this;
 
-        skinLoaded = true;
-        console.log("Skin Image Loaded");
+        let renderStarted = false;
 
-        if (texture.slim === undefined) {
-            let detectCanvas = document.createElement("canvas");
-            let detectCtx = detectCanvas.getContext("2d");
-            // detectCanvas.style.display = "none";
-            detectCanvas.width = skinRender._skinImage.width;
-            detectCanvas.height = skinRender._skinImage.height;
-            detectCtx.drawImage(skinRender._skinImage, 0, 0);
+        let imagesLoaded = (skinTexture, capeTexture) => {
+            renderStarted = true;
+            skinTexture.needsUpdate = true;
+            if (capeTexture) capeTexture.needsUpdate = true;
 
-            console.log("Slim Detection:")
-
-            // Check the 2 columns that should be transparent on slim skins
-            let px1 = detectCtx.getImageData(46, 52, 1, 12).data;
-            let px2 = detectCtx.getImageData(54, 20, 1, 12).data;
-            let allTransparent = true;
-            for (let i = 3; i < 12 * 4; i += 4) {
-                if (px1[i] === 255) {
-                    allTransparent = false;
-                    break;
-                }
-                if (px2[i] === 255) {
-                    allTransparent = false;
-                    break;
-                }
+            let textureVersion = -1;
+            if (skinTexture.image.height === 32) {
+                textureVersion = 0;
+            } else if (skinTexture.image.height === 64) {
+                textureVersion = 1;
+            } else {
+                console.error("Couldn't detect texture version. Invalid dimensions: " + skinTexture.image.width + "x" + skinTexture.image.height)
             }
-            console.log(allTransparent)
+            console.log("Skin Texture Version: " + textureVersion)
 
-            if (allTransparent) slim = true;
+            // To keep the pixelated texture
+            skinTexture.magFilter = THREE.NearestFilter;
+            skinTexture.minFilter = THREE.NearestFilter;
+            skinTexture.anisotropy = 0;
+            if (capeTexture) {
+                capeTexture.magFilter = THREE.NearestFilter;
+                capeTexture.minFilter = THREE.NearestFilter;
+                capeTexture.anisotropy = 0;
+            }
+
+            if (!skinRender.attached) {// Don't init scene if attached, since we already have an available scene
+                super.initScene(function () {
+                    skinRender.element.dispatchEvent(new CustomEvent("skinRender", {detail: {playerModel: skinRender.playerModel}}));
+                });
+            } else {
+                console.log("[SkinRender] is attached - skipping scene init");
+            }
+
+            console.log("Slim: " + slim)
+            let playerModel = createPlayerModel(skinTexture, capeTexture, textureVersion, slim, texture.optifine);
+            skinRender._scene.add(playerModel);
+            // console.log(playerModel);
+            skinRender.playerModel = playerModel;
+
+            if (typeof cb === "function") cb();
         }
 
-        if (skinLoaded && (capeLoaded || !hasCape)) {
-            if (!renderStarted) imagesLoaded(skinTexture, capeTexture);
-        }
-    };
-    skinRender._skinImage.onerror = function (e) {
-        console.warn("Skin Image Error")
-        console.warn(e)
-    }
-    console.log("Has Cape: " + hasCape)
-    if (hasCape) {
-        capeTexture.image = skinRender._capeImage;
-        skinRender._capeImage.onload = function () {
-            if (!skinRender._capeImage) return;
+        skinRender._skinImage = new Image();
+        skinRender._skinImage.crossOrigin = "anonymous";
+        skinRender._capeImage = new Image();
+        skinRender._capeImage.crossOrigin = "anonymous";
+        let hasCape = texture.capeUrl !== undefined || texture.capeData !== undefined || texture.mineskin !== undefined;
+        let slim = false;
+        let skinLoaded = false;
+        let capeLoaded = false;
 
-            capeLoaded = true;
-            console.log("Cape Image Loaded");
+        let skinTexture = new THREE.Texture();
+        let capeTexture = new THREE.Texture();
+        skinTexture.image = skinRender._skinImage;
+        skinRender._skinImage.onload = function () {
+            if (!skinRender._skinImage) return;
 
-            if (capeLoaded && skinLoaded) {
+            skinLoaded = true;
+            console.log("Skin Image Loaded");
+
+            if (texture.slim === undefined) {
+                let detectCanvas = document.createElement("canvas");
+                let detectCtx = detectCanvas.getContext("2d");
+                // detectCanvas.style.display = "none";
+                detectCanvas.width = skinRender._skinImage.width;
+                detectCanvas.height = skinRender._skinImage.height;
+                detectCtx.drawImage(skinRender._skinImage, 0, 0);
+
+                console.log("Slim Detection:")
+
+                // Check the 2 columns that should be transparent on slim skins
+                let px1 = detectCtx.getImageData(46, 52, 1, 12).data;
+                let px2 = detectCtx.getImageData(54, 20, 1, 12).data;
+                let allTransparent = true;
+                for (let i = 3; i < 12 * 4; i += 4) {
+                    if (px1[i] === 255) {
+                        allTransparent = false;
+                        break;
+                    }
+                    if (px2[i] === 255) {
+                        allTransparent = false;
+                        break;
+                    }
+                }
+                console.log(allTransparent)
+
+                if (allTransparent) slim = true;
+            }
+
+            if (skinLoaded && (capeLoaded || !hasCape)) {
                 if (!renderStarted) imagesLoaded(skinTexture, capeTexture);
             }
+        };
+        skinRender._skinImage.onerror = function (e) {
+            console.warn("Skin Image Error")
+            console.warn(e)
         }
-        skinRender._capeImage.onerror = function (e) {
-            console.warn("Cape Image Error")
-            console.warn(e);
+        console.log("Has Cape: " + hasCape)
+        if (hasCape) {
+            capeTexture.image = skinRender._capeImage;
+            skinRender._capeImage.onload = function () {
+                if (!skinRender._capeImage) return;
 
-            // Continue anyway, just without the cape
-            capeLoaded = true;
-            if (skinLoaded) {
-                if (!renderStarted) imagesLoaded(skinTexture);
+                capeLoaded = true;
+                console.log("Cape Image Loaded");
+
+                if (capeLoaded && skinLoaded) {
+                    if (!renderStarted) imagesLoaded(skinTexture, capeTexture);
+                }
             }
-        }
-    } else {
-        capeTexture = null;
-        skinRender._capeImage = null;
-    }
+            skinRender._capeImage.onerror = function (e) {
+                console.warn("Cape Image Error")
+                console.warn(e);
 
-    if (typeof texture === "string") {
-        // console.log(texture)
-        if (texture.indexOf("http") === 0) {// URL
-            skinRender._skinImage.src = texture
-        } else if (texture.length <= 16) {// Probably a Minecraft username
-            getJSON("https://skinrender.ga/nameToUuid.php?name=" + texture, function (err, data) {
-                if (err) return console.log(err);
-                console.log(data);
-                skinRender._skinImage.src = "https://crafatar.com/skins/" + (data.id ? data.id : texture);
-            });
-        } else if (texture.length <= 36) {// Probably player UUID
-            image.src = "https://crafatar.com/skins/" + texture + "?overlay";
-        } else {// taking a guess that it's a Base64 image
-            skinRender._skinImage.src = texture;
-        }
-    } else if (typeof texture === "object") {
-        if (texture.url) {
-            skinRender._skinImage.src = texture.url;
-        } else if (texture.data) {
-            skinRender._skinImage.src = texture.data;
-        } else if (texture.username) {
-            getJSON("https://skinrender.ga/nameToUuid.php?name=" + texture.username, function (err, data) {
-                if (err) return console.log(err);
-                skinRender._skinImage.src = "https://crafatar.com/skins/" + (data.id ? data.id : texture.username) + "?overlay";
-            });
-        } else if (texture.uuid) {
-            skinRender._skinImage.src = "https://crafatar.com/skins/" + texture.uuid + "?overlay";
-        } else if (texture.mineskin) {
-            skinRender._skinImage.src = "https://api.mineskin.org/render/texture/" + texture.mineskin;
-        }
-        if (texture.capeUrl) {
-            skinRender._capeImage.src = texture.capeUrl;
-        } else if (texture.capeData) {
-            skinRender._capeImage.src = texture.capeData;
-        } else if (texture.mineskin) {
-            skinRender._capeImage.src = "https://api.mineskin.org/render/texture/" + texture.mineskin + "/cape";
+                // Continue anyway, just without the cape
+                capeLoaded = true;
+                if (skinLoaded) {
+                    if (!renderStarted) imagesLoaded(skinTexture);
+                }
+            }
+        } else {
+            capeTexture = null;
+            skinRender._capeImage = null;
         }
 
-        slim = texture.slim;
-    } else {
-        throw new Error("Invalid texture value")
-    }
-};
+        if (typeof texture === "string") {
+            // console.log(texture)
+            if (texture.indexOf("http") === 0) {// URL
+                skinRender._skinImage.src = texture
+            } else if (texture.length <= 16) {// Probably a Minecraft username
+                getJSON("https://skinrender.ga/nameToUuid.php?name=" + texture, function (err, data) {
+                    if (err) return console.log(err);
+                    console.log(data);
+                    skinRender._skinImage.src = "https://crafatar.com/skins/" + (data.id ? data.id : texture);
+                });
+            } else if (texture.length <= 36) {// Probably player UUID
+                image.src = "https://crafatar.com/skins/" + texture + "?overlay";
+            } else {// taking a guess that it's a Base64 image
+                skinRender._skinImage.src = texture;
+            }
+        } else if (typeof texture === "object") {
+            if (texture.url) {
+                skinRender._skinImage.src = texture.url;
+            } else if (texture.data) {
+                skinRender._skinImage.src = texture.data;
+            } else if (texture.username) {
+                getJSON("https://skinrender.ga/nameToUuid.php?name=" + texture.username, function (err, data) {
+                    if (err) return console.log(err);
+                    skinRender._skinImage.src = "https://crafatar.com/skins/" + (data.id ? data.id : texture.username) + "?overlay";
+                });
+            } else if (texture.uuid) {
+                skinRender._skinImage.src = "https://crafatar.com/skins/" + texture.uuid + "?overlay";
+            } else if (texture.mineskin) {
+                skinRender._skinImage.src = "https://api.mineskin.org/render/texture/" + texture.mineskin;
+            }
+            if (texture.capeUrl) {
+                skinRender._capeImage.src = texture.capeUrl;
+            } else if (texture.capeData) {
+                skinRender._capeImage.src = texture.capeData;
+            } else if (texture.mineskin) {
+                skinRender._capeImage.src = "https://api.mineskin.org/render/texture/" + texture.mineskin + "/cape";
+            }
 
-SkinRender.prototype.toImage = function () {
-    return this._renderer.domElement.toDataURL("image/png");
-};
+            slim = texture.slim;
+        } else {
+            throw new Error("Invalid texture value")
+        }
+    };
 
 
-SkinRender.prototype.resize = function (width, height) {
-    return this._resize(width, height);
-};
+    resize(width, height) {
+        return this._resize(width, height);
+    };
 
-SkinRender.prototype.reset = function () {
-    this._skinImage = null;
-    this._capeImage = null;
+    reset() {
+        this._skinImage = null;
+        this._capeImage = null;
 
-    if (this._animId) {
-        cancelAnimationFrame(this._animId);
-    }
-    if (this._canvas) {
-        this._canvas.remove();
-    }
-};
+        if (this._animId) {
+            cancelAnimationFrame(this._animId);
+        }
+        if (this._canvas) {
+            this._canvas.remove();
+        }
+    };
 
-SkinRender.prototype.getElement = function () {
-    return this._element;
-};
-
-SkinRender.prototype.getPlayerModel = function () {
-    return this.playerModel;
-};
+    getPlayerModel() {
+        return this.playerModel;
+    };
 
 
-SkinRender.prototype.getModelByName = function (name) {
-    return this._scene.getObjectByName(name, true);
-};
+    getModelByName(name) {
+        return this._scene.getObjectByName(name, true);
+    };
 
-SkinRender.prototype.toggleSkinPart = function (name, visible) {
-    this._scene.getObjectByName(name, true).visible = visible;
-};
+    toggleSkinPart(name, visible) {
+        this._scene.getObjectByName(name, true).visible = visible;
+    };
 
 
-let createCube = function (texture, width, height, depth, textures, slim, name, transparent) {
+}
+
+function createCube(texture, width, height, depth, textures, slim, name, transparent) {
     let textureWidth = texture.image.width;
     let textureHeight = texture.image.height;
 
@@ -313,7 +336,8 @@ let createCube = function (texture, width, height, depth, textures, slim, name, 
     return cube;
 };
 
-let createPlayerModel = function (skinTexture, capeTexture, v, slim, optifineCape) {
+
+function createPlayerModel(skinTexture, capeTexture, v, slim, optifineCape) {
     console.log("optifine cape: " + optifineCape);
 
     let headGroup = new THREE.Object3D();
@@ -495,7 +519,7 @@ let createPlayerModel = function (skinTexture, capeTexture, v, slim, optifineCap
 };
 
 // From https://soledadpenades.com/articles/three-js-tutorials/drawing-the-coordinate-axes/
-let buildAxes = function (length) {
+function buildAxes(length) {
     let axes = new THREE.Object3D();
 
     axes.add(buildAxis(new THREE.Vector3(0, 0, 0), new THREE.Vector3(length, 0, 0), 0xFF0000, false)); // +X
@@ -508,7 +532,8 @@ let buildAxes = function (length) {
     return axes;
 
 };
-let buildAxis = function (src, dst, colorHex, dashed) {
+
+function buildAxis(src, dst, colorHex, dashed) {
     let geom = new THREE.Geometry(),
         mat;
 
@@ -543,8 +568,6 @@ function getJSON(url, callback) {
     };
     xhr.send();
 }
-
-SkinRender.prototype.constructor = SkinRender;
 
 window.SkinRender = SkinRender;
 
