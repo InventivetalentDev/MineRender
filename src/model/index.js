@@ -42,8 +42,16 @@ let defOptions = {
     assetRoot: DEFAULT_ROOT
 };
 
+/**
+ * A renderer for Minecraft models, i.e. blocks & items
+ */
 class ModelRender extends Render {
 
+    /**
+     * @param {Object} [options] The options for this renderer
+     * @param {HTMLElement} [element=document.body] DOM Element to attach the renderer to - defaults to document.body
+     * @constructor
+     */
     constructor(options, element) {
         super(options, defOptions, element);
 
@@ -53,6 +61,17 @@ class ModelRender extends Render {
         this.attached = false;
     }
 
+    /**
+     * Does the actual rendering
+     * @param {(string[]|Object[])} models Array of models to render - Either strings in the format <block|item>/<model name> or objects
+     * @param {string} [models[].type=block] either 'block' or 'item'
+     * @param {string} models[].model if 'type' is given, just the block/item name otherwise '<block|item>/<model name>'
+     * @param {number[]} [models[].offset] [x,y,z] array of the offset
+     * @param {number[]} [models[].rotation] [x,y,z] array of the rotation
+     * @param {string} [models[].blockstate] name of a blockstate to be used to determine the models (only for blocks)
+     * @param {string} [models[].variant=normal] if 'blockstate' is given, the block variant to use
+     * @param {function} [cb] Callback when rendering finished
+     */
     render(models, cb) {
         let modelRender = this;
 

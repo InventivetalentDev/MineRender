@@ -22,8 +22,16 @@ let defOptions = {
     assetRoot: DEFAULT_ROOT
 };
 
+/**
+ * A renderer for Minecraft GUIs
+ */
 class GuiRender extends Render {
 
+    /**
+     * @param {Object} [options] The options for this renderer
+     * @param {HTMLElement} [element=document.body] DOM Element to attach the renderer to - defaults to document.body
+     * @constructor
+     */
     constructor(options, element) {
         super(options, defOptions, element);
 
@@ -33,7 +41,17 @@ class GuiRender extends Render {
         this.attached = false;
     }
 
-
+    /**
+     * Does the actual rendering
+     *
+     * @param {(string[]|Object[])} layers Array of GUI layers - either strings or objects
+     * @param {string} layers[].texture path to the layer's texture (starting at assets/minecraft/textures/), e.g. '/items/apple'
+     * @param {number} [layers[].textureScale=1] scale of the given texture, can be used to get different sized textures aligned proerly
+     * @param {number[]} [layers[].uv] [x1,y1,x2,y2] array UV mapping of the texture
+     * @param {number[]} [layers[].pos=[0,0]] [x,y] array position of the layer
+     *
+     * @param {function} [cb] Callback when rendering finished
+     */
     render(layers, cb) {
         let guiRender = this;
 

@@ -20,8 +20,8 @@ let defOptions = {
 class SkinRender extends Render {
 
     /**
-     * @param {Object=} options (optional) The options for this renderer
-     * @param {HTMLElement=} element (optional) DOM Element to attach the renderer to - defaults to document.body
+     * @param {Object} [options] The options for this renderer
+     * @param {HTMLElement} [element=document.body] DOM Element to attach the renderer to - defaults to document.body
      * @constructor
      */
     constructor(options, element) {
@@ -41,19 +41,19 @@ class SkinRender extends Render {
      * Does the actual rendering
      *
      * @param {(string|Object)} texture The texture to render - May be a string with the playername/URL/Base64 or an Object
-     * @param {string=} texture.url URL to the texture image
-     * @param {string=} texture.data Base64 encoded image data of the texture
-     * @param {string=} texture.username Player username
-     * @param {string=} texture.uuid Player UUID
-     * @param {number=} texture.mineskin ID of a MineSkin.org skin
-     * @param {boolean=} texture.slim Whether the provided texture uses the slim skin format
+     * @param {string} texture.url URL to the texture image
+     * @param {string} texture.data Base64 encoded image data of the texture
+     * @param {string} texture.username Player username
+     * @param {string} texture.uuid Player UUID
+     * @param {number} texture.mineskin ID of a MineSkin.org skin
+     * @param {boolean} [texture.slim=false] Whether the provided texture uses the slim skin format
      *
-     * @param {string=} texture.capeUrl URL to a cape texture
-     * @param {string=} texture.capeData Base64 encoded image data of the cape texture
-     * @param {string=} texture.mineskin ID of a MineSkin.org skin with a cape
-     * @param {boolean=} texture.optifine Whether the provided cape texture is an optifine cape
+     * @param {string} [texture.capeUrl] URL to a cape texture
+     * @param {string} [texture.capeData] Base64 encoded image data of the cape texture
+     * @param {string} [texture.mineskin] ID of a MineSkin.org skin with a cape
+     * @param {boolean} [texture.optifine=false] Whether the provided cape texture is an optifine cape
      *
-     * @param cb Callback when rendering finished
+     * @param {function} [cb] Callback when rendering finished
      */
     render(texture, cb) {
         let skinRender = this;

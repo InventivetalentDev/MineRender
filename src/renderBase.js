@@ -5,6 +5,10 @@ import * as THREE from "three";
 import OnScreen from "onscreen";
 import * as $ from "jquery";
 
+/**
+ * Default asset root
+ * @type {string}
+ */
 export const DEFAULT_ROOT = "https://minerender.org/res/mc";
 
 const textureCache = {};
@@ -53,6 +57,12 @@ export default class Render {
             return this._renderer.domElement.toDataURL("image/png");
     };
 
+    /**
+     * Initializes the scene
+     * @param renderCb
+     * @param doNotAnimate
+     * @protected
+     */
     initScene(renderCb, doNotAnimate) {
         let renderObj = this;
 
@@ -187,7 +197,6 @@ export default class Render {
     };
 
 }
-
 
 export function loadTextureAsBase64(root, namespace, dir, name) {
     return new Promise((resolve, reject) => {
