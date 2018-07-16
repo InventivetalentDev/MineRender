@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <base data-ice="baseUrl" href="../../../">
+  <title data-ice="title">src/skin/texturePositions.js | minerender</title>
+  <link type="text/css" rel="stylesheet" href="css/style.css">
+  <link type="text/css" rel="stylesheet" href="css/prettify-tomorrow.css">
+  <script src="script/prettify/prettify.js"></script>
+  <script src="script/manual.js"></script>
+</head>
+<body class="layout-container" data-ice="rootContainer">
+
+<header>
+  <a href="./">Home</a>
+  
+  <a href="identifiers.html">Reference</a>
+  <a href="source.html">Source</a>
+  
+  <div class="search-box">
+  <span>
+    <img src="./image/search.png">
+    <span class="search-input-edge"></span><input class="search-input"><span class="search-input-edge"></span>
+  </span>
+    <ul class="search-result"></ul>
+  </div>
+</header>
+
+<nav class="navigation" data-ice="nav"><div>
+  <ul>
+    
+  <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/renderBase.js~Render.html">Render</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-loadBlockState">loadBlockState</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-loadModelFromPath">loadModelFromPath</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-loadTextureAsBase64">loadTextureAsBase64</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-scaleUv">scaleUv</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-DEFAULT_ROOT">DEFAULT_ROOT</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-defaultOptions">defaultOptions</a></span></span></li>
+<li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#combined">combined</a><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-CombinedRender">CombinedRender</a></span></span></li>
+<li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#gui">gui</a><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/gui/index.js~GuiRender.html">GuiRender</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-guiHelper">guiHelper</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-guiPositions">guiPositions</a></span></span></li>
+<li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#lib">lib</a><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-OrbitControls">OrbitControls</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-isObject">isObject</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-mergeDeep">mergeDeep</a></span></span></li>
+<li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#model">model</a><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/model/index.js~ModelRender.html">ModelRender</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-ModelConverter">ModelConverter</a></span></span></li>
+<li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#skin">skin</a><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/skin/index.js~SkinRender.html">SkinRender</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-texturePositions">texturePositions</a></span></span></li>
+</ul>
+</div>
+</nav>
+
+<div class="content" data-ice="content"><h1 data-ice="title">src/skin/texturePositions.js</h1>
+<pre class="source-code line-number raw-source-code"><code class="prettyprint linenums" data-ice="content">const texturePositions =  {
+    head: [
+        {// 64x32
+            right: {
+                x: 0,
+                y: 16,
+                w: 8,
+                h: 8,
+                flipX: true
+            },
+            front: {
+                x: 8,
+                y: 16,
+                w: 8,
+                h: 8
+            },
+            left: {
+                x: 16,
+                y: 16,
+                w: 8,
+                h: 8,
+                flipX: true
+            },
+            back: {
+                x: 24,
+                y: 16,
+                w: 8,
+                h: 8
+            },
+            top: {
+                x: 8,
+                y: 24,
+                w: 8,
+                h: 8
+            },
+            bottom: {
+                x: 16,
+                y: 24,
+                w: 8,
+                h: 8,
+                flipX: true,
+                flipY: true
+            }
+        },
+        {// 64x64
+            right: {
+                x: 0,
+                y: 48,
+                w: 8,
+                h: 8,
+                flipX: true
+            },
+            front: {
+                x: 8,
+                y: 48,
+                w: 8,
+                h: 8
+            },
+            left: {
+                x: 16,
+                y: 48,
+                w: 8,
+                h: 8,
+                flipX: true
+            },
+            back: {
+                x: 24,
+                y: 48,
+                w: 8,
+                h: 8
+            },
+            top: {
+                x: 8,
+                y: 56,
+                w: 8,
+                h: 8
+            },
+            bottom: {
+                x: 16,
+                y: 56,
+                w: 8,
+                h: 8,
+                flipX: true,
+                flipY: true
+            }
+        }
+    ],
+    body: [
+        {// 64x32
+            right: {
+                x: 16,
+                y: 0,
+                w: 4,
+                h: 12,
+                flipX: true
+            },
+            front: {
+                x: 20,
+                y: 0,
+                w: 8,
+                h: 12
+            },
+            left: {
+                x: 28,
+                y: 0,
+                w: 4,
+                h: 12,
+                flipX: true
+            },
+            back: {
+                x: 32,
+                y: 0,
+                w: 8,
+                h: 12
+            },
+            top: {
+                x: 20,
+                y: 12,
+                w: 8,
+                h: 4
+            },
+            bottom: {
+                x: 28,
+                y: 12,
+                w: 8,
+                h: 4,
+                flipY: true
+            }
+        },
+        {// 64x64
+            right: {
+                x: 16,
+                y: 32,
+                w: 4,
+                h: 12,
+                flipX: true
+            },
+            front: {
+                x: 20,
+                y: 32,
+                w: 8,
+                h: 12
+            },
+            left: {
+                x: 28,
+                y: 32,
+                w: 4,
+                h: 12,
+                flipX: true
+            },
+            back: {
+                x: 32,
+                y: 32,
+                w: 8,
+                h: 12
+            },
+            top: {
+                x: 20,
+                y: 44,
+                w: 8,
+                h: 4
+            },
+            bottom: {
+                x: 28,
+                y: 44,
+                w: 8,
+                h: 4,
+                flipY: true
+            }
+        }
+    ],
+    leftArm: [
+        {// 64x32 - same as rightArm
+            right: {
+                x: 40,
+                y: 0,
+                w: 4,
+                h: 12,
+                flipX: true
+            },
+            front: {
+                x: 44,
+                y: 0,
+                w: 4,
+                h: 12,
+                flipX: true
+            },
+            left: {
+                x: 48,
+                y: 0,
+                w: 4,
+                h: 12,
+                flipX: true
+            },
+            back: {
+                x: 52,
+                y: 0,
+                w: 4,
+                h: 12,
+                flipX: true
+            },
+            top: {
+                x: 44,
+                y: 12,
+                w: 4,
+                h: 4,
+                flipX: true
+            },
+            bottom: {
+                x: 48,
+                y: 12,
+                w: 4,
+                h: 4,
+                flipX: true
+            }
+        },
+        {// 64x64
+            right: {
+                x: 32,
+                y: 0,
+                w: 4,
+                h: 12,
+                flipX: true
+            },
+            front: {
+                x: 36,
+                y: 0,
+                w: 4,
+                h: 12,
+                sw: 3,
+                flipX: true
+            },
+            left: {
+                x: 40,
+                y: 0,
+                w: 4,
+                h: 12,
+                sx: 39,
+                flipX: true
+            },
+            back: {
+                x: 44,
+                y: 0,
+                w: 4,
+                h: 12,
+                sx: 43,
+                sw: 3,
+                flipX: true
+            },
+            top: {
+                x: 36,
+                y: 12,
+                w: 4,
+                h: 4,
+                sw: 3,
+                flipX: true
+            },
+            bottom: {
+                x: 40,
+                y: 12,
+                w: 4,
+                h: 4,
+                sx: 39,
+                sw: 3,
+                flipX: true
+            }
+        }
+    ],
+    rightArm: [
+        {// 64x32 - same as leftArm
+            right: {
+                x: 40,
+                y: 0,
+                w: 4,
+                h: 12,
+                flipX: true
+            },
+            front: {
+                x: 44,
+                y: 0,
+                w: 4,
+                h: 12,
+                flipX: true
+            },
+            left: {
+                x: 48,
+                y: 0,
+                w: 4,
+                h: 12,
+                flipX: true
+            },
+            back: {
+                x: 52,
+                y: 0,
+                w: 4,
+                h: 12,
+                flipX: true
+            },
+            top: {
+                x: 44,
+                y: 12,
+                w: 4,
+                h: 4,
+                flipX: true
+            },
+            bottom: {
+                x: 48,
+                y: 12,
+                w: 4,
+                h: 4,
+                flipX: true
+            }
+        },
+        {// 64x64
+            right: {
+                x: 40,
+                y: 32,
+                w: 4,
+                h: 12,
+                flipX: true
+            },
+            front: {
+                x: 44,
+                y: 32,
+                w: 4,
+                h: 12,
+                sw: 3,
+                flipX: true
+            },
+            left: {
+                x: 48,
+                y: 32,
+                w: 4,
+                h: 12,
+                sx: 47,
+                flipX: true
+            },
+            back: {
+                x: 52,
+                y: 32,
+                w: 4,
+                h: 12,
+                sx: 51,
+                sw: 3,
+                flipX: true
+            },
+            top: {
+                x: 44,
+                y: 44,
+                w: 4,
+                h: 4,
+                sw: 3,
+                flipX: true
+            },
+            bottom: {
+                x: 48,
+                y: 44,
+                w: 4,
+                h: 4,
+                sx: 47,
+                sw: 3,
+                flipX: true
+            }
+        }
+    ],
+    leftLeg: [
+        {// 64x32 - same as rightLeg
+            right: {
+                x: 0,
+                y: 0,
+                w: 4,
+                h: 12,
+                flipX: true
+            },
+            front: {
+                x: 4,
+                y: 0,
+                w: 4,
+                h: 12,
+                flipX: false
+            },
+            left: {
+                x: 8,
+                y: 0,
+                w: 4,
+                h: 12,
+                flipX: true
+            },
+            back: {
+                x: 12,
+                y: 0,
+                w: 4,
+                h: 12
+            },
+            top: {
+                x: 4,
+                y: 12,
+                w: 4,
+                h: 4,
+                flipX: true
+            },
+            bottom: {
+                x: 8,
+                y: 12,
+                w: 4,
+                h: 4,
+                flipX: true
+            }
+        },
+        {// 64x64
+            right: {
+                x: 16,
+                y: 0,
+                w: 4,
+                h: 12,
+                flipX: true
+            },
+            front: {
+                x: 20,
+                y: 0,
+                w: 4,
+                h: 12,
+                flipX: true
+            },
+            left: {
+                x: 24,
+                y: 0,
+                w: 4,
+                h: 12,
+                flipX: true
+            },
+            back: {
+                x: 28,
+                y: 0,
+                w: 4,
+                h: 12,
+                flipX: true
+            },
+            top: {
+                x: 20,
+                y: 12,
+                w: 4,
+                h: 4,
+                flipX: true
+            },
+            bottom: {
+                x: 24,
+                y: 12,
+                w: 4,
+                h: 4,
+                flipX: true
+            }
+        }
+    ],
+    rightLeg: [
+        {// 64x32 - same as leftLeg
+            right: {
+                x: 0,
+                y: 0,
+                w: 4,
+                h: 12,
+                flipX: true
+            },
+            front: {
+                x: 4,
+                y: 0,
+                w: 4,
+                h: 12,
+                flipX: true
+            },
+            left: {
+                x: 8,
+                y: 0,
+                w: 4,
+                h: 12,
+                flipX: true
+            },
+            back: {
+                x: 12,
+                y: 0,
+                w: 4,
+                h: 12,
+                flipX: true
+            },
+            top: {
+                x: 4,
+                y: 12,
+                w: 4,
+                h: 4,
+                flipX: true
+            },
+            bottom: {
+                x: 8,
+                y: 12,
+                w: 4,
+                h: 4,
+                flipX: true
+            }
+        },
+        {// 64x64
+            right: {
+                x: 0,
+                y: 32,
+                w: 4,
+                h: 12,
+                flipX: true
+            },
+            front: {
+                x: 4,
+                y: 32,
+                w: 4,
+                h: 12,
+                flipX: true
+            },
+            left: {
+                x: 8,
+                y: 32,
+                w: 4,
+                h: 12,
+                flipX: true
+            },
+            back: {
+                x: 12,
+                y: 32,
+                w: 4,
+                h: 12,
+                flipX: true
+            },
+            top: {
+                x: 4,
+                y: 44,
+                w: 4,
+                h: 4,
+                flipX: true
+            },
+            bottom: {
+                x: 8,
+                y: 44,
+                w: 4,
+                h: 4,
+                flipX: true
+            }
+        }
+    ],
+
+    hat: {
+        right: {
+            x: 32,
+            y: 48,
+            w: 8,
+            h: 8,
+            flipX: true
+        },
+        front: {
+            x: 40,
+            y: 48,
+            w: 8,
+            h: 8
+        },
+        left: {
+            x: 48,
+            y: 48,
+            w: 8,
+            h: 8,
+            flipX: true
+        },
+        back: {
+            x: 56,
+            y: 48,
+            w: 8,
+            h: 8
+        },
+        top: {
+            x: 40,
+            y: 56,
+            w: 8,
+            h: 8
+        },
+        bottom: {
+            x: 48,
+            y: 56,
+            w: 8,
+            h: 8,
+            flipY: true
+        }
+    },
+    jacket: {
+        right: {
+            x: 16,
+            y: 16,
+            w: 4,
+            h: 12
+        },
+        front: {
+            x: 20,
+            y: 16,
+            w: 8,
+            h: 12
+        },
+        left: {
+            x: 26,
+            y: 16,
+            w: 4,
+            h: 12
+        },
+        back: {
+            x: 32,
+            y: 16,
+            w: 8,
+            h: 12
+        },
+        top: {
+            x: 20,
+            y: 28,
+            w: 8,
+            h: 4
+        },
+        bottom: {
+            x: 28,
+            y: 28,
+            w: 8,
+            h: 4
+        }
+    },
+    leftSleeve: {
+        right: {
+            x: 48,
+            y: 0,
+            w: 4,
+            h: 12
+        },
+        front: {
+            x: 52,
+            y: 0,
+            w: 4,
+            h: 12,
+            sw: 3
+        },
+        left: {
+            x: 56,
+            y: 0,
+            w: 4,
+            h: 12,
+            sx: 55
+        },
+        back: {
+            x: 60,
+            y: 0,
+            w: 4,
+            h: 12,
+            sx: 59,
+            sw: 3
+        },
+        top: {
+            x: 52,
+            y: 12,
+            w: 4,
+            h: 4,
+            sw: 3
+        },
+        bottom: {
+            x: 56,
+            y: 12,
+            w: 4,
+            h: 4,
+            sx: 55,
+            sw: 3
+        }
+    },
+    rightSleeve: {
+        right: {
+            x: 40,
+            y: 16,
+            w: 4,
+            h: 12
+        },
+        front: {
+            x: 44,
+            y: 16,
+            w: 4,
+            h: 12,
+            sw: 3
+        },
+        left: {
+            x: 48,
+            y: 16,
+            w: 4,
+            h: 12,
+            sx: 47
+        },
+        back: {
+            x: 52,
+            y: 16,
+            w: 4,
+            h: 12,
+            sx: 51,
+            sw: 3
+        },
+        top: {
+            x: 44,
+            y: 28,
+            w: 4,
+            h: 4,
+            sw: 3
+        },
+        bottom: {
+            x: 48,
+            y: 28,
+            w: 4,
+            h: 4,
+            sx: 47,
+            sw: 3
+        }
+    },
+    leftTrousers: {
+        right: {
+            x: 0,
+            y: 0,
+            w: 4,
+            h: 12
+        },
+        front: {
+            x: 4,
+            y: 0,
+            w: 4,
+            h: 12
+        },
+        left: {
+            x: 8,
+            y: 0,
+            w: 4,
+            h: 12
+        },
+        back: {
+            x: 12,
+            y: 0,
+            w: 4,
+            h: 12
+        },
+        top: {
+            x: 4,
+            y: 12,
+            w: 4,
+            h: 4
+        },
+        bottom: {
+            x: 8,
+            y: 12,
+            w: 4,
+            h: 4
+        }
+    },
+    rightTrousers: {
+        right: {
+            x: 0,
+            y: 16,
+            w: 4,
+            h: 12
+        },
+        front: {
+            x: 4,
+            y: 16,
+            w: 4,
+            h: 12
+        },
+        left: {
+            x: 8,
+            y: 16,
+            w: 4,
+            h: 12
+        },
+        back: {
+            x: 12,
+            y: 16,
+            w: 4,
+            h: 12
+        },
+        top: {
+            x: 4,
+            y: 28,
+            w: 4,
+            h: 4
+        },
+        bottom: {
+            x: 8,
+            y: 28,
+            w: 4,
+            h: 4
+        }
+    },
+
+    cape: {
+        right: {
+            x: 0,
+            y: 15,
+            w: 1,
+            h: 16
+        },
+        front: {
+            x: 1,
+            y: 15,
+            w: 10,
+            h: 16
+        },
+        left: {
+            x: 11,
+            y: 15,
+            w: 1,
+            h: 16
+        },
+        back: {
+            x: 12,
+            y: 15,
+            w: 10,
+            h: 16
+        },
+        top: {
+            x: 1,
+            y: 31,
+            w: 10,
+            h: 1
+        },
+        bottom: {
+            x: 11,
+            y: 31,
+            w: 10,
+            h: 1
+        }
+    },
+    capeOptifine: {
+        right: {
+            x: 22,
+            y: 0,
+            w: 2,
+            h: 16
+        },
+        front: {
+            x: 2,
+            y: 0,
+            w: 20,
+            h: 32
+        },
+        left: {
+            x: 0,
+            y: 0,
+            w:2,
+            h: 16
+        },
+        back: {
+            x: 24,
+            y: 0,
+            w: 10,
+            h: 16
+        },
+        top: {
+            x: 2,
+            y: 33,
+            w: 20,
+            h: 2
+        },
+        bottom: {
+            x: 22,
+            y: 32,
+            w: 20,
+            h: 2
+        }
+    }
+};
+
+export default texturePositions;</code></pre>
+
+</div>
+
+<footer class="footer">
+  Generated by <a href="https://esdoc.org">ESDoc<span data-ice="esdocVersion">(1.1.0)</span><img src="./image/esdoc-logo-mini-black.png"></a>
+</footer>
+
+<script src="script/search_index.js"></script>
+<script src="script/search.js"></script>
+<script src="script/pretty-print.js"></script>
+<script src="script/inherited-summary.js"></script>
+<script src="script/test-summary.js"></script>
+<script src="script/inner-link.js"></script>
+<script src="script/patch-for-local.js"></script>
+</body>
+</html>

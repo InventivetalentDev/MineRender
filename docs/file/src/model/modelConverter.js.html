@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <base data-ice="baseUrl" href="../../../">
+  <title data-ice="title">src/model/modelConverter.js | minerender</title>
+  <link type="text/css" rel="stylesheet" href="css/style.css">
+  <link type="text/css" rel="stylesheet" href="css/prettify-tomorrow.css">
+  <script src="script/prettify/prettify.js"></script>
+  <script src="script/manual.js"></script>
+</head>
+<body class="layout-container" data-ice="rootContainer">
+
+<header>
+  <a href="./">Home</a>
+  
+  <a href="identifiers.html">Reference</a>
+  <a href="source.html">Source</a>
+  
+  <div class="search-box">
+  <span>
+    <img src="./image/search.png">
+    <span class="search-input-edge"></span><input class="search-input"><span class="search-input-edge"></span>
+  </span>
+    <ul class="search-result"></ul>
+  </div>
+</header>
+
+<nav class="navigation" data-ice="nav"><div>
+  <ul>
+    
+  <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/renderBase.js~Render.html">Render</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-loadBlockState">loadBlockState</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-loadModelFromPath">loadModelFromPath</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-loadTextureAsBase64">loadTextureAsBase64</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-scaleUv">scaleUv</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-DEFAULT_ROOT">DEFAULT_ROOT</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-defaultOptions">defaultOptions</a></span></span></li>
+<li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#combined">combined</a><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-CombinedRender">CombinedRender</a></span></span></li>
+<li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#gui">gui</a><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/gui/index.js~GuiRender.html">GuiRender</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-guiHelper">guiHelper</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-guiPositions">guiPositions</a></span></span></li>
+<li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#lib">lib</a><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-OrbitControls">OrbitControls</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-isObject">isObject</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-mergeDeep">mergeDeep</a></span></span></li>
+<li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#model">model</a><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/model/index.js~ModelRender.html">ModelRender</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-ModelConverter">ModelConverter</a></span></span></li>
+<li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#skin">skin</a><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/skin/index.js~SkinRender.html">SkinRender</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-texturePositions">texturePositions</a></span></span></li>
+</ul>
+</div>
+</nav>
+
+<div class="content" data-ice="content"><h1 data-ice="title">src/model/modelConverter.js</h1>
+<pre class="source-code line-number raw-source-code"><code class="prettyprint linenums" data-ice="content">import * as pako from &quot;pako&quot;;
+import * as NBT from &quot;prismarine-nbt&quot;;
+import SkinRender from &quot;../skin/index&quot;;
+import { loadBlockState, loadModel, loadTextures, mergeParents, renderModel } from &quot;../renderBase&quot;;
+
+
+function ModelConverter() {
+}
+
+ModelConverter.prototype.structureToModels = function (structure, cb) {
+    loadNBT(structure).then((rawNbt) =&gt; {
+        NBT.parse(rawNbt, (err, data) =&gt; {
+            if (err) {
+                console.warn(&quot;Error while parsing NBT data&quot;);
+                console.warn(err);
+                return;
+            }
+
+            if(!PRODUCTION) {
+                console.log(&quot;NBT Data:&quot;)
+                console.log(data);
+            }
+
+            parseStructureData(data).then((data) =&gt; {
+                cb(data);
+            })
+        })
+    })
+};
+
+function loadNBT(source) {
+    return new Promise((resolve, reject) =&gt; {
+        if (source.file) {
+            let reader = new FileReader();
+            reader.onload = function () {
+                let arrayBuffer = this.result;
+                let array = new Uint8Array(arrayBuffer);
+
+                resolve(array);
+            }
+            reader.readAsArrayBuffer(source.file);
+        } else if (source.url) {
+            let xhr = new XMLHttpRequest();
+            xhr.open(&apos;GET&apos;, source.url, true);
+            xhr.responseType = &apos;arraybuffer&apos;;
+            xhr.onloadend = function () {
+                if (xhr.status === 200) {
+                    let array = new Uint8Array(this.response);
+
+                    resolve(array);
+                }
+            };
+            xhr.send();
+        } else if (source.raw) {
+            if (source.raw instanceof Uint8Array) {
+                resolve(source.raw)
+            } else {
+                resolve(new Uint8Array(source.raw));
+            }
+        } else {
+            reject();
+        }
+    })
+}
+
+function parseStructureData(data) {
+    return new Promise((resolve, reject) =&gt; {
+        if (data.type === &quot;compound&quot;) {
+            if (data.value.hasOwnProperty(&quot;blocks&quot;) &amp;&amp; data.value.hasOwnProperty(&quot;palette&quot;)) {
+                // Simplify palette
+                let palette = [];
+                for (let i = 0; i &lt; data.value.palette.value.value.length; i++) {
+                    palette.push(data.value.palette.value.value[i]);
+                }
+
+                let arr = [];
+
+                // Iterate blocks
+                let blocks = data.value.blocks.value.value;
+                for (let i = 0; i &lt; blocks.length; i++) {
+                    let blockType = palette[blocks[i].state.value].Name.value;
+                    if (blockType === &quot;minecraft:air&quot;) {
+                        // No need to add air
+                        continue;
+                    }
+                    let shortBlockType = blockType.substr(&quot;minecraft:&quot;.length);
+
+                    let pos = blocks[i].pos.value.value;
+
+
+                    let variantString = &quot;normal&quot;;
+                    if (palette[blocks[i].state.value].hasOwnProperty(&quot;Properties&quot;)) {
+                        variantString = &quot;&quot;;
+
+                        let strs = [];
+                        for (let p in  palette[blocks[i].state.value].Properties.value) {
+                            if (palette[blocks[i].state.value].Properties.value.hasOwnProperty(p)) {
+                                let prop = palette[blocks[i].state.value].Properties.value[p];
+
+                                strs.push(p + &quot;=&quot; + prop.value);
+                            }
+                        }
+
+                        // Make sure the variants are sorted properly, or it won&apos;t match the game files
+                        strs.sort();
+
+                        for (let i = 0; i &lt; strs.length; i++) {
+                            variantString += &quot;,&quot; + strs[i];
+                        }
+
+                        variantString = variantString.substr(1);
+                    }
+
+                    if (specialVariants.hasOwnProperty(shortBlockType)) {
+                        shortBlockType = specialVariants[shortBlockType](palette[blocks[i].state.value].Properties.value);
+                        variantString = &quot;normal&quot;;
+                    }
+
+                        let block = {
+                            blockstate: shortBlockType,
+                            variant: variantString,
+                            offset: [pos[0] * 16, pos[1] * 16, pos[2] * 16]
+                        };
+                        arr.push(block)
+                }
+
+                resolve(arr);
+            } else {
+                console.warn(&quot;Invalid NBT - Missing blocks/palette&quot;);
+                reject();
+            }
+        } else {
+            console.warn(&quot;Invalid NBT - Root tag should be compound&quot;);
+            reject();
+        }
+    })
+}
+
+let specialVariants = {
+    &quot;stained_glass&quot;: function (properties) {
+        return properties.color.value + &quot;_stained_glass&quot;;
+    },
+    &quot;planks&quot;: function (properties) {
+        return properties.variant.value + &quot;_planks&quot;;
+    }
+};
+
+
+ModelConverter.prototype.constructor = ModelConverter;
+
+window.ModelConverter = ModelConverter;
+
+export default ModelConverter;</code></pre>
+
+</div>
+
+<footer class="footer">
+  Generated by <a href="https://esdoc.org">ESDoc<span data-ice="esdocVersion">(1.1.0)</span><img src="./image/esdoc-logo-mini-black.png"></a>
+</footer>
+
+<script src="script/search_index.js"></script>
+<script src="script/search.js"></script>
+<script src="script/pretty-print.js"></script>
+<script src="script/inherited-summary.js"></script>
+<script src="script/test-summary.js"></script>
+<script src="script/inner-link.js"></script>
+<script src="script/patch-for-local.js"></script>
+</body>
+</html>

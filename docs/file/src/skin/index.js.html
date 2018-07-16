@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <base data-ice="baseUrl" href="../../../">
+  <title data-ice="title">src/skin/index.js | minerender</title>
+  <link type="text/css" rel="stylesheet" href="css/style.css">
+  <link type="text/css" rel="stylesheet" href="css/prettify-tomorrow.css">
+  <script src="script/prettify/prettify.js"></script>
+  <script src="script/manual.js"></script>
+</head>
+<body class="layout-container" data-ice="rootContainer">
+
+<header>
+  <a href="./">Home</a>
+  
+  <a href="identifiers.html">Reference</a>
+  <a href="source.html">Source</a>
+  
+  <div class="search-box">
+  <span>
+    <img src="./image/search.png">
+    <span class="search-input-edge"></span><input class="search-input"><span class="search-input-edge"></span>
+  </span>
+    <ul class="search-result"></ul>
+  </div>
+</header>
+
+<nav class="navigation" data-ice="nav"><div>
+  <ul>
+    
+  <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/renderBase.js~Render.html">Render</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-loadBlockState">loadBlockState</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-loadModelFromPath">loadModelFromPath</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-loadTextureAsBase64">loadTextureAsBase64</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-scaleUv">scaleUv</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-DEFAULT_ROOT">DEFAULT_ROOT</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-defaultOptions">defaultOptions</a></span></span></li>
+<li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#combined">combined</a><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-CombinedRender">CombinedRender</a></span></span></li>
+<li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#gui">gui</a><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/gui/index.js~GuiRender.html">GuiRender</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-guiHelper">guiHelper</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-guiPositions">guiPositions</a></span></span></li>
+<li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#lib">lib</a><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-OrbitControls">OrbitControls</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-isObject">isObject</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-mergeDeep">mergeDeep</a></span></span></li>
+<li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#model">model</a><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/model/index.js~ModelRender.html">ModelRender</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-ModelConverter">ModelConverter</a></span></span></li>
+<li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#skin">skin</a><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/skin/index.js~SkinRender.html">SkinRender</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-texturePositions">texturePositions</a></span></span></li>
+</ul>
+</div>
+</nav>
+
+<div class="content" data-ice="content"><h1 data-ice="title">src/skin/index.js</h1>
+<pre class="source-code line-number raw-source-code"><code class="prettyprint linenums" data-ice="content">import * as THREE from &quot;three&quot;;
+import OrbitControls from &quot;../lib/OrbitControls&quot;;
+
+import texturePositions from &quot;./texturePositions&quot;;
+import Render, { defaultOptions } from &quot;../renderBase&quot;;
+
+let defOptions = {
+    camera: {
+        type: &quot;perspective&quot;,
+        x: 20,
+        y: 35,
+        z: 20,
+        target: [0, 18, 0]
+    }
+};
+
+/**
+ * A renderer for Minecraft player models/skins
+ */
+class SkinRender extends Render {
+
+    /**
+     * @param {Object} [options] The options for this renderer
+     * @param {HTMLElement} [element=document.body] DOM Element to attach the renderer to - defaults to document.body
+     * @constructor
+     */
+    constructor(options, element) {
+        super(options, defOptions, element);
+
+        this.renderType = &quot;SkinRender&quot;;
+        this._animId = -1;
+
+        // bind this renderer to the element
+        this.element.skinRender = this;
+        this.attached = false;
+
+    }
+
+
+    /**
+     * Does the actual rendering
+     *
+     * @param {(string|Object)} texture The texture to render - May be a string with the playername/URL/Base64 or an Object
+     * @param {string} texture.url URL to the texture image
+     * @param {string} texture.data Base64 encoded image data of the texture
+     * @param {string} texture.username Player username
+     * @param {string} texture.uuid Player UUID
+     * @param {number} texture.mineskin ID of a MineSkin.org skin
+     * @param {boolean} [texture.slim=false] Whether the provided texture uses the slim skin format
+     *
+     * @param {string} [texture.capeUrl] URL to a cape texture
+     * @param {string} [texture.capeData] Base64 encoded image data of the cape texture
+     * @param {string} [texture.mineskin] ID of a MineSkin.org skin with a cape
+     * @param {boolean} [texture.optifine=false] Whether the provided cape texture is an optifine cape
+     *
+     * @param {function} [cb] Callback when rendering finished
+     */
+    render(texture, cb) {
+        let skinRender = this;
+
+        let renderStarted = false;
+
+        let imagesLoaded = (skinTexture, capeTexture) =&gt; {
+            renderStarted = true;
+            skinTexture.needsUpdate = true;
+            if (capeTexture) capeTexture.needsUpdate = true;
+
+            let textureVersion = -1;
+            if (skinTexture.image.height === 32) {
+                textureVersion = 0;
+            } else if (skinTexture.image.height === 64) {
+                textureVersion = 1;
+            } else {
+                console.error(&quot;Couldn&apos;t detect texture version. Invalid dimensions: &quot; + skinTexture.image.width + &quot;x&quot; + skinTexture.image.height)
+            }
+            console.log(&quot;Skin Texture Version: &quot; + textureVersion)
+
+            // To keep the pixelated texture
+            skinTexture.magFilter = THREE.NearestFilter;
+            skinTexture.minFilter = THREE.NearestFilter;
+            skinTexture.anisotropy = 0;
+            if (capeTexture) {
+                capeTexture.magFilter = THREE.NearestFilter;
+                capeTexture.minFilter = THREE.NearestFilter;
+                capeTexture.anisotropy = 0;
+            }
+
+            if (!skinRender.attached) {// Don&apos;t init scene if attached, since we already have an available scene
+                super.initScene(function () {
+                    skinRender.element.dispatchEvent(new CustomEvent(&quot;skinRender&quot;, {detail: {playerModel: skinRender.playerModel}}));
+                });
+            } else {
+                console.log(&quot;[SkinRender] is attached - skipping scene init&quot;);
+            }
+
+            console.log(&quot;Slim: &quot; + slim)
+            let playerModel = createPlayerModel(skinTexture, capeTexture, textureVersion, slim, texture.optifine);
+            skinRender._scene.add(playerModel);
+            // console.log(playerModel);
+            skinRender.playerModel = playerModel;
+
+            if (typeof cb === &quot;function&quot;) cb();
+        }
+
+        skinRender._skinImage = new Image();
+        skinRender._skinImage.crossOrigin = &quot;anonymous&quot;;
+        skinRender._capeImage = new Image();
+        skinRender._capeImage.crossOrigin = &quot;anonymous&quot;;
+        let hasCape = texture.capeUrl !== undefined || texture.capeData !== undefined || texture.mineskin !== undefined;
+        let slim = false;
+        let skinLoaded = false;
+        let capeLoaded = false;
+
+        let skinTexture = new THREE.Texture();
+        let capeTexture = new THREE.Texture();
+        skinTexture.image = skinRender._skinImage;
+        skinRender._skinImage.onload = function () {
+            if (!skinRender._skinImage) return;
+
+            skinLoaded = true;
+            console.log(&quot;Skin Image Loaded&quot;);
+
+            if (texture.slim === undefined) {
+                let detectCanvas = document.createElement(&quot;canvas&quot;);
+                let detectCtx = detectCanvas.getContext(&quot;2d&quot;);
+                // detectCanvas.style.display = &quot;none&quot;;
+                detectCanvas.width = skinRender._skinImage.width;
+                detectCanvas.height = skinRender._skinImage.height;
+                detectCtx.drawImage(skinRender._skinImage, 0, 0);
+
+                console.log(&quot;Slim Detection:&quot;)
+
+                // Check the 2 columns that should be transparent on slim skins
+                let px1 = detectCtx.getImageData(46, 52, 1, 12).data;
+                let px2 = detectCtx.getImageData(54, 20, 1, 12).data;
+                let allTransparent = true;
+                for (let i = 3; i &lt; 12 * 4; i += 4) {
+                    if (px1[i] === 255) {
+                        allTransparent = false;
+                        break;
+                    }
+                    if (px2[i] === 255) {
+                        allTransparent = false;
+                        break;
+                    }
+                }
+                console.log(allTransparent)
+
+                if (allTransparent) slim = true;
+            }
+
+            if (skinLoaded &amp;&amp; (capeLoaded || !hasCape)) {
+                if (!renderStarted) imagesLoaded(skinTexture, capeTexture);
+            }
+        };
+        skinRender._skinImage.onerror = function (e) {
+            console.warn(&quot;Skin Image Error&quot;)
+            console.warn(e)
+        }
+        console.log(&quot;Has Cape: &quot; + hasCape)
+        if (hasCape) {
+            capeTexture.image = skinRender._capeImage;
+            skinRender._capeImage.onload = function () {
+                if (!skinRender._capeImage) return;
+
+                capeLoaded = true;
+                console.log(&quot;Cape Image Loaded&quot;);
+
+                if (capeLoaded &amp;&amp; skinLoaded) {
+                    if (!renderStarted) imagesLoaded(skinTexture, capeTexture);
+                }
+            }
+            skinRender._capeImage.onerror = function (e) {
+                console.warn(&quot;Cape Image Error&quot;)
+                console.warn(e);
+
+                // Continue anyway, just without the cape
+                capeLoaded = true;
+                if (skinLoaded) {
+                    if (!renderStarted) imagesLoaded(skinTexture);
+                }
+            }
+        } else {
+            capeTexture = null;
+            skinRender._capeImage = null;
+        }
+
+        if (typeof texture === &quot;string&quot;) {
+            // console.log(texture)
+            if (texture.indexOf(&quot;http&quot;) === 0) {// URL
+                skinRender._skinImage.src = texture
+            } else if (texture.length &lt;= 16) {// Probably a Minecraft username
+                getJSON(&quot;https://skinrender.ga/nameToUuid.php?name=&quot; + texture, function (err, data) {
+                    if (err) return console.log(err);
+                    console.log(data);
+                    skinRender._skinImage.src = &quot;https://crafatar.com/skins/&quot; + (data.id ? data.id : texture);
+                });
+            } else if (texture.length &lt;= 36) {// Probably player UUID
+                image.src = &quot;https://crafatar.com/skins/&quot; + texture + &quot;?overlay&quot;;
+            } else {// taking a guess that it&apos;s a Base64 image
+                skinRender._skinImage.src = texture;
+            }
+        } else if (typeof texture === &quot;object&quot;) {
+            if (texture.url) {
+                skinRender._skinImage.src = texture.url;
+            } else if (texture.data) {
+                skinRender._skinImage.src = texture.data;
+            } else if (texture.username) {
+                getJSON(&quot;https://skinrender.ga/nameToUuid.php?name=&quot; + texture.username, function (err, data) {
+                    if (err) return console.log(err);
+                    skinRender._skinImage.src = &quot;https://crafatar.com/skins/&quot; + (data.id ? data.id : texture.username) + &quot;?overlay&quot;;
+                });
+            } else if (texture.uuid) {
+                skinRender._skinImage.src = &quot;https://crafatar.com/skins/&quot; + texture.uuid + &quot;?overlay&quot;;
+            } else if (texture.mineskin) {
+                skinRender._skinImage.src = &quot;https://api.mineskin.org/render/texture/&quot; + texture.mineskin;
+            }
+            if (texture.capeUrl) {
+                skinRender._capeImage.src = texture.capeUrl;
+            } else if (texture.capeData) {
+                skinRender._capeImage.src = texture.capeData;
+            } else if (texture.mineskin) {
+                skinRender._capeImage.src = &quot;https://api.mineskin.org/render/texture/&quot; + texture.mineskin + &quot;/cape&quot;;
+            }
+
+            slim = texture.slim;
+        } else {
+            throw new Error(&quot;Invalid texture value&quot;)
+        }
+    };
+
+
+    resize(width, height) {
+        return this._resize(width, height);
+    };
+
+    reset() {
+        this._skinImage = null;
+        this._capeImage = null;
+
+        if (this._animId) {
+            cancelAnimationFrame(this._animId);
+        }
+        if (this._canvas) {
+            this._canvas.remove();
+        }
+    };
+
+    getPlayerModel() {
+        return this.playerModel;
+    };
+
+
+    getModelByName(name) {
+        return this._scene.getObjectByName(name, true);
+    };
+
+    toggleSkinPart(name, visible) {
+        this._scene.getObjectByName(name, true).visible = visible;
+    };
+
+
+}
+
+function createCube(texture, width, height, depth, textures, slim, name, transparent) {
+    let textureWidth = texture.image.width;
+    let textureHeight = texture.image.height;
+
+    let geometry = new THREE.BoxGeometry(width, height, depth);
+    let material = new THREE.MeshBasicMaterial({
+        /*color: 0x00ff00,*/map: texture, transparent: transparent || false, alphaTest: 0.5, side: transparent ? THREE.DoubleSide : THREE.FrontSide//TODO: double sided not working properly
+    });
+
+    geometry.computeBoundingBox();
+
+    geometry.faceVertexUvs[0] = [];
+
+    let faceNames = [&quot;right&quot;, &quot;left&quot;, &quot;top&quot;, &quot;bottom&quot;, &quot;front&quot;, &quot;back&quot;];
+    let faceUvs = [];
+    for (let i = 0; i &lt; faceNames.length; i++) {
+        let face = textures[faceNames[i]];
+        if (faceNames[i] === &quot;back&quot;) {
+            //     console.log(face)
+            // console.log(&quot;X: &quot; + (slim &amp;&amp; face.sx ? face.sx : face.x))
+            // console.log(&quot;W: &quot; + (slim &amp;&amp; face.sw ? face.sw : face.w))
+        }
+        let w = textureWidth;
+        let h = textureHeight;
+        let tx1 = ((slim &amp;&amp; face.sx ? face.sx : face.x) / w);
+        let ty1 = (face.y / h);
+        let tx2 = (((slim &amp;&amp; face.sx ? face.sx : face.x) + (slim &amp;&amp; face.sw ? face.sw : face.w)) / w);
+        let ty2 = ((face.y + face.h) / h);
+
+        faceUvs[i] = [
+            new THREE.Vector2(tx1, ty2),
+            new THREE.Vector2(tx1, ty1),
+            new THREE.Vector2(tx2, ty1),
+            new THREE.Vector2(tx2, ty2)
+        ];
+        // console.log(faceUvs[i])
+
+        let flipX = face.flipX;
+        let flipY = face.flipY;
+
+        let temp;
+        if (flipY) {
+            temp = faceUvs[i].slice(0);
+            faceUvs[i][0] = temp[2];
+            faceUvs[i][1] = temp[3];
+            faceUvs[i][2] = temp[0];
+            faceUvs[i][3] = temp[1]
+        }
+        if (flipX) {//flip x
+            temp = faceUvs[i].slice(0);
+            faceUvs[i][0] = temp[3];
+            faceUvs[i][1] = temp[2];
+            faceUvs[i][2] = temp[1];
+            faceUvs[i][3] = temp[0]
+        }
+    }
+
+    let j = 0;
+    for (let i = 0; i &lt; faceUvs.length; i++) {
+        geometry.faceVertexUvs[0][j] = [faceUvs[i][0], faceUvs[i][1], faceUvs[i][3]];
+        geometry.faceVertexUvs[0][j + 1] = [faceUvs[i][1], faceUvs[i][2], faceUvs[i][3]];
+        j += 2;
+    }
+    geometry.uvsNeedUpdate = true;
+
+    let cube = new THREE.Mesh(geometry, material);
+    cube.name = name;
+    // cube.position.set(x, y, z);
+    cube.castShadow = true;
+    cube.receiveShadow = false;
+
+    return cube;
+};
+
+
+function createPlayerModel(skinTexture, capeTexture, v, slim, optifineCape) {
+    console.log(&quot;optifine cape: &quot; + optifineCape);
+
+    let headGroup = new THREE.Object3D();
+    headGroup.position.x = 0;
+    headGroup.position.y = 28;
+    headGroup.position.z = 0;
+    headGroup.translateOnAxis(new THREE.Vector3(0, 1, 0), -4);
+    let head = createCube(skinTexture,
+        8, 8, 8,
+        texturePositions.head[v],
+        slim,
+        &quot;head&quot;
+    );
+    head.translateOnAxis(new THREE.Vector3(0, 1, 0), 4);
+    headGroup.add(head);
+    if (v &gt;= 1) {
+        let hat = createCube(skinTexture,
+            8.504, 8.504, 8.504,
+            texturePositions.hat,
+            slim,
+            &quot;hat&quot;,
+            true
+        );
+        hat.translateOnAxis(new THREE.Vector3(0, 1, 0), 4);
+        headGroup.add(hat);
+    }
+
+    let bodyGroup = new THREE.Object3D();
+    bodyGroup.position.x = 0;
+    bodyGroup.position.y = 18;
+    bodyGroup.position.z = 0;
+    let body = createCube(skinTexture,
+        8, 12, 4,
+        texturePositions.body[v],
+        slim,
+        &quot;body&quot;
+    );
+    bodyGroup.add(body);
+    if (v &gt;= 1) {
+        let jacket = createCube(skinTexture,
+            8.504, 12.504, 4.504,
+            texturePositions.jacket,
+            slim,
+            &quot;jacket&quot;,
+            true
+        );
+        bodyGroup.add(jacket);
+    }
+
+    let leftArmGroup = new THREE.Object3D();
+    leftArmGroup.position.x = slim ? -5.5 : -6;
+    leftArmGroup.position.y = 18;
+    leftArmGroup.position.z = 0;
+    leftArmGroup.translateOnAxis(new THREE.Vector3(0, 1, 0), 4);
+    let leftArm = createCube(skinTexture,
+        slim ? 3 : 4, 12, 4,
+        texturePositions.leftArm[v],
+        slim,
+        &quot;leftArm&quot;
+    );
+    leftArm.translateOnAxis(new THREE.Vector3(0, 1, 0), -4);
+    leftArmGroup.add(leftArm);
+    if (v &gt;= 1) {
+        let leftSleeve = createCube(skinTexture,
+            slim ? 3.504 : 4.504, 12.504, 4.504,
+            texturePositions.leftSleeve,
+            slim,
+            &quot;leftSleeve&quot;,
+            true
+        );
+        leftSleeve.translateOnAxis(new THREE.Vector3(0, 1, 0), -4);
+        leftArmGroup.add(leftSleeve);
+    }
+
+    let rightArmGroup = new THREE.Object3D();
+    rightArmGroup.position.x = slim ? 5.5 : 6;
+    rightArmGroup.position.y = 18;
+    rightArmGroup.position.z = 0;
+    rightArmGroup.translateOnAxis(new THREE.Vector3(0, 1, 0), 4);
+    let rightArm = createCube(skinTexture,
+        slim ? 3 : 4, 12, 4,
+        texturePositions.rightArm[v],
+        slim,
+        &quot;rightArm&quot;
+    );
+    rightArm.translateOnAxis(new THREE.Vector3(0, 1, 0), -4);
+    rightArmGroup.add(rightArm);
+    if (v &gt;= 1) {
+        let rightSleeve = createCube(skinTexture,
+            slim ? 3.504 : 4.504, 12.504, 4.504,
+            texturePositions.rightSleeve,
+            slim,
+            &quot;rightSleeve&quot;,
+            true
+        );
+        rightSleeve.translateOnAxis(new THREE.Vector3(0, 1, 0), -4);
+        rightArmGroup.add(rightSleeve);
+    }
+
+    let leftLegGroup = new THREE.Object3D();
+    leftLegGroup.position.x = -2;
+    leftLegGroup.position.y = 6;
+    leftLegGroup.position.z = 0;
+    leftLegGroup.translateOnAxis(new THREE.Vector3(0, 1, 0), 4);
+    let leftLeg = createCube(skinTexture,
+        4, 12, 4,
+        texturePositions.leftLeg[v],
+        slim,
+        &quot;leftLeg&quot;
+    );
+    leftLeg.translateOnAxis(new THREE.Vector3(0, 1, 0), -4);
+    leftLegGroup.add(leftLeg);
+    if (v &gt;= 1) {
+        let leftTrousers = createCube(skinTexture,
+            4.504, 12.504, 4.504,
+            texturePositions.leftTrousers,
+            slim,
+            &quot;leftTrousers&quot;,
+            true
+        );
+        leftTrousers.translateOnAxis(new THREE.Vector3(0, 1, 0), -4);
+        leftLegGroup.add(leftTrousers);
+    }
+
+    let rightLegGroup = new THREE.Object3D();
+    rightLegGroup.position.x = 2;
+    rightLegGroup.position.y = 6;
+    rightLegGroup.position.z = 0;
+    rightLegGroup.translateOnAxis(new THREE.Vector3(0, 1, 0), 4);
+    let rightLeg = createCube(skinTexture,
+        4, 12, 4,
+        texturePositions.rightLeg[v],
+        slim,
+        &quot;rightLeg&quot;
+    );
+    rightLeg.translateOnAxis(new THREE.Vector3(0, 1, 0), -4);
+    rightLegGroup.add(rightLeg);
+    if (v &gt;= 1) {
+        let rightTrousers = createCube(skinTexture,
+            4.504, 12.504, 4.504,
+            texturePositions.rightTrousers,
+            slim,
+            &quot;rightTrousers&quot;,
+            true
+        );
+        rightTrousers.translateOnAxis(new THREE.Vector3(0, 1, 0), -4);
+        rightLegGroup.add(rightTrousers);
+    }
+
+    let playerGroup = new THREE.Object3D();
+    playerGroup.add(headGroup);
+    playerGroup.add(bodyGroup);
+    playerGroup.add(leftArmGroup);
+    playerGroup.add(rightArmGroup);
+    playerGroup.add(leftLegGroup);
+    playerGroup.add(rightLegGroup);
+
+    if (capeTexture) {
+        let capeGroup = new THREE.Object3D();
+        capeGroup.position.x = 0;
+        capeGroup.position.y = 16;
+        capeGroup.position.z = -2.5;
+        capeGroup.translateOnAxis(new THREE.Vector3(0, 1, 0), 8);
+        capeGroup.translateOnAxis(new THREE.Vector3(0, 0, 1), 0.5);
+        let cape = createCube(capeTexture,
+            8, 16, 1,
+            optifineCape ? texturePositions.capeOptifine : texturePositions.cape,
+            false,
+            &quot;cape&quot;);
+        cape.translateOnAxis(new THREE.Vector3(0, 1, 0), -8);
+        cape.translateOnAxis(new THREE.Vector3(0, 0, 1), -0.5);
+        cape.rotation.y = toRadians(180);
+        capeGroup.add(cape)
+
+        playerGroup.add(capeGroup);
+    }
+
+    return playerGroup;
+};
+
+// From https://soledadpenades.com/articles/three-js-tutorials/drawing-the-coordinate-axes/
+function buildAxes(length) {
+    let axes = new THREE.Object3D();
+
+    axes.add(buildAxis(new THREE.Vector3(0, 0, 0), new THREE.Vector3(length, 0, 0), 0xFF0000, false)); // +X
+    axes.add(buildAxis(new THREE.Vector3(0, 0, 0), new THREE.Vector3(-length, 0, 0), 0xFF0000, true)); // -X
+    axes.add(buildAxis(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, length, 0), 0x00FF00, false)); // +Y
+    axes.add(buildAxis(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, -length, 0), 0x00FF00, true)); // -Y
+    axes.add(buildAxis(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, length), 0x0000FF, false)); // +Z
+    axes.add(buildAxis(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -length), 0x0000FF, true)); // -Z
+
+    return axes;
+
+};
+
+function buildAxis(src, dst, colorHex, dashed) {
+    let geom = new THREE.Geometry(),
+        mat;
+
+    if (dashed) {
+        mat = new THREE.LineDashedMaterial({linewidth: 3, color: colorHex, dashSize: 3, gapSize: 3});
+    } else {
+        mat = new THREE.LineBasicMaterial({linewidth: 3, color: colorHex});
+    }
+
+    geom.vertices.push(src.clone());
+    geom.vertices.push(dst.clone());
+    geom.computeLineDistances(); // This one is SUPER important, otherwise dashed lines will appear as simple plain lines
+
+    return new THREE.Line(geom, mat, THREE.LinePieces);
+};
+
+function toRadians(angle) {
+    return angle * (Math.PI / 180);
+}
+
+function getJSON(url, callback) {
+    let xhr = new XMLHttpRequest();
+    xhr.open(&apos;GET&apos;, url, true);
+    xhr.responseType = &apos;json&apos;;
+    xhr.onload = function () {
+        let status = xhr.status;
+        if (status === 200) {
+            callback(null, xhr.response);
+        } else {
+            callback(xhr.statusText, xhr.response);
+        }
+    };
+    xhr.send();
+}
+
+window.SkinRender = SkinRender;
+
+export default SkinRender;</code></pre>
+
+</div>
+
+<footer class="footer">
+  Generated by <a href="https://esdoc.org">ESDoc<span data-ice="esdocVersion">(1.1.0)</span><img src="./image/esdoc-logo-mini-black.png"></a>
+</footer>
+
+<script src="script/search_index.js"></script>
+<script src="script/search.js"></script>
+<script src="script/pretty-print.js"></script>
+<script src="script/inherited-summary.js"></script>
+<script src="script/test-summary.js"></script>
+<script src="script/inner-link.js"></script>
+<script src="script/patch-for-local.js"></script>
+</body>
+</html>

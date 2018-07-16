@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <base data-ice="baseUrl" href="../../../">
+  <title data-ice="title">src/gui/guiHelper.js | minerender</title>
+  <link type="text/css" rel="stylesheet" href="css/style.css">
+  <link type="text/css" rel="stylesheet" href="css/prettify-tomorrow.css">
+  <script src="script/prettify/prettify.js"></script>
+  <script src="script/manual.js"></script>
+</head>
+<body class="layout-container" data-ice="rootContainer">
+
+<header>
+  <a href="./">Home</a>
+  
+  <a href="identifiers.html">Reference</a>
+  <a href="source.html">Source</a>
+  
+  <div class="search-box">
+  <span>
+    <img src="./image/search.png">
+    <span class="search-input-edge"></span><input class="search-input"><span class="search-input-edge"></span>
+  </span>
+    <ul class="search-result"></ul>
+  </div>
+</header>
+
+<nav class="navigation" data-ice="nav"><div>
+  <ul>
+    
+  <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/renderBase.js~Render.html">Render</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-loadBlockState">loadBlockState</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-loadModelFromPath">loadModelFromPath</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-loadTextureAsBase64">loadTextureAsBase64</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-scaleUv">scaleUv</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-DEFAULT_ROOT">DEFAULT_ROOT</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-defaultOptions">defaultOptions</a></span></span></li>
+<li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#combined">combined</a><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-CombinedRender">CombinedRender</a></span></span></li>
+<li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#gui">gui</a><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/gui/index.js~GuiRender.html">GuiRender</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-guiHelper">guiHelper</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-guiPositions">guiPositions</a></span></span></li>
+<li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#lib">lib</a><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-OrbitControls">OrbitControls</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-isObject">isObject</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-mergeDeep">mergeDeep</a></span></span></li>
+<li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#model">model</a><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/model/index.js~ModelRender.html">ModelRender</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-ModelConverter">ModelConverter</a></span></span></li>
+<li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#skin">skin</a><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/skin/index.js~SkinRender.html">SkinRender</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-texturePositions">texturePositions</a></span></span></li>
+</ul>
+</div>
+</nav>
+
+<div class="content" data-ice="content"><h1 data-ice="title">src/gui/guiHelper.js</h1>
+<pre class="source-code line-number raw-source-code"><code class="prettyprint linenums" data-ice="content">import guiPositions from &quot;./guiPositions&quot;;
+
+const guiHelper = {
+    addPos: function (arr1, arr2, a) {
+        if (arr1.length === 2 &amp;&amp; arr2.length === 2) {
+            if (!a || a === &quot;xy&quot;) {
+                return [arr1[0] + arr2[0], arr1[1] + arr2[1]];
+            }
+            if (a === &quot;x&quot;) {
+                return [arr1[0] + arr2[0], arr1[1]];
+            }
+            if (a === &quot;y&quot;) {
+                return [arr1[0], arr1[1] + arr2[1]];
+            }
+        }
+    },
+    subtractPos: function (arr1, arr2, a) {
+        if (arr1.length === 2 &amp;&amp; arr2.length === 2) {
+            if (!a || a === &quot;xy&quot;) {
+                return [arr1[0] - arr2[0], arr1[1] - arr2[1]];
+            }
+            if (a === &quot;x&quot;) {
+                return [arr1[0] - arr2[0], arr1[1]];
+            }
+            if (a === &quot;y&quot;) {
+                return [arr1[0], arr1[1] - arr2[1]];
+            }
+        }
+    },
+    multiplyPos: function (arr1, n, a) {
+        if (arr1.length === 2) {
+            if (!a || a === &quot;xy&quot;) {
+                return [arr1[0] * n, arr1[1] * n];
+            }
+            if (a === &quot;x&quot;) {
+                return [arr1[0] * n, arr1[1]];
+            }
+            if (a === &quot;y&quot;) {
+                return [arr1[0], arr1[1] * n];
+            }
+        }
+    },
+
+    inventorySlot: function (n, origin, offset, rowSize) {
+        if (!rowSize) rowSize = 9;
+        let row, col;
+
+        if (n instanceof Array) {
+            row = n[1];
+            col = n[0];
+        } else {
+            row = Math.floor(n / rowSize);
+            col = n % rowSize;
+        }
+
+        let x = origin[0] + (col * offset[0]);
+        let y = origin[1] + (row * offset[1]);
+
+        return [x, y];
+    },
+    recipe: function (recipeData, textureMap) {
+
+        let renderData = [];
+        renderData.push({
+            name: &quot;base&quot;,
+            texture: &quot;/gui/container/recipe_background&quot;,
+            layer: 0,
+            uv: guiPositions.container.recipe_background.uv,
+            pos: [0, 0]
+        });
+
+        if (recipeData.type === &quot;crafting_shaped&quot;) {
+            let pattern = recipeData.pattern;
+            for (let l = 0; l &lt; pattern.length; l++) {
+                let line = pattern[l];
+                for (let c = 0; c &lt; line.length; c++) {
+                    let char = line[c];
+                    if (char === &apos; &apos;) continue;
+                    if (!recipeData.key.hasOwnProperty(char)) {
+                        console.warn(&quot;Missing recipe key &quot; + char);
+                        continue;
+                    }
+
+                    let slot = this.inventorySlot([c, l], guiPositions.container.recipe_background.left_origin, guiPositions.container.recipe_background.item_offset, 3);
+                    let item = recipeData.key[char].item;
+                    let itemSplit = item.split(&quot;:&quot;);
+                    let itemNamespace = itemSplit[0];
+                    let itemName = itemSplit[1];
+
+                    if (textureMap.hasOwnProperty(itemName)) {
+                        itemName = textureMap[itemName];
+                    } else {
+                        itemName = &quot;/items/&quot; + itemName;
+                    }
+
+                    renderData.push({
+                        name: item,
+                        texture: itemName,
+                        layer: 1,
+                        pos: slot
+                    });
+                }
+            }
+        }else if(recipeData.type===&quot;crafting_shapeless&quot;){
+            for(let i=0;i&lt;recipeData.ingredients.length;i++){
+                let ingredient = recipeData.ingredients[i];
+
+                let slot = this.inventorySlot(i, guiPositions.container.recipe_background.left_origin, guiPositions.container.recipe_background.item_offset, 3);
+                let item = ingredient.item;
+                let itemSplit = item.split(&quot;:&quot;);
+                let itemNamespace = itemSplit[0];
+                let itemName = itemSplit[1];
+
+                if (textureMap.hasOwnProperty(itemName)) {
+                    itemName = textureMap[itemName];
+                } else {
+                    itemName = &quot;/items/&quot; + itemName;
+                }
+
+                renderData.push({
+                    name: item,
+                    texture: itemName,
+                    layer: 1,
+                    pos: slot
+                });
+            }
+        }
+
+        let resultItem = recipeData.result.item;
+        let itemSplit = resultItem.split(&quot;:&quot;);
+        let itemNamespace = itemSplit[0];
+        let itemName = itemSplit[1];
+        if (textureMap.hasOwnProperty(itemName)) {
+            itemName = textureMap[itemName];
+        } else {
+            itemName = &quot;/items/&quot; + itemName;
+        }
+
+        renderData.push({
+            name: resultItem,
+            texture: itemName,
+            layer: 1,
+            pos: guiPositions.container.recipe_background.right_origin
+        });
+
+
+        return renderData;
+    }
+};
+
+export default guiHelper;</code></pre>
+
+</div>
+
+<footer class="footer">
+  Generated by <a href="https://esdoc.org">ESDoc<span data-ice="esdocVersion">(1.1.0)</span><img src="./image/esdoc-logo-mini-black.png"></a>
+</footer>
+
+<script src="script/search_index.js"></script>
+<script src="script/search.js"></script>
+<script src="script/pretty-print.js"></script>
+<script src="script/inherited-summary.js"></script>
+<script src="script/test-summary.js"></script>
+<script src="script/inner-link.js"></script>
+<script src="script/patch-for-local.js"></script>
+</body>
+</html>
