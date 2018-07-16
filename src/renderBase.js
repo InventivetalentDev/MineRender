@@ -41,7 +41,7 @@ export const defaultOptions = {
 export function initScene(renderObj, renderCb, doNotAnimate) {
     console.log(" ");
     console.log('%c       ', 'font-size: 100px; background: url(https://minerender.org/img/minerender.svg) no-repeat;');
-    console.log("MineRender/" + renderObj.constructor.name);
+    console.log("MineRender/" + (renderObj.renderType || renderObj.constructor.name));
     console.log((PRODUCTION ? "PRODUCTION" : "DEVELOPMENT") + " build");
     console.log("Built @ " + BUILD_DATE);
     console.log(" ");
@@ -179,7 +179,7 @@ function loadTexture(root, namespace, dir, name, resolve, reject, forceLoad) {
     let path = "/assets/" + namespace + "/textures" + dir + name + ".png";
 
     if (textureCache.hasOwnProperty(path)) {
-        if(textureCache[path]==="__invalid"){
+        if (textureCache[path] === "__invalid") {
             reject();
             return;
         }

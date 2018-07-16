@@ -5,6 +5,7 @@ import ModelRender from "../model/index";
 import SkinRender from "../skin/index";
 
 function CombinedRender(options, element) {
+    this.renderType = "CombinedRender";
     this.options = Object.assign({}, defaultOptions, options);
     this.element = element || document.body;
 }

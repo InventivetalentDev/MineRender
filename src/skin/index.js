@@ -15,6 +15,7 @@ let defOptions = {
 };
 
 function SkinRender(options, element) {
+    this.renderType = "SkinRender";
     this.element = element || document.body;
     this._animId = -1;
 

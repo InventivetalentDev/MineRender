@@ -43,7 +43,7 @@ let defOptions = {
 };
 
 function ModelRender(options, element) {
-
+    this.renderType = "ModelRender";
     this.options = Object.assign({}, defaultOptions, defOptions, options);
     this.element = element || document.body;
 

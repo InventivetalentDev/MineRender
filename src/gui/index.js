@@ -23,7 +23,7 @@ let defOptions = {
 };
 
 function GuiRender(options, element) {
-
+    this.renderType = "GuiRender";
     this.options = Object.assign({}, defaultOptions, defOptions, options);
     this.element = element || document.body;
 
