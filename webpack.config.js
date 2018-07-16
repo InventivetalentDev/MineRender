@@ -1,136 +1,135 @@
 const path = require('path');
+const webpack = require('webpack');
 
-let skinConfig = {
+const banner = "MineRender\n" +
+    "(c) 2018, Haylee Schäfer (inventivetalent) / MIT License\n" +
+    "https://minerender.org\n" +
+    "Build: " + Date.now() + " / " + new Date().toString()
+
+let baseConfigFull = {
+    mode: "development",
     context: path.resolve(__dirname),
+    entry: './src/SOME_DIR/index.js',
+    output: {
+        path: path.resolve(__dirname, './dist'),
+        filename: 'OUT_NAME.js'
+    },
+    externals: {
+        jquery: 'jQuery',
+        three: "THREE"
+    },
+    plugins: [
+        new webpack.DefinePlugin({
+            PRODUCTION: JSON.stringify(false),
+            BUILD_DATE: JSON.stringify(new Date()),
+            BUILD_TIMESTAMP: JSON.stringify(Date.now())
+        }),
+        new webpack.BannerPlugin(banner)
+    ]
+};
+
+let baseConfigMin = {
+    mode: "production",
+    context: path.resolve(__dirname),
+    entry: './src/SOME_DIR/index.js',
+    output: {
+        path: path.resolve(__dirname, './dist'),
+        filename: 'OUT_NAME.min.js'
+    },
+    externals: {
+        jquery: 'jQuery',
+        three: "THREE"
+    },
+    plugins: [
+        new webpack.DefinePlugin({
+            PRODUCTION: JSON.stringify(true),
+            BUILD_DATE: JSON.stringify(new Date()),
+            BUILD_TIMESTAMP: JSON.stringify(Date.now())
+        }),
+        new webpack.BannerPlugin(banner)
+    ]
+};
+
+
+////// Actual Configs below
+
+let skinConfig = Object.assign({}, baseConfigMin, {
     entry: './src/skin/index.js',
     output: {
         path: path.resolve(__dirname, './dist'),
         filename: 'skin.min.js'
     },
-    externals: {
-        jquery: 'jQuery',
-        three: "THREE"
-    }
-};
-let skinConfigFull = {
-    context: path.resolve(__dirname),
+});
+let skinConfigFull = Object.assign({}, baseConfigFull, {
     entry: './src/skin/index.js',
     output: {
         path: path.resolve(__dirname, './dist'),
         filename: 'skin.js'
     },
-    externals: {
-        jquery: 'jQuery',
-        three: "THREE"
-    },
-    optimization: {
-        minimize: false
-    }
-};
+});
 
-let modelConfig = {
-    context: path.resolve(__dirname),
+let modelConfig = Object.assign({}, baseConfigMin, {
     entry: './src/model/index.js',
     output: {
         path: path.resolve(__dirname, './dist'),
         filename: 'model.min.js'
     },
-    externals: {
-        jquery: 'jQuery',
-        three: "THREE"
-    }
-};
-let modelConfigFull = {
-    context: path.resolve(__dirname),
+});
+let modelConfigFull = Object.assign({}, baseConfigFull, {
     entry: './src/model/index.js',
     output: {
         path: path.resolve(__dirname, './dist'),
         filename: 'model.js'
     },
-    externals: {
-        jquery: 'jQuery',
-        three: "THREE"
-    },
-    optimization: {
-        minimize: false
-    }
-};
+});
 
-let guiConfig = {
-    context: path.resolve(__dirname),
+let guiConfig = Object.assign({}, baseConfigMin, {
     entry: './src/gui/index.js',
     output: {
         path: path.resolve(__dirname, './dist'),
         filename: 'gui.min.js'
     },
-    externals: {
-        jquery: 'jQuery',
-        three: "THREE"
-    }
-};
-let guiConfigFull = {
-    context: path.resolve(__dirname),
+});
+let guiConfigFull = Object.assign({}, baseConfigFull, {
     entry: './src/gui/index.js',
     output: {
         path: path.resolve(__dirname, './dist'),
         filename: 'gui.js'
     },
-    externals: {
-        jquery: 'jQuery',
-        three: "THREE"
-    },
-    optimization: {
-        minimize: false
-    }
-};
+});
 
 
-let combinedConfig = {
-    context: path.resolve(__dirname),
+let combinedConfig = Object.assign({}, baseConfigMin, {
     entry: './src/combined/index.js',
     output: {
         path: path.resolve(__dirname, './dist'),
         filename: 'all.min.js'
     },
-    externals: {
-        jquery: 'jQuery',
-        three: "THREE"
-    }
-};
-let combinedConfigFull = {
-    context: path.resolve(__dirname),
+});
+let combinedConfigFull = Object.assign({}, baseConfigFull, {
     entry: './src/combined/index.js',
     output: {
         path: path.resolve(__dirname, './dist'),
         filename: 'all.js'
     },
-    externals: {
-        jquery: 'jQuery',
-        three: "THREE"
-    },
-    optimization: {
-        minimize: false
-    }
-};
+});
+
 
 // Index scripts
-let dataConfig = {
-    context: path.resolve(__dirname),
+let dataConfig = Object.assign({}, baseConfigMin, {
     entry: './js/data.js',
     output: {
         path: path.resolve(__dirname, './js'),
         filename: 'data.min.js'
-    }
-};
-
-let mainConfig = {
-    context: path.resolve(__dirname),
+    },
+});
+let mainConfig = Object.assign({}, baseConfigMin, {
     entry: './js/main.js',
     output: {
         path: path.resolve(__dirname, './js'),
         filename: 'main.min.js'
-    }
-};
+    },
+});
 
 module.exports = [
     skinConfig, skinConfigFull,

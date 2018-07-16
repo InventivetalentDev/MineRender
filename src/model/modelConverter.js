@@ -16,7 +16,10 @@ ModelConverter.prototype.structureToModels = function (structure, cb) {
                 return;
             }
 
-            console.log(data);
+            if(!PRODUCTION) {
+                console.log("NBT Data:")
+                console.log(data);
+            }
 
             parseStructureData(data).then((data) => {
                 cb(data);
@@ -69,7 +72,6 @@ function parseStructureData(data) {
                 for (let i = 0; i < data.value.palette.value.value.length; i++) {
                     palette.push(data.value.palette.value.value[i]);
                 }
-                console.log(palette);
 
                 let arr = [];
 
