@@ -15,9 +15,6 @@ let defOptions = {
 };
 
 function SkinRender(options, element) {
-    console.log(element);
-    console.log(options);
-
     this.element = element || document.body;
     this._animId = -1;
 

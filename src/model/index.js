@@ -76,8 +76,10 @@ ModelRender.prototype.render = function (models, cb) {
                 loadModel(model, type, modelRender.options.assetRoot)
                     .then(modelData => mergeParents(modelData, modelRender.options.assetRoot))
                     .then((mergedModel) => {
-                        console.log("Merged Model: ")
-                        console.log(mergedModel);
+                        if(!PRODUCTION) {
+                            console.log("Merged Model: ");
+                            console.log(mergedModel);
+                        }
 
                         if (!mergedModel.textures) {
                             console.warn("The model doesn't have any textures!");
@@ -87,8 +89,6 @@ ModelRender.prototype.render = function (models, cb) {
                         }
 
                         loadTextures(mergedModel.textures, modelRender.options.assetRoot).then((textures) => {
-                            console.log(textures);
-
                             renderModel(modelRender, mergedModel, textures, type, model, offset, rotation).then((renderedModel) => {
                                 modelRender.models.push(renderedModel);
                                 modelRender._scene.add(renderedModel);
@@ -231,10 +231,6 @@ ModelRender.prototype.dispose = function () {
 
 let renderModel = function (modelRender, model, textures, type, name, offset, rotation) {
     return new Promise((resolve) => {
-
-        console.log("rendering model: ")
-        console.log(model);
-
         if (model.hasOwnProperty("elements")) {// block OR item with block parent
             // Render the elements
             let promises = [];
@@ -433,10 +429,6 @@ let createPlane = function (name, textures) {
 
 /// From https://github.com/InventivetalentDev/SkinRender/blob/master/js/render/skin.js#L353
 let createCube = function (width, height, depth, name, faces, fallbackFaces, textures) {
-    console.log("w:" + width);
-    console.log("h:" + height);
-    console.log("d:" + depth)
-
     return new Promise((resolve) => {
         let geometry = new THREE.BoxGeometry(width, height, depth);
 
@@ -722,7 +714,6 @@ let mergeParents_ = function (model, stack, assetRoot, resolve, reject) {
     if (!model.hasOwnProperty("parent") || model["parent"] === "builtin/generated" || model["parent"] === "builtin/entity") {// already at the highest parent OR we reach the builtin parent which seems to be the hardcoded stuff that's not in the json files
         let merged = {};
         for (let i = stack.length - 1; i >= 0; i--) {
-            console.log(stack[i])
             merged = mergeDeep(merged, stack[i]);
         }
 

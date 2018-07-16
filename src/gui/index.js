@@ -57,8 +57,6 @@ GuiRender.prototype.render = function (layers, cb) {
             if (!layer.textureScale) layer.textureScale = 1;
 
             loadTextureAsBase64(guiRender.options.assetRoot, "minecraft", "", layer.texture).then((url) => {
-                console.log(url)
-
                 let imgDone = function (url) {
                     let texture = new THREE.TextureLoader().load(url, function () {
                         texture.magFilter = THREE.NearestFilter;
@@ -88,8 +86,6 @@ GuiRender.prototype.render = function (layers, cb) {
                         layer.uv[2] * layer.textureScale,
                         layer.uv[3] * layer.textureScale
                     ];
-
-                    console.log(layer.uv);
 
                     let img = new Image();
                     img.onload = function () {
@@ -161,9 +157,6 @@ GuiRender.prototype.render = function (layers, cb) {
 
         planeGroup.applyMatrix(new THREE.Matrix4().makeTranslation(-w / 2, h / 2, 0));
         guiRender._scene.add(planeGroup);
-
-        console.log("[GuiRender] scene")
-        console.log(guiRender._scene)
 
         guiRender.gui = planeGroup;
 
