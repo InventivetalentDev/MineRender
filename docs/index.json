@@ -3539,7 +3539,7 @@
   },
   {
     "kind": "index",
-    "content": "",
+    "content": "![MineRender](https://minerender.org/img/minerender-x128.png)\r\n\r\n# MineRender\r\n## Quick, Easy, Interactive 3D/2D Renders of Minecraft\r\n\r\n[![Build Status](https://travis-ci.org/InventivetalentDev/MineRender.svg?branch=master)](https://travis-ci.org/InventivetalentDev/MineRender)   \r\n[![Documentation Coverage](https://docs.minerender.org/badge.svg)](https://docs.minerender.org)  \r\n\r\n\r\n[MineRender.org](https://minerender.org/)\r\n",
     "longname": "D:\\_Projects_Node\\MineRender2\\README.md",
     "name": "./README.md",
     "static": true,
