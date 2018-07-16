@@ -40,7 +40,7 @@ export const defaultOptions = {
 
 export function initScene(renderObj, renderCb, doNotAnimate) {
     console.log(" ");
-    console.log("Initializing Scene...");
+    console.log('%c       ', 'font-size: 100px; background: url(https://minerender.org/img/minerender.svg) no-repeat;');
     console.log("MineRender/" + renderObj.constructor.name);
     console.log((PRODUCTION ? "PRODUCTION" : "DEVELOPMENT") + " build");
     console.log("Built @ " + BUILD_DATE);
