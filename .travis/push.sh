@@ -1,8 +1,8 @@
 #!/bin/sh
 
 setup_git() {
-  git config --global user.email "git-bot@inventivetalent.org"
-  git config --global user.name "InventiveBot"
+  git config --global user.email "mail@inventivetalent.org"
+  git config --global user.name "inventivetalentDev"
 }
 
 commit_files() {
