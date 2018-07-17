@@ -1,7 +1,16 @@
 langage: node_js
 before_script:
   - npm install
-script: npm run build:silent
+script:
+  - npm run build:silent
+  - npm run docs
 cache:
   directories:
     - "node_modules"
+
+after_success:
+  - .travis/push.sh
+
+env:
+  global:
+    secure: "KSUqe6BxNJmm5QVhDKMrS3FBIyfS3dEIFZypGcWYTvNCne8cq12jmAcQ4R3VuMwU5zoN1ZI8htaznfgmvI3QJstwLa6Jk928PrtGWhWPkyQSjyhvHc8IzWJV36IZlSxd7EPo6FPtNzGR42vvjE8hf2Lc7wbQO38AxEIHLdNqeDMAeOsN1a6pmlgpZ31upJkYLvVchmuWIIaK9PWmZn6SD4FmhiRhAw8mvQ5yhLFo/58BT0F9Dt1LIAorulkGh1wPLOs5c8Au2yYX0dEaVJVVaG0XTtSobf9v4mvIfykPgO0kwzedaxi1uYnolrk+SC09MVwBnilJ02lCPAjnh8QThLQ67Hgrf3NC0XYPsBB0AXQXppBxAXNX7SSdRgQTJlDeASYUugB5aci65tEV6TLgcukCZWvAmmOhJYkGOSNIuYaB2kIGhbPCwmVfqjoWAarped7Znemd6OBGyxMii97PXx/58CcoVjhayePz6Yu1WIESAvUcmDEvKm+ePLOo6kTbaTdT4uslXjRi+F95w3J3Kz6QQR/U0uTcoeBukex5MZSw0mRgmgTouXzioST9LDydnAQZWt7ZdW4rV1Xc72UOke6Q1jGiXCdblibjPFOVBmXlWt8dN2RhvUU/x2q7Pv8SYqYxwZMQ2sPtqMGZESqBc5fuZiwaROrrBCIcASDBLE0="

@@ -4,7 +4,7 @@ const webpack = require('webpack');
 const banner = "MineRender\n" +
     "(c) 2018, Haylee Schäfer (inventivetalent) / MIT License\n" +
     "https://minerender.org\n" +
-    "Build: " + Date.now() + " / " + new Date().toString()
+    "Build #" + (process.env.TRAVIS_BUILD_NUMBER || Date.now()) + " / " + new Date().toString()
 
 let baseConfigFull = {
     mode: "development",
@@ -22,7 +22,8 @@ let baseConfigFull = {
         new webpack.DefinePlugin({
             PRODUCTION: JSON.stringify(false),
             BUILD_DATE: JSON.stringify(new Date()),
-            BUILD_TIMESTAMP: JSON.stringify(Date.now())
+            BUILD_TIMESTAMP: JSON.stringify(Date.now()),
+            BUILD_NUMBER: JSON.stringify(process.env.TRAVIS_BUILD_NUMBER)
         }),
         new webpack.BannerPlugin(banner)
     ]
@@ -44,7 +45,8 @@ let baseConfigMin = {
         new webpack.DefinePlugin({
             PRODUCTION: JSON.stringify(true),
             BUILD_DATE: JSON.stringify(new Date()),
-            BUILD_TIMESTAMP: JSON.stringify(Date.now())
+            BUILD_TIMESTAMP: JSON.stringify(Date.now()),
+            BUILD_NUMBER: JSON.stringify(process.env.TRAVIS_BUILD_NUMBER)
         }),
         new webpack.BannerPlugin(banner)
     ]
