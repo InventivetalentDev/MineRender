@@ -3,11 +3,12 @@
 setup_git() {
   git config --global user.email "mail@inventivetalent.org"
   git config --global user.name "inventivetalentDev"
+
+  git remote add origin https://${GH_TOKEN}@github.com/InventivetalentDev/MineRender.git > /dev/null 2>&1
+  git checkout -b master
 }
 
 commit_files() {
-  git checkout -b master
-
   git add dist/*
   git commit --message "Build #$TRAVIS_BUILD_NUMBER"
 
@@ -16,7 +17,6 @@ commit_files() {
 }
 
 upload_files() {
-  git remote add origin https://${GH_TOKEN}@github.com/InventivetalentDev/MineRender.git > /dev/null 2>&1
   git push --quiet --set-upstream origin master
 }
 
