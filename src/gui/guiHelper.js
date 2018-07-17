@@ -1,5 +1,8 @@
 import guiPositions from "./guiPositions";
 
+/**
+ * Helper functions for GUI creation
+ */
 const guiHelper = {
     addPos: function (arr1, arr2, a) {
         if (arr1.length === 2 && arr2.length === 2) {

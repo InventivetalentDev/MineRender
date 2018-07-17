@@ -11,12 +11,45 @@ import * as $ from "jquery";
  */
 export const DEFAULT_ROOT = "https://minerender.org/res/mc";
 
+/**
+ * Texture cache
+ * @type {Object.<string,string>}
+ */
 const textureCache = {};
+/**
+ * Texture callbacks
+ * @type {Object.<string,function[]>}
+ */
 const textureCallbacks = {};
 
+/**
+ * Model cache
+ * @type {Object.<string,string>}
+ */
 const modelCache = {};
+/**
+ * Model callbacks
+ * @type {Object.<string,function[]>}
+ */
 const modelCallbacks = {};
 
+/**
+ * @property {boolean} showAxes                 Debugging - Show the scene's axes
+ * @property {boolean} showOutlines             Debugging - Show bounding boxes
+ * @property {boolean} showGrid                 Debugging - Show coordinate grid
+ *
+ * @property {object} controls                  Controls settings
+ * @property {boolean} [controls.enabled=true]  Toggle controls
+ * @property {boolean} [controls.zoom=true]     Toggle zoom
+ * @property {boolean} [controls.rotate=true]   Toggle rotation
+ * @property {boolean} [controls.pan=true]      Toggle panning
+ *
+ * @property {object} camera                    Camera settings
+ * @property {number} camera.x                  Camera X-position
+ * @property {number} camera.y                  Camera Y-Position
+ * @property {number} camera.z                  Camera Z-Position
+ * @property {number[]} camera.target           [x,y,z] array where the camera should look
+ */
 export const defaultOptions = {
     showAxes: false,
     showGrid: false,
@@ -42,10 +75,27 @@ export const defaultOptions = {
     forceContext: false
 };
 
+/**
+ * Base class for all Renders
+ */
 export default class Render {
 
+    /**
+     * @param {object} options The options for this renderer, see {@link defaultOptions}
+     * @param {object} defOptions Additional default options, provided by the individual renders
+     * @param {HTMLElement} [element=document.body] DOM Element to attach the renderer to - defaults to document.body
+     * @constructor
+     */
     constructor(options, defOptions, element) {
+        /**
+         * DOM Element to attach the renderer to
+         * @type {HTMLElement}
+         */
         this.element = element || document.body;
+        /**
+         * Combined options
+         * @type {{} & defaultOptions & defOptions & options}
+         */
         this.options = Object.assign({}, defaultOptions, defOptions, options);
     }
 
@@ -198,12 +248,26 @@ export default class Render {
 
 }
 
+/**
+ * Loads a Mincraft texture an returns it as Base64
+ *
+ * @param {string} root Asset root, see {@link DEFAULT_ROOT}
+ * @param {string} namespace Namespace, usually 'minecraft'
+ * @param {string} dir Directory of the texture
+ * @param {string} name Name of the texture
+ * @returns {Promise<string>}
+ */
 export function loadTextureAsBase64(root, namespace, dir, name) {
     return new Promise((resolve, reject) => {
         loadTexture(root, namespace, dir, name, resolve, reject);
     })
 };
 
+/**
+ * Load a texture as base64 - shouldn't be used directly
+ * @see loadTextureAsBase64
+ * @ignore
+ */
 function loadTexture(root, namespace, dir, name, resolve, reject, forceLoad) {
     let path = "/assets/" + namespace + "/textures" + dir + name + ".png";
 
@@ -262,17 +326,34 @@ function loadTexture(root, namespace, dir, name, resolve, reject, forceLoad) {
     textureCallbacks[path].push([resolve, reject]);
 }
 
+/**
+ * Loads a blockstate file and returns the contained JSON
+ * @param {string} state Name of the blockstate
+ * @param {string} assetRoot Asset root, see {@link DEFAULT_ROOT}
+ * @returns {Promise<object>}
+ */
 export function loadBlockState(state, assetRoot) {
     // Not really loading a model here, but the idea is the same
     return loadModelFromPath(assetRoot, "/assets/minecraft/blockstates/" + state + ".json")
 };
 
+/**
+ * Loads a model file and returns the contained JSON
+ * @param {string} root Asset root, see {@link DEFAULT_ROOT}
+ * @param {string} path Path to the model file
+ * @returns {Promise<object>}
+ */
 export function loadModelFromPath(root, path) {
     return new Promise((resolve, reject) => {
         loadModelFromPath_(root, path, resolve, reject);
     })
 }
 
+/**
+ * Load a model - shouldn't used directly
+ * @see loadModelFromPath
+ * @ignore
+ */
 function loadModelFromPath_(root, path, resolve, reject, forceLoad) {
     if (modelCache.hasOwnProperty(path)) {
         if (modelCache[path] === "__invalid") {
@@ -319,6 +400,13 @@ function loadModelFromPath_(root, path, resolve, reject, forceLoad) {
     modelCallbacks[path].push([resolve, reject]);
 }
 
+/**
+ * Scales UV values
+ * @param {number} uv UV value
+ * @param {number} size
+ * @param {number} [scale=16]
+ * @returns {number}
+ */
 export function scaleUv(uv, size, scale) {
     if (uv === 0) return 0;
     return size / (scale || 16) * uv;

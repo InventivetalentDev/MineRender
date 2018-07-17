@@ -1,3 +1,6 @@
+/**
+ * Texture positions for Minecraft's player model
+ */
 const texturePositions =  {
     head: [
         {// 64x32

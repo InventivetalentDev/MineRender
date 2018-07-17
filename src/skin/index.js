@@ -4,6 +4,9 @@ import OrbitControls from "../lib/OrbitControls";
 import texturePositions from "./texturePositions";
 import Render, { defaultOptions } from "../renderBase";
 
+/**
+ * @see defaultOptions
+ */
 let defOptions = {
     camera: {
         type: "perspective",
@@ -20,7 +23,7 @@ let defOptions = {
 class SkinRender extends Render {
 
     /**
-     * @param {Object} [options] The options for this renderer
+     * @param {Object} [options] The options for this renderer, see {@link defaultOptions}
      * @param {HTMLElement} [element=document.body] DOM Element to attach the renderer to - defaults to document.body
      * @constructor
      */

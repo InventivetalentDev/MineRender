@@ -52,13 +52,13 @@
 </nav>
 
 <div class="content" data-ice="content"><div class="header-notice">
-  <div data-ice="importPath" class="import-path"><pre class="prettyprint"><code data-ice="importPathCode">import Render from &apos;<span><a href="file/src/renderBase.js.html#lineNumber45">minerender/src/renderBase.js</a></span>&apos;</code></pre></div>
+  <div data-ice="importPath" class="import-path"><pre class="prettyprint"><code data-ice="importPathCode">import Render from &apos;<span><a href="file/src/renderBase.js.html#lineNumber81">minerender/src/renderBase.js</a></span>&apos;</code></pre></div>
   <span data-ice="access">public</span>
   <span data-ice="kind">class</span>
   
   
   
-  <span data-ice="source">| <span><a href="file/src/renderBase.js.html#lineNumber45">source</a></span></span>
+  <span data-ice="source">| <span><a href="file/src/renderBase.js.html#lineNumber81">source</a></span></span>
 </div>
 
 <div class="self-detail detail">
@@ -78,7 +78,8 @@
 
   
   
-  
+  <div class="description" data-ice="description"><p>Base class for all Renders</p>
+</div>
   
 
   
@@ -110,7 +111,7 @@
           
           
           
-          <span class="code" data-ice="name"><span><a href="class/src/renderBase.js~Render.html#instance-constructor-constructor">constructor</a></span></span><span class="code" data-ice="signature">()</span>
+          <span class="code" data-ice="name"><span><a href="class/src/renderBase.js~Render.html#instance-constructor-constructor">constructor</a></span></span><span class="code" data-ice="signature">(options: <span><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object">object</a></span>, defOptions: <span><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object">object</a></span>, element: <span>HTMLElement</span>)</span>
         </p>
       </div>
       <div>
@@ -145,13 +146,14 @@
           
           
           
-          <span class="code" data-ice="name"><span><a href="class/src/renderBase.js~Render.html#instance-member-element">element</a></span></span><span class="code" data-ice="signature">: <span>*</span></span>
+          <span class="code" data-ice="name"><span><a href="class/src/renderBase.js~Render.html#instance-member-element">element</a></span></span><span class="code" data-ice="signature">: <span>HTMLElement</span></span>
         </p>
       </div>
       <div>
         
         
-        
+        <div data-ice="description"><p>DOM Element to attach the renderer to</p>
+</div>
       </div>
     </td>
     <td>
@@ -173,13 +175,14 @@
           
           
           
-          <span class="code" data-ice="name"><span><a href="class/src/renderBase.js~Render.html#instance-member-options">options</a></span></span><span class="code" data-ice="signature">: <span>*</span></span>
+          <span class="code" data-ice="name"><span><a href="class/src/renderBase.js~Render.html#instance-member-options">options</a></span></span><span class="code" data-ice="signature">: <span>{</span></span>
         </p>
       </div>
       <div>
         
         
-        
+        <div data-ice="description"><p>Combined options</p>
+</div>
       </div>
     </td>
     <td>
@@ -275,11 +278,11 @@
     
     
     
-    <span class="code" data-ice="name">constructor</span><span class="code" data-ice="signature">()</span>
+    <span class="code" data-ice="name">constructor</span><span class="code" data-ice="signature">(options: <span><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object">object</a></span>, defOptions: <span><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object">object</a></span>, element: <span>HTMLElement</span>)</span>
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/renderBase.js.html#lineNumber47">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/renderBase.js.html#lineNumber89">source</a></span></span>
     </span>
   </h3>
 
@@ -290,7 +293,39 @@
 
   
 
-  <div data-ice="properties">
+  <div data-ice="properties"><div data-ice="properties">
+  <h4 data-ice="title">Params:</h4>
+  <table class="params">
+    <thead>
+    <tr><td>Name</td><td>Type</td><td>Attribute</td><td>Description</td></tr>
+    </thead>
+    <tbody>
+    
+    <tr data-ice="property" data-depth="0">
+      <td data-ice="name" class="code" data-depth="0">options</td>
+      <td data-ice="type" class="code"><span><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object">object</a></span></td>
+      <td data-ice="appendix"></td>
+      <td data-ice="description"><p>The options for this renderer, see <span><a href="variable/index.html#static-variable-defaultOptions">defaultOptions</a></span></p>
+</td>
+    </tr>
+<tr data-ice="property" data-depth="0">
+      <td data-ice="name" class="code" data-depth="0">defOptions</td>
+      <td data-ice="type" class="code"><span><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object">object</a></span></td>
+      <td data-ice="appendix"></td>
+      <td data-ice="description"><p>Additional default options, provided by the individual renders</p>
+</td>
+    </tr>
+<tr data-ice="property" data-depth="0">
+      <td data-ice="name" class="code" data-depth="0">element</td>
+      <td data-ice="type" class="code"><span>HTMLElement</span></td>
+      <td data-ice="appendix"><ul><li>optional</li>
+<li>default: document.body</li></ul></td>
+      <td data-ice="description"><p>DOM Element to attach the renderer to - defaults to document.body</p>
+</td>
+    </tr>
+</tbody>
+  </table>
+</div>
 </div>
 
   
@@ -321,18 +356,19 @@
     
     
     
-    <span class="code" data-ice="name">element</span><span class="code" data-ice="signature">: <span>*</span></span>
+    <span class="code" data-ice="name">element</span><span class="code" data-ice="signature">: <span>HTMLElement</span></span>
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/renderBase.js.html#lineNumber48">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/renderBase.js.html#lineNumber94">source</a></span></span>
     </span>
   </h3>
 
   
   
   
-  
+  <div data-ice="description"><p>DOM Element to attach the renderer to</p>
+</div>
 
   
 
@@ -364,18 +400,19 @@
     
     
     
-    <span class="code" data-ice="name">options</span><span class="code" data-ice="signature">: <span>*</span></span>
+    <span class="code" data-ice="name">options</span><span class="code" data-ice="signature">: <span>{</span></span>
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/renderBase.js.html#lineNumber49">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/renderBase.js.html#lineNumber99">source</a></span></span>
     </span>
   </h3>
 
   
   
   
-  
+  <div data-ice="description"><p>Combined options</p>
+</div>
 
   
 
@@ -414,7 +451,7 @@
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/renderBase.js.html#lineNumber55">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/renderBase.js.html#lineNumber105">source</a></span></span>
     </span>
   </h3>
 
@@ -472,7 +509,7 @@
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/renderBase.js.html#lineNumber66">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/renderBase.js.html#lineNumber116">source</a></span></span>
     </span>
   </h3>
 

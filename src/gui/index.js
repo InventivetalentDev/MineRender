@@ -5,6 +5,10 @@ import guiHelper from "./guiHelper";
 
 let LAYER_OFFSET = 0.5;
 
+/**
+ * @see defaultOptions
+ * @property {string} [assetRoot=DEFAULT_ROOT] root to get asset files from
+ */
 let defOptions = {
     controls: {
         enabled: true,
@@ -28,7 +32,9 @@ let defOptions = {
 class GuiRender extends Render {
 
     /**
-     * @param {Object} [options] The options for this renderer
+     * @param {Object} [options] The options for this renderer, see {@link defaultOptions}
+     * @param {string} [options.assetRoot=DEFAULT_ROOT] root to get asset files from
+     *
      * @param {HTMLElement} [element=document.body] DOM Element to attach the renderer to - defaults to document.body
      * @constructor
      */

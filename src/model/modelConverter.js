@@ -3,10 +3,21 @@ import * as NBT from "prismarine-nbt";
 import SkinRender from "../skin/index";
 import { loadBlockState, loadModel, loadTextures, mergeParents, renderModel } from "../renderBase";
 
-
+/**
+ * Helper to convert multi-block structures to models used by {@link ModelRender}
+ * @constructor
+ */
 function ModelConverter() {
 }
 
+/**
+ * Converts a {@link https://minecraft.gamepedia.com/Structure_block_file_format|Minecraft structure file} to models
+ * @param {object} structure structure file info
+ * @param {string} structure.url URL to a structure file
+ * @param {(Blob|File)} structure.file uploaded file
+ * @param {(Uint8Array|ArrayBuffer)} structure.raw Raw NBT data
+ * @param cb
+ */
 ModelConverter.prototype.structureToModels = function (structure, cb) {
     loadNBT(structure).then((rawNbt) => {
         NBT.parse(rawNbt, (err, data) => {

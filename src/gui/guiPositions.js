@@ -1,3 +1,6 @@
+/**
+ * Definition of positions/UV mappings ov Minecraft GUI assets
+ */
 const guiPositions = {
     bars: {
         pink_empty: {

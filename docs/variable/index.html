@@ -133,7 +133,8 @@
       <div>
         
         
-        
+        <div data-ice="description"><p>Helper functions for GUI creation</p>
+</div>
       </div>
     </td>
     <td>
@@ -161,7 +162,8 @@
       <div>
         
         
-        
+        <div data-ice="description"><p>Definition of positions/UV mappings ov Minecraft GUI assets</p>
+</div>
       </div>
     </td>
     <td>
@@ -189,7 +191,8 @@
       <div>
         
         
-        
+        <div data-ice="description"><p>Texture positions for Minecraft&apos;s player model</p>
+</div>
       </div>
     </td>
     <td>
@@ -258,18 +261,123 @@
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/renderBase.js.html#lineNumber20">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/renderBase.js.html#lineNumber53">source</a></span></span>
     </span>
   </h3>
 
-  <div data-ice="importPath" class="import-path"><pre class="prettyprint"><code data-ice="importPathCode">import {defaultOptions} from &apos;<span><a href="file/src/renderBase.js.html#lineNumber20">minerender/src/renderBase.js</a></span>&apos;</code></pre></div>
+  <div data-ice="importPath" class="import-path"><pre class="prettyprint"><code data-ice="importPathCode">import {defaultOptions} from &apos;<span><a href="file/src/renderBase.js.html#lineNumber53">minerender/src/renderBase.js</a></span>&apos;</code></pre></div>
   
   
   
 
   
 
-  <div data-ice="properties">
+  <div data-ice="properties"><div data-ice="properties">
+  <h4 data-ice="title">Properties:</h4>
+  <table class="params">
+    <thead>
+    <tr><td>Name</td><td>Type</td><td>Attribute</td><td>Description</td></tr>
+    </thead>
+    <tbody>
+    
+    <tr data-ice="property" data-depth="0">
+      <td data-ice="name" class="code" data-depth="0">showAxes</td>
+      <td data-ice="type" class="code"><span><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Boolean">boolean</a></span></td>
+      <td data-ice="appendix"></td>
+      <td data-ice="description"><p>Debugging - Show the scene&apos;s axes</p>
+</td>
+    </tr>
+<tr data-ice="property" data-depth="0">
+      <td data-ice="name" class="code" data-depth="0">showOutlines</td>
+      <td data-ice="type" class="code"><span><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Boolean">boolean</a></span></td>
+      <td data-ice="appendix"></td>
+      <td data-ice="description"><p>Debugging - Show bounding boxes</p>
+</td>
+    </tr>
+<tr data-ice="property" data-depth="0">
+      <td data-ice="name" class="code" data-depth="0">showGrid</td>
+      <td data-ice="type" class="code"><span><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Boolean">boolean</a></span></td>
+      <td data-ice="appendix"></td>
+      <td data-ice="description"><p>Debugging - Show coordinate grid</p>
+</td>
+    </tr>
+<tr data-ice="property" data-depth="0">
+      <td data-ice="name" class="code" data-depth="0">controls</td>
+      <td data-ice="type" class="code"><span><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object">object</a></span></td>
+      <td data-ice="appendix"></td>
+      <td data-ice="description"><p>Controls settings</p>
+</td>
+    </tr>
+<tr data-ice="property" data-depth="1">
+      <td data-ice="name" class="code" data-depth="1">controls.enabled</td>
+      <td data-ice="type" class="code"><span><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Boolean">boolean</a></span></td>
+      <td data-ice="appendix"><ul><li>optional</li>
+<li>default: true</li></ul></td>
+      <td data-ice="description"><p>Toggle controls</p>
+</td>
+    </tr>
+<tr data-ice="property" data-depth="1">
+      <td data-ice="name" class="code" data-depth="1">controls.zoom</td>
+      <td data-ice="type" class="code"><span><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Boolean">boolean</a></span></td>
+      <td data-ice="appendix"><ul><li>optional</li>
+<li>default: true</li></ul></td>
+      <td data-ice="description"><p>Toggle zoom</p>
+</td>
+    </tr>
+<tr data-ice="property" data-depth="1">
+      <td data-ice="name" class="code" data-depth="1">controls.rotate</td>
+      <td data-ice="type" class="code"><span><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Boolean">boolean</a></span></td>
+      <td data-ice="appendix"><ul><li>optional</li>
+<li>default: true</li></ul></td>
+      <td data-ice="description"><p>Toggle rotation</p>
+</td>
+    </tr>
+<tr data-ice="property" data-depth="1">
+      <td data-ice="name" class="code" data-depth="1">controls.pan</td>
+      <td data-ice="type" class="code"><span><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Boolean">boolean</a></span></td>
+      <td data-ice="appendix"><ul><li>optional</li>
+<li>default: true</li></ul></td>
+      <td data-ice="description"><p>Toggle panning</p>
+</td>
+    </tr>
+<tr data-ice="property" data-depth="0">
+      <td data-ice="name" class="code" data-depth="0">camera</td>
+      <td data-ice="type" class="code"><span><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object">object</a></span></td>
+      <td data-ice="appendix"></td>
+      <td data-ice="description"><p>Camera settings</p>
+</td>
+    </tr>
+<tr data-ice="property" data-depth="1">
+      <td data-ice="name" class="code" data-depth="1">camera.x</td>
+      <td data-ice="type" class="code"><span><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number">number</a></span></td>
+      <td data-ice="appendix"></td>
+      <td data-ice="description"><p>Camera X-position</p>
+</td>
+    </tr>
+<tr data-ice="property" data-depth="1">
+      <td data-ice="name" class="code" data-depth="1">camera.y</td>
+      <td data-ice="type" class="code"><span><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number">number</a></span></td>
+      <td data-ice="appendix"></td>
+      <td data-ice="description"><p>Camera Y-Position</p>
+</td>
+    </tr>
+<tr data-ice="property" data-depth="1">
+      <td data-ice="name" class="code" data-depth="1">camera.z</td>
+      <td data-ice="type" class="code"><span><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number">number</a></span></td>
+      <td data-ice="appendix"></td>
+      <td data-ice="description"><p>Camera Z-Position</p>
+</td>
+    </tr>
+<tr data-ice="property" data-depth="1">
+      <td data-ice="name" class="code" data-depth="1">camera.target</td>
+      <td data-ice="type" class="code"><span><span><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number">number</a></span><span>[]</span></span></td>
+      <td data-ice="appendix"></td>
+      <td data-ice="description"><p>[x,y,z] array where the camera should look</p>
+</td>
+    </tr>
+</tbody>
+  </table>
+</div>
 </div>
 
   
@@ -301,14 +409,15 @@
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/gui/guiHelper.js.html#lineNumber3">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/gui/guiHelper.js.html#lineNumber6">source</a></span></span>
     </span>
   </h3>
 
-  <div data-ice="importPath" class="import-path"><pre class="prettyprint"><code data-ice="importPathCode">import guiHelper from &apos;<span><a href="file/src/gui/guiHelper.js.html#lineNumber3">minerender/src/gui/guiHelper.js</a></span>&apos;</code></pre></div>
+  <div data-ice="importPath" class="import-path"><pre class="prettyprint"><code data-ice="importPathCode">import guiHelper from &apos;<span><a href="file/src/gui/guiHelper.js.html#lineNumber6">minerender/src/gui/guiHelper.js</a></span>&apos;</code></pre></div>
   
   
-  
+  <div data-ice="description"><p>Helper functions for GUI creation</p>
+</div>
 
   
 
@@ -344,14 +453,15 @@
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/gui/guiPositions.js.html#lineNumber1">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/gui/guiPositions.js.html#lineNumber4">source</a></span></span>
     </span>
   </h3>
 
-  <div data-ice="importPath" class="import-path"><pre class="prettyprint"><code data-ice="importPathCode">import guiPositions from &apos;<span><a href="file/src/gui/guiPositions.js.html#lineNumber1">minerender/src/gui/guiPositions.js</a></span>&apos;</code></pre></div>
+  <div data-ice="importPath" class="import-path"><pre class="prettyprint"><code data-ice="importPathCode">import guiPositions from &apos;<span><a href="file/src/gui/guiPositions.js.html#lineNumber4">minerender/src/gui/guiPositions.js</a></span>&apos;</code></pre></div>
   
   
-  
+  <div data-ice="description"><p>Definition of positions/UV mappings ov Minecraft GUI assets</p>
+</div>
 
   
 
@@ -387,14 +497,15 @@
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/skin/texturePositions.js.html#lineNumber1">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/skin/texturePositions.js.html#lineNumber4">source</a></span></span>
     </span>
   </h3>
 
-  <div data-ice="importPath" class="import-path"><pre class="prettyprint"><code data-ice="importPathCode">import texturePositions from &apos;<span><a href="file/src/skin/texturePositions.js.html#lineNumber1">minerender/src/skin/texturePositions.js</a></span>&apos;</code></pre></div>
+  <div data-ice="importPath" class="import-path"><pre class="prettyprint"><code data-ice="importPathCode">import texturePositions from &apos;<span><a href="file/src/skin/texturePositions.js.html#lineNumber4">minerender/src/skin/texturePositions.js</a></span>&apos;</code></pre></div>
   
   
-  
+  <div data-ice="description"><p>Texture positions for Minecraft&apos;s player model</p>
+</div>
 
   
 

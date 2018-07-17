@@ -29,6 +29,12 @@ const TINTS = ["lightgreen"];
 
 const textureCache = {};
 
+/**
+ * @see defaultOptions
+ * @property {string} type alternative way to specify the model type (block/item)
+ * @property {boolean} [centerCubes=false] center the cube's rotation point
+ * @property {string} [assetRoot=DEFAULT_ROOT] root to get asset files from
+ */
 let defOptions = {
     camera: {
         type: "perspective",
@@ -48,7 +54,9 @@ let defOptions = {
 class ModelRender extends Render {
 
     /**
-     * @param {Object} [options] The options for this renderer
+     * @param {Object} [options] The options for this renderer, see {@link defaultOptions}
+     * @param {string} [options.assetRoot=DEFAULT_ROOT] root to get asset files from
+     *
      * @param {HTMLElement} [element=document.body] DOM Element to attach the renderer to - defaults to document.body
      * @constructor
      */
