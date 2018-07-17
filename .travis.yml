@@ -1,4 +1,6 @@
 langage: node_js
+before_install:
+  - chmod +x .travis/push.sh
 before_script:
   - npm install
 script:
