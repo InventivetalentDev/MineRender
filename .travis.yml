@@ -1,18 +1,8 @@
 langage: node_js
-before_install:
-  - chmod +x .travis/push.sh
 before_script:
   - npm install
 script:
   - npm run build:silent
-  - npm run docs
 cache:
   directories:
     - "node_modules"
-
-after_success:
-  - .travis/push.sh
-
-env:
-  global:
-    secure: "spm4aE+AUlbANa3y2uGERmtfwXO7mhD0LJfJbAqqr4qsbAbmqu0LZTKv/Twhrf5u22zRQ5EmtO8AZ+89U4Cli9RXvddSeIdQZ8/fDqm+EaeUhlMaY5gk1BsGqa/H4BdbRT3Ozahn61HFWL8/ZVKGHejJcSkiM294YVaV2k98BIyIrcb9d2BVrc1s5cQAtUar/gls/uBiqgzzgpp8tmbH7bwgetXvhsN/mfvJlELMCXHeVNyfGn0JdHXyFYYJHP6zsfRDu2Vq+UNWfBSU9l0kzCXEUfj8oSQ6JGoszLHvHoyD96Akd0sczUTvyIjt42mgoP0kHwio8cXKIBz3pIhTudyje8CO2UsbfE/IjKaFloDa+dKOnmpfWkc4d3b10HSFRSgSYNxce7PY1bhd8aCcNes4HJviKOY7zKQ71yOypTw3QemT9wMSE55tLhcyV0t0PCMZtB3P+Spz714NS+vylLCJKxO+VwG+erhhrPEC7R60QVtDSmwfGXe2uJcnCtCzzXDx5Xqr60h0bLny/qr0NPClD9SH01gr8tZe04ETLgCbiXNJUFXdrmNHUIVf/hpPpAE24uUeLbrKXheUCJIwrR6dWbay39oggaOBb1IjbF/tvn2jAr5IP2/qooZGCbV5XlTVogFtNnJNCXqHycGTHahBc+ogXmcTtfWU/9RrtzA="
