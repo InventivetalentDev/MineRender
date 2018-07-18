@@ -176,7 +176,8 @@ class ModelRender extends Render {
                                         rotation[2] = variant.z;
                                     }
 
-                                    doModelLoad(variant.model, "block");
+                                    let parsed = parseModelType(variant.model);
+                                    doModelLoad(parsed.model, "block");
                                 } else {
                                     let variant;
                                     if (blockstate.variants.hasOwnProperty("normal")) {
@@ -196,7 +197,8 @@ class ModelRender extends Render {
                                         rotation[2] = variant.z;
                                     }
 
-                                    doModelLoad(variant.model, "block");
+                                    let parsed = parseModelType(variant.model);
+                                    doModelLoad(parsed.model, "block");
                                 }
                             } else if (blockstate.hasOwnProperty("multipart")) {
 
