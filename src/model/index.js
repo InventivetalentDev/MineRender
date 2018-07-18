@@ -165,42 +165,64 @@ class ModelRender extends Render {
                                     }
                                     let variant = blockstate.variants[model.variant];
 
-                                    rotation = [0, 0, 0];
-                                    if (variant.hasOwnProperty("x")) {
-                                        rotation[0] = variant.x;
-                                    }
-                                    if (variant.hasOwnProperty("y")) {
-                                        rotation[1] = variant.y;
-                                    }
-                                    if (variant.hasOwnProperty("z")) {// Not actually used by MC, but why not?
-                                        rotation[2] = variant.z;
+
+                                    let variants = [];
+                                    if (!Array.isArray(variant)) {
+                                        variants = [variant];
+                                    } else {
+                                        variants = variant;
                                     }
 
-                                    let parsed = parseModelType(variant.model);
-                                    doModelLoad(parsed.model, "block");
+                                    rotation = [0, 0, 0];
+                                    for (let j = 0; j < variants.length; j++) {
+                                        let v = variants[j];
+
+                                        if (variant.hasOwnProperty("x")) {
+                                            rotation[0] = v.x;
+                                        }
+                                        if (variant.hasOwnProperty("y")) {
+                                            rotation[1] = v.y;
+                                        }
+                                        if (variant.hasOwnProperty("z")) {// Not actually used by MC, but why not?
+                                            rotation[2] = v.z;
+                                        }
+
+                                        let parsed = parseModelType(v.model);
+                                        doModelLoad(parsed.model, "block");
+                                    }
                                 } else {
                                     let variant;
                                     if (blockstate.variants.hasOwnProperty("normal")) {
                                         variant = blockstate.variants.normal;
-                                    }else if(blockstate.variants.hasOwnProperty("")){
+                                    } else if (blockstate.variants.hasOwnProperty("")) {
                                         variant = blockstate.variants[""];
                                     } else {
                                         variant = blockstate.variants[Object.keys(blockstate.variants)[0]]
                                     }
 
-                                    rotation = [0, 0, 0];
-                                    if (variant.hasOwnProperty("x")) {
-                                        rotation[0] = variant.x;
-                                    }
-                                    if (variant.hasOwnProperty("y")) {
-                                        rotation[1] = variant.y;
-                                    }
-                                    if (variant.hasOwnProperty("z")) {// Not actually used by MC, but why not?
-                                        rotation[2] = variant.z;
+                                    let variants = [];
+                                    if (!Array.isArray(variant)) {
+                                        variants = [variant];
+                                    } else {
+                                        variants = variant;
                                     }
 
-                                    let parsed = parseModelType(variant.model);
-                                    doModelLoad(parsed.model, "block");
+                                    for (let j = 0; j < variants.length; j++) {
+                                        let v = variants[j];
+
+                                        if (variant.hasOwnProperty("x")) {
+                                            rotation[0] = v.x;
+                                        }
+                                        if (variant.hasOwnProperty("y")) {
+                                            rotation[1] = v.y;
+                                        }
+                                        if (variant.hasOwnProperty("z")) {// Not actually used by MC, but why not?
+                                            rotation[2] = v.z;
+                                        }
+
+                                        let parsed = parseModelType(v.model);
+                                        doModelLoad(parsed.model, "block");
+                                    }
                                 }
                             } else if (blockstate.hasOwnProperty("multipart")) {
 
