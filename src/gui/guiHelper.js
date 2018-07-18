@@ -93,7 +93,7 @@ const guiHelper = {
                     if (textureMap.hasOwnProperty(itemName)) {
                         itemName = textureMap[itemName];
                     } else {
-                        itemName = "/items/" + itemName;
+                        itemName = "/item/" + itemName;
                     }
 
                     renderData.push({
@@ -117,7 +117,7 @@ const guiHelper = {
                 if (textureMap.hasOwnProperty(itemName)) {
                     itemName = textureMap[itemName];
                 } else {
-                    itemName = "/items/" + itemName;
+                    itemName = "/item/" + itemName;
                 }
 
                 renderData.push({
@@ -136,7 +136,7 @@ const guiHelper = {
         if (textureMap.hasOwnProperty(itemName)) {
             itemName = textureMap[itemName];
         } else {
-            itemName = "/items/" + itemName;
+            itemName = "/item/" + itemName;
         }
 
         renderData.push({

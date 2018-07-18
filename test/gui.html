@@ -99,35 +99,34 @@
                     }
                 ];
 
-                // $.ajax("/res/mc/assets/minecraft/recipes/rail.json").done(function (recipe) {
-                //     console.log(recipe);
-                //     window.guiRender = new GuiRender( {
-                //         showOutlines: true,
-                //         showAxes: true,
-                //         controls: {
-                //             enabled: true,
-                //             rotate: false,
-                //             zoom: true,
-                //             pan: true
-                //         },
-                //         assetRoot:"/res/rp/bdcraft512"
-                //     }).render(GuiRender.Helper.recipe(recipe,{
-                //         "rail":"/blocks/rail_normal"
-                //     }));
-                // })
-
-                window.guiRender = new GuiRender({
-                    showOutlines: true,
-                    showAxes: true,
-                    controls: {
-                        enabled: true,
-                        rotate: false,
-                        zoom: true,
-                        pan: true
-                    },
-                    assetRoot: "/res/rp/bdcraft512"
+                $.ajax("/res/mc/data/minecraft/recipes/rail.json").done(function (recipe) {
+                    console.log(recipe);
+                    window.guiRender = new GuiRender( {
+                        showOutlines: true,
+                        showAxes: true,
+                        controls: {
+                            enabled: true,
+                            rotate: false,
+                            zoom: true,
+                            pan: true
+                        },
+                    }).render(GuiRender.Helper.recipe(recipe,{
+                        "rail":"/block/rail_normal"
+                    }));
                 })
-                window.guiRender.render(chest);
+
+                // window.guiRender = new GuiRender({
+                //     showOutlines: true,
+                //     showAxes: true,
+                //     controls: {
+                //         enabled: true,
+                //         rotate: false,
+                //         zoom: true,
+                //         pan: true
+                //     },
+                //     assetRoot: "/res/rp/bdcraft512"
+                // })
+                // window.guiRender.render(chest);
             })();
         </script>
     </body>
