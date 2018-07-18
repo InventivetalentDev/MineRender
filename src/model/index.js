@@ -182,6 +182,8 @@ class ModelRender extends Render {
                                     let variant;
                                     if (blockstate.variants.hasOwnProperty("normal")) {
                                         variant = blockstate.variants.normal;
+                                    }else if(blockstate.variants.hasOwnProperty("")){
+                                        variant = blockstate.variants[""];
                                     } else {
                                         variant = blockstate.variants[Object.keys(blockstate.variants)[0]]
                                     }
