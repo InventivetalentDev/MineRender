@@ -1329,42 +1329,42 @@ guis = [
         },
         {
             name: "bone",
-            texture: "/items/bone",
+            texture: "/item/bone",
             uv: [0, 0, 16, 16],
             pos: gui.Helper.inventorySlot([0, 0], gui.Positions.container.generic_54.top_origin, gui.Positions.container.generic_54.item_offset),
             layer: 1
         },
         {
             name: "brick",
-            texture: "/items/brick",
+            texture: "/item/brick",
             uv: [0, 0, 16, 16],
             pos: gui.Helper.inventorySlot([8, 4], gui.Positions.container.generic_54.top_origin, gui.Positions.container.generic_54.item_offset),
             layer: 1
         },
         {
             name: "brick",
-            texture: "/items/apple",
+            texture: "/item/apple",
             uv: [0, 0, 16, 16],
             pos: gui.Helper.inventorySlot([1, 0], gui.Positions.container.generic_54.top_origin, gui.Positions.container.generic_54.item_offset),
             layer: 1
         },
         {
             name: "brick",
-            texture: "/items/clock_09",
+            texture: "/item/clock_09",
             uv: [0, 0, 16, 16],
             pos: gui.Helper.inventorySlot([0, 2], gui.Positions.container.generic_54.top_origin, gui.Positions.container.generic_54.item_offset),
             layer: 1
         },
         {
             name: "brick",
-            texture: "/items/egg",
+            texture: "/item/egg",
             uv: [0, 0, 16, 16],
             pos: gui.Helper.inventorySlot([2, 5], gui.Positions.container.generic_54.top_origin, gui.Positions.container.generic_54.item_offset),
             layer: 1
         },
         {
             name: "feather",
-            texture: "/items/feather",
+            texture: "/item/feather",
             uv: [0, 0, 16, 16],
             pos: gui.Helper.inventorySlot([5, 3], gui.Positions.container.generic_54.top_origin, gui.Positions.container.generic_54.item_offset),
             layer: 1
