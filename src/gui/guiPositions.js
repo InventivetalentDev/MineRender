@@ -75,8 +75,8 @@ const guiPositions = {
         },
         crafting_table: {
             uv: [0, 0, 176, 166],
-            left_origin: [32, 19],
-            right_origin: [122, 33],
+            left_origin: [30, 17],
+            right_origin: [124, 35],
             item_offset: [18, 18]
         }
     }
