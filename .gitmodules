@@ -1,4 +1,4 @@
 [submodule "res/mc"]
 	path = res/mc
 	url = https://github.com/InventivetalentDev/minecraft-assets.git
-	branch = 1.12.2
+	branch = 1.13
