@@ -199,7 +199,7 @@ function renderRecipeShowcases() {
         var recipe = recipes[i];
         var element = $("#recipeExample" + (i + 1));
         (function (i, recipe, element) {
-            $.ajax("https://minerender.org/res/mc/assets/minecraft/recipes/" + recipe.recipe).done(function (r) {
+            $.ajax("https://minerender.org/res/mc/data/minecraft/recipes/" + recipe.recipe).done(function (r) {
                 var guiRender = new GuiRender({
                     autoResize: true,
                     canvas: {
