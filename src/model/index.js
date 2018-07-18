@@ -97,10 +97,7 @@ class ModelRender extends Render {
             promises.push(new Promise((resolve) => {
                 let model = models[i];
 
-                let offset;
-                let rotation;
-
-                let doModelLoad = function (model, type) {
+                let doModelLoad = function (model, type, offset, rotation) {
                     console.log("Loading model " + model + " of type " + type + "...");
                     loadModel(model, type, modelRender.options.assetRoot)
                         .then(modelData => mergeParents(modelData, modelRender.options.assetRoot))
@@ -128,6 +125,9 @@ class ModelRender extends Render {
                         });
                 };
 
+                let offset;
+                let rotation;
+
                 if (typeof model === "string") {
                     let parsed = parseModelType(model);
                     model = parsed.model;
@@ -151,7 +151,7 @@ class ModelRender extends Render {
                             type = parsed.type;
                         }
 
-                        doModelLoad(model, type);
+                        doModelLoad(model, type, offset, rotation);
                     } else if (model.hasOwnProperty("blockstate")) {
                         type = "block";
 
@@ -188,7 +188,7 @@ class ModelRender extends Render {
                                         }
 
                                         let parsed = parseModelType(v.model);
-                                        doModelLoad(parsed.model, "block");
+                                        doModelLoad(parsed.model, "block", offset, rotation);
                                     }
                                 } else {
                                     let variant;
@@ -221,7 +221,7 @@ class ModelRender extends Render {
                                         }
 
                                         let parsed = parseModelType(v.model);
-                                        doModelLoad(parsed.model, "block");
+                                        doModelLoad(parsed.model, "block", offset, rotation);
                                     }
                                 }
                             } else if (blockstate.hasOwnProperty("multipart")) {
