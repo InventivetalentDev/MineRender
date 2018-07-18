@@ -40,15 +40,15 @@
                 ];
 
                 window.modelRender = new ModelRender({
-                    showAxes: true,
-                    showGrid: false,
-                    showOutlines: true,
+                    // showAxes: true,
+                    // showGrid: false,
+                    // showOutlines: true,
                     centerCubes: true,
                     camera: {
                         type: "perspective",
-                        x: 150,
-                        y: 60,
-                        z: 150,
+                        x: 20,
+                        y: 15,
+                        z: 20,
                         target: [0, 0, 0]
                     }
                     // assetRoot: "/res/rp/bdcraft512"
@@ -132,16 +132,10 @@
                     "offset": [112, 0, 144]
                 }]
 
-                // for (let x = 0; x < 8; x++) {
-                //     for (let z = 0; z < 8; z++) {
-                //         multiBlock.push({
-                //             model: (location.hash.substr(1) || "block/stone"),
-                //             offset: [x * 16, 0, z * 16]
-                //         })
-                //     }
-                // }
 
-                window.modelRender.render(multiBlock, function () {
+                window.modelRender.render([{
+                    model: (location.hash.substr(1) || "block/stone")
+                }], function () {
 
                 });
 
