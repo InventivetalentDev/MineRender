@@ -1400,7 +1400,7 @@ recipes = [
     {
         recipe: "comparator",
         map: {
-            "redstone_torch": "/block/redstone_torch_on",
+            "redstone_torch": "/block/redstone_torch",
             "stone": "/block/stone"
         }
     }
