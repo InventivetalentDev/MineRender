@@ -1354,9 +1354,9 @@ gui = {
             let renderData = [];
             renderData.push({
                 name: "base",
-                texture: "/gui/container/recipe_background",
+                texture: "/gui/container/crafting_table",
                 layer: 0,
-                uv: guiPositions.container.recipe_background.uv,
+                uv: guiPositions.container.crafting_table.uv,
                 pos: [0, 0]
             });
 
@@ -1372,7 +1372,7 @@ gui = {
                             continue;
                         }
 
-                        let slot = this.inventorySlot([c, l], guiPositions.container.recipe_background.left_origin, guiPositions.container.recipe_background.item_offset, 3);
+                        let slot = this.inventorySlot([c, l], guiPositions.container.crafting_table.left_origin, guiPositions.container.crafting_table.item_offset, 3);
                         let item = recipeData.key[char].item;
                         let itemSplit = item.split(":");
                         let itemNamespace = itemSplit[0];
@@ -1396,7 +1396,7 @@ gui = {
                 for (let i = 0; i < recipeData.ingredients.length; i++) {
                     let ingredient = recipeData.ingredients[i];
 
-                    let slot = this.inventorySlot(i, guiPositions.container.recipe_background.left_origin, guiPositions.container.recipe_background.item_offset, 3);
+                    let slot = this.inventorySlot(i, guiPositions.container.crafting_table.left_origin, guiPositions.container.crafting_table.item_offset, 3);
                     let item = ingredient.item;
                     let itemSplit = item.split(":");
                     let itemNamespace = itemSplit[0];
@@ -1431,7 +1431,7 @@ gui = {
                 name: resultItem,
                 texture: itemName,
                 layer: 1,
-                pos: guiPositions.container.recipe_background.right_origin
+                pos: guiPositions.container.crafting_table.right_origin
             });
 
 
