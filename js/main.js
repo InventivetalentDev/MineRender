@@ -98,7 +98,7 @@ function renderBlockShowcases() {
         var block = getRandomBlock();
         var element = $("#blockExample" + (i + 1));
         $("#blockName" + (i + 1)).text(block);
-        $("#blockName" + (i + 1)).parent().attr("href", "https://github.com/InventivetalentDev/minecraft-assets/blob/1.13/assets/minecraft/models/block/" + block + ".json")
+        $("#blockName" + (i + 1)).parent().attr("href", "https://github.com/InventivetalentDev/minecraft-assets/blob/1.13/assets/minecraft/blockstates/" + block + ".json")
         var modelRender = new ModelRender({
             autoResize: true,
             canvas: {
@@ -114,7 +114,9 @@ function renderBlockShowcases() {
             }
         }, element[0]);
         (function (i) {
-            modelRender.render(["block/" + block], function () {
+            modelRender.render([{
+                blockstate: block
+            }], function () {
                 $("#blockPlaceholder" + (i + 1)).remove();
             })
         })(i);
