@@ -88,7 +88,7 @@ class SkinRender extends Render {
                 capeTexture.anisotropy = 0;
             }
 
-            if (!skinRender.attached) {// Don't init scene if attached, since we already have an available scene
+            if (!skinRender.attached && !skinRender._scene) {// Don't init scene if attached, since we already have an available scene
                 super.initScene(function () {
                     skinRender.element.dispatchEvent(new CustomEvent("skinRender", {detail: {playerModel: skinRender.playerModel}}));
                 });

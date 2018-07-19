@@ -83,7 +83,7 @@ class ModelRender extends Render {
     render(models, cb) {
         let modelRender = this;
 
-        if (!modelRender.attached) {// Don't init scene if attached, since we already have an available scene
+        if (!modelRender.attached && !modelRender._scene) {// Don't init scene if attached, since we already have an available scene
             super.initScene(function () {
                 modelRender.element.dispatchEvent(new CustomEvent("modelRender", {detail: {models: modelRender.models}}));
             });

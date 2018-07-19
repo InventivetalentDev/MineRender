@@ -61,7 +61,7 @@ class GuiRender extends Render {
     render(layers, cb) {
         let guiRender = this;
 
-        if (!guiRender.attached) {// Don't init scene if attached, since we already have an available scene
+        if (!guiRender.attached && !guiRender._scene) {// Don't init scene if attached, since we already have an available scene
             super.initScene(function () {
                 guiRender.element.dispatchEvent(new CustomEvent("guiRender", {detail: {gui: guiRender.gui}}));
             });
