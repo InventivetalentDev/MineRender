@@ -392,7 +392,7 @@ let renderModel = function (modelRender, model, textures, textureNames, type, na
                 promises.push(new Promise((resolve) => {
                     createCube(element.to[0] - element.from[0], element.to[1] - element.from[1], element.to[2] - element.from[2],
                         name.replaceAll(" ", "_").replaceAll("-", "_").toLowerCase() + "_" + (element.__comment ? element.__comment.replaceAll(" ", "_").replaceAll("-", "_").toLowerCase() + "_" : "") + Date.now(),
-                        element.faces, fallbackFaces, textures, textureNames)
+                        element.faces, fallbackFaces, textures, textureNames, modelRender.options.assetRoot)
                         .then((cube) => {
                             cube.applyMatrix(new THREE.Matrix4().makeTranslation((element.to[0] - element.from[0]) / 2, (element.to[1] - element.from[1]) / 2, (element.to[2] - element.from[2]) / 2));
                             cube.applyMatrix(new THREE.Matrix4().makeTranslation(element.from[0], element.from[1], element.from[2]));
@@ -549,7 +549,7 @@ let createPlane = function (name, textures) {
 
 
 /// From https://github.com/InventivetalentDev/SkinRender/blob/master/js/render/skin.js#L353
-let createCube = function (width, height, depth, name, faces, fallbackFaces, textures, textureNames) {
+let createCube = function (width, height, depth, name, faces, fallbackFaces, textures, textureNames, assetRoot) {
     return new Promise((resolve) => {
         let geometry = new THREE.BoxGeometry(width, height, depth);
 
@@ -634,7 +634,7 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                             if (name.indexOf("/") !== -1) {
                                 name = name.substr(name.indexOf("/") + 1);
                             }
-                            loadTextureMeta(name, modelRender.options.assetRoot).then((meta) => {
+                            loadTextureMeta(name, assetRoot).then((meta) => {
 
                                 let frametime = 1;
                                 if (meta.hasOwnProperty("animation")) {
