@@ -1829,6 +1829,11 @@ resourcePacks = [
         path: "bdcraft512",
         url: "http://bdcraft.net"
     },
+    {
+        name: "Faithful 32x",
+        path: "faithful32",
+        url: "https://resourcepack.net/faithful-32x32-resource-pack/"// Someone please update this if there's an official website
+    }
     // {
     //     name: "ChromaHills 128x",
     //     path: "chromahills128",
