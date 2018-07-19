@@ -58,7 +58,8 @@ export const defaultOptions = {
         enabled: true,
         zoom: true,
         rotate: true,
-        pan: true
+        pan: true,
+        keys: true
     },
     camera: {
         type: "perspective",
@@ -200,6 +201,7 @@ export default class Render {
         controls.enableZoom = renderObj.options.controls.zoom;
         controls.enableRotate = renderObj.options.controls.rotate;
         controls.enablePan = renderObj.options.controls.pan;
+        controls.enableKeys = renderObj.options.controls.keys;
         controls.target.set(renderObj.options.camera.target[0], renderObj.options.camera.target[1], renderObj.options.camera.target[2]);
 
         // Set camera location & target
@@ -247,13 +249,13 @@ export default class Render {
     };
 
 
-    clearScene () {
+    clearScene() {
         while (this._scene.children.length > 0) {
             this._scene.remove(this._scene.children[0]);
         }
     };
 
-    dispose () {
+    dispose() {
         cancelAnimationFrame(this._animId);
 
         this.clearScene();
