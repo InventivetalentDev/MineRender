@@ -4,6 +4,7 @@ import EffectComposer, { ShaderPass, CopyShader } from "@johh/three-effectcompos
 import * as THREE from "three";
 import OnScreen from "onscreen";
 import * as $ from "jquery";
+import ModelRender from "./model";
 
 /**
  * Default asset root
@@ -243,6 +244,25 @@ export default class Render {
                     renderObj._renderer.forceContextLoss();
                 }
             });
+        }
+    };
+
+
+    clearScene () {
+        while (this._scene.children.length > 0) {
+            this._scene.remove(this._scene.children[0]);
+        }
+    };
+
+    dispose () {
+        cancelAnimationFrame(this._animId);
+
+        this.clearScene();
+
+        this._canvas.remove();
+        let el = this.element;
+        while (el.firstChild) {
+            el.removeChild(el.firstChild);
         }
     };
 
