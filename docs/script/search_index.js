@@ -504,9 +504,21 @@ window.esdocSearchIndex = [
     "file"
   ],
   [
+    "src/renderbase.js~render#clearscene",
+    "class/src/renderBase.js~Render.html#instance-method-clearScene",
+    "src/renderBase.js~Render#clearScene",
+    "method"
+  ],
+  [
     "src/renderbase.js~render#constructor",
     "class/src/renderBase.js~Render.html#instance-constructor-constructor",
     "src/renderBase.js~Render#constructor",
+    "method"
+  ],
+  [
+    "src/renderbase.js~render#dispose",
+    "class/src/renderBase.js~Render.html#instance-method-dispose",
+    "src/renderBase.js~Render#dispose",
     "method"
   ],
   [

@@ -137,7 +137,7 @@ class ModelRender extends Render {
     render(models, cb) {
         let modelRender = this;
 
-        if (!modelRender.attached) {// Don&apos;t init scene if attached, since we already have an available scene
+        if (!modelRender.attached &amp;&amp; !modelRender._scene) {// Don&apos;t init scene if attached, since we already have an available scene
             super.initScene(function () {
                 modelRender.element.dispatchEvent(new CustomEvent(&quot;modelRender&quot;, {detail: {models: modelRender.models}}));
             });
@@ -151,10 +151,7 @@ class ModelRender extends Render {
             promises.push(new Promise((resolve) =&gt; {
                 let model = models[i];
 
-                let offset;
-                let rotation;
-
-                let doModelLoad = function (model, type) {
+                let doModelLoad = function (model, type, offset, rotation, resolve) {
                     console.log(&quot;Loading model &quot; + model + &quot; of type &quot; + type + &quot;...&quot;);
                     loadModel(model, type, modelRender.options.assetRoot)
                         .then(modelData =&gt; mergeParents(modelData, modelRender.options.assetRoot))
@@ -182,12 +179,15 @@ class ModelRender extends Render {
                         });
                 };
 
+                let offset;
+                let rotation;
+
                 if (typeof model === &quot;string&quot;) {
                     let parsed = parseModelType(model);
                     model = parsed.model;
                     type = parsed.type;
 
-                    doModelLoad(model, type);
+                    doModelLoad(model, type, offset, rotation, resolve);
                 } else if (typeof model === &quot;object&quot;) {
                     if (model.hasOwnProperty(&quot;offset&quot;)) {
                         offset = model[&quot;offset&quot;];
@@ -205,11 +205,13 @@ class ModelRender extends Render {
                             type = parsed.type;
                         }
 
-                        doModelLoad(model, type);
+                        doModelLoad(model, type, offset, rotation, resolve);
                     } else if (model.hasOwnProperty(&quot;blockstate&quot;)) {
                         type = &quot;block&quot;;
 
                         loadBlockState(model.blockstate, modelRender.options.assetRoot).then((blockstate) =&gt; {
+                            modelRender.blockstate = blockstate;
+
                             if (blockstate.hasOwnProperty(&quot;variants&quot;)) {
 
                                 if (model.hasOwnProperty(&quot;variant&quot;)) {
@@ -219,41 +221,146 @@ class ModelRender extends Render {
                                     }
                                     let variant = blockstate.variants[model.variant];
 
-                                    rotation = [0, 0, 0];
-                                    if (variant.hasOwnProperty(&quot;x&quot;)) {
-                                        rotation[0] = variant.x;
-                                    }
-                                    if (variant.hasOwnProperty(&quot;y&quot;)) {
-                                        rotation[1] = variant.y;
-                                    }
-                                    if (variant.hasOwnProperty(&quot;z&quot;)) {// Not actually used by MC, but why not?
-                                        rotation[2] = variant.z;
+
+                                    let variants = [];
+                                    if (!Array.isArray(variant)) {
+                                        variants = [variant];
+                                    } else {
+                                        variants = variant;
                                     }
 
-                                    doModelLoad(variant.model, &quot;block&quot;);
+                                    rotation = [0, 0, 0];
+
+                                    let v = variants[Math.floor(Math.random() * variants.length)];
+                                    if (variant.hasOwnProperty(&quot;x&quot;)) {
+                                        rotation[0] = v.x;
+                                    }
+                                    if (variant.hasOwnProperty(&quot;y&quot;)) {
+                                        rotation[1] = v.y;
+                                    }
+                                    if (variant.hasOwnProperty(&quot;z&quot;)) {// Not actually used by MC, but why not?
+                                        rotation[2] = v.z;
+                                    }
+                                    let parsed = parseModelType(v.model);
+                                    doModelLoad(parsed.model, &quot;block&quot;, offset, rotation, resolve);
                                 } else {
                                     let variant;
                                     if (blockstate.variants.hasOwnProperty(&quot;normal&quot;)) {
                                         variant = blockstate.variants.normal;
+                                    } else if (blockstate.variants.hasOwnProperty(&quot;&quot;)) {
+                                        variant = blockstate.variants[&quot;&quot;];
                                     } else {
                                         variant = blockstate.variants[Object.keys(blockstate.variants)[0]]
                                     }
 
+                                    let variants = [];
+                                    if (!Array.isArray(variant)) {
+                                        variants = [variant];
+                                    } else {
+                                        variants = variant;
+                                    }
+
                                     rotation = [0, 0, 0];
+
+                                    let v = variants[Math.floor(Math.random() * variants.length)];
                                     if (variant.hasOwnProperty(&quot;x&quot;)) {
-                                        rotation[0] = variant.x;
+                                        rotation[0] = v.x;
                                     }
                                     if (variant.hasOwnProperty(&quot;y&quot;)) {
-                                        rotation[1] = variant.y;
+                                        rotation[1] = v.y;
                                     }
                                     if (variant.hasOwnProperty(&quot;z&quot;)) {// Not actually used by MC, but why not?
-                                        rotation[2] = variant.z;
+                                        rotation[2] = v.z;
                                     }
-
-                                    doModelLoad(variant.model, &quot;block&quot;);
+                                    let parsed = parseModelType(v.model);
+                                    doModelLoad(parsed.model, &quot;block&quot;, offset, rotation, resolve);
                                 }
                             } else if (blockstate.hasOwnProperty(&quot;multipart&quot;)) {
+                                let promises1 = [];
 
+                                for (let j = 0; j &lt; blockstate.multipart.length; j++) {
+                                    let cond = blockstate.multipart[j];
+                                    let apply = cond.apply;
+                                    let when = cond.when;
+
+                                    rotation = [0, 0, 0];
+
+                                    if (!when) {
+                                        if (apply.hasOwnProperty(&quot;x&quot;)) {
+                                            rotation[0] = apply.x;
+                                        }
+                                        if (apply.hasOwnProperty(&quot;y&quot;)) {
+                                            rotation[1] = apply.y;
+                                        }
+                                        if (apply.hasOwnProperty(&quot;z&quot;)) {// Not actually used by MC, but why not?
+                                            rotation[2] = apply.z;
+                                        }
+                                        let parsed = parseModelType(apply.model);
+                                        promises1.push(new Promise((resolve) =&gt; {
+                                            doModelLoad(parsed.model, &quot;block&quot;, offset, rotation, resolve);
+                                        }))
+                                    } else if (model.hasOwnProperty(&quot;multipart&quot;)) {
+                                        let multipartConditions = model.multipart;
+
+                                        let applies = false;
+                                        if (when.hasOwnProperty(&quot;OR&quot;)) {
+                                            for (let k = 0; k &lt; when.OR.length; k++) {
+                                                if (applies) break;
+                                                for (let c in when.OR[k]) {
+                                                    if (applies) break;
+                                                    if (when.OR[k].hasOwnProperty(c)) {
+                                                        let expected = when.OR[k][c];
+                                                        let expectedArray = expected.split(&quot;|&quot;);
+
+                                                        let given = multipartConditions[c];
+                                                        for (let k = 0; k &lt; expectedArray.length; k++) {
+                                                            if (expectedArray[k] === given) {
+                                                                applies = true;
+                                                                break;
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        } else {
+                                            for (let c in when) {// this SHOULD be a single case, but iterating makes it a bit easier
+                                                if (applies) break;
+                                                if (when.hasOwnProperty(c)) {
+                                                    let expected = when[c];
+                                                    let expectedArray = expected.split(&quot;|&quot;);
+
+                                                    let given = multipartConditions[c];
+                                                    for (let k = 0; k &lt; expectedArray.length; k++) {
+                                                        if (expectedArray[k] === given) {
+                                                            applies = true;
+                                                            break;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        if (applies) {
+                                            if (apply.hasOwnProperty(&quot;x&quot;)) {
+                                                rotation[0] = apply.x;
+                                            }
+                                            if (apply.hasOwnProperty(&quot;y&quot;)) {
+                                                rotation[1] = apply.y;
+                                            }
+                                            if (apply.hasOwnProperty(&quot;z&quot;)) {// Not actually used by MC, but why not?
+                                                rotation[2] = apply.z;
+                                            }
+                                            let parsed = parseModelType(apply.model);
+                                            promises1.push(new Promise((resolve) =&gt; {
+                                                doModelLoad(parsed.model, &quot;block&quot;, offset, rotation, resolve);
+                                            }))
+                                        }
+                                    }
+                                }
+
+                                Promise.all(promises1).then(() =&gt; {
+                                    resolve();
+                                })
                             }
                         })
                     }
@@ -292,24 +399,6 @@ let parseModelType = function (string) {
     }
 };
 
-
-ModelRender.prototype.clearScene = function () {
-    while (this._scene.children.length &gt; 0) {
-        this._scene.remove(this._scene.children[0]);
-    }
-};
-
-ModelRender.prototype.dispose = function () {
-    cancelAnimationFrame(this._animId);
-
-    this.clearScene();
-
-    this._canvas.remove();
-    let el = this.element;
-    while (el.firstChild) {
-        el.removeChild(el.firstChild);
-    }
-};
 
 let renderModel = function (modelRender, model, textures, type, name, offset, rotation) {
     return new Promise((resolve) =&gt; {
@@ -575,6 +664,14 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                             // context.globalAlpha = 1.0;
                         }
 
+                        let canvasData = context.getImageData(0, 0, canvas.width, canvas.height).data;
+                        let hasTransparency = false;
+                        for (let i = 3; i &lt; (canvas.width * canvas.height); i += 4) {
+                            if (canvasData[i] &lt; 255) {
+                                hasTransparency = true;
+                                break;
+                            }
+                        }
 
                         // TODO: figure out a good way to cache these
                         new THREE.TextureLoader().load(canvas.toDataURL(&quot;image/png&quot;), function (texture) {
@@ -585,8 +682,8 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
 
                             let material = new THREE.MeshBasicMaterial({
                                 map: texture,
-                                transparent: true,
-                                side: THREE.DoubleSide,
+                                transparent: hasTransparency,
+                                side: hasTransparency ? THREE.DoubleSide : THREE.FrontSide,
                                 alphaTest: 0.5
                             });
 

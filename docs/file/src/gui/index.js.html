@@ -53,7 +53,7 @@
 
 <div class="content" data-ice="content"><h1 data-ice="title">src/gui/index.js</h1>
 <pre class="source-code line-number raw-source-code"><code class="prettyprint linenums" data-ice="content">import * as THREE from &quot;three&quot;;
-import Render, { loadTextureAsBase64, defaultOptions, scaleUv, DEFAULT_ROOT } from &quot;../renderBase&quot;;
+import Render, { loadTextureAsBase64, defaultOptions, DEFAULT_ROOT } from &quot;../renderBase&quot;;
 import guiPositions from &quot;./guiPositions&quot;;
 import guiHelper from &quot;./guiHelper&quot;;
 
@@ -115,7 +115,7 @@ class GuiRender extends Render {
     render(layers, cb) {
         let guiRender = this;
 
-        if (!guiRender.attached) {// Don&apos;t init scene if attached, since we already have an available scene
+        if (!guiRender.attached &amp;&amp; !guiRender._scene) {// Don&apos;t init scene if attached, since we already have an available scene
             super.initScene(function () {
                 guiRender.element.dispatchEvent(new CustomEvent(&quot;guiRender&quot;, {detail: {gui: guiRender.gui}}));
             });

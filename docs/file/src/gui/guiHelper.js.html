@@ -120,9 +120,9 @@ const guiHelper = {
         let renderData = [];
         renderData.push({
             name: &quot;base&quot;,
-            texture: &quot;/gui/container/recipe_background&quot;,
+            texture: &quot;/gui/container/crafting_table&quot;,
             layer: 0,
-            uv: guiPositions.container.recipe_background.uv,
+            uv: guiPositions.container.crafting_table.uv,
             pos: [0, 0]
         });
 
@@ -138,7 +138,7 @@ const guiHelper = {
                         continue;
                     }
 
-                    let slot = this.inventorySlot([c, l], guiPositions.container.recipe_background.left_origin, guiPositions.container.recipe_background.item_offset, 3);
+                    let slot = this.inventorySlot([c, l], guiPositions.container.crafting_table.left_origin, guiPositions.container.crafting_table.item_offset, 3);
                     let item = recipeData.key[char].item;
                     let itemSplit = item.split(&quot;:&quot;);
                     let itemNamespace = itemSplit[0];
@@ -147,7 +147,7 @@ const guiHelper = {
                     if (textureMap.hasOwnProperty(itemName)) {
                         itemName = textureMap[itemName];
                     } else {
-                        itemName = &quot;/items/&quot; + itemName;
+                        itemName = &quot;/item/&quot; + itemName;
                     }
 
                     renderData.push({
@@ -158,11 +158,11 @@ const guiHelper = {
                     });
                 }
             }
-        }else if(recipeData.type===&quot;crafting_shapeless&quot;){
-            for(let i=0;i&lt;recipeData.ingredients.length;i++){
+        } else if (recipeData.type === &quot;crafting_shapeless&quot;) {
+            for (let i = 0; i &lt; recipeData.ingredients.length; i++) {
                 let ingredient = recipeData.ingredients[i];
 
-                let slot = this.inventorySlot(i, guiPositions.container.recipe_background.left_origin, guiPositions.container.recipe_background.item_offset, 3);
+                let slot = this.inventorySlot(i, guiPositions.container.crafting_table.left_origin, guiPositions.container.crafting_table.item_offset, 3);
                 let item = ingredient.item;
                 let itemSplit = item.split(&quot;:&quot;);
                 let itemNamespace = itemSplit[0];
@@ -171,7 +171,7 @@ const guiHelper = {
                 if (textureMap.hasOwnProperty(itemName)) {
                     itemName = textureMap[itemName];
                 } else {
-                    itemName = &quot;/items/&quot; + itemName;
+                    itemName = &quot;/item/&quot; + itemName;
                 }
 
                 renderData.push({
@@ -190,14 +190,14 @@ const guiHelper = {
         if (textureMap.hasOwnProperty(itemName)) {
             itemName = textureMap[itemName];
         } else {
-            itemName = &quot;/items/&quot; + itemName;
+            itemName = &quot;/item/&quot; + itemName;
         }
 
         renderData.push({
             name: resultItem,
             texture: itemName,
             layer: 1,
-            pos: guiPositions.container.recipe_background.right_origin
+            pos: guiPositions.container.crafting_table.right_origin
         });
 
 

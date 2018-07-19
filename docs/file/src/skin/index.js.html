@@ -53,7 +53,6 @@
 
 <div class="content" data-ice="content"><h1 data-ice="title">src/skin/index.js</h1>
 <pre class="source-code line-number raw-source-code"><code class="prettyprint linenums" data-ice="content">import * as THREE from &quot;three&quot;;
-import OrbitControls from &quot;../lib/OrbitControls&quot;;
 
 import texturePositions from &quot;./texturePositions&quot;;
 import Render, { defaultOptions } from &quot;../renderBase&quot;;
@@ -142,7 +141,7 @@ class SkinRender extends Render {
                 capeTexture.anisotropy = 0;
             }
 
-            if (!skinRender.attached) {// Don&apos;t init scene if attached, since we already have an available scene
+            if (!skinRender.attached &amp;&amp; !skinRender._scene) {// Don&apos;t init scene if attached, since we already have an available scene
                 super.initScene(function () {
                     skinRender.element.dispatchEvent(new CustomEvent(&quot;skinRender&quot;, {detail: {playerModel: skinRender.playerModel}}));
                 });

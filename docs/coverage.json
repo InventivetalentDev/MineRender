@@ -48,7 +48,7 @@
       "undocumentLines": []
     },
     "src/model/index.js": {
-      "expectCount": 26,
+      "expectCount": 24,
       "actualCount": 4,
       "undocumentLines": [
         7,
@@ -56,20 +56,18 @@
         27,
         28,
         30,
-        221,
-        242,
-        248,
-        260,
-        385,
-        392,
-        456,
-        571,
-        579,
-        672,
-        695,
-        731,
-        736,
-        759,
+        328,
+        349,
+        474,
+        481,
+        545,
+        668,
+        676,
+        769,
+        792,
+        828,
+        833,
+        856,
         66,
         68,
         69
@@ -85,30 +83,33 @@
       ]
     },
     "src/renderBase.js": {
-      "expectCount": 18,
+      "expectCount": 20,
       "actualCount": 18,
-      "undocumentLines": []
+      "undocumentLines": [
+        252,
+        258
+      ]
     },
     "src/skin/index.js": {
       "expectCount": 20,
       "actualCount": 4,
       "undocumentLines": [
-        268,
-        343,
-        525,
-        539,
-        556,
-        560,
+        267,
+        342,
+        524,
+        538,
+        555,
+        559,
+        32,
         33,
-        34,
-        38,
-        236,
+        37,
+        235,
+        239,
         240,
         241,
-        242,
-        252,
-        257,
-        261
+        251,
+        256,
+        260
       ]
     },
     "src/skin/texturePositions.js": {
