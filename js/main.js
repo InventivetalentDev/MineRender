@@ -245,7 +245,9 @@ function renderResourcePackShowcases() {
             assetRoot: "/res/rp/" + pack.path
         }, element[0]);
         (function (i) {
-            modelRender.render(["block/" + block], function () {
+            modelRender.render([{
+                blockstate: block
+            }], function () {
                 $("#resourcepackPlaceholder" + (i + 1)).remove();
             })
         })(i);
