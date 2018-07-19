@@ -156,6 +156,7 @@ class ModelRender extends Render {
                         type = "block";
 
                         loadBlockState(model.blockstate, modelRender.options.assetRoot).then((blockstate) => {
+                            modelRender.blockstate = blockstate;
                             if (blockstate.hasOwnProperty("variants")) {
 
                                 if (model.hasOwnProperty("variant")) {
@@ -258,24 +259,6 @@ let parseModelType = function (string) {
     }
 };
 
-
-ModelRender.prototype.clearScene = function () {
-    while (this._scene.children.length > 0) {
-        this._scene.remove(this._scene.children[0]);
-    }
-};
-
-ModelRender.prototype.dispose = function () {
-    cancelAnimationFrame(this._animId);
-
-    this.clearScene();
-
-    this._canvas.remove();
-    let el = this.element;
-    while (el.firstChild) {
-        el.removeChild(el.firstChild);
-    }
-};
 
 let renderModel = function (modelRender, model, textures, type, name, offset, rotation) {
     return new Promise((resolve) => {
