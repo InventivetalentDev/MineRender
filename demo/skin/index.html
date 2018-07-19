@@ -70,7 +70,7 @@
             });
             if (location.hash) $("#nameInput").val(location.hash.substring(1));
             $("#nameInput,#capeInput").on("change", function () {
-                skinRender.reset();
+                skinRender.clearScene();
                 var skin = $("#nameInput").val();
                 var cape = $("#capeInput").val();
                 var options = {};
