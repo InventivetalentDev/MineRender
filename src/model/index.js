@@ -176,7 +176,6 @@ class ModelRender extends Render {
 
                                     rotation = [0, 0, 0];
 
-
                                     let v = variants[Math.floor(Math.random() * variants.length)];
                                     if (variant.hasOwnProperty("x")) {
                                         rotation[0] = v.x;
@@ -206,6 +205,8 @@ class ModelRender extends Render {
                                         variants = variant;
                                     }
 
+                                    rotation = [0, 0, 0];
+
                                     let v = variants[Math.floor(Math.random() * variants.length)];
                                     if (variant.hasOwnProperty("x")) {
                                         rotation[0] = v.x;
@@ -220,7 +221,65 @@ class ModelRender extends Render {
                                     doModelLoad(parsed.model, "block", offset, rotation);
                                 }
                             } else if (blockstate.hasOwnProperty("multipart")) {
+                                for (let j = 0; j < blockstate.multipart.length; j++) {
+                                    let cond = blockstate.multipart[j];
+                                    let apply = cond.apply;
+                                    let when = cond.when;
 
+                                    rotation = [0, 0, 0];
+
+                                    if (!when) {
+                                        if (apply.hasOwnProperty("x")) {
+                                            rotation[0] = apply.x;
+                                        }
+                                        if (apply.hasOwnProperty("y")) {
+                                            rotation[1] = apply.y;
+                                        }
+                                        if (apply.hasOwnProperty("z")) {// Not actually used by MC, but why not?
+                                            rotation[2] = apply.z;
+                                        }
+                                        let parsed = parseModelType(apply.model);
+                                        doModelLoad(parsed.model, "block", offset, rotation);
+                                    } else if (model.hasOwnProperty("multipart")) {
+                                        let multipartConditions = model.multipart;
+
+                                        let applies = false;
+                                        if (when.hasOwnProperty("OR")) {
+                                            //TODO
+                                        } else {
+                                            for (let c in when) {// this SHOULD be a single case, but iterating makes it a bit easier
+                                                if (when.hasOwnProperty(c)) {
+                                                    let expected = when[c];
+                                                    let expectedArray = expected.split("|");
+                                                    console.log("expected: " + JSON.stringify(expectedArray));
+
+                                                    let given = multipartConditions[c];
+                                                    console.log("given: " + given);
+                                                    for (let k = 0; k < expectedArray.length; k++) {
+                                                        if (expectedArray[k] === given) {
+                                                            applies = true;
+                                                            break;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        if(applies){
+                                            if (apply.hasOwnProperty("x")) {
+                                                rotation[0] = apply.x;
+                                            }
+                                            if (apply.hasOwnProperty("y")) {
+                                                rotation[1] = apply.y;
+                                            }
+                                            if (apply.hasOwnProperty("z")) {// Not actually used by MC, but why not?
+                                                rotation[2] = apply.z;
+                                            }
+                                            let parsed = parseModelType(apply.model);
+                                            doModelLoad(parsed.model, "block", offset, rotation);
+                                        }
+                                    }
+                                }
                             }
                         })
                     }

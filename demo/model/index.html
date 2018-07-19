@@ -39,6 +39,12 @@
                     <select id="variantInput">
                     </select>
                 </div>
+                <br/>
+                <div>
+                    <label for="multipartGroup"><strong>MultiPart conditions</strong></label>
+                    <div id="multipartGroup">
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -70,6 +76,8 @@
                     let name = $("#nameInput").val();
                     let variant = $("#variantInput").val();
 
+                    let multipartOptions = {};
+
                     let option = {};
                     if (type === "blockstate") {
                         $("#variantInput").prop("disabled", false);
@@ -84,6 +92,15 @@
                         if (variant && variant.length > 0) {
                             option["variant"] = variant;
                         }
+                        option["multipart"] = {};
+                        $(".multipartInput").each(function () {
+                            let val = $(this).val();
+                            console.log(val)
+                            if (val && val.length > 0) {
+                                option["multipart"][$(this).attr("name")] = val;
+                                multipartOptions[$(this).attr("name")] = val;
+                            }
+                        })
                     } else if (type === "model") {
                         $("#variantInput").prop("disabled", true);
 
@@ -100,11 +117,36 @@
                     window.modelRender.render([option], function () {
                         console.log(window.modelRender.blockstate);
                         $("#variantInput").empty();
-                        for (let v in window.modelRender.blockstate.variants) {
-                            $("#variantInput").append("<option value='" + v + "'>" + (v === "" ? "(normal)" : v) + "</option>");
+                        if (window.modelRender.blockstate.variants) {
+                            $("#variantInput").prop("disabled", false);
+                            for (let v in window.modelRender.blockstate.variants) {
+                                $("#variantInput").append("<option value='" + v + "'>" + (v === "" ? "(normal)" : v) + "</option>");
+                            }
+                            if (variant && variant.length > 0) {
+                                $("#variantInput").val(variant);
+                            }
+                        } else {
+                            $("#variantInput").prop("disabled", true);
                         }
-                        if (variant && variant.length > 0) {
-                            $("#variantInput").val(variant);
+
+                        if (window.modelRender.blockstate.multipart) {
+                            $("#multipartGroup").empty();
+
+                            for (let j = 0; j < window.modelRender.blockstate.multipart.length; j++) {
+                                let v = window.modelRender.blockstate.multipart[j];
+                                if (v.when) {
+                                    if (v.when.hasOwnProperty("OR")) {
+                                        //TODO
+                                    } else {
+                                        for (let c in v.when) {
+                                            if (v.when.hasOwnProperty(c)) {
+                                                $("#multipartGroup").append("<label>" + c + "</label><input type='text' class='multipartInput' name='" + c + "' value='" + (multipartOptions.hasOwnProperty(c) ? multipartOptions[c] : "") + "'><br/>");
+                                                $(".multipartInput").on("change", doRender);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     });
                 }
@@ -113,9 +155,10 @@
                 $("#typeInput").on("change", doRender);
                 $("#nameInput").on("change", function () {
                     $("#variantInput").empty();
+                    $("#multipartGroup").empty();
                     doRender();
                 });
-                $("#variantInput").on("change", doRender)
+                $("#variantInput").on("change", doRender);
 
                 // Initial render
                 doRender();
