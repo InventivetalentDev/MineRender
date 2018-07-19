@@ -174,22 +174,20 @@ class ModelRender extends Render {
                                     }
 
                                     rotation = [0, 0, 0];
-                                    for (let j = 0; j < variants.length; j++) {
-                                        let v = variants[j];
 
-                                        if (variant.hasOwnProperty("x")) {
-                                            rotation[0] = v.x;
-                                        }
-                                        if (variant.hasOwnProperty("y")) {
-                                            rotation[1] = v.y;
-                                        }
-                                        if (variant.hasOwnProperty("z")) {// Not actually used by MC, but why not?
-                                            rotation[2] = v.z;
-                                        }
 
-                                        let parsed = parseModelType(v.model);
-                                        doModelLoad(parsed.model, "block", offset, rotation);
+                                    let v = variants[Math.floor(Math.random() * variants.length)];
+                                    if (variant.hasOwnProperty("x")) {
+                                        rotation[0] = v.x;
                                     }
+                                    if (variant.hasOwnProperty("y")) {
+                                        rotation[1] = v.y;
+                                    }
+                                    if (variant.hasOwnProperty("z")) {// Not actually used by MC, but why not?
+                                        rotation[2] = v.z;
+                                    }
+                                    let parsed = parseModelType(v.model);
+                                    doModelLoad(parsed.model, "block", offset, rotation);
                                 } else {
                                     let variant;
                                     if (blockstate.variants.hasOwnProperty("normal")) {
@@ -207,22 +205,18 @@ class ModelRender extends Render {
                                         variants = variant;
                                     }
 
-                                    for (let j = 0; j < variants.length; j++) {
-                                        let v = variants[j];
-
-                                        if (variant.hasOwnProperty("x")) {
-                                            rotation[0] = v.x;
-                                        }
-                                        if (variant.hasOwnProperty("y")) {
-                                            rotation[1] = v.y;
-                                        }
-                                        if (variant.hasOwnProperty("z")) {// Not actually used by MC, but why not?
-                                            rotation[2] = v.z;
-                                        }
-
-                                        let parsed = parseModelType(v.model);
-                                        doModelLoad(parsed.model, "block", offset, rotation);
+                                    let v = variants[Math.floor(Math.random() * variants.length)];
+                                    if (variant.hasOwnProperty("x")) {
+                                        rotation[0] = v.x;
                                     }
+                                    if (variant.hasOwnProperty("y")) {
+                                        rotation[1] = v.y;
+                                    }
+                                    if (variant.hasOwnProperty("z")) {// Not actually used by MC, but why not?
+                                        rotation[2] = v.z;
+                                    }
+                                    let parsed = parseModelType(v.model);
+                                    doModelLoad(parsed.model, "block", offset, rotation);
                                 }
                             } else if (blockstate.hasOwnProperty("multipart")) {
 
