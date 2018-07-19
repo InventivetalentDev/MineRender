@@ -1833,6 +1833,11 @@ resourcePacks = [
         name: "Faithful 32x",
         path: "faithful32",
         url: "https://resourcepack.net/faithful-32x32-resource-pack/"// Someone please update this if there's an official website
+    },
+    {
+        name: "New Default (beta)",
+        path: "newdefault",
+        url: "https://minecraft.net/en-us/article/try-new-minecraft-java-textures"
     }
     // {
     //     name: "ChromaHills 128x",
