@@ -1,5 +1,4 @@
 import * as THREE from "three";
-import OrbitControls from "../lib/OrbitControls";
 
 import texturePositions from "./texturePositions";
 import Render, { defaultOptions } from "../renderBase";

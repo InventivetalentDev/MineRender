@@ -4,7 +4,6 @@ import EffectComposer, { ShaderPass, CopyShader } from "@johh/three-effectcompos
 import * as THREE from "three";
 import OnScreen from "onscreen";
 import * as $ from "jquery";
-import ModelRender from "./model";
 
 /**
  * Default asset root
