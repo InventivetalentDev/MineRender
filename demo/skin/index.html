@@ -34,7 +34,7 @@
                 </div>
                 <div>
                     <label for="capeInput">Cape URL</label>
-                    <input type="url" id="capeInput" placeholder="URL" value="https://crafatar.com/capes/md_5">
+                    <input type="url" id="capeInput" placeholder="URL" value="https://minerender.org/img/optifine_cape.png">
                 </div>
             </div>
             <div style="margin: 10px;">
@@ -66,7 +66,7 @@
             }, document.body);
             skinRender.render({
                 username: location.hash ? location.hash.substring(1) : "inventivetalent",
-                capeUrl: "https://crafatar.com/capes/af74a02d19cb445bb07f6866a861f783",
+                capeUrl: "https://minerender.org/img/optifine_cape.png",
             });
             if (location.hash) $("#nameInput").val(location.hash.substring(1));
             $("#nameInput,#capeInput").on("change", function () {
