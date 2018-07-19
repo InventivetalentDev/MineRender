@@ -354,9 +354,12 @@ function loadTexture(root, namespace, dir, name, resolve, reject, forceLoad) {
  * @returns {Promise<object>}
  */
 export function loadBlockState(state, assetRoot) {
-    // Not really loading a model here, but the idea is the same
-    return loadModelFromPath(assetRoot, "/assets/minecraft/blockstates/" + state + ".json")
+    return loadJsonFromPath(assetRoot, "/assets/minecraft/blockstates/" + state + ".json")
 };
+
+export function loadTextureMeta(texture,assetRoot){
+    return loadJsonFromPath(assetRoot, "/assets/minecraft/textures/block/" + texture + ".png.mcmeta")
+}
 
 /**
  * Loads a model file and returns the contained JSON
@@ -364,18 +367,18 @@ export function loadBlockState(state, assetRoot) {
  * @param {string} path Path to the model file
  * @returns {Promise<object>}
  */
-export function loadModelFromPath(root, path) {
+export function loadJsonFromPath(root, path) {
     return new Promise((resolve, reject) => {
-        loadModelFromPath_(root, path, resolve, reject);
+        loadJsonFromPath_(root, path, resolve, reject);
     })
 }
 
 /**
  * Load a model - shouldn't used directly
- * @see loadModelFromPath
+ * @see loadJsonFromPath
  * @ignore
  */
-function loadModelFromPath_(root, path, resolve, reject, forceLoad) {
+function loadJsonFromPath_(root, path, resolve, reject, forceLoad) {
     if (modelCache.hasOwnProperty(path)) {
         if (modelCache[path] === "__invalid") {
             reject();
@@ -410,7 +413,7 @@ function loadModelFromPath_(root, path, resolve, reject, forceLoad) {
                     }
                 } else {
                     // Try again with default root
-                    loadModelFromPath_(DEFAULT_ROOT, path, resolve, reject, true);
+                    loadJsonFromPath_(DEFAULT_ROOT, path, resolve, reject, true);
                 }
             });
 

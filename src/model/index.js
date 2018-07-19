@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import * as $ from 'jquery';
 import mergeDeep from "../lib/merge";
-import Render, { loadTextureAsBase64, scaleUv, defaultOptions, DEFAULT_ROOT, loadModelFromPath, loadBlockState } from "../renderBase";
+import Render, { loadTextureAsBase64, scaleUv, defaultOptions, DEFAULT_ROOT, loadJsonFromPath, loadBlockState, loadTextureMeta } from "../renderBase";
 import ModelConverter from "./modelConverter";
 
 String.prototype.replaceAll = function (search, replacement) {
@@ -28,6 +28,8 @@ const FACE_ORDER = ["east", "west", "up", "down", "south", "north"];
 const TINTS = ["lightgreen"];
 
 const textureCache = {};
+
+const animatedTextures = [];
 
 /**
  * @see defaultOptions
@@ -85,6 +87,11 @@ class ModelRender extends Render {
 
         if (!modelRender.attached && !modelRender._scene) {// Don't init scene if attached, since we already have an available scene
             super.initScene(function () {
+                // Animate textures
+                for (let i = 0; i < animatedTextures.length; i++) {
+                    animatedTextures[i]();
+                }
+
                 modelRender.element.dispatchEvent(new CustomEvent("modelRender", {detail: {models: modelRender.models}}));
             });
         } else {
@@ -115,7 +122,7 @@ class ModelRender extends Render {
                             }
 
                             loadTextures(mergedModel.textures, modelRender.options.assetRoot).then((textures) => {
-                                renderModel(modelRender, mergedModel, textures, type, model, offset, rotation).then((renderedModel) => {
+                                renderModel(modelRender, mergedModel, textures, mergedModel.textures, type, model, offset, rotation).then((renderedModel) => {
                                     modelRender.models.push(renderedModel);
                                     modelRender._scene.add(renderedModel);
 
@@ -346,7 +353,7 @@ let parseModelType = function (string) {
 };
 
 
-let renderModel = function (modelRender, model, textures, type, name, offset, rotation) {
+let renderModel = function (modelRender, model, textures, textureNames, type, name, offset, rotation) {
     return new Promise((resolve) => {
         if (model.hasOwnProperty("elements")) {// block OR item with block parent
             // Render the elements
@@ -385,7 +392,7 @@ let renderModel = function (modelRender, model, textures, type, name, offset, ro
                 promises.push(new Promise((resolve) => {
                     createCube(element.to[0] - element.from[0], element.to[1] - element.from[1], element.to[2] - element.from[2],
                         name.replaceAll(" ", "_").replaceAll("-", "_").toLowerCase() + "_" + (element.__comment ? element.__comment.replaceAll(" ", "_").replaceAll("-", "_").toLowerCase() + "_" : "") + Date.now(),
-                        element.faces, fallbackFaces, textures)
+                        element.faces, fallbackFaces, textures, textureNames)
                         .then((cube) => {
                             cube.applyMatrix(new THREE.Matrix4().makeTranslation((element.to[0] - element.from[0]) / 2, (element.to[1] - element.from[1]) / 2, (element.to[2] - element.from[2]) / 2));
                             cube.applyMatrix(new THREE.Matrix4().makeTranslation(element.from[0], element.from[1], element.from[2]));
@@ -542,7 +549,7 @@ let createPlane = function (name, textures) {
 
 
 /// From https://github.com/InventivetalentDev/SkinRender/blob/master/js/render/skin.js#L353
-let createCube = function (width, height, depth, name, faces, fallbackFaces, textures) {
+let createCube = function (width, height, depth, name, faces, fallbackFaces, textures, textureNames) {
     return new Promise((resolve) => {
         let geometry = new THREE.BoxGeometry(width, height, depth);
 
@@ -619,22 +626,93 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                             }
                         }
 
-                        // TODO: figure out a good way to cache these
-                        new THREE.TextureLoader().load(canvas.toDataURL("image/png"), function (texture) {
-                            texture.magFilter = THREE.NearestFilter;
-                            texture.minFilter = THREE.NearestFilter;
-                            texture.anisotropy = 0;
-                            texture.needsUpdate = true;
+                        if (canvas.height > canvas.width) {// Taking a guess that this is an animated texture
+                            let name = textureNames[textureRef];
+                            if (name.startsWith("#")) {
+                                name = textureNames[name.substr(1)];
+                            }
+                            if (name.indexOf("/") !== -1) {
+                                name = name.substr(name.indexOf("/") + 1);
+                            }
+                            loadTextureMeta(name, modelRender.options.assetRoot).then((meta) => {
 
-                            let material = new THREE.MeshBasicMaterial({
-                                map: texture,
-                                transparent: hasTransparency,
-                                side: hasTransparency ? THREE.DoubleSide : THREE.FrontSide,
-                                alphaTest: 0.5
+                                let frametime = 1;
+                                if (meta.hasOwnProperty("animation")) {
+                                    if (meta.animation.hasOwnProperty("frametime")) {
+                                        frametime = meta.animation.frametime;
+                                    }
+                                }
+
+                                let parts = Math.floor(canvas.height / canvas.width);
+
+                                let promises1 = [];
+                                for (let i = 0; i < parts; i++) {
+                                    promises1.push(new Promise((resolve) => {
+                                        let canvas1 = document.createElement("canvas");
+                                        canvas1.width = canvas.width;
+                                        canvas1.height = canvas.width;
+                                        let context1 = canvas1.getContext("2d");
+                                        context1.drawImage(canvas, 0, i * canvas.width, canvas.width, canvas.width, 0, 0, canvas.width, canvas.width);
+
+                                        new THREE.TextureLoader().load(canvas1.toDataURL("image/png"), function (texture) {
+                                            texture.magFilter = THREE.NearestFilter;
+                                            texture.minFilter = THREE.NearestFilter;
+                                            texture.anisotropy = 0;
+                                            texture.needsUpdate = true;
+
+                                            resolve(texture);
+                                        });
+                                    }));
+                                }
+
+                                Promise.all(promises1).then((textures) => {
+
+                                    let material = new THREE.MeshBasicMaterial({
+                                        map: textures[0],
+                                        transparent: hasTransparency,
+                                        side: hasTransparency ? THREE.DoubleSide : THREE.FrontSide,
+                                        alphaTest: 0.5
+                                    });
+
+                                    let frameCounter = 0;
+                                    let textureIndex = 0;
+                                    animatedTextures.push(() => {// called on render
+                                        if (frameCounter >= frametime) {
+                                            frameCounter = 0;
+
+                                            // Set new texture
+                                            material.map = textures[textureIndex];
+
+                                            textureIndex++;
+                                        }
+                                        if (textureIndex >= textures.length) {
+                                            textureIndex = 0;
+                                        }
+                                        frameCounter += 0.1;// game ticks TODO: figure out the proper value for this
+                                    })
+
+                                    resolve(material);
+                                });
                             });
 
-                            resolve(material);
-                        });
+                        } else {
+                            // TODO: figure out a good way to cache these
+                            new THREE.TextureLoader().load(canvas.toDataURL("image/png"), function (texture) {
+                                texture.magFilter = THREE.NearestFilter;
+                                texture.minFilter = THREE.NearestFilter;
+                                texture.anisotropy = 0;
+                                texture.needsUpdate = true;
+
+                                let material = new THREE.MeshBasicMaterial({
+                                    map: texture,
+                                    transparent: hasTransparency,
+                                    side: hasTransparency ? THREE.DoubleSide : THREE.FrontSide,
+                                    alphaTest: 0.5
+                                });
+
+                                resolve(material);
+                            });
+                        }
                     };
                     img.src = textures[textureRef];
 
@@ -683,7 +761,7 @@ let loadModel = function (model, type/* block OR item */, assetRoot) {
                     resolve(data);
                 })
             } else {// model name -> use local data
-                loadModelFromPath(assetRoot, "/assets/minecraft/models/" + (type || "block") + "/" + model + ".json").then((data) => {
+                loadJsonFromPath(assetRoot, "/assets/minecraft/models/" + (type || "block") + "/" + model + ".json").then((data) => {
                     resolve(data);
                 })
             }
@@ -753,7 +831,7 @@ let mergeParents_ = function (model, stack, assetRoot, resolve, reject) {
     let parent = model["parent"];
     delete model["parent"];// remove the child's parent so it will be replaced by the parent's parent
 
-    loadModelFromPath(assetRoot, "/assets/minecraft/models/" + parent + ".json").then((parentData) => {
+    loadJsonFromPath(assetRoot, "/assets/minecraft/models/" + parent + ".json").then((parentData) => {
         let mergedModel = Object.assign({}, model, parentData);
         mergeParents_(mergedModel, stack, assetRoot, resolve, reject);
     })
