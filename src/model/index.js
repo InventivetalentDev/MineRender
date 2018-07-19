@@ -97,7 +97,7 @@ class ModelRender extends Render {
             promises.push(new Promise((resolve) => {
                 let model = models[i];
 
-                let doModelLoad = function (model, type, offset, rotation) {
+                let doModelLoad = function (model, type, offset, rotation, resolve) {
                     console.log("Loading model " + model + " of type " + type + "...");
                     loadModel(model, type, modelRender.options.assetRoot)
                         .then(modelData => mergeParents(modelData, modelRender.options.assetRoot))
@@ -133,7 +133,7 @@ class ModelRender extends Render {
                     model = parsed.model;
                     type = parsed.type;
 
-                    doModelLoad(model, type);
+                    doModelLoad(model, type, offset, rotation, resolve);
                 } else if (typeof model === "object") {
                     if (model.hasOwnProperty("offset")) {
                         offset = model["offset"];
@@ -151,12 +151,13 @@ class ModelRender extends Render {
                             type = parsed.type;
                         }
 
-                        doModelLoad(model, type, offset, rotation);
+                        doModelLoad(model, type, offset, rotation, resolve);
                     } else if (model.hasOwnProperty("blockstate")) {
                         type = "block";
 
                         loadBlockState(model.blockstate, modelRender.options.assetRoot).then((blockstate) => {
                             modelRender.blockstate = blockstate;
+
                             if (blockstate.hasOwnProperty("variants")) {
 
                                 if (model.hasOwnProperty("variant")) {
@@ -187,7 +188,7 @@ class ModelRender extends Render {
                                         rotation[2] = v.z;
                                     }
                                     let parsed = parseModelType(v.model);
-                                    doModelLoad(parsed.model, "block", offset, rotation);
+                                    doModelLoad(parsed.model, "block", offset, rotation, resolve);
                                 } else {
                                     let variant;
                                     if (blockstate.variants.hasOwnProperty("normal")) {
@@ -218,9 +219,11 @@ class ModelRender extends Render {
                                         rotation[2] = v.z;
                                     }
                                     let parsed = parseModelType(v.model);
-                                    doModelLoad(parsed.model, "block", offset, rotation);
+                                    doModelLoad(parsed.model, "block", offset, rotation, resolve);
                                 }
                             } else if (blockstate.hasOwnProperty("multipart")) {
+                                let promises1 = [];
+
                                 for (let j = 0; j < blockstate.multipart.length; j++) {
                                     let cond = blockstate.multipart[j];
                                     let apply = cond.apply;
@@ -239,22 +242,40 @@ class ModelRender extends Render {
                                             rotation[2] = apply.z;
                                         }
                                         let parsed = parseModelType(apply.model);
-                                        doModelLoad(parsed.model, "block", offset, rotation);
+                                        promises1.push(new Promise((resolve) => {
+                                            doModelLoad(parsed.model, "block", offset, rotation, resolve);
+                                        }))
                                     } else if (model.hasOwnProperty("multipart")) {
                                         let multipartConditions = model.multipart;
 
                                         let applies = false;
                                         if (when.hasOwnProperty("OR")) {
-                                            //TODO
+                                            for (let k = 0; k < when.OR.length; k++) {
+                                                if (applies) break;
+                                                for (let c in when.OR[k]) {
+                                                    if (applies) break;
+                                                    if (when.OR[k].hasOwnProperty(c)) {
+                                                        let expected = when.OR[k][c];
+                                                        let expectedArray = expected.split("|");
+
+                                                        let given = multipartConditions[c];
+                                                        for (let k = 0; k < expectedArray.length; k++) {
+                                                            if (expectedArray[k] === given) {
+                                                                applies = true;
+                                                                break;
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
                                         } else {
                                             for (let c in when) {// this SHOULD be a single case, but iterating makes it a bit easier
+                                                if (applies) break;
                                                 if (when.hasOwnProperty(c)) {
                                                     let expected = when[c];
                                                     let expectedArray = expected.split("|");
-                                                    console.log("expected: " + JSON.stringify(expectedArray));
 
                                                     let given = multipartConditions[c];
-                                                    console.log("given: " + given);
                                                     for (let k = 0; k < expectedArray.length; k++) {
                                                         if (expectedArray[k] === given) {
                                                             applies = true;
@@ -265,7 +286,7 @@ class ModelRender extends Render {
                                             }
                                         }
 
-                                        if(applies){
+                                        if (applies) {
                                             if (apply.hasOwnProperty("x")) {
                                                 rotation[0] = apply.x;
                                             }
@@ -276,10 +297,16 @@ class ModelRender extends Render {
                                                 rotation[2] = apply.z;
                                             }
                                             let parsed = parseModelType(apply.model);
-                                            doModelLoad(parsed.model, "block", offset, rotation);
+                                            promises1.push(new Promise((resolve) => {
+                                                doModelLoad(parsed.model, "block", offset, rotation, resolve);
+                                            }))
                                         }
                                     }
                                 }
+
+                                Promise.all(promises1).then(() => {
+                                    resolve();
+                                })
                             }
                         })
                     }

@@ -132,16 +132,33 @@
                         if (window.modelRender.blockstate.multipart) {
                             $("#multipartGroup").empty();
 
+                            let added = [];
+                            console.log(window.modelRender.blockstate.multipart)
                             for (let j = 0; j < window.modelRender.blockstate.multipart.length; j++) {
                                 let v = window.modelRender.blockstate.multipart[j];
                                 if (v.when) {
                                     if (v.when.hasOwnProperty("OR")) {
-                                        //TODO
+                                        for (let k = 0; k < v.when.OR.length; k++) {
+                                            for (let c in v.when.OR[k]) {
+                                                if (v.when.OR[k].hasOwnProperty(c)) {
+                                                    if (added.indexOf(c) !== -1) continue;
+
+                                                    $("#multipartGroup").append("<label>" + c + "</label><input type='text' class='multipartInput' name='" + c + "' value='" + (multipartOptions.hasOwnProperty(c) ? multipartOptions[c] : "") + "'><br/>");
+                                                    $(".multipartInput").on("change", doRender);
+
+                                                    added.push(c);
+                                                }
+                                            }
+                                        }
                                     } else {
                                         for (let c in v.when) {
                                             if (v.when.hasOwnProperty(c)) {
+                                                if (added.indexOf(c) !== -1) continue;
+
                                                 $("#multipartGroup").append("<label>" + c + "</label><input type='text' class='multipartInput' name='" + c + "' value='" + (multipartOptions.hasOwnProperty(c) ? multipartOptions[c] : "") + "'><br/>");
                                                 $(".multipartInput").on("change", doRender);
+
+                                                added.push(c);
                                             }
                                         }
                                     }
