@@ -610,6 +610,14 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                             // context.globalAlpha = 1.0;
                         }
 
+                        let canvasData = context.getImageData(0, 0, canvas.width, canvas.height).data;
+                        let hasTransparency = false;
+                        for (let i = 3; i < (canvas.width * canvas.height); i += 4) {
+                            if (canvasData[i] < 255) {
+                                hasTransparency = true;
+                                break;
+                            }
+                        }
 
                         // TODO: figure out a good way to cache these
                         new THREE.TextureLoader().load(canvas.toDataURL("image/png"), function (texture) {
@@ -620,8 +628,8 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
 
                             let material = new THREE.MeshBasicMaterial({
                                 map: texture,
-                                transparent: true,
-                                side: THREE.DoubleSide,
+                                transparent: hasTransparency,
+                                side: hasTransparency ? THREE.DoubleSide : THREE.FrontSide,
                                 alphaTest: 0.5
                             });
 
