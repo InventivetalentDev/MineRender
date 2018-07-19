@@ -31,8 +31,9 @@
     
   <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/renderBase.js~Render.html">Render</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-loadBlockState">loadBlockState</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-loadModelFromPath">loadModelFromPath</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-loadJsonFromPath">loadJsonFromPath</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-loadTextureAsBase64">loadTextureAsBase64</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-loadTextureMeta">loadTextureMeta</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-scaleUv">scaleUv</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-DEFAULT_ROOT">DEFAULT_ROOT</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-defaultOptions">defaultOptions</a></span></span></li>
@@ -408,9 +409,12 @@ function loadTexture(root, namespace, dir, name, resolve, reject, forceLoad) {
  * @returns {Promise&lt;object&gt;}
  */
 export function loadBlockState(state, assetRoot) {
-    // Not really loading a model here, but the idea is the same
-    return loadModelFromPath(assetRoot, &quot;/assets/minecraft/blockstates/&quot; + state + &quot;.json&quot;)
+    return loadJsonFromPath(assetRoot, &quot;/assets/minecraft/blockstates/&quot; + state + &quot;.json&quot;)
 };
+
+export function loadTextureMeta(texture,assetRoot){
+    return loadJsonFromPath(assetRoot, &quot;/assets/minecraft/textures/block/&quot; + texture + &quot;.png.mcmeta&quot;)
+}
 
 /**
  * Loads a model file and returns the contained JSON
@@ -418,18 +422,18 @@ export function loadBlockState(state, assetRoot) {
  * @param {string} path Path to the model file
  * @returns {Promise&lt;object&gt;}
  */
-export function loadModelFromPath(root, path) {
+export function loadJsonFromPath(root, path) {
     return new Promise((resolve, reject) =&gt; {
-        loadModelFromPath_(root, path, resolve, reject);
+        loadJsonFromPath_(root, path, resolve, reject);
     })
 }
 
 /**
  * Load a model - shouldn&apos;t used directly
- * @see loadModelFromPath
+ * @see loadJsonFromPath
  * @ignore
  */
-function loadModelFromPath_(root, path, resolve, reject, forceLoad) {
+function loadJsonFromPath_(root, path, resolve, reject, forceLoad) {
     if (modelCache.hasOwnProperty(path)) {
         if (modelCache[path] === &quot;__invalid&quot;) {
             reject();
@@ -464,7 +468,7 @@ function loadModelFromPath_(root, path, resolve, reject, forceLoad) {
                     }
                 } else {
                     // Try again with default root
-                    loadModelFromPath_(DEFAULT_ROOT, path, resolve, reject, true);
+                    loadJsonFromPath_(DEFAULT_ROOT, path, resolve, reject, true);
                 }
             });
 

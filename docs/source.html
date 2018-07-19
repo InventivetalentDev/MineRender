@@ -31,8 +31,9 @@
     
   <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/renderBase.js~Render.html">Render</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-loadBlockState">loadBlockState</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-loadModelFromPath">loadModelFromPath</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-loadJsonFromPath">loadJsonFromPath</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-loadTextureAsBase64">loadTextureAsBase64</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-loadTextureMeta">loadTextureMeta</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-scaleUv">scaleUv</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-DEFAULT_ROOT">DEFAULT_ROOT</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-defaultOptions">defaultOptions</a></span></span></li>
@@ -51,7 +52,7 @@
 </div>
 </nav>
 
-<div class="content" data-ice="content"><h1>Source <img data-ice="coverageBadge" src="./badge.svg"><span data-ice="totalCoverageCount" class="total-coverage-count">36/88</span></h1>
+<div class="content" data-ice="content"><h1>Source <img data-ice="coverageBadge" src="./badge.svg"><span data-ice="totalCoverageCount" class="total-coverage-count">36/89</span></h1>
 
 <table class="files-summary" data-ice="files" data-use-coverage="true">
   <thead>
@@ -116,12 +117,12 @@
       <td style="display: none;" data-ice="updated">2018-07-02 14:03:03 (UTC)</td>
     </tr>
 <tr data-ice="file">
-      <td data-ice="filePath"><span><a href="file/src/model/index.js.html#errorLines=12,27,28,30,328,349,474,481,545,66,668,676,68,69,7,769,792,828,833,856">src/model/index.js</a></span></td>
+      <td data-ice="filePath"><span><a href="file/src/model/index.js.html#errorLines=12,27,28,30,32,335,356,481,488,552,68,7,70,71,746,754,777,813,818,841">src/model/index.js</a></span></td>
       <td data-ice="identifier" class="identifiers"><span><a href="class/src/model/index.js~ModelRender.html">ModelRender</a></span></td>
       <td class="coverage"><span data-ice="coverage">16 %</span><span data-ice="coverageCount" class="coverage-count">4/24</span></td>
-      <td style="display: none;" data-ice="size">36973 byte</td>
-      <td style="display: none;" data-ice="lines">863</td>
-      <td style="display: none;" data-ice="updated">2018-07-05 15:35:59 (UTC)</td>
+      <td style="display: none;" data-ice="size">38715 byte</td>
+      <td style="display: none;" data-ice="lines">848</td>
+      <td style="display: none;" data-ice="updated">2018-07-05 20:01:14 (UTC)</td>
     </tr>
 <tr data-ice="file">
       <td data-ice="filePath"><span><a href="file/src/model/modelConverter.js.html#errorLines=150,42,77">src/model/modelConverter.js</a></span></td>
@@ -132,18 +133,19 @@
       <td style="display: none;" data-ice="updated">2018-07-03 20:05:12 (UTC)</td>
     </tr>
 <tr data-ice="file">
-      <td data-ice="filePath"><span><a href="file/src/renderBase.js.html#errorLines=252,258">src/renderBase.js</a></span></td>
+      <td data-ice="filePath"><span><a href="file/src/renderBase.js.html#errorLines=252,258,360">src/renderBase.js</a></span></td>
       <td data-ice="identifier" class="identifiers"><span><a href="variable/index.html#static-variable-DEFAULT_ROOT">DEFAULT_ROOT</a></span>
 <span><a href="class/src/renderBase.js~Render.html">Render</a></span>
 <span><a href="variable/index.html#static-variable-defaultOptions">defaultOptions</a></span>
 <span><a href="function/index.html#static-function-loadBlockState">loadBlockState</a></span>
-<span><a href="function/index.html#static-function-loadModelFromPath">loadModelFromPath</a></span>
+<span><a href="function/index.html#static-function-loadJsonFromPath">loadJsonFromPath</a></span>
 <span><a href="function/index.html#static-function-loadTextureAsBase64">loadTextureAsBase64</a></span>
+<span><a href="function/index.html#static-function-loadTextureMeta">loadTextureMeta</a></span>
 <span><a href="function/index.html#static-function-scaleUv">scaleUv</a></span></td>
-      <td class="coverage"><span data-ice="coverage">90 %</span><span data-ice="coverageCount" class="coverage-count">18/20</span></td>
-      <td style="display: none;" data-ice="size">15562 byte</td>
-      <td style="display: none;" data-ice="lines">434</td>
-      <td style="display: none;" data-ice="updated">2018-07-05 15:51:00 (UTC)</td>
+      <td class="coverage"><span data-ice="coverage">85 %</span><span data-ice="coverageCount" class="coverage-count">18/21</span></td>
+      <td style="display: none;" data-ice="size">15651 byte</td>
+      <td style="display: none;" data-ice="lines">437</td>
+      <td style="display: none;" data-ice="updated">2018-07-05 18:40:57 (UTC)</td>
     </tr>
 <tr data-ice="file">
       <td data-ice="filePath"><span><a href="file/src/skin/index.js.html#errorLines=235,239,240,241,251,256,260,267,32,33,342,37,524,538,555,559">src/skin/index.js</a></span></td>

@@ -31,8 +31,9 @@
     
   <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/renderBase.js~Render.html">Render</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-loadBlockState">loadBlockState</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-loadModelFromPath">loadModelFromPath</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-loadJsonFromPath">loadJsonFromPath</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-loadTextureAsBase64">loadTextureAsBase64</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-loadTextureMeta">loadTextureMeta</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-scaleUv">scaleUv</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-DEFAULT_ROOT">DEFAULT_ROOT</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-defaultOptions">defaultOptions</a></span></span></li>
@@ -55,7 +56,7 @@
 <pre class="source-code line-number raw-source-code"><code class="prettyprint linenums" data-ice="content">import * as THREE from &quot;three&quot;;
 import * as $ from &apos;jquery&apos;;
 import mergeDeep from &quot;../lib/merge&quot;;
-import Render, { loadTextureAsBase64, scaleUv, defaultOptions, DEFAULT_ROOT, loadModelFromPath, loadBlockState } from &quot;../renderBase&quot;;
+import Render, { loadTextureAsBase64, scaleUv, defaultOptions, DEFAULT_ROOT, loadJsonFromPath, loadBlockState, loadTextureMeta } from &quot;../renderBase&quot;;
 import ModelConverter from &quot;./modelConverter&quot;;
 
 String.prototype.replaceAll = function (search, replacement) {
@@ -82,6 +83,8 @@ const FACE_ORDER = [&quot;east&quot;, &quot;west&quot;, &quot;up&quot;, &quot;do
 const TINTS = [&quot;lightgreen&quot;];
 
 const textureCache = {};
+
+const animatedTextures = [];
 
 /**
  * @see defaultOptions
@@ -139,6 +142,11 @@ class ModelRender extends Render {
 
         if (!modelRender.attached &amp;&amp; !modelRender._scene) {// Don&apos;t init scene if attached, since we already have an available scene
             super.initScene(function () {
+                // Animate textures
+                for (let i = 0; i &lt; animatedTextures.length; i++) {
+                    animatedTextures[i]();
+                }
+
                 modelRender.element.dispatchEvent(new CustomEvent(&quot;modelRender&quot;, {detail: {models: modelRender.models}}));
             });
         } else {
@@ -169,7 +177,7 @@ class ModelRender extends Render {
                             }
 
                             loadTextures(mergedModel.textures, modelRender.options.assetRoot).then((textures) =&gt; {
-                                renderModel(modelRender, mergedModel, textures, type, model, offset, rotation).then((renderedModel) =&gt; {
+                                renderModel(modelRender, mergedModel, textures, mergedModel.textures, type, model, offset, rotation).then((renderedModel) =&gt; {
                                     modelRender.models.push(renderedModel);
                                     modelRender._scene.add(renderedModel);
 
@@ -400,7 +408,7 @@ let parseModelType = function (string) {
 };
 
 
-let renderModel = function (modelRender, model, textures, type, name, offset, rotation) {
+let renderModel = function (modelRender, model, textures, textureNames, type, name, offset, rotation) {
     return new Promise((resolve) =&gt; {
         if (model.hasOwnProperty(&quot;elements&quot;)) {// block OR item with block parent
             // Render the elements
@@ -439,7 +447,7 @@ let renderModel = function (modelRender, model, textures, type, name, offset, ro
                 promises.push(new Promise((resolve) =&gt; {
                     createCube(element.to[0] - element.from[0], element.to[1] - element.from[1], element.to[2] - element.from[2],
                         name.replaceAll(&quot; &quot;, &quot;_&quot;).replaceAll(&quot;-&quot;, &quot;_&quot;).toLowerCase() + &quot;_&quot; + (element.__comment ? element.__comment.replaceAll(&quot; &quot;, &quot;_&quot;).replaceAll(&quot;-&quot;, &quot;_&quot;).toLowerCase() + &quot;_&quot; : &quot;&quot;) + Date.now(),
-                        element.faces, fallbackFaces, textures)
+                        element.faces, fallbackFaces, textures, textureNames, modelRender.options.assetRoot)
                         .then((cube) =&gt; {
                             cube.applyMatrix(new THREE.Matrix4().makeTranslation((element.to[0] - element.from[0]) / 2, (element.to[1] - element.from[1]) / 2, (element.to[2] - element.from[2]) / 2));
                             cube.applyMatrix(new THREE.Matrix4().makeTranslation(element.from[0], element.from[1], element.from[2]));
@@ -596,7 +604,7 @@ let createPlane = function (name, textures) {
 
 
 /// From https://github.com/InventivetalentDev/SkinRender/blob/master/js/render/skin.js#L353
-let createCube = function (width, height, depth, name, faces, fallbackFaces, textures) {
+let createCube = function (width, height, depth, name, faces, fallbackFaces, textures, textureNames, assetRoot) {
     return new Promise((resolve) =&gt; {
         let geometry = new THREE.BoxGeometry(width, height, depth);
 
@@ -673,22 +681,93 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                             }
                         }
 
-                        // TODO: figure out a good way to cache these
-                        new THREE.TextureLoader().load(canvas.toDataURL(&quot;image/png&quot;), function (texture) {
-                            texture.magFilter = THREE.NearestFilter;
-                            texture.minFilter = THREE.NearestFilter;
-                            texture.anisotropy = 0;
-                            texture.needsUpdate = true;
+                        if (canvas.height &gt; canvas.width) {// Taking a guess that this is an animated texture
+                            let name = textureNames[textureRef];
+                            if (name.startsWith(&quot;#&quot;)) {
+                                name = textureNames[name.substr(1)];
+                            }
+                            if (name.indexOf(&quot;/&quot;) !== -1) {
+                                name = name.substr(name.indexOf(&quot;/&quot;) + 1);
+                            }
+                            loadTextureMeta(name, assetRoot).then((meta) =&gt; {
 
-                            let material = new THREE.MeshBasicMaterial({
-                                map: texture,
-                                transparent: hasTransparency,
-                                side: hasTransparency ? THREE.DoubleSide : THREE.FrontSide,
-                                alphaTest: 0.5
+                                let frametime = 1;
+                                if (meta.hasOwnProperty(&quot;animation&quot;)) {
+                                    if (meta.animation.hasOwnProperty(&quot;frametime&quot;)) {
+                                        frametime = meta.animation.frametime;
+                                    }
+                                }
+
+                                let parts = Math.floor(canvas.height / canvas.width);
+
+                                let promises1 = [];
+                                for (let i = 0; i &lt; parts; i++) {
+                                    promises1.push(new Promise((resolve) =&gt; {
+                                        let canvas1 = document.createElement(&quot;canvas&quot;);
+                                        canvas1.width = canvas.width;
+                                        canvas1.height = canvas.width;
+                                        let context1 = canvas1.getContext(&quot;2d&quot;);
+                                        context1.drawImage(canvas, 0, i * canvas.width, canvas.width, canvas.width, 0, 0, canvas.width, canvas.width);
+
+                                        new THREE.TextureLoader().load(canvas1.toDataURL(&quot;image/png&quot;), function (texture) {
+                                            texture.magFilter = THREE.NearestFilter;
+                                            texture.minFilter = THREE.NearestFilter;
+                                            texture.anisotropy = 0;
+                                            texture.needsUpdate = true;
+
+                                            resolve(texture);
+                                        });
+                                    }));
+                                }
+
+                                Promise.all(promises1).then((textures) =&gt; {
+
+                                    let material = new THREE.MeshBasicMaterial({
+                                        map: textures[0],
+                                        transparent: hasTransparency,
+                                        side: hasTransparency ? THREE.DoubleSide : THREE.FrontSide,
+                                        alphaTest: 0.5
+                                    });
+
+                                    let frameCounter = 0;
+                                    let textureIndex = 0;
+                                    animatedTextures.push(() =&gt; {// called on render
+                                        if (frameCounter &gt;= frametime) {
+                                            frameCounter = 0;
+
+                                            // Set new texture
+                                            material.map = textures[textureIndex];
+
+                                            textureIndex++;
+                                        }
+                                        if (textureIndex &gt;= textures.length) {
+                                            textureIndex = 0;
+                                        }
+                                        frameCounter += 0.1;// game ticks TODO: figure out the proper value for this
+                                    })
+
+                                    resolve(material);
+                                });
                             });
 
-                            resolve(material);
-                        });
+                        } else {
+                            // TODO: figure out a good way to cache these
+                            new THREE.TextureLoader().load(canvas.toDataURL(&quot;image/png&quot;), function (texture) {
+                                texture.magFilter = THREE.NearestFilter;
+                                texture.minFilter = THREE.NearestFilter;
+                                texture.anisotropy = 0;
+                                texture.needsUpdate = true;
+
+                                let material = new THREE.MeshBasicMaterial({
+                                    map: texture,
+                                    transparent: hasTransparency,
+                                    side: hasTransparency ? THREE.DoubleSide : THREE.FrontSide,
+                                    alphaTest: 0.5
+                                });
+
+                                resolve(material);
+                            });
+                        }
                     };
                     img.src = textures[textureRef];
 
@@ -727,99 +806,6 @@ function rotateAboutPoint(obj, point, axis, theta) {
     obj.rotateOnAxis(axis, theta); // rotate the OBJECT
 }
 
-let mapUV = function (geometry, texture, uv, i) {
-    //TODO: don&apos;t guess the dimensions
-    let w = texture.image ? texture.image.width : 16;
-    let h = texture.image ? texture.image.height : 16;
-
-
-    geometry.computeBoundingBox();
-    geometry.faceVertexUvs[0][i] = [];
-    geometry.faceVertexUvs[0][i + 1] = [];
-
-    let tx1 = uv[0];
-    let ty1 = uv[1];
-    let tx2 = uv[2];
-    let ty2 = uv[3];
-
-    let flipX = false;
-    let flipY = false;
-
-    // /// The following is pretty much just a big mess of trial-end-error to get the mapping right...
-    // if (i === 0) {// right
-    //     tx1 += depth + width;
-    //     ty1 -= depth + height;
-    //     tx2 += depth + width + depth;
-    //     ty2 -= depth;
-    // }
-    // if (i === 1) {// left
-    //     tx1 += 0;
-    //     ty1 -= depth + height;
-    //     tx2 += depth;
-    //     ty2 -= depth;
-    // }
-    // if (i === 2) {// top
-    //     tx1 += depth;
-    //     ty1 -= depth;
-    //     tx2 += depth + width;
-    //     ty2 -= 0;
-    // }
-    // if (i === 3) {// bottom
-    //     tx1 += depth + width;
-    //     ty1 -= depth;
-    //     tx2 += depth + width + width;
-    //     ty2 -= 0;
-    //     // this will probably stab me in the back at some point... plz don&apos;t hate ~haylee
-    //     flipY = true;
-    // }
-    // if (i === 4) {// front
-    //     tx1 += depth;
-    //     ty1 -= depth + height;
-    //     tx2 += depth + width;
-    //     ty2 -= depth;
-    // }
-    // if (i === 5) {// back
-    //     tx1 += depth + width + depth;
-    //     ty1 -= depth + height;
-    //     tx2 += depth + width + depth + width;
-    //     ty2 -= depth;
-    // }
-
-    tx1 /= w;
-    ty1 /= h;
-    tx2 /= w;
-    ty2 /= h;
-
-    let faceUvs = [
-        new THREE.Vector2(tx1, ty2),
-        new THREE.Vector2(tx1, ty1),
-        new THREE.Vector2(tx2, ty1),
-        new THREE.Vector2(tx2, ty2)
-    ];
-
-    // let temp;
-    // if (flipY) {
-    //     temp = faceUvs[i].slice(0);
-    //     faceUvs[i][0] = temp[2];
-    //     faceUvs[i][1] = temp[3];
-    //     faceUvs[i][2] = temp[0];
-    //     faceUvs[i][3] = temp[1]
-    // }
-    // if (flipX) {//flip x
-    //     temp = faceUvs[i].slice(0);
-    //     faceUvs[i][0] = temp[3];
-    //     faceUvs[i][1] = temp[2];
-    //     faceUvs[i][2] = temp[1];
-    //     faceUvs[i][3] = temp[0]
-    // }
-
-
-    geometry.faceVertexUvs[0][i] = [faceUvs[0], faceUvs[1], faceUvs[3]];
-    geometry.faceVertexUvs[0][i + 1] = [faceUvs[1], faceUvs[2], faceUvs[3]];
-
-    geometry.uvsNeedUpdate = true;
-};
-
 let loadModel = function (model, type/* block OR item */, assetRoot) {
     return new Promise((resolve, reject) =&gt; {
         if (typeof model === &quot;string&quot;) {
@@ -830,7 +816,7 @@ let loadModel = function (model, type/* block OR item */, assetRoot) {
                     resolve(data);
                 })
             } else {// model name -&gt; use local data
-                loadModelFromPath(assetRoot, &quot;/assets/minecraft/models/&quot; + (type || &quot;block&quot;) + &quot;/&quot; + model + &quot;.json&quot;).then((data) =&gt; {
+                loadJsonFromPath(assetRoot, &quot;/assets/minecraft/models/&quot; + (type || &quot;block&quot;) + &quot;/&quot; + model + &quot;.json&quot;).then((data) =&gt; {
                     resolve(data);
                 })
             }
@@ -900,7 +886,7 @@ let mergeParents_ = function (model, stack, assetRoot, resolve, reject) {
     let parent = model[&quot;parent&quot;];
     delete model[&quot;parent&quot;];// remove the child&apos;s parent so it will be replaced by the parent&apos;s parent
 
-    loadModelFromPath(assetRoot, &quot;/assets/minecraft/models/&quot; + parent + &quot;.json&quot;).then((parentData) =&gt; {
+    loadJsonFromPath(assetRoot, &quot;/assets/minecraft/models/&quot; + parent + &quot;.json&quot;).then((parentData) =&gt; {
         let mergedModel = Object.assign({}, model, parentData);
         mergeParents_(mergedModel, stack, assetRoot, resolve, reject);
     })

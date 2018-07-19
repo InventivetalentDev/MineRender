@@ -1,6 +1,6 @@
 {
-  "coverage": "40.9%",
-  "expectCount": 88,
+  "coverage": "40.44%",
+  "expectCount": 89,
   "actualCount": 36,
   "files": {
     "src/combined/index.js": {
@@ -56,21 +56,21 @@
         27,
         28,
         30,
-        328,
-        349,
-        474,
+        32,
+        335,
+        356,
         481,
-        545,
-        668,
-        676,
-        769,
-        792,
-        828,
-        833,
-        856,
-        66,
+        488,
+        552,
+        746,
+        754,
+        777,
+        813,
+        818,
+        841,
         68,
-        69
+        70,
+        71
       ]
     },
     "src/model/modelConverter.js": {
@@ -83,11 +83,12 @@
       ]
     },
     "src/renderBase.js": {
-      "expectCount": 20,
+      "expectCount": 21,
       "actualCount": 18,
       "undocumentLines": [
         252,
-        258
+        258,
+        360
       ]
     },
     "src/skin/index.js": {

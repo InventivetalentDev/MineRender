@@ -78,15 +78,21 @@ window.esdocSearchIndex = [
     "function"
   ],
   [
-    "minerender/src/renderbase.js~loadmodelfrompath",
-    "function/index.html#static-function-loadModelFromPath",
-    "<span>loadModelFromPath</span> <span class=\"search-result-import-path\">minerender/src/renderBase.js</span>",
+    "minerender/src/renderbase.js~loadjsonfrompath",
+    "function/index.html#static-function-loadJsonFromPath",
+    "<span>loadJsonFromPath</span> <span class=\"search-result-import-path\">minerender/src/renderBase.js</span>",
     "function"
   ],
   [
     "minerender/src/renderbase.js~loadtextureasbase64",
     "function/index.html#static-function-loadTextureAsBase64",
     "<span>loadTextureAsBase64</span> <span class=\"search-result-import-path\">minerender/src/renderBase.js</span>",
+    "function"
+  ],
+  [
+    "minerender/src/renderbase.js~loadtexturemeta",
+    "function/index.html#static-function-loadTextureMeta",
+    "<span>loadTextureMeta</span> <span class=\"search-result-import-path\">minerender/src/renderBase.js</span>",
     "function"
   ],
   [
