@@ -69,7 +69,7 @@
 
                 function doRender() {
                     if (window.modelRender && window.modelRender._scene) {
-                        window.modelRender.dispose();
+                        window.modelRender.clearScene();
                     }
 
                     let type = $("#typeInput").val();
