@@ -456,6 +456,7 @@ let renderModel = function (modelRender, model, textures, textureNames, type, na
                         let geo = new THREE.WireframeGeometry(cubes[i].geometry);
                         let mat = new THREE.LineBasicMaterial({color: 0x000000, linewidth: 2});
                         let line = new THREE.LineSegments(geo, mat);
+                        line.name = cubes[i].name + "_outline";
 
                         line.position.x = cubes[i].position.x;
                         line.position.y = cubes[i].position.y;

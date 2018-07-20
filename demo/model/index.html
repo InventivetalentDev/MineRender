@@ -19,6 +19,11 @@
         </style>
     </head>
     <body>
+        <div style="position: fixed; left:10px; top:10px; background-color:lightgray; opacity: 50;z-index:10;font-family: 'Courier New',monospace;">
+            <div id="targetInfo" style="margin: 5px;">
+
+            </div>
+        </div>
         <div style="position: fixed; right:10px; top:10px; background-color:lightgray; opacity: 50;z-index:10;font-family: 'Courier New',monospace;">
             <div style="margin: 10px;">
                 <div>
@@ -79,6 +84,7 @@
 
                 window.modelRender = new ModelRender({
                     centerCubes: true,
+                    showOutlines: true,
                     camera: {
                         type: "perspective",
                         x: 20,
@@ -87,6 +93,35 @@
                         target: [0, 0, 0]
                     }
                 }, document.getElementById("container"));
+
+                let raycaster = new THREE.Raycaster();
+                let mouse = new THREE.Vector2();
+
+                function onMouseMove(event) {
+                    mouse.x = (event.clientX / modelRender.element.offsetWidth) * 2 - 1;
+                    mouse.y = -(event.clientY / modelRender.element.offsetHeight) * 2 + 1;
+                }
+
+                window.addEventListener('mousemove', onMouseMove, false);
+
+                document.getElementById("container").addEventListener("modelRender", function () {
+                    $("#targetInfo").empty();
+
+                    raycaster.setFromCamera(mouse, modelRender._camera);
+
+                    // calculate objects intersecting the picking ray
+                    let intersects = raycaster.intersectObjects(modelRender.models, true);
+
+                    for (let i = 0; i < intersects.length; i++) {
+
+                        if(i===0) {
+                            $("#targetInfo").append(intersects[i].object.name + "<br/>")
+                        }else{
+                            $("#targetInfo").append("<span style='color:gray'>"+intersects[i].object.name + "</span><br/>")
+                        }
+
+                    }
+                });
 
                 function doRender() {
                     if (window.modelRender && window.modelRender._scene) {
@@ -213,6 +248,7 @@
                             //         $(".displayOption[value=" + d + "]").prop("disabled", false);
                             //     }
                             // }
+
                         });
                     }, 200);
                 }

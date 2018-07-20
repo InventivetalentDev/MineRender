@@ -19,6 +19,12 @@
         </style>
     </head>
     <body>
+        <div style="position: fixed; right:10px; top:10px; background-color:lightgray; opacity: 50;z-index:10;font-family: 'Courier New',monospace;">
+            <div id="targetInfo" style="margin: 5px;">
+
+            </div>
+        </div>
+
         <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js" integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4=" crossorigin="anonymous"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/94/three.min.js" integrity="sha256-NGC9JEuTWN4GhTj091wctgjzftr+8WNDmw0H8J5YPYE=" crossorigin="anonymous"></script>
         <script src="../dist/model.js"></script>
@@ -37,7 +43,37 @@
                     }
                 })
 
-             let modelConverter = new ModelConverter();
+                let raycaster = new THREE.Raycaster();
+                let mouse = new THREE.Vector2();
+
+                function onMouseMove(event) {
+                    mouse.x = (event.clientX / modelRender.element.offsetWidth) * 2 - 1;
+                    mouse.y = -(event.clientY / modelRender.element.offsetHeight) * 2 + 1;
+                }
+
+                window.addEventListener('mousemove', onMouseMove, false);
+
+                document.body.addEventListener("modelRender", function () {
+                    $("#targetInfo").empty();
+
+                    raycaster.setFromCamera(mouse, modelRender._camera);
+
+                    // calculate objects intersecting the picking ray
+                    let intersects = raycaster.intersectObjects(modelRender.models, true);
+
+                    for (let i = 0; i < intersects.length; i++) {
+
+                        if(i===0) {
+                            $("#targetInfo").append(intersects[i].object.name + "<br/>")
+                        }else{
+                            $("#targetInfo").append("<span style='color:gray'>"+intersects[i].object.name + "</span><br/>")
+                        }
+
+                    }
+                });
+
+
+                let modelConverter = new ModelConverter();
              modelConverter.structureToModels({
                  url:"https://minerender.org/res/mc/data/minecraft/structures/end_city/ship.nbt"
              },function (models) {
