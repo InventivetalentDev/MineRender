@@ -129,7 +129,6 @@ class ModelRender extends Render {
                             loadTextures(mergedModel.textures, modelRender.options.assetRoot).then((textures) => {
                                 renderModel(modelRender, mergedModel, textures, mergedModel.textures, type, modelName, offset, rotation).then((renderedModel) => {
 
-
                                     if (model.hasOwnProperty("display")) {
                                         if (mergedModel.hasOwnProperty("display")) {
                                             console.log(model.display);
@@ -151,7 +150,6 @@ class ModelRender extends Render {
                                             }
                                         }
                                     }
-
 
                                     modelRender.models.push(renderedModel);
                                     modelRender._scene.add(renderedModel);
@@ -817,7 +815,7 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                             });
                         };
 
-                        if (canvas.height > canvas.width) {// Taking a guess that this is an animated texture
+                        if ((canvas.height > canvas.width) && (canvas.height % canvas.width === 0)) {// Taking a guess that this is an animated texture
                             let name = textureNames[textureRef];
                             if (name.startsWith("#")) {
                                 name = textureNames[name.substr(1)];
