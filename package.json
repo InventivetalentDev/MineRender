@@ -7,7 +7,7 @@
     "build": "webpack --progress",
     "build:w": "webpack --progress --watch",
     "build:silent": "webpack",
-    "docs":"./node_modules/.bin/esdoc"
+    "docs": "./node_modules/.bin/esdoc"
   },
   "author": "Haylee Schäfer",
   "license": "MIT",
@@ -16,6 +16,7 @@
     "esdoc": "^1.1.0",
     "esdoc-standard-plugin": "^1.0.0",
     "jquery": "^3.3.1",
+    "md5": "^2.2.1",
     "nbt-js": "^0.1.0",
     "onscreen": "^1.3.2",
     "pako": "^1.0.6",

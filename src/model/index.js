@@ -3,6 +3,7 @@ import * as $ from 'jquery';
 import mergeDeep from "../lib/merge";
 import Render, { loadTextureAsBase64, scaleUv, defaultOptions, DEFAULT_ROOT, loadJsonFromPath, loadBlockState, loadTextureMeta } from "../renderBase";
 import ModelConverter from "./modelConverter";
+import * as md5 from "md5";
 
 String.prototype.replaceAll = function (search, replacement) {
     let target = this;
@@ -28,6 +29,8 @@ const FACE_ORDER = ["east", "west", "up", "down", "south", "north"];
 const TINTS = ["lightgreen"];
 
 const textureCache = {};
+const materialCache = {};
+const geometryCache = {};
 
 const animatedTextures = [];
 
@@ -520,7 +523,7 @@ let createPlane = function (name, textures) {
     return new Promise((resolve) => {
 
         let materialLoaded = function (material, width, height) {
-            let geometry = new THREE.PlaneGeometry(width, height);
+            let geometry = new THREE.PlaneBufferGeometry(width, height);
             let plane = new THREE.Mesh(geometry, material);
             plane.name = name;
             plane.receiveShadow = true;
@@ -555,14 +558,15 @@ let createPlane = function (name, textures) {
                     context.drawImage(img, 0, 0);
                 }
 
+                let data = canvas.toDataURL("image/png");
+                let hash = md5(data);
 
-                //TODO: figure out a good way to cache these
-                new THREE.TextureLoader().load(canvas.toDataURL("image/png"), function (texture) {
-                    texture.magFilter = THREE.NearestFilter;
-                    texture.minFilter = THREE.NearestFilter;
-                    texture.anisotropy = 0;
-                    texture.needsUpdate = true;
+                if (materialCache.hasOwnProperty(hash)) {// Use material from cache
+                    materialLoaded(materialCache[hash], w, h);
+                    return;
+                }
 
+                let textureLoaded = function (texture) {
                     let material = new THREE.MeshBasicMaterial({
                         map: texture,
                         transparent: true,
@@ -570,7 +574,27 @@ let createPlane = function (name, textures) {
                         alphaTest: 0.5
                     });
 
+                    // Add material to cache
+                    materialCache[hash] = material;
+
                     materialLoaded(material, w, h);
+                };
+
+                if (textureCache.hasOwnProperty(hash)) {// Use texture to cache
+                    textureLoaded(textureCache[hash]);
+                    return;
+                }
+
+                textureCache[hash] = new THREE.TextureLoader().load(canvas.toDataURL("image/png"), function (texture) {
+                    texture.magFilter = THREE.NearestFilter;
+                    texture.minFilter = THREE.NearestFilter;
+                    texture.anisotropy = 0;
+                    texture.needsUpdate = true;
+
+                    // Add texture to cache
+                    textureCache[hash] = texture;
+
+                    textureLoaded(texture);
                 });
             });
         }
@@ -582,7 +606,14 @@ let createPlane = function (name, textures) {
 /// From https://github.com/InventivetalentDev/SkinRender/blob/master/js/render/skin.js#L353
 let createCube = function (width, height, depth, name, faces, fallbackFaces, textures, textureNames, assetRoot) {
     return new Promise((resolve) => {
-        let geometry = new THREE.BoxGeometry(width, height, depth);
+        let geometryKey = width + "_" + height + "_" + depth;
+        let geometry;
+        if (geometryCache.hasOwnProperty(geometryKey)) {
+            geometry = geometryCache[geometryKey];
+        } else {
+            geometry = new THREE.BoxBufferGeometry(width, height, depth);
+            geometryCache[geometryKey] = geometry;
+        }
 
         let materialsLoaded = function (materials) {
             let cube = new THREE.Mesh(geometry, materials);
@@ -658,13 +689,15 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                         }
 
                         let loadTextureDefault = function (canvas) {
-                            // TODO: figure out a good way to cache these
-                            new THREE.TextureLoader().load(canvas.toDataURL("image/png"), function (texture) {
-                                texture.magFilter = THREE.NearestFilter;
-                                texture.minFilter = THREE.NearestFilter;
-                                texture.anisotropy = 0;
-                                texture.needsUpdate = true;
+                            let data = canvas.toDataURL("image/png");
+                            let hash = md5(data);
 
+                            if (materialCache.hasOwnProperty(hash)) {// Use material from cache
+                                resolve(materialCache[hash]);
+                                return;
+                            }
+
+                            let textureLoaded = function (texture) {
                                 let material = new THREE.MeshBasicMaterial({
                                     map: texture,
                                     transparent: hasTransparency,
@@ -672,7 +705,27 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                                     alphaTest: 0.5
                                 });
 
+                                // Add material to cache
+                                materialCache[hash] = material;
+
                                 resolve(material);
+                            };
+
+                            if (textureCache.hasOwnProperty(hash)) {// Use texture from cache
+                                textureLoaded(textureCache[hash]);
+                                return;
+                            }
+
+                            textureCache[hash] = new THREE.TextureLoader().load(data, function (texture) {
+                                texture.magFilter = THREE.NearestFilter;
+                                texture.minFilter = THREE.NearestFilter;
+                                texture.anisotropy = 0;
+                                texture.needsUpdate = true;
+
+                                // Add texture to cache
+                                textureCache[hash] = texture;
+
+                                textureLoaded(texture);
                             });
                         };
 
@@ -695,11 +748,22 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                                     let context1 = canvas1.getContext("2d");
                                     context1.drawImage(canvas, 0, i * canvas.width, canvas.width, canvas.width, 0, 0, canvas.width, canvas.width);
 
-                                    new THREE.TextureLoader().load(canvas1.toDataURL("image/png"), function (texture) {
+                                    let data = canvas1.toDataURL("image/png");
+                                    let hash = md5(data);
+
+                                    if (textureCache.hasOwnProperty(hash)) {// Use texture to cache
+                                        resolve(textureCache[hash]);
+                                        return;
+                                    }
+
+                                    textureCache[hash] = new THREE.TextureLoader().load(data, function (texture) {
                                         texture.magFilter = THREE.NearestFilter;
                                         texture.minFilter = THREE.NearestFilter;
                                         texture.anisotropy = 0;
                                         texture.needsUpdate = true;
+
+                                        // add texture to cache
+                                        textureCache[hash] = texture;
 
                                         resolve(texture);
                                     });
@@ -708,6 +772,7 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
 
                             Promise.all(promises1).then((textures) => {
 
+                                // Don't cache this material, since it's animated
                                 let material = new THREE.MeshBasicMaterial({
                                     map: textures[0],
                                     transparent: hasTransparency,
