@@ -122,7 +122,7 @@ function parseStructureData(data) {
 
                     if (specialVariants.hasOwnProperty(shortBlockType)) {
                         shortBlockType = specialVariants[shortBlockType](palette[blocks[i].state.value].Properties.value);
-                        variantString = "normal";
+                        variantString = "";
                     }
 
                         let block = {
