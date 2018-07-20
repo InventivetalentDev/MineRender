@@ -122,7 +122,6 @@ class ModelRender extends Render {
                             if (!mergedModel.textures) {
                                 console.warn("The model doesn't have any textures!");
                                 console.warn("Please make sure you're using the proper file.")
-                                console.warn("(e.g. 'grass.json' is invalid - 'grass_normal.json' would be the correct file.");
                                 return;
                             }
 
@@ -131,10 +130,8 @@ class ModelRender extends Render {
 
                                     if (model.hasOwnProperty("display")) {
                                         if (mergedModel.hasOwnProperty("display")) {
-                                            console.log(model.display);
                                             if (mergedModel.display.hasOwnProperty(model.display)) {
                                                 let displayData = mergedModel.display[model.display];
-                                                console.log(displayData)
 
                                                 if (displayData.hasOwnProperty("translation")) {
                                                     renderedModel.applyMatrix(new THREE.Matrix4().makeTranslation(displayData.translation[0], displayData.translation[1], displayData.translation[2]));
@@ -823,7 +820,6 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                             if (name.indexOf("/") !== -1) {
                                 name = name.substr(name.indexOf("/") + 1);
                             }
-                            console.log(name)
                             loadTextureMeta(name, assetRoot).then((meta) => {
                                 loadTextureWithMeta(canvas, meta);
                             }).catch(() => {// Guessed wrong :shrug:
