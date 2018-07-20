@@ -350,6 +350,10 @@ let parseModelType = function (string) {
             model: string.substr("item/".length)
         }
     }
+    return {
+        type: "block",
+        model: "string"
+    }
 };
 
 
