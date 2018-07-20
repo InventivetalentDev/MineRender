@@ -59,7 +59,7 @@
                     raycaster.setFromCamera(mouse, modelRender._camera);
 
                     // calculate objects intersecting the picking ray
-                    let intersects = raycaster.intersectObjects(modelRender.models, true);
+                    let intersects = raycaster.intersectObjects(modelRender._scene.children, true);
 
                     for (let i = 0; i < intersects.length; i++) {
 
