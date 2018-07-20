@@ -104,11 +104,13 @@ class ModelRender extends Render {
             promises.push(new Promise((resolve) => {
                 let model = models[i];
 
-                let doModelLoad = function (model, type, offset, rotation, resolve) {
-                    console.log("Loading model " + model + " of type " + type + "...");
-                    loadModel(model, type, modelRender.options.assetRoot)
+                let doModelLoad = function (modelName, type, offset, rotation, resolve) {
+                    console.log("Loading model " + modelName + " of type " + type + "...");
+                    loadModel(modelName, type, modelRender.options.assetRoot)
                         .then(modelData => mergeParents(modelData, modelRender.options.assetRoot))
                         .then((mergedModel) => {
+                            modelRender.modelData = mergedModel;
+
                             if (!PRODUCTION) {
                                 console.log("Merged Model: ");
                                 console.log(mergedModel);
@@ -122,7 +124,32 @@ class ModelRender extends Render {
                             }
 
                             loadTextures(mergedModel.textures, modelRender.options.assetRoot).then((textures) => {
-                                renderModel(modelRender, mergedModel, textures, mergedModel.textures, type, model, offset, rotation).then((renderedModel) => {
+                                renderModel(modelRender, mergedModel, textures, mergedModel.textures, type, modelName, offset, rotation).then((renderedModel) => {
+
+
+                                    if (model.hasOwnProperty("display")) {
+                                        if (mergedModel.hasOwnProperty("display")) {
+                                            console.log(model.display);
+                                            if (mergedModel.display.hasOwnProperty(model.display)) {
+                                                let displayData = mergedModel.display[model.display];
+                                                console.log(displayData)
+
+                                                if (displayData.hasOwnProperty("translation")) {
+                                                    renderedModel.applyMatrix(new THREE.Matrix4().makeTranslation(displayData.translation[0], displayData.translation[1], displayData.translation[2]));
+                                                }
+
+                                                if (displayData.hasOwnProperty("rotation")) {
+                                                    renderedModel.rotation.set(displayData.rotation[0], displayData.rotation[1], displayData.rotation[2])
+                                                }
+                                                if (displayData.hasOwnProperty("scale")) {
+                                                    renderedModel.scale.set(displayData.scale[0], displayData.scale[1], displayData.scale[2]);
+                                                }
+
+                                            }
+                                        }
+                                    }
+
+
                                     modelRender.models.push(renderedModel);
                                     modelRender._scene.add(renderedModel);
 

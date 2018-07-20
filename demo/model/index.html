@@ -35,11 +35,32 @@
             </div>
             <div style="margin: 10px;">
                 <div>
+                    <label for="displayInput">Display</label>
+                    <select id="displayInput">
+                        <option value="">(default)</option>
+                        <option class="displayOption" value="ground">ground</option>
+                        <option class="displayOption" value="gui">gui</option>
+                        <option class="displayOption" value="head">head</option>
+                        <option class="displayOption" value="fixed">fixed</option>
+                        <option class="displayOption" value="thirdperson_righthand">thirdperson_righthand</option>
+                        <option class="displayOption" value="thirdperson_lefthand">thirdperson_lefthand</option>
+                        <option class="displayOption" value="firstperson_righthand">firstperson_righthand</option>
+                        <option class="displayOption" value="firstperson_lefthand">firstperson_lefthand</option>
+                    </select>
+                </div>
+                <div>
                     <label for="variantInput">Variant</label>
                     <select id="variantInput">
                     </select>
                 </div>
-                <br/>
+            </div>
+            <div style="margin: 10px;">
+                <div>
+                    <label>Camera</label>
+                    <input type="number" id="cameraX"><input type="number" id="cameraY"><input type="number" id="cameraZ">
+                </div>
+            </div>
+            <div style="margin: 10px;">
                 <div>
                     <label for="multipartGroup"><strong>MultiPart conditions</strong></label>
                     <div id="multipartGroup">
@@ -75,10 +96,24 @@
                     let type = $("#typeInput").val();
                     let name = $("#nameInput").val();
                     let variant = $("#variantInput").val();
+                    let display = $("#displayInput").val();
+
+                    let camX = parseFloat($("#cameraX").val());
+                    let camY = parseFloat($("#cameraY").val());
+                    let camZ = parseFloat($("#cameraZ").val());
 
                     let multipartOptions = {};
 
                     let option = {};
+
+                    if (display && display.length > 0) {
+                        option["display"] = display;
+                    }
+                    if (camX > 0 || camY > 0 || camZ > 0) {
+                        modelRender._camera.position.set(camX, camY, camZ);
+                        modelRender._camera.lookAt(0, 0, 0);
+                    }
+
                     if (type === "blockstate") {
                         $("#variantInput").prop("disabled", false);
 
@@ -100,7 +135,7 @@
                                 option["multipart"][$(this).attr("name")] = val;
                                 multipartOptions[$(this).attr("name")] = val;
                             }
-                        })
+                        });
                     } else if (type === "model") {
                         $("#variantInput").prop("disabled", true);
 
@@ -113,34 +148,48 @@
                         option["model"] = name;
                     }
 
-                    console.log(option);
-                    window.modelRender.render([option], function () {
-                        console.log(window.modelRender.blockstate);
-                        $("#variantInput").empty();
-                        if (window.modelRender.blockstate.variants) {
-                            $("#variantInput").prop("disabled", false);
-                            for (let v in window.modelRender.blockstate.variants) {
-                                $("#variantInput").append("<option value='" + v + "'>" + (v === "" ? "(normal)" : v) + "</option>");
+                    setTimeout(function () {
+                        console.log(option);
+                        window.modelRender.render([option], function () {
+                            console.log(window.modelRender.blockstate);
+                            console.log(window.modelRender.modelData)
+                            $("#variantInput").empty();
+                            if (window.modelRender.blockstate.variants) {
+                                $("#variantInput").prop("disabled", false);
+                                for (let v in window.modelRender.blockstate.variants) {
+                                    $("#variantInput").append("<option value='" + v + "'>" + (v === "" ? "(normal)" : v) + "</option>");
+                                }
+                                if (variant && variant.length > 0) {
+                                    $("#variantInput").val(variant);
+                                }
+                            } else {
+                                $("#variantInput").prop("disabled", true);
                             }
-                            if (variant && variant.length > 0) {
-                                $("#variantInput").val(variant);
-                            }
-                        } else {
-                            $("#variantInput").prop("disabled", true);
-                        }
 
-                        if (window.modelRender.blockstate.multipart) {
-                            $("#multipartGroup").empty();
+                            if (window.modelRender.blockstate.multipart) {
+                                $("#multipartGroup").empty();
 
-                            let added = [];
-                            console.log(window.modelRender.blockstate.multipart)
-                            for (let j = 0; j < window.modelRender.blockstate.multipart.length; j++) {
-                                let v = window.modelRender.blockstate.multipart[j];
-                                if (v.when) {
-                                    if (v.when.hasOwnProperty("OR")) {
-                                        for (let k = 0; k < v.when.OR.length; k++) {
-                                            for (let c in v.when.OR[k]) {
-                                                if (v.when.OR[k].hasOwnProperty(c)) {
+                                let added = [];
+                                console.log(window.modelRender.blockstate.multipart)
+                                for (let j = 0; j < window.modelRender.blockstate.multipart.length; j++) {
+                                    let v = window.modelRender.blockstate.multipart[j];
+                                    if (v.when) {
+                                        if (v.when.hasOwnProperty("OR")) {
+                                            for (let k = 0; k < v.when.OR.length; k++) {
+                                                for (let c in v.when.OR[k]) {
+                                                    if (v.when.OR[k].hasOwnProperty(c)) {
+                                                        if (added.indexOf(c) !== -1) continue;
+
+                                                        $("#multipartGroup").append("<label>" + c + "</label><input type='text' class='multipartInput' name='" + c + "' value='" + (multipartOptions.hasOwnProperty(c) ? multipartOptions[c] : "") + "'><br/>");
+                                                        $(".multipartInput").on("change", doRender);
+
+                                                        added.push(c);
+                                                    }
+                                                }
+                                            }
+                                        } else {
+                                            for (let c in v.when) {
+                                                if (v.when.hasOwnProperty(c)) {
                                                     if (added.indexOf(c) !== -1) continue;
 
                                                     $("#multipartGroup").append("<label>" + c + "</label><input type='text' class='multipartInput' name='" + c + "' value='" + (multipartOptions.hasOwnProperty(c) ? multipartOptions[c] : "") + "'><br/>");
@@ -150,22 +199,22 @@
                                                 }
                                             }
                                         }
-                                    } else {
-                                        for (let c in v.when) {
-                                            if (v.when.hasOwnProperty(c)) {
-                                                if (added.indexOf(c) !== -1) continue;
-
-                                                $("#multipartGroup").append("<label>" + c + "</label><input type='text' class='multipartInput' name='" + c + "' value='" + (multipartOptions.hasOwnProperty(c) ? multipartOptions[c] : "") + "'><br/>");
-                                                $(".multipartInput").on("change", doRender);
-
-                                                added.push(c);
-                                            }
-                                        }
                                     }
                                 }
                             }
-                        }
-                    });
+
+                            $("#cameraX").val(modelRender._camera.position.x);
+                            $("#cameraY").val(modelRender._camera.position.y);
+                            $("#cameraZ").val(modelRender._camera.position.z);
+
+                            // $(".displayOption").prop("disabled", true);
+                            // if (modelRender.modelData.hasOwnProperty("display")) {
+                            //     for (let d in modelRender.modelData.display) {
+                            //         $(".displayOption[value=" + d + "]").prop("disabled", false);
+                            //     }
+                            // }
+                        });
+                    }, 200);
                 }
 
 
@@ -176,10 +225,10 @@
                     doRender();
                 });
                 $("#variantInput").on("change", doRender);
+                $("#displayInput").on("change", doRender);
 
                 // Initial render
                 doRender();
-                setTimeout(doRender, 2000);
 
                 // window.modelRender.render([{
                 //     model: "block/purpur_stairs",
