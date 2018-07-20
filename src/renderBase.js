@@ -45,6 +45,7 @@ const modelCallbacks = {};
  * @property {boolean} [controls.pan=true]      Toggle panning
  *
  * @property {object} camera                    Camera settings
+ * @property {string} [camera.type=perspective] Camera type
  * @property {number} camera.x                  Camera X-position
  * @property {number} camera.y                  Camera Y-Position
  * @property {number} camera.z                  Camera Z-Position
