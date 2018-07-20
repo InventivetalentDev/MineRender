@@ -664,16 +664,16 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                         canvas.height = Math.abs(uv[3] - uv[1]);
 
                         let context = canvas.getContext("2d");
-                        context.drawImage(img, Math.min(uv[0],uv[2]), Math.min(uv[1],uv[3]),canvas.width,canvas.height, 0, 0,canvas.width, canvas.height);
+                        context.drawImage(img, Math.min(uv[0], uv[2]), Math.min(uv[1], uv[3]), canvas.width, canvas.height, 0, 0, canvas.width, canvas.height);
 
                         if (face.hasOwnProperty("tintindex")) {
                             context.fillStyle = TINTS[face.tintindex];
                             context.globalCompositeOperation = 'multiply';
-                            context.fillRect(0, 0,canvas.width,canvas.height);
+                            context.fillRect(0, 0, canvas.width, canvas.height);
 
                             context.globalAlpha = 1;
                             context.globalCompositeOperation = 'destination-in';
-                            context.drawImage(img, Math.min(uv[0],uv[2]), Math.min(uv[1],uv[3]),canvas.width, canvas.height, 0, 0, canvas.width, canvas.height);
+                            context.drawImage(img, Math.min(uv[0], uv[2]), Math.min(uv[1], uv[3]), canvas.width, canvas.height, 0, 0, canvas.width, canvas.height);
 
                             // context.globalAlpha = 0.5;
                             // context.beginPath();
@@ -731,6 +731,12 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                                 texture.minFilter = THREE.NearestFilter;
                                 texture.anisotropy = 0;
                                 texture.needsUpdate = true;
+
+                                if (face.hasOwnProperty("rotation")) {
+                                    texture.center.x = .5;
+                                    texture.center.y = .5;
+                                    texture.rotation = toRadians(face.rotation);
+                                }
 
                                 // Add texture to cache
                                 textureCache[hash] = texture;
