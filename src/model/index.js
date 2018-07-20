@@ -524,7 +524,7 @@ let createPlane = function (name, textures) {
     return new Promise((resolve) => {
 
         let materialLoaded = function (material, width, height) {
-            let geometry = new THREE.PlaneBufferGeometry(width, height);
+            let geometry = new THREE.PlaneGeometry(width, height);
             let plane = new THREE.Mesh(geometry, material);
             plane.name = name;
             plane.receiveShadow = true;
@@ -562,21 +562,22 @@ let createPlane = function (name, textures) {
                 let data = canvas.toDataURL("image/png");
                 let hash = md5(data);
 
-                if (materialCache.hasOwnProperty(hash)) {// Use material from cache
-                    materialLoaded(materialCache[hash], w, h);
-                    return;
-                }
+                // if (materialCache.hasOwnProperty(hash)) {// Use material from cache
+                //     materialLoaded(materialCache[hash], w, h);
+                //     return;
+                // }
 
                 let textureLoaded = function (texture) {
                     let material = new THREE.MeshBasicMaterial({
                         map: texture,
                         transparent: true,
                         side: THREE.DoubleSide,
-                        alphaTest: 0.5
+                        alphaTest: 0.5,
+                        name: name
                     });
 
                     // Add material to cache
-                    materialCache[hash] = material;
+                    // materialCache[hash] = material;
 
                     materialLoaded(material, w, h);
                 };
@@ -612,7 +613,7 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
         if (geometryCache.hasOwnProperty(geometryKey)) {
             geometry = geometryCache[geometryKey];
         } else {
-            geometry = new THREE.BoxBufferGeometry(width, height, depth);
+            geometry = new THREE.BoxGeometry(width, height, depth);
             geometryCache[geometryKey] = geometry;
         }
 
@@ -657,20 +658,22 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                             scaleUv(uv[3], img.height)
                         ];
 
+
                         let canvas = document.createElement("canvas");
-                        canvas.width = uv[2] - uv[0];
-                        canvas.height = uv[3] - uv[1];
+                        canvas.width = Math.abs(uv[2] - uv[0]);
+                        canvas.height = Math.abs(uv[3] - uv[1]);
+
                         let context = canvas.getContext("2d");
-                        context.drawImage(img, uv[0], uv[1], uv[2] - uv[0], uv[3] - uv[1], 0, 0, uv[2] - uv[0], uv[3] - uv[1]);
+                        context.drawImage(img, Math.min(uv[0],uv[2]), Math.min(uv[1],uv[3]),canvas.width,canvas.height, 0, 0,canvas.width, canvas.height);
 
                         if (face.hasOwnProperty("tintindex")) {
                             context.fillStyle = TINTS[face.tintindex];
                             context.globalCompositeOperation = 'multiply';
-                            context.fillRect(0, 0, uv[2] - uv[0], uv[3] - uv[1]);
+                            context.fillRect(0, 0,canvas.width,canvas.height);
 
                             context.globalAlpha = 1;
                             context.globalCompositeOperation = 'destination-in';
-                            context.drawImage(img, uv[0], uv[1], uv[2] - uv[0], uv[3] - uv[1], 0, 0, uv[2] - uv[0], uv[3] - uv[1]);
+                            context.drawImage(img, Math.min(uv[0],uv[2]), Math.min(uv[1],uv[3]),canvas.width, canvas.height, 0, 0, canvas.width, canvas.height);
 
                             // context.globalAlpha = 0.5;
                             // context.beginPath();
@@ -693,21 +696,27 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                             let data = canvas.toDataURL("image/png");
                             let hash = md5(data);
 
-                            if (materialCache.hasOwnProperty(hash)) {// Use material from cache
-                                resolve(materialCache[hash]);
-                                return;
-                            }
+                            // if (materialCache.hasOwnProperty(hash)) {// Use material from cache
+                            //     resolve(materialCache[hash]);
+                            //     return;
+                            // }
 
                             let textureLoaded = function (texture) {
+                                let n = textureNames[textureRef];
+                                if (n.startsWith("#")) {
+                                    n = textureNames[name.substr(1)];
+                                }
+
                                 let material = new THREE.MeshBasicMaterial({
                                     map: texture,
                                     transparent: hasTransparency,
                                     side: hasTransparency ? THREE.DoubleSide : THREE.FrontSide,
-                                    alphaTest: 0.5
+                                    alphaTest: 0.5,
+                                    name: f + "_" + textureRef + "_" + n
                                 });
 
                                 // Add material to cache
-                                materialCache[hash] = material;
+                                // materialCache[hash] = material;
 
                                 resolve(material);
                             };
@@ -810,6 +819,7 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                             if (name.indexOf("/") !== -1) {
                                 name = name.substr(name.indexOf("/") + 1);
                             }
+                            console.log(name)
                             loadTextureMeta(name, assetRoot).then((meta) => {
                                 loadTextureWithMeta(canvas, meta);
                             }).catch(() => {// Guessed wrong :shrug:
