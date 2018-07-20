@@ -99,10 +99,8 @@ function parseStructureData(data) {
                     let pos = blocks[i].pos.value.value;
 
 
-                    let variantString = "normal";
+                    let variantString = "";
                     if (palette[blocks[i].state.value].hasOwnProperty("Properties")) {
-                        variantString = "";
-
                         let strs = [];
                         for (let p in  palette[blocks[i].state.value].Properties.value) {
                             if (palette[blocks[i].state.value].Properties.value.hasOwnProperty(p)) {
