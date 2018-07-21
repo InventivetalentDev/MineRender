@@ -37,7 +37,7 @@
 <li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-scaleUv">scaleUv</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-DEFAULT_ROOT">DEFAULT_ROOT</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-defaultOptions">defaultOptions</a></span></span></li>
-<li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#combined">combined</a><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-CombinedRender">CombinedRender</a></span></span></li>
+<li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#combined">combined</a><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/combined/index.js~CombinedRender.html">CombinedRender</a></span></span></li>
 <li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#gui">gui</a><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/gui/index.js~GuiRender.html">GuiRender</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-guiHelper">guiHelper</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-guiPositions">guiPositions</a></span></span></li>
@@ -58,6 +58,7 @@ import * as $ from &apos;jquery&apos;;
 import mergeDeep from &quot;../lib/merge&quot;;
 import Render, { loadTextureAsBase64, scaleUv, defaultOptions, DEFAULT_ROOT, loadJsonFromPath, loadBlockState, loadTextureMeta } from &quot;../renderBase&quot;;
 import ModelConverter from &quot;./modelConverter&quot;;
+import * as md5 from &quot;md5&quot;;
 
 String.prototype.replaceAll = function (search, replacement) {
     let target = this;
@@ -83,6 +84,8 @@ const FACE_ORDER = [&quot;east&quot;, &quot;west&quot;, &quot;up&quot;, &quot;do
 const TINTS = [&quot;lightgreen&quot;];
 
 const textureCache = {};
+const materialCache = {};
+const geometryCache = {};
 
 const animatedTextures = [];
 
@@ -159,11 +162,13 @@ class ModelRender extends Render {
             promises.push(new Promise((resolve) =&gt; {
                 let model = models[i];
 
-                let doModelLoad = function (model, type, offset, rotation, resolve) {
-                    console.log(&quot;Loading model &quot; + model + &quot; of type &quot; + type + &quot;...&quot;);
-                    loadModel(model, type, modelRender.options.assetRoot)
+                let doModelLoad = function (modelName, type, offset, rotation, resolve) {
+                    console.log(&quot;Loading model &quot; + modelName + &quot; of type &quot; + type + &quot;...&quot;);
+                    loadModel(modelName, type, modelRender.options.assetRoot)
                         .then(modelData =&gt; mergeParents(modelData, modelRender.options.assetRoot))
                         .then((mergedModel) =&gt; {
+                            modelRender.modelData = mergedModel;
+
                             if (!PRODUCTION) {
                                 console.log(&quot;Merged Model: &quot;);
                                 console.log(mergedModel);
@@ -172,12 +177,32 @@ class ModelRender extends Render {
                             if (!mergedModel.textures) {
                                 console.warn(&quot;The model doesn&apos;t have any textures!&quot;);
                                 console.warn(&quot;Please make sure you&apos;re using the proper file.&quot;)
-                                console.warn(&quot;(e.g. &apos;grass.json&apos; is invalid - &apos;grass_normal.json&apos; would be the correct file.&quot;);
                                 return;
                             }
 
                             loadTextures(mergedModel.textures, modelRender.options.assetRoot).then((textures) =&gt; {
-                                renderModel(modelRender, mergedModel, textures, mergedModel.textures, type, model, offset, rotation).then((renderedModel) =&gt; {
+                                renderModel(modelRender, mergedModel, textures, mergedModel.textures, type, modelName, offset, rotation).then((renderedModel) =&gt; {
+
+                                    if (model.hasOwnProperty(&quot;display&quot;)) {
+                                        if (mergedModel.hasOwnProperty(&quot;display&quot;)) {
+                                            if (mergedModel.display.hasOwnProperty(model.display)) {
+                                                let displayData = mergedModel.display[model.display];
+
+                                                if (displayData.hasOwnProperty(&quot;translation&quot;)) {
+                                                    renderedModel.applyMatrix(new THREE.Matrix4().makeTranslation(displayData.translation[0], displayData.translation[1], displayData.translation[2]));
+                                                }
+
+                                                if (displayData.hasOwnProperty(&quot;rotation&quot;)) {
+                                                    renderedModel.rotation.set(displayData.rotation[0], displayData.rotation[1], displayData.rotation[2])
+                                                }
+                                                if (displayData.hasOwnProperty(&quot;scale&quot;)) {
+                                                    renderedModel.scale.set(displayData.scale[0], displayData.scale[1], displayData.scale[2]);
+                                                }
+
+                                            }
+                                        }
+                                    }
+
                                     modelRender.models.push(renderedModel);
                                     modelRender._scene.add(renderedModel);
 
@@ -405,6 +430,10 @@ let parseModelType = function (string) {
             model: string.substr(&quot;item/&quot;.length)
         }
     }
+    return {
+        type: &quot;block&quot;,
+        model: &quot;string&quot;
+    }
 };
 
 
@@ -477,6 +506,7 @@ let renderModel = function (modelRender, model, textures, textureNames, type, na
                         let geo = new THREE.WireframeGeometry(cubes[i].geometry);
                         let mat = new THREE.LineBasicMaterial({color: 0x000000, linewidth: 2});
                         let line = new THREE.LineSegments(geo, mat);
+                        line.name = cubes[i].name + &quot;_outline&quot;;
 
                         line.position.x = cubes[i].position.x;
                         line.position.y = cubes[i].position.y;
@@ -579,22 +609,44 @@ let createPlane = function (name, textures) {
                     context.drawImage(img, 0, 0);
                 }
 
+                let data = canvas.toDataURL(&quot;image/png&quot;);
+                let hash = md5(data);
 
-                //TODO: figure out a good way to cache these
-                new THREE.TextureLoader().load(canvas.toDataURL(&quot;image/png&quot;), function (texture) {
+                // if (materialCache.hasOwnProperty(hash)) {// Use material from cache
+                //     materialLoaded(materialCache[hash], w, h);
+                //     return;
+                // }
+
+                let textureLoaded = function (texture) {
+                    let material = new THREE.MeshBasicMaterial({
+                        map: texture,
+                        transparent: true,
+                        side: THREE.DoubleSide,
+                        alphaTest: 0.5,
+                        name: name
+                    });
+
+                    // Add material to cache
+                    // materialCache[hash] = material;
+
+                    materialLoaded(material, w, h);
+                };
+
+                if (textureCache.hasOwnProperty(hash)) {// Use texture to cache
+                    textureLoaded(textureCache[hash]);
+                    return;
+                }
+
+                textureCache[hash] = new THREE.TextureLoader().load(canvas.toDataURL(&quot;image/png&quot;), function (texture) {
                     texture.magFilter = THREE.NearestFilter;
                     texture.minFilter = THREE.NearestFilter;
                     texture.anisotropy = 0;
                     texture.needsUpdate = true;
 
-                    let material = new THREE.MeshBasicMaterial({
-                        map: texture,
-                        transparent: true,
-                        side: THREE.DoubleSide,
-                        alphaTest: 0.5
-                    });
+                    // Add texture to cache
+                    textureCache[hash] = texture;
 
-                    materialLoaded(material, w, h);
+                    textureLoaded(texture);
                 });
             });
         }
@@ -606,7 +658,14 @@ let createPlane = function (name, textures) {
 /// From https://github.com/InventivetalentDev/SkinRender/blob/master/js/render/skin.js#L353
 let createCube = function (width, height, depth, name, faces, fallbackFaces, textures, textureNames, assetRoot) {
     return new Promise((resolve) =&gt; {
-        let geometry = new THREE.BoxGeometry(width, height, depth);
+        let geometryKey = width + &quot;_&quot; + height + &quot;_&quot; + depth;
+        let geometry;
+        if (geometryCache.hasOwnProperty(geometryKey)) {
+            geometry = geometryCache[geometryKey];
+        } else {
+            geometry = new THREE.BoxGeometry(width, height, depth);
+            geometryCache[geometryKey] = geometry;
+        }
 
         let materialsLoaded = function (materials) {
             let cube = new THREE.Mesh(geometry, materials);
@@ -649,20 +708,22 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                             scaleUv(uv[3], img.height)
                         ];
 
+
                         let canvas = document.createElement(&quot;canvas&quot;);
-                        canvas.width = uv[2] - uv[0];
-                        canvas.height = uv[3] - uv[1];
+                        canvas.width = Math.abs(uv[2] - uv[0]);
+                        canvas.height = Math.abs(uv[3] - uv[1]);
+
                         let context = canvas.getContext(&quot;2d&quot;);
-                        context.drawImage(img, uv[0], uv[1], uv[2] - uv[0], uv[3] - uv[1], 0, 0, uv[2] - uv[0], uv[3] - uv[1]);
+                        context.drawImage(img, Math.min(uv[0], uv[2]), Math.min(uv[1], uv[3]), canvas.width, canvas.height, 0, 0, canvas.width, canvas.height);
 
                         if (face.hasOwnProperty(&quot;tintindex&quot;)) {
                             context.fillStyle = TINTS[face.tintindex];
                             context.globalCompositeOperation = &apos;multiply&apos;;
-                            context.fillRect(0, 0, uv[2] - uv[0], uv[3] - uv[1]);
+                            context.fillRect(0, 0, canvas.width, canvas.height);
 
                             context.globalAlpha = 1;
                             context.globalCompositeOperation = &apos;destination-in&apos;;
-                            context.drawImage(img, uv[0], uv[1], uv[2] - uv[0], uv[3] - uv[1], 0, 0, uv[2] - uv[0], uv[3] - uv[1]);
+                            context.drawImage(img, Math.min(uv[0], uv[2]), Math.min(uv[1], uv[3]), canvas.width, canvas.height, 0, 0, canvas.width, canvas.height);
 
                             // context.globalAlpha = 0.5;
                             // context.beginPath();
@@ -681,7 +742,132 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                             }
                         }
 
-                        if (canvas.height &gt; canvas.width) {// Taking a guess that this is an animated texture
+                        let loadTextureDefault = function (canvas) {
+                            let data = canvas.toDataURL(&quot;image/png&quot;);
+                            let hash = md5(data);
+
+                            // if (materialCache.hasOwnProperty(hash)) {// Use material from cache
+                            //     resolve(materialCache[hash]);
+                            //     return;
+                            // }
+
+                            let textureLoaded = function (texture) {
+                                let n = textureNames[textureRef];
+                                if (n.startsWith(&quot;#&quot;)) {
+                                    n = textureNames[name.substr(1)];
+                                }
+
+                                let material = new THREE.MeshBasicMaterial({
+                                    map: texture,
+                                    transparent: hasTransparency,
+                                    side: hasTransparency ? THREE.DoubleSide : THREE.FrontSide,
+                                    alphaTest: 0.5,
+                                    name: f + &quot;_&quot; + textureRef + &quot;_&quot; + n
+                                });
+
+                                // Add material to cache
+                                // materialCache[hash] = material;
+
+                                resolve(material);
+                            };
+
+                            if (textureCache.hasOwnProperty(hash)) {// Use texture from cache
+                                textureLoaded(textureCache[hash]);
+                                return;
+                            }
+
+                            textureCache[hash] = new THREE.TextureLoader().load(data, function (texture) {
+                                texture.magFilter = THREE.NearestFilter;
+                                texture.minFilter = THREE.NearestFilter;
+                                texture.anisotropy = 0;
+                                texture.needsUpdate = true;
+
+                                if (face.hasOwnProperty(&quot;rotation&quot;)) {
+                                    texture.center.x = .5;
+                                    texture.center.y = .5;
+                                    texture.rotation = toRadians(face.rotation);
+                                }
+
+                                // Add texture to cache
+                                textureCache[hash] = texture;
+
+                                textureLoaded(texture);
+                            });
+                        };
+
+                        let loadTextureWithMeta = function (canvas, meta) {
+                            let frametime = 1;
+                            if (meta.hasOwnProperty(&quot;animation&quot;)) {
+                                if (meta.animation.hasOwnProperty(&quot;frametime&quot;)) {
+                                    frametime = meta.animation.frametime;
+                                }
+                            }
+
+                            let parts = Math.floor(canvas.height / canvas.width);
+
+                            let promises1 = [];
+                            for (let i = 0; i &lt; parts; i++) {
+                                promises1.push(new Promise((resolve) =&gt; {
+                                    let canvas1 = document.createElement(&quot;canvas&quot;);
+                                    canvas1.width = canvas.width;
+                                    canvas1.height = canvas.width;
+                                    let context1 = canvas1.getContext(&quot;2d&quot;);
+                                    context1.drawImage(canvas, 0, i * canvas.width, canvas.width, canvas.width, 0, 0, canvas.width, canvas.width);
+
+                                    let data = canvas1.toDataURL(&quot;image/png&quot;);
+                                    let hash = md5(data);
+
+                                    if (textureCache.hasOwnProperty(hash)) {// Use texture to cache
+                                        resolve(textureCache[hash]);
+                                        return;
+                                    }
+
+                                    textureCache[hash] = new THREE.TextureLoader().load(data, function (texture) {
+                                        texture.magFilter = THREE.NearestFilter;
+                                        texture.minFilter = THREE.NearestFilter;
+                                        texture.anisotropy = 0;
+                                        texture.needsUpdate = true;
+
+                                        // add texture to cache
+                                        textureCache[hash] = texture;
+
+                                        resolve(texture);
+                                    });
+                                }));
+                            }
+
+                            Promise.all(promises1).then((textures) =&gt; {
+
+                                // Don&apos;t cache this material, since it&apos;s animated
+                                let material = new THREE.MeshBasicMaterial({
+                                    map: textures[0],
+                                    transparent: hasTransparency,
+                                    side: hasTransparency ? THREE.DoubleSide : THREE.FrontSide,
+                                    alphaTest: 0.5
+                                });
+
+                                let frameCounter = 0;
+                                let textureIndex = 0;
+                                animatedTextures.push(() =&gt; {// called on render
+                                    if (frameCounter &gt;= frametime) {
+                                        frameCounter = 0;
+
+                                        // Set new texture
+                                        material.map = textures[textureIndex];
+
+                                        textureIndex++;
+                                    }
+                                    if (textureIndex &gt;= textures.length) {
+                                        textureIndex = 0;
+                                    }
+                                    frameCounter += 0.1;// game ticks TODO: figure out the proper value for this
+                                })
+
+                                resolve(material);
+                            });
+                        };
+
+                        if ((canvas.height &gt; canvas.width) &amp;&amp; (canvas.height % canvas.width === 0)) {// Taking a guess that this is an animated texture
                             let name = textureNames[textureRef];
                             if (name.startsWith(&quot;#&quot;)) {
                                 name = textureNames[name.substr(1)];
@@ -690,83 +876,12 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                                 name = name.substr(name.indexOf(&quot;/&quot;) + 1);
                             }
                             loadTextureMeta(name, assetRoot).then((meta) =&gt; {
-
-                                let frametime = 1;
-                                if (meta.hasOwnProperty(&quot;animation&quot;)) {
-                                    if (meta.animation.hasOwnProperty(&quot;frametime&quot;)) {
-                                        frametime = meta.animation.frametime;
-                                    }
-                                }
-
-                                let parts = Math.floor(canvas.height / canvas.width);
-
-                                let promises1 = [];
-                                for (let i = 0; i &lt; parts; i++) {
-                                    promises1.push(new Promise((resolve) =&gt; {
-                                        let canvas1 = document.createElement(&quot;canvas&quot;);
-                                        canvas1.width = canvas.width;
-                                        canvas1.height = canvas.width;
-                                        let context1 = canvas1.getContext(&quot;2d&quot;);
-                                        context1.drawImage(canvas, 0, i * canvas.width, canvas.width, canvas.width, 0, 0, canvas.width, canvas.width);
-
-                                        new THREE.TextureLoader().load(canvas1.toDataURL(&quot;image/png&quot;), function (texture) {
-                                            texture.magFilter = THREE.NearestFilter;
-                                            texture.minFilter = THREE.NearestFilter;
-                                            texture.anisotropy = 0;
-                                            texture.needsUpdate = true;
-
-                                            resolve(texture);
-                                        });
-                                    }));
-                                }
-
-                                Promise.all(promises1).then((textures) =&gt; {
-
-                                    let material = new THREE.MeshBasicMaterial({
-                                        map: textures[0],
-                                        transparent: hasTransparency,
-                                        side: hasTransparency ? THREE.DoubleSide : THREE.FrontSide,
-                                        alphaTest: 0.5
-                                    });
-
-                                    let frameCounter = 0;
-                                    let textureIndex = 0;
-                                    animatedTextures.push(() =&gt; {// called on render
-                                        if (frameCounter &gt;= frametime) {
-                                            frameCounter = 0;
-
-                                            // Set new texture
-                                            material.map = textures[textureIndex];
-
-                                            textureIndex++;
-                                        }
-                                        if (textureIndex &gt;= textures.length) {
-                                            textureIndex = 0;
-                                        }
-                                        frameCounter += 0.1;// game ticks TODO: figure out the proper value for this
-                                    })
-
-                                    resolve(material);
-                                });
-                            });
-
+                                loadTextureWithMeta(canvas, meta);
+                            }).catch(() =&gt; {// Guessed wrong :shrug:
+                                loadTextureDefault(canvas);
+                            })
                         } else {
-                            // TODO: figure out a good way to cache these
-                            new THREE.TextureLoader().load(canvas.toDataURL(&quot;image/png&quot;), function (texture) {
-                                texture.magFilter = THREE.NearestFilter;
-                                texture.minFilter = THREE.NearestFilter;
-                                texture.anisotropy = 0;
-                                texture.needsUpdate = true;
-
-                                let material = new THREE.MeshBasicMaterial({
-                                    map: texture,
-                                    transparent: hasTransparency,
-                                    side: hasTransparency ? THREE.DoubleSide : THREE.FrontSide,
-                                    alphaTest: 0.5
-                                });
-
-                                resolve(material);
-                            });
+                            loadTextureDefault(canvas);
                         }
                     };
                     img.src = textures[textureRef];

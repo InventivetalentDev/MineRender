@@ -3,15 +3,26 @@ import ModelRender from "../model/index";
 import SkinRender from "../skin/index";
 import Render from "../renderBase";
 
+/**
+ * A renderer-wrapper to combine the individual aspects of renderers into a single scene, e.g. render a player and a block at once
+ */
 class CombinedRender extends Render {
 
+    /**
+     * @param {Object} [options] The options for this renderer, see {@link defaultOptions}
+     * @param {HTMLElement} [element=document.body] DOM Element to attach the renderer to - defaults to document.body
+     */
     constructor(options, element) {
         super(options, {}, element);
 
         this.renderType = "CombinedRender";
     }
 
-    init (renders, cb) {
+    /**
+     * Initializes the renderer - This has to be called before {@link render}
+     * @param {Render[]} renders Array of render objects
+     */
+    init(renders) {
         let combinedRender = this;
 
         super.initScene(function () {
@@ -22,18 +33,19 @@ class CombinedRender extends Render {
         for (let i = 0; i < renders.length; i++) {
             attachTo(renders[i], combinedRender);
         }
-
-        if (typeof cb === "function") cb();
     };
 
-    render (cb) {
+    /**
+     * Starts rendering - This has to be called after {@link init}
+     */
+    render() {
         this._animate();
-
-        if (typeof cb === "function") cb();
     };
 }
 
-
+/**
+ * @ignore
+ */
 function attachTo(self, target) {
     console.log("Attaching " + self.constructor.name + " to " + target.constructor.name);
 

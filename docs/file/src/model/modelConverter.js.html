@@ -37,7 +37,7 @@
 <li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-scaleUv">scaleUv</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-DEFAULT_ROOT">DEFAULT_ROOT</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-defaultOptions">defaultOptions</a></span></span></li>
-<li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#combined">combined</a><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-CombinedRender">CombinedRender</a></span></span></li>
+<li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#combined">combined</a><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/combined/index.js~CombinedRender.html">CombinedRender</a></span></span></li>
 <li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#gui">gui</a><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/gui/index.js~GuiRender.html">GuiRender</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-guiHelper">guiHelper</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-guiPositions">guiPositions</a></span></span></li>
@@ -154,10 +154,8 @@ function parseStructureData(data) {
                     let pos = blocks[i].pos.value.value;
 
 
-                    let variantString = &quot;normal&quot;;
+                    let variantString = &quot;&quot;;
                     if (palette[blocks[i].state.value].hasOwnProperty(&quot;Properties&quot;)) {
-                        variantString = &quot;&quot;;
-
                         let strs = [];
                         for (let p in  palette[blocks[i].state.value].Properties.value) {
                             if (palette[blocks[i].state.value].Properties.value.hasOwnProperty(p)) {
@@ -179,7 +177,7 @@ function parseStructureData(data) {
 
                     if (specialVariants.hasOwnProperty(shortBlockType)) {
                         shortBlockType = specialVariants[shortBlockType](palette[blocks[i].state.value].Properties.value);
-                        variantString = &quot;normal&quot;;
+                        variantString = &quot;&quot;;
                     }
 
                         let block = {

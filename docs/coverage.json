@@ -1,17 +1,13 @@
 {
-  "coverage": "40.44%",
-  "expectCount": 89,
-  "actualCount": 36,
+  "coverage": "44.56%",
+  "expectCount": 92,
+  "actualCount": 41,
   "files": {
     "src/combined/index.js": {
-      "expectCount": 5,
-      "actualCount": 0,
+      "expectCount": 6,
+      "actualCount": 5,
       "undocumentLines": [
-        13,
-        28,
-        34,
-        39,
-        7
+        18
       ]
     },
     "src/gui/guiHelper.js": {
@@ -48,29 +44,31 @@
       "undocumentLines": []
     },
     "src/model/index.js": {
-      "expectCount": 24,
+      "expectCount": 26,
       "actualCount": 4,
       "undocumentLines": [
-        7,
-        12,
-        27,
+        8,
+        13,
         28,
-        30,
+        29,
+        31,
         32,
-        335,
-        356,
-        481,
-        488,
-        552,
-        746,
-        754,
-        777,
-        813,
-        818,
-        841,
-        68,
-        70,
-        71
+        33,
+        35,
+        360,
+        385,
+        511,
+        518,
+        604,
+        861,
+        869,
+        892,
+        928,
+        933,
+        956,
+        71,
+        73,
+        74
       ]
     },
     "src/model/modelConverter.js": {
@@ -79,16 +77,16 @@
       "undocumentLines": [
         42,
         77,
-        150
+        148
       ]
     },
     "src/renderBase.js": {
       "expectCount": 21,
       "actualCount": 18,
       "undocumentLines": [
-        252,
-        258,
-        360
+        253,
+        259,
+        361
       ]
     },
     "src/skin/index.js": {

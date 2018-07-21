@@ -1,9 +1,9 @@
 window.esdocSearchIndex = [
   [
     "minerender/src/combined/index.js~combinedrender",
-    "function/index.html#static-function-CombinedRender",
+    "class/src/combined/index.js~CombinedRender.html",
     "<span>CombinedRender</span> <span class=\"search-result-import-path\">minerender/src/combined/index.js</span>",
-    "function"
+    "class"
   ],
   [
     "minerender/src/renderbase.js~default_root",
@@ -400,6 +400,30 @@ window.esdocSearchIndex = [
     "file/src/combined/index.js.html",
     "src/combined/index.js",
     "file"
+  ],
+  [
+    "src/combined/index.js~combinedrender#constructor",
+    "class/src/combined/index.js~CombinedRender.html#instance-constructor-constructor",
+    "src/combined/index.js~CombinedRender#constructor",
+    "method"
+  ],
+  [
+    "src/combined/index.js~combinedrender#init",
+    "class/src/combined/index.js~CombinedRender.html#instance-method-init",
+    "src/combined/index.js~CombinedRender#init",
+    "method"
+  ],
+  [
+    "src/combined/index.js~combinedrender#render",
+    "class/src/combined/index.js~CombinedRender.html#instance-method-render",
+    "src/combined/index.js~CombinedRender#render",
+    "method"
+  ],
+  [
+    "src/combined/index.js~combinedrender#rendertype",
+    "class/src/combined/index.js~CombinedRender.html#instance-member-renderType",
+    "src/combined/index.js~CombinedRender#renderType",
+    "member"
   ],
   [
     "src/gui/guihelper.js",

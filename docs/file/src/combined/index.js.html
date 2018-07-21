@@ -37,7 +37,7 @@
 <li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-scaleUv">scaleUv</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-DEFAULT_ROOT">DEFAULT_ROOT</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-defaultOptions">defaultOptions</a></span></span></li>
-<li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#combined">combined</a><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-CombinedRender">CombinedRender</a></span></span></li>
+<li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#combined">combined</a><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/combined/index.js~CombinedRender.html">CombinedRender</a></span></span></li>
 <li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#gui">gui</a><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/gui/index.js~GuiRender.html">GuiRender</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-guiHelper">guiHelper</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-guiPositions">guiPositions</a></span></span></li>
@@ -53,44 +53,54 @@
 </nav>
 
 <div class="content" data-ice="content"><h1 data-ice="title">src/combined/index.js</h1>
-<pre class="source-code line-number raw-source-code"><code class="prettyprint linenums" data-ice="content">import { initScene, defaultOptions } from &quot;../renderBase&quot;;
-
-import GuiRender from &quot;../gui/index&quot;;
+<pre class="source-code line-number raw-source-code"><code class="prettyprint linenums" data-ice="content">import GuiRender from &quot;../gui/index&quot;;
 import ModelRender from &quot;../model/index&quot;;
 import SkinRender from &quot;../skin/index&quot;;
+import Render from &quot;../renderBase&quot;;
 
-function CombinedRender(options, element) {
-    this.renderType = &quot;CombinedRender&quot;;
-    this.options = Object.assign({}, defaultOptions, options);
-    this.element = element || document.body;
-}
+/**
+ * A renderer-wrapper to combine the individual aspects of renderers into a single scene, e.g. render a player and a block at once
+ */
+class CombinedRender extends Render {
 
-CombinedRender.prototype.init = function (renders, cb) {
-    let combinedRender = this;
+    /**
+     * @param {Object} [options] The options for this renderer, see {@link defaultOptions}
+     * @param {HTMLElement} [element=document.body] DOM Element to attach the renderer to - defaults to document.body
+     */
+    constructor(options, element) {
+        super(options, {}, element);
 
-    initScene(this, function () {
-        combinedRender.element.dispatchEvent(new CustomEvent(&quot;combinedRender&quot;, {detail: {renders: renders}}));
-    }, true);
-
-
-    for (let i = 0; i &lt; renders.length; i++) {
-        attachTo(renders[i], combinedRender);
+        this.renderType = &quot;CombinedRender&quot;;
     }
 
-    if (typeof cb === &quot;function&quot;) cb();
-};
+    /**
+     * Initializes the renderer - This has to be called before {@link render}
+     * @param {Render[]} renders Array of render objects
+     */
+    init(renders) {
+        let combinedRender = this;
 
-CombinedRender.prototype.render = function (cb) {
-    this._animate();
-
-    if (typeof cb === &quot;function&quot;) cb();
-};
-
-CombinedRender.prototype.toImage = function () {
-    return this._renderer.domElement.toDataURL(&quot;image/png&quot;);
-};
+        super.initScene(function () {
+            combinedRender.element.dispatchEvent(new CustomEvent(&quot;combinedRender&quot;, {detail: {renders: renders}}));
+        }, true);
 
 
+        for (let i = 0; i &lt; renders.length; i++) {
+            attachTo(renders[i], combinedRender);
+        }
+    };
+
+    /**
+     * Starts rendering - This has to be called after {@link init}
+     */
+    render() {
+        this._animate();
+    };
+}
+
+/**
+ * @ignore
+ */
 function attachTo(self, target) {
     console.log(&quot;Attaching &quot; + self.constructor.name + &quot; to &quot; + target.constructor.name);
 
