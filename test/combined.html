@@ -20,6 +20,7 @@
     </head>
     <body>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js" integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4=" crossorigin="anonymous"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/94/three.min.js" integrity="sha256-NGC9JEuTWN4GhTj091wctgjzftr+8WNDmw0H8J5YPYE=" crossorigin="anonymous"></script>
         <script src="../dist/all.js"></script>
         <!--<script src="../dist/skin.js"></script>-->
         <!--<script src="../dist/model.js"></script>-->
@@ -54,38 +55,40 @@
                     centerCubes: true
                 });
 
-                combinedRender.init([skinRender, guiRender, modelRender], function () {
-                    guiRender.render([
-                        {
-                            name: "base",
-                            texture: "/gui/container/inventory",
-                            uv: [0, 0, 176, 166],
-                            pos: [0, 0],
-                            layer: 0
-                        },
-                    ], function () {
+                // Init
+                combinedRender.init([skinRender, guiRender, modelRender]);
 
-                    });
+                guiRender.render([
+                    {
+                        name: "base",
+                        texture: "/gui/container/inventory",
+                        uv: [0, 0, 176, 166],
+                        pos: [0, 0],
+                        layer: 0
+                    },
+                ], function () {
 
-                    modelRender.render(["block/grass_normal", "item/diamond_sword"], function () {
-
-                        for (let i = 0; i < modelRender.models.length; i++) {
-                            modelRender.models[i].scale.set(0.6, 0.6, 0.6)
-                        }
-
-                        modelRender.models[0].position.set(-54, -8, 6.5); // grass
-
-                        modelRender.models[1].position.set(-72, -68, 6.5); // sword
-                    });
-
-                    skinRender.render("inventivetalent", function () {
-                        skinRender.playerModel.scale.set(1.75, 1.75, 1.75)
-
-                        skinRender.playerModel.position.set(-40, 8, 15)
-                    });
-
-                    combinedRender.render();
                 });
+
+                modelRender.render(["block/grass_normal", "item/diamond_sword"], function () {
+
+                    for (let i = 0; i < modelRender.models.length; i++) {
+                        modelRender.models[i].scale.set(0.6, 0.6, 0.6)
+                    }
+
+                    modelRender.models[0].position.set(-54, -8, 6.5); // grass
+
+                    modelRender.models[1].position.set(-72, -68, 6.5); // sword
+                });
+
+                skinRender.render("inventivetalent", function () {
+                    skinRender.playerModel.scale.set(1.75, 1.75, 1.75)
+
+                    skinRender.playerModel.position.set(-40, 8, 15)
+                });
+
+                // Do render
+                combinedRender.render();
 
 
                 document.body.addEventListener("combinedRender", function () {
