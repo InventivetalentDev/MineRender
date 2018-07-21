@@ -1,5 +1,3 @@
-import { initScene, defaultOptions } from "../renderBase";
-
 import GuiRender from "../gui/index";
 import ModelRender from "../model/index";
 import SkinRender from "../skin/index";
@@ -16,7 +14,7 @@ class CombinedRender extends Render {
     init (renders, cb) {
         let combinedRender = this;
 
-        initScene(this, function () {
+        super.initScene(function () {
             combinedRender.element.dispatchEvent(new CustomEvent("combinedRender", {detail: {renders: renders}}));
         }, true);
 
