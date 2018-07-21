@@ -3,37 +3,37 @@ import { initScene, defaultOptions } from "../renderBase";
 import GuiRender from "../gui/index";
 import ModelRender from "../model/index";
 import SkinRender from "../skin/index";
+import Render from "../renderBase";
 
-function CombinedRender(options, element) {
-    this.renderType = "CombinedRender";
-    this.options = Object.assign({}, defaultOptions, options);
-    this.element = element || document.body;
-}
+class CombinedRender extends Render {
 
-CombinedRender.prototype.init = function (renders, cb) {
-    let combinedRender = this;
+    constructor(options, element) {
+        super(options, {}, element);
 
-    initScene(this, function () {
-        combinedRender.element.dispatchEvent(new CustomEvent("combinedRender", {detail: {renders: renders}}));
-    }, true);
-
-
-    for (let i = 0; i < renders.length; i++) {
-        attachTo(renders[i], combinedRender);
+        this.renderType = "CombinedRender";
     }
 
-    if (typeof cb === "function") cb();
-};
+    init (renders, cb) {
+        let combinedRender = this;
 
-CombinedRender.prototype.render = function (cb) {
-    this._animate();
+        initScene(this, function () {
+            combinedRender.element.dispatchEvent(new CustomEvent("combinedRender", {detail: {renders: renders}}));
+        }, true);
 
-    if (typeof cb === "function") cb();
-};
 
-CombinedRender.prototype.toImage = function () {
-    return this._renderer.domElement.toDataURL("image/png");
-};
+        for (let i = 0; i < renders.length; i++) {
+            attachTo(renders[i], combinedRender);
+        }
+
+        if (typeof cb === "function") cb();
+    };
+
+    render (cb) {
+        this._animate();
+
+        if (typeof cb === "function") cb();
+    };
+}
 
 
 function attachTo(self, target) {
