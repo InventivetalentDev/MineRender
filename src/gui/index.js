@@ -3,8 +3,6 @@ import Render, { loadTextureAsBase64, defaultOptions, DEFAULT_ROOT } from "../re
 import guiPositions from "./guiPositions";
 import guiHelper from "./guiHelper";
 
-let LAYER_OFFSET = 0.5;
-
 /**
  * @see defaultOptions
  * @property {string} [assetRoot=DEFAULT_ROOT] root to get asset files from
@@ -168,10 +166,16 @@ class GuiRender extends Render {
                 plane.applyMatrix(new THREE.Matrix4().makeTranslation(uvW / 2, uvH / 2, 0));
 
                 if (material.userData.layer.pos) {
-                    plane.applyMatrix(new THREE.Matrix4().makeTranslation(material.userData.layer.pos[0], -uvH - material.userData.layer.pos[1], (material.userData.layer.layer ? material.userData.layer.layer : i) * LAYER_OFFSET));
+                    plane.applyMatrix(new THREE.Matrix4().makeTranslation(material.userData.layer.pos[0], -uvH - material.userData.layer.pos[1], 0));
                 } else {
-                    plane.applyMatrix(new THREE.Matrix4().makeTranslation(0, -uvH, (material.userData.layer.layer ? material.userData.layer.layer : i) * LAYER_OFFSET));
+                    plane.applyMatrix(new THREE.Matrix4().makeTranslation(0, -uvH, 0));
                 }
+
+                if (material.userData.layer.layer) {
+                    plane.layers.set(material.userData.layer.layer);
+                    guiRender._camera.layers.enable(material.userData.layer.layer);
+                }
+
 
                 planeGroup.add(plane);
 
@@ -179,6 +183,11 @@ class GuiRender extends Render {
                 if (guiRender.options.showOutlines) {
                     let box = new THREE.BoxHelper(plane, 0xff0000);
                     planeGroup.add(box);
+
+                    if (material.userData.layer.layer) {
+                        box.layers.set(material.userData.layer.layer);
+                    }
+
                 }
             }
 

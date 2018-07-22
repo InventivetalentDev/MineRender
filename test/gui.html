@@ -51,7 +51,7 @@
                         name: "base",
                         texture: "/gui/container/generic_54",
                         uv: GuiRender.Positions.container.generic_54.uv,
-                        pos:[0,0],
+                        pos: [0, 0],
                         layer: 0,
                         textureScale: 4
                     },
@@ -101,7 +101,7 @@
 
                 $.ajax("/res/mc/data/minecraft/recipes/rail.json").done(function (recipe) {
                     console.log(recipe);
-                    window.guiRender = new GuiRender( {
+                    window.guiRender = new GuiRender({
                         showOutlines: true,
                         showAxes: true,
                         controls: {
@@ -110,8 +110,9 @@
                             zoom: true,
                             pan: true
                         },
-                    }).render(GuiRender.Helper.recipe(recipe,{
-                        "rail":"/block/rail"
+                    });
+                    window.guiRender.render(GuiRender.Helper.recipe(recipe, {
+                        "rail": "/block/rail"
                     }));
                 })
 
