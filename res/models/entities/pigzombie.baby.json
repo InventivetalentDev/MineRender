@@ -1,0 +1,11 @@
+{
+  "groups": {
+    "hat": {
+      "name": "hat",
+      "material": "alpha",
+      "cubes": []
+    }
+  },
+  "name": "pigzombie.baby",
+  "parent": "pigzombie"
+}

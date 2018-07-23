@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import * as $ from 'jquery';
-import mergeDeep from "../lib/merge";
+import merge from 'deepmerge'
 import Render, { loadTextureAsBase64, scaleUv, defaultOptions, DEFAULT_ROOT, loadJsonFromPath, loadBlockState, loadTextureMeta } from "../renderBase";
 import ModelConverter from "./modelConverter";
 import * as md5 from "md5";
@@ -936,7 +936,7 @@ let mergeParents_ = function (model, stack, assetRoot, resolve, reject) {
     if (!model.hasOwnProperty("parent") || model["parent"] === "builtin/generated" || model["parent"] === "builtin/entity") {// already at the highest parent OR we reach the builtin parent which seems to be the hardcoded stuff that's not in the json files
         let merged = {};
         for (let i = stack.length - 1; i >= 0; i--) {
-            merged = mergeDeep(merged, stack[i]);
+            merged = merge(merged, stack[i]);
         }
 
         resolve(merged);

@@ -1,0 +1,30 @@
+{
+  "groups": {
+    "head": {
+      "name": "head",
+      "cubes": []
+    },
+    "rightArm": {
+      "name": "rightArm",
+      "cubes": []
+    },
+    "leftArm": {
+      "name": "leftArm",
+      "cubes": []
+    },
+    "rightLeg": {
+      "name": "rightLeg",
+      "cubes": []
+    },
+    "leftLeg": {
+      "name": "leftLeg",
+      "cubes": []
+    },
+    "body": {
+      "name": "body",
+      "cubes": []
+    }
+  },
+  "name": "stray.armor",
+  "parent": "zombie"
+}

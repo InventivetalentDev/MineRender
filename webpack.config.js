@@ -100,6 +100,21 @@ let guiConfigFull = Object.assign({}, baseConfigFull, {
     },
 });
 
+let entityConfig = Object.assign({}, baseConfigMin, {
+    entry: './src/entity/index.js',
+    output: {
+        path: path.resolve(__dirname, './dist'),
+        filename: 'entity.min.js'
+    },
+});
+let entityConfigFull = Object.assign({}, baseConfigFull, {
+    entry: './src/entity/index.js',
+    output: {
+        path: path.resolve(__dirname, './dist'),
+        filename: 'entity.js'
+    },
+});
+
 
 let combinedConfig = Object.assign({}, baseConfigMin, {
     entry: './src/combined/index.js',
@@ -137,6 +152,7 @@ module.exports = [
     skinConfig, skinConfigFull,
     modelConfig, modelConfigFull,
     guiConfig, guiConfigFull,
+    entityConfig, entityConfigFull,
 
     combinedConfig, combinedConfigFull,
 
