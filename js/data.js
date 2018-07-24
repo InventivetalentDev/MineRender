@@ -1444,6 +1444,39 @@ items = [
     "zombie_villager_spawn_egg"
 ];
 
+entities = [
+    {
+        name: "Creeper",
+        model: "creeper",
+        texture: "creeper/creeper"
+    },
+    {
+        name: "Chicken",
+        model: "chicken",
+        texture: "chicken"
+    },
+    {
+        name: "Armor Stand",
+        model: "armor_stand",
+        texture: "armorstand/wood"
+    },
+    {
+        name: "Ghast",
+        model: "ghast",
+        texture: "ghast/ghast"
+    },
+    {
+        name: "Wither",
+        model: "witherBoss",
+        texture: "wither/wither"
+    },
+    {
+        name: "Zombie",
+        model: "zombie",
+        texture: "zombie/zombie"
+    }
+];
+
 gui = {
     Helper: {
         inventorySlot: function (n, origin, offset, rowSize) {

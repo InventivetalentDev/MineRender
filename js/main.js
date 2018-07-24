@@ -15,6 +15,7 @@ $(".three-hash").text(THREE_HASH);
 var randomSkins;
 var randomBlocks;
 var randomItems;
+var randomEntities;
 var randomResourcePacks;
 
 function getRandomSkin() {
@@ -38,6 +39,10 @@ function getRandomBlock() {
 
 function getRandomItem() {
     return randomItems.splice(Math.floor(Math.random() * randomItems.length), 1)[0];
+}
+
+function getRandomEntity() {
+    return randomEntities.splice(Math.floor(Math.random() * randomEntities.length), 1)[0];
 }
 
 function getRandomResourcePack() {
@@ -64,7 +69,8 @@ function renderSkinShowcases() {
                 zoom: false,
                 rotate: true,
                 pan: true
-            }
+            },
+            forceContext:true
         }, element[0]);
         element.on("skinRender", function (e) {
             if (e.detail.playerModel) {
@@ -111,7 +117,8 @@ function renderBlockShowcases() {
                 zoom: false,
                 rotate: true,
                 pan: true
-            }
+            },
+            forceContext:true
         }, element[0]);
         (function (i) {
             modelRender.render([{
@@ -150,7 +157,8 @@ function renderItemShowcases() {
                 zoom: false,
                 rotate: true,
                 pan: true
-            }
+            },
+            forceContext:true
         }, element[0]);
         (function (i) {
             modelRender.render(["item/" + item], function () {
@@ -164,6 +172,42 @@ function renderItemShowcases() {
             }
         })
         renders[i] = modelRender;
+    }
+}
+
+function renderEntityShowcases() {
+    var renders = [];
+    for (var i = 0; i < 3; i++) {
+        var entity = getRandomEntity();
+        var element = $("#entityExample" + (i + 1));
+        $("#entityName" + (i + 1)).text(entity.name);
+        var entityRender = new EntityRender({
+            autoResize: true,
+            canvas: {
+                width: element[0].offsetWidth,
+                height: element[0].offsetHeight
+            },
+            centerCubes: true,
+            controls: {
+                enabled: true,
+                zoom: false,
+                rotate: true,
+                pan: true
+            },
+            forceContext:true
+        }, element[0]);
+        (function (i) {
+            entityRender.render([entity], function () {
+                $("#entityPlaceholder" + (i + 1)).remove();
+            })
+        })(i);
+        element.on("entityRender", function (e) {
+            let entities = e.detail.entities;
+            for (var j = 0; j < entities.length; j++) {
+                entities[j].rotation.y += 0.01;
+            }
+        })
+        renders[i] = entityRender;
     }
 }
 
@@ -183,7 +227,8 @@ function renderGUIShowcases() {
                 zoom: false,
                 rotate: false,
                 pan: true
-            }
+            },
+            forceContext:true
         }, element[0]);
         (function (i) {
             guiRender.render(gui, function () {
@@ -211,7 +256,8 @@ function renderRecipeShowcases() {
                         zoom: false,
                         rotate: false,
                         pan: true
-                    }
+                    },
+                    forceContext:true
                 }, element[0]);
                 guiRender.render(GuiRender.Helper.recipe(r, recipe.map), function () {
                     $("#recipePlaceholder" + (i + 1)).remove();
@@ -242,7 +288,8 @@ function renderResourcePackShowcases() {
                 rotate: true,
                 pan: true
             },
-            assetRoot: "/res/rp/" + pack.path
+            assetRoot: "/res/rp/" + pack.path,
+            forceContext:true
         }, element[0]);
         (function (i) {
             modelRender.render([{
@@ -311,12 +358,14 @@ $(document).ready(function () {
     randomSkins = skins.splice(0);
     randomBlocks = blocks.splice(0);
     randomItems = items.splice(0);
+    randomEntities=entities.splice(0)
     randomResourcePacks = resourcePacks.splice(0);
 
     setTimeout(function () {
         renderSkinShowcases();
         renderBlockShowcases();
         renderItemShowcases();
+        renderEntityShowcases();
         renderGUIShowcases();
         renderRecipeShowcases();
         renderResourcePackShowcases();

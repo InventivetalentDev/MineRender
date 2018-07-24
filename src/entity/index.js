@@ -17,7 +17,7 @@ let defOptions = {
         x: 35,
         y: 25,
         z: 20,
-        target: [0, 0, 0]
+        target: [0, 16, 0]
     },
     assetRoot: DEFAULT_ROOT
 };
@@ -70,6 +70,8 @@ class EntityRender extends Render {
                     }
                 }
 
+                if (!entity.textureScale) entity.textureScale = 1;
+
                 getEntityModel(entity.model)
                     .then(modelData => mergeParents(modelData))
                     .then((mergedModel) => {
@@ -84,6 +86,7 @@ class EntityRender extends Render {
 
                                 renderEntity(entityRender, mergedModel, textureData, entity.textureScale).then((renderedEntity) => {
                                     entityRender._scene.add(renderedEntity);
+                                    entityRender.entities.push(renderedEntity);
                                     resolve();
                                 })
                             });
@@ -126,9 +129,6 @@ function renderEntity(entityRender, modelData, texture, textureScale) {
                     cubeGroup.rotation.y = group.rotation[1];
                     cubeGroup.rotation.z = group.rotation[2];
                 }
-
-                let originPoint = createDot(0x00ff00);
-                cubeGroup.add(originPoint);
 
 
                 for (let i = 0; i < group.cubes.length; i++) {
@@ -274,13 +274,6 @@ let applyCubeTextureToGeometry = function (geometry, texture, uv, mirror, textur
     geometry.uvsNeedUpdate = true;
 };
 
-
-let createDot = function (c) {
-    let dotGeometry = new THREE.Geometry();
-    dotGeometry.vertices.push(new THREE.Vector3());
-    let dotMaterial = new THREE.PointsMaterial({size: 5, sizeAttenuation: false, color: c});
-    return new THREE.Points(dotGeometry, dotMaterial);
-};
 
 function getEntityModel(entity) {
     return new Promise((resolve, reject) => {
