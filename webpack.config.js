@@ -1,5 +1,6 @@
 const path = require('path');
 const webpack = require('webpack');
+const ProgressBarPlugin = require('progress-bar-webpack-plugin');
 
 const banner = "MineRender\n" +
     "(c) 2018, Haylee Schäfer (inventivetalent) / MIT License\n" +
@@ -25,7 +26,8 @@ let baseConfigFull = {
             BUILD_TIMESTAMP: JSON.stringify(Date.now()),
             BUILD_NUMBER: JSON.stringify(process.env.TRAVIS_BUILD_NUMBER)
         }),
-        new webpack.BannerPlugin(banner)
+        new webpack.BannerPlugin(banner),
+        new ProgressBarPlugin()
     ]
 };
 
@@ -100,6 +102,21 @@ let guiConfigFull = Object.assign({}, baseConfigFull, {
     },
 });
 
+let entityConfig = Object.assign({}, baseConfigMin, {
+    entry: './src/entity/index.js',
+    output: {
+        path: path.resolve(__dirname, './dist'),
+        filename: 'entity.min.js'
+    },
+});
+let entityConfigFull = Object.assign({}, baseConfigFull, {
+    entry: './src/entity/index.js',
+    output: {
+        path: path.resolve(__dirname, './dist'),
+        filename: 'entity.js'
+    },
+});
+
 
 let combinedConfig = Object.assign({}, baseConfigMin, {
     entry: './src/combined/index.js',
@@ -137,6 +154,7 @@ module.exports = [
     skinConfig, skinConfigFull,
     modelConfig, modelConfigFull,
     guiConfig, guiConfigFull,
+    entityConfig, entityConfigFull,
 
     combinedConfig, combinedConfigFull,
 

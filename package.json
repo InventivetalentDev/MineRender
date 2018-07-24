@@ -13,8 +13,10 @@
   "license": "MIT",
   "dependencies": {
     "@johh/three-effectcomposer": "0.0.4",
+    "deepmerge": "^2.1.1",
     "esdoc": "^1.1.0",
     "esdoc-standard-plugin": "^1.0.0",
+    "java-parser": "0.0.2",
     "jquery": "^3.3.1",
     "md5": "^2.2.1",
     "nbt-js": "^0.1.0",
@@ -25,6 +27,7 @@
     "threejs-ext": "^0.92.0"
   },
   "devDependencies": {
+    "progress-bar-webpack-plugin": "^1.11.0",
     "webpack": "^4.15.1",
     "webpack-cli": "^3.0.8"
   }
