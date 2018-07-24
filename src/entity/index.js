@@ -6,6 +6,7 @@ import Render, { loadTextureAsBase64, scaleUv, defaultOptions, DEFAULT_ROOT, loa
 
 const FACE_ORDER = ["left", "right", "top", "bottom", "front", "back"];
 
+
 /**
  * @see defaultOptions
  * @property {string} [assetRoot=DEFAULT_ROOT] root to get asset files from
@@ -64,7 +65,8 @@ class EntityRender extends Render {
                 if (typeof entity !== "object") {
                     entity = {
                         model: entity,
-                        texture: entity
+                        texture: entity,
+                        textureScale: 1
                     }
                 }
 
@@ -80,7 +82,7 @@ class EntityRender extends Render {
                                 textureData.anisotropy = 0;
                                 textureData.needsUpdate = true;
 
-                                renderEntity(entityRender, mergedModel, textureData).then((renderedEntity) => {
+                                renderEntity(entityRender, mergedModel, textureData, entity.textureScale).then((renderedEntity) => {
                                     entityRender._scene.add(renderedEntity);
                                     resolve();
                                 })
@@ -102,7 +104,7 @@ class EntityRender extends Render {
 
 }
 
-function renderEntity(entityRender, modelData, texture) {
+function renderEntity(entityRender, modelData, texture, textureScale) {
     console.log(modelData)
     return new Promise((resolve) => {
         let entityGroup = new THREE.Object3D();
@@ -119,11 +121,14 @@ function renderEntity(entityRender, modelData, texture) {
                 if (group.pos) {// There's a pos tag and I have absolutely no idea why the f* it's even there, since it just messes up everything
                     // cubeGroup.applyMatrix(new THREE.Matrix4().makeTranslation(group.pos[0], group.pos[1], group.pos[2]))
                 }
-                if (group.rotation) {
+                if (group.rotation && group.rotation.length === 3) {
                     cubeGroup.rotation.x = group.rotation[0];
                     cubeGroup.rotation.y = group.rotation[1];
                     cubeGroup.rotation.z = group.rotation[2];
                 }
+
+                let originPoint = createDot(0x00ff00);
+                cubeGroup.add(originPoint);
 
 
                 for (let i = 0; i < group.cubes.length; i++) {
@@ -135,7 +140,7 @@ function renderEntity(entityRender, modelData, texture) {
                         cubeContainer.applyMatrix(new THREE.Matrix4().makeTranslation(-group.pivot[0], -group.pivot[1], -group.pivot[2]));
 
 
-                    let cubeMesh = createCube(cube.size[0], cube.size[1], cube.size[2], group.name + "_" + i, cube.uv, 0x000000, texture, cube.mirror || group.mirror);
+                    let cubeMesh = createCube(cube.size[0], cube.size[1], cube.size[2], group.name + "_" + i, cube.uv, 0x000000, texture, cube.mirror || group.mirror, textureScale);
 
 
                     cubeMesh.translateOnAxis(new THREE.Vector3(0, 0, 1), cube.size[2]);
@@ -179,7 +184,7 @@ function renderEntity(entityRender, modelData, texture) {
 }
 
 
-let createCube = function (width, height, depth, name, uv, color, texture, mirror) {
+let createCube = function (width, height, depth, name, uv, color, texture, mirror, textureScale) {
     let geometry = new THREE.BoxGeometry(width, height, depth);
     let material;
     if (texture) {
@@ -197,7 +202,7 @@ let createCube = function (width, height, depth, name, uv, color, texture, mirro
     }
 
     if (texture) {
-        applyCubeTextureToGeometry(geometry, texture, uv, mirror);
+        applyCubeTextureToGeometry(geometry, texture, uv, mirror, textureScale);
     }
 
 
@@ -208,7 +213,7 @@ let createCube = function (width, height, depth, name, uv, color, texture, mirro
     return cube;
 };
 
-let applyCubeTextureToGeometry = function (geometry, texture, uv, mirror) {
+let applyCubeTextureToGeometry = function (geometry, texture, uv, mirror, textureScale) {
     let w = texture.image.width;
     let h = texture.image.height;
 
@@ -216,10 +221,10 @@ let applyCubeTextureToGeometry = function (geometry, texture, uv, mirror) {
     geometry.faceVertexUvs[0] = [];
     let faceUvs = [];
     for (let i = 0; i < 6; i++) {
-        let tx1 = uv[FACE_ORDER[i]][0];
-        let ty1 = h - uv[FACE_ORDER[i]][1];
-        let tx2 = uv[FACE_ORDER[i]][2];
-        let ty2 = h - uv[FACE_ORDER[i]][3];
+        let tx1 = uv[FACE_ORDER[i]][0] * textureScale;
+        let ty1 = h - uv[FACE_ORDER[i]][1] * textureScale;
+        let tx2 = uv[FACE_ORDER[i]][2] * textureScale;
+        let ty2 = h - uv[FACE_ORDER[i]][3] * textureScale;
 
 
         let flipY = false;
@@ -269,6 +274,13 @@ let applyCubeTextureToGeometry = function (geometry, texture, uv, mirror) {
     geometry.uvsNeedUpdate = true;
 };
 
+
+let createDot = function (c) {
+    let dotGeometry = new THREE.Geometry();
+    dotGeometry.vertices.push(new THREE.Vector3());
+    let dotMaterial = new THREE.PointsMaterial({size: 5, sizeAttenuation: false, color: c});
+    return new THREE.Points(dotGeometry, dotMaterial);
+};
 
 function getEntityModel(entity) {
     return new Promise((resolve, reject) => {

@@ -1,5 +1,6 @@
 const path = require('path');
 const webpack = require('webpack');
+const ProgressBarPlugin = require('progress-bar-webpack-plugin');
 
 const banner = "MineRender\n" +
     "(c) 2018, Haylee Schäfer (inventivetalent) / MIT License\n" +
@@ -25,7 +26,8 @@ let baseConfigFull = {
             BUILD_TIMESTAMP: JSON.stringify(Date.now()),
             BUILD_NUMBER: JSON.stringify(process.env.TRAVIS_BUILD_NUMBER)
         }),
-        new webpack.BannerPlugin(banner)
+        new webpack.BannerPlugin(banner),
+        new ProgressBarPlugin()
     ]
 };
 

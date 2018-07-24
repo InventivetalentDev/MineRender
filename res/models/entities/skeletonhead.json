@@ -1,0 +1,70 @@
+{
+  "name": "skeletonhead",
+  "groups": {
+    "skeletonHead": {
+      "name": "skeletonHead",
+      "pivot": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "cubes": [
+        {
+          "origin": [
+            -4,
+            -8,
+            -4
+          ],
+          "size": [
+            8,
+            8,
+            8
+          ],
+          "uv": {
+            "left": [
+              null,
+              8,
+              8,
+              16
+            ],
+            "right": [
+              16,
+              8,
+              24,
+              16
+            ],
+            "top": [
+              8,
+              null,
+              16,
+              8
+            ],
+            "bottom": [
+              16,
+              null,
+              24,
+              8
+            ],
+            "front": [
+              8,
+              8,
+              16,
+              16
+            ],
+            "back": [
+              24,
+              8,
+              32,
+              16
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
