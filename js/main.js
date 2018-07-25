@@ -360,16 +360,16 @@ function openRecipeModal() {
 $(document).ready(function () {
     console.log("Document is ready!")
 
-    $(".jquery-version").text(JQUERY_VERSION);
-    $(".three-version").text(THREE_VERSION);
-    $(".jquery-hash").text(JQUERY_HASH);
-    $(".three-hash").text(THREE_HASH);
-
     randomSkins = skins.splice(0);
     randomBlocks = blocks.splice(0);
     randomItems = items.splice(0);
     randomEntities = entities.splice(0)
     randomResourcePacks = resourcePacks.splice(0);
+
+    $(".jquery-version").text(JQUERY_VERSION);
+    $(".three-version").text(THREE_VERSION);
+    $(".jquery-hash").text(JQUERY_HASH);
+    $(".three-hash").text(THREE_HASH);
 
     setTimeout(function () {
         setTimeout(renderSkinShowcases, 200);
