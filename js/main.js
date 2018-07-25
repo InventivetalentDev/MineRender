@@ -304,6 +304,7 @@ function renderResourcePackShowcases() {
 }
 
 function openSkinModal() {
+    $("#skin-modal").find("pre").each(function(){Prism.highlightElement(this)})
     $("#skin-modal").modal();
 
     var skin = getRandomSkin();
@@ -315,6 +316,7 @@ function openSkinModal() {
 
 
 function openBlockModal() {
+    $("#block-modal").find("pre").each(function(){Prism.highlightElement(this)})
     $("#block-modal").modal();
 
     var block = getRandomBlock();
@@ -326,6 +328,7 @@ function openBlockModal() {
 
 
 function openItemModal() {
+    $("#item-modal").find("pre").each(function(){Prism.highlightElement(this)})
     $("#item-modal").modal();
 
     var item = getRandomItem();
@@ -336,6 +339,7 @@ function openItemModal() {
 }
 
 function openEntityModal() {
+    $("#entity-modal").find("pre").each(function(){Prism.highlightElement(this)})
     $("#entity-modal").modal();
 
     var entity = getRandomEntity();
@@ -346,12 +350,14 @@ function openEntityModal() {
 }
 
 function openGuiModal() {
+    $("#gui-modal").find("pre").each(function(){Prism.highlightElement(this)})
     $("#gui-modal").modal();
 
     $("#gui-modal").modal("open");
 }
 
 function openRecipeModal() {
+    $("#recipe-modal").find("pre").each(function(){Prism.highlightElement(this)})
     $("#recipe-modal").modal();
 
     $("#recipe-modal").modal("open");
@@ -380,7 +386,6 @@ $(document).ready(function () {
         setTimeout(renderRecipeShowcases, 1200);
         setTimeout(renderResourcePackShowcases, 1400);
     }, 500);
-
 
     // Modal functions
 
