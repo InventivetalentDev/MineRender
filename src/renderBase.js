@@ -1,5 +1,5 @@
 import OrbitControls from "./lib/OrbitControls";
-import { SSAARenderPass, OBJExporter, GLTFExporter } from "threejs-ext";
+import { SSAARenderPass, OBJExporter, GLTFExporter, PLYExporter } from "threejs-ext";
 import EffectComposer, { ShaderPass, CopyShader } from "@johh/three-effectcomposer";
 import * as THREE from "three";
 import OnScreen from "onscreen";
@@ -153,6 +153,13 @@ export default class Render {
                 reject();
             }
         })
+    }
+
+    toPLY(exportOptions) {
+        if (this._scene) {
+            let exporter = new PLYExporter();
+            return exporter.parse(this._scene, exportOptions);
+        }
     }
 
     /**
