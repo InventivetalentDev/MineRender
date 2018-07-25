@@ -102,11 +102,29 @@ export default class Render {
     }
 
     /**
+     * @param {boolean} [trim=false] whether to trim transparent pixels
+     * @param {string} [mime=image/png] mime type of the image
      * @returns {string} The content of the renderer's canvas as a Base64 encoded image
      */
-    toImage() {
-        if (this._renderer)
-            return this._renderer.domElement.toDataURL("image/png");
+    toImage(trim, mime) {
+        if (!mime) mime = "image/png";
+        if (this._renderer) {
+            if (!trim) {
+                return this._renderer.domElement.toDataURL(mime);
+            } else {
+                // Clone the canvas onto a 2d context, so we can trim it properly
+                let newCanvas = document.createElement('canvas');
+                let context = newCanvas.getContext('2d');
+
+                newCanvas.width = this._renderer.domElement.width;
+                newCanvas.height = this._renderer.domElement.height;
+
+                context.drawImage(this._renderer.domElement, 0, 0);
+
+                let trimmed = trimCanvas(newCanvas);
+                return trimmed.toDataURL(mime);
+            }
+        }
     };
 
     /**
@@ -358,7 +376,7 @@ export function loadBlockState(state, assetRoot) {
     return loadJsonFromPath(assetRoot, "/assets/minecraft/blockstates/" + state + ".json")
 };
 
-export function loadTextureMeta(texture,assetRoot){
+export function loadTextureMeta(texture, assetRoot) {
     return loadJsonFromPath(assetRoot, "/assets/minecraft/textures/block/" + texture + ".png.mcmeta")
 }
 
@@ -435,4 +453,61 @@ function loadJsonFromPath_(root, path, resolve, reject, forceLoad) {
 export function scaleUv(uv, size, scale) {
     if (uv === 0) return 0;
     return size / (scale || 16) * uv;
+}
+
+
+// https://gist.github.com/remy/784508
+function trimCanvas(c) {
+    let ctx = c.getContext('2d'),
+        copy = document.createElement('canvas').getContext('2d'),
+        pixels = ctx.getImageData(0, 0, c.width, c.height),
+        l = pixels.data.length,
+        i,
+        bound = {
+            top: null,
+            left: null,
+            right: null,
+            bottom: null
+        },
+        x, y;
+
+    for (i = 0; i < l; i += 4) {
+        if (pixels.data[i + 3] !== 0) {
+            x = (i / 4) % c.width;
+            y = ~~((i / 4) / c.width);
+
+            if (bound.top === null) {
+                bound.top = y;
+            }
+
+            if (bound.left === null) {
+                bound.left = x;
+            } else if (x < bound.left) {
+                bound.left = x;
+            }
+
+            if (bound.right === null) {
+                bound.right = x;
+            } else if (bound.right < x) {
+                bound.right = x;
+            }
+
+            if (bound.bottom === null) {
+                bound.bottom = y;
+            } else if (bound.bottom < y) {
+                bound.bottom = y;
+            }
+        }
+    }
+
+    let trimHeight = bound.bottom - bound.top,
+        trimWidth = bound.right - bound.left,
+        trimmed = ctx.getImageData(bound.left, bound.top, trimWidth, trimHeight);
+
+    copy.canvas.width = trimWidth;
+    copy.canvas.height = trimHeight;
+    copy.putImageData(trimmed, 0, 0);
+
+    // open new window with trimmed image:
+    return copy.canvas;
 }
