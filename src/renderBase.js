@@ -1,5 +1,5 @@
 import OrbitControls from "./lib/OrbitControls";
-import { SSAARenderPass, OBJExporter } from "threejs-ext";
+import { SSAARenderPass, OBJExporter, GLTFExporter } from "threejs-ext";
 import EffectComposer, { ShaderPass, CopyShader } from "@johh/three-effectcomposer";
 import * as THREE from "three";
 import OnScreen from "onscreen";
@@ -136,6 +136,23 @@ export default class Render {
             let exporter = new OBJExporter();
             return exporter.parse(this._scene);
         }
+    }
+
+    /**
+     * Export the current scene content in the .gltf format (geometries + textures)
+     * @returns {Promise<any>} a promise which resolves with the .gltf file content
+     */
+    toGLTF(exportOptions) {
+        return new Promise((resolve, reject) => {
+            if (this._scene) {
+                let exporter = new GLTFExporter();
+                exporter.parse(this._scene, (gltf) => {
+                    resolve(gltf);
+                }, exportOptions)
+            } else {
+                reject();
+            }
+        })
     }
 
     /**
