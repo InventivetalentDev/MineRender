@@ -1,5 +1,5 @@
 import OrbitControls from "./lib/OrbitControls";
-import { SSAARenderPass } from "threejs-ext";
+import { SSAARenderPass, OBJExporter } from "threejs-ext";
 import EffectComposer, { ShaderPass, CopyShader } from "@johh/three-effectcomposer";
 import * as THREE from "three";
 import OnScreen from "onscreen";
@@ -126,6 +126,17 @@ export default class Render {
             }
         }
     };
+
+    /**
+     * Export the current scene content in the .obj format (only geometries, no textures)
+     * @returns {string} the .obj file content
+     */
+    toObj() {
+        if (this._scene) {
+            let exporter = new OBJExporter();
+            return exporter.parse(this._scene);
+        }
+    }
 
     /**
      * Initializes the scene
