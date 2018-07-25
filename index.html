@@ -326,6 +326,9 @@
                             </div>
                         </div>
                     </div>
+                    <div class="row center">
+                        <a href="#entities" class="btn waves-effect waves-light blue lighten-1 entityInstructions" id="entityInstructions">How To</a>
+                    </div>
                 </div>
             </div>
             <br/>
@@ -632,6 +635,28 @@ modelRender.render(["item/</code><span id="js-example-item" style="font-weight: 
                         <br/>
                         <div>
                             <pre><code class="language-markup">&lt;iframe src="https://minerender.org/embed/model?models=item/</code><span id="iframe-example-item" style="font-weight: bold"><code>diamond_axe</code></span><code class="language-markup">&shadow=true" frameborder="0"&gt;&lt;/iframe&gt;</code></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Entity Instructions -->
+        <div id="entity-modal" class="modal bottom-sheet">
+            <div class="modal-content">
+                <h4 class="center">Entity</h4>
+                <div class="row">
+                    <div class="col s6">
+                        <h5>JavaScript</h5>
+
+                        <br/>
+                        <div class="row">
+                            <pre><code class="language-markup">&lt;script src=&quot;https://cdnjs.cloudflare.com/ajax/libs/jquery/<span class="jquery-version"></span>/jquery.min.js&quot; integrity=&quot;<span class="jquery-hash"></span>&quot; crossorigin=&quot;anonymous&quot;&gt;&lt;/script&gt;
+&lt;script src=&quot;https://cdnjs.cloudflare.com/ajax/libs/three.js/<span class="three-version"></span>/three.min.js&quot; integrity=&quot;<span class="three-hash"></span>&quot; crossorigin=&quot;anonymous&quot;&gt;&lt;/script&gt;</code></pre>
+                            <pre><code class="language-markup">&lt;script src="https://minerender.org/dist/entity.min.js"&gt;&lt;/script&gt;</code></pre>
+                            <br/>
+                            <pre><code class="language-javascript">var entityRender = new EntityRender({/* options */}, document.getElementById("myEntityContainer"));
+entityRender.render([{model: "</code><span id="js-example-entity-model" style="font-weight: bold"><code>creeper</code></span><code class="language-javascript">", texture: "</code><span id="js-example-entity-texture" style="font-weight: bold"><code>creeper</code></span><code class="language-javascript">"}]);</code></pre>
                         </div>
                     </div>
                 </div>

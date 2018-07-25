@@ -3,11 +3,6 @@ var THREE_VERSION = "94";
 var JQUERY_HASH = "sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=";
 var THREE_HASH = "sha256-NGC9JEuTWN4GhTj091wctgjzftr+8WNDmw0H8J5YPYE=";
 
-$(".jquery-version").text(JQUERY_VERSION);
-$(".three-version").text(THREE_VERSION);
-$(".jquery-hash").text(JQUERY_HASH);
-$(".three-hash").text(THREE_HASH);
-
 
 // Showcases
 
@@ -70,7 +65,7 @@ function renderSkinShowcases() {
                 rotate: true,
                 pan: true
             },
-            forceContext:true
+            forceContext: true
         }, element[0]);
         element.on("skinRender", function (e) {
             if (e.detail.playerModel) {
@@ -118,7 +113,7 @@ function renderBlockShowcases() {
                 rotate: true,
                 pan: true
             },
-            forceContext:true
+            forceContext: true
         }, element[0]);
         (function (i) {
             modelRender.render([{
@@ -158,7 +153,7 @@ function renderItemShowcases() {
                 rotate: true,
                 pan: true
             },
-            forceContext:true
+            forceContext: true
         }, element[0]);
         (function (i) {
             modelRender.render(["item/" + item], function () {
@@ -194,7 +189,7 @@ function renderEntityShowcases() {
                 rotate: true,
                 pan: true
             },
-            forceContext:true
+            forceContext: true
         }, element[0]);
         (function (i) {
             entityRender.render([entity], function () {
@@ -228,7 +223,7 @@ function renderGUIShowcases() {
                 rotate: false,
                 pan: true
             },
-            forceContext:true
+            forceContext: true
         }, element[0]);
         (function (i) {
             guiRender.render(gui, function () {
@@ -257,7 +252,7 @@ function renderRecipeShowcases() {
                         rotate: false,
                         pan: true
                     },
-                    forceContext:true
+                    forceContext: true
                 }, element[0]);
                 guiRender.render(GuiRender.Helper.recipe(r, recipe.map), function () {
                     $("#recipePlaceholder" + (i + 1)).remove();
@@ -289,7 +284,7 @@ function renderResourcePackShowcases() {
                 pan: true
             },
             assetRoot: "/res/rp/" + pack.path,
-            forceContext:true
+            forceContext: true
         }, element[0]);
         (function (i) {
             modelRender.render([{
@@ -340,6 +335,16 @@ function openItemModal() {
     $("#item-modal").modal("open");
 }
 
+function openEntityModal() {
+    $("#entity-modal").modal();
+
+    var entity = getRandomEntity();
+    $("#js-example-entity-model").text(entity.model);
+    $("#js-example-entity-texture").text(entity.texture);
+
+    $("#entity-modal").modal("open");
+}
+
 function openGuiModal() {
     $("#gui-modal").modal();
 
@@ -355,20 +360,25 @@ function openRecipeModal() {
 $(document).ready(function () {
     console.log("Document is ready!")
 
+    $(".jquery-version").text(JQUERY_VERSION);
+    $(".three-version").text(THREE_VERSION);
+    $(".jquery-hash").text(JQUERY_HASH);
+    $(".three-hash").text(THREE_HASH);
+
     randomSkins = skins.splice(0);
     randomBlocks = blocks.splice(0);
     randomItems = items.splice(0);
-    randomEntities=entities.splice(0)
+    randomEntities = entities.splice(0)
     randomResourcePacks = resourcePacks.splice(0);
 
     setTimeout(function () {
-        renderSkinShowcases();
-        renderBlockShowcases();
-        renderItemShowcases();
-        renderEntityShowcases();
-        renderGUIShowcases();
-        renderRecipeShowcases();
-        renderResourcePackShowcases();
+        setTimeout(renderSkinShowcases, 200);
+        setTimeout(renderBlockShowcases, 400);
+        setTimeout(renderItemShowcases, 600);
+        setTimeout(renderEntityShowcases, 800);
+        setTimeout(renderGUIShowcases, 1000);
+        setTimeout(renderRecipeShowcases, 1200);
+        setTimeout(renderResourcePackShowcases, 1400);
     }, 500);
 
 
@@ -378,6 +388,7 @@ $(document).ready(function () {
     $(".skinInstructions").click(openSkinModal);
     $(".blockInstructions").click(openBlockModal);
     $(".itemInstructions").click(openItemModal);
+    $(".entityInstructions").click(openEntityModal);
     $(".guiInstructions").click(openGuiModal);
     $(".recipeInstructions").click(openRecipeModal);
 
