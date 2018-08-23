@@ -1,6 +1,6 @@
 import OrbitControls from "./lib/OrbitControls";
-import { SSAARenderPass, OBJExporter, GLTFExporter, PLYExporter } from "threejs-ext";
-import EffectComposer, { ShaderPass, CopyShader } from "@johh/three-effectcomposer";
+import {SSAARenderPass, OBJExporter, GLTFExporter, PLYExporter} from "threejs-ext";
+import EffectComposer, {ShaderPass, CopyShader} from "@johh/three-effectcomposer";
 import * as THREE from "three";
 import OnScreen from "onscreen";
 import * as $ from "jquery";
@@ -74,7 +74,8 @@ export const defaultOptions = {
         height: undefined
     },
     pauseHidden: true,
-    forceContext: false
+    forceContext: false,
+    sendStats: true
 };
 
 /**
@@ -99,6 +100,8 @@ export default class Render {
          * @type {{} & defaultOptions & defOptions & options}
          */
         this.options = Object.assign({}, defaultOptions, defOptions, options);
+
+        this.renderType = "_Base_";
     }
 
     /**
@@ -177,6 +180,27 @@ export default class Render {
         console.log((PRODUCTION ? "PRODUCTION" : "DEVELOPMENT") + " build");
         console.log("Built @ " + BUILD_DATE);
         console.log(" ");
+
+        if (renderObj.options.sendStats) {
+            // Send stats
+
+            let iframe = false;
+            try {
+                iframe = window.self !== window.top;
+            } catch (e) {
+                return true;
+            }
+
+            $.post({
+                url: "https://minerender.org/stats.php",
+                data: {
+                    action: "init",
+                    type: renderObj.renderType,
+                    host: (new URL(iframe ? document.referrer : window.location).hostname),
+                    source: (iframe ? "iframe" : "javascript")
+                }
+            });
+        }
 
         // Scene INIT
         let scene = new THREE.Scene();
