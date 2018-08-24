@@ -76,7 +76,7 @@ function renderSkinShowcases() {
             }
         })
         renders[i] = skinRender;
-        (function (i) {
+        (function (skinRender, i) {
             let data = {
                 capeUrl: "https://minerender.org/img/optifine_cape.png",
                 optifine: true
@@ -86,10 +86,12 @@ function renderSkinShowcases() {
             } else {
                 data.username = skin.skin;
             }
-            skinRender.render(data, function () {
-                $("#skinPlaceholder" + (i + 1)).remove();
-            })
-        })(i);
+            setTimeout(function () {
+                skinRender.render(data, function () {
+                    $("#skinPlaceholder" + (i + 1)).remove();
+                })
+            }, 200 * i);
+        })(skinRender, i);
     }
 }
 
@@ -115,13 +117,15 @@ function renderBlockShowcases() {
             },
             forceContext: true
         }, element[0]);
-        (function (i) {
-            modelRender.render([{
-                blockstate: block
-            }], function () {
-                $("#blockPlaceholder" + (i + 1)).remove();
-            })
-        })(i);
+        (function (modelRender, block, i) {
+            setTimeout(function () {
+                modelRender.render([{
+                    blockstate: block
+                }], function () {
+                    $("#blockPlaceholder" + (i + 1)).remove();
+                })
+            }, 200 * i);
+        })(modelRender, block, i);
         element.on("modelRender", function (e) {
             let models = e.detail.models;
             for (var j = 0; j < models.length; j++) {
@@ -155,11 +159,13 @@ function renderItemShowcases() {
             },
             forceContext: true
         }, element[0]);
-        (function (i) {
-            modelRender.render(["item/" + item], function () {
-                $("#itemPlaceholder" + (i + 1)).remove();
-            })
-        })(i);
+        (function (modelRender, item, i) {
+            setTimeout(function () {
+                modelRender.render(["item/" + item], function () {
+                    $("#itemPlaceholder" + (i + 1)).remove();
+                })
+            }, 200 * i);
+        })(modelRender, item, i);
         element.on("modelRender", function (e) {
             let models = e.detail.models;
             for (var j = 0; j < models.length; j++) {
@@ -191,11 +197,13 @@ function renderEntityShowcases() {
             },
             forceContext: true
         }, element[0]);
-        (function (i) {
-            entityRender.render([entity], function () {
-                $("#entityPlaceholder" + (i + 1)).remove();
-            })
-        })(i);
+        (function (entityRender, entity, i) {
+            setTimeout(function () {
+                entityRender.render([entity], function () {
+                    $("#entityPlaceholder" + (i + 1)).remove();
+                })
+            }, 200 * i);
+        })(entityRender, entity, i);
         element.on("entityRender", function (e) {
             let entities = e.detail.entities;
             for (var j = 0; j < entities.length; j++) {
@@ -225,11 +233,13 @@ function renderGUIShowcases() {
             },
             forceContext: true
         }, element[0]);
-        (function (i) {
-            guiRender.render(gui, function () {
-                $("#guiPlaceholder" + (i + 1)).remove();
-            })
-        })(i);
+        (function (guiRender, gui, i) {
+            setTimeout(function () {
+                guiRender.render(gui, function () {
+                    $("#guiPlaceholder" + (i + 1)).remove();
+                })
+            }, 200 * i);
+        })(guiRender, gui, i);
         renders[i] = guiRender;
     }
 }
@@ -254,9 +264,11 @@ function renderRecipeShowcases() {
                     },
                     forceContext: true
                 }, element[0]);
-                guiRender.render(GuiRender.Helper.recipe(r, recipe.map), function () {
-                    $("#recipePlaceholder" + (i + 1)).remove();
-                })
+                setTimeout(function () {
+                    guiRender.render(GuiRender.Helper.recipe(r, recipe.map), function () {
+                        $("#recipePlaceholder" + (i + 1)).remove();
+                    })
+                }, 200 * i);
             });
         })(i, recipe, element);
     }
@@ -286,13 +298,15 @@ function renderResourcePackShowcases() {
             assetRoot: "/res/rp/" + pack.path,
             forceContext: true
         }, element[0]);
-        (function (i) {
-            modelRender.render([{
-                blockstate: block
-            }], function () {
-                $("#resourcepackPlaceholder" + (i + 1)).remove();
-            })
-        })(i);
+        (function (modelRender, block, i) {
+            setTimeout(function () {
+                modelRender.render([{
+                    blockstate: block
+                }], function () {
+                    $("#resourcepackPlaceholder" + (i + 1)).remove();
+                })
+            }, 200 * i);
+        })(modelRender, block, i);
         element.on("modelRender", function (e) {
             let models = e.detail.models;
             for (var j = 0; j < models.length; j++) {
@@ -304,7 +318,9 @@ function renderResourcePackShowcases() {
 }
 
 function openSkinModal() {
-    $("#skin-modal").find("pre").each(function(){Prism.highlightElement(this)})
+    $("#skin-modal").find("pre").each(function () {
+        Prism.highlightElement(this)
+    })
     $("#skin-modal").modal();
 
     var skin = getRandomSkin();
@@ -316,7 +332,9 @@ function openSkinModal() {
 
 
 function openBlockModal() {
-    $("#block-modal").find("pre").each(function(){Prism.highlightElement(this)})
+    $("#block-modal").find("pre").each(function () {
+        Prism.highlightElement(this)
+    })
     $("#block-modal").modal();
 
     var block = getRandomBlock();
@@ -328,7 +346,9 @@ function openBlockModal() {
 
 
 function openItemModal() {
-    $("#item-modal").find("pre").each(function(){Prism.highlightElement(this)})
+    $("#item-modal").find("pre").each(function () {
+        Prism.highlightElement(this)
+    })
     $("#item-modal").modal();
 
     var item = getRandomItem();
@@ -339,7 +359,9 @@ function openItemModal() {
 }
 
 function openEntityModal() {
-    $("#entity-modal").find("pre").each(function(){Prism.highlightElement(this)})
+    $("#entity-modal").find("pre").each(function () {
+        Prism.highlightElement(this)
+    })
     $("#entity-modal").modal();
 
     var entity = getRandomEntity();
@@ -350,14 +372,18 @@ function openEntityModal() {
 }
 
 function openGuiModal() {
-    $("#gui-modal").find("pre").each(function(){Prism.highlightElement(this)})
+    $("#gui-modal").find("pre").each(function () {
+        Prism.highlightElement(this)
+    })
     $("#gui-modal").modal();
 
     $("#gui-modal").modal("open");
 }
 
 function openRecipeModal() {
-    $("#recipe-modal").find("pre").each(function(){Prism.highlightElement(this)})
+    $("#recipe-modal").find("pre").each(function () {
+        Prism.highlightElement(this)
+    })
     $("#recipe-modal").modal();
 
     $("#recipe-modal").modal("open");
