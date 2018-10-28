@@ -16,7 +16,8 @@ $host = $_POST["host"];
 $source = $_POST["source"];
 
 
-$json = json_decode(file_get_contents("./stats.json"),true);
+$json = json_decode(file_get_contents("./stats.json"), true);
+if (!isset($json["total"])) die();
 
 $json["total"]++;
 if ("javascript" === $source) {
