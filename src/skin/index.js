@@ -192,7 +192,7 @@ class SkinRender extends Render {
             if (texture.indexOf("http") === 0) {// URL
                 skinRender._skinImage.src = texture
             } else if (texture.length <= 16) {// Probably a Minecraft username
-                getJSON("https://skinrender.ga/nameToUuid.php?name=" + texture, function (err, data) {
+                getJSON("https://minerender.org/nameToUuid.php?name=" + texture, function (err, data) {
                     if (err) return console.log(err);
                     console.log(data);
                     skinRender._skinImage.src = "https://crafatar.com/skins/" + (data.id ? data.id : texture);
@@ -208,7 +208,7 @@ class SkinRender extends Render {
             } else if (texture.data) {
                 skinRender._skinImage.src = texture.data;
             } else if (texture.username) {
-                getJSON("https://skinrender.ga/nameToUuid.php?name=" + texture.username, function (err, data) {
+                getJSON("https://minerender.org/nameToUuid.php?name=" + texture.username, function (err, data) {
                     if (err) return console.log(err);
                     skinRender._skinImage.src = "https://crafatar.com/skins/" + (data.id ? data.id : texture.username) + "?overlay";
                 });
