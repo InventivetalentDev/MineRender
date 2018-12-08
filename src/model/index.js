@@ -503,6 +503,13 @@ let renderModel = function (modelRender, model, textures, textureNames, type, na
             })
         } else {// 2d item
             createPlane(name + "_" + Date.now(), textures).then((plane) => {
+                if (offset) {
+                    plane.applyMatrix(new THREE.Matrix4().makeTranslation(offset[0], offset[1], offset[2]))
+                }
+                if (rotation) {
+                    plane.rotation.set(toRadians(rotation[0]), toRadians(Math.abs(rotation[0]) > 0 ? rotation[1] : -rotation[1]), toRadians(rotation[2]));
+                }
+
                 resolve(plane);
             })
         }
