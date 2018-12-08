@@ -177,6 +177,7 @@ class ModelRender extends Render {
                     if (model.hasOwnProperty("model")) {
                         if (model.hasOwnProperty("type")) {
                             type = model["type"];
+                            model = model["model"];
                         } else {
                             let parsed = parseModelType(model["model"]);
                             model = parsed.model;
