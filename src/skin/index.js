@@ -97,7 +97,7 @@ class SkinRender extends Render {
 
             console.log("Slim: " + slim)
             let playerModel = createPlayerModel(skinTexture, capeTexture, textureVersion, slim, texture.optifine);
-            skinRender._scene.add(playerModel);
+            skinRender.addToScene(playerModel);
             // console.log(playerModel);
             skinRender.playerModel = playerModel;
 

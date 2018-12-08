@@ -1,6 +1,6 @@
 import OrbitControls from "./lib/OrbitControls";
-import {SSAARenderPass, OBJExporter, GLTFExporter, PLYExporter} from "threejs-ext";
-import EffectComposer, {ShaderPass, CopyShader} from "@johh/three-effectcomposer";
+import { SSAARenderPass, OBJExporter, GLTFExporter, PLYExporter } from "threejs-ext";
+import EffectComposer, { ShaderPass, CopyShader } from "@johh/three-effectcomposer";
 import * as THREE from "three";
 import OnScreen from "onscreen";
 import * as $ from "jquery";
@@ -326,10 +326,34 @@ export default class Render {
         }
     };
 
+    /**
+     * Adds an object to the scene & sets userData.renderType to this renderer's type
+     * @param toAdd object to add
+     */
+    addToScene(toAdd) {
+        let renderObj = this;
+        if (renderObj._scene && toAdd) {
+            toAdd.userData.renderType = renderObj.renderType;
+            renderObj._scene.add(toAdd);
+        }
+    }
 
-    clearScene() {
-        while (this._scene.children.length > 0) {
-            this._scene.remove(this._scene.children[0]);
+    /**
+     * Clears the scene
+     * @param onlySelfType whether to remove only objects whose type is equal to this renderer's type (useful for combined render)
+     */
+    clearScene(onlySelfType) {
+        if (onlySelfType) {
+            for (let i = 0; i < this._scene.children.length; i++) {
+                let child = this._scene.children[i];
+                if (child.userData.renderType === this.renderType) {
+                    this._scene.remove(child);
+                }
+            }
+        } else {
+            while (this._scene.children.length > 0) {
+                this._scene.remove(this._scene.children[0]);
+            }
         }
     };
 

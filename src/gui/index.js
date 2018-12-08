@@ -192,7 +192,7 @@ class GuiRender extends Render {
             }
 
             planeGroup.applyMatrix(new THREE.Matrix4().makeTranslation(-w / 2, h / 2, 0));
-            guiRender._scene.add(planeGroup);
+            guiRender.addToScene(planeGroup);
 
             guiRender.gui = planeGroup;
 

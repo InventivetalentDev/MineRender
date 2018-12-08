@@ -149,7 +149,7 @@ class ModelRender extends Render {
                                     }
 
                                     modelRender.models.push(renderedModel);
-                                    modelRender._scene.add(renderedModel);
+                                    modelRender.addToScene(renderedModel);
 
                                     resolve();
                                 })

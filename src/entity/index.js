@@ -85,7 +85,7 @@ class EntityRender extends Render {
                                 textureData.needsUpdate = true;
 
                                 renderEntity(entityRender, mergedModel, textureData, entity.textureScale).then((renderedEntity) => {
-                                    entityRender._scene.add(renderedEntity);
+                                    entityRender.addToScene(renderedEntity);
                                     entityRender.entities.push(renderedEntity);
                                     resolve();
                                 })
