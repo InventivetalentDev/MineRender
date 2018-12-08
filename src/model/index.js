@@ -107,7 +107,7 @@ class ModelRender extends Render {
             promises.push(new Promise((resolve) => {
                 let model = models[i];
 
-                let doModelLoad = function (modelName, type, offset, rotation, resolve) {
+                let doModelLoad = function (modelName, type, offset, rotation, scale, resolve) {
                     console.log("Loading model " + modelName + " of type " + type + "...");
                     loadModel(modelName, type, modelRender.options.assetRoot)
                         .then(modelData => mergeParents(modelData, modelRender.options.assetRoot))
@@ -126,7 +126,7 @@ class ModelRender extends Render {
                             }
 
                             loadTextures(mergedModel.textures, modelRender.options.assetRoot).then((textures) => {
-                                renderModel(modelRender, mergedModel, textures, mergedModel.textures, type, modelName, offset, rotation).then((renderedModel) => {
+                                renderModel(modelRender, mergedModel, textures, mergedModel.textures, type, modelName, offset, rotation, scale).then((renderedModel) => {
 
                                     if (model.hasOwnProperty("display")) {
                                         if (mergedModel.hasOwnProperty("display")) {
@@ -159,19 +159,23 @@ class ModelRender extends Render {
 
                 let offset;
                 let rotation;
+                let scale;
 
                 if (typeof model === "string") {
                     let parsed = parseModelType(model);
                     model = parsed.model;
                     type = parsed.type;
 
-                    doModelLoad(model, type, offset, rotation, resolve);
+                    doModelLoad(model, type, offset, rotation, scale, resolve);
                 } else if (typeof model === "object") {
                     if (model.hasOwnProperty("offset")) {
                         offset = model["offset"];
                     }
                     if (model.hasOwnProperty("rotation")) {
                         rotation = model["rotation"];
+                    }
+                    if (model.hasOwnProperty("scale")) {
+                        scale = model["scale"];
                     }
 
                     if (model.hasOwnProperty("model")) {
@@ -184,7 +188,7 @@ class ModelRender extends Render {
                             type = parsed.type;
                         }
 
-                        doModelLoad(model, type, offset, rotation, resolve);
+                        doModelLoad(model, type, offset, rotation, scale, resolve);
                     } else if (model.hasOwnProperty("blockstate")) {
                         type = "block";
 
@@ -221,7 +225,7 @@ class ModelRender extends Render {
                                         rotation[2] = v.z;
                                     }
                                     let parsed = parseModelType(v.model);
-                                    doModelLoad(parsed.model, "block", offset, rotation, resolve);
+                                    doModelLoad(parsed.model, "block", offset, rotation, scale, resolve);
                                 } else {
                                     let variant;
                                     if (blockstate.variants.hasOwnProperty("normal")) {
@@ -252,7 +256,7 @@ class ModelRender extends Render {
                                         rotation[2] = v.z;
                                     }
                                     let parsed = parseModelType(v.model);
-                                    doModelLoad(parsed.model, "block", offset, rotation, resolve);
+                                    doModelLoad(parsed.model, "block", offset, rotation, scale, resolve);
                                 }
                             } else if (blockstate.hasOwnProperty("multipart")) {
                                 let promises1 = [];
@@ -276,7 +280,7 @@ class ModelRender extends Render {
                                         }
                                         let parsed = parseModelType(apply.model);
                                         promises1.push(new Promise((resolve) => {
-                                            doModelLoad(parsed.model, "block", offset, rotation, resolve);
+                                            doModelLoad(parsed.model, "block", offset, rotation, scale, resolve);
                                         }))
                                     } else if (model.hasOwnProperty("multipart")) {
                                         let multipartConditions = model.multipart;
@@ -331,7 +335,7 @@ class ModelRender extends Render {
                                             }
                                             let parsed = parseModelType(apply.model);
                                             promises1.push(new Promise((resolve) => {
-                                                doModelLoad(parsed.model, "block", offset, rotation, resolve);
+                                                doModelLoad(parsed.model, "block", offset, rotation, scale, resolve);
                                             }))
                                         }
                                     }
@@ -341,7 +345,7 @@ class ModelRender extends Render {
                                     resolve();
                                 })
                             }
-                        })
+                        });
                     }
 
                 }
@@ -383,7 +387,7 @@ let parseModelType = function (string) {
 };
 
 
-let renderModel = function (modelRender, model, textures, textureNames, type, name, offset, rotation) {
+let renderModel = function (modelRender, model, textures, textureNames, type, name, offset, rotation, scale) {
     return new Promise((resolve) => {
         if (model.hasOwnProperty("elements")) {// block OR item with block parent
             // Render the elements
@@ -493,9 +497,11 @@ let renderModel = function (modelRender, model, textures, textureNames, type, na
                 if (offset) {
                     rotationContainer.applyMatrix(new THREE.Matrix4().makeTranslation(offset[0], offset[1], offset[2]))
                 }
-
                 if (rotation) {
                     rotationContainer.rotation.set(toRadians(rotation[0]), toRadians(Math.abs(rotation[0]) > 0 ? rotation[1] : -rotation[1]), toRadians(rotation[2]));
+                }
+                if(scale) {
+                    rotationContainer.scale.set(scale[0], scale[1], scale[2]);
                 }
 
 
@@ -508,6 +514,9 @@ let renderModel = function (modelRender, model, textures, textureNames, type, na
                 }
                 if (rotation) {
                     plane.rotation.set(toRadians(rotation[0]), toRadians(Math.abs(rotation[0]) > 0 ? rotation[1] : -rotation[1]), toRadians(rotation[2]));
+                }
+                if(scale) {
+                    plane.scale.set(scale[0], scale[1], scale[2]);
                 }
 
                 resolve(plane);
