@@ -343,17 +343,22 @@ export default class Render {
      * @param onlySelfType whether to remove only objects whose type is equal to this renderer's type (useful for combined render)
      * @param filter Filter function to check which children of the scene to remove
      */
-    clearScene(onlySelfType, filter) {
-        if (onlySelfType || filter) {
-            let filtered = this._scene.children;
-            if (filter) {
-                filtered = filtered.filter(filter);
-            }
-            for (let i = 0; i < filtered.length; i++) {
-                let child = filtered[i];
-                if (!onlySelfType || child.userData.renderType === this.renderType) {
-                    this._scene.remove(child);
+    clearScene(onlySelfType, filterFn) {
+        if (onlySelfType || filterFn) {
+            for (let i = 0; i < this._scene.children.length; i++) {
+                let child = this._scene.children[i];
+                if (filterFn) {
+                    let shouldKeep = filterFn(child);
+                    if (shouldKeep) {
+                        continue;
+                    }
                 }
+                if (onlySelfType) {
+                    if (child.userData.renderType !== this.renderType) {
+                        continue;
+                    }
+                }
+                this._scene.remove(child);
             }
         } else {
             while (this._scene.children.length > 0) {
