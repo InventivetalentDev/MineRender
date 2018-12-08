@@ -38,12 +38,12 @@
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-DEFAULT_ROOT">DEFAULT_ROOT</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-defaultOptions">defaultOptions</a></span></span></li>
 <li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#combined">combined</a><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/combined/index.js~CombinedRender.html">CombinedRender</a></span></span></li>
+<li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#entity">entity</a><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/entity/index.js~EntityRender.html">EntityRender</a></span></span></li>
 <li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#gui">gui</a><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/gui/index.js~GuiRender.html">GuiRender</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-guiHelper">guiHelper</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-guiPositions">guiPositions</a></span></span></li>
 <li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#lib">lib</a><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-OrbitControls">OrbitControls</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-isObject">isObject</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-mergeDeep">mergeDeep</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-contour">contour</a></span></span></li>
 <li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#model">model</a><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/model/index.js~ModelRender.html">ModelRender</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-ModelConverter">ModelConverter</a></span></span></li>
 <li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#skin">skin</a><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/skin/index.js~SkinRender.html">SkinRender</a></span></span></li>
@@ -152,7 +152,7 @@ class SkinRender extends Render {
 
             console.log(&quot;Slim: &quot; + slim)
             let playerModel = createPlayerModel(skinTexture, capeTexture, textureVersion, slim, texture.optifine);
-            skinRender._scene.add(playerModel);
+            skinRender.addToScene(playerModel);
             // console.log(playerModel);
             skinRender.playerModel = playerModel;
 
@@ -247,7 +247,7 @@ class SkinRender extends Render {
             if (texture.indexOf(&quot;http&quot;) === 0) {// URL
                 skinRender._skinImage.src = texture
             } else if (texture.length &lt;= 16) {// Probably a Minecraft username
-                getJSON(&quot;https://skinrender.ga/nameToUuid.php?name=&quot; + texture, function (err, data) {
+                getJSON(&quot;https://minerender.org/nameToUuid.php?name=&quot; + texture, function (err, data) {
                     if (err) return console.log(err);
                     console.log(data);
                     skinRender._skinImage.src = &quot;https://crafatar.com/skins/&quot; + (data.id ? data.id : texture);
@@ -263,7 +263,7 @@ class SkinRender extends Render {
             } else if (texture.data) {
                 skinRender._skinImage.src = texture.data;
             } else if (texture.username) {
-                getJSON(&quot;https://skinrender.ga/nameToUuid.php?name=&quot; + texture.username, function (err, data) {
+                getJSON(&quot;https://minerender.org/nameToUuid.php?name=&quot; + texture.username, function (err, data) {
                     if (err) return console.log(err);
                     skinRender._skinImage.src = &quot;https://crafatar.com/skins/&quot; + (data.id ? data.id : texture.username) + &quot;?overlay&quot;;
                 });
@@ -398,6 +398,7 @@ function createPlayerModel(skinTexture, capeTexture, v, slim, optifineCape) {
     console.log(&quot;optifine cape: &quot; + optifineCape);
 
     let headGroup = new THREE.Object3D();
+    headGroup.name = &quot;headGroup&quot;;
     headGroup.position.x = 0;
     headGroup.position.y = 28;
     headGroup.position.z = 0;
@@ -423,6 +424,7 @@ function createPlayerModel(skinTexture, capeTexture, v, slim, optifineCape) {
     }
 
     let bodyGroup = new THREE.Object3D();
+    bodyGroup.name = &quot;bodyGroup&quot;;
     bodyGroup.position.x = 0;
     bodyGroup.position.y = 18;
     bodyGroup.position.z = 0;
@@ -445,6 +447,7 @@ function createPlayerModel(skinTexture, capeTexture, v, slim, optifineCape) {
     }
 
     let leftArmGroup = new THREE.Object3D();
+    leftArmGroup.name = &quot;leftArmGroup&quot;;
     leftArmGroup.position.x = slim ? -5.5 : -6;
     leftArmGroup.position.y = 18;
     leftArmGroup.position.z = 0;
@@ -470,6 +473,7 @@ function createPlayerModel(skinTexture, capeTexture, v, slim, optifineCape) {
     }
 
     let rightArmGroup = new THREE.Object3D();
+    rightArmGroup.name = &quot;rightArmGroup&quot;;
     rightArmGroup.position.x = slim ? 5.5 : 6;
     rightArmGroup.position.y = 18;
     rightArmGroup.position.z = 0;
@@ -495,6 +499,7 @@ function createPlayerModel(skinTexture, capeTexture, v, slim, optifineCape) {
     }
 
     let leftLegGroup = new THREE.Object3D();
+    leftLegGroup.name = &quot;leftLegGroup&quot;;
     leftLegGroup.position.x = -2;
     leftLegGroup.position.y = 6;
     leftLegGroup.position.z = 0;
@@ -520,6 +525,7 @@ function createPlayerModel(skinTexture, capeTexture, v, slim, optifineCape) {
     }
 
     let rightLegGroup = new THREE.Object3D();
+    rightLegGroup.name = &quot;rightLegGroup&quot;;
     rightLegGroup.position.x = 2;
     rightLegGroup.position.y = 6;
     rightLegGroup.position.z = 0;
@@ -554,6 +560,7 @@ function createPlayerModel(skinTexture, capeTexture, v, slim, optifineCape) {
 
     if (capeTexture) {
         let capeGroup = new THREE.Object3D();
+        capeGroup.name = &quot;capeGroup&quot;;
         capeGroup.position.x = 0;
         capeGroup.position.y = 16;
         capeGroup.position.z = -2.5;

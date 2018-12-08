@@ -38,12 +38,12 @@
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-DEFAULT_ROOT">DEFAULT_ROOT</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-defaultOptions">defaultOptions</a></span></span></li>
 <li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#combined">combined</a><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/combined/index.js~CombinedRender.html">CombinedRender</a></span></span></li>
+<li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#entity">entity</a><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/entity/index.js~EntityRender.html">EntityRender</a></span></span></li>
 <li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#gui">gui</a><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/gui/index.js~GuiRender.html">GuiRender</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-guiHelper">guiHelper</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-guiPositions">guiPositions</a></span></span></li>
 <li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#lib">lib</a><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-OrbitControls">OrbitControls</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-isObject">isObject</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-mergeDeep">mergeDeep</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-contour">contour</a></span></span></li>
 <li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#model">model</a><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/model/index.js~ModelRender.html">ModelRender</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-ModelConverter">ModelConverter</a></span></span></li>
 <li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#skin">skin</a><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/skin/index.js~SkinRender.html">SkinRender</a></span></span></li>
@@ -57,8 +57,6 @@
 import Render, { loadTextureAsBase64, defaultOptions, DEFAULT_ROOT } from &quot;../renderBase&quot;;
 import guiPositions from &quot;./guiPositions&quot;;
 import guiHelper from &quot;./guiHelper&quot;;
-
-let LAYER_OFFSET = 0.5;
 
 /**
  * @see defaultOptions
@@ -223,10 +221,16 @@ class GuiRender extends Render {
                 plane.applyMatrix(new THREE.Matrix4().makeTranslation(uvW / 2, uvH / 2, 0));
 
                 if (material.userData.layer.pos) {
-                    plane.applyMatrix(new THREE.Matrix4().makeTranslation(material.userData.layer.pos[0], -uvH - material.userData.layer.pos[1], (material.userData.layer.layer ? material.userData.layer.layer : i) * LAYER_OFFSET));
+                    plane.applyMatrix(new THREE.Matrix4().makeTranslation(material.userData.layer.pos[0], -uvH - material.userData.layer.pos[1], 0));
                 } else {
-                    plane.applyMatrix(new THREE.Matrix4().makeTranslation(0, -uvH, (material.userData.layer.layer ? material.userData.layer.layer : i) * LAYER_OFFSET));
+                    plane.applyMatrix(new THREE.Matrix4().makeTranslation(0, -uvH, 0));
                 }
+
+                if (material.userData.layer.layer) {
+                    plane.layers.set(material.userData.layer.layer);
+                    guiRender._camera.layers.enable(material.userData.layer.layer);
+                }
+
 
                 planeGroup.add(plane);
 
@@ -234,11 +238,16 @@ class GuiRender extends Render {
                 if (guiRender.options.showOutlines) {
                     let box = new THREE.BoxHelper(plane, 0xff0000);
                     planeGroup.add(box);
+
+                    if (material.userData.layer.layer) {
+                        box.layers.set(material.userData.layer.layer);
+                    }
+
                 }
             }
 
             planeGroup.applyMatrix(new THREE.Matrix4().makeTranslation(-w / 2, h / 2, 0));
-            guiRender._scene.add(planeGroup);
+            guiRender.addToScene(planeGroup);
 
             guiRender.gui = planeGroup;
 

@@ -12,6 +12,12 @@ window.esdocSearchIndex = [
     "variable"
   ],
   [
+    "minerender/src/entity/index.js~entityrender",
+    "class/src/entity/index.js~EntityRender.html",
+    "<span>EntityRender</span> <span class=\"search-result-import-path\">minerender/src/entity/index.js</span>",
+    "class"
+  ],
+  [
     "minerender/src/gui/index.js~guirender",
     "class/src/gui/index.js~GuiRender.html",
     "<span>GuiRender</span> <span class=\"search-result-import-path\">minerender/src/gui/index.js</span>",
@@ -48,6 +54,12 @@ window.esdocSearchIndex = [
     "class"
   ],
   [
+    "minerender/src/lib/marchingsquares.js~contour",
+    "function/index.html#static-function-contour",
+    "<span>contour</span> <span class=\"search-result-import-path\">minerender/src/lib/marchingSquares.js</span>",
+    "function"
+  ],
+  [
     "minerender/src/renderbase.js~defaultoptions",
     "variable/index.html#static-variable-defaultOptions",
     "<span>defaultOptions</span> <span class=\"search-result-import-path\">minerender/src/renderBase.js</span>",
@@ -64,12 +76,6 @@ window.esdocSearchIndex = [
     "variable/index.html#static-variable-guiPositions",
     "<span>guiPositions</span> <span class=\"search-result-import-path\">minerender/src/gui/guiPositions.js</span>",
     "variable"
-  ],
-  [
-    "minerender/src/lib/merge.js~isobject",
-    "function/index.html#static-function-isObject",
-    "<span>isObject</span> <span class=\"search-result-import-path\">minerender/src/lib/merge.js</span>",
-    "function"
   ],
   [
     "minerender/src/renderbase.js~loadblockstate",
@@ -93,12 +99,6 @@ window.esdocSearchIndex = [
     "minerender/src/renderbase.js~loadtexturemeta",
     "function/index.html#static-function-loadTextureMeta",
     "<span>loadTextureMeta</span> <span class=\"search-result-import-path\">minerender/src/renderBase.js</span>",
-    "function"
-  ],
-  [
-    "minerender/src/lib/merge.js~mergedeep",
-    "function/index.html#static-function-mergeDeep",
-    "<span>mergeDeep</span> <span class=\"search-result-import-path\">minerender/src/lib/merge.js</span>",
     "function"
   ],
   [
@@ -426,6 +426,42 @@ window.esdocSearchIndex = [
     "member"
   ],
   [
+    "src/entity/index.js",
+    "file/src/entity/index.js.html",
+    "src/entity/index.js",
+    "file"
+  ],
+  [
+    "src/entity/index.js~entityrender#attached",
+    "class/src/entity/index.js~EntityRender.html#instance-member-attached",
+    "src/entity/index.js~EntityRender#attached",
+    "member"
+  ],
+  [
+    "src/entity/index.js~entityrender#constructor",
+    "class/src/entity/index.js~EntityRender.html#instance-constructor-constructor",
+    "src/entity/index.js~EntityRender#constructor",
+    "method"
+  ],
+  [
+    "src/entity/index.js~entityrender#entities",
+    "class/src/entity/index.js~EntityRender.html#instance-member-entities",
+    "src/entity/index.js~EntityRender#entities",
+    "member"
+  ],
+  [
+    "src/entity/index.js~entityrender#render",
+    "class/src/entity/index.js~EntityRender.html#instance-method-render",
+    "src/entity/index.js~EntityRender#render",
+    "method"
+  ],
+  [
+    "src/entity/index.js~entityrender#rendertype",
+    "class/src/entity/index.js~EntityRender.html#instance-member-renderType",
+    "src/entity/index.js~EntityRender#renderType",
+    "member"
+  ],
+  [
     "src/gui/guihelper.js",
     "file/src/gui/guiHelper.js.html",
     "src/gui/guiHelper.js",
@@ -477,6 +513,12 @@ window.esdocSearchIndex = [
     "src/lib/orbitcontrols.js",
     "file/src/lib/OrbitControls.js.html",
     "src/lib/OrbitControls.js",
+    "file"
+  ],
+  [
+    "src/lib/marchingsquares.js",
+    "file/src/lib/marchingSquares.js.html",
+    "src/lib/marchingSquares.js",
     "file"
   ],
   [
@@ -534,6 +576,12 @@ window.esdocSearchIndex = [
     "file"
   ],
   [
+    "src/renderbase.js~render#addtoscene",
+    "class/src/renderBase.js~Render.html#instance-method-addToScene",
+    "src/renderBase.js~Render#addToScene",
+    "method"
+  ],
+  [
     "src/renderbase.js~render#clearscene",
     "class/src/renderBase.js~Render.html#instance-method-clearScene",
     "src/renderBase.js~Render#clearScene",
@@ -570,9 +618,33 @@ window.esdocSearchIndex = [
     "member"
   ],
   [
+    "src/renderbase.js~render#rendertype",
+    "class/src/renderBase.js~Render.html#instance-member-renderType",
+    "src/renderBase.js~Render#renderType",
+    "member"
+  ],
+  [
+    "src/renderbase.js~render#togltf",
+    "class/src/renderBase.js~Render.html#instance-method-toGLTF",
+    "src/renderBase.js~Render#toGLTF",
+    "method"
+  ],
+  [
     "src/renderbase.js~render#toimage",
     "class/src/renderBase.js~Render.html#instance-method-toImage",
     "src/renderBase.js~Render#toImage",
+    "method"
+  ],
+  [
+    "src/renderbase.js~render#toobj",
+    "class/src/renderBase.js~Render.html#instance-method-toObj",
+    "src/renderBase.js~Render#toObj",
+    "method"
+  ],
+  [
+    "src/renderbase.js~render#toply",
+    "class/src/renderBase.js~Render.html#instance-method-toPLY",
+    "src/renderBase.js~Render#toPLY",
     "method"
   ],
   [

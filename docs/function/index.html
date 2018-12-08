@@ -38,12 +38,12 @@
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-DEFAULT_ROOT">DEFAULT_ROOT</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-defaultOptions">defaultOptions</a></span></span></li>
 <li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#combined">combined</a><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/combined/index.js~CombinedRender.html">CombinedRender</a></span></span></li>
+<li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#entity">entity</a><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/entity/index.js~EntityRender.html">EntityRender</a></span></span></li>
 <li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#gui">gui</a><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/gui/index.js~GuiRender.html">GuiRender</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-guiHelper">guiHelper</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-guiPositions">guiPositions</a></span></span></li>
 <li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#lib">lib</a><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-OrbitControls">OrbitControls</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-isObject">isObject</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-mergeDeep">mergeDeep</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-contour">contour</a></span></span></li>
 <li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#model">model</a><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/model/index.js~ModelRender.html">ModelRender</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-ModelConverter">ModelConverter</a></span></span></li>
 <li data-ice="doc"><a data-ice="dirPath" class="nav-dir-path" href="identifiers.html#skin">skin</a><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/skin/index.js~SkinRender.html">SkinRender</a></span></span></li>
@@ -128,13 +128,15 @@
           
           
           
-          <span class="code" data-ice="name"><span><a href="function/index.html#static-function-isObject">isObject</a></span></span><span class="code" data-ice="signature">(item: <span>*</span>): <span>*</span></span>
+          <span class="code" data-ice="name"><span><a href="function/index.html#static-function-contour">contour</a></span></span><span class="code" data-ice="signature">(grid: <span><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function">Function</a></span>, start: <span><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array">Array</a></span>): <span><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array">Array</a></span></span>
         </p>
       </div>
       <div>
         
         
-        
+        <div data-ice="description"><p>Computes a contour for a given input grid function using the <a href="http://en.wikipedia.org/wiki/Marching_squares">marching
+squares</a> algorithm.</p>
+</div>
       </div>
     </td>
     <td>
@@ -244,34 +246,6 @@
           
           
           <span class="code" data-ice="name"><span><a href="function/index.html#static-function-loadTextureMeta">loadTextureMeta</a></span></span><span class="code" data-ice="signature">(texture: <span>*</span>, assetRoot: <span>*</span>): <span>*</span></span>
-        </p>
-      </div>
-      <div>
-        
-        
-        
-      </div>
-    </td>
-    <td>
-      
-      
-    </td>
-  </tr>
-<tr data-ice="target">
-    <td>
-      <span class="access" data-ice="access">public</span>
-      
-      
-      
-      <span class="override" data-ice="override"></span>
-    </td>
-    <td>
-      <div>
-        <p>
-          
-          
-          
-          <span class="code" data-ice="name"><span><a href="function/index.html#static-function-mergeDeep">mergeDeep</a></span></span><span class="code" data-ice="signature">(target: <span>*</span>, source: <span>*</span>): <span>*</span></span>
         </p>
       </div>
       <div>
@@ -429,25 +403,27 @@
   
 </div>
 <div class="detail" data-ice="detail">
-  <h3 data-ice="anchor" id="static-function-isObject">
+  <h3 data-ice="anchor" id="static-function-contour">
     <span class="access" data-ice="access">public</span>
     
     
     
     
     
-    <span class="code" data-ice="name">isObject</span><span class="code" data-ice="signature">(item: <span>*</span>): <span>*</span></span>
+    <span class="code" data-ice="name">contour</span><span class="code" data-ice="signature">(grid: <span><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function">Function</a></span>, start: <span><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array">Array</a></span>): <span><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array">Array</a></span></span>
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/lib/merge.js.html#lineNumber1">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/lib/marchingSquares.js.html#lineNumber15">source</a></span></span>
     </span>
   </h3>
 
-  <div data-ice="importPath" class="import-path"><pre class="prettyprint"><code data-ice="importPathCode">import {isObject} from &apos;<span><a href="file/src/lib/merge.js.html#lineNumber1">minerender/src/lib/merge.js</a></span>&apos;</code></pre></div>
+  <div data-ice="importPath" class="import-path"><pre class="prettyprint"><code data-ice="importPathCode">import contour from &apos;<span><a href="file/src/lib/marchingSquares.js.html#lineNumber15">minerender/src/lib/marchingSquares.js</a></span>&apos;</code></pre></div>
   
   
-  
+  <div data-ice="description"><p>Computes a contour for a given input grid function using the <a href="http://en.wikipedia.org/wiki/Marching_squares">marching
+squares</a> algorithm. Returns the contour polygon as an array of points.</p>
+</div>
 
   
 
@@ -460,10 +436,19 @@
     <tbody>
     
     <tr data-ice="property" data-depth="0">
-      <td data-ice="name" class="code" data-depth="0">item</td>
-      <td data-ice="type" class="code"><span>*</span></td>
+      <td data-ice="name" class="code" data-depth="0">grid</td>
+      <td data-ice="type" class="code"><span><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function">Function</a></span></td>
       <td data-ice="appendix"></td>
-      <td data-ice="description"></td>
+      <td data-ice="description"><p>a two-input function(x, y) that returns true for values
+inside the contour and false for values outside the contour.</p>
+</td>
+    </tr>
+<tr data-ice="property" data-depth="0">
+      <td data-ice="name" class="code" data-depth="0">start</td>
+      <td data-ice="type" class="code"><span><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array">Array</a></span></td>
+      <td data-ice="appendix"><ul><li>optional</li></ul></td>
+      <td data-ice="description"><p>an optional starting point [x, y] on the grid.</p>
+</td>
     </tr>
 </tbody>
   </table>
@@ -475,8 +460,9 @@
     <table>
       <tbody>
         <tr>
-          <td class="return-type code" data-ice="returnType"><span>*</span></td>
-          
+          <td class="return-type code" data-ice="returnType"><span><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array">Array</a></span></td>
+          <td class="return-desc" data-ice="returnDescription"><p>polygon [[x1, y1], [x2, y2], ...]</p>
+</td>
         </tr>
       </tbody>
     </table>
@@ -511,11 +497,11 @@
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/renderBase.js.html#lineNumber357">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/renderBase.js.html#lineNumber458">source</a></span></span>
     </span>
   </h3>
 
-  <div data-ice="importPath" class="import-path"><pre class="prettyprint"><code data-ice="importPathCode">import {loadBlockState} from &apos;<span><a href="file/src/renderBase.js.html#lineNumber357">minerender/src/renderBase.js</a></span>&apos;</code></pre></div>
+  <div data-ice="importPath" class="import-path"><pre class="prettyprint"><code data-ice="importPathCode">import {loadBlockState} from &apos;<span><a href="file/src/renderBase.js.html#lineNumber458">minerender/src/renderBase.js</a></span>&apos;</code></pre></div>
   
   
   <div data-ice="description"><p>Loads a blockstate file and returns the contained JSON</p>
@@ -591,11 +577,11 @@
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/renderBase.js.html#lineNumber371">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/renderBase.js.html#lineNumber472">source</a></span></span>
     </span>
   </h3>
 
-  <div data-ice="importPath" class="import-path"><pre class="prettyprint"><code data-ice="importPathCode">import {loadJsonFromPath} from &apos;<span><a href="file/src/renderBase.js.html#lineNumber371">minerender/src/renderBase.js</a></span>&apos;</code></pre></div>
+  <div data-ice="importPath" class="import-path"><pre class="prettyprint"><code data-ice="importPathCode">import {loadJsonFromPath} from &apos;<span><a href="file/src/renderBase.js.html#lineNumber472">minerender/src/renderBase.js</a></span>&apos;</code></pre></div>
   
   
   <div data-ice="description"><p>Loads a model file and returns the contained JSON</p>
@@ -671,11 +657,11 @@
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/renderBase.js.html#lineNumber282">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/renderBase.js.html#lineNumber383">source</a></span></span>
     </span>
   </h3>
 
-  <div data-ice="importPath" class="import-path"><pre class="prettyprint"><code data-ice="importPathCode">import {loadTextureAsBase64} from &apos;<span><a href="file/src/renderBase.js.html#lineNumber282">minerender/src/renderBase.js</a></span>&apos;</code></pre></div>
+  <div data-ice="importPath" class="import-path"><pre class="prettyprint"><code data-ice="importPathCode">import {loadTextureAsBase64} from &apos;<span><a href="file/src/renderBase.js.html#lineNumber383">minerender/src/renderBase.js</a></span>&apos;</code></pre></div>
   
   
   <div data-ice="description"><p>Loads a Mincraft texture an returns it as Base64</p>
@@ -765,11 +751,11 @@
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/renderBase.js.html#lineNumber361">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/renderBase.js.html#lineNumber462">source</a></span></span>
     </span>
   </h3>
 
-  <div data-ice="importPath" class="import-path"><pre class="prettyprint"><code data-ice="importPathCode">import {loadTextureMeta} from &apos;<span><a href="file/src/renderBase.js.html#lineNumber361">minerender/src/renderBase.js</a></span>&apos;</code></pre></div>
+  <div data-ice="importPath" class="import-path"><pre class="prettyprint"><code data-ice="importPathCode">import {loadTextureMeta} from &apos;<span><a href="file/src/renderBase.js.html#lineNumber462">minerender/src/renderBase.js</a></span>&apos;</code></pre></div>
   
   
   
@@ -831,83 +817,6 @@
   
 </div>
 <div class="detail" data-ice="detail">
-  <h3 data-ice="anchor" id="static-function-mergeDeep">
-    <span class="access" data-ice="access">public</span>
-    
-    
-    
-    
-    
-    <span class="code" data-ice="name">mergeDeep</span><span class="code" data-ice="signature">(target: <span>*</span>, source: <span>*</span>): <span>*</span></span>
-    <span class="right-info">
-      
-      
-      <span data-ice="source"><span><a href="file/src/lib/merge.js.html#lineNumber5">source</a></span></span>
-    </span>
-  </h3>
-
-  <div data-ice="importPath" class="import-path"><pre class="prettyprint"><code data-ice="importPathCode">import mergeDeep from &apos;<span><a href="file/src/lib/merge.js.html#lineNumber5">minerender/src/lib/merge.js</a></span>&apos;</code></pre></div>
-  
-  
-  
-
-  
-
-  <div data-ice="properties"><div data-ice="properties">
-  <h4 data-ice="title">Params:</h4>
-  <table class="params">
-    <thead>
-    <tr><td>Name</td><td>Type</td><td>Attribute</td><td>Description</td></tr>
-    </thead>
-    <tbody>
-    
-    <tr data-ice="property" data-depth="0">
-      <td data-ice="name" class="code" data-depth="0">target</td>
-      <td data-ice="type" class="code"><span>*</span></td>
-      <td data-ice="appendix"></td>
-      <td data-ice="description"></td>
-    </tr>
-<tr data-ice="property" data-depth="0">
-      <td data-ice="name" class="code" data-depth="0">source</td>
-      <td data-ice="type" class="code"><span>*</span></td>
-      <td data-ice="appendix"></td>
-      <td data-ice="description"></td>
-    </tr>
-</tbody>
-  </table>
-</div>
-</div>
-
-  <div class="return-params" data-ice="returnParams">
-    <h4>Return:</h4>
-    <table>
-      <tbody>
-        <tr>
-          <td class="return-type code" data-ice="returnType"><span>*</span></td>
-          
-        </tr>
-      </tbody>
-    </table>
-    <div data-ice="returnProperties">
-</div>
-  </div>
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
-  
-</div>
-<div class="detail" data-ice="detail">
   <h3 data-ice="anchor" id="static-function-scaleUv">
     <span class="access" data-ice="access">public</span>
     
@@ -919,11 +828,11 @@
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/renderBase.js.html#lineNumber435">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/renderBase.js.html#lineNumber536">source</a></span></span>
     </span>
   </h3>
 
-  <div data-ice="importPath" class="import-path"><pre class="prettyprint"><code data-ice="importPathCode">import {scaleUv} from &apos;<span><a href="file/src/renderBase.js.html#lineNumber435">minerender/src/renderBase.js</a></span>&apos;</code></pre></div>
+  <div data-ice="importPath" class="import-path"><pre class="prettyprint"><code data-ice="importPathCode">import {scaleUv} from &apos;<span><a href="file/src/renderBase.js.html#lineNumber536">minerender/src/renderBase.js</a></span>&apos;</code></pre></div>
   
   
   <div data-ice="description"><p>Scales UV values</p>

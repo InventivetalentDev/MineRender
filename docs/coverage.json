@@ -1,13 +1,31 @@
 {
-  "coverage": "44.56%",
-  "expectCount": 92,
-  "actualCount": 41,
+  "coverage": "43.36%",
+  "expectCount": 113,
+  "actualCount": 49,
   "files": {
     "src/combined/index.js": {
       "expectCount": 6,
       "actualCount": 5,
       "undocumentLines": [
         18
+      ]
+    },
+    "src/entity/index.js": {
+      "expectCount": 15,
+      "actualCount": 3,
+      "undocumentLines": [
+        7,
+        110,
+        187,
+        216,
+        278,
+        290,
+        294,
+        299,
+        41,
+        43,
+        44,
+        48
       ]
     },
     "src/gui/guiHelper.js": {
@@ -21,21 +39,20 @@
       "undocumentLines": []
     },
     "src/gui/index.js": {
-      "expectCount": 8,
+      "expectCount": 7,
       "actualCount": 4,
       "undocumentLines": [
-        6,
+        42,
         44,
-        46,
-        47
+        45
       ]
     },
-    "src/lib/merge.js": {
-      "expectCount": 2,
-      "actualCount": 0,
+    "src/lib/marchingSquares.js": {
+      "expectCount": 3,
+      "actualCount": 1,
       "undocumentLines": [
-        1,
-        5
+        61,
+        64
       ]
     },
     "src/lib/OrbitControls.js": {
@@ -81,12 +98,14 @@
       ]
     },
     "src/renderBase.js": {
-      "expectCount": 21,
-      "actualCount": 18,
+      "expectCount": 27,
+      "actualCount": 22,
       "undocumentLines": [
-        253,
-        259,
-        361
+        104,
+        161,
+        360,
+        462,
+        543
       ]
     },
     "src/skin/index.js": {
@@ -95,10 +114,10 @@
       "undocumentLines": [
         267,
         342,
-        524,
-        538,
-        555,
-        559,
+        531,
+        545,
+        562,
+        566,
         32,
         33,
         37,
