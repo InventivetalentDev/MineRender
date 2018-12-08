@@ -106,6 +106,7 @@ class ModelRender extends Render {
         for (let i = 0; i < models.length; i++) {
             promises.push(new Promise((resolve) => {
                 let model = models[i];
+                let modelOptions = model;
 
                 let doModelLoad = function (modelName, type, offset, rotation, scale, resolve) {
                     console.log("Loading model " + modelName + " of type " + type + "...");
@@ -128,17 +129,19 @@ class ModelRender extends Render {
                             loadTextures(mergedModel.textures, modelRender.options.assetRoot).then((textures) => {
                                 renderModel(modelRender, mergedModel, textures, mergedModel.textures, type, modelName, offset, rotation, scale).then((renderedModel) => {
 
-                                    if (model.hasOwnProperty("display")) {
+                                    console.log(modelOptions);
+                                    if (modelOptions.hasOwnProperty("display")) {
+                                        console.log(mergedModel);
                                         if (mergedModel.hasOwnProperty("display")) {
-                                            if (mergedModel.display.hasOwnProperty(model.display)) {
-                                                let displayData = mergedModel.display[model.display];
+                                            if (mergedModel.display.hasOwnProperty(modelOptions.display)) {
+                                                let displayData = mergedModel.display[modelOptions.display];
 
                                                 if (displayData.hasOwnProperty("translation")) {
                                                     renderedModel.applyMatrix(new THREE.Matrix4().makeTranslation(displayData.translation[0], displayData.translation[1], displayData.translation[2]));
                                                 }
 
                                                 if (displayData.hasOwnProperty("rotation")) {
-                                                    renderedModel.rotation.set(displayData.rotation[0], displayData.rotation[1], displayData.rotation[2])
+                                                    renderedModel.rotation.set(toRadians(displayData.rotation[0]), toRadians(displayData.rotation[1]), toRadians(displayData.rotation[2]))
                                                 }
                                                 if (displayData.hasOwnProperty("scale")) {
                                                     renderedModel.scale.set(displayData.scale[0], displayData.scale[1], displayData.scale[2]);
@@ -500,7 +503,7 @@ let renderModel = function (modelRender, model, textures, textureNames, type, na
                 if (rotation) {
                     rotationContainer.rotation.set(toRadians(rotation[0]), toRadians(Math.abs(rotation[0]) > 0 ? rotation[1] : -rotation[1]), toRadians(rotation[2]));
                 }
-                if(scale) {
+                if (scale) {
                     rotationContainer.scale.set(scale[0], scale[1], scale[2]);
                 }
 
@@ -515,7 +518,7 @@ let renderModel = function (modelRender, model, textures, textureNames, type, na
                 if (rotation) {
                     plane.rotation.set(toRadians(rotation[0]), toRadians(Math.abs(rotation[0]) > 0 ? rotation[1] : -rotation[1]), toRadians(rotation[2]));
                 }
-                if(scale) {
+                if (scale) {
                     plane.scale.set(scale[0], scale[1], scale[2]);
                 }
 
@@ -944,10 +947,10 @@ let loadTextures = function (textureNames, assetRoot) {
 
 let mergeParents = function (model, assetRoot) {
     return new Promise((resolve, reject) => {
-        mergeParents_(model, [], assetRoot, resolve, reject);
+        mergeParents_(model, [], [], assetRoot, resolve, reject);
     });
 };
-let mergeParents_ = function (model, stack, assetRoot, resolve, reject) {
+let mergeParents_ = function (model, stack, hierarchy, assetRoot, resolve, reject) {
     stack.push(model);
 
     if (!model.hasOwnProperty("parent") || model["parent"] === "builtin/generated" || model["parent"] === "builtin/entity") {// already at the highest parent OR we reach the builtin parent which seems to be the hardcoded stuff that's not in the json files
@@ -956,16 +959,18 @@ let mergeParents_ = function (model, stack, assetRoot, resolve, reject) {
             merged = merge(merged, stack[i]);
         }
 
+        merged.hierarchy = hierarchy;
         resolve(merged);
         return;
     }
 
     let parent = model["parent"];
     delete model["parent"];// remove the child's parent so it will be replaced by the parent's parent
+    hierarchy.push(parent);
 
     loadJsonFromPath(assetRoot, "/assets/minecraft/models/" + parent + ".json").then((parentData) => {
         let mergedModel = Object.assign({}, model, parentData);
-        mergeParents_(mergedModel, stack, assetRoot, resolve, reject);
+        mergeParents_(mergedModel, stack, hierarchy, assetRoot, resolve, reject);
     })
 
 };
