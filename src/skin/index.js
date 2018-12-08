@@ -343,6 +343,7 @@ function createPlayerModel(skinTexture, capeTexture, v, slim, optifineCape) {
     console.log("optifine cape: " + optifineCape);
 
     let headGroup = new THREE.Object3D();
+    headGroup.name = "headGroup";
     headGroup.position.x = 0;
     headGroup.position.y = 28;
     headGroup.position.z = 0;
@@ -368,6 +369,7 @@ function createPlayerModel(skinTexture, capeTexture, v, slim, optifineCape) {
     }
 
     let bodyGroup = new THREE.Object3D();
+    bodyGroup.name = "bodyGroup";
     bodyGroup.position.x = 0;
     bodyGroup.position.y = 18;
     bodyGroup.position.z = 0;
@@ -390,6 +392,7 @@ function createPlayerModel(skinTexture, capeTexture, v, slim, optifineCape) {
     }
 
     let leftArmGroup = new THREE.Object3D();
+    leftArmGroup.name = "leftArmGroup";
     leftArmGroup.position.x = slim ? -5.5 : -6;
     leftArmGroup.position.y = 18;
     leftArmGroup.position.z = 0;
@@ -415,6 +418,7 @@ function createPlayerModel(skinTexture, capeTexture, v, slim, optifineCape) {
     }
 
     let rightArmGroup = new THREE.Object3D();
+    rightArmGroup.name = "rightArmGroup";
     rightArmGroup.position.x = slim ? 5.5 : 6;
     rightArmGroup.position.y = 18;
     rightArmGroup.position.z = 0;
@@ -440,6 +444,7 @@ function createPlayerModel(skinTexture, capeTexture, v, slim, optifineCape) {
     }
 
     let leftLegGroup = new THREE.Object3D();
+    leftLegGroup.name = "leftLegGroup";
     leftLegGroup.position.x = -2;
     leftLegGroup.position.y = 6;
     leftLegGroup.position.z = 0;
@@ -465,6 +470,7 @@ function createPlayerModel(skinTexture, capeTexture, v, slim, optifineCape) {
     }
 
     let rightLegGroup = new THREE.Object3D();
+    rightLegGroup.name = "rightLegGroup";
     rightLegGroup.position.x = 2;
     rightLegGroup.position.y = 6;
     rightLegGroup.position.z = 0;
@@ -499,6 +505,7 @@ function createPlayerModel(skinTexture, capeTexture, v, slim, optifineCape) {
 
     if (capeTexture) {
         let capeGroup = new THREE.Object3D();
+        capeGroup.name = "capeGroup";
         capeGroup.position.x = 0;
         capeGroup.position.y = 16;
         capeGroup.position.z = -2.5;
