@@ -50,7 +50,7 @@ function attachTo(self, target) {
     console.log("Attaching " + self.constructor.name + " to " + target.constructor.name);
 
     self._scene = target._scene;
-    // self._camera = target._camera;
+    self._camera = target._camera;
     // self._renderer = target._renderer;
     // self._composer = target._composer;
     // self._canvas = target._canvas;
