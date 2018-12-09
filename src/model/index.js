@@ -129,9 +129,7 @@ class ModelRender extends Render {
                             loadTextures(mergedModel.textures, modelRender.options.assetRoot).then((textures) => {
                                 renderModel(modelRender, mergedModel, textures, mergedModel.textures, type, modelName, offset, rotation, scale).then((renderedModel) => {
 
-                                    console.log(modelOptions);
                                     if (modelOptions.hasOwnProperty("display")) {
-                                        console.log(mergedModel);
                                         if (mergedModel.hasOwnProperty("display")) {
                                             if (mergedModel.display.hasOwnProperty(modelOptions.display)) {
                                                 let displayData = mergedModel.display[modelOptions.display];
