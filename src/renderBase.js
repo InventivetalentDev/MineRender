@@ -341,11 +341,11 @@ export default class Render {
     /**
      * Clears the scene
      * @param onlySelfType whether to remove only objects whose type is equal to this renderer's type (useful for combined render)
-     * @param filter Filter function to check which children of the scene to remove
+     * @param filterFn Filter function to check which children of the scene to remove
      */
     clearScene(onlySelfType, filterFn) {
         if (onlySelfType || filterFn) {
-            for (let i = 0; i < this._scene.children.length; i++) {
+            for (let i = this._scene.children.length - 1; i >= 0; i--) {
                 let child = this._scene.children[i];
                 if (filterFn) {
                     let shouldKeep = filterFn(child);
@@ -358,6 +358,7 @@ export default class Render {
                         continue;
                     }
                 }
+                deepDisposeMesh(child, true);
                 this._scene.remove(child);
             }
         } else {
@@ -379,6 +380,25 @@ export default class Render {
         }
     };
 
+}
+
+export function deepDisposeMesh(obj, removeChildren) {
+    if (!obj) return;
+    if (obj.geometry && obj.geometry.dispose) obj.geometry.dispose();
+    if (obj.material && obj.material.dispose) obj.material.dispose();
+    if (obj.texture && obj.texture.dispose) obj.texture.dispose();
+    if (obj.children) {
+        let children = obj.children;
+        for (let i = 0; i < children.length; i++) {
+            deepDisposeMesh(children[i]);
+        }
+
+        if (removeChildren) {
+            for (let i = obj.children.length - 1; i >= 0; i--) {
+                obj.remove(children[i]);
+            }
+        }
+    }
 }
 
 /**
