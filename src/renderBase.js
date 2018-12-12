@@ -382,6 +382,7 @@ export default class Render {
 
 }
 
+// https://stackoverflow.com/questions/27217388/use-multiple-materials-for-merged-geometries-in-three-js/44485364#44485364
 export function deepDisposeMesh(obj, removeChildren) {
     if (!obj) return;
     if (obj.geometry && obj.geometry.dispose) obj.geometry.dispose();
@@ -399,6 +400,57 @@ export function deepDisposeMesh(obj, removeChildren) {
             }
         }
     }
+}
+
+export function mergeMeshes__(meshes, toBufferGeometry) {
+    let finalGeometry,
+        materials = [],
+        mergedGeometry = new THREE.Geometry(),
+        mergedMesh;
+
+    meshes.forEach(function (mesh, index) {
+        mesh.updateMatrix();
+        mesh.geometry.faces.forEach(function (face) {
+            face.materialIndex = 0;
+        });
+        mergedGeometry.merge(mesh.geometry, mesh.matrix, index);
+        materials.push(mesh.material);
+    });
+
+    mergedGeometry.groupsNeedUpdate = true;
+
+    if (toBufferGeometry) {
+        finalGeometry = new THREE.BufferGeometry().fromGeometry(mergedGeometry);
+    } else {
+        finalGeometry = mergedGeometry;
+    }
+
+    mergedMesh = new THREE.Mesh(finalGeometry, materials);
+    mergedMesh.geometry.computeFaceNormals();
+    mergedMesh.geometry.computeVertexNormals();
+
+    return mergedMesh;
+
+}
+
+export function mergeCubeMeshes(cubes, toBuffer) {
+    cubes = cubes.filter(c => !!c);
+
+    let mergedCubes = new THREE.Geometry();
+    let mergedMaterials = [];
+    for (let i = 0; i < cubes.length; i++) {
+        mergedCubes.merge(cubes[i].geometry, cubes[i].matrix, i * Math.max(cubes[i].material.length, 1));
+        for (let j = 0; j < cubes[i].material.length; j++) {
+            mergedMaterials.push(cubes[i].material[j]);
+        }
+
+        deepDisposeMesh(cubes[i], true);
+    }
+    mergedCubes.mergeVertices();
+    return {
+        geometry: toBuffer? new THREE.BufferGeometry().fromGeometry(mergedCubes): mergedCubes,
+        materials: mergedMaterials
+    };
 }
 
 /**

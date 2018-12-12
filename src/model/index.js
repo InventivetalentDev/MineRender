@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import * as $ from 'jquery';
 import merge from 'deepmerge'
-import Render, { loadTextureAsBase64, scaleUv, defaultOptions, DEFAULT_ROOT, loadJsonFromPath, loadBlockState, loadTextureMeta } from "../renderBase";
+import Render, { loadTextureAsBase64, scaleUv, defaultOptions, DEFAULT_ROOT, loadJsonFromPath, loadBlockState, loadTextureMeta, mergeMeshes, deepDisposeMesh, mergeCubeMeshes } from "../renderBase";
 import ModelConverter from "./modelConverter";
 import * as md5 from "md5";
 
@@ -31,6 +31,7 @@ const TINTS = ["lightgreen"];
 const textureCache = {};
 const materialCache = {};
 const geometryCache = {};
+const modelCache = {};
 
 const animatedTextures = [];
 
@@ -101,6 +102,8 @@ class ModelRender extends Render {
             console.log("[ModelRender] is attached - skipping scene init");
         }
 
+        let mergeModels = this.options.mergeModels || false;
+
         let type = this.options.type;
         let promises = [];
         for (let i = 0; i < models.length; i++) {
@@ -122,12 +125,13 @@ class ModelRender extends Render {
 
                             if (!mergedModel.textures) {
                                 console.warn("The model doesn't have any textures!");
-                                console.warn("Please make sure you're using the proper file.")
+                                console.warn("Please make sure you're using the proper file.");
+                                resolve(null);
                                 return;
                             }
 
                             loadTextures(mergedModel.textures, modelRender.options.assetRoot).then((textures) => {
-                                renderModel(modelRender, mergedModel, textures, mergedModel.textures, type, modelName, offset, rotation, scale).then((renderedModel) => {
+                                renderModel(modelRender, mergedModel, textures, mergedModel.textures, type, modelName, offset, rotation, scale, mergeModels).then((renderedModel) => {
 
                                     if (modelOptions.hasOwnProperty("display")) {
                                         if (mergedModel.hasOwnProperty("display")) {
@@ -150,9 +154,12 @@ class ModelRender extends Render {
                                     }
 
                                     modelRender.models.push(renderedModel);
-                                    modelRender.addToScene(renderedModel);
+                                    if (!mergeModels) {
+                                        modelRender.addToScene(renderedModel);
+                                    }
 
-                                    resolve();
+                                    console.log(renderedModel);
+                                    resolve(renderedModel);
                                 })
                             });
                         });
@@ -201,6 +208,7 @@ class ModelRender extends Render {
                                 if (model.hasOwnProperty("variant")) {
                                     if (!blockstate.variants.hasOwnProperty(model.variant)) {
                                         console.warn("Missing variant for " + model.blockstate + ": " + model.variant);
+                                        resolve(null);
                                         return;
                                     }
                                     let variant = blockstate.variants[model.variant];
@@ -355,7 +363,27 @@ class ModelRender extends Render {
             }))
         }
 
-        Promise.all(promises).then(() => {
+        Promise.all(promises).then((renderedModels) => {
+            console.log(renderedModels)
+            if (mergeModels) {
+                console.debug("Merging " + renderedModels.length + " individual models and adding to scene");
+                let merged = mergeCubeMeshes(renderedModels);
+                let mergedMesh = new THREE.Mesh(merged.geometry, merged.materials);
+                modelRender.addToScene(mergedMesh);
+            }
+
+            Object.keys(materialCache).forEach(m=>{
+                materialCache[m].dispose();
+                delete materialCache[m];
+            });
+            Object.keys(textureCache).forEach(t=>{
+                delete textureCache[t];
+            });
+            Object.keys(geometryCache).forEach(g=>{
+                geometryCache[g].dispose();
+                delete geometryCache[g];
+            });
+
             if (typeof cb === "function") cb();
         })
     };
@@ -388,126 +416,146 @@ let parseModelType = function (string) {
 };
 
 
-let renderModel = function (modelRender, model, textures, textureNames, type, name, offset, rotation, scale) {
+let renderModel = function (modelRender, model, textures, textureNames, type, name, offset, rotation, scale, willBeMerged) {
     return new Promise((resolve) => {
         if (model.hasOwnProperty("elements")) {// block OR item with block parent
-            // Render the elements
-            let promises = [];
-            for (let i = 0; i < model.elements.length; i++) {
-                let element = model.elements[i];
+            let modelKey = "cubes_" + model.hierarchy.join("__");
 
-                // // From net.minecraft.client.renderer.block.model.BlockPart.java#47 - https://yeleha.co/2JcqSr4
-                let fallbackFaces = {
-                    down: {
-                        uv: [element.from[0], 16 - element.to[2], element.to[0], 16 - element.from[2]],
-                        texture: "#down"
-                    },
-                    up: {
-                        uv: [element.from[0], element.from[2], element.to[0], element.to[2]],
-                        texture: "#up"
-                    },
-                    north: {
-                        uv: [16 - element.to[0], 16 - element.to[1], 16 - element.from[0], 16 - element.from[1]],
-                        texture: "#north"
-                    },
-                    south: {
-                        uv: [element.from[0], 16 - element.to[1], element.to[0], 16 - element.from[1]],
-                        texture: "#south"
-                    },
-                    west: {
-                        uv: [element.from[2], 16 - element.to[1], element.to[2], 16 - element.from[2]],
-                        texture: "#west"
-                    },
-                    east: {
-                        uv: [16 - element.to[2], 16 - element.to[1], 16 - element.from[2], 16 - element.from[1]],
-                        texture: "#east"
-                    }
-                };
-
-                promises.push(new Promise((resolve) => {
-                    createCube(element.to[0] - element.from[0], element.to[1] - element.from[1], element.to[2] - element.from[2],
-                        name.replaceAll(" ", "_").replaceAll("-", "_").toLowerCase() + "_" + (element.__comment ? element.__comment.replaceAll(" ", "_").replaceAll("-", "_").toLowerCase() + "_" : "") + Date.now(),
-                        element.faces, fallbackFaces, textures, textureNames, modelRender.options.assetRoot)
-                        .then((cube) => {
-                            cube.applyMatrix(new THREE.Matrix4().makeTranslation((element.to[0] - element.from[0]) / 2, (element.to[1] - element.from[1]) / 2, (element.to[2] - element.from[2]) / 2));
-                            cube.applyMatrix(new THREE.Matrix4().makeTranslation(element.from[0], element.from[1], element.from[2]));
-
-                            if (element.rotation) {
-                                rotateAboutPoint(cube,
-                                    new THREE.Vector3(element.rotation.origin[0], element.rotation.origin[1], element.rotation.origin[2]),
-                                    new THREE.Vector3(element.rotation.axis === "x" ? 1 : 0, element.rotation.axis === "y" ? 1 : 0, element.rotation.axis === "z" ? 1 : 0),
-                                    toRadians(element.rotation.angle));
-                            }
-
-                            resolve(cube);
-                        })
-                }));
+            let finalizeCubeModel = function (geometry, materials) {
+                let mergedCubeMesh = new THREE.Mesh(geometry, materials);
+                mergedCubeMesh.matrixAutoUpdate = false;
+                mergedCubeMesh.updateMatrix();
 
 
-            }
+                if (!willBeMerged) {
+                    let cubeGroup = new THREE.Object3D();
+                    cubeGroup.add(mergedCubeMesh);
 
-            Promise.all(promises).then((cubes) => {
-                let cubeGroup = new THREE.Object3D();
-
-
-                for (let i = 0; i < cubes.length; i++) {
-                    cubeGroup.add(cubes[i]);
 
                     if (modelRender.options.showOutlines) {
-                        let geo = new THREE.WireframeGeometry(cubes[i].geometry);
-                        let mat = new THREE.LineBasicMaterial({color: 0x000000, linewidth: 2});
-                        let line = new THREE.LineSegments(geo, mat);
-                        line.name = cubes[i].name + "_outline";
-
-                        line.position.x = cubes[i].position.x;
-                        line.position.y = cubes[i].position.y;
-                        line.position.z = cubes[i].position.z;
-
-                        line.rotation.x = cubes[i].rotation.x;
-                        line.rotation.y = cubes[i].rotation.y;
-                        line.rotation.z = cubes[i].rotation.z;
-
-                        line.scale.set(1.01, 1.01, 1.01);
-
-                        cubeGroup.add(line);
-
-
-                        let box = new THREE.BoxHelper(cubes[i], 0xff0000);
+                        let box = new THREE.BoxHelper(mergedCubeMesh, 0xff0000);
                         cubeGroup.add(box);
                     }
 
+                    let centerContainer = new THREE.Object3D();
+                    centerContainer.add(cubeGroup);
+
+                    centerContainer.applyMatrix(new THREE.Matrix4().makeTranslation(-8, -8, -8));
+
+                    // Note to self: apply rotation AFTER adding objects to it, or it'll just be ignored
+
+
+                    let rotationContainer = new THREE.Object3D();
+                    rotationContainer.add(centerContainer);
+
+                    if (offset) {
+                        rotationContainer.applyMatrix(new THREE.Matrix4().makeTranslation(offset[0], offset[1], offset[2]))
+                    }
+                    if (rotation) {
+                        rotationContainer.rotation.set(toRadians(rotation[0]), toRadians(Math.abs(rotation[0]) > 0 ? rotation[1] : -rotation[1]), toRadians(rotation[2]));
+                    }
+                    if (scale) {
+                        rotationContainer.scale.set(scale[0], scale[1], scale[2]);
+                    }
+
+
+                    resolve(rotationContainer);
+                } else {
+
+                    mergedCubeMesh.applyMatrix(new THREE.Matrix4().makeTranslation(-8, -8, -8));
+
+                    // Note to self: apply rotation AFTER adding objects to it, or it'll just be ignored
+
+                    if (rotation) {
+                        mergedCubeMesh.applyMatrix(new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(toRadians(rotation[0]), toRadians(Math.abs(rotation[0]) > 0 ? rotation[1] : -rotation[1]), toRadians(rotation[2]))));
+                        // mergedCubeMesh.rotation.set(toRadians(rotation[0]), toRadians(Math.abs(rotation[0]) > 0 ? rotation[1] : -rotation[1]), toRadians(rotation[2]));
+                    }
+                    if (offset) {
+                        // mergedCubeMesh.position.set(mergedCubeMesh.position.x+offset[0], mergedCubeMesh.position.y+offset[1], mergedCubeMesh.position.z+offset[2]);
+                        mergedCubeMesh.applyMatrix(new THREE.Matrix4().makeTranslation(offset[0], offset[1], offset[2]));
+                    }
+                    if (scale) {
+                        mergedCubeMesh.applyMatrix(new THREE.Matrix4().makeScale(scale[0], scale[1], scale[2]));
+                        // mergedCubeMesh.scale.set(scale[0], scale[1], scale[2]);
+                    }
+                    mergedCubeMesh.updateMatrix();
+
+
+                    resolve(mergedCubeMesh);
+
+                }
+            };
+
+            if (modelCache.hasOwnProperty(modelKey)) {
+                console.debug("Using cached Model (" + modelKey + ")");
+                let cachedModel = modelCache[modelKey];
+                finalizeCubeModel(cachedModel.geometry, cachedModel.materials);
+            } else {
+                // Render the elements
+                let promises = [];
+                for (let i = 0; i < model.elements.length; i++) {
+                    let element = model.elements[i];
+
+                    // // From net.minecraft.client.renderer.block.model.BlockPart.java#47 - https://yeleha.co/2JcqSr4
+                    let fallbackFaces = {
+                        down: {
+                            uv: [element.from[0], 16 - element.to[2], element.to[0], 16 - element.from[2]],
+                            texture: "#down"
+                        },
+                        up: {
+                            uv: [element.from[0], element.from[2], element.to[0], element.to[2]],
+                            texture: "#up"
+                        },
+                        north: {
+                            uv: [16 - element.to[0], 16 - element.to[1], 16 - element.from[0], 16 - element.from[1]],
+                            texture: "#north"
+                        },
+                        south: {
+                            uv: [element.from[0], 16 - element.to[1], element.to[0], 16 - element.from[1]],
+                            texture: "#south"
+                        },
+                        west: {
+                            uv: [element.from[2], 16 - element.to[1], element.to[2], 16 - element.from[2]],
+                            texture: "#west"
+                        },
+                        east: {
+                            uv: [16 - element.to[2], 16 - element.to[1], 16 - element.from[2], 16 - element.from[1]],
+                            texture: "#east"
+                        }
+                    };
+
+                    promises.push(new Promise((resolve) => {
+                        createCube(element.to[0] - element.from[0], element.to[1] - element.from[1], element.to[2] - element.from[2],
+                            name.replaceAll(" ", "_").replaceAll("-", "_").toLowerCase() + "_" + (element.__comment ? element.__comment.replaceAll(" ", "_").replaceAll("-", "_").toLowerCase() + "_" : "") + Date.now(),
+                            element.faces, fallbackFaces, textures, textureNames, modelRender.options.assetRoot)
+                            .then((cube) => {
+                                cube.applyMatrix(new THREE.Matrix4().makeTranslation((element.to[0] - element.from[0]) / 2, (element.to[1] - element.from[1]) / 2, (element.to[2] - element.from[2]) / 2));
+                                cube.applyMatrix(new THREE.Matrix4().makeTranslation(element.from[0], element.from[1], element.from[2]));
+
+                                if (element.rotation) {
+                                    rotateAboutPoint(cube,
+                                        new THREE.Vector3(element.rotation.origin[0], element.rotation.origin[1], element.rotation.origin[2]),
+                                        new THREE.Vector3(element.rotation.axis === "x" ? 1 : 0, element.rotation.axis === "y" ? 1 : 0, element.rotation.axis === "z" ? 1 : 0),
+                                        toRadians(element.rotation.angle));
+                                }
+
+                                resolve(cube);
+                            })
+                    }));
+
+
                 }
 
-
-                let centerContainer = new THREE.Object3D();
-                centerContainer.add(cubeGroup);
-
-                centerContainer.applyMatrix(new THREE.Matrix4().makeTranslation(-8, -8, -8));
-
-                // Note to self: apply rotation AFTER adding objects to it, or it'll just be ignored
-
-
-                // if (modelRender.options.centerCubes) {
-                //     cubeContainer.applyMatrix(new THREE.Matrix4().makeTranslation(-8, -8, -8));
-                // }
-
-
-                let rotationContainer = new THREE.Object3D();
-                rotationContainer.add(centerContainer);
-
-                if (offset) {
-                    rotationContainer.applyMatrix(new THREE.Matrix4().makeTranslation(offset[0], offset[1], offset[2]))
-                }
-                if (rotation) {
-                    rotationContainer.rotation.set(toRadians(rotation[0]), toRadians(Math.abs(rotation[0]) > 0 ? rotation[1] : -rotation[1]), toRadians(rotation[2]));
-                }
-                if (scale) {
-                    rotationContainer.scale.set(scale[0], scale[1], scale[2]);
-                }
-
-
-                resolve(rotationContainer);
-            })
+                Promise.all(promises).then((cubes) => {
+                    let mergedCubes = mergeCubeMeshes(cubes, true);
+                    console.debug("Caching Model " + modelKey);
+                    modelCache[modelKey] = mergedCubes;
+                    finalizeCubeModel(mergedCubes.geometry, mergedCubes.materials);
+                    for (let i = 0; i < cubes.length; i++) {
+                        deepDisposeMesh(cubes[i], true);
+                    }
+                })
+            }
         } else {// 2d item
             createPlane(name + "_" + Date.now(), textures).then((plane) => {
                 if (offset) {
@@ -575,10 +623,11 @@ let createPlane = function (name, textures) {
                 let data = canvas.toDataURL("image/png");
                 let hash = md5(data);
 
-                // if (materialCache.hasOwnProperty(hash)) {// Use material from cache
-                //     materialLoaded(materialCache[hash], w, h);
-                //     return;
-                // }
+                if (materialCache.hasOwnProperty(hash)) {// Use material from cache
+                    console.debug("Using cached Material (" + hash + ")");
+                    materialLoaded(materialCache[hash], w, h);
+                    return;
+                }
 
                 let textureLoaded = function (texture) {
                     let material = new THREE.MeshBasicMaterial({
@@ -590,22 +639,26 @@ let createPlane = function (name, textures) {
                     });
 
                     // Add material to cache
-                    // materialCache[hash] = material;
+                    console.debug("Caching Material " + hash);
+                    materialCache[hash] = material;
 
                     materialLoaded(material, w, h);
                 };
 
                 if (textureCache.hasOwnProperty(hash)) {// Use texture to cache
+                    console.debug("Using cached Texture (" + hash + ")");
                     textureLoaded(textureCache[hash]);
                     return;
                 }
 
-                textureCache[hash] = new THREE.TextureLoader().load(canvas.toDataURL("image/png"), function (texture) {
+                console.debug("Pre-Caching Texture " + hash);
+                textureCache[hash] = new THREE.TextureLoader().load(data, function (texture) {
                     texture.magFilter = THREE.NearestFilter;
                     texture.minFilter = THREE.NearestFilter;
                     texture.anisotropy = 0;
                     texture.needsUpdate = true;
 
+                    console.debug("Caching Texture " + hash);
                     // Add texture to cache
                     textureCache[hash] = texture;
 
@@ -624,9 +677,11 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
         let geometryKey = width + "_" + height + "_" + depth;
         let geometry;
         if (geometryCache.hasOwnProperty(geometryKey)) {
+            console.debug("Using cached Geometry (" + geometryKey + ")");
             geometry = geometryCache[geometryKey];
         } else {
             geometry = new THREE.BoxGeometry(width, height, depth);
+            console.debug("Caching Geometry " + geometryKey);
             geometryCache[geometryKey] = geometry;
         }
 
@@ -709,10 +764,11 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                             let data = canvas.toDataURL("image/png");
                             let hash = md5(data);
 
-                            // if (materialCache.hasOwnProperty(hash)) {// Use material from cache
-                            //     resolve(materialCache[hash]);
-                            //     return;
-                            // }
+                            if (materialCache.hasOwnProperty(hash)) {// Use material from cache
+                                console.debug("Using cached Material (" + hash + ")");
+                                resolve(materialCache[hash]);
+                                return;
+                            }
 
                             let textureLoaded = function (texture) {
                                 let n = textureNames[textureRef];
@@ -729,16 +785,19 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                                 });
 
                                 // Add material to cache
-                                // materialCache[hash] = material;
+                                console.debug("Caching Material " + hash);
+                                materialCache[hash] = material;
 
                                 resolve(material);
                             };
 
                             if (textureCache.hasOwnProperty(hash)) {// Use texture from cache
+                                console.debug("Using cached Texture (" + hash + ")");
                                 textureLoaded(textureCache[hash]);
                                 return;
                             }
 
+                            console.debug("Pre-Caching Texture " + hash);
                             textureCache[hash] = new THREE.TextureLoader().load(data, function (texture) {
                                 texture.magFilter = THREE.NearestFilter;
                                 texture.minFilter = THREE.NearestFilter;
@@ -751,6 +810,7 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                                     texture.rotation = toRadians(face.rotation);
                                 }
 
+                                console.debug("Caching Texture " + hash);
                                 // Add texture to cache
                                 textureCache[hash] = texture;
 
@@ -781,16 +841,19 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                                     let hash = md5(data);
 
                                     if (textureCache.hasOwnProperty(hash)) {// Use texture to cache
+                                        console.debug("Using cached Texture (" + hash + ")");
                                         resolve(textureCache[hash]);
                                         return;
                                     }
 
+                                    console.debug("Pre-Caching Texture " + hash);
                                     textureCache[hash] = new THREE.TextureLoader().load(data, function (texture) {
                                         texture.magFilter = THREE.NearestFilter;
                                         texture.minFilter = THREE.NearestFilter;
                                         texture.anisotropy = 0;
                                         texture.needsUpdate = true;
 
+                                        console.debug("Caching Texture " + hash);
                                         // add texture to cache
                                         textureCache[hash] = texture;
 
@@ -980,5 +1043,11 @@ function toRadians(angle) {
 
 window.ModelRender = ModelRender;
 window.ModelConverter = ModelConverter;
+window.ModelRender.cache = {
+    texture: textureCache,
+    material: materialCache,
+    geometry: geometryCache,
+    models: modelCache
+};
 
 export default ModelRender;

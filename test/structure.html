@@ -34,8 +34,9 @@
                 window.modelRender = new ModelRender({
                     showAxes: true,
                     showGrid: false,
-                    showOutlines: false,
+                    showOutlines: true,
                     centerCubes: true,
+                    mergeModels: false,
                     camera: {
                         type: "perspective",
                         x: 374.63961340330906, y: 302.33958985040925, z: 466.85165449163,
@@ -43,7 +44,7 @@
                     }
                 })
 
-                let raycaster = new THREE.Raycaster();
+                // let raycaster = new THREE.Raycaster();
                 let mouse = new THREE.Vector2();
 
                 function onMouseMove(event) {
@@ -53,24 +54,24 @@
 
                 window.addEventListener('mousemove', onMouseMove, false);
 
-                document.body.addEventListener("modelRender", function () {
-                    $("#targetInfo").empty();
-
-                    raycaster.setFromCamera(mouse, modelRender._camera);
-
-                    // calculate objects intersecting the picking ray
-                    let intersects = raycaster.intersectObjects(modelRender._scene.children, true);
-
-                    for (let i = 0; i < intersects.length; i++) {
-
-                        if(i===0) {
-                            $("#targetInfo").append(intersects[i].object.name + "<br/>")
-                        }else{
-                            $("#targetInfo").append("<span style='color:gray'>"+intersects[i].object.name + "</span><br/>")
-                        }
-
-                    }
-                });
+                // document.body.addEventListener("modelRender", function () {
+                //     $("#targetInfo").empty();
+                //
+                //     raycaster.setFromCamera(mouse, modelRender._camera);
+                //
+                //     // calculate objects intersecting the picking ray
+                //     let intersects = raycaster.intersectObjects(modelRender._scene.children, true);
+                //
+                //     for (let i = 0; i < intersects.length; i++) {
+                //
+                //         if(i===0) {
+                //             $("#targetInfo").append(intersects[i].object.name + "<br/>")
+                //         }else{
+                //             $("#targetInfo").append("<span style='color:gray'>"+intersects[i].object.name + "</span><br/>")
+                //         }
+                //
+                //     }
+                // });
 
 
                 let modelConverter = new ModelConverter();
