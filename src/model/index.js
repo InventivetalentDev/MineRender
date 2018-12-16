@@ -1,7 +1,9 @@
 import * as THREE from "three";
+
+require("three-instanced-mesh")(THREE);
 import * as $ from 'jquery';
 import merge from 'deepmerge'
-import Render, { loadTextureAsBase64, scaleUv, defaultOptions, DEFAULT_ROOT, loadJsonFromPath, loadBlockState, loadTextureMeta, mergeMeshes, deepDisposeMesh, mergeCubeMeshes } from "../renderBase";
+import Render, {loadTextureAsBase64, scaleUv, defaultOptions, DEFAULT_ROOT, loadJsonFromPath, loadBlockState, loadTextureMeta, mergeMeshes, deepDisposeMesh, mergeCubeMeshes} from "../renderBase";
 import ModelConverter from "./modelConverter";
 import * as md5 from "md5";
 
@@ -28,10 +30,15 @@ const colors = [
 const FACE_ORDER = ["east", "west", "up", "down", "south", "north"];
 const TINTS = ["lightgreen"];
 
+const rawModelCache = {};
 const textureCache = {};
 const materialCache = {};
 const geometryCache = {};
 const modelCache = {};
+const instanceCache = {};
+
+const modelQueue = {};
+const textureQueue = {};
 
 const animatedTextures = [];
 
@@ -114,7 +121,7 @@ class ModelRender extends Render {
                 let doModelLoad = function (modelName, type, offset, rotation, scale, resolve) {
                     console.log("Loading model " + modelName + " of type " + type + "...");
                     loadModel(modelName, type, modelRender.options.assetRoot)
-                        .then(modelData => mergeParents(modelData, modelRender.options.assetRoot))
+                        .then(modelData => mergeParents(modelData, modelName, modelRender.options.assetRoot))
                         .then((mergedModel) => {
                             modelRender.modelData = mergedModel;
 
@@ -154,9 +161,9 @@ class ModelRender extends Render {
                                     }
 
                                     modelRender.models.push(renderedModel);
-                                    if (!mergeModels) {
-                                        modelRender.addToScene(renderedModel);
-                                    }
+                                    // if (!mergeModels) {
+                                    modelRender.addToScene(renderedModel);
+                                    // }
 
                                     console.log(renderedModel);
                                     resolve(renderedModel);
@@ -365,21 +372,22 @@ class ModelRender extends Render {
 
         Promise.all(promises).then((renderedModels) => {
             console.log(renderedModels)
-            if (mergeModels) {
-                console.debug("Merging " + renderedModels.length + " individual models and adding to scene");
-                let merged = mergeCubeMeshes(renderedModels);
-                let mergedMesh = new THREE.Mesh(merged.geometry, merged.materials);
-                modelRender.addToScene(mergedMesh);
-            }
+            // if (mergeModels) {
+            //     // renderedModels = renderedModels.filter(m => m && m.userData.beforeMergeSize === 1);
+            //     console.debug("Merging " + renderedModels.length + " individual models and adding to scene");
+            //     let merged = mergeCubeMeshes(renderedModels);
+            //     let mergedMesh = new THREE.Mesh(merged.geometry, merged.materials);
+            //     modelRender.addToScene(mergedMesh);
+            // }
 
-            Object.keys(materialCache).forEach(m=>{
+            Object.keys(materialCache).forEach(m => {
                 materialCache[m].dispose();
                 delete materialCache[m];
             });
-            Object.keys(textureCache).forEach(t=>{
+            Object.keys(textureCache).forEach(t => {
                 delete textureCache[t];
             });
-            Object.keys(geometryCache).forEach(g=>{
+            Object.keys(geometryCache).forEach(g => {
                 geometryCache[g].dispose();
                 delete geometryCache[g];
             });
@@ -421,75 +429,131 @@ let renderModel = function (modelRender, model, textures, textureNames, type, na
         if (model.hasOwnProperty("elements")) {// block OR item with block parent
             let modelKey = "cubes_" + model.hierarchy.join("__");
 
-            let finalizeCubeModel = function (geometry, materials) {
-                let mergedCubeMesh = new THREE.Mesh(geometry, materials);
-                mergedCubeMesh.matrixAutoUpdate = false;
-                mergedCubeMesh.updateMatrix();
+            let applyModelTransforms = function (mesh, instanceIndex) {
+                mesh.userData.instanceIndex = instanceIndex;
 
-
-                if (!willBeMerged) {
-                    let cubeGroup = new THREE.Object3D();
-                    cubeGroup.add(mergedCubeMesh);
-
-
-                    if (modelRender.options.showOutlines) {
-                        let box = new THREE.BoxHelper(mergedCubeMesh, 0xff0000);
-                        cubeGroup.add(box);
-                    }
-
-                    let centerContainer = new THREE.Object3D();
-                    centerContainer.add(cubeGroup);
-
-                    centerContainer.applyMatrix(new THREE.Matrix4().makeTranslation(-8, -8, -8));
-
-                    // Note to self: apply rotation AFTER adding objects to it, or it'll just be ignored
-
-
-                    let rotationContainer = new THREE.Object3D();
-                    rotationContainer.add(centerContainer);
-
-                    if (offset) {
-                        rotationContainer.applyMatrix(new THREE.Matrix4().makeTranslation(offset[0], offset[1], offset[2]))
-                    }
-                    if (rotation) {
-                        rotationContainer.rotation.set(toRadians(rotation[0]), toRadians(Math.abs(rotation[0]) > 0 ? rotation[1] : -rotation[1]), toRadians(rotation[2]));
-                    }
-                    if (scale) {
-                        rotationContainer.scale.set(scale[0], scale[1], scale[2]);
-                    }
-
-
-                    resolve(rotationContainer);
-                } else {
-
-                    mergedCubeMesh.applyMatrix(new THREE.Matrix4().makeTranslation(-8, -8, -8));
-
-                    // Note to self: apply rotation AFTER adding objects to it, or it'll just be ignored
-
-                    if (rotation) {
-                        mergedCubeMesh.applyMatrix(new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(toRadians(rotation[0]), toRadians(Math.abs(rotation[0]) > 0 ? rotation[1] : -rotation[1]), toRadians(rotation[2]))));
-                        // mergedCubeMesh.rotation.set(toRadians(rotation[0]), toRadians(Math.abs(rotation[0]) > 0 ? rotation[1] : -rotation[1]), toRadians(rotation[2]));
-                    }
-                    if (offset) {
-                        // mergedCubeMesh.position.set(mergedCubeMesh.position.x+offset[0], mergedCubeMesh.position.y+offset[1], mergedCubeMesh.position.z+offset[2]);
-                        mergedCubeMesh.applyMatrix(new THREE.Matrix4().makeTranslation(offset[0], offset[1], offset[2]));
-                    }
-                    if (scale) {
-                        mergedCubeMesh.applyMatrix(new THREE.Matrix4().makeScale(scale[0], scale[1], scale[2]));
-                        // mergedCubeMesh.scale.set(scale[0], scale[1], scale[2]);
-                    }
-                    mergedCubeMesh.updateMatrix();
-
-
-                    resolve(mergedCubeMesh);
-
+                if (rotation) {
+                    let quat = new THREE.Quaternion();
+                    quat.setFromEuler(new THREE.Euler(toRadians(rotation[0]), toRadians(Math.abs(rotation[0]) > 0 ? rotation[1] : -rotation[1]), toRadians(rotation[2])))
+                    mesh.setQuaternionAt(instanceIndex, quat)
                 }
+                if (offset) {
+                    mesh.setPositionAt(instanceIndex, new THREE.Vector3(offset[0], offset[1] , offset[2] ));
+                }
+
+                if (scale) {
+                    mesh.setScaleAt(instanceIndex, new THREE.Vector3(scale[0], scale[1], scale[2]))
+                }
+
+
+
+                resolve(mesh);
+            };
+
+            let finalizeCubeModel = function (geometry, materials, sourceSize) {
+geometry.translate(-8,-8,-8);
+
+                let INSTANCE_COUNT=1000;
+
+                if (instanceCache.hasOwnProperty(modelKey)) {
+                    console.debug("Using cached instance (" + modelKey + ")");
+                    let cachedInstance = instanceCache[modelKey];
+                    applyModelTransforms(cachedInstance.instance, ++cachedInstance.index)
+                } else {
+                    console.log("Caching new model instance " + modelKey);
+                    let newInstance = new THREE.InstancedMesh(
+                        geometry,
+                        materials,
+                        INSTANCE_COUNT,
+                        false,
+                        false,
+                        false);
+                    instanceCache[modelKey] = {
+                        instance: newInstance,
+                        index: 0
+                    };
+                    var _v3 = new THREE.Vector3();
+                    var _q = new THREE.Quaternion();
+
+                    for (var i = 0; i < INSTANCE_COUNT; i++) {
+
+                        newInstance.setQuaternionAt(i, _q);
+                        newInstance.setPositionAt(i, _v3.set(Math.random(), Math.random(), Math.random()));
+                        newInstance.setScaleAt(i, _v3.set(1, 1, 1));
+
+                    }
+                    applyModelTransforms(newInstance, 0);
+                }
+
+
+                // let mergedCubeMesh = new THREE.Mesh(geometry, materials);
+                // mergedCubeMesh.matrixAutoUpdate = false;
+                // mergedCubeMesh.updateMatrix();
+                //
+                //
+                // if (!willBeMerged) {
+                //     let cubeGroup = new THREE.Object3D();
+                //     cubeGroup.add(mergedCubeMesh);
+                //
+                //
+                //     if (modelRender.options.showOutlines) {
+                //         let box = new THREE.BoxHelper(mergedCubeMesh, 0xff0000);
+                //         cubeGroup.add(box);
+                //     }
+                //
+                //     let centerContainer = new THREE.Object3D();
+                //     centerContainer.add(cubeGroup);
+                //
+                //     centerContainer.applyMatrix(new THREE.Matrix4().makeTranslation(-8, -8, -8));
+                //
+                //     // Note to self: apply rotation AFTER adding objects to it, or it'll just be ignored
+                //
+                //
+                //     let rotationContainer = new THREE.Object3D();
+                //     rotationContainer.add(centerContainer);
+                //
+                //     if (offset) {
+                //         rotationContainer.applyMatrix(new THREE.Matrix4().makeTranslation(offset[0], offset[1], offset[2]))
+                //     }
+                //     if (rotation) {
+                //         rotationContainer.rotation.set(toRadians(rotation[0]), toRadians(Math.abs(rotation[0]) > 0 ? rotation[1] : -rotation[1]), toRadians(rotation[2]));
+                //     }
+                //     if (scale) {
+                //         rotationContainer.scale.set(scale[0], scale[1], scale[2]);
+                //     }
+                //
+                //     resolve(rotationContainer);
+                // } else {
+                //
+                //     mergedCubeMesh.applyMatrix(new THREE.Matrix4().makeTranslation(-8, -8, -8));
+                //
+                //     // Note to self: apply rotation AFTER adding objects to it, or it'll just be ignored
+                //
+                //     if (rotation) {
+                //         mergedCubeMesh.applyMatrix(new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(toRadians(rotation[0]), toRadians(Math.abs(rotation[0]) > 0 ? rotation[1] : -rotation[1]), toRadians(rotation[2]))));
+                //         // mergedCubeMesh.rotation.set(toRadians(rotation[0]), toRadians(Math.abs(rotation[0]) > 0 ? rotation[1] : -rotation[1]), toRadians(rotation[2]));
+                //     }
+                //     if (offset) {
+                //         // mergedCubeMesh.position.set(mergedCubeMesh.position.x+offset[0], mergedCubeMesh.position.y+offset[1], mergedCubeMesh.position.z+offset[2]);
+                //         mergedCubeMesh.applyMatrix(new THREE.Matrix4().makeTranslation(offset[0], offset[1], offset[2]));
+                //     }
+                //     if (scale) {
+                //         mergedCubeMesh.applyMatrix(new THREE.Matrix4().makeScale(scale[0], scale[1], scale[2]));
+                //         // mergedCubeMesh.scale.set(scale[0], scale[1], scale[2]);
+                //     }
+                //     mergedCubeMesh.updateMatrix();
+                //
+                //     mergedCubeMesh.userData.beforeMergeSize = sourceSize;
+                //
+                //     resolve(mergedCubeMesh);
+                //
+                // }
             };
 
             if (modelCache.hasOwnProperty(modelKey)) {
                 console.debug("Using cached Model (" + modelKey + ")");
                 let cachedModel = modelCache[modelKey];
-                finalizeCubeModel(cachedModel.geometry, cachedModel.materials);
+                finalizeCubeModel(cachedModel.geometry, cachedModel.materials, cachedModel.sourceSize);
             } else {
                 // Render the elements
                 let promises = [];
@@ -549,8 +613,9 @@ let renderModel = function (modelRender, model, textures, textureNames, type, na
                 Promise.all(promises).then((cubes) => {
                     let mergedCubes = mergeCubeMeshes(cubes, true);
                     console.debug("Caching Model " + modelKey);
+                    mergedCubes.sourceSize = cubes.length;
                     modelCache[modelKey] = mergedCubes;
-                    finalizeCubeModel(mergedCubes.geometry, mergedCubes.materials);
+                    finalizeCubeModel(mergedCubes.geometry, mergedCubes.materials, cubes.length);
                     for (let i = 0; i < cubes.length; i++) {
                         deepDisposeMesh(cubes[i], true);
                     }
@@ -1006,12 +1071,12 @@ let loadTextures = function (textureNames, assetRoot) {
 };
 
 
-let mergeParents = function (model, assetRoot) {
+let mergeParents = function (model, modelName, assetRoot) {
     return new Promise((resolve, reject) => {
-        mergeParents_(model, [], [], assetRoot, resolve, reject);
+        mergeParents_(model, modelName, [], [], assetRoot, resolve, reject);
     });
 };
-let mergeParents_ = function (model, stack, hierarchy, assetRoot, resolve, reject) {
+let mergeParents_ = function (model, name, stack, hierarchy, assetRoot, resolve, reject) {
     stack.push(model);
 
     if (!model.hasOwnProperty("parent") || model["parent"] === "builtin/generated" || model["parent"] === "builtin/entity") {// already at the highest parent OR we reach the builtin parent which seems to be the hardcoded stuff that's not in the json files
@@ -1020,6 +1085,7 @@ let mergeParents_ = function (model, stack, hierarchy, assetRoot, resolve, rejec
             merged = merge(merged, stack[i]);
         }
 
+        hierarchy.unshift(name);
         merged.hierarchy = hierarchy;
         resolve(merged);
         return;
@@ -1031,7 +1097,7 @@ let mergeParents_ = function (model, stack, hierarchy, assetRoot, resolve, rejec
 
     loadJsonFromPath(assetRoot, "/assets/minecraft/models/" + parent + ".json").then((parentData) => {
         let mergedModel = Object.assign({}, model, parentData);
-        mergeParents_(mergedModel, stack, hierarchy, assetRoot, resolve, reject);
+        mergeParents_(mergedModel, name, stack, hierarchy, assetRoot, resolve, reject);
     })
 
 };

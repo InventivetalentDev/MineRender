@@ -151,13 +151,13 @@ let mainConfig = Object.assign({}, baseConfigMin, {
 });
 
 module.exports = [
-    skinConfig, skinConfigFull,
+    // skinConfig, skinConfigFull,
     modelConfig, modelConfigFull,
-    guiConfig, guiConfigFull,
-    entityConfig, entityConfigFull,
+    // guiConfig, guiConfigFull,
+    // entityConfig, entityConfigFull,
 
-    combinedConfig, combinedConfigFull,
+    // combinedConfig, combinedConfigFull,
 
-    dataConfig,
-    mainConfig
+    // dataConfig,
+    // mainConfig
 ];
