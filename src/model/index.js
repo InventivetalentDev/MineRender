@@ -1,7 +1,9 @@
 import * as THREE from "three";
+
+require("three-instanced-mesh")(THREE);
 import * as $ from 'jquery';
 import merge from 'deepmerge'
-import Render, { loadTextureAsBase64, scaleUv, defaultOptions, DEFAULT_ROOT, loadJsonFromPath, loadBlockState, loadTextureMeta } from "../renderBase";
+import Render, {loadTextureAsBase64, scaleUv, defaultOptions, DEFAULT_ROOT, loadJsonFromPath, loadBlockState, loadTextureMeta, mergeMeshes, deepDisposeMesh, mergeCubeMeshes} from "../renderBase";
 import ModelConverter from "./modelConverter";
 import * as md5 from "md5";
 
@@ -28,9 +30,19 @@ const colors = [
 const FACE_ORDER = ["east", "west", "up", "down", "south", "north"];
 const TINTS = ["lightgreen"];
 
+const mergedModelCache = {};
+const loadedTextureCache = {};
+const modelInstances = {};
+
+const rawModelCache = {};
 const textureCache = {};
 const materialCache = {};
 const geometryCache = {};
+const modelCache = {};
+const instanceCache = {};
+
+const modelQueue = {};
+const textureQueue = {};
 
 const animatedTextures = [];
 
@@ -101,63 +113,18 @@ class ModelRender extends Render {
             console.log("[ModelRender] is attached - skipping scene init");
         }
 
-        let type = this.options.type;
-        let promises = [];
+        let mergeModels = this.options.mergeModels || false;
+
+        console.log("Parsing Models...");
+        let parsedModelList = [];
+        let parsePromises = [];
         for (let i = 0; i < models.length; i++) {
-            promises.push(new Promise((resolve) => {
-                let model = models[i];
-                let modelOptions = model;
+            let model = models[i];
+            let modelOptions = model;
 
-                let doModelLoad = function (modelName, type, offset, rotation, scale, resolve) {
-                    console.log("Loading model " + modelName + " of type " + type + "...");
-                    loadModel(modelName, type, modelRender.options.assetRoot)
-                        .then(modelData => mergeParents(modelData, modelRender.options.assetRoot))
-                        .then((mergedModel) => {
-                            modelRender.modelData = mergedModel;
 
-                            if (!PRODUCTION) {
-                                console.log("Merged Model: ");
-                                console.log(mergedModel);
-                            }
-
-                            if (!mergedModel.textures) {
-                                console.warn("The model doesn't have any textures!");
-                                console.warn("Please make sure you're using the proper file.")
-                                return;
-                            }
-
-                            loadTextures(mergedModel.textures, modelRender.options.assetRoot).then((textures) => {
-                                renderModel(modelRender, mergedModel, textures, mergedModel.textures, type, modelName, offset, rotation, scale).then((renderedModel) => {
-
-                                    if (modelOptions.hasOwnProperty("display")) {
-                                        if (mergedModel.hasOwnProperty("display")) {
-                                            if (mergedModel.display.hasOwnProperty(modelOptions.display)) {
-                                                let displayData = mergedModel.display[modelOptions.display];
-
-                                                if (displayData.hasOwnProperty("translation")) {
-                                                    renderedModel.applyMatrix(new THREE.Matrix4().makeTranslation(displayData.translation[0], displayData.translation[1], displayData.translation[2]));
-                                                }
-
-                                                if (displayData.hasOwnProperty("rotation")) {
-                                                    renderedModel.rotation.set(toRadians(displayData.rotation[0]), toRadians(displayData.rotation[1]), toRadians(displayData.rotation[2]))
-                                                }
-                                                if (displayData.hasOwnProperty("scale")) {
-                                                    renderedModel.scale.set(displayData.scale[0], displayData.scale[1], displayData.scale[2]);
-                                                }
-
-                                            }
-                                        }
-                                    }
-
-                                    modelRender.models.push(renderedModel);
-                                    modelRender.addToScene(renderedModel);
-
-                                    resolve();
-                                })
-                            });
-                        });
-                };
-
+            parsePromises.push(new Promise(resolve => {
+                let type = this.options.type;
                 let offset;
                 let rotation;
                 let scale;
@@ -167,7 +134,12 @@ class ModelRender extends Render {
                     model = parsed.model;
                     type = parsed.type;
 
-                    doModelLoad(model, type, offset, rotation, scale, resolve);
+                    parsedModelList.push({
+                        name: model,
+                        type: type,
+                        options: modelOptions
+                    });
+                    resolve();
                 } else if (typeof model === "object") {
                     if (model.hasOwnProperty("offset")) {
                         offset = model["offset"];
@@ -189,7 +161,15 @@ class ModelRender extends Render {
                             type = parsed.type;
                         }
 
-                        doModelLoad(model, type, offset, rotation, scale, resolve);
+                        parsedModelList.push({
+                            name: model,
+                            type: type,
+                            offset: offset,
+                            rotation: rotation,
+                            scale: scale,
+                            options: modelOptions
+                        });
+                        resolve();
                     } else if (model.hasOwnProperty("blockstate")) {
                         type = "block";
 
@@ -201,6 +181,7 @@ class ModelRender extends Render {
                                 if (model.hasOwnProperty("variant")) {
                                     if (!blockstate.variants.hasOwnProperty(model.variant)) {
                                         console.warn("Missing variant for " + model.blockstate + ": " + model.variant);
+                                        resolve(null);
                                         return;
                                     }
                                     let variant = blockstate.variants[model.variant];
@@ -226,7 +207,15 @@ class ModelRender extends Render {
                                         rotation[2] = v.z;
                                     }
                                     let parsed = parseModelType(v.model);
-                                    doModelLoad(parsed.model, "block", offset, rotation, scale, resolve);
+                                    parsedModelList.push({
+                                        name: parsed.model,
+                                        type: "block",
+                                        offset: offset,
+                                        rotation: rotation,
+                                        scale: scale,
+                                        options: modelOptions
+                                    });
+                                    resolve();
                                 } else {
                                     let variant;
                                     if (blockstate.variants.hasOwnProperty("normal")) {
@@ -257,11 +246,17 @@ class ModelRender extends Render {
                                         rotation[2] = v.z;
                                     }
                                     let parsed = parseModelType(v.model);
-                                    doModelLoad(parsed.model, "block", offset, rotation, scale, resolve);
+                                    parsedModelList.push({
+                                        name: parsed.model,
+                                        type: "block",
+                                        offset: offset,
+                                        rotation: rotation,
+                                        scale: scale,
+                                        options: modelOptions
+                                    })
+                                    resolve();
                                 }
                             } else if (blockstate.hasOwnProperty("multipart")) {
-                                let promises1 = [];
-
                                 for (let j = 0; j < blockstate.multipart.length; j++) {
                                     let cond = blockstate.multipart[j];
                                     let apply = cond.apply;
@@ -280,9 +275,14 @@ class ModelRender extends Render {
                                             rotation[2] = apply.z;
                                         }
                                         let parsed = parseModelType(apply.model);
-                                        promises1.push(new Promise((resolve) => {
-                                            doModelLoad(parsed.model, "block", offset, rotation, scale, resolve);
-                                        }))
+                                        parsedModelList.push({
+                                            name: parsed.model,
+                                            type: "block",
+                                            offset: offset,
+                                            rotation: rotation,
+                                            scale: scale,
+                                            options: modelOptions
+                                        });
                                     } else if (model.hasOwnProperty("multipart")) {
                                         let multipartConditions = model.multipart;
 
@@ -335,29 +335,422 @@ class ModelRender extends Render {
                                                 rotation[2] = apply.z;
                                             }
                                             let parsed = parseModelType(apply.model);
-                                            promises1.push(new Promise((resolve) => {
-                                                doModelLoad(parsed.model, "block", offset, rotation, scale, resolve);
-                                            }))
+                                            parsedModelList.push({
+                                                name: parsed.model,
+                                                type: "block",
+                                                offset: offset,
+                                                rotation: rotation,
+                                                scale: scale,
+                                                options: modelOptions
+                                            })
                                         }
                                     }
                                 }
 
-                                Promise.all(promises1).then(() => {
-                                    resolve();
-                                })
+                                resolve();
                             }
                         });
                     }
 
                 }
-
-
             }))
         }
 
-        Promise.all(promises).then(() => {
-            if (typeof cb === "function") cb();
-        })
+        Promise.all(parsePromises).then(() => {
+            console.debug(parsedModelList);
+
+            let jsonPromises = [];
+
+            console.log("Loading Model JSON data & merging...");
+            for (let i = 0; i < parsedModelList.length; i++) {
+                jsonPromises.push(new Promise(resolve => {
+                    let model = parsedModelList[i];
+
+                    modelInstances[model.type + "__" + model.name] = (modelInstances[model.type + "__" + model.name] || 0) + 1;
+
+                    if (mergedModelCache.hasOwnProperty(model.type + "__" + model.name)) {
+                        resolve();
+                        return;
+                    }
+
+                    loadModel(model.name, model.type, modelRender.options.assetRoot)
+                        .then(modelData => mergeParents(modelData, model.name, modelRender.options.assetRoot))
+                        .then((mergedModel) => {
+                            mergedModelCache[model.type + "__" + model.name] = mergedModel;
+                            resolve()
+                        });
+                }))
+            }
+
+            Promise.all(jsonPromises).then(() => {
+                console.debug(mergedModelCache);
+
+                let texturePromises = [];
+
+                console.log("Loading Textures...");
+                for (let i = 0; i < parsedModelList.length; i++) {
+                    texturePromises.push(new Promise(resolve => {
+                        let model = parsedModelList[i];
+                        let mergedModel = mergedModelCache[model.type + "__" + model.name];
+
+                        if (loadedTextureCache.hasOwnProperty(model.type + "__" + model.name)) {
+                            resolve();
+                            return;
+                        }
+
+                        if (!mergedModel.textures) {
+                            console.warn("The model doesn't have any textures!");
+                            console.warn("Please make sure you're using the proper file.");
+                            console.warn(model.name);
+                            resolve();
+                            return;
+                        }
+
+                        loadTextures(mergedModel.textures, modelRender.options.assetRoot).then((textures) => {
+                            loadedTextureCache[model.type + "__" + model.name] = textures;
+                            resolve();
+                        });
+                    }))
+                }
+
+
+                Promise.all(texturePromises).then(() => {
+                    console.debug(loadedTextureCache);
+
+                    console.log("Rendering Models...");
+
+                    let renderPromises = [];
+
+                    for (let i = 0; i < parsedModelList.length; i++) {
+                        renderPromises.push(new Promise(resolve => {
+                            let model = parsedModelList[i];
+
+                            let mergedModel = mergedModelCache[model.type + "__" + model.name];
+                            let textures = loadedTextureCache[model.type + "__" + model.name];
+
+                            renderModel(modelRender, mergedModel, textures, mergedModel.textures, model.type, model.name, model.offset, model.rotation, model.scale).then((renderedModel) => {
+
+                                if (model.options.hasOwnProperty("display")) {
+                                    if (mergedModel.hasOwnProperty("display")) {
+                                        if (mergedModel.display.hasOwnProperty(model.options.display)) {
+                                            let displayData = mergedModel.display[model.options.display];
+
+                                            if (displayData.hasOwnProperty("translation")) {
+                                                renderedModel.applyMatrix(new THREE.Matrix4().makeTranslation(displayData.translation[0], displayData.translation[1], displayData.translation[2]));
+                                            }
+
+                                            if (displayData.hasOwnProperty("rotation")) {
+                                                renderedModel.rotation.set(toRadians(displayData.rotation[0]), toRadians(displayData.rotation[1]), toRadians(displayData.rotation[2]))
+                                            }
+                                            if (displayData.hasOwnProperty("scale")) {
+                                                renderedModel.scale.set(displayData.scale[0], displayData.scale[1], displayData.scale[2]);
+                                            }
+
+                                        }
+                                    }
+                                }
+
+                                if (renderedModel.firstInstance) {
+                                    modelRender.models.push(renderedModel);
+                                    modelRender.addToScene(renderedModel.mesh);
+                                }
+
+                                resolve(renderedModel);
+                            })
+                        }))
+                    }
+
+                    Promise.all(renderPromises).then((renderedModels) => {
+                        console.debug(renderedModels)
+                        if (typeof cb === "function") cb();
+                    })
+                })
+            });
+        });
+        //
+        // let type = this.options.type;
+        // let promises = [];
+        // for (let i = 0; i < models.length; i++) {
+        //     promises.push(new Promise((resolve) => {
+        //         let model = models[i];
+        //         let modelOptions = model;
+        //
+        //         let doModelLoad = function (modelName, type, offset, rotation, scale, resolve) {
+        //             console.log("Loading model " + modelName + " of type " + type + "...");
+        //             loadModel(modelName, type, modelRender.options.assetRoot)
+        //                 .then(modelData => mergeParents(modelData, modelName, modelRender.options.assetRoot))
+        //                 .then((mergedModel) => {
+        //                     modelRender.modelData = mergedModel;
+        //
+        //                     if (!PRODUCTION) {
+        //                         console.log("Merged Model: ");
+        //                         console.log(mergedModel);
+        //                     }
+        //
+        //                     if (!mergedModel.textures) {
+        //                         console.warn("The model doesn't have any textures!");
+        //                         console.warn("Please make sure you're using the proper file.");
+        //                         resolve(null);
+        //                         return;
+        //                     }
+        //
+        //                     loadTextures(mergedModel.textures, modelRender.options.assetRoot).then((textures) => {
+        //                         renderModel(modelRender, mergedModel, textures, mergedModel.textures, type, modelName, offset, rotation, scale, mergeModels).then((renderedModel) => {
+        //
+        //                             if (modelOptions.hasOwnProperty("display")) {
+        //                                 if (mergedModel.hasOwnProperty("display")) {
+        //                                     if (mergedModel.display.hasOwnProperty(modelOptions.display)) {
+        //                                         let displayData = mergedModel.display[modelOptions.display];
+        //
+        //                                         if (displayData.hasOwnProperty("translation")) {
+        //                                             renderedModel.applyMatrix(new THREE.Matrix4().makeTranslation(displayData.translation[0], displayData.translation[1], displayData.translation[2]));
+        //                                         }
+        //
+        //                                         if (displayData.hasOwnProperty("rotation")) {
+        //                                             renderedModel.rotation.set(toRadians(displayData.rotation[0]), toRadians(displayData.rotation[1]), toRadians(displayData.rotation[2]))
+        //                                         }
+        //                                         if (displayData.hasOwnProperty("scale")) {
+        //                                             renderedModel.scale.set(displayData.scale[0], displayData.scale[1], displayData.scale[2]);
+        //                                         }
+        //
+        //                                     }
+        //                                 }
+        //                             }
+        //
+        //                             modelRender.models.push(renderedModel);
+        //                             // if (!mergeModels) {
+        //                             modelRender.addToScene(renderedModel);
+        //                             // }
+        //
+        //                             console.log(renderedModel);
+        //                             resolve(renderedModel);
+        //                         })
+        //                     });
+        //                 });
+        //         };
+        //
+        //         let offset;
+        //         let rotation;
+        //         let scale;
+        //
+        //         if (typeof model === "string") {
+        //             let parsed = parseModelType(model);
+        //             model = parsed.model;
+        //             type = parsed.type;
+        //
+        //             doModelLoad(model, type, offset, rotation, scale, resolve);
+        //         } else if (typeof model === "object") {
+        //             if (model.hasOwnProperty("offset")) {
+        //                 offset = model["offset"];
+        //             }
+        //             if (model.hasOwnProperty("rotation")) {
+        //                 rotation = model["rotation"];
+        //             }
+        //             if (model.hasOwnProperty("scale")) {
+        //                 scale = model["scale"];
+        //             }
+        //
+        //             if (model.hasOwnProperty("model")) {
+        //                 if (model.hasOwnProperty("type")) {
+        //                     type = model["type"];
+        //                     model = model["model"];
+        //                 } else {
+        //                     let parsed = parseModelType(model["model"]);
+        //                     model = parsed.model;
+        //                     type = parsed.type;
+        //                 }
+        //
+        //                 doModelLoad(model, type, offset, rotation, scale, resolve);
+        //             } else if (model.hasOwnProperty("blockstate")) {
+        //                 type = "block";
+        //
+        //                 loadBlockState(model.blockstate, modelRender.options.assetRoot).then((blockstate) => {
+        //                     modelRender.blockstate = blockstate;
+        //
+        //                     if (blockstate.hasOwnProperty("variants")) {
+        //
+        //                         if (model.hasOwnProperty("variant")) {
+        //                             if (!blockstate.variants.hasOwnProperty(model.variant)) {
+        //                                 console.warn("Missing variant for " + model.blockstate + ": " + model.variant);
+        //                                 resolve(null);
+        //                                 return;
+        //                             }
+        //                             let variant = blockstate.variants[model.variant];
+        //
+        //
+        //                             let variants = [];
+        //                             if (!Array.isArray(variant)) {
+        //                                 variants = [variant];
+        //                             } else {
+        //                                 variants = variant;
+        //                             }
+        //
+        //                             rotation = [0, 0, 0];
+        //
+        //                             let v = variants[Math.floor(Math.random() * variants.length)];
+        //                             if (variant.hasOwnProperty("x")) {
+        //                                 rotation[0] = v.x;
+        //                             }
+        //                             if (variant.hasOwnProperty("y")) {
+        //                                 rotation[1] = v.y;
+        //                             }
+        //                             if (variant.hasOwnProperty("z")) {// Not actually used by MC, but why not?
+        //                                 rotation[2] = v.z;
+        //                             }
+        //                             let parsed = parseModelType(v.model);
+        //                             doModelLoad(parsed.model, "block", offset, rotation, scale, resolve);
+        //                         } else {
+        //                             let variant;
+        //                             if (blockstate.variants.hasOwnProperty("normal")) {
+        //                                 variant = blockstate.variants.normal;
+        //                             } else if (blockstate.variants.hasOwnProperty("")) {
+        //                                 variant = blockstate.variants[""];
+        //                             } else {
+        //                                 variant = blockstate.variants[Object.keys(blockstate.variants)[0]]
+        //                             }
+        //
+        //                             let variants = [];
+        //                             if (!Array.isArray(variant)) {
+        //                                 variants = [variant];
+        //                             } else {
+        //                                 variants = variant;
+        //                             }
+        //
+        //                             rotation = [0, 0, 0];
+        //
+        //                             let v = variants[Math.floor(Math.random() * variants.length)];
+        //                             if (variant.hasOwnProperty("x")) {
+        //                                 rotation[0] = v.x;
+        //                             }
+        //                             if (variant.hasOwnProperty("y")) {
+        //                                 rotation[1] = v.y;
+        //                             }
+        //                             if (variant.hasOwnProperty("z")) {// Not actually used by MC, but why not?
+        //                                 rotation[2] = v.z;
+        //                             }
+        //                             let parsed = parseModelType(v.model);
+        //                             doModelLoad(parsed.model, "block", offset, rotation, scale, resolve);
+        //                         }
+        //                     } else if (blockstate.hasOwnProperty("multipart")) {
+        //                         let promises1 = [];
+        //
+        //                         for (let j = 0; j < blockstate.multipart.length; j++) {
+        //                             let cond = blockstate.multipart[j];
+        //                             let apply = cond.apply;
+        //                             let when = cond.when;
+        //
+        //                             rotation = [0, 0, 0];
+        //
+        //                             if (!when) {
+        //                                 if (apply.hasOwnProperty("x")) {
+        //                                     rotation[0] = apply.x;
+        //                                 }
+        //                                 if (apply.hasOwnProperty("y")) {
+        //                                     rotation[1] = apply.y;
+        //                                 }
+        //                                 if (apply.hasOwnProperty("z")) {// Not actually used by MC, but why not?
+        //                                     rotation[2] = apply.z;
+        //                                 }
+        //                                 let parsed = parseModelType(apply.model);
+        //                                 promises1.push(new Promise((resolve) => {
+        //                                     doModelLoad(parsed.model, "block", offset, rotation, scale, resolve);
+        //                                 }))
+        //                             } else if (model.hasOwnProperty("multipart")) {
+        //                                 let multipartConditions = model.multipart;
+        //
+        //                                 let applies = false;
+        //                                 if (when.hasOwnProperty("OR")) {
+        //                                     for (let k = 0; k < when.OR.length; k++) {
+        //                                         if (applies) break;
+        //                                         for (let c in when.OR[k]) {
+        //                                             if (applies) break;
+        //                                             if (when.OR[k].hasOwnProperty(c)) {
+        //                                                 let expected = when.OR[k][c];
+        //                                                 let expectedArray = expected.split("|");
+        //
+        //                                                 let given = multipartConditions[c];
+        //                                                 for (let k = 0; k < expectedArray.length; k++) {
+        //                                                     if (expectedArray[k] === given) {
+        //                                                         applies = true;
+        //                                                         break;
+        //                                                     }
+        //                                                 }
+        //                                             }
+        //                                         }
+        //                                     }
+        //                                 } else {
+        //                                     for (let c in when) {// this SHOULD be a single case, but iterating makes it a bit easier
+        //                                         if (applies) break;
+        //                                         if (when.hasOwnProperty(c)) {
+        //                                             let expected = when[c];
+        //                                             let expectedArray = expected.split("|");
+        //
+        //                                             let given = multipartConditions[c];
+        //                                             for (let k = 0; k < expectedArray.length; k++) {
+        //                                                 if (expectedArray[k] === given) {
+        //                                                     applies = true;
+        //                                                     break;
+        //                                                 }
+        //                                             }
+        //                                         }
+        //                                     }
+        //                                 }
+        //
+        //                                 if (applies) {
+        //                                     if (apply.hasOwnProperty("x")) {
+        //                                         rotation[0] = apply.x;
+        //                                     }
+        //                                     if (apply.hasOwnProperty("y")) {
+        //                                         rotation[1] = apply.y;
+        //                                     }
+        //                                     if (apply.hasOwnProperty("z")) {// Not actually used by MC, but why not?
+        //                                         rotation[2] = apply.z;
+        //                                     }
+        //                                     let parsed = parseModelType(apply.model);
+        //                                     promises1.push(new Promise((resolve) => {
+        //                                         doModelLoad(parsed.model, "block", offset, rotation, scale, resolve);
+        //                                     }))
+        //                                 }
+        //                             }
+        //                         }
+        //
+        //                         Promise.all(promises1).then(() => {
+        //                             resolve();
+        //                         })
+        //                     }
+        //                 });
+        //             }
+        //
+        //         }
+        //
+        //
+        //     }))
+        // }
+        //
+        // Promise.all(promises).then((renderedModels) => {
+        //     console.log(renderedModels)
+        //     // if (mergeModels) {
+        //     //     // renderedModels = renderedModels.filter(m => m && m.userData.beforeMergeSize === 1);
+        //     //     console.debug("Merging " + renderedModels.length + " individual models and adding to scene");
+        //     //     let merged = mergeCubeMeshes(renderedModels);
+        //     //     let mergedMesh = new THREE.Mesh(merged.geometry, merged.materials);
+        //     //     modelRender.addToScene(mergedMesh);
+        //     // }
+        //
+        //     Object.keys(materialCache).forEach(m => {
+        //         materialCache[m].dispose();
+        //         delete materialCache[m];
+        //     });
+        //     Object.keys(textureCache).forEach(t => {
+        //         delete textureCache[t];
+        //     });
+        //     Object.keys(geometryCache).forEach(g => {
+        //         geometryCache[g].dispose();
+        //         delete geometryCache[g];
+        //     });
+        //
+        //     if (typeof cb === "function") cb();
+        // })
     };
 
 }
@@ -391,123 +784,212 @@ let parseModelType = function (string) {
 let renderModel = function (modelRender, model, textures, textureNames, type, name, offset, rotation, scale) {
     return new Promise((resolve) => {
         if (model.hasOwnProperty("elements")) {// block OR item with block parent
-            // Render the elements
-            let promises = [];
-            for (let i = 0; i < model.elements.length; i++) {
-                let element = model.elements[i];
+            let modelKey = "cubes_" + model.hierarchy.join("__");
+            let instanceCount = modelInstances[type + "__" + name];
 
-                // // From net.minecraft.client.renderer.block.model.BlockPart.java#47 - https://yeleha.co/2JcqSr4
-                let fallbackFaces = {
-                    down: {
-                        uv: [element.from[0], 16 - element.to[2], element.to[0], 16 - element.from[2]],
-                        texture: "#down"
-                    },
-                    up: {
-                        uv: [element.from[0], element.from[2], element.to[0], element.to[2]],
-                        texture: "#up"
-                    },
-                    north: {
-                        uv: [16 - element.to[0], 16 - element.to[1], 16 - element.from[0], 16 - element.from[1]],
-                        texture: "#north"
-                    },
-                    south: {
-                        uv: [element.from[0], 16 - element.to[1], element.to[0], 16 - element.from[1]],
-                        texture: "#south"
-                    },
-                    west: {
-                        uv: [element.from[2], 16 - element.to[1], element.to[2], 16 - element.from[2]],
-                        texture: "#west"
-                    },
-                    east: {
-                        uv: [16 - element.to[2], 16 - element.to[1], 16 - element.from[2], 16 - element.from[1]],
-                        texture: "#east"
-                    }
-                };
+            let applyModelTransforms = function (mesh, instanceIndex) {
+                mesh.userData.modelType = type;
+                mesh.userData.modelName = name;
+                mesh.userData.modelOffset = offset;
+                mesh.userData.modelRotation = rotation;
+                mesh.userData.modelScale = scale;
 
-                promises.push(new Promise((resolve) => {
-                    createCube(element.to[0] - element.from[0], element.to[1] - element.from[1], element.to[2] - element.from[2],
-                        name.replaceAll(" ", "_").replaceAll("-", "_").toLowerCase() + "_" + (element.__comment ? element.__comment.replaceAll(" ", "_").replaceAll("-", "_").toLowerCase() + "_" : "") + Date.now(),
-                        element.faces, fallbackFaces, textures, textureNames, modelRender.options.assetRoot)
-                        .then((cube) => {
-                            cube.applyMatrix(new THREE.Matrix4().makeTranslation((element.to[0] - element.from[0]) / 2, (element.to[1] - element.from[1]) / 2, (element.to[2] - element.from[2]) / 2));
-                            cube.applyMatrix(new THREE.Matrix4().makeTranslation(element.from[0], element.from[1], element.from[2]));
+                let _v3o = new THREE.Vector3();
+                let _v3s = new THREE.Vector3();
+                let _q = new THREE.Quaternion();
 
-                            if (element.rotation) {
-                                rotateAboutPoint(cube,
-                                    new THREE.Vector3(element.rotation.origin[0], element.rotation.origin[1], element.rotation.origin[2]),
-                                    new THREE.Vector3(element.rotation.axis === "x" ? 1 : 0, element.rotation.axis === "y" ? 1 : 0, element.rotation.axis === "z" ? 1 : 0),
-                                    toRadians(element.rotation.angle));
-                            }
-
-                            resolve(cube);
-                        })
-                }));
-
-
-            }
-
-            Promise.all(promises).then((cubes) => {
-                let cubeGroup = new THREE.Object3D();
-
-
-                for (let i = 0; i < cubes.length; i++) {
-                    cubeGroup.add(cubes[i]);
-
-                    if (modelRender.options.showOutlines) {
-                        let geo = new THREE.WireframeGeometry(cubes[i].geometry);
-                        let mat = new THREE.LineBasicMaterial({color: 0x000000, linewidth: 2});
-                        let line = new THREE.LineSegments(geo, mat);
-                        line.name = cubes[i].name + "_outline";
-
-                        line.position.x = cubes[i].position.x;
-                        line.position.y = cubes[i].position.y;
-                        line.position.z = cubes[i].position.z;
-
-                        line.rotation.x = cubes[i].rotation.x;
-                        line.rotation.y = cubes[i].rotation.y;
-                        line.rotation.z = cubes[i].rotation.z;
-
-                        line.scale.set(1.01, 1.01, 1.01);
-
-                        cubeGroup.add(line);
-
-
-                        let box = new THREE.BoxHelper(cubes[i], 0xff0000);
-                        cubeGroup.add(box);
-                    }
-
-                }
-
-
-                let centerContainer = new THREE.Object3D();
-                centerContainer.add(cubeGroup);
-
-                centerContainer.applyMatrix(new THREE.Matrix4().makeTranslation(-8, -8, -8));
-
-                // Note to self: apply rotation AFTER adding objects to it, or it'll just be ignored
-
-
-                // if (modelRender.options.centerCubes) {
-                //     cubeContainer.applyMatrix(new THREE.Matrix4().makeTranslation(-8, -8, -8));
-                // }
-
-
-                let rotationContainer = new THREE.Object3D();
-                rotationContainer.add(centerContainer);
-
-                if (offset) {
-                    rotationContainer.applyMatrix(new THREE.Matrix4().makeTranslation(offset[0], offset[1], offset[2]))
-                }
                 if (rotation) {
-                    rotationContainer.rotation.set(toRadians(rotation[0]), toRadians(Math.abs(rotation[0]) > 0 ? rotation[1] : -rotation[1]), toRadians(rotation[2]));
+                    mesh.setQuaternionAt(instanceIndex, _q.setFromEuler(new THREE.Euler(toRadians(rotation[0]), toRadians(Math.abs(rotation[0]) > 0 ? rotation[1] : -rotation[1]), toRadians(rotation[2]))));
+                }
+                if (offset) {
+                    mesh.setPositionAt(instanceIndex, _v3o.set(offset[0], offset[1], offset[2]));
                 }
                 if (scale) {
-                    rotationContainer.scale.set(scale[0], scale[1], scale[2]);
+                    mesh.setScaleAt(instanceIndex, _v3s.set(scale[0], scale[1], scale[2]));
                 }
 
+                mesh.needsUpdate();
 
-                resolve(rotationContainer);
-            })
+                resolve({
+                    mesh: mesh,
+                    firstInstance: instanceIndex === 0
+                });
+            };
+
+            let finalizeCubeModel = function (geometry, materials) {
+                geometry.translate(-8, -8, -8);
+
+
+                let cachedInstance;
+
+                if (!instanceCache.hasOwnProperty(modelKey)) {
+                    console.debug("Caching new model instance " + modelKey + " (with " + instanceCount + " instances)");
+                    let newInstance = new THREE.InstancedMesh(
+                        geometry,
+                        materials,
+                        instanceCount,
+                        false,
+                        false,
+                        false);
+                    cachedInstance = instanceCache[modelKey] = {
+                        instance: newInstance,
+                        index: 0
+                    };
+                    let _v3o = new THREE.Vector3();
+                    let _v3s = new THREE.Vector3(1, 1, 1);
+                    let _q = new THREE.Quaternion();
+
+                    for (let i = 0; i < instanceCount; i++) {
+
+                        newInstance.setQuaternionAt(i, _q);
+                        newInstance.setPositionAt(i, _v3o);
+                        newInstance.setScaleAt(i, _v3s);
+
+                    }
+                } else {
+                    console.debug("Using cached instance (" + modelKey + ")");
+                    cachedInstance = instanceCache[modelKey];
+
+                }
+
+                applyModelTransforms(cachedInstance.instance, cachedInstance.index++);
+
+
+                // let mergedCubeMesh = new THREE.Mesh(geometry, materials);
+                // mergedCubeMesh.matrixAutoUpdate = false;
+                // mergedCubeMesh.updateMatrix();
+                //
+                //
+                // if (!willBeMerged) {
+                //     let cubeGroup = new THREE.Object3D();
+                //     cubeGroup.add(mergedCubeMesh);
+                //
+                //
+                //     if (modelRender.options.showOutlines) {
+                //         let box = new THREE.BoxHelper(mergedCubeMesh, 0xff0000);
+                //         cubeGroup.add(box);
+                //     }
+                //
+                //     let centerContainer = new THREE.Object3D();
+                //     centerContainer.add(cubeGroup);
+                //
+                //     centerContainer.applyMatrix(new THREE.Matrix4().makeTranslation(-8, -8, -8));
+                //
+                //     // Note to self: apply rotation AFTER adding objects to it, or it'll just be ignored
+                //
+                //
+                //     let rotationContainer = new THREE.Object3D();
+                //     rotationContainer.add(centerContainer);
+                //
+                //     if (offset) {
+                //         rotationContainer.applyMatrix(new THREE.Matrix4().makeTranslation(offset[0], offset[1], offset[2]))
+                //     }
+                //     if (rotation) {
+                //         rotationContainer.rotation.set(toRadians(rotation[0]), toRadians(Math.abs(rotation[0]) > 0 ? rotation[1] : -rotation[1]), toRadians(rotation[2]));
+                //     }
+                //     if (scale) {
+                //         rotationContainer.scale.set(scale[0], scale[1], scale[2]);
+                //     }
+                //
+                //     resolve(rotationContainer);
+                // } else {
+                //
+                //     mergedCubeMesh.applyMatrix(new THREE.Matrix4().makeTranslation(-8, -8, -8));
+                //
+                //     // Note to self: apply rotation AFTER adding objects to it, or it'll just be ignored
+                //
+                //     if (rotation) {
+                //         mergedCubeMesh.applyMatrix(new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(toRadians(rotation[0]), toRadians(Math.abs(rotation[0]) > 0 ? rotation[1] : -rotation[1]), toRadians(rotation[2]))));
+                //         // mergedCubeMesh.rotation.set(toRadians(rotation[0]), toRadians(Math.abs(rotation[0]) > 0 ? rotation[1] : -rotation[1]), toRadians(rotation[2]));
+                //     }
+                //     if (offset) {
+                //         // mergedCubeMesh.position.set(mergedCubeMesh.position.x+offset[0], mergedCubeMesh.position.y+offset[1], mergedCubeMesh.position.z+offset[2]);
+                //         mergedCubeMesh.applyMatrix(new THREE.Matrix4().makeTranslation(offset[0], offset[1], offset[2]));
+                //     }
+                //     if (scale) {
+                //         mergedCubeMesh.applyMatrix(new THREE.Matrix4().makeScale(scale[0], scale[1], scale[2]));
+                //         // mergedCubeMesh.scale.set(scale[0], scale[1], scale[2]);
+                //     }
+                //     mergedCubeMesh.updateMatrix();
+                //
+                //     mergedCubeMesh.userData.beforeMergeSize = sourceSize;
+                //
+                //     resolve(mergedCubeMesh);
+                //
+                // }
+            };
+
+            if (modelCache.hasOwnProperty(modelKey)) {
+                console.debug("Using cached Model (" + modelKey + ")");
+                let cachedModel = modelCache[modelKey];
+                finalizeCubeModel(cachedModel.geometry, cachedModel.materials);
+            } else {
+                // Render the elements
+                let promises = [];
+                for (let i = 0; i < model.elements.length; i++) {
+                    let element = model.elements[i];
+
+                    // // From net.minecraft.client.renderer.block.model.BlockPart.java#47 - https://yeleha.co/2JcqSr4
+                    let fallbackFaces = {
+                        down: {
+                            uv: [element.from[0], 16 - element.to[2], element.to[0], 16 - element.from[2]],
+                            texture: "#down"
+                        },
+                        up: {
+                            uv: [element.from[0], element.from[2], element.to[0], element.to[2]],
+                            texture: "#up"
+                        },
+                        north: {
+                            uv: [16 - element.to[0], 16 - element.to[1], 16 - element.from[0], 16 - element.from[1]],
+                            texture: "#north"
+                        },
+                        south: {
+                            uv: [element.from[0], 16 - element.to[1], element.to[0], 16 - element.from[1]],
+                            texture: "#south"
+                        },
+                        west: {
+                            uv: [element.from[2], 16 - element.to[1], element.to[2], 16 - element.from[2]],
+                            texture: "#west"
+                        },
+                        east: {
+                            uv: [16 - element.to[2], 16 - element.to[1], 16 - element.from[2], 16 - element.from[1]],
+                            texture: "#east"
+                        }
+                    };
+
+                    promises.push(new Promise((resolve) => {
+                        createCube(element.to[0] - element.from[0], element.to[1] - element.from[1], element.to[2] - element.from[2],
+                            name.replaceAll(" ", "_").replaceAll("-", "_").toLowerCase() + "_" + (element.__comment ? element.__comment.replaceAll(" ", "_").replaceAll("-", "_").toLowerCase() + "_" : "") + Date.now(),
+                            element.faces, fallbackFaces, textures, textureNames, modelRender.options.assetRoot)
+                            .then((cube) => {
+                                cube.applyMatrix(new THREE.Matrix4().makeTranslation((element.to[0] - element.from[0]) / 2, (element.to[1] - element.from[1]) / 2, (element.to[2] - element.from[2]) / 2));
+                                cube.applyMatrix(new THREE.Matrix4().makeTranslation(element.from[0], element.from[1], element.from[2]));
+
+                                if (element.rotation) {
+                                    rotateAboutPoint(cube,
+                                        new THREE.Vector3(element.rotation.origin[0], element.rotation.origin[1], element.rotation.origin[2]),
+                                        new THREE.Vector3(element.rotation.axis === "x" ? 1 : 0, element.rotation.axis === "y" ? 1 : 0, element.rotation.axis === "z" ? 1 : 0),
+                                        toRadians(element.rotation.angle));
+                                }
+
+                                resolve(cube);
+                            })
+                    }));
+
+
+                }
+
+                Promise.all(promises).then((cubes) => {
+                    let mergedCubes = mergeCubeMeshes(cubes, true);
+                    console.debug("Caching Model " + modelKey);
+                    mergedCubes.sourceSize = cubes.length;
+                    modelCache[modelKey] = mergedCubes;
+                    finalizeCubeModel(mergedCubes.geometry, mergedCubes.materials, cubes.length);
+                    for (let i = 0; i < cubes.length; i++) {
+                        deepDisposeMesh(cubes[i], true);
+                    }
+                })
+            }
         } else {// 2d item
             createPlane(name + "_" + Date.now(), textures).then((plane) => {
                 if (offset) {
@@ -520,7 +1002,10 @@ let renderModel = function (modelRender, model, textures, textureNames, type, na
                     plane.scale.set(scale[0], scale[1], scale[2]);
                 }
 
-                resolve(plane);
+                resolve({
+                    mesh: plane,
+                    firstInstance: true
+                });
             })
         }
     })
@@ -575,10 +1060,11 @@ let createPlane = function (name, textures) {
                 let data = canvas.toDataURL("image/png");
                 let hash = md5(data);
 
-                // if (materialCache.hasOwnProperty(hash)) {// Use material from cache
-                //     materialLoaded(materialCache[hash], w, h);
-                //     return;
-                // }
+                if (materialCache.hasOwnProperty(hash)) {// Use material from cache
+                    console.debug("Using cached Material (" + hash + ")");
+                    materialLoaded(materialCache[hash], w, h);
+                    return;
+                }
 
                 let textureLoaded = function (texture) {
                     let material = new THREE.MeshBasicMaterial({
@@ -590,22 +1076,26 @@ let createPlane = function (name, textures) {
                     });
 
                     // Add material to cache
-                    // materialCache[hash] = material;
+                    console.debug("Caching Material " + hash);
+                    materialCache[hash] = material;
 
                     materialLoaded(material, w, h);
                 };
 
                 if (textureCache.hasOwnProperty(hash)) {// Use texture to cache
+                    console.debug("Using cached Texture (" + hash + ")");
                     textureLoaded(textureCache[hash]);
                     return;
                 }
 
-                textureCache[hash] = new THREE.TextureLoader().load(canvas.toDataURL("image/png"), function (texture) {
+                console.debug("Pre-Caching Texture " + hash);
+                textureCache[hash] = new THREE.TextureLoader().load(data, function (texture) {
                     texture.magFilter = THREE.NearestFilter;
                     texture.minFilter = THREE.NearestFilter;
                     texture.anisotropy = 0;
                     texture.needsUpdate = true;
 
+                    console.debug("Caching Texture " + hash);
                     // Add texture to cache
                     textureCache[hash] = texture;
 
@@ -624,9 +1114,11 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
         let geometryKey = width + "_" + height + "_" + depth;
         let geometry;
         if (geometryCache.hasOwnProperty(geometryKey)) {
+            console.debug("Using cached Geometry (" + geometryKey + ")");
             geometry = geometryCache[geometryKey];
         } else {
             geometry = new THREE.BoxGeometry(width, height, depth);
+            console.debug("Caching Geometry " + geometryKey);
             geometryCache[geometryKey] = geometry;
         }
 
@@ -709,10 +1201,11 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                             let data = canvas.toDataURL("image/png");
                             let hash = md5(data);
 
-                            // if (materialCache.hasOwnProperty(hash)) {// Use material from cache
-                            //     resolve(materialCache[hash]);
-                            //     return;
-                            // }
+                            if (materialCache.hasOwnProperty(hash)) {// Use material from cache
+                                console.debug("Using cached Material (" + hash + ")");
+                                resolve(materialCache[hash]);
+                                return;
+                            }
 
                             let textureLoaded = function (texture) {
                                 let n = textureNames[textureRef];
@@ -729,16 +1222,19 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                                 });
 
                                 // Add material to cache
-                                // materialCache[hash] = material;
+                                console.debug("Caching Material " + hash);
+                                materialCache[hash] = material;
 
                                 resolve(material);
                             };
 
                             if (textureCache.hasOwnProperty(hash)) {// Use texture from cache
+                                console.debug("Using cached Texture (" + hash + ")");
                                 textureLoaded(textureCache[hash]);
                                 return;
                             }
 
+                            console.debug("Pre-Caching Texture " + hash);
                             textureCache[hash] = new THREE.TextureLoader().load(data, function (texture) {
                                 texture.magFilter = THREE.NearestFilter;
                                 texture.minFilter = THREE.NearestFilter;
@@ -751,6 +1247,7 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                                     texture.rotation = toRadians(face.rotation);
                                 }
 
+                                console.debug("Caching Texture " + hash);
                                 // Add texture to cache
                                 textureCache[hash] = texture;
 
@@ -781,16 +1278,19 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                                     let hash = md5(data);
 
                                     if (textureCache.hasOwnProperty(hash)) {// Use texture to cache
+                                        console.debug("Using cached Texture (" + hash + ")");
                                         resolve(textureCache[hash]);
                                         return;
                                     }
 
+                                    console.debug("Pre-Caching Texture " + hash);
                                     textureCache[hash] = new THREE.TextureLoader().load(data, function (texture) {
                                         texture.magFilter = THREE.NearestFilter;
                                         texture.minFilter = THREE.NearestFilter;
                                         texture.anisotropy = 0;
                                         texture.needsUpdate = true;
 
+                                        console.debug("Caching Texture " + hash);
                                         // add texture to cache
                                         textureCache[hash] = texture;
 
@@ -943,12 +1443,12 @@ let loadTextures = function (textureNames, assetRoot) {
 };
 
 
-let mergeParents = function (model, assetRoot) {
+let mergeParents = function (model, modelName, assetRoot) {
     return new Promise((resolve, reject) => {
-        mergeParents_(model, [], [], assetRoot, resolve, reject);
+        mergeParents_(model, modelName, [], [], assetRoot, resolve, reject);
     });
 };
-let mergeParents_ = function (model, stack, hierarchy, assetRoot, resolve, reject) {
+let mergeParents_ = function (model, name, stack, hierarchy, assetRoot, resolve, reject) {
     stack.push(model);
 
     if (!model.hasOwnProperty("parent") || model["parent"] === "builtin/generated" || model["parent"] === "builtin/entity") {// already at the highest parent OR we reach the builtin parent which seems to be the hardcoded stuff that's not in the json files
@@ -957,6 +1457,7 @@ let mergeParents_ = function (model, stack, hierarchy, assetRoot, resolve, rejec
             merged = merge(merged, stack[i]);
         }
 
+        hierarchy.unshift(name);
         merged.hierarchy = hierarchy;
         resolve(merged);
         return;
@@ -968,7 +1469,7 @@ let mergeParents_ = function (model, stack, hierarchy, assetRoot, resolve, rejec
 
     loadJsonFromPath(assetRoot, "/assets/minecraft/models/" + parent + ".json").then((parentData) => {
         let mergedModel = Object.assign({}, model, parentData);
-        mergeParents_(mergedModel, stack, hierarchy, assetRoot, resolve, reject);
+        mergeParents_(mergedModel, name, stack, hierarchy, assetRoot, resolve, reject);
     })
 
 };
@@ -980,5 +1481,16 @@ function toRadians(angle) {
 
 window.ModelRender = ModelRender;
 window.ModelConverter = ModelConverter;
+window.ModelRender.cache = {
+    loadedTextures: loadedTextureCache,
+    mergedModels: mergedModelCache,
+    instanceCount: modelInstances,
+
+    texture: textureCache,
+    material: materialCache,
+    geometry: geometryCache,
+    models: modelCache,
+    instances: instanceCache
+};
 
 export default ModelRender;
