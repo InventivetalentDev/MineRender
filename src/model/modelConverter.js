@@ -1,7 +1,7 @@
 import * as pako from "pako";
 import * as NBT from "prismarine-nbt";
 import SkinRender from "../skin/index";
-import { loadBlockState, loadModel, loadTextures, mergeParents, renderModel } from "../renderBase";
+import {loadBlockState, loadModel, loadTextures, mergeParents, renderModel} from "../renderBase";
 
 /**
  * Helper to convert multi-block structures to models used by {@link ModelRender}
@@ -27,7 +27,7 @@ ModelConverter.prototype.structureToModels = function (structure, cb) {
                 return;
             }
 
-            if(!PRODUCTION) {
+            if (!PRODUCTION) {
                 console.log("NBT Data:")
                 console.log(data);
             }
@@ -74,14 +74,27 @@ function loadNBT(source) {
     })
 }
 
-function parseStructureData(data) {
+function parseStructureData(data, paletteIndex) {
     return new Promise((resolve, reject) => {
         if (data.type === "compound") {
-            if (data.value.hasOwnProperty("blocks") && data.value.hasOwnProperty("palette")) {
+            if (data.value.hasOwnProperty("blocks") && (data.value.hasOwnProperty("palette") || data.value.hasOwnProperty("palettes"))) {
+                let originalPalette;
+                if (data.value.hasOwnProperty("palette")) {
+                    originalPalette = data.value["palette"].value.value;
+                } else {
+                    if (typeof paletteIndex === "undefined") paletteIndex = 0;
+                    if (paletteIndex >= data.value["palettes"].value.value.length || !data.value["palettes"].value.value[paletteIndex]) {
+                        console.warn("Specified palette index (" + paletteIndex + ") is outside of available palettes (" + data.value["palettes"].value.value.length + ")")
+                        return;
+                    }
+                    originalPalette = data.value["palettes"].value.value[paletteIndex].value;
+                }
+
+
                 // Simplify palette
                 let palette = [];
-                for (let i = 0; i < data.value.palette.value.value.length; i++) {
-                    palette.push(data.value.palette.value.value[i]);
+                for (let i = 0; i < originalPalette.length; i++) {
+                    palette.push(originalPalette[i]);
                 }
 
                 let arr = [];
@@ -125,17 +138,17 @@ function parseStructureData(data) {
                         variantString = "";
                     }
 
-                        let block = {
-                            blockstate: shortBlockType,
-                            variant: variantString,
-                            offset: [pos[0] * 16, pos[1] * 16, pos[2] * 16]
-                        };
-                        arr.push(block)
+                    let block = {
+                        blockstate: shortBlockType,
+                        variant: variantString,
+                        offset: [pos[0] * 16, pos[1] * 16, pos[2] * 16]
+                    };
+                    arr.push(block)
                 }
 
                 resolve(arr);
             } else {
-                console.warn("Invalid NBT - Missing blocks/palette");
+                console.warn("Invalid NBT - Missing blocks/palette(s)");
                 reject();
             }
         } else {
