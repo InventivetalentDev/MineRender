@@ -39,6 +39,46 @@ ModelConverter.prototype.structureToModels = function (structure, cb) {
     })
 };
 
+
+/**
+ * Converts a Minecraft schematic file to models
+ * @param {object} schematic structure file info
+ * @param {string} schematic.url URL to a structure file
+ * @param {(Blob|File)} schematic.file uploaded file
+ * @param {(Uint8Array|ArrayBuffer)} schematic.raw Raw NBT data
+ * @param cb
+ */
+ModelConverter.prototype.schematicToModels = function (schematic, cb) {
+    loadNBT(schematic).then(rawNbt => {
+        NBT.parse(rawNbt, (err, data) => {
+            if (err) {
+                console.warn("Error while parsing NBT data");
+                console.warn(err);
+                return;
+            }
+
+            if (!PRODUCTION) {
+                console.log("NBT Data:")
+                console.log(data);
+            }
+
+            let xhr = new XMLHttpRequest();
+            xhr.open('GET', "https://minerender.org/res/idsToNames", true);
+            xhr.onloadend = function () {
+                if (xhr.status === 200) {
+                    console.log(this.response);
+
+                    let idsToNames = JSON.parse(this.response);
+                    parseSchematicData(data, idsToNames).then(data => cb(data));
+                }
+            };
+            xhr.send();
+
+        })
+    })
+};
+
+
 function loadNBT(source) {
     return new Promise((resolve, reject) => {
         if (source.file) {
@@ -155,6 +195,60 @@ function parseStructureData(data, paletteIndex) {
             console.warn("Invalid NBT - Root tag should be compound");
             reject();
         }
+    })
+}
+
+function parseSchematicData(data, idToNameMap) {
+    return new Promise((resolve, reject) => {
+        let width = data.value.Width.value;
+        let height = data.value.Height.value;
+        let length = data.value.Length.value;
+
+        let infoAt = function (x, y, z) {
+            let index = (y * length + z) * width + x;
+            return {
+                id: data.value.Blocks.value[index],
+                data: data.value.Data.value[index]
+            }
+        };
+
+        let convertLegacy = function (id, data) {
+            let mapped = idToNameMap.blocks[id + ":" + data];
+            if (!mapped) {
+                console.warn("Missing legacy mapping for " + id + ":" + data);
+                return "minecraft:air";
+            }
+            return mapped;
+        };
+
+        let arr = [];
+
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                for (let z = 0; z < length; z++) {
+                    let info = infoAt(x, y, z);
+                    let convertedInfo = convertLegacy(info.id, info.data);
+
+                    let infoSplit = convertedInfo.replace("minecraft:", "").replace("]", "").split("[");
+                    let shortName = infoSplit[0];
+                    let variantString = infoSplit[1] || "";
+
+                    if(shortName==="air")continue;
+
+                    if (variantString !== "") {
+                        variantString = variantString.split(",").sort().join(",");
+                    }
+
+                    arr.push({
+                        blockstate: shortName,
+                        variant: variantString,
+                        offset: [x * 16, y * 16, z * 16]
+                    });
+                }
+            }
+        }
+
+        resolve(arr);
     })
 }
 
