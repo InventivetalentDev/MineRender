@@ -3,7 +3,7 @@ import * as THREE from "three";
 require("three-instanced-mesh")(THREE);
 import * as $ from 'jquery';
 import merge from 'deepmerge'
-import Render, {loadTextureAsBase64, scaleUv, defaultOptions, DEFAULT_ROOT, loadJsonFromPath, loadBlockState, loadTextureMeta, mergeMeshes, deepDisposeMesh, mergeCubeMeshes} from "../renderBase";
+import Render, { loadTextureAsBase64, scaleUv, defaultOptions, DEFAULT_ROOT, loadJsonFromPath, loadBlockState, loadTextureMeta, mergeMeshes, deepDisposeMesh, mergeCubeMeshes } from "../renderBase";
 import ModelConverter from "./modelConverter";
 import * as md5 from "md5";
 
@@ -34,15 +34,10 @@ const mergedModelCache = {};
 const loadedTextureCache = {};
 const modelInstances = {};
 
-const rawModelCache = {};
 const textureCache = {};
 const materialCache = {};
 const geometryCache = {};
-const modelCache = {};
 const instanceCache = {};
-
-const modelQueue = {};
-const textureQueue = {};
 
 const animatedTextures = [];
 
@@ -428,27 +423,33 @@ class ModelRender extends Render {
                             let mergedModel = mergedModelCache[model.type + "__" + model.name];
                             let textures = loadedTextureCache[model.type + "__" + model.name];
 
-                            renderModel(modelRender, mergedModel, textures, mergedModel.textures, model.type, model.name, model.offset, model.rotation, model.scale).then((renderedModel) => {
+                            let offset = model.offset || [0, 0, 0];
+                            let rotation = model.rotation || [0, 0, 0];
+                            let scale = model.scale || [1, 1, 1];
 
-                                if (model.options.hasOwnProperty("display")) {
-                                    if (mergedModel.hasOwnProperty("display")) {
-                                        if (mergedModel.display.hasOwnProperty(model.options.display)) {
-                                            let displayData = mergedModel.display[model.options.display];
+                            if (model.options.hasOwnProperty("display")) {
+                                if (mergedModel.hasOwnProperty("display")) {
+                                    if (mergedModel.display.hasOwnProperty(model.options.display)) {
+                                        let displayData = mergedModel.display[model.options.display];
 
-                                            if (displayData.hasOwnProperty("translation")) {
-                                                renderedModel.applyMatrix(new THREE.Matrix4().makeTranslation(displayData.translation[0], displayData.translation[1], displayData.translation[2]));
-                                            }
-
-                                            if (displayData.hasOwnProperty("rotation")) {
-                                                renderedModel.rotation.set(toRadians(displayData.rotation[0]), toRadians(displayData.rotation[1]), toRadians(displayData.rotation[2]))
-                                            }
-                                            if (displayData.hasOwnProperty("scale")) {
-                                                renderedModel.scale.set(displayData.scale[0], displayData.scale[1], displayData.scale[2]);
-                                            }
-
+                                        if (displayData.hasOwnProperty("translation")) {
+                                            offset = [offset[0] + displayData.translation[0], offset[1] + displayData.translation[1], offset[2] + displayData.translation[2]];
                                         }
+                                        if (displayData.hasOwnProperty("rotation")) {
+                                            rotation = [rotation[0] + displayData.rotation[0], rotation[1] + displayData.rotation[1], rotation[2] + displayData.rotation[2]];
+                                        }
+                                        if (displayData.hasOwnProperty("scale")) {
+                                            scale = [displayData.scale[0], displayData.scale[1], displayData.scale[2]];
+                                        }
+
                                     }
                                 }
+                            }
+
+
+                            console.log("offset:", offset);
+
+                            renderModel(modelRender, mergedModel, textures, mergedModel.textures, model.type, model.name, offset, rotation, scale).then((renderedModel) => {
 
                                 if (renderedModel.firstInstance) {
                                     modelRender.models.push(renderedModel);
@@ -790,9 +791,6 @@ let renderModel = function (modelRender, model, textures, textureNames, type, na
             let applyModelTransforms = function (mesh, instanceIndex) {
                 mesh.userData.modelType = type;
                 mesh.userData.modelName = name;
-                mesh.userData.modelOffset = offset;
-                mesh.userData.modelRotation = rotation;
-                mesh.userData.modelScale = scale;
 
                 let _v3o = new THREE.Vector3();
                 let _v3s = new THREE.Vector3();
@@ -919,77 +917,71 @@ let renderModel = function (modelRender, model, textures, textureNames, type, na
                 // }
             };
 
-            if (modelCache.hasOwnProperty(modelKey)) {
-                console.debug("Using cached Model (" + modelKey + ")");
-                let cachedModel = modelCache[modelKey];
-                finalizeCubeModel(cachedModel.geometry, cachedModel.materials);
-            } else {
-                // Render the elements
-                let promises = [];
-                for (let i = 0; i < model.elements.length; i++) {
-                    let element = model.elements[i];
+            // Render the elements
+            let promises = [];
+            for (let i = 0; i < model.elements.length; i++) {
+                let element = model.elements[i];
 
-                    // // From net.minecraft.client.renderer.block.model.BlockPart.java#47 - https://yeleha.co/2JcqSr4
-                    let fallbackFaces = {
-                        down: {
-                            uv: [element.from[0], 16 - element.to[2], element.to[0], 16 - element.from[2]],
-                            texture: "#down"
-                        },
-                        up: {
-                            uv: [element.from[0], element.from[2], element.to[0], element.to[2]],
-                            texture: "#up"
-                        },
-                        north: {
-                            uv: [16 - element.to[0], 16 - element.to[1], 16 - element.from[0], 16 - element.from[1]],
-                            texture: "#north"
-                        },
-                        south: {
-                            uv: [element.from[0], 16 - element.to[1], element.to[0], 16 - element.from[1]],
-                            texture: "#south"
-                        },
-                        west: {
-                            uv: [element.from[2], 16 - element.to[1], element.to[2], 16 - element.from[2]],
-                            texture: "#west"
-                        },
-                        east: {
-                            uv: [16 - element.to[2], 16 - element.to[1], 16 - element.from[2], 16 - element.from[1]],
-                            texture: "#east"
-                        }
-                    };
-
-                    promises.push(new Promise((resolve) => {
-                        createCube(element.to[0] - element.from[0], element.to[1] - element.from[1], element.to[2] - element.from[2],
-                            name.replaceAll(" ", "_").replaceAll("-", "_").toLowerCase() + "_" + (element.__comment ? element.__comment.replaceAll(" ", "_").replaceAll("-", "_").toLowerCase() + "_" : "") + Date.now(),
-                            element.faces, fallbackFaces, textures, textureNames, modelRender.options.assetRoot)
-                            .then((cube) => {
-                                cube.applyMatrix(new THREE.Matrix4().makeTranslation((element.to[0] - element.from[0]) / 2, (element.to[1] - element.from[1]) / 2, (element.to[2] - element.from[2]) / 2));
-                                cube.applyMatrix(new THREE.Matrix4().makeTranslation(element.from[0], element.from[1], element.from[2]));
-
-                                if (element.rotation) {
-                                    rotateAboutPoint(cube,
-                                        new THREE.Vector3(element.rotation.origin[0], element.rotation.origin[1], element.rotation.origin[2]),
-                                        new THREE.Vector3(element.rotation.axis === "x" ? 1 : 0, element.rotation.axis === "y" ? 1 : 0, element.rotation.axis === "z" ? 1 : 0),
-                                        toRadians(element.rotation.angle));
-                                }
-
-                                resolve(cube);
-                            })
-                    }));
-
-
-                }
-
-                Promise.all(promises).then((cubes) => {
-                    let mergedCubes = mergeCubeMeshes(cubes, true);
-                    console.debug("Caching Model " + modelKey);
-                    mergedCubes.sourceSize = cubes.length;
-                    modelCache[modelKey] = mergedCubes;
-                    finalizeCubeModel(mergedCubes.geometry, mergedCubes.materials, cubes.length);
-                    for (let i = 0; i < cubes.length; i++) {
-                        deepDisposeMesh(cubes[i], true);
+                // // From net.minecraft.client.renderer.block.model.BlockPart.java#47 - https://yeleha.co/2JcqSr4
+                let fallbackFaces = {
+                    down: {
+                        uv: [element.from[0], 16 - element.to[2], element.to[0], 16 - element.from[2]],
+                        texture: "#down"
+                    },
+                    up: {
+                        uv: [element.from[0], element.from[2], element.to[0], element.to[2]],
+                        texture: "#up"
+                    },
+                    north: {
+                        uv: [16 - element.to[0], 16 - element.to[1], 16 - element.from[0], 16 - element.from[1]],
+                        texture: "#north"
+                    },
+                    south: {
+                        uv: [element.from[0], 16 - element.to[1], element.to[0], 16 - element.from[1]],
+                        texture: "#south"
+                    },
+                    west: {
+                        uv: [element.from[2], 16 - element.to[1], element.to[2], 16 - element.from[2]],
+                        texture: "#west"
+                    },
+                    east: {
+                        uv: [16 - element.to[2], 16 - element.to[1], 16 - element.from[2], 16 - element.from[1]],
+                        texture: "#east"
                     }
-                })
+                };
+
+                promises.push(new Promise((resolve) => {
+                    createCube(element.to[0] - element.from[0], element.to[1] - element.from[1], element.to[2] - element.from[2],
+                        name.replaceAll(" ", "_").replaceAll("-", "_").toLowerCase() + "_" + (element.__comment ? element.__comment.replaceAll(" ", "_").replaceAll("-", "_").toLowerCase() + "_" : "") + Date.now(),
+                        element.faces, fallbackFaces, textures, textureNames, modelRender.options.assetRoot)
+                        .then((cube) => {
+                            cube.applyMatrix(new THREE.Matrix4().makeTranslation((element.to[0] - element.from[0]) / 2, (element.to[1] - element.from[1]) / 2, (element.to[2] - element.from[2]) / 2));
+                            cube.applyMatrix(new THREE.Matrix4().makeTranslation(element.from[0], element.from[1], element.from[2]));
+
+                            if (element.rotation) {
+                                rotateAboutPoint(cube,
+                                    new THREE.Vector3(element.rotation.origin[0], element.rotation.origin[1], element.rotation.origin[2]),
+                                    new THREE.Vector3(element.rotation.axis === "x" ? 1 : 0, element.rotation.axis === "y" ? 1 : 0, element.rotation.axis === "z" ? 1 : 0),
+                                    toRadians(element.rotation.angle));
+                            }
+
+                            resolve(cube);
+                        })
+                }));
+
+
             }
+
+            Promise.all(promises).then((cubes) => {
+                let mergedCubes = mergeCubeMeshes(cubes, true);
+                console.debug("Caching Model " + modelKey);
+                mergedCubes.sourceSize = cubes.length;
+                modelCache[modelKey] = mergedCubes;
+                finalizeCubeModel(mergedCubes.geometry, mergedCubes.materials, cubes.length);
+                for (let i = 0; i < cubes.length; i++) {
+                    deepDisposeMesh(cubes[i], true);
+                }
+            })
         } else {// 2d item
             createPlane(name + "_" + Date.now(), textures).then((plane) => {
                 if (offset) {
@@ -1478,6 +1470,12 @@ function toRadians(angle) {
     return angle * (Math.PI / 180);
 }
 
+function deleteObjectProperties(obj) {
+    Object.keys(obj).forEach(function (key) {
+        delete obj[key];
+    });
+}
+
 
 window.ModelRender = ModelRender;
 window.ModelConverter = ModelConverter;
@@ -1489,8 +1487,23 @@ window.ModelRender.cache = {
     texture: textureCache,
     material: materialCache,
     geometry: geometryCache,
-    models: modelCache,
-    instances: instanceCache
+    instances: instanceCache,
+
+
+    resetInstances:function(){
+        deleteObjectProperties(modelInstances);
+        deleteObjectProperties(instanceCache);
+    },
+    clearAll: function () {
+        deleteObjectProperties(loadedTextureCache);
+        deleteObjectProperties(mergedModelCache);
+        deleteObjectProperties(modelInstances);
+        deleteObjectProperties(textureCache);
+        deleteObjectProperties(materialCache);
+        deleteObjectProperties(geometryCache);
+        deleteObjectProperties(instanceCache);
+    }
 };
+
 
 export default ModelRender;
