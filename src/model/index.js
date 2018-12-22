@@ -976,7 +976,6 @@ let renderModel = function (modelRender, model, textures, textureNames, type, na
                 let mergedCubes = mergeCubeMeshes(cubes, true);
                 console.debug("Caching Model " + modelKey);
                 mergedCubes.sourceSize = cubes.length;
-                modelCache[modelKey] = mergedCubes;
                 finalizeCubeModel(mergedCubes.geometry, mergedCubes.materials, cubes.length);
                 for (let i = 0; i < cubes.length; i++) {
                     deepDisposeMesh(cubes[i], true);
