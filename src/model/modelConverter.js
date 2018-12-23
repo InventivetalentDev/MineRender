@@ -1,7 +1,7 @@
 import * as pako from "pako";
 import * as NBT from "prismarine-nbt";
 import SkinRender from "../skin/index";
-import {loadBlockState, loadModel, loadTextures, mergeParents, renderModel} from "../renderBase";
+import { loadBlockState, loadModel, loadTextures, mergeParents, renderModel } from "../renderBase";
 
 /**
  * Helper to convert multi-block structures to models used by {@link ModelRender}
@@ -151,6 +151,7 @@ function parseStructureData(data, paletteIndex) {
 
                     let pos = blocks[i].pos.value.value;
 
+                    let multipartConditions = {};
 
                     let variantString = "";
                     if (palette[blocks[i].state.value].hasOwnProperty("Properties")) {
@@ -160,6 +161,8 @@ function parseStructureData(data, paletteIndex) {
                                 let prop = palette[blocks[i].state.value].Properties.value[p];
 
                                 strs.push(p + "=" + prop.value);
+
+                                multipartConditions[p] = prop.value;
                             }
                         }
 
@@ -181,6 +184,7 @@ function parseStructureData(data, paletteIndex) {
                     let block = {
                         blockstate: shortBlockType,
                         variant: variantString,
+                        multipart: multipartConditions,
                         offset: [pos[0] * 16, pos[1] * 16, pos[2] * 16]
                     };
                     arr.push(block)
@@ -233,7 +237,7 @@ function parseSchematicData(data, idToNameMap) {
                     let shortName = infoSplit[0];
                     let variantString = infoSplit[1] || "";
 
-                    if(shortName==="air")continue;
+                    if (shortName === "air") continue;
 
                     if (variantString !== "") {
                         variantString = variantString.split(",").sort().join(",");
