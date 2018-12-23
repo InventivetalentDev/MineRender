@@ -321,7 +321,7 @@ function parseModels(modelRender, models) {
                                         for (let c in when) {// this SHOULD be a single case, but iterating makes it a bit easier
                                             if (applies) break;
                                             if (when.hasOwnProperty(c)) {
-                                                let expected = when[c];
+                                                let expected = String(when[c]);
                                                 let expectedArray = expected.split("|");
 
                                                 let given = multipartConditions[c];
