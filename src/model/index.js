@@ -219,6 +219,7 @@ function parseModels(modelRender, models) {
                                 parsedModelList.push({
                                     name: parsed.model,
                                     type: "block",
+                                    variant: model.variant,
                                     offset: offset,
                                     rotation: rotation,
                                     scale: scale,
@@ -258,6 +259,7 @@ function parseModels(modelRender, models) {
                                 parsedModelList.push({
                                     name: parsed.model,
                                     type: "block",
+                                    variant: model.variant,
                                     offset: offset,
                                     rotation: rotation,
                                     scale: scale,
@@ -377,9 +379,9 @@ function loadAndMergeModels(modelRender) {
         jsonPromises.push(new Promise(resolve => {
             let model = parsedModelList[i];
 
-            modelInstances[model.type + "__" + model.name] = (modelInstances[model.type + "__" + model.name] || 0) + 1;
+            modelInstances[modelCacheKey(model)] = (modelInstances[modelCacheKey(model)] || 0) + 1;
 
-            if (mergedModelCache.hasOwnProperty(model.type + "__" + model.name)) {
+            if (mergedModelCache.hasOwnProperty(modelCacheKey(model))) {
                 resolve();
                 return;
             }
@@ -387,7 +389,7 @@ function loadAndMergeModels(modelRender) {
             loadModel(model.name, model.type, modelRender.options.assetRoot)
                 .then(modelData => mergeParents(modelData, model.name, modelRender.options.assetRoot))
                 .then((mergedModel) => {
-                    mergedModelCache[model.type + "__" + model.name] = mergedModel;
+                    mergedModelCache[modelCacheKey(model)] = mergedModel;
                     resolve()
                 });
         }))
@@ -403,9 +405,9 @@ function loadModelTextures(modelRender) {
     for (let i = 0; i < parsedModelList.length; i++) {
         texturePromises.push(new Promise(resolve => {
             let model = parsedModelList[i];
-            let mergedModel = mergedModelCache[model.type + "__" + model.name];
+            let mergedModel = mergedModelCache[modelCacheKey(model)];
 
-            if (loadedTextureCache.hasOwnProperty(model.type + "__" + model.name)) {
+            if (loadedTextureCache.hasOwnProperty(modelCacheKey(model))) {
                 resolve();
                 return;
             }
@@ -419,7 +421,7 @@ function loadModelTextures(modelRender) {
             }
 
             loadTextures(mergedModel.textures, modelRender.options.assetRoot).then((textures) => {
-                loadedTextureCache[model.type + "__" + model.name] = textures;
+                loadedTextureCache[modelCacheKey(model)] = textures;
                 resolve();
             });
         }))
@@ -438,8 +440,8 @@ function doModelRender(modelRender) {
         renderPromises.push(new Promise(resolve => {
             let model = parsedModelList[i];
 
-            let mergedModel = mergedModelCache[model.type + "__" + model.name];
-            let textures = loadedTextureCache[model.type + "__" + model.name];
+            let mergedModel = mergedModelCache[modelCacheKey(model)];
+            let textures = loadedTextureCache[modelCacheKey(model)];
 
             let offset = model.offset || [0, 0, 0];
             let rotation = model.rotation || [0, 0, 0];
@@ -465,9 +467,7 @@ function doModelRender(modelRender) {
             }
 
 
-            console.log("offset:", offset);
-
-            renderModel(modelRender, mergedModel, textures, mergedModel.textures, model.type, model.name, offset, rotation, scale).then((renderedModel) => {
+            renderModel(modelRender, mergedModel, textures, mergedModel.textures, model.type, model.name, model.variant, offset, rotation, scale).then((renderedModel) => {
 
                 if (renderedModel.firstInstance) {
                     modelRender.models.push(renderedModel);
@@ -480,6 +480,10 @@ function doModelRender(modelRender) {
     }
 
     return Promise.all(renderPromises);
+}
+
+function modelCacheKey(model) {
+    return model.type + "__" + model.name /*+ "[" + (model.variant || "default") + "]"*/;
 }
 
 let parseModelType = function (string) {
@@ -507,11 +511,11 @@ let parseModelType = function (string) {
 };
 
 
-let renderModel = function (modelRender, model, textures, textureNames, type, name, offset, rotation, scale) {
+let renderModel = function (modelRender, model, textures, textureNames, type, name, variant, offset, rotation, scale) {
     return new Promise((resolve) => {
         if (model.hasOwnProperty("elements")) {// block OR item with block parent
-            let modelKey = "cubes_" + model.hierarchy.join("__");
-            let instanceCount = modelInstances[type + "__" + name];
+            let modelKey = modelCacheKey({type:type,name:name,variant:variant});
+            let instanceCount = modelInstances[modelKey];
 
             let applyModelTransforms = function (mesh, instanceIndex) {
                 mesh.userData.modelType = type;

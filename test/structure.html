@@ -75,24 +75,24 @@
 
 
                 let modelConverter = new ModelConverter();
-             // modelConverter.structureToModels({
-             //     url:"https://minerender.org/res/mc/data/minecraft/structures/shipwreck/with_mast.nbt"
-             // },function (models) {
-             //     console.log(models)
-             //     modelRender.render(models,function () {
-             //         console.log("rendered!")
-             //     })
-             // });
-
-
-             modelConverter.schematicToModels({
-                 url:"../res/ModernHouse.schematic"
+             modelConverter.structureToModels({
+                 url:"https://assets.mcasset.cloud/1.13/data/minecraft/structures/end_city/ship.nbt"
              },function (models) {
-                 console.log(models);
+                 console.log(models)
                  modelRender.render(models,function () {
-                             console.log("rendered!")
-                         })
-             })
+                     console.log("rendered!")
+                 })
+             });
+
+
+             // modelConverter.schematicToModels({
+             //     url:"../res/ModernHouse.schematic"
+             // },function (models) {
+             //     console.log(models);
+             //     modelRender.render(models,function () {
+             //                 console.log("rendered!")
+             //             })
+             // })
              
             })();
         </script>
