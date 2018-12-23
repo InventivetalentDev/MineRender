@@ -188,13 +188,19 @@ function parseModels(modelRender, models) {
                         if (blockstate.hasOwnProperty("variants")) {
 
                             if (model.hasOwnProperty("variant")) {
-                                if (!blockstate.variants.hasOwnProperty(model.variant)) {
+                                let variantKey = findMatchingVariant(blockstate.variants, model.variant);
+                                if (variantKey === null) {
+                                    console.warn("Missing variant key for " + model.blockstate + ": " + model.variant);
+                                    console.warn(blockstate.variants);
+                                    resolve(null);
+                                    return;
+                                }
+                                let variant = blockstate.variants[variantKey];
+                                if (!variant) {
                                     console.warn("Missing variant for " + model.blockstate + ": " + model.variant);
                                     resolve(null);
                                     return;
                                 }
-                                let variant = blockstate.variants[model.variant];
-
 
                                 let variants = [];
                                 if (!Array.isArray(variant)) {
@@ -486,6 +492,43 @@ function modelCacheKey(model) {
     return model.type + "__" + model.name /*+ "[" + (model.variant || "default") + "]"*/;
 }
 
+function findMatchingVariant(variants, selector) {
+    if(!Array.isArray(variants)) variants = Object.keys(variants);
+
+    if (!selector || selector === "" || selector.length === 0) return "";
+    let selectorObj = variantStringToObject(selector);
+    for (let i = 0; i < variants.length; i++) {
+        let variantObj = variantStringToObject(variants[i]);
+
+        let matches = true;
+        for (let k in selectorObj) {
+            if (selectorObj.hasOwnProperty(k)) {
+                if (variantObj.hasOwnProperty(k)) {
+                    if (selectorObj[k] !== variantObj[k]) {
+                        matches = false;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (matches) return variants[i];
+    }
+
+    return null;
+}
+
+function variantStringToObject(str) {
+    let split = str.split(",");
+    let obj = {};
+    for (let i = 0; i < split.length; i++) {
+        let spl = split[i];
+        let split1 = spl.split("=");
+        obj[split1[0]] = split1[1];
+    }
+    return obj;
+}
+
 let parseModelType = function (string) {
     if (string.startsWith("block/")) {
         // if (type === "item") {
@@ -514,7 +557,7 @@ let parseModelType = function (string) {
 let renderModel = function (modelRender, model, textures, textureNames, type, name, variant, offset, rotation, scale) {
     return new Promise((resolve) => {
         if (model.hasOwnProperty("elements")) {// block OR item with block parent
-            let modelKey = modelCacheKey({type:type,name:name,variant:variant});
+            let modelKey = modelCacheKey({type: type, name: name, variant: variant});
             let instanceCount = modelInstances[modelKey];
 
             let applyModelTransforms = function (mesh, instanceIndex) {
