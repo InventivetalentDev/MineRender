@@ -439,8 +439,8 @@ export function mergeCubeMeshes(cubes, toBuffer) {
     let mergedCubes = new THREE.Geometry();
     let mergedMaterials = [];
     for (let i = 0; i < cubes.length; i++) {
-        let offset=i * Math.max(cubes[i].material.length, 1);
-        mergedCubes.merge(cubes[i].geometry, cubes[i].matrix, offset );
+        let offset = i * Math.max(cubes[i].material.length, 1);
+        mergedCubes.merge(cubes[i].geometry, cubes[i].matrix, offset);
         for (let j = 0; j < cubes[i].material.length; j++) {
             mergedMaterials.push(cubes[i].material[j]);
         }
@@ -452,7 +452,7 @@ export function mergeCubeMeshes(cubes, toBuffer) {
     }
     mergedCubes.mergeVertices();
     return {
-        geometry: toBuffer? new THREE.BufferGeometry().fromGeometry(mergedCubes): mergedCubes,
+        geometry: toBuffer ? new THREE.BufferGeometry().fromGeometry(mergedCubes) : mergedCubes,
         materials: mergedMaterials
     };
 }
@@ -577,7 +577,10 @@ function loadJsonFromPath_(root, path, resolve, reject, forceLoad) {
     }
 
     if (!modelCallbacks.hasOwnProperty(path) || modelCallbacks[path].length === 0 || forceLoad) {
-        $.ajax(root + path)
+        $.ajax({
+            url: root + path,
+            dataType: "json"
+        })
             .done((data) => {
                 modelCache[path] = data;
 
