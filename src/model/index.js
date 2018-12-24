@@ -909,7 +909,7 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                 promises.push(new Promise((resolve) => {
                     let f = FACE_ORDER[i];
                     if (!faces.hasOwnProperty(f)) {
-                        console.warn("Missing face: " + f + " in model " + name);
+                        // console.warn("Missing face: " + f + " in model " + name);
                         resolve(null);
                         return;
                     }
