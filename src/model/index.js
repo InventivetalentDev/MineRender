@@ -115,6 +115,7 @@ class ModelRender extends Render {
             .then(() => loadModelTextures(modelRender))
             .then(() => doModelRender(modelRender))
             .then((renderedModels) => {
+                console.timeEnd("doModelRender");
                 console.debug(renderedModels)
                 if (typeof cb === "function") cb();
             })
@@ -125,6 +126,7 @@ class ModelRender extends Render {
 
 
 function parseModels(modelRender, models) {
+    console.time("parseModels");
     console.log("Parsing Models...");
     let parsePromises = [];
     for (let i = 0; i < models.length; i++) {
@@ -378,6 +380,9 @@ function parseModels(modelRender, models) {
 
 
 function loadAndMergeModels(modelRender) {
+    console.timeEnd("parseModels");
+    console.time("loadAndMergeModels");
+
     let jsonPromises = [];
 
     console.log("Loading Model JSON data & merging...");
@@ -405,6 +410,9 @@ function loadAndMergeModels(modelRender) {
 }
 
 function loadModelTextures(modelRender) {
+    console.timeEnd("loadAndMergeModels");
+    console.time("loadModelTextures");
+
     let texturePromises = [];
 
     console.log("Loading Textures...");
@@ -438,6 +446,9 @@ function loadModelTextures(modelRender) {
 }
 
 function doModelRender(modelRender) {
+    console.timeEnd("loadModelTextures");
+    console.time("doModelRender");
+
     console.log("Rendering Models...");
 
     let renderPromises = [];
