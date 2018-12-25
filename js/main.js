@@ -101,7 +101,7 @@ function renderBlockShowcases() {
         var block = getRandomBlock();
         var element = $("#blockExample" + (i + 1));
         $("#blockName" + (i + 1)).text(block);
-        $("#blockName" + (i + 1)).parent().attr("href", "https://github.com/InventivetalentDev/minecraft-assets/blob/1.13/assets/minecraft/blockstates/" + block + ".json")
+        $("#blockName" + (i + 1)).parent().attr("href", "https://mcasset.cloud/1.13/assets/minecraft/blockstates/" + block + ".json")
         var modelRender = new ModelRender({
             autoResize: true,
             canvas: {
@@ -143,7 +143,7 @@ function renderItemShowcases() {
         var item = getRandomItem();
         var element = $("#itemExample" + (i + 1));
         $("#itemName" + (i + 1)).text(item);
-        $("#itemName" + (i + 1)).parent().attr("href", "https://github.com/InventivetalentDev/minecraft-assets/blob/1.13/assets/minecraft/models/item/" + item + ".json")
+        $("#itemName" + (i + 1)).parent().attr("href", "https://mcasset.cloud/1.13/assets/minecraft/models/item/" + item + ".json")
         var modelRender = new ModelRender({
             autoResize: true,
             canvas: {
@@ -249,7 +249,7 @@ function renderRecipeShowcases() {
         var recipe = recipes[i];
         var element = $("#recipeExample" + (i + 1));
         (function (i, recipe, element) {
-            $.ajax("https://minerender.org/res/mc/data/minecraft/recipes/" + recipe.recipe + ".json").done(function (r) {
+            $.ajax("https://assets.mcasset.cloud/1.13/data/minecraft/recipes/" + recipe.recipe + ".json").done(function (r) {
                 var guiRender = new GuiRender({
                     autoResize: true,
                     canvas: {
