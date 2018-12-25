@@ -37,8 +37,6 @@ const colors = [
 const FACE_ORDER = ["east", "west", "up", "down", "south", "north"];
 const TINTS = ["lightgreen"];
 
-const parsedModelList = [];
-
 const mergedModelCache = {};
 const loadedTextureCache = {};
 const modelInstances = {};
@@ -118,10 +116,12 @@ class ModelRender extends Render {
             console.log("[ModelRender] is attached - skipping scene init");
         }
 
-        parseModels(modelRender, models)
-            .then(() => loadAndMergeModels(modelRender))
-            .then(() => loadModelTextures(modelRender))
-            .then(() => doModelRender(modelRender))
+        let parsedModelList = [];
+
+        parseModels(modelRender, models, parsedModelList)
+            .then(() => loadAndMergeModels(modelRender, parsedModelList))
+            .then(() => loadModelTextures(modelRender, parsedModelList))
+            .then(() => doModelRender(modelRender, parsedModelList))
             .then((renderedModels) => {
                 console.timeEnd("doModelRender");
                 console.debug(renderedModels)
@@ -133,7 +133,7 @@ class ModelRender extends Render {
 }
 
 
-function parseModels(modelRender, models) {
+function parseModels(modelRender, models, parsedModelList) {
     console.time("parseModels");
     console.log("Parsing Models...");
     let parsePromises = [];
@@ -168,7 +168,7 @@ function parseModels(modelRender, models) {
 }
 
 
-function loadAndMergeModels(modelRender) {
+function loadAndMergeModels(modelRender, parsedModelList) {
     console.timeEnd("parseModels");
     console.time("loadAndMergeModels");
 
@@ -219,7 +219,7 @@ function loadAndMergeModels(modelRender) {
     return Promise.all(jsonPromises);
 }
 
-function loadModelTextures(modelRender) {
+function loadModelTextures(modelRender, parsedModelList) {
     console.timeEnd("loadAndMergeModels");
     console.time("loadModelTextures");
 
@@ -240,6 +240,13 @@ function loadModelTextures(modelRender) {
             let mergedModel = mergedModelCache[cacheKey];
 
             if (loadedTextureCache.hasOwnProperty(cacheKey)) {
+                resolve();
+                return;
+            }
+
+            if (!mergedModel) {
+                console.warn("Missing merged model");
+                console.warn(model.name);
                 resolve();
                 return;
             }
@@ -276,7 +283,7 @@ function loadModelTextures(modelRender) {
     return Promise.all(texturePromises);
 }
 
-function doModelRender(modelRender) {
+function doModelRender(modelRender, parsedModelList) {
     console.timeEnd("loadModelTextures");
     console.time("doModelRender");
 
@@ -318,8 +325,11 @@ function doModelRender(modelRender) {
             renderModel(modelRender, mergedModel, textures, mergedModel.textures, model.type, model.name, model.variant, offset, rotation, scale).then((renderedModel) => {
 
                 if (renderedModel.firstInstance) {
-                    modelRender.models.push(renderedModel);
-                    modelRender.addToScene(renderedModel.mesh);
+                    let container = new THREE.Object3D();
+                    container.add(renderedModel.mesh);
+
+                    modelRender.models.push(container);
+                    modelRender.addToScene(container);
                 }
 
                 resolve(renderedModel);
@@ -356,6 +366,66 @@ let renderModel = function (modelRender, model, textures, textureNames, type, na
                 }
 
                 mesh.needsUpdate();
+
+                // mesh.position = _v3o;
+                // Object.defineProperty(mesh.position,"x",{
+                //     get:function () {
+                //         return this._x||0;
+                //     },
+                //     set:function (x) {
+                //         this._x=x;
+                //         mesh.setPositionAt(instanceIndex, _v3o.set(x, this.y, this.z));
+                //     }
+                // });
+                // Object.defineProperty(mesh.position,"y",{
+                //     get:function () {
+                //         return this._y||0;
+                //     },
+                //     set:function (y) {
+                //         this._y=y;
+                //         mesh.setPositionAt(instanceIndex, _v3o.set(this.x, y, this.z));
+                //     }
+                // });
+                // Object.defineProperty(mesh.position,"z",{
+                //     get:function () {
+                //         return this._z||0;
+                //     },
+                //     set:function (z) {
+                //         this._z=z;
+                //         mesh.setPositionAt(instanceIndex, _v3o.set(this.x, this.y, z));
+                //     }
+                // })
+                //
+                // mesh.rotation = new THREE.Euler(toRadians(rotation[0]), toRadians(Math.abs(rotation[0]) > 0 ? rotation[1] : -rotation[1]), toRadians(rotation[2]));
+                // Object.defineProperty(mesh.rotation,"x",{
+                //     get:function () {
+                //         return this._x||0;
+                //     },
+                //     set:function (x) {
+                //         this._x=x;
+                //         mesh.setQuaternionAt(instanceIndex, _q.setFromEuler(new THREE.Euler(toRadians(x), toRadians(this.y), toRadians(this.z))));
+                //     }
+                // });
+                // Object.defineProperty(mesh.rotation,"y",{
+                //     get:function () {
+                //         return this._y||0;
+                //     },
+                //     set:function (y) {
+                //         this._y=y;
+                //         mesh.setQuaternionAt(instanceIndex, _q.setFromEuler(new THREE.Euler(toRadians(this.x), toRadians(y), toRadians(this.z))));
+                //     }
+                // });
+                // Object.defineProperty(mesh.rotation,"z",{
+                //     get:function () {
+                //         return this._z||0;
+                //     },
+                //     set:function (z) {
+                //         this._z=z;
+                //         mesh.setQuaternionAt(instanceIndex, _q.setFromEuler(new THREE.Euler(toRadians(this.x), toRadians(this.y), toRadians(z))));
+                //     }
+                // });
+                //
+                // mesh.scale = _v3s;
 
                 resolve({
                     mesh: mesh,
