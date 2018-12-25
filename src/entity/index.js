@@ -1,7 +1,8 @@
 import * as THREE from "three";
 import * as $ from 'jquery';
 import merge from 'deepmerge'
-import Render, { loadTextureAsBase64, scaleUv, defaultOptions, DEFAULT_ROOT, loadJsonFromPath, loadBlockState, loadTextureMeta } from "../renderBase";
+import Render, { defaultOptions } from "../renderBase";
+import { loadTextureAsBase64, scaleUv, DEFAULT_ROOT, loadJsonFromPath, loadBlockState, loadTextureMeta } from "../functions";
 
 
 const FACE_ORDER = ["left", "right", "top", "bottom", "front", "back"];

@@ -3,9 +3,16 @@ import * as THREE from "three";
 require("three-instanced-mesh")(THREE);
 import * as $ from 'jquery';
 import merge from 'deepmerge'
-import Render, { loadTextureAsBase64, scaleUv, defaultOptions, DEFAULT_ROOT, loadJsonFromPath, loadBlockState, loadTextureMeta, mergeMeshes, deepDisposeMesh, mergeCubeMeshes } from "../renderBase";
+import Render, { defaultOptions, deepDisposeMesh, mergeCubeMeshes } from "../renderBase";
+import { loadTextureAsBase64, scaleUv, DEFAULT_ROOT, loadJsonFromPath, loadBlockState, loadTextureMeta } from "../functions";
 import ModelConverter from "./modelConverter";
 import * as md5 from "md5";
+
+import { parseModel, loadAndMergeModel, loadModelTexture, modelCacheKey, toRadians, deleteObjectProperties, loadTextures } from "./modelFunctions";
+
+import work from 'webworkify-webpack';
+const ModelWorker = require.resolve("./ModelWorker.js");
+
 
 String.prototype.replaceAll = function (search, replacement) {
     let target = this;
@@ -59,7 +66,8 @@ let defOptions = {
     },
     type: "block",
     centerCubes: false,
-    assetRoot: DEFAULT_ROOT
+    assetRoot: DEFAULT_ROOT,
+    useWebWorkers: false
 };
 
 /**
@@ -131,248 +139,29 @@ function parseModels(modelRender, models) {
     let parsePromises = [];
     for (let i = 0; i < models.length; i++) {
         let model = models[i];
-        let modelOptions = model;
 
-
+        // parsePromises.push(parseModel(model, model, parsedModelList, modelRender.options.assetRoot))
         parsePromises.push(new Promise(resolve => {
-            let type = modelRender.options.type;
-            let offset;
-            let rotation;
-            let scale;
-
-            if (typeof model === "string") {
-                let parsed = parseModelType(model);
-                model = parsed.model;
-                type = parsed.type;
-
-                parsedModelList.push({
-                    name: model,
-                    type: type,
-                    options: modelOptions
-                });
-                resolve();
-            } else if (typeof model === "object") {
-                if (model.hasOwnProperty("offset")) {
-                    offset = model["offset"];
-                }
-                if (model.hasOwnProperty("rotation")) {
-                    rotation = model["rotation"];
-                }
-                if (model.hasOwnProperty("scale")) {
-                    scale = model["scale"];
-                }
-
-                if (model.hasOwnProperty("model")) {
-                    if (model.hasOwnProperty("type")) {
-                        type = model["type"];
-                        model = model["model"];
-                    } else {
-                        let parsed = parseModelType(model["model"]);
-                        model = parsed.model;
-                        type = parsed.type;
-                    }
-
-                    parsedModelList.push({
-                        name: model,
-                        type: type,
-                        offset: offset,
-                        rotation: rotation,
-                        scale: scale,
-                        options: modelOptions
-                    });
+            if(modelRender.options.useWebWorkers) {
+                let w = work(ModelWorker);
+                w.addEventListener('message', event => {
+                    parsedModelList.push(...event.data.parsedModelList);
                     resolve();
-                } else if (model.hasOwnProperty("blockstate")) {
-                    type = "block";
-
-                    loadBlockState(model.blockstate, modelRender.options.assetRoot).then((blockstate) => {
-                        modelRender.blockstate = blockstate;
-
-                        if (blockstate.hasOwnProperty("variants")) {
-
-                            if (model.hasOwnProperty("variant")) {
-                                let variantKey = findMatchingVariant(blockstate.variants, model.variant);
-                                if (variantKey === null) {
-                                    console.warn("Missing variant key for " + model.blockstate + ": " + model.variant);
-                                    console.warn(blockstate.variants);
-                                    resolve(null);
-                                    return;
-                                }
-                                let variant = blockstate.variants[variantKey];
-                                if (!variant) {
-                                    console.warn("Missing variant for " + model.blockstate + ": " + model.variant);
-                                    resolve(null);
-                                    return;
-                                }
-
-                                let variants = [];
-                                if (!Array.isArray(variant)) {
-                                    variants = [variant];
-                                } else {
-                                    variants = variant;
-                                }
-
-                                rotation = [0, 0, 0];
-
-                                let v = variants[Math.floor(Math.random() * variants.length)];
-                                if (variant.hasOwnProperty("x")) {
-                                    rotation[0] = v.x;
-                                }
-                                if (variant.hasOwnProperty("y")) {
-                                    rotation[1] = v.y;
-                                }
-                                if (variant.hasOwnProperty("z")) {// Not actually used by MC, but why not?
-                                    rotation[2] = v.z;
-                                }
-                                let parsed = parseModelType(v.model);
-                                parsedModelList.push({
-                                    name: parsed.model,
-                                    type: "block",
-                                    variant: model.variant,
-                                    offset: offset,
-                                    rotation: rotation,
-                                    scale: scale,
-                                    options: modelOptions
-                                });
-                                resolve();
-                            } else {
-                                let variant;
-                                if (blockstate.variants.hasOwnProperty("normal")) {
-                                    variant = blockstate.variants.normal;
-                                } else if (blockstate.variants.hasOwnProperty("")) {
-                                    variant = blockstate.variants[""];
-                                } else {
-                                    variant = blockstate.variants[Object.keys(blockstate.variants)[0]]
-                                }
-
-                                let variants = [];
-                                if (!Array.isArray(variant)) {
-                                    variants = [variant];
-                                } else {
-                                    variants = variant;
-                                }
-
-                                rotation = [0, 0, 0];
-
-                                let v = variants[Math.floor(Math.random() * variants.length)];
-                                if (variant.hasOwnProperty("x")) {
-                                    rotation[0] = v.x;
-                                }
-                                if (variant.hasOwnProperty("y")) {
-                                    rotation[1] = v.y;
-                                }
-                                if (variant.hasOwnProperty("z")) {// Not actually used by MC, but why not?
-                                    rotation[2] = v.z;
-                                }
-                                let parsed = parseModelType(v.model);
-                                parsedModelList.push({
-                                    name: parsed.model,
-                                    type: "block",
-                                    variant: model.variant,
-                                    offset: offset,
-                                    rotation: rotation,
-                                    scale: scale,
-                                    options: modelOptions
-                                })
-                                resolve();
-                            }
-                        } else if (blockstate.hasOwnProperty("multipart")) {
-                            for (let j = 0; j < blockstate.multipart.length; j++) {
-                                let cond = blockstate.multipart[j];
-                                let apply = cond.apply;
-                                let when = cond.when;
-
-                                rotation = [0, 0, 0];
-
-                                if (!when) {
-                                    if (apply.hasOwnProperty("x")) {
-                                        rotation[0] = apply.x;
-                                    }
-                                    if (apply.hasOwnProperty("y")) {
-                                        rotation[1] = apply.y;
-                                    }
-                                    if (apply.hasOwnProperty("z")) {// Not actually used by MC, but why not?
-                                        rotation[2] = apply.z;
-                                    }
-                                    let parsed = parseModelType(apply.model);
-                                    parsedModelList.push({
-                                        name: parsed.model,
-                                        type: "block",
-                                        offset: offset,
-                                        rotation: rotation,
-                                        scale: scale,
-                                        options: modelOptions
-                                    });
-                                } else if (model.hasOwnProperty("multipart")) {
-                                    let multipartConditions = model.multipart;
-
-                                    let applies = false;
-                                    if (when.hasOwnProperty("OR")) {
-                                        for (let k = 0; k < when.OR.length; k++) {
-                                            if (applies) break;
-                                            for (let c in when.OR[k]) {
-                                                if (applies) break;
-                                                if (when.OR[k].hasOwnProperty(c)) {
-                                                    let expected = when.OR[k][c];
-                                                    let expectedArray = expected.split("|");
-
-                                                    let given = multipartConditions[c];
-                                                    for (let k = 0; k < expectedArray.length; k++) {
-                                                        if (expectedArray[k] === given) {
-                                                            applies = true;
-                                                            break;
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    } else {
-                                        for (let c in when) {// this SHOULD be a single case, but iterating makes it a bit easier
-                                            if (applies) break;
-                                            if (when.hasOwnProperty(c)) {
-                                                let expected = String(when[c]);
-                                                let expectedArray = expected.split("|");
-
-                                                let given = multipartConditions[c];
-                                                for (let k = 0; k < expectedArray.length; k++) {
-                                                    if (expectedArray[k] === given) {
-                                                        applies = true;
-                                                        break;
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    if (applies) {
-                                        if (apply.hasOwnProperty("x")) {
-                                            rotation[0] = apply.x;
-                                        }
-                                        if (apply.hasOwnProperty("y")) {
-                                            rotation[1] = apply.y;
-                                        }
-                                        if (apply.hasOwnProperty("z")) {// Not actually used by MC, but why not?
-                                            rotation[2] = apply.z;
-                                        }
-                                        let parsed = parseModelType(apply.model);
-                                        parsedModelList.push({
-                                            name: parsed.model,
-                                            type: "block",
-                                            offset: offset,
-                                            rotation: rotation,
-                                            scale: scale,
-                                            options: modelOptions
-                                        })
-                                    }
-                                }
-                            }
-
-                            resolve();
-                        }
-                    });
-                }
-
+                });
+                w.postMessage({
+                    func: "parseModel",
+                    model: model,
+                    modelOptions: model,
+                    parsedModelList: parsedModelList,
+                    assetRoot: modelRender.options.assetRoot
+                })
+            }else{
+                parseModel(model, model, parsedModelList, modelRender.options.assetRoot).then(()=>{
+                    resolve();
+                })
             }
         }))
+
     }
 
     return Promise.all(parsePromises);
@@ -386,23 +175,44 @@ function loadAndMergeModels(modelRender) {
     let jsonPromises = [];
 
     console.log("Loading Model JSON data & merging...");
+    let uniqueModels = {};
     for (let i = 0; i < parsedModelList.length; i++) {
+        let cacheKey = modelCacheKey(parsedModelList[i]);
+        modelInstances[cacheKey] = (modelInstances[cacheKey] || 0) + 1;
+        uniqueModels[cacheKey] = parsedModelList[i];
+    }
+    let uniqueModelList = Object.values(uniqueModels);
+    console.debug(uniqueModelList.length + " unique models");
+    for (let i = 0; i < uniqueModelList.length; i++) {
         jsonPromises.push(new Promise(resolve => {
-            let model = parsedModelList[i];
+            let model = uniqueModelList[i];
+            let cacheKey = modelCacheKey(model);
+            console.debug("loadAndMerge " + cacheKey);
 
-            modelInstances[modelCacheKey(model)] = (modelInstances[modelCacheKey(model)] || 0) + 1;
 
-            if (mergedModelCache.hasOwnProperty(modelCacheKey(model))) {
+
+            if (mergedModelCache.hasOwnProperty(cacheKey)) {
                 resolve();
                 return;
             }
 
-            loadModel(model.name, model.type, modelRender.options.assetRoot)
-                .then(modelData => mergeParents(modelData, model.name, modelRender.options.assetRoot))
-                .then((mergedModel) => {
-                    mergedModelCache[modelCacheKey(model)] = mergedModel;
-                    resolve()
+            if(modelRender.options.useWebWorkers) {
+                let w = work(ModelWorker);
+                w.addEventListener('message', event => {
+                    mergedModelCache[cacheKey] = event.data.mergedModel;
+                    resolve();
                 });
+                w.postMessage({
+                    func: "loadAndMergeModel",
+                    model: model,
+                    assetRoot: modelRender.options.assetRoot
+                });
+            }else{
+                loadAndMergeModel(model,modelRender.options.assetRoot).then((mergedModel)=>{
+                    mergedModelCache[cacheKey] = mergedModel;
+                    resolve();
+                })
+            }
         }))
     }
 
@@ -416,12 +226,20 @@ function loadModelTextures(modelRender) {
     let texturePromises = [];
 
     console.log("Loading Textures...");
+    let uniqueModels = {};
     for (let i = 0; i < parsedModelList.length; i++) {
+        uniqueModels[modelCacheKey(parsedModelList[i])] = parsedModelList[i];
+    }
+    let uniqueModelList = Object.values(uniqueModels);
+    console.debug(uniqueModelList.length + " unique models");
+    for (let i = 0; i < uniqueModelList.length; i++) {
         texturePromises.push(new Promise(resolve => {
-            let model = parsedModelList[i];
-            let mergedModel = mergedModelCache[modelCacheKey(model)];
+            let model = uniqueModelList[i];
+            let cacheKey = modelCacheKey(model);
+            console.debug("loadTexture " + cacheKey);
+            let mergedModel = mergedModelCache[cacheKey];
 
-            if (loadedTextureCache.hasOwnProperty(modelCacheKey(model))) {
+            if (loadedTextureCache.hasOwnProperty(cacheKey)) {
                 resolve();
                 return;
             }
@@ -434,10 +252,23 @@ function loadModelTextures(modelRender) {
                 return;
             }
 
-            loadTextures(mergedModel.textures, modelRender.options.assetRoot).then((textures) => {
-                loadedTextureCache[modelCacheKey(model)] = textures;
-                resolve();
-            });
+            if(modelRender.options.useWebWorkers) {
+                let w = work(ModelWorker);
+                w.addEventListener('message', event => {
+                    loadedTextureCache[cacheKey] = event.data.textures;
+                    resolve();
+                });
+                w.postMessage({
+                    func: "loadTextures",
+                    textures: mergedModel.textures,
+                    assetRoot: modelRender.options.assetRoot
+                });
+            }else{
+                loadTextures(mergedModel.textures, modelRender.options.assetRoot).then((textures)=>{
+                    loadedTextureCache[cacheKey] = textures;
+                    resolve();
+                })
+            }
         }))
     }
 
@@ -498,71 +329,6 @@ function doModelRender(modelRender) {
 
     return Promise.all(renderPromises);
 }
-
-function modelCacheKey(model) {
-    return model.type + "__" + model.name /*+ "[" + (model.variant || "default") + "]"*/;
-}
-
-function findMatchingVariant(variants, selector) {
-    if(!Array.isArray(variants)) variants = Object.keys(variants);
-
-    if (!selector || selector === "" || selector.length === 0) return "";
-    let selectorObj = variantStringToObject(selector);
-    for (let i = 0; i < variants.length; i++) {
-        let variantObj = variantStringToObject(variants[i]);
-
-        let matches = true;
-        for (let k in selectorObj) {
-            if (selectorObj.hasOwnProperty(k)) {
-                if (variantObj.hasOwnProperty(k)) {
-                    if (selectorObj[k] !== variantObj[k]) {
-                        matches = false;
-                        break;
-                    }
-                }
-            }
-        }
-
-        if (matches) return variants[i];
-    }
-
-    return null;
-}
-
-function variantStringToObject(str) {
-    let split = str.split(",");
-    let obj = {};
-    for (let i = 0; i < split.length; i++) {
-        let spl = split[i];
-        let split1 = spl.split("=");
-        obj[split1[0]] = split1[1];
-    }
-    return obj;
-}
-
-let parseModelType = function (string) {
-    if (string.startsWith("block/")) {
-        // if (type === "item") {
-        //     throw new Error("Tried to mix block/item models");
-        // }
-        return {
-            type: "block",
-            model: string.substr("block/".length)
-        }
-    } else if (string.startsWith("item/")) {
-        // if (type === "block") {
-        //     throw new Error("Tried to mix item/block models");
-        // }
-        return {
-            type: "item",
-            model: string.substr("item/".length)
-        }
-    }
-    return {
-        type: "block",
-        model: "string"
-    }
-};
 
 
 let renderModel = function (modelRender, model, textures, textureNames, type, name, variant, offset, rotation, scale) {
@@ -634,71 +400,13 @@ let renderModel = function (modelRender, model, textures, textureNames, type, na
                 }
 
                 applyModelTransforms(cachedInstance.instance, cachedInstance.index++);
-
-
-                // let mergedCubeMesh = new THREE.Mesh(geometry, materials);
-                // mergedCubeMesh.matrixAutoUpdate = false;
-                // mergedCubeMesh.updateMatrix();
-                //
-                //
-                // if (!willBeMerged) {
-                //     let cubeGroup = new THREE.Object3D();
-                //     cubeGroup.add(mergedCubeMesh);
-                //
-                //
-                //     if (modelRender.options.showOutlines) {
-                //         let box = new THREE.BoxHelper(mergedCubeMesh, 0xff0000);
-                //         cubeGroup.add(box);
-                //     }
-                //
-                //     let centerContainer = new THREE.Object3D();
-                //     centerContainer.add(cubeGroup);
-                //
-                //     centerContainer.applyMatrix(new THREE.Matrix4().makeTranslation(-8, -8, -8));
-                //
-                //     // Note to self: apply rotation AFTER adding objects to it, or it'll just be ignored
-                //
-                //
-                //     let rotationContainer = new THREE.Object3D();
-                //     rotationContainer.add(centerContainer);
-                //
-                //     if (offset) {
-                //         rotationContainer.applyMatrix(new THREE.Matrix4().makeTranslation(offset[0], offset[1], offset[2]))
-                //     }
-                //     if (rotation) {
-                //         rotationContainer.rotation.set(toRadians(rotation[0]), toRadians(Math.abs(rotation[0]) > 0 ? rotation[1] : -rotation[1]), toRadians(rotation[2]));
-                //     }
-                //     if (scale) {
-                //         rotationContainer.scale.set(scale[0], scale[1], scale[2]);
-                //     }
-                //
-                //     resolve(rotationContainer);
-                // } else {
-                //
-                //     mergedCubeMesh.applyMatrix(new THREE.Matrix4().makeTranslation(-8, -8, -8));
-                //
-                //     // Note to self: apply rotation AFTER adding objects to it, or it'll just be ignored
-                //
-                //     if (rotation) {
-                //         mergedCubeMesh.applyMatrix(new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(toRadians(rotation[0]), toRadians(Math.abs(rotation[0]) > 0 ? rotation[1] : -rotation[1]), toRadians(rotation[2]))));
-                //         // mergedCubeMesh.rotation.set(toRadians(rotation[0]), toRadians(Math.abs(rotation[0]) > 0 ? rotation[1] : -rotation[1]), toRadians(rotation[2]));
-                //     }
-                //     if (offset) {
-                //         // mergedCubeMesh.position.set(mergedCubeMesh.position.x+offset[0], mergedCubeMesh.position.y+offset[1], mergedCubeMesh.position.z+offset[2]);
-                //         mergedCubeMesh.applyMatrix(new THREE.Matrix4().makeTranslation(offset[0], offset[1], offset[2]));
-                //     }
-                //     if (scale) {
-                //         mergedCubeMesh.applyMatrix(new THREE.Matrix4().makeScale(scale[0], scale[1], scale[2]));
-                //         // mergedCubeMesh.scale.set(scale[0], scale[1], scale[2]);
-                //     }
-                //     mergedCubeMesh.updateMatrix();
-                //
-                //     mergedCubeMesh.userData.beforeMergeSize = sourceSize;
-                //
-                //     resolve(mergedCubeMesh);
-                //
-                // }
             };
+
+            if (instanceCache.hasOwnProperty(modelKey)) {
+                let cachedInstance = instanceCache[modelKey];
+                applyModelTransforms(cachedInstance.instance, cachedInstance.index++);
+                return;
+            }
 
             // Render the elements
             let promises = [];
@@ -1156,106 +864,6 @@ function rotateAboutPoint(obj, point, axis, theta) {
     obj.position.add(point); // re-add the offset
 
     obj.rotateOnAxis(axis, theta); // rotate the OBJECT
-}
-
-let loadModel = function (model, type/* block OR item */, assetRoot) {
-    return new Promise((resolve, reject) => {
-        if (typeof model === "string") {
-            if (model.startsWith("{") && model.endsWith("}")) {// JSON string
-                resolve(JSON.parse(model));
-            } else if (model.startsWith("http")) {// URL
-                $.ajax(model).done((data) => {
-                    resolve(data);
-                })
-            } else {// model name -> use local data
-                loadJsonFromPath(assetRoot, "/assets/minecraft/models/" + (type || "block") + "/" + model + ".json").then((data) => {
-                    resolve(data);
-                })
-            }
-        } else if (typeof model === "object") {// JSON object
-            resolve(model);
-        } else {
-            console.warn("Invalid model");
-            reject();
-        }
-    });
-};
-
-let loadTextures = function (textureNames, assetRoot) {
-    return new Promise((resolve) => {
-        let promises = [];
-        let filteredNames = [];
-
-        let names = Object.keys(textureNames);
-        for (let i = 0; i < names.length; i++) {
-            let name = names[i];
-            let texture = textureNames[name];
-            if (texture.startsWith("#")) {// reference to another texture, no need to load
-                continue;
-            }
-            filteredNames.push(name);
-            promises.push(loadTextureAsBase64(assetRoot, "minecraft", "/", texture));
-        }
-        Promise.all(promises).then((textures) => {
-            let mappedTextures = {};
-            for (let i = 0; i < textures.length; i++) {
-                mappedTextures[filteredNames[i]] = textures[i];
-            }
-
-            // Fill in the referenced textures
-            for (let i = 0; i < names.length; i++) {
-                let name = names[i];
-                if (!mappedTextures.hasOwnProperty(name) && textureNames.hasOwnProperty(name)) {
-                    let ref = textureNames[name].substr(1);
-                    mappedTextures[name] = mappedTextures[ref];
-                }
-            }
-
-            resolve(mappedTextures);
-        });
-    })
-};
-
-
-let mergeParents = function (model, modelName, assetRoot) {
-    return new Promise((resolve, reject) => {
-        mergeParents_(model, modelName, [], [], assetRoot, resolve, reject);
-    });
-};
-let mergeParents_ = function (model, name, stack, hierarchy, assetRoot, resolve, reject) {
-    stack.push(model);
-
-    if (!model.hasOwnProperty("parent") || model["parent"] === "builtin/generated" || model["parent"] === "builtin/entity") {// already at the highest parent OR we reach the builtin parent which seems to be the hardcoded stuff that's not in the json files
-        let merged = {};
-        for (let i = stack.length - 1; i >= 0; i--) {
-            merged = merge(merged, stack[i]);
-        }
-
-        hierarchy.unshift(name);
-        merged.hierarchy = hierarchy;
-        resolve(merged);
-        return;
-    }
-
-    let parent = model["parent"];
-    delete model["parent"];// remove the child's parent so it will be replaced by the parent's parent
-    hierarchy.push(parent);
-
-    loadJsonFromPath(assetRoot, "/assets/minecraft/models/" + parent + ".json").then((parentData) => {
-        let mergedModel = Object.assign({}, model, parentData);
-        mergeParents_(mergedModel, name, stack, hierarchy, assetRoot, resolve, reject);
-    })
-
-};
-
-function toRadians(angle) {
-    return angle * (Math.PI / 180);
-}
-
-function deleteObjectProperties(obj) {
-    Object.keys(obj).forEach(function (key) {
-        delete obj[key];
-    });
 }
 
 
