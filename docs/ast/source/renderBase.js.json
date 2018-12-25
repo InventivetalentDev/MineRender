@@ -800,10 +800,10 @@
                   }
                 },
                 "extra": {
-                  "rawValue": "https://minerender.org/res/mc",
-                  "raw": "\"https://minerender.org/res/mc\""
+                  "rawValue": "https://assets.mcasset.cloud/1.13",
+                  "raw": "\"https://assets.mcasset.cloud/1.13\""
                 },
-                "value": "https://minerender.org/res/mc"
+                "value": "https://assets.mcasset.cloud/1.13"
               },
               "leadingComments": null
             }
@@ -42439,7 +42439,7 @@
         "binop": null,
         "updateContext": null
       },
-      "value": "https://minerender.org/res/mc",
+      "value": "https://assets.mcasset.cloud/1.13",
       "start": 402,
       "end": 433,
       "loc": {
