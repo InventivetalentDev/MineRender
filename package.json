@@ -2,7 +2,7 @@
   "name": "minerender",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "src/combined/index.js",
   "scripts": {
     "build": "webpack --progress",
     "build:w": "webpack --progress --watch",
