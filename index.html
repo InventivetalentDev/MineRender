@@ -521,14 +521,14 @@
 
                                 <pre><code class="language-javascript">{
     centerCubes: false,     // Center the cube's rotation point
-    assetRoot: &quot;https://minerender.org/res/mc&quot;    // Root location to get assets from - change if you want to use e.g a resource pack
+    assetRoot: &quot;https://assets.mcasset.cloud/1.13&quot;    // Root location to get assets from - change if you want to use e.g a resource pack
 };</code></pre>
                             </div>
                             <div class="col s12 m6">
                                 <h5>GUIs</h5>
 
                                 <pre><code class="language-javascript">{
-    assetRoot: &quot;https://minerender.org/res/mc&quot;    // Root location to get assets from - change if you want to use e.g a resource pack
+    assetRoot: &quot;https://assets.mcasset.cloud/1.13&quot;    // Root location to get assets from - change if you want to use e.g a resource pack
 };</code></pre>
                             </div>
                         </div>
@@ -550,6 +550,8 @@
                             <li><a class="white-text" href="https://github.com/InventivetalentDev/MineRender" target="_blank" rel="noopener">GitHub</a></li>
                             <li><a class="white-text" href="https://github.com/InventivetalentDev/MineRender/issues" target="_blank" rel="noopener">Issue Tracker</a></li>
                         </ul>
+                        <br/>
+                        <a href="https://www.patreon.com/bePatron?u=554075" data-patreon-widget-type="become-patron-button">Become a Patron!</a><script async src="https://c6.patreon.com/becomePatronButton.bundle.js"></script>
                     </div>
                 </div>
             </div>
@@ -762,7 +764,7 @@ guiRender.render(gui);</code></pre>
 &lt;script src=&quot;https://cdnjs.cloudflare.com/ajax/libs/three.js/</code><span class="three-version"></span><code class="language-markup">/three.min.js&quot; integrity=&quot;</code><span class="three-hash"></span><code class="language-markup">&quot; crossorigin=&quot;anonymous&quot;&gt;&lt;/script&gt;</code></pre>
                             <pre><code class="language-markup">&lt;script src="https://minerender.org/dist/gui.min.js"&gt;&lt;/script&gt;</code></pre>
                             <br/>
-                            <pre><code class="language-javascript">$.ajax("https://minerender.org/res/mc/assets/minecraft/recipes/rail.json").done(function (recipe) {
+                            <pre><code class="language-javascript">$.ajax("https://assets.mcasset.cloud/1.13/assets/minecraft/recipes/rail.json").done(function (recipe) {
     var guiRender = new GuiRender({/* options */}, document.getElementById("myRecipeContainer"));
     guiRender.render(GuiRender.Helper.recipe(recipe, {
                                   /* Some recipes require extra data to map the correct textures */
@@ -787,5 +789,16 @@ guiRender.render(gui);</code></pre>
         <script src="/dist/entity.min.js" defer></script>
         <script src="/js/data.min.js"></script>
         <script src="/js/main.min.js" async defer></script>
+
+        <script>
+            window.DOP_config = {
+                links: { // Replace with your links
+                    paypal: "https://paypal.me/inventivetalent",
+                    patreon: "https://patreon.com/inventivetalent"
+                },
+                enableAnalytics: true
+            }
+        </script>
+        <script src="https://cdn.jsdelivr.net/gh/InventivetalentDev/DonationPopup@master/DonationPopup.min.js"></script>
     </body>
 </html>

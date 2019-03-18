@@ -1,11 +1,4 @@
 *.idea/
-*.iml
-*.iws
-*.settings
-*bin
-*.classpath
-*.project
-package-lock.json
 res/rp/*
 js/data.min.js
 js/main.min.js

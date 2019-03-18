@@ -1,5 +1,6 @@
 import * as THREE from "three";
-import Render, { loadTextureAsBase64, defaultOptions, DEFAULT_ROOT } from "../renderBase";
+import Render, { defaultOptions } from "../renderBase";
+import { loadTextureAsBase64, DEFAULT_ROOT } from "../functions";
 import guiPositions from "./guiPositions";
 import guiHelper from "./guiHelper";
 

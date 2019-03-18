@@ -1,7 +1,7 @@
 import * as pako from "pako";
 import * as NBT from "prismarine-nbt";
 import SkinRender from "../skin/index";
-import { loadBlockState, loadModel, loadTextures, mergeParents, renderModel } from "../renderBase";
+import { loadBlockState } from "../functions";
 
 /**
  * Helper to convert multi-block structures to models used by {@link ModelRender}
