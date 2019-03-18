@@ -1,8 +1,9 @@
 const path = require('path');
 const webpack = require('webpack');
 const ProgressBarPlugin = require('progress-bar-webpack-plugin');
+const packg = require("./package.json");
 
-const banner = "MineRender\n" +
+const banner = "MineRender " + packg.version + "\n" +
     "(c) 2018, Haylee Schäfer (inventivetalent) / MIT License\n" +
     "https://minerender.org\n" +
     "Build #" + (process.env.TRAVIS_BUILD_NUMBER || Date.now()) + " / " + new Date().toString()
@@ -23,6 +24,7 @@ let baseConfigFull = {
         new webpack.DefinePlugin({
             PRODUCTION: JSON.stringify(false),
             BUILD_DATE: JSON.stringify(new Date()),
+            VERSION: JSON.stringify(packg.version),
             BUILD_TIMESTAMP: JSON.stringify(Date.now()),
             BUILD_NUMBER: JSON.stringify(process.env.TRAVIS_BUILD_NUMBER)
         }),
@@ -47,6 +49,7 @@ let baseConfigMin = {
         new webpack.DefinePlugin({
             PRODUCTION: JSON.stringify(true),
             BUILD_DATE: JSON.stringify(new Date()),
+            VERSION: JSON.stringify(packg.version),
             BUILD_TIMESTAMP: JSON.stringify(Date.now()),
             BUILD_NUMBER: JSON.stringify(process.env.TRAVIS_BUILD_NUMBER)
         }),
