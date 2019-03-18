@@ -7,7 +7,6 @@
 *.project
 package-lock.json
 res/rp/*
-dist/*
 js/data.min.js
 js/main.min.js
 res/tools/java/in*
