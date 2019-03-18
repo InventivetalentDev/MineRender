@@ -402,6 +402,7 @@ $(document).ready(function () {
     $(".three-version").text(THREE_VERSION);
     $(".jquery-hash").text(JQUERY_HASH);
     $(".three-hash").text(THREE_HASH);
+    $(".minerender-version").text(VERSION);
 
     setTimeout(function () {
         setTimeout(renderSkinShowcases, 200);
