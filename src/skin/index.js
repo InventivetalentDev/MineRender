@@ -570,9 +570,9 @@ function getJSON(url, callback) {
     xhr.onload = function () {
         let status = xhr.status;
         if (status === 200) {
-            callback(null, xhr.response);
+            callback(null, xhr.response || xhr.responseText);
         } else {
-            callback(xhr.statusText, xhr.response);
+            callback(xhr.statusText, xhr.response || xhr.responseText);
         }
     };
     xhr.send();

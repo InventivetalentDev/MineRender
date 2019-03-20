@@ -65,7 +65,7 @@ function loadTexture(root, namespace, dir, name, resolve, reject, forceLoad) {
         xhr.responseType = 'arraybuffer';
         xhr.onloadend = function () {
             if (xhr.status === 200) {
-                let arr = new Uint8Array(this.response);
+                let arr = new Uint8Array(xhr.response || xhr.responseText);
                 let raw = String.fromCharCode.apply(null, arr);
                 let b64 = btoa(raw);
                 let dataURL = "data:image/png;base64," + b64;

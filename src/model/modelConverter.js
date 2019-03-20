@@ -66,9 +66,9 @@ ModelConverter.prototype.schematicToModels = function (schematic, cb) {
             xhr.open('GET', "https://minerender.org/res/idsToNames", true);
             xhr.onloadend = function () {
                 if (xhr.status === 200) {
-                    console.log(this.response);
+                    console.log(xhr.response || xhr.responseText);
 
-                    let idsToNames = JSON.parse(this.response);
+                    let idsToNames = JSON.parse(xhr.response || xhr.responseText);
                     parseSchematicData(data, idsToNames).then(data => cb(data));
                 }
             };
@@ -96,7 +96,7 @@ function loadNBT(source) {
             xhr.responseType = 'arraybuffer';
             xhr.onloadend = function () {
                 if (xhr.status === 200) {
-                    let array = new Uint8Array(this.response);
+                    let array = new Uint8Array(xhr.response || xhr.responseText);
 
                     resolve(array);
                 }
