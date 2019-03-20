@@ -701,6 +701,9 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                     }
 
                     let img = new Image();
+                    img.onerror = function(err){
+                        console.warn(err);
+                    };
                     img.onload = function () {
                         let uv = face.uv;
                         if (!uv) {
