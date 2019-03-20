@@ -326,7 +326,7 @@ let mergeParents_ = function (model, stack, resolve, reject) {
 
 };
 
-
-window.EntityRender = EntityRender;
+if (typeof window !== "undefined")
+    window.EntityRender = EntityRender;
 
 export default EntityRender;

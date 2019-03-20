@@ -578,6 +578,7 @@ function getJSON(url, callback) {
     xhr.send();
 }
 
-window.SkinRender = SkinRender;
+if (typeof window !== "undefined")
+    window.SkinRender = SkinRender;
 
 export default SkinRender;

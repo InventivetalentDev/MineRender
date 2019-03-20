@@ -209,9 +209,11 @@ class GuiRender extends Render {
     };
 }
 
+GuiRender.Positions = guiPositions;
+GuiRender.Helper = guiHelper;
 
-window.GuiRender = GuiRender;
-window.GuiRender.Positions = guiPositions;
-window.GuiRender.Helper = guiHelper;
+if (typeof window !== "undefined")
+    window.GuiRender = GuiRender;
+
 
 export default GuiRender;

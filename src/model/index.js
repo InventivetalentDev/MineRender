@@ -936,10 +936,7 @@ function rotateAboutPoint(obj, point, axis, theta) {
     obj.rotateOnAxis(axis, theta); // rotate the OBJECT
 }
 
-
-window.ModelRender = ModelRender;
-window.ModelConverter = ModelConverter;
-window.ModelRender.cache = {
+ModelRender.cache = {
     loadedTextures: loadedTextureCache,
     mergedModels: mergedModelCache,
     instanceCount: modelInstances,
@@ -964,6 +961,11 @@ window.ModelRender.cache = {
         deleteObjectProperties(instanceCache);
     }
 };
+ModelRender.ModelConverter = ModelConverter;
 
+if (typeof window !== "undefined") {
+    window.ModelRender = ModelRender;
+    window.ModelConverter = ModelConverter;
+}
 
 export default ModelRender;

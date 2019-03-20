@@ -59,11 +59,13 @@ function attachTo(self, target) {
 
 CombinedRender.prototype.constructor = CombinedRender;
 
-window.CombinedRender = CombinedRender;
+if(typeof window !== "undefined") {
+    window.CombinedRender = CombinedRender;
 
 // Add the other render classes here, because adding them as separate scripts bugs out THREE.js
-window.GuiRender = GuiRender;
-window.ModelRender = ModelRender;
-window.SkinRender = SkinRender;
+    window.GuiRender = GuiRender;
+    window.ModelRender = ModelRender;
+    window.SkinRender = SkinRender;
+}
 
 export default CombinedRender;
