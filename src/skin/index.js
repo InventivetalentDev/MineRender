@@ -569,10 +569,14 @@ function getJSON(url, callback) {
     xhr.responseType = 'json';
     xhr.onload = function () {
         let status = xhr.status;
+        let r = xhr.response || xhr.responseText;
+        if (typeof r === "string") {
+            r = JSON.parse(r);
+        }
         if (status === 200) {
-            callback(null, xhr.response || xhr.responseText);
+            callback(null, r);
         } else {
-            callback(xhr.statusText, xhr.response || xhr.responseText);
+            callback(xhr.statusText, r);
         }
     };
     xhr.send();
