@@ -580,5 +580,7 @@ function getJSON(url, callback) {
 
 if (typeof window !== "undefined")
     window.SkinRender = SkinRender;
+if (typeof global !== "undefined")
+    global.SkinRender = SkinRender;
 
 export default SkinRender;

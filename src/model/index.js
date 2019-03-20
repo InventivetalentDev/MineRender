@@ -11,6 +11,7 @@ import * as md5 from "md5";
 import { parseModel, loadAndMergeModel, loadModelTexture, modelCacheKey, toRadians, deleteObjectProperties, loadTextures } from "./modelFunctions";
 
 import work from 'webworkify-webpack';
+import SkinRender from "../skin";
 const ModelWorker = require.resolve("./ModelWorker.js");
 
 
@@ -967,5 +968,7 @@ if (typeof window !== "undefined") {
     window.ModelRender = ModelRender;
     window.ModelConverter = ModelConverter;
 }
+if (typeof global !== "undefined")
+    global.ModelRender = ModelRender;
 
 export default ModelRender;

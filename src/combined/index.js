@@ -2,6 +2,7 @@ import GuiRender from "../gui/index";
 import ModelRender from "../model/index";
 import SkinRender from "../skin/index";
 import Render from "../renderBase";
+import EntityRender from "../entity";
 
 /**
  * A renderer-wrapper to combine the individual aspects of renderers into a single scene, e.g. render a player and a block at once
@@ -66,6 +67,13 @@ if(typeof window !== "undefined") {
     window.GuiRender = GuiRender;
     window.ModelRender = ModelRender;
     window.SkinRender = SkinRender;
+}
+if (typeof global !== "undefined") {
+    global.CombinedRender = CombinedRender;
+
+    global.GuiRender = GuiRender;
+    global.ModelRender = ModelRender;
+    global.SkinRender = SkinRender;
 }
 
 export default CombinedRender;

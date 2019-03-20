@@ -3,6 +3,7 @@ import Render, { defaultOptions } from "../renderBase";
 import { loadTextureAsBase64, DEFAULT_ROOT } from "../functions";
 import guiPositions from "./guiPositions";
 import guiHelper from "./guiHelper";
+import ModelRender from "../model";
 
 /**
  * @see defaultOptions
@@ -214,6 +215,8 @@ GuiRender.Helper = guiHelper;
 
 if (typeof window !== "undefined")
     window.GuiRender = GuiRender;
+if (typeof global !== "undefined")
+    global.GuiRender = GuiRender;
 
 
 export default GuiRender;

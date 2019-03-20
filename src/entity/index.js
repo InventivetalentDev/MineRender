@@ -3,6 +3,7 @@ import * as $ from 'jquery';
 import merge from 'deepmerge'
 import Render, { defaultOptions } from "../renderBase";
 import { loadTextureAsBase64, scaleUv, DEFAULT_ROOT, loadJsonFromPath, loadBlockState, loadTextureMeta } from "../functions";
+import GuiRender from "../gui";
 
 
 const FACE_ORDER = ["left", "right", "top", "bottom", "front", "back"];
@@ -328,5 +329,7 @@ let mergeParents_ = function (model, stack, resolve, reject) {
 
 if (typeof window !== "undefined")
     window.EntityRender = EntityRender;
+if (typeof global !== "undefined")
+    global.EntityRender = EntityRender;
 
 export default EntityRender;
