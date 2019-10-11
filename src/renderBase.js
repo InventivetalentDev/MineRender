@@ -163,13 +163,19 @@ export default class Render {
             } catch (e) {
                 return true;
             }
+            let hostname;
+            try{
+                hostname = new URL(iframe ? document.referrer : window.location).hostname;
+            }catch (e) {
+                console.warn("Failed to get hostname");
+            }
 
             $.post({
                 url: "https://minerender.org/stats.php",
                 data: {
                     action: "init",
                     type: renderObj.renderType,
-                    host: (new URL(iframe ? document.referrer : window.location).hostname),
+                    host: hostname,
                     source: (iframe ? "iframe" : "javascript")
                 }
             });
