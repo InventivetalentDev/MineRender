@@ -136,7 +136,9 @@
                 window.modelRender.render([{
                     blockstate: (location.hash.substr(1) || "stone")
                 }], function () {
-
+                    setTimeout(function () {
+                        console.log(window.modelRender.toImage(false));
+                    }, 1000);
                 });
 
                 // window.modelRender.render([{
