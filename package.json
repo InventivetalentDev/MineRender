@@ -13,7 +13,7 @@
   "license": "MIT",
   "dependencies": {
     "@johh/three-effectcomposer": "0.0.7",
-    "deepmerge": "^2.1.1",
+    "deepmerge": "^4.0.0",
     "esdoc": "^1.1.0",
     "esdoc-standard-plugin": "^1.0.0",
     "java-parser": "0.3.2",
