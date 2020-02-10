@@ -370,7 +370,7 @@ export function deepDisposeMesh(obj, removeChildren) {
     if (obj.children) {
         let children = obj.children;
         for (let i = 0; i < children.length; i++) {
-            deepDisposeMesh(children[i]);
+            deepDisposeMesh(children[i], removeChildren);
         }
 
         if (removeChildren) {
