@@ -536,7 +536,6 @@ let renderModel = function (modelRender, model, textures, textureNames, type, na
 
             Promise.all(promises).then((cubes) => {
                 let mergedCubes = mergeCubeMeshes(cubes, true);
-                console.debug("Caching Model " + modelKey);
                 mergedCubes.sourceSize = cubes.length;
                 finalizeCubeModel(mergedCubes.geometry, mergedCubes.materials, cubes.length);
                 for (let i = 0; i < cubes.length; i++) {
