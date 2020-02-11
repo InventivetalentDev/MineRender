@@ -63,7 +63,7 @@ ModelConverter.prototype.schematicToModels = function (schematic, cb) {
             }
 
             let xhr = new XMLHttpRequest();
-            xhr.open('GET', "https://minerender.org/res/idsToNames", true);
+            xhr.open('GET', "https://minerender.org/res/idsToNames.json", true);
             xhr.onloadend = function () {
                 if (xhr.status === 200) {
                     console.log(xhr.response || xhr.responseText);
