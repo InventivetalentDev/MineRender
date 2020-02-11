@@ -43,6 +43,7 @@ const loadedTextureCache = {};
 const modelInstances = {};
 
 const textureCache = {};
+const canvasCache = {};
 const materialCache = {};
 const geometryCache = {};
 const instanceCache = {};
@@ -449,10 +450,11 @@ let renderModel = function (modelRender, model, textures, textureNames, type, na
                         false,
                         false,
                         false);
-                    cachedInstance = instanceCache[modelKey] = {
+                    cachedInstance = {
                         instance: newInstance,
                         index: 0
                     };
+                    instanceCache[modelKey] = cachedInstance;
                     let _v3o = new THREE.Vector3();
                     let _v3s = new THREE.Vector3(1, 1, 1);
                     let _q = new THREE.Quaternion();
@@ -474,6 +476,7 @@ let renderModel = function (modelRender, model, textures, textureNames, type, na
             };
 
             if (instanceCache.hasOwnProperty(modelKey)) {
+                console.debug("Using cached model instance (" + modelKey + ")");
                 let cachedInstance = instanceCache[modelKey];
                 applyModelTransforms(cachedInstance.instance, cachedInstance.index++);
                 return;
@@ -513,9 +516,10 @@ let renderModel = function (modelRender, model, textures, textureNames, type, na
                 };
 
                 promises.push(new Promise((resolve) => {
+                    let baseName =name.replaceAll(" ", "_").replaceAll("-", "_").toLowerCase() + "_" + (element.__comment ? element.__comment.replaceAll(" ", "_").replaceAll("-", "_").toLowerCase() + "_" : "");
                     createCube(element.to[0] - element.from[0], element.to[1] - element.from[1], element.to[2] - element.from[2],
-                        name.replaceAll(" ", "_").replaceAll("-", "_").toLowerCase() + "_" + (element.__comment ? element.__comment.replaceAll(" ", "_").replaceAll("-", "_").toLowerCase() + "_" : "") + Date.now(),
-                        element.faces, fallbackFaces, textures, textureNames, modelRender.options.assetRoot)
+                        baseName + Date.now(),
+                        element.faces, fallbackFaces, textures, textureNames, modelRender.options.assetRoot, baseName)
                         .then((cube) => {
                             cube.applyMatrix(new THREE.Matrix4().makeTranslation((element.to[0] - element.from[0]) / 2, (element.to[1] - element.from[1]) / 2, (element.to[2] - element.from[2]) / 2));
                             cube.applyMatrix(new THREE.Matrix4().makeTranslation(element.from[0], element.from[1], element.from[2]));
@@ -661,7 +665,7 @@ let createPlane = function (name, textures) {
 
 
 /// From https://github.com/InventivetalentDev/SkinRender/blob/master/js/render/skin.js#L353
-let createCube = function (width, height, depth, name, faces, fallbackFaces, textures, textureNames, assetRoot) {
+let createCube = function (width, height, depth, name, faces, fallbackFaces, textures, textureNames, assetRoot, baseName) {
     return new Promise((resolve) => {
         let geometryKey = width + "_" + height + "_" + depth;
         let geometry;
@@ -699,12 +703,9 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                         return;
                     }
 
-                    let img = new Image();
-                    img.onerror = function(err){
-                        console.warn(err);
-                        resolve(null);
-                    };
-                    img.onload = function () {
+                    let canvasKey = textureRef + "_" + f + "_" + baseName;
+
+                    let processImgToCanvasData = (img)=>{
                         let uv = face.uv;
                         if (!uv) {
                             // console.warn("Missing UV mapping for face " + f + " in model " + name + ". Using defaults");
@@ -753,9 +754,29 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                             }
                         }
 
+                        let dataUrl =  canvas.toDataURL("image/png");
+                        let dataHash = md5(dataUrl);
+
+                        let d = {
+                            data: canvasData,
+                            dataUrl: dataUrl,
+                            dataUrlHash: dataHash,
+                            hasTransparency: hasTransparency,
+                            width: canvas.width,
+                            height: canvas.height
+                        };
+                        console.debug("Caching new canvas ("+canvasKey+"/"+dataHash+")")
+                        canvasCache[canvasKey] = d;
+                        return d;
+                    };
+
+                    let loadTextureFromCanvas = (canvas)=>{
+
+
                         let loadTextureDefault = function (canvas) {
-                            let data = canvas.toDataURL("image/png");
-                            let hash = md5(data);
+                            let data = canvas.dataUrl;
+                            let hash =canvas.dataUrlHash;
+                            let hasTransparency = canvas.hasTransparency;
 
                             if (materialCache.hasOwnProperty(hash)) {// Use material from cache
                                 console.debug("Using cached Material (" + hash + ")");
@@ -812,6 +833,7 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                         };
 
                         let loadTextureWithMeta = function (canvas, meta) {
+                            let hasTransparency = canvas.hasTransparency;
                             let frametime = 1;
                             if (meta.hasOwnProperty("animation")) {
                                 if (meta.animation.hasOwnProperty("frametime")) {
@@ -903,8 +925,42 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                             loadTextureDefault(canvas);
                         }
                     };
-                    img.src = textures[textureRef];
 
+
+                    if (canvasCache.hasOwnProperty(canvasKey)) {
+                        let cachedCanvas = canvasCache[canvasKey];
+
+                        if (cachedCanvas.hasOwnProperty("img")) {
+                            console.debug("Waiting for canvas image that's already loading ("+canvasKey+")")
+                           let img= cachedCanvas.img;
+                           img.waitingForCanvas.push(function (canvas) {
+                               loadTextureFromCanvas(canvas);
+                           });
+                        } else {
+                            console.debug("Using cached canvas (" + canvasKey + ")")
+                            loadTextureFromCanvas(canvasCache[canvasKey]);
+                        }
+                    } else {
+                        let img = new Image();
+                        img.onerror = function (err) {
+                            console.warn(err);
+                            resolve(null);
+                        };
+                        img.waitingForCanvas = [];
+                        img.onload = function () {
+                            let canvasData = processImgToCanvasData(img);
+                            loadTextureFromCanvas(canvasData);
+
+                            for (let c = 0; c < img.waitingForCanvas.length; c++) {
+                                img.waitingForCanvas[c](canvasData);
+                            }
+                        };
+                        console.debug("Pre-caching canvas (" + canvasKey + ")");
+                        canvasCache[canvasKey] = {
+                            img: img
+                        };
+                        img.src = textures[textureRef];
+                    }
                 }));
             }
             Promise.all(promises).then(materials => materialsLoaded(materials))
@@ -946,6 +1002,7 @@ ModelRender.cache = {
     instanceCount: modelInstances,
 
     texture: textureCache,
+    canvas: canvasCache,
     material: materialCache,
     geometry: geometryCache,
     instances: instanceCache,
