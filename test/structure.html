@@ -29,7 +29,7 @@
 
         <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js" integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4=" crossorigin="anonymous"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/96/three.min.js" ></script>
-        <script src="../dist/model.js"></script>
+        <script src="https://cdn.jsdelivr.net/gh/InventivetalentDev/MineRender@1.2.0/dist/model.min.js"></script>
         <script>
             (function () {
 
@@ -75,10 +75,16 @@
                 //     }
                 // });
 
+                let urlBase = "https://assets.mcasset.cloud/1.15.2/data/minecraft/structures/";
+                let url = urlBase+ "pillager_outpost/watchtower.nbt";
+
+                if (location.hash.length > 4) {
+                    url = urlBase + location.hash.substring(1)+".nbt";
+                }
 
                 let modelConverter = new ModelConverter();
              modelConverter.structureToModels({
-                 url:"https://assets.mcasset.cloud/1.15.2/data/minecraft/structures/pillager_outpost/watchtower.nbt"
+                 url:url
              },function (models) {
                  console.log(models)
                  modelRender.render(models,function () {
