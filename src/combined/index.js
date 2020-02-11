@@ -60,6 +60,10 @@ function attachTo(self, target) {
 
 CombinedRender.prototype.constructor = CombinedRender;
 
+CombinedRender.GuiRender = GuiRender;
+CombinedRender.ModelRender = ModelRender;
+CombinedRender.SkinRender = SkinRender;
+
 if(typeof window !== "undefined") {
     window.CombinedRender = CombinedRender;
 
