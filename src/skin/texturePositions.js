@@ -4,12 +4,12 @@
 const texturePositions =  {
     head: [
         {// 64x32
-            right: {
+            left: {
                 x: 0,
                 y: 16,
                 w: 8,
                 h: 8,
-                flipX: true
+                flipX: false
             },
             front: {
                 x: 8,
@@ -17,12 +17,12 @@ const texturePositions =  {
                 w: 8,
                 h: 8
             },
-            left: {
+            right: {
                 x: 16,
                 y: 16,
                 w: 8,
                 h: 8,
-                flipX: true
+                flipX: false
             },
             back: {
                 x: 24,
@@ -90,7 +90,7 @@ const texturePositions =  {
     ],
     body: [
         {// 64x32
-            right: {
+            left: {
                 x: 16,
                 y: 0,
                 w: 4,
@@ -103,7 +103,7 @@ const texturePositions =  {
                 w: 8,
                 h: 12
             },
-            left: {
+            right: {
                 x: 28,
                 y: 0,
                 w: 4,
@@ -127,7 +127,8 @@ const texturePositions =  {
                 y: 12,
                 w: 8,
                 h: 4,
-                flipY: true
+                flipY: true,
+                flipX: true
             }
         },
         {// 64x64
@@ -175,47 +176,48 @@ const texturePositions =  {
     ],
     rightArm: [
         {// 64x32 - same as rightArm
-            right: {
+            left: {
                 x: 40,
                 y: 0,
                 w: 4,
                 h: 12,
-                flipX: true
+                flipX: false
             },
             front: {
                 x: 44,
                 y: 0,
                 w: 4,
                 h: 12,
-                flipX: true
+                flipX: false
             },
-            left: {
+            right: {
                 x: 48,
                 y: 0,
                 w: 4,
                 h: 12,
-                flipX: true
+                flipX: false
             },
             back: {
                 x: 52,
                 y: 0,
                 w: 4,
                 h: 12,
-                flipX: true
+                flipX: false
             },
             top: {
                 x: 44,
                 y: 12,
                 w: 4,
                 h: 4,
-                flipX: true
+                flipX: false
             },
             bottom: {
                 x: 48,
                 y: 12,
                 w: 4,
                 h: 4,
-                flipX: true
+                flipX: true,
+                flipY: true
             }
         },
         {// 64x64
@@ -273,47 +275,48 @@ const texturePositions =  {
     ],
     leftArm: [
         {// 64x32 - same as leftArm
-            right: {
+            left: {
                 x: 40,
                 y: 0,
                 w: 4,
                 h: 12,
-                flipX: true
+                flipX: false
             },
             front: {
                 x: 44,
                 y: 0,
                 w: 4,
                 h: 12,
-                flipX: true
+                flipX: false
             },
-            left: {
+            right: {
                 x: 48,
                 y: 0,
                 w: 4,
                 h: 12,
-                flipX: true
+                flipX: false
             },
             back: {
                 x: 52,
                 y: 0,
                 w: 4,
                 h: 12,
-                flipX: true
+                flipX: false
             },
             top: {
                 x: 44,
                 y: 12,
                 w: 4,
                 h: 4,
-                flipX: true
+                flipX: false
             },
             bottom: {
                 x: 48,
                 y: 12,
                 w: 4,
                 h: 4,
-                flipX: true
+                flipX: true,
+                flipY: true
             }
         },
         {// 64x64
@@ -371,12 +374,12 @@ const texturePositions =  {
     ],
     rightLeg: [
         {// 64x32 - same as rightLeg
-            right: {
+            left: {
                 x: 0,
                 y: 0,
                 w: 4,
                 h: 12,
-                flipX: true
+                flipX: false
             },
             front: {
                 x: 4,
@@ -385,12 +388,12 @@ const texturePositions =  {
                 h: 12,
                 flipX: false
             },
-            left: {
+            right: {
                 x: 8,
                 y: 0,
                 w: 4,
                 h: 12,
-                flipX: true
+                flipX: false
             },
             back: {
                 x: 12,
@@ -403,14 +406,15 @@ const texturePositions =  {
                 y: 12,
                 w: 4,
                 h: 4,
-                flipX: true
+                flipX: false
             },
             bottom: {
                 x: 8,
                 y: 12,
                 w: 4,
                 h: 4,
-                flipX: true
+                flipX: true,
+                flipY: true
             }
         },
         {// 64x64
@@ -461,26 +465,26 @@ const texturePositions =  {
     ],
     leftLeg: [
         {// 64x32 - same as leftLeg
-            right: {
+            left: {
                 x: 0,
                 y: 0,
                 w: 4,
                 h: 12,
-                flipX: true
+                flipX: false
             },
             front: {
                 x: 4,
                 y: 0,
                 w: 4,
                 h: 12,
-                flipX: true
+                flipX: false
             },
-            left: {
+            right: {
                 x: 8,
                 y: 0,
                 w: 4,
                 h: 12,
-                flipX: true
+                flipX: false
             },
             back: {
                 x: 12,
@@ -494,14 +498,15 @@ const texturePositions =  {
                 y: 12,
                 w: 4,
                 h: 4,
-                flipX: true
+                flipX: false
             },
             bottom: {
                 x: 8,
                 y: 12,
                 w: 4,
                 h: 4,
-                flipX: true
+                flipX: true,
+                flipY: true
             }
         },
         {// 64x64
