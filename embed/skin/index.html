@@ -81,6 +81,10 @@
                     return;
                 }
 
+                if (params.get("skin.slim")) {
+                    renderParams.slim = params.get("skin.slim") === "true";
+                }
+
                 var options = {
                     showAxes: false,
                     autoResize: false,
