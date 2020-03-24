@@ -123,32 +123,35 @@ class SkinRender extends Render {
             console.log("Skin Image Loaded");
 
             if (texture.slim === undefined) {
-                let detectCanvas = document.createElement("canvas");
-                let detectCtx = detectCanvas.getContext("2d");
-                // detectCanvas.style.display = "none";
-                detectCanvas.width = skinRender._skinImage.width;
-                detectCanvas.height = skinRender._skinImage.height;
-                detectCtx.drawImage(skinRender._skinImage, 0, 0);
+                if(skinRender._skinImage.height !== 32) {
 
-                console.log("Slim Detection:")
+                    let detectCanvas = document.createElement("canvas");
+                    let detectCtx = detectCanvas.getContext("2d");
+                    // detectCanvas.style.display = "none";
+                    detectCanvas.width = skinRender._skinImage.width;
+                    detectCanvas.height = skinRender._skinImage.height;
+                    detectCtx.drawImage(skinRender._skinImage, 0, 0);
 
-                // Check the 2 columns that should be transparent on slim skins
-                let px1 = detectCtx.getImageData(46, 52, 1, 12).data;
-                let px2 = detectCtx.getImageData(54, 20, 1, 12).data;
-                let allTransparent = true;
-                for (let i = 3; i < 12 * 4; i += 4) {
-                    if (px1[i] === 255) {
-                        allTransparent = false;
-                        break;
+                    console.log("Slim Detection:")
+
+                    // Check the 2 columns that should be transparent on slim skins
+                    let px1 = detectCtx.getImageData(46, 52, 2, 12).data;
+                    let px2 = detectCtx.getImageData(54, 20, 2, 12).data;
+                    let allTransparent = true;
+                    for (let i = 3; i < 12 * 4; i += 4) {
+                        if (px1[i] === 255) {
+                            allTransparent = false;
+                            break;
+                        }
+                        if (px2[i] === 255) {
+                            allTransparent = false;
+                            break;
+                        }
                     }
-                    if (px2[i] === 255) {
-                        allTransparent = false;
-                        break;
-                    }
+                    console.log(allTransparent)
+
+                    if (allTransparent) slim = true;
                 }
-                console.log(allTransparent)
-
-                if (allTransparent) slim = true;
             }
 
             if (skinLoaded && (capeLoaded || !hasCape)) {
