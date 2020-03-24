@@ -52,6 +52,7 @@
             </div>
             <div style="margin:10px">
                 <span><input type="checkbox" id="animate" checked><label for="animate">Animate</label></span>
+                <span><input type="checkbox" id="slim"><label for="animate">Slim</label></span>
             </div>
         </div>
 
@@ -71,10 +72,11 @@
                 optifine: true
             });
             if (location.hash) $("#nameInput").val(location.hash.substring(1));
-            $("#nameInput,#capeInput").on("change", function () {
+            $("#nameInput,#capeInput,#slim").on("change", function () {
                 skinRender.clearScene();
                 var skin = $("#nameInput").val();
                 var cape = $("#capeInput").val();
+                var slim =  $("#slim").is(":checked");
                 var options = {};
                 if (skin.indexOf("http") === 0) {
                     options.url = skin;
@@ -86,6 +88,7 @@
                     options.capeUrl = cape;
                     options.optifine = cape.toLowerCase().indexOf("optifine") > 0;
                 }
+                options.slim = slim;
                 skinRender.render(options);
             })
 
@@ -97,6 +100,8 @@
             $("#animate").on("change", function () {
                 animate = $(this).is(":checked");
             });
+
+
 
             var startTime = Date.now();
             document.body.addEventListener("skinRender", function (e) {
