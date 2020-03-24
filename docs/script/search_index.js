@@ -1,14 +1,14 @@
 window.esdocSearchIndex = [
   [
-    "minerender/src/combined/index.js~combinedrender",
+    "minerender~combinedrender",
     "class/src/combined/index.js~CombinedRender.html",
-    "<span>CombinedRender</span> <span class=\"search-result-import-path\">minerender/src/combined/index.js</span>",
+    "<span>CombinedRender</span> <span class=\"search-result-import-path\">minerender</span>",
     "class"
   ],
   [
-    "minerender/src/renderbase.js~default_root",
+    "minerender/src/functions.js~default_root",
     "variable/index.html#static-variable-DEFAULT_ROOT",
-    "<span>DEFAULT_ROOT</span> <span class=\"search-result-import-path\">minerender/src/renderBase.js</span>",
+    "<span>DEFAULT_ROOT</span> <span class=\"search-result-import-path\">minerender/src/functions.js</span>",
     "variable"
   ],
   [
@@ -54,9 +54,9 @@ window.esdocSearchIndex = [
     "class"
   ],
   [
-    "minerender/src/lib/marchingsquares.js~contour",
-    "function/index.html#static-function-contour",
-    "<span>contour</span> <span class=\"search-result-import-path\">minerender/src/lib/marchingSquares.js</span>",
+    "minerender/src/renderbase.js~deepdisposemesh",
+    "function/index.html#static-function-deepDisposeMesh",
+    "<span>deepDisposeMesh</span> <span class=\"search-result-import-path\">minerender/src/renderBase.js</span>",
     "function"
   ],
   [
@@ -64,6 +64,18 @@ window.esdocSearchIndex = [
     "variable/index.html#static-variable-defaultOptions",
     "<span>defaultOptions</span> <span class=\"search-result-import-path\">minerender/src/renderBase.js</span>",
     "variable"
+  ],
+  [
+    "minerender/src/model/modelfunctions.js~deleteobjectproperties",
+    "function/index.html#static-function-deleteObjectProperties",
+    "<span>deleteObjectProperties</span> <span class=\"search-result-import-path\">minerender/src/model/modelFunctions.js</span>",
+    "function"
+  ],
+  [
+    "minerender/src/model/modelfunctions.js~findmatchingvariant",
+    "function/index.html#static-function-findMatchingVariant",
+    "<span>findMatchingVariant</span> <span class=\"search-result-import-path\">minerender/src/model/modelFunctions.js</span>",
+    "function"
   ],
   [
     "minerender/src/gui/guihelper.js~guihelper",
@@ -78,33 +90,87 @@ window.esdocSearchIndex = [
     "variable"
   ],
   [
-    "minerender/src/renderbase.js~loadblockstate",
+    "minerender/src/model/modelfunctions.js~loadandmergemodel",
+    "function/index.html#static-function-loadAndMergeModel",
+    "<span>loadAndMergeModel</span> <span class=\"search-result-import-path\">minerender/src/model/modelFunctions.js</span>",
+    "function"
+  ],
+  [
+    "minerender/src/functions.js~loadblockstate",
     "function/index.html#static-function-loadBlockState",
-    "<span>loadBlockState</span> <span class=\"search-result-import-path\">minerender/src/renderBase.js</span>",
+    "<span>loadBlockState</span> <span class=\"search-result-import-path\">minerender/src/functions.js</span>",
     "function"
   ],
   [
-    "minerender/src/renderbase.js~loadjsonfrompath",
+    "minerender/src/functions.js~loadjsonfrompath",
     "function/index.html#static-function-loadJsonFromPath",
-    "<span>loadJsonFromPath</span> <span class=\"search-result-import-path\">minerender/src/renderBase.js</span>",
+    "<span>loadJsonFromPath</span> <span class=\"search-result-import-path\">minerender/src/functions.js</span>",
     "function"
   ],
   [
-    "minerender/src/renderbase.js~loadtextureasbase64",
+    "minerender/src/model/modelfunctions.js~loadmodel",
+    "function/index.html#static-function-loadModel",
+    "<span>loadModel</span> <span class=\"search-result-import-path\">minerender/src/model/modelFunctions.js</span>",
+    "function"
+  ],
+  [
+    "minerender/src/functions.js~loadtextureasbase64",
     "function/index.html#static-function-loadTextureAsBase64",
-    "<span>loadTextureAsBase64</span> <span class=\"search-result-import-path\">minerender/src/renderBase.js</span>",
+    "<span>loadTextureAsBase64</span> <span class=\"search-result-import-path\">minerender/src/functions.js</span>",
     "function"
   ],
   [
-    "minerender/src/renderbase.js~loadtexturemeta",
+    "minerender/src/functions.js~loadtexturemeta",
     "function/index.html#static-function-loadTextureMeta",
-    "<span>loadTextureMeta</span> <span class=\"search-result-import-path\">minerender/src/renderBase.js</span>",
+    "<span>loadTextureMeta</span> <span class=\"search-result-import-path\">minerender/src/functions.js</span>",
     "function"
   ],
   [
-    "minerender/src/renderbase.js~scaleuv",
+    "minerender/src/model/modelfunctions.js~loadtextures",
+    "function/index.html#static-function-loadTextures",
+    "<span>loadTextures</span> <span class=\"search-result-import-path\">minerender/src/model/modelFunctions.js</span>",
+    "function"
+  ],
+  [
+    "minerender/src/renderbase.js~mergecubemeshes",
+    "function/index.html#static-function-mergeCubeMeshes",
+    "<span>mergeCubeMeshes</span> <span class=\"search-result-import-path\">minerender/src/renderBase.js</span>",
+    "function"
+  ],
+  [
+    "minerender/src/renderbase.js~mergemeshes__",
+    "function/index.html#static-function-mergeMeshes__",
+    "<span>mergeMeshes__</span> <span class=\"search-result-import-path\">minerender/src/renderBase.js</span>",
+    "function"
+  ],
+  [
+    "minerender/src/model/modelfunctions.js~mergeparents",
+    "function/index.html#static-function-mergeParents",
+    "<span>mergeParents</span> <span class=\"search-result-import-path\">minerender/src/model/modelFunctions.js</span>",
+    "function"
+  ],
+  [
+    "minerender/src/model/modelfunctions.js~modelcachekey",
+    "function/index.html#static-function-modelCacheKey",
+    "<span>modelCacheKey</span> <span class=\"search-result-import-path\">minerender/src/model/modelFunctions.js</span>",
+    "function"
+  ],
+  [
+    "minerender/src/model/modelfunctions.js~parsemodel",
+    "function/index.html#static-function-parseModel",
+    "<span>parseModel</span> <span class=\"search-result-import-path\">minerender/src/model/modelFunctions.js</span>",
+    "function"
+  ],
+  [
+    "minerender/src/model/modelfunctions.js~parsemodeltype",
+    "function/index.html#static-function-parseModelType",
+    "<span>parseModelType</span> <span class=\"search-result-import-path\">minerender/src/model/modelFunctions.js</span>",
+    "function"
+  ],
+  [
+    "minerender/src/functions.js~scaleuv",
     "function/index.html#static-function-scaleUv",
-    "<span>scaleUv</span> <span class=\"search-result-import-path\">minerender/src/renderBase.js</span>",
+    "<span>scaleUv</span> <span class=\"search-result-import-path\">minerender/src/functions.js</span>",
     "function"
   ],
   [
@@ -112,6 +178,30 @@ window.esdocSearchIndex = [
     "variable/index.html#static-variable-texturePositions",
     "<span>texturePositions</span> <span class=\"search-result-import-path\">minerender/src/skin/texturePositions.js</span>",
     "variable"
+  ],
+  [
+    "minerender/src/model/modelfunctions.js~toradians",
+    "function/index.html#static-function-toRadians",
+    "<span>toRadians</span> <span class=\"search-result-import-path\">minerender/src/model/modelFunctions.js</span>",
+    "function"
+  ],
+  [
+    "minerender/src/functions.js~trimcanvas",
+    "function/index.html#static-function-trimCanvas",
+    "<span>trimCanvas</span> <span class=\"search-result-import-path\">minerender/src/functions.js</span>",
+    "function"
+  ],
+  [
+    "minerender/src/model/modelfunctions.js~variantstringtoobject",
+    "function/index.html#static-function-variantStringToObject",
+    "<span>variantStringToObject</span> <span class=\"search-result-import-path\">minerender/src/model/modelFunctions.js</span>",
+    "function"
+  ],
+  [
+    "minerender/src/model/modelworker.js~worker",
+    "function/index.html#static-function-worker",
+    "<span>worker</span> <span class=\"search-result-import-path\">minerender/src/model/ModelWorker.js</span>",
+    "function"
   ],
   [
     "src/.external-ecmascript.js~array",
@@ -462,6 +552,12 @@ window.esdocSearchIndex = [
     "member"
   ],
   [
+    "src/functions.js",
+    "file/src/functions.js.html",
+    "src/functions.js",
+    "file"
+  ],
+  [
     "src/gui/guihelper.js",
     "file/src/gui/guiHelper.js.html",
     "src/gui/guiHelper.js",
@@ -516,15 +612,15 @@ window.esdocSearchIndex = [
     "file"
   ],
   [
-    "src/lib/marchingsquares.js",
-    "file/src/lib/marchingSquares.js.html",
-    "src/lib/marchingSquares.js",
-    "file"
-  ],
-  [
     "src/lib/merge.js",
     "file/src/lib/merge.js.html",
     "src/lib/merge.js",
+    "file"
+  ],
+  [
+    "src/model/modelworker.js",
+    "file/src/model/ModelWorker.js.html",
+    "src/model/ModelWorker.js",
     "file"
   ],
   [
@@ -567,6 +663,12 @@ window.esdocSearchIndex = [
     "src/model/modelconverter.js",
     "file/src/model/modelConverter.js.html",
     "src/model/modelConverter.js",
+    "file"
+  ],
+  [
+    "src/model/modelfunctions.js",
+    "file/src/model/modelFunctions.js.html",
+    "src/model/modelFunctions.js",
     "file"
   ],
   [

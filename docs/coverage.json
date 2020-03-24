@@ -1,31 +1,39 @@
 {
-  "coverage": "43.36%",
-  "expectCount": 113,
+  "coverage": "37.12%",
+  "expectCount": 132,
   "actualCount": 49,
   "files": {
     "src/combined/index.js": {
       "expectCount": 6,
       "actualCount": 5,
       "undocumentLines": [
-        18
+        19
       ]
     },
     "src/entity/index.js": {
       "expectCount": 15,
       "actualCount": 3,
       "undocumentLines": [
-        7,
-        110,
-        187,
-        216,
-        278,
-        290,
-        294,
-        299,
-        41,
+        9,
+        112,
+        189,
+        218,
+        280,
+        292,
+        296,
+        301,
         43,
-        44,
-        48
+        45,
+        46,
+        50
+      ]
+    },
+    "src/functions.js": {
+      "expectCount": 13,
+      "actualCount": 11,
+      "undocumentLines": [
+        118,
+        206
       ]
     },
     "src/gui/guiHelper.js": {
@@ -42,17 +50,9 @@
       "expectCount": 7,
       "actualCount": 4,
       "undocumentLines": [
-        42,
         44,
-        45
-      ]
-    },
-    "src/lib/marchingSquares.js": {
-      "expectCount": 3,
-      "actualCount": 1,
-      "undocumentLines": [
-        61,
-        64
+        46,
+        47
       ]
     },
     "src/lib/OrbitControls.js": {
@@ -61,73 +61,104 @@
       "undocumentLines": []
     },
     "src/model/index.js": {
-      "expectCount": 26,
+      "expectCount": 30,
       "actualCount": 4,
       "undocumentLines": [
-        8,
-        13,
-        28,
-        29,
-        31,
-        32,
-        33,
-        35,
-        360,
-        385,
-        511,
-        518,
-        604,
-        861,
-        869,
-        892,
-        928,
-        933,
-        956,
-        71,
-        73,
-        74
+        15,
+        18,
+        23,
+        38,
+        39,
+        41,
+        42,
+        43,
+        45,
+        46,
+        47,
+        48,
+        49,
+        51,
+        138,
+        173,
+        224,
+        288,
+        346,
+        570,
+        577,
+        668,
+        991,
+        88,
+        90,
+        91
       ]
     },
     "src/model/modelConverter.js": {
-      "expectCount": 5,
-      "actualCount": 2,
+      "expectCount": 7,
+      "actualCount": 3,
       "undocumentLines": [
-        42,
-        77,
-        148
+        82,
+        117,
+        205,
+        259
+      ]
+    },
+    "src/model/modelFunctions.js": {
+      "expectCount": 12,
+      "actualCount": 0,
+      "undocumentLines": [
+        4,
+        246,
+        255,
+        259,
+        285,
+        296,
+        320,
+        349,
+        385,
+        390,
+        416,
+        420
+      ]
+    },
+    "src/model/ModelWorker.js": {
+      "expectCount": 1,
+      "actualCount": 0,
+      "undocumentLines": [
+        3
       ]
     },
     "src/renderBase.js": {
-      "expectCount": 27,
-      "actualCount": 22,
+      "expectCount": 17,
+      "actualCount": 11,
       "undocumentLines": [
-        104,
-        161,
-        360,
-        462,
-        543
+        77,
+        134,
+        350,
+        365,
+        384,
+        415
       ]
     },
     "src/skin/index.js": {
       "expectCount": 20,
       "actualCount": 4,
       "undocumentLines": [
-        267,
-        342,
-        531,
-        545,
-        562,
-        566,
+        270,
+        345,
+        534,
+        548,
+        565,
+        569,
         32,
         33,
         37,
-        235,
-        239,
-        240,
-        241,
-        251,
-        256,
-        260
+        238,
+        242,
+        243,
+        244,
+        254,
+        259,
+        263
       ]
     },
     "src/skin/texturePositions.js": {
