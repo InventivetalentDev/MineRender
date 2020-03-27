@@ -586,14 +586,15 @@ const texturePositions =  {
             y: 56,
             w: 8,
             h: 8,
-            flipX: true
+            flipX: false
         },
         bottom: {
             x: 48,
             y: 56,
             w: 8,
             h: 8,
-            flipY: true
+            flipY: true,
+            flipX: true
         }
     },
     jacket: {
@@ -632,7 +633,8 @@ const texturePositions =  {
             y: 28,
             w: 8,
             h: 4,
-            flipY: true
+            flipY: true,
+            flipX: true
         }
     },
     rightSleeve: {
@@ -678,7 +680,8 @@ const texturePositions =  {
             h: 4,
             sx: 55,
             sw: 3,
-            flipY: true
+            flipY: true,
+            flipX: true
         }
     },
     leftSleeve: {
@@ -724,7 +727,8 @@ const texturePositions =  {
             h: 4,
             sx: 47,
             sw: 3,
-            flipY: true
+            flipY: true,
+            flipX: true
         }
     },
     rightTrousers: {
@@ -763,7 +767,8 @@ const texturePositions =  {
             y: 12,
             w: 4,
             h: 4,
-            flipY: true
+            flipY: true,
+            flipX: true
         }
     },
     leftTrousers: {
@@ -802,7 +807,8 @@ const texturePositions =  {
             y: 28,
             w: 4,
             h: 4,
-            flipY: true
+            flipY: true,
+            flipX: true
         }
     },
 
