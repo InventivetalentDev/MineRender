@@ -96,7 +96,7 @@ class SkinRender extends Render {
             }
 
             console.log("Slim: " + slim)
-            let playerModel = createPlayerModel(skinTexture, capeTexture, textureVersion, slim, texture.optifine);
+            let playerModel = createPlayerModel(skinTexture, capeTexture, textureVersion, slim, texture.optifine && skinRender._capeImage && skinRender._capeImage.height > 24 /* 'classic' OF capes are the same size as the official capes, just the custom ones are double sized */);
             skinRender.addToScene(playerModel);
             // console.log(playerModel);
             skinRender.playerModel = playerModel;
