@@ -815,37 +815,37 @@ const texturePositions =  {
     cape: {
         right: {
             x: 0,
-            y: 1,
+            y: 5,
             w: 1,
             h: 16
         },
         front: {
             x: 1,
-            y: 1,
+            y: 5,
             w: 10,
             h: 16
         },
         left: {
             x: 11,
-            y: 1,
+            y: 5,
             w: 1,
             h: 16
         },
         back: {
             x: 12,
-            y: 1,
+            y: 5,
             w: 10,
             h: 16
         },
         top: {
             x: 1,
-            y: 0,
+            y: 21,
             w: 10,
             h: 1
         },
         bottom: {
             x: 11,
-            y: 0,
+            y: 21,
             w: 10,
             h: 1
         }
@@ -853,37 +853,37 @@ const texturePositions =  {
     capeOptifine: {
         right: {
             x: 0,
-            y: 2,
+            y: 10,
             w: 2,
             h: 32
         },
         front: {
             x: 2,
-            y: 2,
+            y: 10,
             w: 20,
             h: 32
         },
         left: {
             x: 22,
-            y: 2,
+            y: 10,
             w: 2,
             h: 32
         },
         back: {
             x: 24,
-            y: 2,
+            y: 10,
             w: 20,
             h: 32
         },
         top: {
             x: 2,
-            y: 0,
+            y: 42,
             w: 20,
             h: 2
         },
         bottom: {
             x: 22,
-            y: 0,
+            y: 42,
             w: 20,
             h: 2
         }
