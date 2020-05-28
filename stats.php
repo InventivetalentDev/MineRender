@@ -1,6 +1,4 @@
 <?php
-header("Access-Control-Allow-Origin: *");
-
 if (!isset($_POST)) {
     return;
 }
