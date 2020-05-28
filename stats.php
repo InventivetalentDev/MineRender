@@ -10,7 +10,7 @@ if (!isset($_POST["action"]) || !isset($_POST["type"])) {
 $action = $_POST["action"];
 $type = $_POST["type"];
 
-$host = $_POST["host"];
+//$host = $_POST["host"];
 $source = $_POST["source"];
 
 
@@ -31,11 +31,11 @@ if (!isset($json["types"][$type]) && isset($type) && !empty($type)) {
     $json["types"][$type]++;
 }
 
-if (!isset($json["hosts"][$host]) && isset($host) && !empty($host)) {
-    $json["hosts"][$host] = 1;
-} else {
-    $json["hosts"][$host]++;
-}
+//if (!isset($json["hosts"][$host]) && isset($host) && !empty($host)) {
+//    $json["hosts"][$host] = 1;
+//} else {
+//    $json["hosts"][$host]++;
+//}
 
 
 file_put_contents("./stats.json", json_encode($json));
