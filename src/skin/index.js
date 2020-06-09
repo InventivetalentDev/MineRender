@@ -135,8 +135,8 @@ class SkinRender extends Render {
                     console.log("Slim Detection:")
 
                     // Check the 2 columns that should be transparent on slim skins
-                    let px1 = detectCtx.getImageData(46, 52, 2, 12).data;
-                    let px2 = detectCtx.getImageData(54, 20, 2, 12).data;
+                    let px1 = detectCtx.getImageData(46, 52, 1, 12).data;
+                    let px2 = detectCtx.getImageData(54, 20, 1, 12).data;
                     let allTransparent = true;
                     for (let i = 3; i < 12 * 4; i += 4) {
                         if (px1[i] === 255) {
