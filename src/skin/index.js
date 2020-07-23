@@ -110,7 +110,7 @@ class SkinRender extends Render {
         skinRender._skinImage.crossOrigin = "anonymous";
         skinRender._capeImage = new Image();
         skinRender._capeImage.crossOrigin = "anonymous";
-        let hasCape = texture.capeUrl !== undefined || texture.capeData !== undefined || texture.mineskin !== undefined;
+        let hasCape = texture.cape !== undefined || texture.capeUrl !== undefined || texture.capeData !== undefined || texture.mineskin !== undefined;
         let slim = false;
         let skinLoaded = false;
         let capeLoaded = false;
@@ -242,7 +242,7 @@ class SkinRender extends Render {
                     } else {
                         console.warn("Couldn't find a user to get a cape from");
                     }
-                    capeLoadUrl += texture.cape; // append type
+                    capeLoadUrl += "/" + texture.cape; // append type
 
                     getJSON(capeLoadUrl, function (err, data) {
                         if (err) return console.log(err);
