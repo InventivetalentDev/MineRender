@@ -850,6 +850,82 @@ const texturePositions =  {
             h: 1
         }
     },
+    capeRelative: { // Cape coordinates relative to image dimensions, starting bottom-left
+        right: {
+            x: 0,
+            y: 15/32,
+            w: 1/64,
+            h: 16/32
+        },
+        front: {
+            x: 1/64,
+            y: 15/32,
+            w: 10/64,
+            h: 16/32
+        },
+        left: {
+            x: 11/64,
+            y: 15/32,
+            w: 1/64,
+            h: 16/32
+        },
+        back: {
+            x: 12/64,
+            y: 15/32,
+            w: 10/64,
+            h: 16/32
+        },
+        top: {
+            x: 1/64,
+            y: 31/32,
+            w: 10/64,
+            h: 1/32
+        },
+        bottom: {
+            x: 11/64,
+            y: 31/32,
+            w: 10/64,
+            h: 1/32
+        }
+    },
+    capeOptifineRelative: {
+        right: {
+            x: 0,
+            y: 10/44,
+            w: 2/92,
+            h: 32/44
+        },
+        front: {
+            x: 2/92,
+            y: 10/44,
+            w: 20/92,
+            h: 32/44
+        },
+        left: {
+            x: 22/92,
+            y: 10/44,
+            w: 2/92,
+            h: 32/44
+        },
+        back: {
+            x: 24/92,
+            y: 10/44,
+            w: 20/92,
+            h: 32/44
+        },
+        top: {
+            x: 2/92,
+            y: 42/44,
+            w: 20/92,
+            h: 2/44
+        },
+        bottom: {
+            x: 22/92,
+            y: 42/44,
+            w: 20/92,
+            h: 2/44
+        }
+    },
     capeOptifine: {
         right: {
             x: 0,
@@ -887,7 +963,45 @@ const texturePositions =  {
             w: 20,
             h: 2
         }
-    }
+    },
+    capeLabymodRelative: {
+        right: {
+            x: 0,
+            y: 0,
+            w: 1/22,
+            h: 16/17
+        },
+        front: {
+            x: 1/22,
+            y: 0,
+            w: 10/22,
+            h: 16/17
+        },
+        left: {
+            x: 11/22,
+            y: 0,
+            w: 1/22,
+            h: 16/17
+        },
+        back: {
+            x: 12/22,
+            y: 0,
+            w: 10/22,
+            h: 16/17
+        },
+        top: {
+            x: 1/22,
+            y: 16/17,
+            w: 10/22,
+            h: 1/17
+        },
+        bottom: {
+            x: 11/22,
+            y: 16/17,
+            w: 10/22,
+            h: 1/17
+        }
+    },
 };
 
 export default texturePositions;

@@ -50,10 +50,12 @@ class SkinRender extends Render {
      * @param {number} texture.mineskin ID of a MineSkin.org skin
      * @param {boolean} [texture.slim=false] Whether the provided texture uses the slim skin format
      *
+     * @param {string} [texture.cape=latest] Cape to render using capes.dev - Either a direct link to the cape data (api.capes.dev/get/...) OR a specific cape type
+     * @param {string} [texture.capeUser] Specify this to use a different user for the cape texture than the skin
      * @param {string} [texture.capeUrl] URL to a cape texture
      * @param {string} [texture.capeData] Base64 encoded image data of the cape texture
-     * @param {string} [texture.mineskin] ID of a MineSkin.org skin with a cape
-     * @param {boolean} [texture.optifine=false] Whether the provided cape texture is an optifine cape
+     * @param {string} [texture.mineskin] deprecated; ID of a MineSkin.org skin with a cape
+     * @param {boolean} [texture.optifine=false] deprecated; Whether the provided cape texture is an optifine cape
      *
      * @param {function} [cb] Callback when rendering finished
      */
@@ -96,7 +98,7 @@ class SkinRender extends Render {
             }
 
             console.log("Slim: " + slim)
-            let playerModel = createPlayerModel(skinTexture, capeTexture, textureVersion, slim, texture.optifine && skinRender._capeImage && skinRender._capeImage.height > 24 /* 'classic' OF capes are the same size as the official capes, just the custom ones are double sized */);
+            let playerModel = createPlayerModel(skinTexture, capeTexture, textureVersion, slim, texture._capeType ? texture._capeType : texture.optifine ? "optifine" : "minecraft");
             skinRender.addToScene(playerModel);
             // console.log(playerModel);
             skinRender.playerModel = playerModel;
@@ -108,7 +110,7 @@ class SkinRender extends Render {
         skinRender._skinImage.crossOrigin = "anonymous";
         skinRender._capeImage = new Image();
         skinRender._capeImage.crossOrigin = "anonymous";
-        let hasCape = texture.capeUrl !== undefined || texture.capeData !== undefined || texture.mineskin !== undefined;
+        let hasCape = texture.cape !== undefined || texture.capeUrl !== undefined || texture.capeData !== undefined || texture.mineskin !== undefined;
         let slim = false;
         let skinLoaded = false;
         let capeLoaded = false;
@@ -220,7 +222,39 @@ class SkinRender extends Render {
             } else if (texture.mineskin) {
                 skinRender._skinImage.src = "https://api.mineskin.org/render/texture/" + texture.mineskin;
             }
-            if (texture.capeUrl) {
+            if (texture.cape) {
+                if (texture.cape.length > 36) { // Likely either a cape ID or URL
+                    let capeDataUrl = texture.cape.startsWith("http") ? texture.cape : "https://api.capes.dev/get/" + texture.cape;
+                    getJSON(capeDataUrl, function (err, data) {
+                        if (err) return console.log(err);
+                        if (data.exists) {
+                            texture._capeType = data.type;
+                            skinRender._capeImage.src = data.imageUrls.base.full;
+                        }
+                    })
+                } else { // Type
+                    let capeLoadUrl = "https://api.capes.dev/load/";
+                    if(texture.capeUser) {// Try to find a player to use
+                        capeLoadUrl+=texture.capeUser;
+                    }else if (texture.username){
+                        capeLoadUrl+=texture.username;
+                    }else if(texture.uuid){
+                        capeLoadUrl+=texture.uuid;
+                    } else {
+                        console.warn("Couldn't find a user to get a cape from");
+                    }
+                    capeLoadUrl += "/" + texture.cape; // append type
+
+                    getJSON(capeLoadUrl, function (err, data) {
+                        if (err) return console.log(err);
+                         // Should be a single object of the requested type
+                        if (data.exists) {
+                            texture._capeType = data.type;
+                            skinRender._capeImage.src = data.imageUrls.base.full;
+                        }
+                    })
+                }
+            } else if (texture.capeUrl) {
                 skinRender._capeImage.src = texture.capeUrl;
             } else if (texture.capeData) {
                 skinRender._capeImage.src = texture.capeData;
@@ -342,8 +376,8 @@ function createCube(texture, width, height, depth, textures, slim, name, transpa
 };
 
 
-function createPlayerModel(skinTexture, capeTexture, v, slim, optifineCape) {
-    console.log("optifine cape: " + optifineCape);
+function createPlayerModel(skinTexture, capeTexture, v, slim, capeType) {
+    console.log("capeType: " + capeType);
 
     let headGroup = new THREE.Object3D();
     headGroup.name = "headGroup";
@@ -507,6 +541,28 @@ function createPlayerModel(skinTexture, capeTexture, v, slim, optifineCape) {
     playerGroup.add(rightLegGroup);
 
     if (capeTexture) {
+        console.log(texturePositions);
+        let capeTextureCoordinates = texturePositions.capeRelative;
+        if (capeType === "optifine" && capeTexture.image.height > 24) { // 'classic' OF capes are the same size as the official capes, just the custom ones are double sized
+            capeTextureCoordinates = texturePositions.capeOptifineRelative;
+        }
+        if (capeType === "labymod") {
+            capeTextureCoordinates = texturePositions.capeLabymodRelative;
+        }
+        capeTextureCoordinates = JSON.parse(JSON.stringify(capeTextureCoordinates)); // bad clone to keep the below scaling from affecting everything
+
+        console.log(capeTextureCoordinates);
+
+        // Multiply coordinates by image dimensions
+        for (let cord in capeTextureCoordinates) {
+            capeTextureCoordinates[cord].x *= capeTexture.image.width;
+            capeTextureCoordinates[cord].w *= capeTexture.image.width;
+            capeTextureCoordinates[cord].y *= capeTexture.image.height;
+            capeTextureCoordinates[cord].h *= capeTexture.image.height;
+        }
+
+        console.log(capeTextureCoordinates);
+
         let capeGroup = new THREE.Object3D();
         capeGroup.name = "capeGroup";
         capeGroup.position.x = 0;
@@ -515,13 +571,14 @@ function createPlayerModel(skinTexture, capeTexture, v, slim, optifineCape) {
         capeGroup.translateOnAxis(new THREE.Vector3(0, 1, 0), 8);
         capeGroup.translateOnAxis(new THREE.Vector3(0, 0, 1), 0.5);
         let cape = createCube(capeTexture,
-            8, 16, 1,
-            optifineCape ? texturePositions.capeOptifine : texturePositions.cape,
+            10, 16, 1,
+            capeTextureCoordinates,
             false,
             "cape");
+        cape.rotation.x = toRadians(10); // slight backward angle
         cape.translateOnAxis(new THREE.Vector3(0, 1, 0), -8);
         cape.translateOnAxis(new THREE.Vector3(0, 0, 1), -0.5);
-        cape.rotation.y = toRadians(180);
+        cape.rotation.y = toRadians(180); // flip front&back to be correct
         capeGroup.add(cape)
 
         playerGroup.add(capeGroup);
