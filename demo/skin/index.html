@@ -35,7 +35,7 @@
                 </div>
                 <div>
                     <label for="capeInput">Cape</label>
-                    <input type="url" id="capeInput" placeholder="URL" value="https://minerender.org/img/optifine_cape.png">
+                    <input type="url" id="capeInput" placeholder="URL" value="https://minerender.org/img/optifine_hires_cape.png">
                 </div>
             </div>
             <div style="margin: 10px;">
@@ -68,7 +68,7 @@
             }, document.body);
             skinRender.render({
                 username: location.hash ? location.hash.substring(1) : "inventivetalent",
-                capeUrl: "https://minerender.org/img/optifine_cape.png",
+                capeUrl: "https://minerender.org/img/optifine_hires_cape.png",
                 optifine: true
             });
             if (location.hash) $("#nameInput").val(location.hash.substring(1));
