@@ -98,7 +98,7 @@ class SkinRender extends Render {
             }
 
             console.log("Slim: " + slim)
-            let playerModel = createPlayerModel(skinTexture, capeTexture, textureVersion, slim, texture.optifine && skinRender._capeImage && skinRender._capeImage.height > 24 /* 'classic' OF capes are the same size as the official capes, just the custom ones are double sized */);
+            let playerModel = createPlayerModel(skinTexture, capeTexture, textureVersion, slim, texture._capeType ? texture._capeType : texture.optifine ? "optifine" : "minecraft");
             skinRender.addToScene(playerModel);
             // console.log(playerModel);
             skinRender.playerModel = playerModel;
@@ -228,6 +228,7 @@ class SkinRender extends Render {
                     getJSON(capeDataUrl, function (err, data) {
                         if (err) return console.log(err);
                         if (data.exists) {
+                            texture._capeType = data.type;
                             skinRender._capeImage.src = data.imageUrls.base.full;
                         }
                     })
@@ -248,6 +249,7 @@ class SkinRender extends Render {
                         if (err) return console.log(err);
                          // Should be a single object of the requested type
                         if (data.exists) {
+                            texture._capeType = data.type;
                             skinRender._capeImage.src = data.imageUrls.base.full;
                         }
                     })
@@ -374,8 +376,8 @@ function createCube(texture, width, height, depth, textures, slim, name, transpa
 };
 
 
-function createPlayerModel(skinTexture, capeTexture, v, slim, optifineCape) {
-    console.log("optifine cape: " + optifineCape);
+function createPlayerModel(skinTexture, capeTexture, v, slim, capeType) {
+    console.log("capeType: " + capeType);
 
     let headGroup = new THREE.Object3D();
     headGroup.name = "headGroup";
@@ -539,6 +541,28 @@ function createPlayerModel(skinTexture, capeTexture, v, slim, optifineCape) {
     playerGroup.add(rightLegGroup);
 
     if (capeTexture) {
+        console.log(texturePositions);
+        let capeTextureCoordinates = texturePositions.capeRelative;
+        if (capeType === "optifine" && capeTexture.image.height > 24) { // 'classic' OF capes are the same size as the official capes, just the custom ones are double sized
+            capeTextureCoordinates = texturePositions.capeOptifineRelative;
+        }
+        if (capeType === "labymod") {
+            capeTextureCoordinates = texturePositions.capeLabymodRelative;
+        }
+        capeTextureCoordinates = JSON.parse(JSON.stringify(capeTextureCoordinates)); // bad clone to keep the below scaling from affecting everything
+
+        console.log(capeTextureCoordinates);
+
+        // Multiply coordinates by image dimensions
+        for (let cord in capeTextureCoordinates) {
+            capeTextureCoordinates[cord].x *= capeTexture.image.width;
+            capeTextureCoordinates[cord].w *= capeTexture.image.width;
+            capeTextureCoordinates[cord].y *= capeTexture.image.height;
+            capeTextureCoordinates[cord].h *= capeTexture.image.height;
+        }
+
+        console.log(capeTextureCoordinates);
+
         let capeGroup = new THREE.Object3D();
         capeGroup.name = "capeGroup";
         capeGroup.position.x = 0;
@@ -547,13 +571,14 @@ function createPlayerModel(skinTexture, capeTexture, v, slim, optifineCape) {
         capeGroup.translateOnAxis(new THREE.Vector3(0, 1, 0), 8);
         capeGroup.translateOnAxis(new THREE.Vector3(0, 0, 1), 0.5);
         let cape = createCube(capeTexture,
-            8, 16, 1,
-            optifineCape ? texturePositions.capeOptifine : texturePositions.cape,
+            10, 16, 1,
+            capeTextureCoordinates,
             false,
             "cape");
+        cape.rotation.x = toRadians(10); // slight backward angle
         cape.translateOnAxis(new THREE.Vector3(0, 1, 0), -8);
         cape.translateOnAxis(new THREE.Vector3(0, 0, 1), -0.5);
-        cape.rotation.y = toRadians(180);
+        cape.rotation.y = toRadians(180); // flip front&back to be correct
         capeGroup.add(cape)
 
         playerGroup.add(capeGroup);

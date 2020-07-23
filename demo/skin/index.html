@@ -34,7 +34,7 @@
                     <input type="text" id="nameInput" placeholder="URL or Username" value="inventivetalent">
                 </div>
                 <div>
-                    <label for="capeInput">Cape URL</label>
+                    <label for="capeInput">Cape</label>
                     <input type="url" id="capeInput" placeholder="URL" value="https://minerender.org/img/optifine_cape.png">
                 </div>
             </div>
@@ -85,8 +85,12 @@
                     location.hash = skin;
                 }
                 if (cape && cape.length > 0) {
-                    options.capeUrl = cape;
-                    options.optifine = cape.toLowerCase().indexOf("optifine") > 0;
+                    if (cape.includes("capes.dev") || !cape.startsWith("http")) { // capes.dev link or type
+                        options.cape = cape;
+                    } else {
+                        options.capeUrl = cape;
+                        options.optifine = cape.toLowerCase().indexOf("optifine") > 0;
+                    }
                 }
                 options.slim = slim;
                 skinRender.render(options);
