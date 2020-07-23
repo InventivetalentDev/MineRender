@@ -50,10 +50,12 @@ class SkinRender extends Render {
      * @param {number} texture.mineskin ID of a MineSkin.org skin
      * @param {boolean} [texture.slim=false] Whether the provided texture uses the slim skin format
      *
+     * @param {string} [texture.cape=latest] Cape to render using capes.dev - Either a direct link to the cape data (api.capes.dev/get/...) OR a specific cape type
+     * @param {string} [texture.capeUser] Specify this to use a different user for the cape texture than the skin
      * @param {string} [texture.capeUrl] URL to a cape texture
      * @param {string} [texture.capeData] Base64 encoded image data of the cape texture
-     * @param {string} [texture.mineskin] ID of a MineSkin.org skin with a cape
-     * @param {boolean} [texture.optifine=false] Whether the provided cape texture is an optifine cape
+     * @param {string} [texture.mineskin] deprecated; ID of a MineSkin.org skin with a cape
+     * @param {boolean} [texture.optifine=false] deprecated; Whether the provided cape texture is an optifine cape
      *
      * @param {function} [cb] Callback when rendering finished
      */
@@ -220,7 +222,37 @@ class SkinRender extends Render {
             } else if (texture.mineskin) {
                 skinRender._skinImage.src = "https://api.mineskin.org/render/texture/" + texture.mineskin;
             }
-            if (texture.capeUrl) {
+            if (texture.cape) {
+                if (texture.cape.length > 36) { // Likely either a cape ID or URL
+                    let capeDataUrl = texture.cape.startsWith("http") ? texture.cape : "https://api.capes.dev/get/" + texture.cape;
+                    getJSON(capeDataUrl, function (err, data) {
+                        if (err) return console.log(err);
+                        if (data.exists) {
+                            skinRender._capeImage.src = data.imageUrls.base.full;
+                        }
+                    })
+                } else { // Type
+                    let capeLoadUrl = "https://api.capes.dev/load/";
+                    if(texture.capeUser) {// Try to find a player to use
+                        capeLoadUrl+=texture.capeUser;
+                    }else if (texture.username){
+                        capeLoadUrl+=texture.username;
+                    }else if(texture.uuid){
+                        capeLoadUrl+=texture.uuid;
+                    } else {
+                        console.warn("Couldn't find a user to get a cape from");
+                    }
+                    capeLoadUrl += texture.cape; // append type
+
+                    getJSON(capeLoadUrl, function (err, data) {
+                        if (err) return console.log(err);
+                         // Should be a single object of the requested type
+                        if (data.exists) {
+                            skinRender._capeImage.src = data.imageUrls.base.full;
+                        }
+                    })
+                }
+            } else if (texture.capeUrl) {
                 skinRender._capeImage.src = texture.capeUrl;
             } else if (texture.capeData) {
                 skinRender._capeImage.src = texture.capeData;
