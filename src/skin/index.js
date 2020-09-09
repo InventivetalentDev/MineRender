@@ -13,7 +13,8 @@ let defOptions = {
         y: 35,
         z: 20,
         target: [0, 18, 0]
-    }
+    },
+    makeNonTransparentOpaque: true
 };
 
 /**
@@ -87,6 +88,11 @@ class SkinRender extends Render {
                 capeTexture.magFilter = THREE.NearestFilter;
                 capeTexture.minFilter = THREE.NearestFilter;
                 capeTexture.anisotropy = 0;
+                capeTexture.format = THREE.RGBFormat; // no transparency
+            }
+
+            if (skinTexture.image.height === 32) {
+                skinTexture.format = THREE.RGBFormat; // 64x32 don't have transparency
             }
 
             if (!skinRender.attached && !skinRender._scene) {// Don't init scene if attached, since we already have an available scene
@@ -125,7 +131,7 @@ class SkinRender extends Render {
             console.log("Skin Image Loaded");
 
             if (texture.slim === undefined) {
-                if(skinRender._skinImage.height !== 32) {
+                if (skinRender._skinImage.height !== 32) {
 
                     let detectCanvas = document.createElement("canvas");
                     let detectCtx = detectCanvas.getContext("2d");
@@ -154,6 +160,46 @@ class SkinRender extends Render {
 
                     if (allTransparent) slim = true;
                 }
+            }
+
+            if (skinRender.options.makeNonTransparentOpaque && skinRender._skinImage.height !== 32) { // 64x32 don't have transparency
+                let sourceCanvas = document.createElement("canvas");
+                let sourceContext = sourceCanvas.getContext("2d");
+                sourceCanvas.width = skinRender._skinImage.width;
+                sourceCanvas.height = skinRender._skinImage.height;
+                // draw skin texture
+                sourceContext.drawImage(skinRender._skinImage, 0, 0);
+
+                // remove partial transparency
+                let opaqueCanvas = document.createElement("canvas");
+                let opaqueContext = opaqueCanvas.getContext("2d");
+                opaqueCanvas.width = skinRender._skinImage.width;
+                opaqueCanvas.height = skinRender._skinImage.height;
+
+                let imageData = sourceContext.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height);
+                let pixels = imageData.data;
+
+                function removeTransparency(x, y) {
+                    if (x > 0 && y > 0 && x < 32 && y < 32) return true; // top left, face + right leg + half of body
+                    if (x > 32 && y > 16 && x < 32 + 32 && y < 16 + 16) return true;// mid right, other body half + right arm
+                    if (x > 16 && y > 48 && x < 16 + 32 && y < 48 + 16) return true;// bottom mid, left leg + left arm
+                    return false;
+                }
+
+                // check every pixel for transparency
+                for (let i = 0; i < pixels.length; i += 4) {
+                    let a = pixels[i + 3];
+                    let x = (i / 4) % sourceCanvas.width;
+                    let y = Math.floor((i / 4) / sourceCanvas.width);
+                    if (a > 16 || removeTransparency(x, y)) { // alpha over threshold OR area not supposed to have transparency at all
+                        pixels[i + 3] = 255; // max the alpha
+                    }
+                }
+
+                // update destination canvas
+                opaqueContext.putImageData(imageData, 0, 0);
+
+                skinTexture = new THREE.CanvasTexture(opaqueCanvas);
             }
 
             if (skinLoaded && (capeLoaded || !hasCape)) {
@@ -234,12 +280,12 @@ class SkinRender extends Render {
                     })
                 } else { // Type
                     let capeLoadUrl = "https://api.capes.dev/load/";
-                    if(texture.capeUser) {// Try to find a player to use
-                        capeLoadUrl+=texture.capeUser;
-                    }else if (texture.username){
-                        capeLoadUrl+=texture.username;
-                    }else if(texture.uuid){
-                        capeLoadUrl+=texture.uuid;
+                    if (texture.capeUser) {// Try to find a player to use
+                        capeLoadUrl += texture.capeUser;
+                    } else if (texture.username) {
+                        capeLoadUrl += texture.username;
+                    } else if (texture.uuid) {
+                        capeLoadUrl += texture.uuid;
                     } else {
                         console.warn("Couldn't find a user to get a cape from");
                     }
@@ -247,7 +293,7 @@ class SkinRender extends Render {
 
                     getJSON(capeLoadUrl, function (err, data) {
                         if (err) return console.log(err);
-                         // Should be a single object of the requested type
+                        // Should be a single object of the requested type
                         if (data.exists) {
                             texture._capeType = data.type;
                             skinRender._capeImage.src = data.imageUrls.base.full;
