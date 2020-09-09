@@ -11,6 +11,11 @@
   },
   "author": "Haylee Schäfer",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/InventivetalentDev/MineRender.git"
+  },
+  "homepage": "https://minerender.org",
   "dependencies": {
     "@johh/three-effectcomposer": "0.0.7",
     "deepmerge": "^4.0.0",
