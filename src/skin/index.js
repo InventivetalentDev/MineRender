@@ -589,7 +589,7 @@ function createPlayerModel(skinTexture, capeTexture, v, slim, capeType) {
     if (capeTexture) {
         console.log(texturePositions);
         let capeTextureCoordinates = texturePositions.capeRelative;
-        if (capeType === "optifine" && capeTexture.image.height > 24) { // 'classic' OF capes are the same size as the official capes, just the custom ones are double sized
+        if (capeType === "optifine") {
             capeTextureCoordinates = texturePositions.capeOptifineRelative;
         }
         if (capeType === "labymod") {
