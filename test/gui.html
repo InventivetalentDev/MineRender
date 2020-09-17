@@ -101,7 +101,7 @@
                     }
                 ];
 
-                $.ajax("/res/mc/data/minecraft/recipes/rail.json").done(function (recipe) {
+                $.ajax("https://assets.mcasset.cloud/1.13/data/minecraft/recipes/rail.json").done(function (recipe) {
                     console.log(recipe);
                     window.guiRender = new GuiRender({
                         showOutlines: true,
