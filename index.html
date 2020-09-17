@@ -901,6 +901,7 @@ guiRender.render(gui);</code></pre>
                             <pre><code class="language-markup">&lt;script src="https://cdn.jsdelivr.net/gh/InventivetalentDev/MineRender@</code><span class="minerender-version"></span><code class="language-markup">/dist/gui.min.js"&gt;&lt;/script&gt;</code></pre>
                             <br/>
                             <pre><code class="language-javascript">$.ajax("https://assets.mcasset.cloud/1.13/data/minecraft/recipes/rail.json").done(function (recipe) {
+    recipe = JSON.parse(recipe);
     var guiRender = new GuiRender({/* options */}, document.getElementById("myRecipeContainer"));
     guiRender.render(GuiRender.Helper.recipe(recipe, {
                                   /* Some recipes require extra data to map the correct textures */
