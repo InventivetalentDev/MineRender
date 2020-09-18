@@ -1,6 +1,6 @@
 {
   "name": "minerender",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "description": "",
   "main": "src/combined/index.js",
   "scripts": {
