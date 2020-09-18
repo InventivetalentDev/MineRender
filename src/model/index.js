@@ -12,6 +12,8 @@ import { parseModel, loadAndMergeModel, loadModelTexture, modelCacheKey, toRadia
 
 import work from 'webworkify-webpack';
 import SkinRender from "../skin";
+import off from "onscreen/lib/methods/off";
+
 const ModelWorker = require.resolve("./ModelWorker.js");
 
 
@@ -88,6 +90,7 @@ class ModelRender extends Render {
         this.renderType = "ModelRender";
 
         this.models = [];
+        this.instancePositionMap = {};
         this.attached = false;
     }
 
@@ -144,7 +147,7 @@ function parseModels(modelRender, models, parsedModelList) {
 
         // parsePromises.push(parseModel(model, model, parsedModelList, modelRender.options.assetRoot))
         parsePromises.push(new Promise(resolve => {
-            if(modelRender.options.useWebWorkers) {
+            if (modelRender.options.useWebWorkers) {
                 let w = work(ModelWorker);
                 w.addEventListener('message', event => {
                     parsedModelList.push(...event.data.parsedModelList);
@@ -157,8 +160,8 @@ function parseModels(modelRender, models, parsedModelList) {
                     parsedModelList: parsedModelList,
                     assetRoot: modelRender.options.assetRoot
                 })
-            }else{
-                parseModel(model, model, parsedModelList, modelRender.options.assetRoot).then(()=>{
+            } else {
+                parseModel(model, model, parsedModelList, modelRender.options.assetRoot).then(() => {
                     resolve();
                 })
             }
@@ -192,13 +195,12 @@ function loadAndMergeModels(modelRender, parsedModelList) {
             console.debug("loadAndMerge " + cacheKey);
 
 
-
             if (mergedModelCache.hasOwnProperty(cacheKey)) {
                 resolve();
                 return;
             }
 
-            if(modelRender.options.useWebWorkers) {
+            if (modelRender.options.useWebWorkers) {
                 let w = work(ModelWorker);
                 w.addEventListener('message', event => {
                     mergedModelCache[cacheKey] = event.data.mergedModel;
@@ -209,8 +211,8 @@ function loadAndMergeModels(modelRender, parsedModelList) {
                     model: model,
                     assetRoot: modelRender.options.assetRoot
                 });
-            }else{
-                loadAndMergeModel(model,modelRender.options.assetRoot).then((mergedModel)=>{
+            } else {
+                loadAndMergeModel(model, modelRender.options.assetRoot).then((mergedModel) => {
                     mergedModelCache[cacheKey] = mergedModel;
                     resolve();
                 })
@@ -261,7 +263,7 @@ function loadModelTextures(modelRender, parsedModelList) {
                 return;
             }
 
-            if(modelRender.options.useWebWorkers) {
+            if (modelRender.options.useWebWorkers) {
                 let w = work(ModelWorker);
                 w.addEventListener('message', event => {
                     loadedTextureCache[cacheKey] = event.data.textures;
@@ -272,8 +274,8 @@ function loadModelTextures(modelRender, parsedModelList) {
                     textures: mergedModel.textures,
                     assetRoot: modelRender.options.assetRoot
                 });
-            }else{
-                loadTextures(mergedModel.textures, modelRender.options.assetRoot).then((textures)=>{
+            } else {
+                loadTextures(mergedModel.textures, modelRender.options.assetRoot).then((textures) => {
                     loadedTextureCache[cacheKey] = textures;
                     resolve();
                 })
@@ -357,11 +359,20 @@ let renderModel = function (modelRender, model, textures, textureNames, type, na
                 let _v3s = new THREE.Vector3();
                 let _q = new THREE.Quaternion();
 
+                let instanceInfo = {
+                    key: modelKey,
+                    index: instanceIndex,
+                    offset: offset,
+                    scale: scale,
+                    rotation: rotation
+                };
+
                 if (rotation) {
                     mesh.setQuaternionAt(instanceIndex, _q.setFromEuler(new THREE.Euler(toRadians(rotation[0]), toRadians(Math.abs(rotation[0]) > 0 ? rotation[1] : -rotation[1]), toRadians(rotation[2]))));
                 }
                 if (offset) {
                     mesh.setPositionAt(instanceIndex, _v3o.set(offset[0], offset[1], offset[2]));
+                    modelRender.instancePositionMap[offset[0] + "_" + offset[1] + "_" + offset[2]] = instanceInfo;
                 }
                 if (scale) {
                     mesh.setScaleAt(instanceIndex, _v3s.set(scale[0], scale[1], scale[2]));
@@ -516,7 +527,7 @@ let renderModel = function (modelRender, model, textures, textureNames, type, na
                 };
 
                 promises.push(new Promise((resolve) => {
-                    let baseName =name.replaceAll(" ", "_").replaceAll("-", "_").toLowerCase() + "_" + (element.__comment ? element.__comment.replaceAll(" ", "_").replaceAll("-", "_").toLowerCase() + "_" : "");
+                    let baseName = name.replaceAll(" ", "_").replaceAll("-", "_").toLowerCase() + "_" + (element.__comment ? element.__comment.replaceAll(" ", "_").replaceAll("-", "_").toLowerCase() + "_" : "");
                     createCube(element.to[0] - element.from[0], element.to[1] - element.from[1], element.to[2] - element.from[2],
                         baseName + Date.now(),
                         element.faces, fallbackFaces, textures, textureNames, modelRender.options.assetRoot, baseName)
@@ -705,7 +716,7 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
 
                     let canvasKey = textureRef + "_" + f + "_" + baseName;
 
-                    let processImgToCanvasData = (img)=>{
+                    let processImgToCanvasData = (img) => {
                         let uv = face.uv;
                         if (!uv) {
                             // console.warn("Missing UV mapping for face " + f + " in model " + name + ". Using defaults");
@@ -754,7 +765,7 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                             }
                         }
 
-                        let dataUrl =  canvas.toDataURL("image/png");
+                        let dataUrl = canvas.toDataURL("image/png");
                         let dataHash = md5(dataUrl);
 
                         let d = {
@@ -765,17 +776,17 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                             width: canvas.width,
                             height: canvas.height
                         };
-                        console.debug("Caching new canvas ("+canvasKey+"/"+dataHash+")")
+                        console.debug("Caching new canvas (" + canvasKey + "/" + dataHash + ")")
                         canvasCache[canvasKey] = d;
                         return d;
                     };
 
-                    let loadTextureFromCanvas = (canvas)=>{
+                    let loadTextureFromCanvas = (canvas) => {
 
 
                         let loadTextureDefault = function (canvas) {
                             let data = canvas.dataUrl;
-                            let hash =canvas.dataUrlHash;
+                            let hash = canvas.dataUrlHash;
                             let hasTransparency = canvas.hasTransparency;
 
                             if (materialCache.hasOwnProperty(hash)) {// Use material from cache
@@ -931,11 +942,11 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                         let cachedCanvas = canvasCache[canvasKey];
 
                         if (cachedCanvas.hasOwnProperty("img")) {
-                            console.debug("Waiting for canvas image that's already loading ("+canvasKey+")")
-                           let img= cachedCanvas.img;
-                           img.waitingForCanvas.push(function (canvas) {
-                               loadTextureFromCanvas(canvas);
-                           });
+                            console.debug("Waiting for canvas image that's already loading (" + canvasKey + ")")
+                            let img = cachedCanvas.img;
+                            img.waitingForCanvas.push(function (canvas) {
+                                loadTextureFromCanvas(canvas);
+                            });
                         } else {
                             console.debug("Using cached canvas (" + canvasKey + ")")
                             loadTextureFromCanvas(canvasCache[canvasKey]);
