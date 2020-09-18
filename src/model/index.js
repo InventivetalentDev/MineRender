@@ -621,6 +621,16 @@ function setVisibilityAt(x, y, z, visible) {
 ModelRender.prototype.setVisibilityAtMulti = setVisibilityAtMulti;
 ModelRender.prototype.setVisibilityAt = setVisibilityAt;
 
+function setVisibilityOfType(type, name, variant, visible) {
+    let instance = instanceCache[modelCacheKey({type: type, name: name, variant: variant})];
+    if (instance && instance.instance) {
+        let mesh = instance.instance;
+        mesh.visible = visible;
+    }
+}
+
+ModelRender.prototype.setVisibilityOfType = setVisibilityOfType;
+
 let createDot = function (c) {
     let dotGeometry = new THREE.Geometry();
     dotGeometry.vertices.push(new THREE.Vector3());
