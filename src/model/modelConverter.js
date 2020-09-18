@@ -113,6 +113,7 @@ function loadNBT(source) {
         }
     })
 }
+ModelConverter.loadNBT = loadNBT;
 
 function parseStructureData(data, paletteIndex) {
     return new Promise((resolve, reject) => {
@@ -201,6 +202,7 @@ function parseStructureData(data, paletteIndex) {
         }
     })
 }
+ModelConverter.parseStructureData = parseStructureData;
 
 function parseSchematicData(data, idToNameMap) {
     return new Promise((resolve, reject) => {
@@ -255,6 +257,7 @@ function parseSchematicData(data, idToNameMap) {
         resolve(arr);
     })
 }
+ModelConverter.parseSchematicData = parseSchematicData;
 
 let specialVariants = {
     "stained_glass": function (properties) {
