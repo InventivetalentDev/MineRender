@@ -578,24 +578,32 @@ let renderModel = function (modelRender, model, textures, textureNames, type, na
     })
 };
 
+function setVisibilityOfInstance(meshKey, visibleScale, instanceIndex, visible) {
+    let instance = instanceCache[meshKey];
+    if (instance && instance.instance) {
+        let mesh = instance.instance;
+        let newScale;
+        if (visible) {
+            if (visibleScale) {
+                newScale = visibleScale;
+            } else {
+                newScale = [1, 1, 1];
+            }
+        } else {
+            newScale = [0, 0, 0];
+        }
+        let _v3s = new THREE.Vector3();
+        mesh.setScaleAt(instanceIndex, _v3s.set(newScale[0], newScale[1], newScale[2]));
+        return mesh;
+    }
+}
+
 function setVisibilityAt(x, y, z, visible) {
     let info = this.instancePositionMap[x + "_" + y + "_" + z];
     if (info) {
-        let instance = instanceCache[info.key];
-        if (instance && instance.instance) {
-            let mesh = instance.instance;
-            let newScale;
-            if (visible) {
-                if (info.scale) {
-                    newScale = info.scale;
-                } else {
-                    newScale = [1, 1, 1];
-                }
-            } else {
-                newScale = [0, 0, 0];
-            }
-            let _v3s = new THREE.Vector3();
-            mesh.setScaleAt(info.index, _v3s.set(newScale[0], newScale[1], newScale[2]));
+        let mesh = setVisibilityOfInstance(info.key, info.scale, info.index, visible);
+        if (mesh) {
+            mesh.needsUpdate();
         }
     }
 }
