@@ -598,16 +598,27 @@ function setVisibilityOfInstance(meshKey, visibleScale, instanceIndex, visible) 
     }
 }
 
-function setVisibilityAt(x, y, z, visible) {
-    let info = this.instancePositionMap[x + "_" + y + "_" + z];
-    if (info) {
-        let mesh = setVisibilityOfInstance(info.key, info.scale, info.index, visible);
-        if (mesh) {
-            mesh.needsUpdate();
+function setVisibilityAtMulti(positions, visible) {
+    let updatedMeshes = {};
+    for(let pos of positions) {
+        let info = this.instancePositionMap[pos[0] + "_" + pos[1] + "_" + pos[2]];
+        if (info) {
+            let mesh = setVisibilityOfInstance(info.key, info.scale, info.index, visible);
+            if (mesh) {
+                updatedMeshes[info.key] = mesh;
+            }
         }
+    }
+    for (let mesh of Object.values(updatedMeshes)) {
+        mesh.needsUpdate();
     }
 }
 
+function setVisibilityAt(x, y, z, visible) {
+    setVisibilityAtMulti([[x, y, z]], visible);
+}
+
+ModelRender.prototype.setVisibilityAtMulti = setVisibilityAtMulti;
 ModelRender.prototype.setVisibilityAt = setVisibilityAt;
 
 let createDot = function (c) {
