@@ -761,7 +761,7 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                     }
                     let face = faces[f];
                     let textureRef = face.texture.substr(1);
-                    if (!textures.hasOwnProperty(textureRef)) {
+                    if (!textures.hasOwnProperty(textureRef) || !textures[textureRef]) {
                         console.warn("Missing texture '" + textureRef + "' for face " + f + " in model " + name);
                         resolve(null);
                         return;
@@ -1023,12 +1023,7 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                         canvasCache[canvasKey] = {
                             img: img
                         };
-                        if (!textures.hasOwnProperty(textureRef) || !textures[textureRef]) {
-                            console.warn("Missing texture for " + textureRef + " / " + canvasKey);
-                            resolve(null);
-                        } else {
-                            img.src = textures[textureRef];
-                        }
+                        img.src = textures[textureRef];
                     }
                 }));
             }
