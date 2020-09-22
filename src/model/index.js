@@ -600,7 +600,7 @@ function setVisibilityOfInstance(meshKey, visibleScale, instanceIndex, visible) 
 
 function setVisibilityAtMulti(positions, visible) {
     let updatedMeshes = {};
-    for(let pos of positions) {
+    for (let pos of positions) {
         let info = this.instancePositionMap[pos[0] + "_" + pos[1] + "_" + pos[2]];
         if (info) {
             let mesh = setVisibilityOfInstance(info.key, info.scale, info.index, visible);
@@ -1024,7 +1024,7 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                             img: img
                         };
                         if (!textures.hasOwnProperty(textureRef) || !textures[textureRef]) {
-                            console.warn("Missing texture for " + textureRef);
+                            console.warn("Missing texture for " + textureRef + " / " + canvasKey);
                             resolve(null);
                         } else {
                             img.src = textures[textureRef];
