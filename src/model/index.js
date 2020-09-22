@@ -1024,9 +1024,11 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                             img: img
                         };
                         if (!textures.hasOwnProperty(textureRef) || !textures[textureRef]) {
-                            console.warn("Missing texture for " + textureRef)
+                            console.warn("Missing texture for " + textureRef);
+                            resolve(null);
+                        } else {
+                            img.src = textures[textureRef];
                         }
-                        img.src = textures[textureRef];
                     }
                 }));
             }
