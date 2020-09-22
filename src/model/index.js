@@ -1023,7 +1023,7 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                         canvasCache[canvasKey] = {
                             img: img
                         };
-                        if (!textures.hasOwnProperty(textureRef)) {
+                        if (!textures.hasOwnProperty(textureRef) || !textures[textureRef]) {
                             console.warn("Missing texture for " + textureRef)
                         }
                         img.src = textures[textureRef];
