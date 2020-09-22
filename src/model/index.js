@@ -822,6 +822,7 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                         let dataHash = md5(dataUrl);
 
                         let d = {
+                            canvas: canvas,
                             data: canvasData,
                             dataUrl: dataUrl,
                             dataUrlHash: dataHash,
@@ -914,7 +915,7 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                                     canvas1.width = canvas.width;
                                     canvas1.height = canvas.width;
                                     let context1 = canvas1.getContext("2d");
-                                    context1.drawImage(canvas, 0, i * canvas.width, canvas.width, canvas.width, 0, 0, canvas.width, canvas.width);
+                                    context1.drawImage(canvas.canvas, 0, i * canvas.width, canvas.width, canvas.width, 0, 0, canvas.width, canvas.width);
 
                                     let data = canvas1.toDataURL("image/png");
                                     let hash = md5(data);
