@@ -191,13 +191,15 @@ class SkinRender extends Render {
                     let a = pixels[i + 3];
                     let x = (i / 4) % sourceCanvas.width;
                     let y = Math.floor((i / 4) / sourceCanvas.width);
-                    if (a > 16 || removeTransparency(x, y)) { // alpha over threshold OR area not supposed to have transparency at all
+                    if (a > 178 || removeTransparency(x, y)) { // alpha over threshold OR area not supposed to have transparency at all
                         pixels[i + 3] = 255; // max the alpha
                     }
                 }
 
                 // update destination canvas
                 opaqueContext.putImageData(imageData, 0, 0);
+
+                console.log(opaqueCanvas.toDataURL())
 
                 skinTexture = new THREE.CanvasTexture(opaqueCanvas);
             }
