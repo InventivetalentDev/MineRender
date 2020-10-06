@@ -245,7 +245,30 @@ export function parseModel(model, modelOptions, parsedModelList, assetRoot) {
 
 export function loadAndMergeModel(model, assetRoot) {
     return loadModel(model.name, model.type, assetRoot)
-        .then(modelData => mergeParents(modelData, model.name, assetRoot));
+        .then(modelData => mergeParents(modelData, model.name, assetRoot))
+        .then(merged => {
+            console.debug(model.name + " merged:");
+            console.debug(merged);
+            if (!merged.hasOwnProperty("elements")) {
+                if (model.name === "lava" || model.name === "water") {
+                    merged.elements = [
+                        {
+                            "from": [0, 0, 0],
+                            "to": [16, 16, 16],
+                            "faces": {
+                                "down": {"texture": "#particle", "cullface": "down"},
+                                "up": {"texture": "#particle", "cullface": "up"},
+                                "north": {"texture": "#particle", "cullface": "north"},
+                                "south": {"texture": "#particle", "cullface": "south"},
+                                "west": {"texture": "#particle", "cullface": "west"},
+                                "east": {"texture": "#particle", "cullface": "east"}
+                            }
+                        }
+                    ]
+                }
+            }
+            return merged;
+        })
 }
 
 
