@@ -908,6 +908,8 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
 
                             let parts = Math.floor(canvas.height / canvas.width);
 
+                            console.log("Generating animated texture...");
+
                             let promises1 = [];
                             for (let i = 0; i < parts; i++) {
                                 promises1.push(new Promise((resolve) => {
