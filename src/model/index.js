@@ -1095,6 +1095,7 @@ ModelRender.cache = {
         deleteObjectProperties(materialCache);
         deleteObjectProperties(geometryCache);
         deleteObjectProperties(instanceCache);
+        animatedTextures.splice(0, animatedTextures.length);
     }
 };
 ModelRender.ModelConverter = ModelConverter;
