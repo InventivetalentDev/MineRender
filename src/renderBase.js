@@ -219,12 +219,13 @@ export default class Render {
         composer.addPass(copyPass);
 
         if (renderObj.options.autoResize) {
-            window.addEventListener("resize", function () {
+            renderObj._resizeListener = function () {
                 let width = (renderObj.element && renderObj.element !== document.body) ? renderObj.element.offsetWidth : window.innerWidth;
                 let height = (renderObj.element && renderObj.element !== document.body) ? renderObj.element.offsetHeight : window.innerHeight;
 
                 renderObj._resize(width, height);
-            });
+            };
+            window.addEventListener("resize", renderObj._resizeListener);
         }
         renderObj._resize = function (width, height) {
             if (renderObj.options.camera.type === "orthographic") {
@@ -363,7 +364,7 @@ export default class Render {
         }
 
         if (this.options.autoResize) {
-            window.removeEventListener("resize");
+            window.removeEventListener("resize", this._resizeListener);
         }
     };
 
