@@ -851,7 +851,7 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                             let hasTransparency = canvas.hasTransparency;
 
                             if (materialCache.hasOwnProperty(hash)) {// Use material from cache
-                                console.debug("Using cached Material (" + hash + ")");
+                                console.debug("Using cached Material (" + hash + ", without meta)");
                                 resolve(materialCache[hash]);
                                 return;
                             }
@@ -909,7 +909,7 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                             let hasTransparency = canvas.hasTransparency;
 
                             if (materialCache.hasOwnProperty(hash)) {// Use material from cache
-                                console.debug("Using cached Material (" + hash + ")");
+                                console.debug("Using cached Material (" + hash + ", with meta)");
                                 resolve(materialCache[hash]);
                                 return;
                             }
@@ -950,7 +950,7 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                                         texture.anisotropy = 0;
                                         texture.needsUpdate = true;
 
-                                        console.debug("Caching Texture " + hash);
+                                        console.debug("Caching Texture " + hash + ", without meta");
                                         // add texture to cache
                                         textureCache[hash] = texture;
 
@@ -987,7 +987,7 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                                 })
 
                                 // Add material to cache
-                                console.debug("Caching Material " + hash);
+                                console.debug("Caching Material " + hash + ", with meta");
                                 materialCache[hash] = material;
 
                                 resolve(material);
@@ -1092,6 +1092,8 @@ ModelRender.cache = {
     material: materialCache,
     geometry: geometryCache,
     instances: instanceCache,
+
+    animated: animatedTextures,
 
 
     resetInstances: function () {
