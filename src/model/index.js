@@ -1092,6 +1092,7 @@ ModelRender.cache = {
         deleteObjectProperties(mergedModelCache);
         deleteObjectProperties(modelInstances);
         deleteObjectProperties(textureCache);
+        deleteObjectProperties(canvasCache);
         deleteObjectProperties(materialCache);
         deleteObjectProperties(geometryCache);
         deleteObjectProperties(instanceCache);
