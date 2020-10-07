@@ -905,7 +905,15 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                         };
 
                         let loadTextureWithMeta = function (canvas, meta) {
+                            let hash = canvas.dataUrlHash;
                             let hasTransparency = canvas.hasTransparency;
+
+                            if (materialCache.hasOwnProperty(hash)) {// Use material from cache
+                                console.debug("Using cached Material (" + hash + ")");
+                                resolve(materialCache[hash]);
+                                return;
+                            }
+
                             let frametime = 1;
                             if (meta.hasOwnProperty("animation")) {
                                 if (meta.animation.hasOwnProperty("frametime")) {
@@ -977,6 +985,10 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                                     }
                                     frameCounter += 0.1;// game ticks TODO: figure out the proper value for this
                                 })
+
+                                // Add material to cache
+                                console.debug("Caching Material " + hash);
+                                materialCache[hash] = material;
 
                                 resolve(material);
                             });
