@@ -856,25 +856,26 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                                 return;
                             }
 
+                            let n = textureNames[textureRef];
+                            if (n.startsWith("#")) {
+                                n = textureNames[name.substr(1)];
+                            }
+                            console.debug("Pre-Caching Material " + hash + ", without meta");
+                            materialCache[hash] = new THREE.MeshBasicMaterial({
+                                map: null,
+                                transparent: hasTransparency,
+                                side: hasTransparency ? THREE.DoubleSide : THREE.FrontSide,
+                                alphaTest: 0.5,
+                                name: f + "_" + textureRef + "_" + n
+                            });
+
                             let textureLoaded = function (texture) {
-                                let n = textureNames[textureRef];
-                                if (n.startsWith("#")) {
-                                    n = textureNames[name.substr(1)];
-                                }
-
-                                let material = new THREE.MeshBasicMaterial({
-                                    map: texture,
-                                    transparent: hasTransparency,
-                                    side: hasTransparency ? THREE.DoubleSide : THREE.FrontSide,
-                                    alphaTest: 0.5,
-                                    name: f + "_" + textureRef + "_" + n
-                                });
-
                                 // Add material to cache
-                                console.debug("Caching Material " + hash);
-                                materialCache[hash] = material;
+                                console.debug("Finalizing Cached Material " + hash + ", without meta");
+                                materialCache[hash].map = texture;
+                                materialCache[hash].needsUpdate = true;
 
-                                resolve(material);
+                                resolve(materialCache[hash]);
                             };
 
                             if (textureCache.hasOwnProperty(hash)) {// Use texture from cache
@@ -913,6 +914,14 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                                 resolve(materialCache[hash]);
                                 return;
                             }
+
+                            console.debug("Pre-Caching Material " + hash + ", with meta");
+                            materialCache[hash] = new THREE.MeshBasicMaterial({
+                                map: null,
+                                transparent: hasTransparency,
+                                side: hasTransparency ? THREE.DoubleSide : THREE.FrontSide,
+                                alphaTest: 0.5
+                            });
 
                             let frametime = 1;
                             if (meta.hasOwnProperty("animation")) {
@@ -961,14 +970,6 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
 
                             Promise.all(promises1).then((textures) => {
 
-                                // Don't cache this material, since it's animated
-                                let material = new THREE.MeshBasicMaterial({
-                                    map: textures[0],
-                                    transparent: hasTransparency,
-                                    side: hasTransparency ? THREE.DoubleSide : THREE.FrontSide,
-                                    alphaTest: 0.5
-                                });
-
                                 let frameCounter = 0;
                                 let textureIndex = 0;
                                 animatedTextures.push(() => {// called on render
@@ -976,7 +977,7 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                                         frameCounter = 0;
 
                                         // Set new texture
-                                        material.map = textures[textureIndex];
+                                        materialCache[hash].map = textures[textureIndex];
 
                                         textureIndex++;
                                     }
@@ -987,10 +988,11 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                                 })
 
                                 // Add material to cache
-                                console.debug("Caching Material " + hash + ", with meta");
-                                materialCache[hash] = material;
+                                console.debug("Finalizing Cached Material " + hash + ", with meta");
+                                materialCache[hash].map = textures[0];
+                                materialCache[hash].needsUpdate = true;
 
-                                resolve(material);
+                                resolve(materialCache[hash]);
                             });
                         };
 
