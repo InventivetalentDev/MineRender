@@ -142,6 +142,7 @@
                     if (window.modelRender && window.modelRender._scene) {
                         window.modelRender.clearScene();
                         window.modelRender.models = [];
+                        ModelRender.cache.resetInstances();
                     }
 
                     let type = $("#typeInput").val();
@@ -202,33 +203,46 @@
                     setTimeout(function () {
                         console.log(option);
                         window.modelRender.render([option], function () {
-                            console.log(window.modelRender.blockstate);
-                            console.log(window.modelRender.modelData)
-                            $("#variantInput").empty();
-                            if (window.modelRender.blockstate.variants) {
-                                $("#variantInput").prop("disabled", false);
-                                for (let v in window.modelRender.blockstate.variants) {
-                                    $("#variantInput").append("<option value='" + v + "'>" + (v === "" ? "(normal)" : v) + "</option>");
+                            try {
+                                console.log(window.modelRender.blockstate);
+                                console.log(window.modelRender.modelData)
+                                $("#variantInput").empty();
+                                if (window.modelRender.blockstate.variants) {
+                                    $("#variantInput").prop("disabled", false);
+                                    for (let v in window.modelRender.blockstate.variants) {
+                                        $("#variantInput").append("<option value='" + v + "'>" + (v === "" ? "(normal)" : v) + "</option>");
+                                    }
+                                    if (variant && variant.length > 0) {
+                                        $("#variantInput").val(variant);
+                                    }
+                                } else {
+                                    $("#variantInput").prop("disabled", true);
                                 }
-                                if (variant && variant.length > 0) {
-                                    $("#variantInput").val(variant);
-                                }
-                            } else {
-                                $("#variantInput").prop("disabled", true);
-                            }
 
-                            if (window.modelRender.blockstate.multipart) {
-                                $("#multipartGroup").empty();
+                                if (window.modelRender.blockstate.multipart) {
+                                    $("#multipartGroup").empty();
 
-                                let added = [];
-                                console.log(window.modelRender.blockstate.multipart)
-                                for (let j = 0; j < window.modelRender.blockstate.multipart.length; j++) {
-                                    let v = window.modelRender.blockstate.multipart[j];
-                                    if (v.when) {
-                                        if (v.when.hasOwnProperty("OR")) {
-                                            for (let k = 0; k < v.when.OR.length; k++) {
-                                                for (let c in v.when.OR[k]) {
-                                                    if (v.when.OR[k].hasOwnProperty(c)) {
+                                    let added = [];
+                                    console.log(window.modelRender.blockstate.multipart)
+                                    for (let j = 0; j < window.modelRender.blockstate.multipart.length; j++) {
+                                        let v = window.modelRender.blockstate.multipart[j];
+                                        if (v.when) {
+                                            if (v.when.hasOwnProperty("OR")) {
+                                                for (let k = 0; k < v.when.OR.length; k++) {
+                                                    for (let c in v.when.OR[k]) {
+                                                        if (v.when.OR[k].hasOwnProperty(c)) {
+                                                            if (added.indexOf(c) !== -1) continue;
+
+                                                            $("#multipartGroup").append("<label>" + c + "</label><input type='text' class='multipartInput' name='" + c + "' value='" + (multipartOptions.hasOwnProperty(c) ? multipartOptions[c] : "") + "'><br/>");
+                                                            $(".multipartInput").on("change", doRender);
+
+                                                            added.push(c);
+                                                        }
+                                                    }
+                                                }
+                                            } else {
+                                                for (let c in v.when) {
+                                                    if (v.when.hasOwnProperty(c)) {
                                                         if (added.indexOf(c) !== -1) continue;
 
                                                         $("#multipartGroup").append("<label>" + c + "</label><input type='text' class='multipartInput' name='" + c + "' value='" + (multipartOptions.hasOwnProperty(c) ? multipartOptions[c] : "") + "'><br/>");
@@ -238,34 +252,25 @@
                                                     }
                                                 }
                                             }
-                                        } else {
-                                            for (let c in v.when) {
-                                                if (v.when.hasOwnProperty(c)) {
-                                                    if (added.indexOf(c) !== -1) continue;
-
-                                                    $("#multipartGroup").append("<label>" + c + "</label><input type='text' class='multipartInput' name='" + c + "' value='" + (multipartOptions.hasOwnProperty(c) ? multipartOptions[c] : "") + "'><br/>");
-                                                    $(".multipartInput").on("change", doRender);
-
-                                                    added.push(c);
-                                                }
-                                            }
                                         }
                                     }
                                 }
+
+                                $("#cameraX").val(modelRender._camera.position.x);
+                                $("#cameraY").val(modelRender._camera.position.y);
+                                $("#cameraZ").val(modelRender._camera.position.z);
+
+                                // $(".displayOption").prop("disabled", true);
+                                // if (modelRender.modelData.hasOwnProperty("display")) {
+                                //     for (let d in modelRender.modelData.display) {
+                                //         $(".displayOption[value=" + d + "]").prop("disabled", false);
+                                //     }
+                                // }
+
+
+                            } catch (e) {
+                                console.warn(e);
                             }
-
-                            $("#cameraX").val(modelRender._camera.position.x);
-                            $("#cameraY").val(modelRender._camera.position.y);
-                            $("#cameraZ").val(modelRender._camera.position.z);
-
-                            // $(".displayOption").prop("disabled", true);
-                            // if (modelRender.modelData.hasOwnProperty("display")) {
-                            //     for (let d in modelRender.modelData.display) {
-                            //         $(".displayOption[value=" + d + "]").prop("disabled", false);
-                            //     }
-                            // }
-
-
                         });
                     }, 200);
                 }
