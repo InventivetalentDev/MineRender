@@ -361,6 +361,10 @@ export default class Render {
         while (el.firstChild) {
             el.removeChild(el.firstChild);
         }
+
+        if (this.options.autoResize) {
+            window.removeEventListener("resize");
+        }
     };
 
 }
