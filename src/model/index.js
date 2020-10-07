@@ -927,7 +927,6 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                                     context1.drawImage(canvas.canvas, 0, i * canvas.width, canvas.width, canvas.width, 0, 0, canvas.width, canvas.width);
 
                                     let data = canvas1.toDataURL("image/png");
-                                    console.log(data);
                                     let hash = md5(data);
 
                                     if (textureCache.hasOwnProperty(hash)) {// Use texture to cache
