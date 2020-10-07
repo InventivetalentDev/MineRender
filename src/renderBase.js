@@ -289,6 +289,7 @@ export default class Render {
         if (renderObj.options.pauseHidden) {
             renderObj.onScreen = false;// set to false if the check is enabled
             let os = new OnScreen();
+            renderObj._onScreenObserver = os;
 
             os.on("enter", "#" + id, (element, event) => {
                 renderObj.onScreen = true;
@@ -349,6 +350,9 @@ export default class Render {
 
     dispose() {
         cancelAnimationFrame(this._animId);
+        if (this._onScreenObserver) {
+            this._onScreenObserver.destroy();
+        }
 
         this.clearScene();
 
