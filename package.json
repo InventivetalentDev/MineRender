@@ -37,6 +37,6 @@
     "progress-bar-webpack-plugin": "1.12.1",
     "webpack": "4.41.1",
     "webpack-cli": "3.0.8",
-    "worker-loader": "2.0.0"
+    "worker-loader": "3.0.5"
   }
 }
