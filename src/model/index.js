@@ -13,6 +13,8 @@ import { parseModel, loadAndMergeModel, loadModelTexture, modelCacheKey, toRadia
 import work from 'webworkify-webpack';
 import SkinRender from "../skin";
 import off from "onscreen/lib/methods/off";
+import * as debugg from "debug";
+const debug = debugg("minerender");
 
 const ModelWorker = require.resolve("./ModelWorker.js");
 
@@ -129,7 +131,7 @@ class ModelRender extends Render {
             .then(() => doModelRender(modelRender, parsedModelList))
             .then((renderedModels) => {
                 console.timeEnd("doModelRender");
-                console.debug(renderedModels)
+                debug(renderedModels)
                 if (typeof cb === "function") cb();
             })
 
@@ -187,12 +189,12 @@ function loadAndMergeModels(modelRender, parsedModelList) {
         uniqueModels[cacheKey] = parsedModelList[i];
     }
     let uniqueModelList = Object.values(uniqueModels);
-    console.debug(uniqueModelList.length + " unique models");
+    debug(uniqueModelList.length + " unique models");
     for (let i = 0; i < uniqueModelList.length; i++) {
         jsonPromises.push(new Promise(resolve => {
             let model = uniqueModelList[i];
             let cacheKey = modelCacheKey(model);
-            console.debug("loadAndMerge " + cacheKey);
+            debug("loadAndMerge " + cacheKey);
 
 
             if (mergedModelCache.hasOwnProperty(cacheKey)) {
@@ -235,12 +237,12 @@ function loadModelTextures(modelRender, parsedModelList) {
         uniqueModels[modelCacheKey(parsedModelList[i])] = parsedModelList[i];
     }
     let uniqueModelList = Object.values(uniqueModels);
-    console.debug(uniqueModelList.length + " unique models");
+    debug(uniqueModelList.length + " unique models");
     for (let i = 0; i < uniqueModelList.length; i++) {
         texturePromises.push(new Promise(resolve => {
             let model = uniqueModelList[i];
             let cacheKey = modelCacheKey(model);
-            console.debug("loadTexture " + cacheKey);
+            debug("loadTexture " + cacheKey);
             let mergedModel = mergedModelCache[cacheKey];
 
             if (loadedTextureCache.hasOwnProperty(cacheKey)) {
@@ -453,7 +455,7 @@ let renderModel = function (modelRender, model, textures, textureNames, type, na
                 let cachedInstance;
 
                 if (!instanceCache.hasOwnProperty(modelKey)) {
-                    console.debug("Caching new model instance " + modelKey + " (with " + instanceCount + " instances)");
+                    debug("Caching new model instance " + modelKey + " (with " + instanceCount + " instances)");
                     let newInstance = new THREE.InstancedMesh(
                         geometry,
                         materials,
@@ -478,7 +480,7 @@ let renderModel = function (modelRender, model, textures, textureNames, type, na
 
                     }
                 } else {
-                    console.debug("Using cached instance (" + modelKey + ")");
+                    debug("Using cached instance (" + modelKey + ")");
                     cachedInstance = instanceCache[modelKey];
 
                 }
@@ -487,7 +489,7 @@ let renderModel = function (modelRender, model, textures, textureNames, type, na
             };
 
             if (instanceCache.hasOwnProperty(modelKey)) {
-                console.debug("Using cached model instance (" + modelKey + ")");
+                debug("Using cached model instance (" + modelKey + ")");
                 let cachedInstance = instanceCache[modelKey];
                 applyModelTransforms(cachedInstance.instance, cachedInstance.index++);
                 return;
@@ -681,7 +683,7 @@ let createPlane = function (name, textures) {
                 let hash = md5(data);
 
                 if (materialCache.hasOwnProperty(hash)) {// Use material from cache
-                    console.debug("Using cached Material (" + hash + ")");
+                    debug("Using cached Material (" + hash + ")");
                     materialLoaded(materialCache[hash], w, h);
                     return;
                 }
@@ -696,26 +698,26 @@ let createPlane = function (name, textures) {
                     });
 
                     // Add material to cache
-                    console.debug("Caching Material " + hash);
+                    debug("Caching Material " + hash);
                     materialCache[hash] = material;
 
                     materialLoaded(material, w, h);
                 };
 
                 if (textureCache.hasOwnProperty(hash)) {// Use texture to cache
-                    console.debug("Using cached Texture (" + hash + ")");
+                    debug("Using cached Texture (" + hash + ")");
                     textureLoaded(textureCache[hash]);
                     return;
                 }
 
-                console.debug("Pre-Caching Texture " + hash);
+                debug("Pre-Caching Texture " + hash);
                 textureCache[hash] = new THREE.TextureLoader().load(data, function (texture) {
                     texture.magFilter = THREE.NearestFilter;
                     texture.minFilter = THREE.NearestFilter;
                     texture.anisotropy = 0;
                     texture.needsUpdate = true;
 
-                    console.debug("Caching Texture " + hash);
+                    debug("Caching Texture " + hash);
                     // Add texture to cache
                     textureCache[hash] = texture;
 
@@ -734,11 +736,11 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
         let geometryKey = width + "_" + height + "_" + depth;
         let geometry;
         if (geometryCache.hasOwnProperty(geometryKey)) {
-            console.debug("Using cached Geometry (" + geometryKey + ")");
+            debug("Using cached Geometry (" + geometryKey + ")");
             geometry = geometryCache[geometryKey];
         } else {
             geometry = new THREE.BoxGeometry(width, height, depth);
-            console.debug("Caching Geometry " + geometryKey);
+            debug("Caching Geometry " + geometryKey);
             geometryCache[geometryKey] = geometry;
         }
 
@@ -837,7 +839,7 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                             width: canvas.width,
                             height: canvas.height
                         };
-                        console.debug("Caching new canvas (" + canvasKey + "/" + dataHash + ")")
+                        debug("Caching new canvas (" + canvasKey + "/" + dataHash + ")")
                         canvasCache[canvasKey] = d;
                         return d;
                     };
@@ -851,7 +853,7 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                             let hasTransparency = canvas.hasTransparency;
 
                             if (materialCache.hasOwnProperty(hash)) {// Use material from cache
-                                console.debug("Using cached Material (" + hash + ", without meta)");
+                                debug("Using cached Material (" + hash + ", without meta)");
                                 resolve(materialCache[hash]);
                                 return;
                             }
@@ -860,7 +862,7 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                             if (n.startsWith("#")) {
                                 n = textureNames[name.substr(1)];
                             }
-                            console.debug("Pre-Caching Material " + hash + ", without meta");
+                            debug("Pre-Caching Material " + hash + ", without meta");
                             materialCache[hash] = new THREE.MeshBasicMaterial({
                                 map: null,
                                 transparent: hasTransparency,
@@ -871,7 +873,7 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
 
                             let textureLoaded = function (texture) {
                                 // Add material to cache
-                                console.debug("Finalizing Cached Material " + hash + ", without meta");
+                                debug("Finalizing Cached Material " + hash + ", without meta");
                                 materialCache[hash].map = texture;
                                 materialCache[hash].needsUpdate = true;
 
@@ -879,12 +881,12 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                             };
 
                             if (textureCache.hasOwnProperty(hash)) {// Use texture from cache
-                                console.debug("Using cached Texture (" + hash + ")");
+                                debug("Using cached Texture (" + hash + ")");
                                 textureLoaded(textureCache[hash]);
                                 return;
                             }
 
-                            console.debug("Pre-Caching Texture " + hash);
+                            debug("Pre-Caching Texture " + hash);
                             textureCache[hash] = new THREE.TextureLoader().load(data, function (texture) {
                                 texture.magFilter = THREE.NearestFilter;
                                 texture.minFilter = THREE.NearestFilter;
@@ -897,7 +899,7 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                                     texture.rotation = toRadians(face.rotation);
                                 }
 
-                                console.debug("Caching Texture " + hash);
+                                debug("Caching Texture " + hash);
                                 // Add texture to cache
                                 textureCache[hash] = texture;
 
@@ -910,12 +912,12 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                             let hasTransparency = canvas.hasTransparency;
 
                             if (materialCache.hasOwnProperty(hash)) {// Use material from cache
-                                console.debug("Using cached Material (" + hash + ", with meta)");
+                                debug("Using cached Material (" + hash + ", with meta)");
                                 resolve(materialCache[hash]);
                                 return;
                             }
 
-                            console.debug("Pre-Caching Material " + hash + ", with meta");
+                            debug("Pre-Caching Material " + hash + ", with meta");
                             materialCache[hash] = new THREE.MeshBasicMaterial({
                                 map: null,
                                 transparent: hasTransparency,
@@ -947,19 +949,19 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                                     let hash = md5(data);
 
                                     if (textureCache.hasOwnProperty(hash)) {// Use texture to cache
-                                        console.debug("Using cached Texture (" + hash + ")");
+                                        debug("Using cached Texture (" + hash + ")");
                                         resolve(textureCache[hash]);
                                         return;
                                     }
 
-                                    console.debug("Pre-Caching Texture " + hash);
+                                    debug("Pre-Caching Texture " + hash);
                                     textureCache[hash] = new THREE.TextureLoader().load(data, function (texture) {
                                         texture.magFilter = THREE.NearestFilter;
                                         texture.minFilter = THREE.NearestFilter;
                                         texture.anisotropy = 0;
                                         texture.needsUpdate = true;
 
-                                        console.debug("Caching Texture " + hash + ", without meta");
+                                        debug("Caching Texture " + hash + ", without meta");
                                         // add texture to cache
                                         textureCache[hash] = texture;
 
@@ -988,7 +990,7 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                                 })
 
                                 // Add material to cache
-                                console.debug("Finalizing Cached Material " + hash + ", with meta");
+                                debug("Finalizing Cached Material " + hash + ", with meta");
                                 materialCache[hash].map = textures[0];
                                 materialCache[hash].needsUpdate = true;
 
@@ -1019,13 +1021,13 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                         let cachedCanvas = canvasCache[canvasKey];
 
                         if (cachedCanvas.hasOwnProperty("img")) {
-                            console.debug("Waiting for canvas image that's already loading (" + canvasKey + ")")
+                            debug("Waiting for canvas image that's already loading (" + canvasKey + ")")
                             let img = cachedCanvas.img;
                             img.waitingForCanvas.push(function (canvas) {
                                 loadTextureFromCanvas(canvas);
                             });
                         } else {
-                            console.debug("Using cached canvas (" + canvasKey + ")")
+                            debug("Using cached canvas (" + canvasKey + ")")
                             loadTextureFromCanvas(canvasCache[canvasKey]);
                         }
                     } else {
@@ -1043,7 +1045,7 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                                 img.waitingForCanvas[c](canvasData);
                             }
                         };
-                        console.debug("Pre-caching canvas (" + canvasKey + ")");
+                        debug("Pre-caching canvas (" + canvasKey + ")");
                         canvasCache[canvasKey] = {
                             img: img
                         };

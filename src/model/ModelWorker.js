@@ -1,7 +1,10 @@
 import { parseModel, loadAndMergeModel,  modelCacheKey, loadTextures } from "./modelFunctions";
 
+import * as debugg from "debug";
+const debug = debugg("minerender");
+
 export default function worker(self) {
-    console.debug("New Worker!")
+    debug("New Worker!")
     self.addEventListener("message", event => {
         let msg = event.data;
 

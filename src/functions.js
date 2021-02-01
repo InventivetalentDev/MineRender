@@ -1,3 +1,6 @@
+import * as debugg from "debug";
+const debug = debugg("minerender");
+
 /**
  * Default asset root
  * @type {string}
@@ -147,14 +150,14 @@ export function loadJsonFromPath_(root, path, resolve, reject, forceLoad) {
     }
 
     if (!modelCallbacks.hasOwnProperty(path) || modelCallbacks[path].length === 0 || forceLoad) {
-        console.log(root + path)
+        debug(root + path)
         fetch(root + path, {
             mode: "cors",
             redirect: "follow"
         })
             .then(response => response.json())
             .then(data => {
-                console.log("json data:", data);
+                debug("json data:", data);
                 modelCache[path] = data;
 
                 if (modelCallbacks.hasOwnProperty(path)) {
