@@ -233,6 +233,7 @@ function parseSchematicData(data, idToNameMap) {
             for (let x = 0; x < width; x++) {
                 for (let z = 0; z < length; z++) {
                     let info = infoAt(x, y, z);
+                    if (info.id === 0 && info.data === 0) continue;
                     let convertedInfo = convertLegacy(info.id, info.data);
 
                     let infoSplit = convertedInfo.replace("minecraft:", "").replace("]", "").split("[");
