@@ -213,8 +213,8 @@ function parseSchematicData(data, idToNameMap) {
         let infoAt = function (x, y, z) {
             let index = (y * length + z) * width + x;
             return {
-                id: data.value.Blocks.value[index] & 0xff,
-                data: data.value.Data.value[index]
+                id: (data.value.Blocks.value[index] || 0) & 0xff,
+                data: (data.value.Data.value[index] || 0)
             }
         };
 
