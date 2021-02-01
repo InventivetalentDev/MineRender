@@ -136,7 +136,8 @@
 
 
                 window.modelRender.render([{
-                    blockstate: (location.hash.substr(1) || "stone")
+                    blockstate: (location.hash.substr(1) || "red_mushroom_block"),
+                    variant:"north=true,south=false"
                 }], function () {
                     setTimeout(function () {
                         console.log(window.modelRender.toImage(false));
