@@ -24,6 +24,10 @@ import { trimCanvas, DEFAULT_ROOT } from "./functions";
  * @property {number} camera.y                  Camera Y-Position
  * @property {number} camera.z                  Camera Z-Position
  * @property {number[]} camera.target           [x,y,z] array where the camera should look
+ *
+ * @property {number} frameRateLimit            Limit render calls to fps
+ * @property {boolean} enableStats              Toggle stats.js info
+ * @property {boolean} pauseHidden              Pause render elements which are not on screen
  */
 export const defaultOptions = {
     showAxes: false,
