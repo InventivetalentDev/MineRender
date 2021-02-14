@@ -46,6 +46,7 @@ export const defaultOptions = {
         width: undefined,
         height: undefined
     },
+    frameRateLimit: -1,
     pauseHidden: true,
     forceContext: false,
     sendStats: true
@@ -268,14 +269,35 @@ export default class Render {
         camera.position.z = renderObj.options.camera.z;
         camera.lookAt(new THREE.Vector3(renderObj.options.camera.target[0], renderObj.options.camera.target[1], renderObj.options.camera.target[2]));
 
+        let limitFps = false;
+        if (renderObj.options.frameRateLimit > 0) {
+            // based on https://stackoverflow.com/a/51942991/6257838
+            limitFps = true;
+            renderObj._clock = new THREE.Clock();
+            renderObj._animDelta = 0;
+            renderObj._animInterval = 1.0 / renderObj.options.frameRateLimit;
+        }
+
+
         // Do the render!
         let animate = function () {
             renderObj._animId = requestAnimationFrame(animate);
 
-            if (renderObj.onScreen) {
-                if (typeof renderCb === "function") renderCb();
+            if ((typeof document.visibilityState !== "undefined" && document.visibilityState !== "visible") || !renderObj.onScreen) return;
 
-                composer.render();
+            if (limitFps) {
+                renderObj._animDelta += renderObj._clock.getDelta();
+                if (renderObj._animDelta <= renderObj._animInterval) return;
+            }
+
+            if (typeof renderCb === "function") {
+                renderCb();
+            }
+
+            composer.render();
+
+            if (limitFps) {
+                renderObj._animDelta = renderObj._animDelta % renderObj._animInterval;
             }
         };
         renderObj._animate = animate;
