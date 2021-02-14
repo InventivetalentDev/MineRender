@@ -4,6 +4,7 @@ import EffectComposer, { ShaderPass, CopyShader } from "@johh/three-effectcompos
 import * as THREE from "three";
 import OnScreen from "onscreen";
 import * as $ from "jquery";
+import Stats from "stats.js";
 import { trimCanvas, DEFAULT_ROOT } from "./functions";
 
 /**
@@ -47,6 +48,7 @@ export const defaultOptions = {
         height: undefined
     },
     frameRateLimit: -1,
+    enableStats: false,
     pauseHidden: true,
     forceContext: false,
     sendStats: true
@@ -269,6 +271,12 @@ export default class Render {
         camera.position.z = renderObj.options.camera.z;
         camera.lookAt(new THREE.Vector3(renderObj.options.camera.target[0], renderObj.options.camera.target[1], renderObj.options.camera.target[2]));
 
+        if (renderObj.options.enableStats) {
+            renderObj._stats = new Stats();
+            renderObj._stats.showPanel(0);
+            document.body.appendChild(renderObj._stats.dom);
+        }
+
         let limitFps = false;
         if (renderObj.options.frameRateLimit > 0) {
             // based on https://stackoverflow.com/a/51942991/6257838
@@ -282,6 +290,10 @@ export default class Render {
         // Do the render!
         let animate = function () {
             renderObj._animId = requestAnimationFrame(animate);
+
+            if (renderObj.options.enableStats) {
+                renderObj._stats.begin();
+            }
 
             if ((typeof document.visibilityState !== "undefined" && document.visibilityState !== "visible") || !renderObj.onScreen) return;
 
@@ -299,6 +311,11 @@ export default class Render {
             if (limitFps) {
                 renderObj._animDelta = renderObj._animDelta % renderObj._animInterval;
             }
+
+            if (renderObj.options.enableStats) {
+                renderObj._stats.end();
+            }
+
         };
         renderObj._animate = animate;
 
