@@ -295,7 +295,7 @@ export default class Render {
                 renderObj._stats.begin();
             }
 
-            if ((typeof document.visibilityState !== "undefined" && document.visibilityState !== "visible") || !renderObj.onScreen) return;
+            if (renderObj.options.pauseHidden && ((typeof document.visibilityState !== "undefined" && document.visibilityState !== "visible") || !renderObj.onScreen)) return;
 
             if (limitFps) {
                 renderObj._animDelta += renderObj._clock.getDelta();
