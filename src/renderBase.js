@@ -409,6 +409,13 @@ export default class Render {
         if (this.options.autoResize) {
             window.removeEventListener("resize", this._resizeListener);
         }
+
+        if (this._renderer) {
+            this._renderer.forceContextLoss();
+            this._renderer.dispose();
+            this._renderer.context = undefined;
+            this._renderer.domElement = undefined;
+        }
     };
 
 }
