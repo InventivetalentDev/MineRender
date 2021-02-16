@@ -70,8 +70,7 @@ export function parseModel(model, modelOptions, parsedModelList, assetRoot) {
                             let variant = blockstate.variants[variantKey];
                             if (!variant) {
                                 console.warn("Missing variant for " + model.blockstate + ": " + model.variant);
-                                resolve(null);
-                                return;
+                                variant = blockstate.variants[Object.keys(blockstate.variants)[0]];
                             }
 
                             let variants = [];
@@ -394,11 +393,16 @@ export function loadTextures(textureNames, assetRoot) {
                 continue;
             }
             filteredNames.push(name);
-            promises.push(loadTextureAsBase64(assetRoot, "minecraft", "/", texture));
+            promises.push(loadTextureAsBase64(assetRoot, "minecraft", "/", texture).catch(err => {
+                console.warn("Failed to load texture " + texture);
+                console.warn(err);
+                return undefined;
+            }));
         }
         Promise.all(promises).then((textures) => {
             let mappedTextures = {};
             for (let i = 0; i < textures.length; i++) {
+                if (!textures[i]) continue;
                 mappedTextures[filteredNames[i]] = textures[i];
             }
 

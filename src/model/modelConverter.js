@@ -230,6 +230,10 @@ function parseSchematicData(data, idToNameMap) {
         let convertLegacy = function (id, data) {
             let mapped = idToNameMap.blocks[id + ":" + data];
             if (!mapped) {
+                // try to bypass data
+                mapped = idToNameMap.blocks[id + ":" + 0];
+            }
+            if (!mapped) {
                 console.warn("Missing legacy mapping for " + id + ":" + data);
                 return "minecraft:air";
             }
