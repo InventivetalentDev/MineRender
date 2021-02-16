@@ -2,6 +2,7 @@ import { loadBlockState, loadJsonFromPath, loadTextureAsBase64 } from "../functi
 import merge from "deepmerge";
 
 import * as debugg from "debug";
+
 const debug = debugg("minerender");
 
 export function parseModel(model, modelOptions, parsedModelList, assetRoot) {
@@ -237,7 +238,7 @@ export function parseModel(model, modelOptions, parsedModelList, assetRoot) {
 
                         resolve(parsedModelList);
                     }
-                }).catch(()=>{
+                }).catch(() => {
                     resolve(parsedModelList);
                 })
             }
@@ -273,7 +274,6 @@ export function loadAndMergeModel(model, assetRoot) {
             return merged;
         })
 }
-
 
 
 // Utils
@@ -358,10 +358,19 @@ export function loadModel(model, type/* block OR item */, assetRoot) {
                         console.log("model data:", data);
                         resolve(data);
                     })
+                    .catch(err => {
+                        console.warn("Failed to load model data from " + model);
+                        console.warn(err);
+                        resolve({});
+                    });
             } else {// model name -> use local data
                 loadJsonFromPath(assetRoot, "/assets/minecraft/models/" + (type || "block") + "/" + model + ".json").then((data) => {
                     resolve(data);
-                })
+                }).catch(err => {
+                    console.warn("Failed to load model data for " + model);
+                    console.warn(err);
+                    resolve({});
+                });
             }
         } else if (typeof model === "object") {// JSON object
             resolve(model);
