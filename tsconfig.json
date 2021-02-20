@@ -20,7 +20,8 @@
       "node_modules/@types"
     ],
     "types": [
-      "node"
+      "node",
+      "three"
     ],
     "baseUrl": "."
   },
