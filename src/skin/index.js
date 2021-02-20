@@ -91,10 +91,6 @@ class SkinRender extends Render {
                 capeTexture.format = THREE.RGBFormat; // no transparency
             }
 
-            if (skinTexture.image.height === 32) {
-                skinTexture.format = THREE.RGBFormat; // 64x32 don't have transparency
-            }
-
             if (!skinRender.attached && !skinRender._scene) {// Don't init scene if attached, since we already have an available scene
                 super.initScene(function () {
                     skinRender.element.dispatchEvent(new CustomEvent("skinRender", {detail: {playerModel: skinRender.playerModel}}));
@@ -162,7 +158,7 @@ class SkinRender extends Render {
                 }
             }
 
-            if (skinRender.options.makeNonTransparentOpaque && skinRender._skinImage.height !== 32) { // 64x32 don't have transparency
+            if (skinRender.options.makeNonTransparentOpaque && skinRender._skinImage.height !== 32) {
                 let sourceCanvas = document.createElement("canvas");
                 let sourceContext = sourceCanvas.getContext("2d");
                 sourceCanvas.width = skinRender._skinImage.width;
