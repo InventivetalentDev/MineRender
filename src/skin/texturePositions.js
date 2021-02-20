@@ -556,47 +556,90 @@ const texturePositions =  {
         }
     ],
 
-    hat: {
-        left: {
-            x: 32,
-            y: 48,
-            w: 8,
-            h: 8
+    hat: [
+        { // 64x32
+            left: {
+                x: 32,
+                y: 16,
+                w: 8,
+                h: 8
+            },
+            front: {
+                x: 40,
+                y: 16,
+                w: 8,
+                h: 8
+            },
+            right: {
+                x: 48,
+                y: 16,
+                w: 8,
+                h: 8
+            },
+            back: {
+                x: 56,
+                y: 16,
+                w: 8,
+                h: 8
+            },
+            top: {
+                x: 40,
+                y: 24,
+                w: 8,
+                h: 8,
+                flipX: false
+            },
+            bottom: {
+                x: 48,
+                y: 24,
+                w: 8,
+                h: 8,
+                flipY: true,
+                flipX: true
+            }
         },
-        front: {
-            x: 40,
-            y: 48,
-            w: 8,
-            h: 8
-        },
-        right: {
-            x: 48,
-            y: 48,
-            w: 8,
-            h: 8
-        },
-        back: {
-            x: 56,
-            y: 48,
-            w: 8,
-            h: 8
-        },
-        top: {
-            x: 40,
-            y: 56,
-            w: 8,
-            h: 8,
-            flipX: false
-        },
-        bottom: {
-            x: 48,
-            y: 56,
-            w: 8,
-            h: 8,
-            flipY: true,
-            flipX: true
+        { // 64x64
+            left: {
+                x: 32,
+                y: 48,
+                w: 8,
+                h: 8
+            },
+            front: {
+                x: 40,
+                y: 48,
+                w: 8,
+                h: 8
+            },
+            right: {
+                x: 48,
+                y: 48,
+                w: 8,
+                h: 8
+            },
+            back: {
+                x: 56,
+                y: 48,
+                w: 8,
+                h: 8
+            },
+            top: {
+                x: 40,
+                y: 56,
+                w: 8,
+                h: 8,
+                flipX: false
+            },
+            bottom: {
+                x: 48,
+                y: 56,
+                w: 8,
+                h: 8,
+                flipY: true,
+                flipX: true
+            }
         }
-    },
+    ],
     jacket: {
         left: {
             x: 16,

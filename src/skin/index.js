@@ -441,17 +441,15 @@ function createPlayerModel(skinTexture, capeTexture, v, slim, capeType) {
     );
     head.translateOnAxis(new THREE.Vector3(0, 1, 0), 4);
     headGroup.add(head);
-    if (v >= 1) {
-        let hat = createCube(skinTexture,
-            8.504, 8.504, 8.504,
-            texturePositions.hat,
-            slim,
-            "hat",
-            true
-        );
-        hat.translateOnAxis(new THREE.Vector3(0, 1, 0), 4);
-        headGroup.add(hat);
-    }
+    let hat = createCube(skinTexture,
+        8.504, 8.504, 8.504,
+        texturePositions.hat[v],
+        slim,
+        "hat",
+        true
+    );
+    hat.translateOnAxis(new THREE.Vector3(0, 1, 0), 4);
+    headGroup.add(hat);
 
     let bodyGroup = new THREE.Object3D();
     bodyGroup.name = "bodyGroup";
