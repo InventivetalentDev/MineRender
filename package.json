@@ -22,7 +22,7 @@
     "deepmerge": "^4.0.0",
     "esdoc": "^1.1.0",
     "esdoc-standard-plugin": "^1.0.0",
-    "java-parser": "0.3.2",
+    "java-parser": "0.8.2",
     "jquery": "^3.3.1",
     "md5": "^2.2.1",
     "nbt-js": "^0.1.0",
