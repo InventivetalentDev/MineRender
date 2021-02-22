@@ -604,9 +604,9 @@ function createPlayerModel(skinTexture, capeTexture, v, slim, capeType) {
         // Multiply coordinates by image dimensions
         for (let cord in capeTextureCoordinates) {
             capeTextureCoordinates[cord].x *= capeTexture.image.width;
-            capeTextureCoordinates[cord].w *= capeTexture.image.width;
+            capeTextureCoordinates[cord].width *= capeTexture.image.width;
             capeTextureCoordinates[cord].y *= capeTexture.image.height;
-            capeTextureCoordinates[cord].h *= capeTexture.image.height;
+            capeTextureCoordinates[cord].height *= capeTexture.image.height;
         }
 
         console.log(capeTextureCoordinates);

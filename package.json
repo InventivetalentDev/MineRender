@@ -4,7 +4,12 @@
   "description": "",
   "main": "src/combined/index.js",
   "types": "dist/index",
-  "scripts": {},
+  "scripts": {
+    "clean": "rm -rf dist",
+    "compile": "tsc",
+    "build": "npm run clean && npm run compile",
+    "doc": "typedoc --out docs src"
+  },
   "author": "Haylee Schäfer",
   "license": "MIT",
   "repository": {
@@ -13,9 +18,10 @@
   },
   "homepage": "https://minerender.org",
   "dependencies": {
-    "@inventivetalent/loading-cache": "^0.4.0",
-    "@johh/three-effectcomposer": "0.0.7",
+    "@inventivetalent/loading-cache": "^0.4.1",
+    "@inventivetalent/time": "^1.0.0",
     "axios": "^0.21.1",
+    "canvas": "^2.6.1",
     "debug": "^2.6.9",
     "deepmerge": "^4.0.0",
     "jobqu": "^2.0.5",
@@ -26,15 +32,21 @@
     "stats.js": "^0.17.0",
     "three": "^0.125.2",
     "three-instanced-mesh": "git+https://github.com/InventivetalentDev/three-instanced-mesh.git",
-    "typescript": "^4.1.5",
+    "ts-deepmerge": "^1.0.6",
     "typscript-memoize": "git+https://github.com/InventivetalentDev/typescript-memoize.git"
   },
   "devDependencies": {
-    "@types/node": "^10.5.2",
+    "@mapbox/node-pre-gyp": "^1.0.0",
+    "@types/node": "^14.14.31",
     "@types/three": "^0.125.2",
+    "clean-webpack-plugin": "^3.0.0",
     "progress-bar-webpack-plugin": "1.12.1",
-    "webpack": "4.41.1",
-    "webpack-cli": "3.0.8",
+    "ts-loader": "^8.0.17",
+    "ts-node": "^9.1.1",
+    "typescript": "^4.1.5",
+    "webpack": "^5.23.0",
+    "webpack-cli": "^4.5.0",
+    "webpack-node-externals": "^2.5.2",
     "worker-loader": "2.0.0"
   }
 }

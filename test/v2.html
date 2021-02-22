@@ -1,0 +1,159 @@
+<html>
+    <body>
+
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r125/three.min.js" integrity="sha512-XI02ivhfmEfnk8CEEnJ92ZS6hOqWoWMKF6pxF/tC/DXBVxDXgs2Kmlc9CHA0Aw2dX03nrr8vF54Z6Mqlkuabkw==" crossorigin="anonymous"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/stats.js/r17/Stats.min.js" integrity="sha512-mfOs9z5Hk96xJH71l0ptzjgGvflNJRnHA7brsEwqDZf7mJa8QDfUtcHICKMXq4Ys80g5HKQMD9rsY3R44ZlEug==" crossorigin="anonymous"></script>
+        <script src="../dist/bundle.js"></script>
+        <script>
+
+            // var stats = new Stats();
+            // stats.showPanel( 0 ); // 0: fps, 1: ms, 2: mb, 3+: custom
+            // document.body.appendChild( stats.dom );
+
+            const renderer = new MineRender.Renderer();
+            document.body.appendChild(renderer.renderer.domElement);
+
+
+            setInterval(() => {
+                let mesh = MineRender.Meshes.getBox({
+                    src: "http://assets.mojang.com/SkinTemplates/4px_reference.png",
+                    width: 8,
+                    height: 8,
+                    depth: 8,
+                    texHeight: 64,
+                    texWidth: 64,
+                    coordinates: {
+                        west: {
+                            x: 0,
+                            y: 8,
+                            w: 8,
+                            h: 8,
+                            fx: false,
+                            fy: false
+                        },
+                        east: {
+                            x: 16,
+                            y: 8,
+                            w: 8,
+                            h: 8,
+                            fx: false,
+                            fy: false
+                        },
+                        south: {
+                            x: 8,
+                            y: 8,
+                            w: 8,
+                            h: 8,
+                            fx: false,
+                            fy: false
+                        },
+                        north: {
+                            x: 24,
+                            y: 8,
+                            w: 8,
+                            h: 8,
+                            fx: false,
+                            fy: false
+                        },
+                        up: {
+                            x: 8,
+                            y: 0,
+                            w: 8,
+                            h: 8,
+                            fx: false,
+                            fy: false
+                        },
+                        down: {
+                            x: 16,
+                            y: 0,
+                            w: 8,
+                            h: 8,
+                            fx: true,
+                            fy: true
+                        }
+                    }
+                })
+                // let geom = MineRender.Geometries.createBox({
+                //     width: 8,
+                //     height: 8,
+                //     depth: 8,
+                //     texHeight: 16,
+                //     texWidth: 16,
+                //     coordinates: {
+                //         left: {
+                //             x: 0,
+                //             y: 8,
+                //             w: 8,
+                //             h: 8,
+                //             fx: false,
+                //             fy: false
+                //         },
+                //         right: {
+                //             x: 16,
+                //             y: 8,
+                //             w: 8,
+                //             h: 8,
+                //             fx: false,
+                //             fy: false
+                //         },
+                //         front: {
+                //             x: 8,
+                //             y: 8,
+                //             w: 8,
+                //             h: 8,
+                //             fx: false,
+                //             fy: false
+                //         },
+                //         back: {
+                //             x: 24,
+                //             y: 8,
+                //             w: 8,
+                //             h: 8,
+                //             fx: false,
+                //             fy: false
+                //         },
+                //         top: {
+                //             x: 8,
+                //             y: 0,
+                //             w: 8,
+                //             h: 8,
+                //             fx: false,
+                //             fy: false
+                //         },
+                //         bottom: {
+                //             x: 16,
+                //             y: 0,
+                //             w: 8,
+                //             h: 8,
+                //             fx: true,
+                //             fy: true
+                //         }
+                //     }
+                // });
+                renderer.scene.add(mesh);
+            }, 500);
+
+            // setInterval(() => {
+            //     renderer.scene.clear();
+            // }, 2000);
+
+
+            renderer.camera.position.set(20, 15, 20);
+            renderer.camera.lookAt(new THREE.Vector3(0,0,0))
+
+
+            function animate() {
+
+                // stats.begin();
+
+                renderer.renderer.render( renderer.scene, renderer.camera );
+
+                // stats.end();
+
+                requestAnimationFrame( animate );
+
+            }
+            animate();
+        </script>
+    </body>
+</html>
