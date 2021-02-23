@@ -11,5 +11,9 @@ export enum SkinPart {
     RIGHT_SLEEVE = "rightSleeve",
     LEFT_SLEEVE = "leftSleeve",
     RIGHT_TROUSERS = "rightTrousers",
-    LEFT_TROUSERS = "leftTrousers"
+    LEFT_TROUSERS = "leftTrousers",
+
+    CAPE = "cape"
 }
+
+export const SKIN_PARTS: SkinPart[] = Object.values(SkinPart);

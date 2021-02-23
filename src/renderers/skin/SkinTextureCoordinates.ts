@@ -1,619 +1,683 @@
-import { CubeTextureCoordinates, TextureCoordinate, TextureCoordinates } from "../../TextureCoordinates";
-import merge from "ts-deepmerge";
 import { SkinPart } from "./SkinPart";
+import { ModelFaces } from "../../model/ModelElement";
 
 
-export type SkinTextureCoordinates = Record<SkinPart, CubeTextureCoordinates>;
+export type SkinTextureCoordinates = Record<SkinPart, ModelFaces>;
 
 const baseSkinCoordinates: SkinTextureCoordinates = {
     head: {
         west: {
-            x: 0,
-            y: 8,
-            w: 8,
-            h: 8,
-            fx: false,
-            fy: false
+            uv: [
+                0,
+                8,
+                8,
+                16
+            ]
         },
         east: {
-            x: 16,
-            y: 8,
-            w: 8,
-            h: 8,
-            fx: false,
-            fy: false
-        },
-        south: {
-            x: 8,
-            y: 8,
-            w: 8,
-            h: 8,
-            fx: false,
-            fy: false
+            uv: [
+                16,
+                8,
+                24,
+                16
+            ]
         },
         north: {
-            x: 24,
-            y: 8,
-            w: 8,
-            h: 8,
-            fx: false,
-            fy: false
+            uv: [
+                8,
+                8,
+                16,
+                16
+            ]
+        },
+        south: {
+            uv: [
+                24,
+                8,
+                32,
+                16
+            ]
         },
         up: {
-            x: 8,
-            y: 0,
-            w: 8,
-            h: 8,
-            fx: false,
-            fy: false
+            uv: [
+                8,
+                0,
+                16,
+                8
+            ]
         },
         down: {
-            x: 16,
-            y: 0,
-            w: 8,
-            h: 8,
-            fx: true,
-            fy: true
+            uv: [
+                16,
+                0,
+                24,
+                8
+            ],
+            rotation: 180
         }
     },
     body: {
         west: {
-            x: 16,
-            y: 20,
-            w: 4,
-            h: 12,
-            fx: false,
-            fy: false
+            uv: [
+                16,
+                20,
+                20,
+                32
+            ]
         },
         east: {
-            x: 28,
-            y: 20,
-            w: 4,
-            h: 12,
-            fx: false,
-            fy: false
-        },
-        south: {
-            x: 20,
-            y: 20,
-            w: 8,
-            h: 12,
-            fx: false,
-            fy: false
+            uv: [
+                28,
+                20,
+                32,
+                32
+            ]
         },
         north: {
-            x: 32,
-            y: 20,
-            w: 8,
-            h: 12,
-            fx: false,
-            fy: false
+            uv: [
+                20,
+                20,
+                28,
+                32
+            ]
+        },
+        south: {
+            uv: [
+                32,
+                20,
+                40,
+                32
+            ]
         },
         up: {
-            x: 20,
-            y: 16,
-            w: 8,
-            h: 4,
-            fx: false,
-            fy: false
+            uv: [
+                20,
+                16,
+                28,
+                20
+            ]
         },
         down: {
-            x: 28,
-            y: 16,
-            w: 8,
-            h: 4,
-            fx: true,
-            fy: true
+            uv: [
+                28,
+                16,
+                36,
+                20
+            ],
+            rotation: 180
         }
     },
-    rightArm: { // 64x64 only
+    rightArm: {
         west: {
-            x: 32,
-            y: 52,
-            w: 4,
-            h: 12,
-            fx: false,
-            fy: false
+            uv: [
+                32,
+                52,
+                36,
+                64
+            ]
         },
         east: {
-            x: 40,
-            y: 52,
-            w: 4,
-            h: 12,
-            fx: false,
-            fy: false
-        },
-        south: {
-            x: 36,
-            y: 52,
-            w: 4,
-            h: 12,
-            fx: false,
-            fy: false
+            uv: [
+                40,
+                52,
+                44,
+                64
+            ]
         },
         north: {
-            x: 44,
-            y: 52,
-            w: 4,
-            h: 12,
-            fx: false,
-            fy: false
+            uv: [
+                36,
+                52,
+                40,
+                64
+            ]
+        },
+        south: {
+            uv: [
+                44,
+                52,
+                48,
+                64
+            ]
         },
         up: {
-            x: 36,
-            y: 48,
-            w: 4,
-            h: 4,
-            fx: false,
-            fy: false
+            uv: [
+                36,
+                48,
+                40,
+                52
+            ]
         },
         down: {
-            x: 40,
-            y: 48,
-            w: 4,
-            h: 4,
-            fx: true,
-            fy: true
+            uv: [
+                40,
+                48,
+                44,
+                52
+            ],
+            rotation: 180
         }
     },
     leftArm: {
         west: {
-            x: 40,
-            y: 20,
-            w: 4,
-            h: 12,
-            fx: false,
-            fy: false
+            uv: [
+                40,
+                20,
+                44,
+                32
+            ]
         },
         east: {
-            x: 48,
-            y: 20,
-            w: 4,
-            h: 12,
-            fx: false,
-            fy: false
-        },
-        south: {
-            x: 44,
-            y: 20,
-            w: 4,
-            h: 12,
-            fx: false,
-            fy: false
+            uv: [
+                48,
+                20,
+                52,
+                32
+            ]
         },
         north: {
-            x: 52,
-            y: 20,
-            w: 4,
-            h: 12,
-            fx: false,
-            fy: false
+            uv: [
+                44,
+                20,
+                48,
+                32
+            ]
+        },
+        south: {
+            uv: [
+                52,
+                20,
+                56,
+                32
+            ]
         },
         up: {
-            x: 44,
-            y: 16,
-            w: 4,
-            h: 4,
-            fx: false,
-            fy: false
+            uv: [
+                44,
+                16,
+                48,
+                20
+            ]
         },
         down: {
-            x: 48,
-            y: 16,
-            w: 4,
-            h: 4,
-            fx: true,
-            fy: true
+            uv: [
+                48,
+                16,
+                52,
+                20
+            ],
+            rotation: 180
         }
     },
-    rightLeg: { // 64x64 only
+    rightLeg: {
         west: {
-            x: 16,
-            y: 52,
-            w: 4,
-            h: 12,
-            fx: false,
-            fy: false
+            uv: [
+                16,
+                52,
+                20,
+                64
+            ]
         },
         east: {
-            x: 24,
-            y: 52,
-            w: 4,
-            h: 12,
-            fx: false,
-            fy: false
-        },
-        south: {
-            x: 20,
-            y: 52,
-            w: 4,
-            h: 12,
-            fx: false,
-            fy: false
+            uv: [
+                24,
+                52,
+                28,
+                64
+            ]
         },
         north: {
-            x: 28,
-            y: 52,
-            w: 4,
-            h: 12,
-            fx: false,
-            fy: false
+            uv: [
+                20,
+                52,
+                24,
+                64
+            ]
+        },
+        south: {
+            uv: [
+                28,
+                52,
+                32,
+                64
+            ]
         },
         up: {
-            x: 20,
-            y: 48,
-            w: 4,
-            h: 4,
-            fx: false,
-            fy: false
+            uv: [
+                20,
+                48,
+                24,
+                52
+            ]
         },
         down: {
-            x: 24,
-            y: 48,
-            w: 4,
-            h: 4,
-            fx: true,
-            fy: true
+            uv: [
+                24,
+                48,
+                28,
+                52
+            ],
+            rotation: 180
         }
     },
     leftLeg: {
         west: {
-            x: 0,
-            y: 20,
-            w: 4,
-            h: 12,
-            fx: false,
-            fy: false
+            uv: [
+                0,
+                20,
+                4,
+                32
+            ]
         },
         east: {
-            x: 8,
-            y: 20,
-            w: 4,
-            h: 12,
-            fx: false,
-            fy: false
-        },
-        south: {
-            x: 4,
-            y: 20,
-            w: 4,
-            h: 12,
-            fx: false,
-            fy: false
+            uv: [
+                8,
+                20,
+                12,
+                32
+            ]
         },
         north: {
-            x: 12,
-            y: 20,
-            w: 4,
-            h: 12,
-            fx: false,
-            fy: false
+            uv: [
+                4,
+                20,
+                8,
+                32
+            ]
+        },
+        south: {
+            uv: [
+                12,
+                20,
+                16,
+                32
+            ]
         },
         up: {
-            x: 4,
-            y: 16,
-            w: 4,
-            h: 4,
-            fx: false,
-            fy: false
+            uv: [
+                4,
+                16,
+                8,
+                20
+            ]
         },
         down: {
-            x: 8,
-            y: 16,
-            w: 4,
-            h: 4,
-            fx: true,
-            fy: true
+            uv: [
+                8,
+                16,
+                12,
+                20
+            ],
+            rotation: 180
         }
     },
     hat: {
         west: {
-            x: 32,
-            y: 8,
-            w: 8,
-            h: 8,
-            fx: false,
-            fy: false
+            uv: [
+                32,
+                8,
+                40,
+                16
+            ]
         },
         east: {
-            x: 48,
-            y: 8,
-            w: 8,
-            h: 8,
-            fx: false,
-            fy: false
-        },
-        south: {
-            x: 40,
-            y: 8,
-            w: 8,
-            h: 8,
-            fx: false,
-            fy: false
+            uv: [
+                48,
+                8,
+                56,
+                16
+            ]
         },
         north: {
-            x: 56,
-            y: 8,
-            w: 8,
-            h: 8,
-            fx: false,
-            fy: false
+            uv: [
+                40,
+                8,
+                48,
+                16
+            ]
+        },
+        south: {
+            uv: [
+                56,
+                8,
+                64,
+                16
+            ]
         },
         up: {
-            x: 40,
-            y: 0,
-            w: 8,
-            h: 8,
-            fx: false,
-            fy: false
+            uv: [
+                40,
+                0,
+                48,
+                8
+            ]
         },
         down: {
-            x: 48,
-            y: 0,
-            w: 8,
-            h: 8,
-            fx: true,
-            fy: true
+            uv: [
+                48,
+                0,
+                56,
+                8
+            ],
+            rotation: 180
         }
     },
-    jacket: { // 64x64 only
+    jacket: {
         west: {
-            x: 16,
-            y: 36,
-            w: 4,
-            h: 12,
-            fx: false,
-            fy: false
+            uv: [
+                16,
+                36,
+                20,
+                48
+            ]
         },
         east: {
-            x: 28,
-            y: 36,
-            w: 4,
-            h: 12,
-            fx: false,
-            fy: false
-        },
-        south: {
-            x: 20,
-            y: 36,
-            w: 8,
-            h: 12,
-            fx: false,
-            fy: false
+            uv: [
+                28,
+                36,
+                32,
+                48
+            ]
         },
         north: {
-            x: 32,
-            y: 36,
-            w: 8,
-            h: 12,
-            fx: false,
-            fy: false
+            uv: [
+                20,
+                36,
+                28,
+                48
+            ]
+        },
+        south: {
+            uv: [
+                32,
+                36,
+                40,
+                48
+            ]
         },
         up: {
-            x: 20,
-            y: 32,
-            w: 8,
-            h: 4,
-            fx: false,
-            fy: false
+            uv: [
+                20,
+                32,
+                28,
+                36
+            ]
         },
         down: {
-            x: 28,
-            y: 32,
-            w: 8,
-            h: 4,
-            fx: true,
-            fy: true
+            uv: [
+                28,
+                32,
+                36,
+                36
+            ],
+            rotation: 180
         }
     },
-    rightSleeve: { // 64x64 only
+    rightSleeve: {
         west: {
-            x: 48,
-            y: 52,
-            w: 4,
-            h: 12,
-            fx: false,
-            fy: false
+            uv: [
+                48,
+                52,
+                52,
+                64
+            ]
         },
         east: {
-            x: 56,
-            y: 52,
-            w: 4,
-            h: 12,
-            fx: false,
-            fy: false
-        },
-        south: {
-            x: 52,
-            y: 52,
-            w: 4,
-            h: 12,
-            fx: false,
-            fy: false
+            uv: [
+                56,
+                52,
+                60,
+                64
+            ]
         },
         north: {
-            x: 60,
-            y: 52,
-            w: 4,
-            h: 12,
-            fx: false,
-            fy: false
+            uv: [
+                52,
+                52,
+                56,
+                64
+            ]
+        },
+        south: {
+            uv: [
+                60,
+                52,
+                64,
+                64
+            ]
         },
         up: {
-            x: 52,
-            y: 48,
-            w: 4,
-            h: 4,
-            fx: false,
-            fy: false
+            uv: [
+                52,
+                48,
+                56,
+                52
+            ]
         },
         down: {
-            x: 56,
-            y: 48,
-            w: 4,
-            h: 4,
-            fx: true,
-            fy: true
+            uv: [
+                56,
+                48,
+                60,
+                52
+            ],
+            rotation: 180
         }
     },
-    leftSleeve: { // 64x64 only
+    leftSleeve: {
         west: {
-            x: 40,
-            y: 36,
-            w: 4,
-            h: 12,
-            fx: false,
-            fy: false
+            uv: [
+                40,
+                36,
+                44,
+                48
+            ]
         },
         east: {
-            x: 48,
-            y: 36,
-            w: 4,
-            h: 12,
-            fx: false,
-            fy: false
-        },
-        south: {
-            x: 44,
-            y: 36,
-            w: 4,
-            h: 12,
-            fx: false,
-            fy: false
+            uv: [
+                48,
+                36,
+                52,
+                48
+            ]
         },
         north: {
-            x: 52,
-            y: 36,
-            w: 4,
-            h: 12,
-            fx: false,
-            fy: false
+            uv: [
+                44,
+                36,
+                48,
+                48
+            ]
+        },
+        south: {
+            uv: [
+                52,
+                36,
+                56,
+                48
+            ]
         },
         up: {
-            x: 44,
-            y: 32,
-            w: 4,
-            h: 4,
-            fx: false,
-            fy: false
+            uv: [
+                44,
+                32,
+                48,
+                36
+            ]
         },
         down: {
-            x: 48,
-            y: 32,
-            w: 4,
-            h: 4,
-            fx: true,
-            fy: true
+            uv: [
+                48,
+                32,
+                52,
+                36
+            ],
+            rotation: 180
         }
     },
-    rightTrousers: { // 64x64 only
+    rightTrousers: {
         west: {
-            x: 0,
-            y: 52,
-            w: 4,
-            h: 12,
-            fx: false,
-            fy: false
+            uv: [
+                0,
+                52,
+                4,
+                64
+            ]
         },
         east: {
-            x: 8,
-            y: 52,
-            w: 4,
-            h: 12,
-            fx: false,
-            fy: false
-        },
-        south: {
-            x: 4,
-            y: 52,
-            w: 4,
-            h: 12,
-            fx: false,
-            fy: false
+            uv: [
+                8,
+                52,
+                12,
+                64
+            ]
         },
         north: {
-            x: 12,
-            y: 52,
-            w: 4,
-            h: 12,
-            fx: false,
-            fy: false
+            uv: [
+                4,
+                52,
+                8,
+                64
+            ]
+        },
+        south: {
+            uv: [
+                12,
+                52,
+                16,
+                64
+            ]
         },
         up: {
-            x: 4,
-            y: 48,
-            w: 4,
-            h: 4,
-            fx: false,
-            fy: false
+            uv: [
+                4,
+                48,
+                8,
+                52
+            ]
         },
         down: {
-            x: 8,
-            y: 48,
-            w: 4,
-            h: 4,
-            fx: true,
-            fy: true
+            uv: [
+                8,
+                48,
+                12,
+                52
+            ],
+            rotation: 180
         }
     },
-    leftTrousers: { // 64x64 only
+    leftTrousers: {
         west: {
-            x: 0,
-            y: 36,
-            w: 4,
-            h: 12,
-            fx: false,
-            fy: false
+            uv: [
+                0,
+                36,
+                4,
+                48
+            ]
         },
         east: {
-            x: 8,
-            y: 36,
-            w: 4,
-            h: 12,
-            fx: false,
-            fy: false
-        },
-        south: {
-            x: 4,
-            y: 36,
-            w: 4,
-            h: 12,
-            fx: false,
-            fy: false
+            uv: [
+                8,
+                36,
+                12,
+                48
+            ]
         },
         north: {
-            x: 12,
-            y: 36,
-            w: 4,
-            h: 12,
-            fx: false,
-            fy: false
+            uv: [
+                4,
+                36,
+                8,
+                48
+            ]
+        },
+        south: {
+            uv: [
+                12,
+                36,
+                16,
+                48
+            ]
         },
         up: {
-            x: 4,
-            y: 32,
-            w: 4,
-            h: 4,
-            fx: false,
-            fy: false
+            uv: [
+                4,
+                32,
+                8,
+                36
+            ]
         },
         down: {
-            x: 8,
-            y: 32,
-            w: 4,
-            h: 4,
-            fx: true,
-            fy: true
+            uv: [
+                8,
+                32,
+                12,
+                36
+            ],
+            rotation: 180
+        }
+    },
+    cape: {//TODO
+        west: {
+            uv: [
+                0,
+                36,
+                4,
+                48
+            ]
+        },
+        east: {
+            uv: [
+                8,
+                36,
+                12,
+                48
+            ]
+        },
+        north: {
+            uv: [
+                4,
+                36,
+                8,
+                48
+            ]
+        },
+        south: {
+            uv: [
+                12,
+                36,
+                16,
+                48
+            ]
+        },
+        up: {
+            uv: [
+                4,
+                32,
+                8,
+                36
+            ]
+        },
+        down: {
+            uv: [
+                8,
+                32,
+                12,
+                36
+            ],
+            rotation: 180
         }
     }
 }
 
 
-export const classicSkinTextureCoordinates: SkinTextureCoordinates = {
+
+export const classicSkinTextureCoordinates: Readonly<SkinTextureCoordinates> = {
     ...baseSkinCoordinates
 };
 
-export const slimSkinTextureCoordinates: SkinTextureCoordinates = merge(baseSkinCoordinates, <SkinTextureCoordinates>{
+//TODO
+export const slimSkinTextureCoordinates: Readonly<SkinTextureCoordinates> = {...baseSkinCoordinates} /*merge(baseSkinCoordinates, <SkinTextureCoordinates>{
     rightArm: {
         east: {
             x: 39
@@ -692,3 +756,4 @@ export const slimSkinTextureCoordinates: SkinTextureCoordinates = merge(baseSkin
         }
     }
 });
+*/

@@ -3,135 +3,87 @@
 
         <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r125/three.min.js" integrity="sha512-XI02ivhfmEfnk8CEEnJ92ZS6hOqWoWMKF6pxF/tC/DXBVxDXgs2Kmlc9CHA0Aw2dX03nrr8vF54Z6Mqlkuabkw==" crossorigin="anonymous"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/stats.js/r17/Stats.min.js" integrity="sha512-mfOs9z5Hk96xJH71l0ptzjgGvflNJRnHA7brsEwqDZf7mJa8QDfUtcHICKMXq4Ys80g5HKQMD9rsY3R44ZlEug==" crossorigin="anonymous"></script>
-        <script src="../dist/bundle.js"></script>
+
+        <script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@dev/examples/js/controls/OrbitControls.js"></script>
+
+        <script src="../dist/minerender.bundle.js"></script>
         <script>
 
             // var stats = new Stats();
             // stats.showPanel( 0 ); // 0: fps, 1: ms, 2: mb, 3+: custom
             // document.body.appendChild( stats.dom );
 
+            // const MineRender = require("../src");
             const renderer = new MineRender.Renderer();
             document.body.appendChild(renderer.renderer.domElement);
 
+            // let mat = MineRender.Materials.get({
+            //     texture: {
+            //         src: "http://assets.mojang.com/SkinTemplates/4px_reference.png"
+            //     }
+            // });
+            //
+            // let geo1 = MineRender.Geometries.getBox({
+            //     width: 8,
+            //     height: 8,
+            //     depth: 8,
+            //     uv: MineRender.UVMapper.facesToUvArray({
+            //         west: {
+            //             uv: [
+            //                 0, 8, 8, 16
+            //             ]
+            //         },
+            //         south: {
+            //             uv: [
+            //                 8, 8, 16, 16
+            //             ]
+            //         },
+            //         east: {
+            //             uv: [
+            //                 16, 8, 24, 16
+            //             ]
+            //         },
+            //         north: {
+            //             uv: [
+            //                 24, 8, 32, 16
+            //             ]
+            //         },
+            //         up: {
+            //             uv: [
+            //                 8, 0, 16, 8
+            //             ]
+            //         },
+            //         down: {
+            //             uv: [
+            //                 16, 0, 24, 8
+            //             ]
+            //         }
+            //     },64,64)
+            // }).clone();
+            //
+            // geo1.translate(-1, -1, -1);
+            //
+            // let geo2 = MineRender.Geometries.getBox({
+            //     width: 8,
+            //     height: 8,
+            //     depth: 8,
+            // }).clone();
+            // geo2.translate(2, 1, 3);
+            //
+            // let mergedGeo = MineRender.BufferGeometryUtils.mergeBufferGeometries([geo1, geo2]);
+            //
+            //
+            // let mesh = new THREE.Mesh(mergedGeo, mat);
 
-            setInterval(() => {
-                let mesh = MineRender.Meshes.getBox({
-                    src: "http://assets.mojang.com/SkinTemplates/4px_reference.png",
-                    width: 8,
-                    height: 8,
-                    depth: 8,
-                    texHeight: 64,
-                    texWidth: 64,
-                    coordinates: {
-                        west: {
-                            x: 0,
-                            y: 8,
-                            w: 8,
-                            h: 8,
-                            fx: false,
-                            fy: false
-                        },
-                        east: {
-                            x: 16,
-                            y: 8,
-                            w: 8,
-                            h: 8,
-                            fx: false,
-                            fy: false
-                        },
-                        south: {
-                            x: 8,
-                            y: 8,
-                            w: 8,
-                            h: 8,
-                            fx: false,
-                            fy: false
-                        },
-                        north: {
-                            x: 24,
-                            y: 8,
-                            w: 8,
-                            h: 8,
-                            fx: false,
-                            fy: false
-                        },
-                        up: {
-                            x: 8,
-                            y: 0,
-                            w: 8,
-                            h: 8,
-                            fx: false,
-                            fy: false
-                        },
-                        down: {
-                            x: 16,
-                            y: 0,
-                            w: 8,
-                            h: 8,
-                            fx: true,
-                            fy: true
-                        }
-                    }
-                })
-                // let geom = MineRender.Geometries.createBox({
-                //     width: 8,
-                //     height: 8,
-                //     depth: 8,
-                //     texHeight: 16,
-                //     texWidth: 16,
-                //     coordinates: {
-                //         left: {
-                //             x: 0,
-                //             y: 8,
-                //             w: 8,
-                //             h: 8,
-                //             fx: false,
-                //             fy: false
-                //         },
-                //         right: {
-                //             x: 16,
-                //             y: 8,
-                //             w: 8,
-                //             h: 8,
-                //             fx: false,
-                //             fy: false
-                //         },
-                //         front: {
-                //             x: 8,
-                //             y: 8,
-                //             w: 8,
-                //             h: 8,
-                //             fx: false,
-                //             fy: false
-                //         },
-                //         back: {
-                //             x: 24,
-                //             y: 8,
-                //             w: 8,
-                //             h: 8,
-                //             fx: false,
-                //             fy: false
-                //         },
-                //         top: {
-                //             x: 8,
-                //             y: 0,
-                //             w: 8,
-                //             h: 8,
-                //             fx: false,
-                //             fy: false
-                //         },
-                //         bottom: {
-                //             x: 16,
-                //             y: 0,
-                //             w: 8,
-                //             h: 8,
-                //             fx: true,
-                //             fy: true
-                //         }
-                //     }
-                // });
-                renderer.scene.add(mesh);
-            }, 500);
+            let obj = new MineRender.SkinObject();
+            obj.setSkinTexture("http://assets.mojang.com/SkinTemplates/4px_reference.png")
+
+            renderer.scene.add(obj);
+
+            // let wireGeo = new THREE.EdgesGeometry(obj);
+            // let wireMat = new THREE.LineBasicMaterial({color: 0xffffff, linewidth: 2})
+            // let wireframe = new THREE.LineSegments(wireGeo, wireMat);
+            // obj.add(wireframe);
 
             // setInterval(() => {
             //     renderer.scene.clear();
@@ -139,20 +91,24 @@
 
 
             renderer.camera.position.set(20, 15, 20);
-            renderer.camera.lookAt(new THREE.Vector3(0,0,0))
+            renderer.camera.lookAt(new THREE.Vector3(0, 0, 0))
 
+            const controls = new THREE.OrbitControls(renderer.camera, renderer.renderer.domElement);
+
+            controls.update();
 
             function animate() {
 
                 // stats.begin();
 
-                renderer.renderer.render( renderer.scene, renderer.camera );
+                renderer.renderer.render(renderer.scene, renderer.camera);
 
                 // stats.end();
 
-                requestAnimationFrame( animate );
+                requestAnimationFrame(animate);
 
             }
+
             animate();
         </script>
     </body>

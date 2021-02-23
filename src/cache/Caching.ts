@@ -1,5 +1,5 @@
 import { AsyncLoadingCache, Caches, Loader, LoadingCache, SimpleCache } from "@inventivetalent/loading-cache";
-import { BoxGeometryCacheKey, BoxMeshCacheKey, CacheKey, MaterialCacheKey, parseImageKey, ProcessedImageCacheKey, RawImageCacheKey, TextureCacheKey } from "./CacheKey";
+import {  BoxGeometryKey,  CacheKey,  serializeBoxGeometryKey, serializeImageKey, TextureKey } from "./CacheKey";
 import { Time } from "@inventivetalent/time";
 import { ImageLoader } from "../image/ImageLoader";
 import { BoxGeometry, Material, Mesh, PixelFormat, RGBAFormat, Texture } from "three";
@@ -13,57 +13,43 @@ import { CompatImage } from "../CanvasCompat";
 
 export class Caching {
 
-     static readonly rawImageCache: LoadingCache<CacheKey, CompatImage> = Caches.builder()
+    static readonly rawImageCache: SimpleCache<CacheKey, CompatImage> = Caches.builder()
         .expireAfterWrite(Time.minutes(2))
         .expireAfterAccess(Time.seconds(20))
         .expirationInterval(Time.seconds(5))
-        .build<CacheKey, CompatImage>(key => ImageLoader.load(parseImageKey(key)));
-     static readonly processedImageCache: SimpleCache<CacheKey, ImageData> = Caches.builder()
+        .build();
+    static readonly processedImageCache: SimpleCache<CacheKey, ImageData> = Caches.builder()
         .expireAfterWrite(Time.minutes(5))
         .expireAfterAccess(Time.minutes(1))
         .expirationInterval(Time.seconds(10))
         .build<CacheKey, ImageData>();
 
-     static readonly boxGeometryCache: LoadingCache<CacheKey, BoxGeometry> = Caches.builder()
+    static readonly boxGeometryCache: SimpleCache<CacheKey, BoxGeometry> = Caches.builder()
         .expireAfterWrite(Time.minutes(2))
         .expireAfterAccess(Time.minutes(1))
         .expirationInterval(Time.seconds(20))
-        .build<CacheKey, BoxGeometry>(key => Geometries.createBox(key));
+        .build<CacheKey, BoxGeometry>();
 
-     static readonly textureCache: LoadingCache<CacheKey, Texture> = Caches.builder()
+    static readonly textureCache: SimpleCache<CacheKey, Texture> = Caches.builder()
         .expireAfterWrite(Time.minutes(10))
         .expireAfterAccess(Time.minutes(2))
         .expirationInterval(Time.seconds(30))
-        .build<CacheKey, Texture>(key => Textures.create(key));
+        .build<CacheKey, Texture>();
 
-    static readonly materialCache: LoadingCache<CacheKey, Material> = Caches.builder()
+    static readonly materialCache: SimpleCache<CacheKey, Material> = Caches.builder()
         .expireAfterWrite(Time.minutes(10))
         .expireAfterAccess(Time.minutes(2))
         .expirationInterval(Time.seconds(30))
-        .build<CacheKey, Material>(key => Materials.create(key));
+        .build<CacheKey, Material>();
 
-     static readonly boxMeshCache: LoadingCache<CacheKey, Mesh> = Caches.builder()
+    static readonly boxMeshCache: SimpleCache<CacheKey, Mesh> = Caches.builder()
         .expireAfterWrite(Time.minutes(10))
         .expireAfterAccess(Time.minutes(2))
         .expirationInterval(Time.seconds(30))
-        .build<CacheKey, Mesh>(key => Meshes.createBox(key));
+        .build<CacheKey, Mesh>();
 
 
-    public static getRawImage(src: string): CompatImage {
-        return this.rawImageCache.get({ src })!;
-    }
 
-    // public static getProcessedImage(key: ProcessedImageCacheKey, loader?: Loader<ProcessedImageCacheKey, ImageData>): ImageData {
-    //
-    // }
-
-    public static getBoxGeometry(key: BoxGeometryCacheKey): BoxGeometry {
-        return this.boxGeometryCache.get(key)!;
-    }
-
-    public static getTexture(src: string, format: PixelFormat = RGBAFormat): Texture {
-        return this.textureCache.get({ src, format })!;
-    }
 
     public static clear() {
         this.rawImageCache.invalidateAll();

@@ -1,6 +1,7 @@
 import { PixelFormat, RGBAFormat, Texture } from "three";
 import { Caching } from "../cache/Caching";
 import * as THREE from "three";
+import { ImageLoader } from "../image/ImageLoader";
 
 export class TextureLoader {
 
@@ -8,14 +9,19 @@ export class TextureLoader {
         return new Texture();
     }
 
-    public static load(src: string, format: PixelFormat = RGBAFormat): Texture {
+    public static load(src: string, format: PixelFormat = RGBAFormat, rotation: number = 0): Texture {
         const texture = this.createTexture();
-        texture.image = Caching.getRawImage(src);
+        const image = ImageLoader.get(src);
+        image.onload = function () {
+            texture.needsUpdate = true;
+        }
+        texture.image = image;
         texture.format = format;
+        texture.rotation = rotation;
+
         texture.magFilter = THREE.NearestFilter;
         texture.minFilter = THREE.NearestFilter;
         texture.anisotropy = 0;
-        texture.needsUpdate = true;
         return texture;
     }
 

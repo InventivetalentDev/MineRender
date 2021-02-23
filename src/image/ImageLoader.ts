@@ -1,4 +1,6 @@
 import { CompatImage, createImage } from "../CanvasCompat";
+import { serializeImageKey } from "../cache/CacheKey";
+import { Caching } from "../cache/Caching";
 
 export class ImageLoader {
 
@@ -25,6 +27,14 @@ export class ImageLoader {
             image.onerror = onerr;
         return image;
     }
+
+    public static get(src: string): CompatImage {
+        const keyStr = serializeImageKey({ src });
+        return Caching.rawImageCache.get(keyStr, k => {
+            return ImageLoader.load(src);
+        })!;
+    }
+
 
 
 }
