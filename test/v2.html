@@ -75,8 +75,58 @@
             //
             // let mesh = new THREE.Mesh(mergedGeo, mat);
 
-            let obj = new MineRender.SkinObject();
+            // let obj = new MineRender.SkinObject();
             // obj.setSkinTexture("http://assets.mojang.com/SkinTemplates/4px_reference.png")
+
+            let obj = new MineRender.ModelObject({
+                "parent": "block/block",
+                "elements": [
+                    {
+                        "from": [
+                            0,
+                            0,
+                            0
+                        ],
+                        "to": [
+                            16,
+                            16,
+                            16
+                        ],
+                        "faces": {
+                            "down": {
+                                "texture": "#down",
+                                "cullface": "down",
+                                uv: [0,0,16,16]
+                            },
+                            "up": {
+                                "texture": "#up",
+                                "cullface": "up",
+                                uv: [0,0,16,16]
+                            },
+                            "north": {
+                                "texture": "#north",
+                                "cullface": "north",
+                                uv: [0,0,16,16]
+                            },
+                            "south": {
+                                "texture": "#south",
+                                "cullface": "south",
+                                uv: [0,0,16,16]
+                            },
+                            "west": {
+                                "texture": "#west",
+                                "cullface": "west",
+                                uv: [0,0,16,16]
+                            },
+                            "east": {
+                                "texture": "#east",
+                                "cullface": "east",
+                                uv: [0,0,16,16]
+                            }
+                        }
+                    }
+                ]
+            });
 
             renderer.scene.add(obj);
 

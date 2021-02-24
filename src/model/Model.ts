@@ -13,6 +13,7 @@ export interface ItemModel extends Model {
 }
 
 export interface Model {
+    textures: ModelTextures;
     parent: string;
     display: ModelDisplay;
     elements: ModelElement[];

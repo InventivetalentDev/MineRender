@@ -10,6 +10,7 @@ import { Meshes } from "../Meshes";
 import { Textures } from "../Textures";
 import { Materials } from "../Materials";
 import { CompatImage } from "../CanvasCompat";
+import { Model } from "../model/Model";
 
 export class Caching {
 
@@ -48,6 +49,13 @@ export class Caching {
         .expirationInterval(Time.seconds(30))
         .build<CacheKey, Mesh>();
 
+
+
+    static readonly modelCache: SimpleCache<CacheKey, Model> = Caches.builder()
+        .expireAfterWrite(Time.minutes(10))
+        .expireAfterAccess(Time.minutes(5))
+        .expirationInterval(Time.seconds(30))
+        .build<CacheKey, Model>();
 
 
 

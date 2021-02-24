@@ -60,6 +60,8 @@ export class SceneObject extends Object3D {
         const mesh = this.createMesh(name, geometry, material,offsetAxis,offset);
         if (group) {
             group.add(mesh);
+        } else {
+            this.add(mesh);
         }
         return mesh;
     }

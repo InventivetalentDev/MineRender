@@ -84,3 +84,13 @@ export function serializeMeshKey(key: MeshKey): string {
 }
 
 
+///
+
+export interface ModelKey {
+
+}
+
+export function serializeModelKey(key: ModelKey): string {
+
+}
+
