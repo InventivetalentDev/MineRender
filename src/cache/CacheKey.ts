@@ -64,10 +64,11 @@ export function serializeTextureKey(key: TextureKey): string {
 
 export interface MaterialKey {
     texture: TextureKey;
+    transparent?: boolean;
 }
 
 export function serializeMaterialKey(key: MaterialKey): string {
-    return md5([serializeTextureKey(key.texture)].join("~"));
+    return md5([serializeTextureKey(key.texture), key.transparent].join("~"));
 }
 
 

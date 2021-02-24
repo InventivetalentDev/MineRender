@@ -1,5 +1,5 @@
 import { SceneObject } from "../../SceneObject";
-import { BoxGeometry, Mesh, Vector3 } from "three";
+import { BoxGeometry } from "three";
 import { SKIN_PARTS, SkinPart } from "./SkinPart";
 import { classicSkinTextureCoordinates, SkinTextureCoordinates, slimSkinTextureCoordinates } from "./SkinTextureCoordinates";
 import { classicSkinGeometries, SkinGeometries, slimSkinGeometries } from "./SkinGeometries";
@@ -16,50 +16,86 @@ export class SkinObject extends SceneObject {
 
     private capeTextureSrc?: string;
 
-    private meshes: Partial<Record<SkinPart, Mesh>> = {};
 
     constructor(readonly options: SkinObjectOptions) {
         super();
-        this.createMesh();
+        this.createMeshes();
     }
 
-    protected createMesh() {
+    protected createMeshes() {
         const mat = Materials.MISSING_TEXTURE;
 
-        const headGroup = this.createAndAddGroup("head", 0, 28, 0, Axis.Y, -4);
-        const headGeo = this.getBoxGeometry(SkinPart.HEAD);
-        const head = new Mesh(headGeo, mat);
-        head.translateOnAxis(new Vector3(0, 1, 0), 4);
-        this.meshes[SkinPart.HEAD] = head;
-        headGroup.add(head);
+        {
+            const headGroup = this.createAndAddGroup("head", 0, 28, 0, Axis.Y, -4);
 
-        const bodyGroup = this.createAndAddGroup("body", 0, 18, 0);
-        const bodyGeo = this.getBoxGeometry(SkinPart.BODY);
-        const body = new Mesh(bodyGeo, mat);
-        this.meshes[SkinPart.BODY] = body;
-        bodyGroup.add(body);
+            const headGeo = this.getBoxGeometry(SkinPart.HEAD);
+            const head = this.createAndAddMesh("head", headGroup, headGeo, mat, Axis.Y, 4);
 
+            const hatGeo = this.getBoxGeometry(SkinPart.HAT);
+            const hat = this.createAndAddMesh("hat", headGroup, hatGeo, mat, Axis.Y, 4);
+        }
 
+        {
+            const bodyGroup = this.createAndAddGroup("body", 0, 18, 0);
+
+            const bodyGeo = this.getBoxGeometry(SkinPart.BODY);
+            const body = this.createAndAddMesh("body", bodyGroup, bodyGeo, mat);
+
+            const jacketGeo = this.getBoxGeometry(SkinPart.JACKET);
+            const jacket = this.createAndAddMesh("jacket", bodyGroup, jacketGeo, mat);
+        }
+
+        {
+            {
+                const leftArmGroup = this.createAndAddGroup("leftArm", -6, 18, 0, Axis.Y, 4);
+
+                const leftArmGeo = this.getBoxGeometry(SkinPart.LEFT_ARM);
+                const leftArm = this.createAndAddMesh("leftArm", leftArmGroup, leftArmGeo, mat, Axis.Y, -4);
+
+                const leftSleeveGeo = this.getBoxGeometry(SkinPart.LEFT_SLEEVE);
+                const leftSleeve = this.createAndAddMesh("leftSleeve", leftArmGroup, leftSleeveGeo, mat, Axis.Y, -4);
+            }
+            {
+                const rightArmGroup = this.createAndAddGroup("rightArm", 6, 18, 0, Axis.Y, 4);
+
+                const rightArmGeo = this.getBoxGeometry(SkinPart.RIGHT_ARM);
+                const rightArm = this.createAndAddMesh("rightArm", rightArmGroup, rightArmGeo, mat, Axis.Y, -4);
+
+                const rightSleeveGeo = this.getBoxGeometry(SkinPart.RIGHT_SLEEVE);
+                const rightSleeve = this.createAndAddMesh("rightSleeve", rightArmGroup, rightSleeveGeo, mat, Axis.Y, -4);
+            }
+        }
     }
 
 
-    public async setSkinTexture(src: string): Promise<void> {
+    public setSkinTexture(src: string): void {
         this.skinTextureSrc = src;
 
-        const mat = Materials.get({ texture: { src: src } });
+        //TODO: transparency
+        const mat = Materials.get({
+            texture: { src: src },
+            transparent: true
+        });
         for (let part of SKIN_PARTS) {
-            let mesh = this.meshes[part];
+            let mesh = this.getMeshByName(part);
             if (mesh) {
                 mesh.material = mat;
             }
         }
     }
 
+    public setSlim(slim: boolean): void {
+        if (slim !== this.slim) {
+            //TODO: update geometries and mesh positions
+        }
+        this.slim = slim;
+    }
+
 
     protected getBoxGeometry(part: SkinPart): BoxGeometry {
         const coordinates: SkinTextureCoordinates = this.slim ? slimSkinTextureCoordinates : classicSkinTextureCoordinates;
         const geometries: SkinGeometries = this.slim ? slimSkinGeometries : classicSkinGeometries;
-        return this._getBoxGeometryFromDimensions(geometries[part], coordinates[part], this.skinTextureWidth, this.skinTextureHeight);
+        return this._getBoxGeometryFromDimensions(geometries[part], coordinates[part], [64, 64], [this.skinTextureWidth, this.skinTextureHeight]);
     }
 
 

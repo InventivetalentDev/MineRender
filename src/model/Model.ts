@@ -37,5 +37,6 @@ export interface ItemModelTextures extends BlockModelTextures {
     /*layerN: number*/
 }
 
+export type DoubleArray = [number, number];
 export type TripleArray = [number, number, number];
 export type QuadArray = [number, number, number, number];
