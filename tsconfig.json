@@ -2,18 +2,18 @@
   "compilerOptions": {
     "sourceMap": true,
     "declaration": true,
-    "noImplicitAny": true,
+//    "noImplicitAny": true,
     "noImplicitReturns": true,
     "noImplicitThis": true,
     "experimentalDecorators": true,
     "strictNullChecks": true,
     "strictPropertyInitialization": true,
     "esModuleInterop": true,
-    "module": "commonjs",
+    "moduleResolution": "node",
+    "module": "CommonJS",
     "target": "es2018",
     "outDir": "lib",
     "lib": [
-      "es5",
       "es6",
       "dom"
     ],

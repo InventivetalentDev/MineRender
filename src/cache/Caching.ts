@@ -51,11 +51,16 @@ export class Caching {
 
 
 
-    static readonly modelCache: SimpleCache<CacheKey, Model> = Caches.builder()
+    static readonly rawModelCache: AsyncLoadingCache<CacheKey, Model> = Caches.builder()
+        .expireAfterWrite(Time.minutes(6))
+        .expireAfterAccess(Time.minutes(3))
+        .expirationInterval(Time.seconds(30))
+        .buildAsync<CacheKey, Model>();
+    static readonly mergedModelCache: AsyncLoadingCache<CacheKey, Model> = Caches.builder()
         .expireAfterWrite(Time.minutes(10))
         .expireAfterAccess(Time.minutes(5))
         .expirationInterval(Time.seconds(30))
-        .build<CacheKey, Model>();
+        .buildAsync<CacheKey, Model>();
 
 
 

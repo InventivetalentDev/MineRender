@@ -1,6 +1,6 @@
 const path = require('path');
 const webpack = require('webpack');
-const ProgressBarPlugin = require('progress-bar-webpack-plugin');
+const WebpackBar = require('webpackbar');
 
 const ENV = "development";
 
@@ -27,18 +27,28 @@ module.exports = {
             "util": require.resolve("util/"),
             "buffer": require.resolve("buffer/"),
             "crypto": require.resolve("crypto-browserify"),
-            "stream": require.resolve("stream-browserify")
+            "stream": require.resolve("stream-browserify"),
+            // "assert": require.resolve("assert/"),
+            // "https": require.resolve("https-browserify"),
+            // "url": require.resolve("url/"),
+            // "http": require.resolve("stream-http"),
+            // "tty": require.resolve("tty-browserify"),
+            // "zlib": require.resolve("browserify-zlib"),
+            // "net": false,
+            // "fs": false
         }
     },
     module: {
         rules: [
             {
-                test: /\.tsx?$/, use: ["ts-loader"], exclude: /node_modules|dist|lib/
+                test: /\.tsx?$/,
+                use: ["babel-loader", "ts-loader"],
+                exclude: /node_modules|dist|lib/
             }
         ]
     },
     plugins: [
-        new ProgressBarPlugin(),
+        new WebpackBar(),
         new webpack.DefinePlugin({
             'process.env.NODE_ENV': JSON.stringify(ENV)
         }),

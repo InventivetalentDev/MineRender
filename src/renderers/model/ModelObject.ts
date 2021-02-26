@@ -17,7 +17,7 @@ export class ModelObject extends SceneObject {
         const mat = Materials.MISSING_TEXTURE;
 
         //TODO: merge geometries
-        this.model.elements.forEach(el=>{
+        this.model.elements?.forEach(el=>{
             const elGeo = this._getBoxGeometryFromElement(el, [16,16],[this.textureWidth, this.textureHeight]);
             const mesh = this.createAndAddMesh(undefined, undefined, elGeo, mat);
             if (el.from[0] > 0) {

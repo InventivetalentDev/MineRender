@@ -1,5 +1,5 @@
 import { PixelFormat } from "three";
-import {  md5 } from "../util";
+import { md5 } from "../util";
 
 export type CacheKey = string;
 
@@ -86,11 +86,17 @@ export function serializeMeshKey(key: MeshKey): string {
 
 ///
 
-export interface ModelKey {
+export interface AssetKey {
+    root?: string;
+    namespace: string;
+}
 
+export interface ModelKey extends AssetKey {
+    type: "block" | "item" | string;
+    path: string;
 }
 
 export function serializeModelKey(key: ModelKey): string {
-
+    return md5([key.root, key.namespace, key.type, key.path].join("+"));
 }
 

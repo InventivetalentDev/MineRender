@@ -3,6 +3,8 @@ import { DoubleArray, QuadArray } from "./model/Model";
 import { ModelFaces } from "./model/ModelElement";
 import { CUBE_FACES } from "./CubeFace";
 
+export const DEFAULT_UV: QuadArray = [0, 0, 16, 16];
+
 // noinspection PointlessArithmeticExpressionJS
 export class UVMapper {
 
@@ -54,7 +56,10 @@ export class UVMapper {
         for (let faceIndex = 0; faceIndex < CUBE_FACES.length; faceIndex++) {
             let faceName = CUBE_FACES[faceIndex];
             let face = faces[faceName];
-            if (!face || !face.uv) continue;
+            if (!face) continue;
+            if (!face.uv) {
+                face.uv = DEFAULT_UV;
+            }
 
             this.setCubeFaceUvAttribute(attributes, faceIndex * 4, originalTextureSize, actualTextureSize, face.uv);
         }
@@ -66,7 +71,10 @@ export class UVMapper {
             let faceName = CUBE_FACES[faceIndex];
             let face = faces[faceName];
             console.log(face);
-            if (!face || !face.uv) continue;
+            if (!face) continue;
+            if (!face.uv) {
+                face.uv = DEFAULT_UV;
+            }
 
             this.addCubeFaceUvToArray(array, faceIndex * 4, originalTextureSize, actualTextureSize, face.uv);
         }

@@ -1,29 +1,34 @@
 import { ModelElement } from "./ModelElement";
 import { DisplayPosition } from "./DisplayPosition";
 import { GuiLight } from "./GuiLight";
+import { ModelKey } from "../cache/CacheKey";
 
 export interface BlockModel extends Model{
-    textures: BlockModelTextures;
-    ambientocclusion: boolean;
+    textures?: BlockModelTextures;
+    ambientocclusion?: boolean;
 }
 
 export interface ItemModel extends Model {
-    textures: ItemModelTextures;
-    gui_light: GuiLight;
+    textures?: ItemModelTextures;
+    gui_light?: GuiLight;
 }
 
 export interface Model {
-    textures: ModelTextures;
-    parent: string;
-    display: ModelDisplay;
-    elements: ModelElement[];
+    key?: ModelKey;
+    name?: string;
+    names?: string[];
+
+    textures?: ModelTextures;
+    parent?: string;
+    display?: ModelDisplay;
+    elements?: ModelElement[];
 }
 
 export interface ModelDisplay {
-    position: DisplayPosition;
-    translation: TripleArray;
-    rotation: TripleArray;
-    scale: TripleArray;
+    position?: DisplayPosition;
+    translation?: TripleArray;
+    rotation?: TripleArray;
+    scale?: TripleArray;
 }
 
 export interface ModelTextures {

@@ -6,8 +6,25 @@
 
         <script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@dev/examples/js/controls/OrbitControls.js"></script>
 
+        <script>
+            (function () {
+                var script = document.createElement('script');
+                script.onload = function () {
+                    var stats = new Stats();
+                    document.body.appendChild(stats.dom);
+                    requestAnimationFrame(function loop() {
+                        stats.update();
+                        requestAnimationFrame(loop)
+                    });
+                };
+                script.src = 'https://unpkg.com/stats.js/build/stats.min.js';
+                document.head.appendChild(script);
+            })()
+        </script>
         <script src="../dist/minerender.bundle.js"></script>
         <script>
+MineRender.enableDebug();
+
 
             // var stats = new Stats();
             // stats.showPanel( 0 ); // 0: fps, 1: ms, 2: mb, 3+: custom
@@ -78,57 +95,32 @@
             // let obj = new MineRender.SkinObject();
             // obj.setSkinTexture("http://assets.mojang.com/SkinTemplates/4px_reference.png")
 
-            let obj = new MineRender.ModelObject({
-                "parent": "block/block",
-                "elements": [
-                    {
-                        "from": [
-                            0,
-                            0,
-                            0
-                        ],
-                        "to": [
-                            16,
-                            16,
-                            16
-                        ],
-                        "faces": {
-                            "down": {
-                                "texture": "#down",
-                                "cullface": "down",
-                                uv: [0,0,16,16]
-                            },
-                            "up": {
-                                "texture": "#up",
-                                "cullface": "up",
-                                uv: [0,0,16,16]
-                            },
-                            "north": {
-                                "texture": "#north",
-                                "cullface": "north",
-                                uv: [0,0,16,16]
-                            },
-                            "south": {
-                                "texture": "#south",
-                                "cullface": "south",
-                                uv: [0,0,16,16]
-                            },
-                            "west": {
-                                "texture": "#west",
-                                "cullface": "west",
-                                uv: [0,0,16,16]
-                            },
-                            "east": {
-                                "texture": "#east",
-                                "cullface": "east",
-                                uv: [0,0,16,16]
-                            }
-                        }
-                    }
-                ]
-            });
+            MineRender.Models.getMerged({
+                type: "block",
+                path: "potted_fern"
+            }).then(model=>{
+                console.log(model)
+                let obj = new MineRender.ModelObject(model);
+                renderer.scene.add(obj);
+            })
 
-            renderer.scene.add(obj);
+            // let obj = new MineRender.ModelObject({
+            //     "gui_light": "side",
+            //     "display": {
+            //         "gui": {"rotation": [30, 225, 0], "translation": [0, 0, 0], "scale": [0.625, 0.625, 0.625]},
+            //         "ground": {"rotation": [0, 0, 0], "translation": [0, 3, 0], "scale": [0.25, 0.25, 0.25]},
+            //         "fixed": {"rotation": [0, 0, 0], "translation": [0, 0, 0], "scale": [0.5, 0.5, 0.5]},
+            //         "thirdperson_righthand": {"rotation": [75, 45, 0], "translation": [0, 2.5, 0], "scale": [0.375, 0.375, 0.375]},
+            //         "firstperson_righthand": {"rotation": [0, 45, 0], "translation": [0, 0, 0], "scale": [0.4, 0.4, 0.4]},
+            //         "firstperson_lefthand": {"rotation": [0, 225, 0], "translation": [0, 0, 0], "scale": [0.4, 0.4, 0.4]}
+            //     },
+            //     "key": {"namespace": "minecraft", "type": "block", "path": "stone"},
+            //     "name": "stone",
+            //     "elements": [{"from": [0, 0, 0], "to": [16, 16, 16], "faces": {"down": {"texture": "#down", "cullface": "down"}, "up": {"texture": "#up", "cullface": "up"}, "north": {"texture": "#north", "cullface": "north"}, "south": {"texture": "#south", "cullface": "south"}, "west": {"texture": "#west", "cullface": "west"}, "east": {"texture": "#east", "cullface": "east"}}}],
+            //     "textures": {"particle": "#all", "down": "#all", "up": "#all", "north": "#all", "east": "#all", "south": "#all", "west": "#all", "all": "minecraft:block/stone"},
+            //     "names": ["block", "cube", "cube_all"]
+            // });
+            // renderer.scene.add(obj);
 
             // let wireGeo = new THREE.EdgesGeometry(obj);
             // let wireMat = new THREE.LineBasicMaterial({color: 0xffffff, linewidth: 2})

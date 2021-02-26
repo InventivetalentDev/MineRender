@@ -2,14 +2,15 @@ import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
 import { JobQueue } from "jobqu";
 import { Time } from "@inventivetalent/time";
 
-axios.defaults.headers["User-Agent"] = "MineRender";
+if (typeof window === "undefined") {
+    axios.defaults.headers["User-Agent"] = "MineRender";
+}
 
 export class Requests {
 
     private static axiosInstance: AxiosInstance = axios.create({});
 
     private static mcAssetInstance: AxiosInstance = axios.create({
-        baseURL: "https://assets.mcasset.cloud"
     })
 
     private static mcAssetRequestQueue: JobQueue<AxiosRequestConfig, AxiosResponse>
@@ -21,6 +22,10 @@ export class Requests {
 
     public static mcAssetRequest(request: AxiosRequestConfig): Promise<AxiosResponse> {
         return this.mcAssetRequestQueue.add(request);
+    }
+
+    public static setMcAssetRoot(root: string) {
+        this.mcAssetInstance.defaults.baseURL = root;
     }
 
 }
