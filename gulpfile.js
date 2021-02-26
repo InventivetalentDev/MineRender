@@ -12,15 +12,16 @@ const tsify = require('tsify');
 const babelify = require('babelify');
 
 function bundle(watch) {
-    let bundler = browserify({
-        debug: true,
-        standalone: "MineRender"
-    });
+    let bundler = browserify('src/index.ts',
+        {
+            debug: true,
+            standalone: "MineRender"
+        }
+    );
 
     function rebundle() {
-        console.log("bundling...")
+        console.log("[bundle] bundling...")
         return bundler
-            .add('src/index.ts')
 
             .plugin(tsify, {target: 'es6'})
             .transform(babelify, {
@@ -30,7 +31,7 @@ function bundle(watch) {
 
             .bundle()
             .on('error', function (error) {
-                console.error(error.toString());
+                console.error(error);
             })
 
             .pipe(source('bundle.js'))
@@ -38,6 +39,10 @@ function bundle(watch) {
             .pipe(sourcemaps.init({loadMaps: true}))
             .pipe(sourcemaps.write('./'))
             .pipe(gulp.dest('dist'))
+
+            .on('end',function () {
+                console.log("[bundle] done!")
+            })
     }
 
     if (watch) {
@@ -47,7 +52,7 @@ function bundle(watch) {
     return rebundle();
 }
 
-gulp.task('bundle',function () {
+gulp.task('bundle', function () {
     return bundle(false);
 });
 gulp.task('bundle:w', function () {
