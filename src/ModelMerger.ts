@@ -1,6 +1,7 @@
 import { Model } from "./model/Model";
 import { Models } from "./Models";
 import merge from "ts-deepmerge";
+import { Assets } from "./Assets";
 
 export class ModelMerger {
 
@@ -22,7 +23,7 @@ export class ModelMerger {
             return [];
         }
         const models: Model[] = [];
-        const parentKey = Models.parseModelKey(model.parent);
+        const parentKey = Assets.parseAssetKey("models", model.parent);
         const parentModel = await Models.getRaw(parentKey);
         console.log(parentModel)
         if (parentModel) {

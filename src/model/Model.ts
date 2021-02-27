@@ -1,7 +1,9 @@
 import { ModelElement } from "./ModelElement";
 import { DisplayPosition } from "./DisplayPosition";
 import { GuiLight } from "./GuiLight";
-import { ModelKey } from "../cache/CacheKey";
+import { MinecraftAsset } from "../MinecraftAsset";
+import { AssetKey } from "../cache/CacheKey";
+import { ImageInfo } from "../image/ImageLoader";
 
 export interface BlockModel extends Model{
     textures?: BlockModelTextures;
@@ -13,15 +15,14 @@ export interface ItemModel extends Model {
     gui_light?: GuiLight;
 }
 
-export interface Model {
-    key?: ModelKey;
-    name?: string;
-    names?: string[];
-
+export interface Model extends MinecraftAsset {
     textures?: ModelTextures;
     parent?: string;
     display?: ModelDisplay;
     elements?: ModelElement[];
+}
+
+export interface TextureAsset extends ImageInfo, MinecraftAsset {
 }
 
 export interface ModelDisplay {

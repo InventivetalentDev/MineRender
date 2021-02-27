@@ -23,7 +23,7 @@
         </script>
         <script src="../dist/bundle.js"></script>
         <script>
-
+            const start = Date.now();
 
             // var stats = new Stats();
             // stats.showPanel( 0 ); // 0: fps, 1: ms, 2: mb, 3+: custom
@@ -95,12 +95,16 @@
             // obj.setSkinTexture("http://assets.mojang.com/SkinTemplates/4px_reference.png")
 
             MineRender.Models.getMerged({
+                assetType: "models",
                 type: "block",
-                path: "potted_fern"
+                path: "potted_fern",
+                extension: ".json"
             }).then(model=>{
                 console.log(model)
                 let obj = new MineRender.ModelObject(model);
                 renderer.scene.add(obj);
+
+                console.log("Time to scene add: " + (Date.now() - start) + "ms");
             })
 
             // let obj = new MineRender.ModelObject({

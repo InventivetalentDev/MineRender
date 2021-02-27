@@ -11,6 +11,7 @@ import { Maybe } from "./util";
 
 export class SceneObject extends Object3D {
 
+    private materialCallbacks: { [key: string]: Array<(mat: Material, key: string) => void>; } = {};
 
     constructor() {
         super();
@@ -56,8 +57,8 @@ export class SceneObject extends Object3D {
 
     /// MESHES
 
-    protected createAndAddMesh(name?: string, group?: Object3D, geometry?: BufferGeometry, material?: Material | Material[],offsetAxis?: Axis, offset: number = 0): Mesh {
-        const mesh = this.createMesh(name, geometry, material,offsetAxis,offset);
+    protected createAndAddMesh(name?: string, group?: Object3D, geometry?: BufferGeometry, material?: Material | Material[], offsetAxis?: Axis, offset: number = 0): Mesh {
+        const mesh = this.createMesh(name, geometry, material, offsetAxis, offset);
         if (group) {
             group.add(mesh);
         } else {
@@ -66,7 +67,7 @@ export class SceneObject extends Object3D {
         return mesh;
     }
 
-    protected createMesh(name?: string, geometry?: BufferGeometry, material?: Material | Material[],offsetAxis?: Axis, offset: number = 0): Mesh {
+    protected createMesh(name?: string, geometry?: BufferGeometry, material?: Material | Material[], offsetAxis?: Axis, offset: number = 0): Mesh {
         const mesh = new Mesh(geometry, material);
         if (name) {
             mesh.name = `mesh:${ name }`;
@@ -91,6 +92,19 @@ export class SceneObject extends Object3D {
      */
     public toggleMeshVisibility(name: string, visible?: boolean): boolean {
         return this.toggleObjectVisibility(this.getMeshByName(name), visible);
+    }
+
+    public iterateAllMeshes(cb: (mesh: Mesh) => void) {
+        this.children.forEach(obj => {
+            if ((<Mesh>obj).isMesh) {
+                cb(obj as Mesh);
+            }
+            obj.children.forEach(obj1 => {
+                if ((<Mesh>obj1).isMesh) {
+                    cb(obj1 as Mesh);
+                }
+            })
+        })
     }
 
     /// GEOMETRIES

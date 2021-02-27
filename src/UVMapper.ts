@@ -1,7 +1,12 @@
 import { BoxGeometry, BufferAttribute, Float32BufferAttribute, Vec2, Vector2 } from "three";
-import { DoubleArray, QuadArray } from "./model/Model";
-import { ModelFaces } from "./model/ModelElement";
+import { DoubleArray, Model, QuadArray, TextureAsset } from "./model/Model";
+import { ModelElement, ModelFaces } from "./model/ModelElement";
 import { CUBE_FACES } from "./CubeFace";
+import { ModelTextures } from "./ModelTextures";
+import { Assets } from "./Assets";
+import { Maybe } from "./util";
+import { WrappedImage } from "./WrappedImage";
+import { CanvasImage } from "./CanvasImage";
 
 export const DEFAULT_UV: QuadArray = [0, 0, 16, 16];
 
@@ -70,7 +75,6 @@ export class UVMapper {
         for (let faceIndex = 0; faceIndex < CUBE_FACES.length; faceIndex++) {
             let faceName = CUBE_FACES[faceIndex];
             let face = faces[faceName];
-            console.log(face);
             if (!face) continue;
             if (!face.uv) {
                 face.uv = DEFAULT_UV;
@@ -85,5 +89,67 @@ export class UVMapper {
         return new Float32BufferAttribute(this.facesToUvArray(faces, originalTextureSize, actualTextureSize), 2);
     }
 
+    public static async createAtlas(model: Model) {
+        const textureMap: { [key: string]: Maybe<WrappedImage>; } = {};
+        if (model.textures) {
+            const promises: Promise<void>[] = [];
+            for (let textureKey in model.textures) {
+                let textureValue = model.textures[textureKey];
+                promises.push(ModelTextures.get(Assets.parseAssetKey("textures", textureValue, model.key)).then(asset => {
+                    textureMap[textureKey] = new WrappedImage(asset!);
+                }));
+            }
+            await Promise.all(promises);
+             const textureCount = promises.length;
+
+             const sizes: { [texture: string]: DoubleArray; } = {};
+
+            let maxWidth = 0;
+            let maxHeight = 0;
+            for (let textureKey in textureMap) {
+                let texture = textureMap[textureKey];
+                if(!texture) continue;
+                sizes[textureKey] = [texture.width, texture.height];
+                if (texture.width > maxWidth) {
+                    maxWidth = texture.width;
+                }
+                if (texture.height > maxHeight) {
+                    maxHeight = texture.height;
+                }
+            }
+
+            const s = Math.sqrt(textureCount);
+            const size = Math.ceil(s*maxWidth)
+
+            const image = new CanvasImage(size, size);
+
+            const positions: { [texture: string]: DoubleArray; } = {};
+
+
+            let textureIndex = 0;
+            for (let textureKey in textureMap) {
+                let texture = textureMap[textureKey];
+                if(!texture)continue;
+                let x = Math.floor(textureIndex % maxWidth);
+                let y = Math.floor(textureIndex / maxWidth);
+                positions[textureKey] = [x, y];
+                image.putData(texture.data, x, y);
+            }
+            //TODO
+
+            if (model.elements) {
+                for (let elementIndex = 0; elementIndex < model.elements.length; elementIndex++) {
+                    let element = model.elements[elementIndex];
+                    for (let faceIndex = 0; faceIndex < CUBE_FACES.length; faceIndex++) {
+                        let faceName = CUBE_FACES[faceIndex];
+                        let face = element.faces[faceName];
+                        if (!face) continue;
+
+
+                    }
+                }
+            }
+        }
+    }
 
 }
