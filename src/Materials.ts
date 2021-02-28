@@ -5,13 +5,13 @@ import { Caching } from "./cache/Caching";
 
 export class Materials {
 
-    public static readonly MISSING_TEXTURE = Materials.get({ texture: { src: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABAAQMAAACQp+OdAAAABlBMVEX/AP8AAACfphTyAAAAFUlEQVQoz2MIhQKGVVAwKjIqQrwIAHRz/wFI17TEAAAAAElFTkSuQmCC" } });
+    public static readonly MISSING_TEXTURE = Materials.getImage({ texture: { src: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABAAQMAAACQp+OdAAAABlBMVEX/AP8AAACfphTyAAAAFUlEQVQoz2MIhQKGVVAwKjIqQrwIAHRz/wFI17TEAAAAAElFTkSuQmCC" } });
 
-    public static create(key: MaterialKey): Material {
+    public static createImage(key: MaterialKey): Material {
         //TODO: type from key
         const transparent = key.transparent || false;
         return new MeshBasicMaterial({
-            map: Textures.get(key.texture),
+            map: Textures.getImage(key.texture),
             transparent: transparent,
             side: transparent ? DoubleSide : FrontSide,
             alphaTest: 0.1
@@ -19,10 +19,18 @@ export class Materials {
         //TODO: params
     }
 
-    public static get(key: MaterialKey): Material {
+    public static createCanvas(canvas: HTMLCanvasElement): Material {
+        //TODO
+        return new MeshBasicMaterial({
+            map: Textures.createCanvas(canvas),
+            transparent: true
+        })
+    }
+
+    public static getImage(key: MaterialKey): Material {
         const keyStr = serializeMaterialKey(key);
         return Caching.materialCache.get(keyStr, k => {
-            return Materials.create(key);
+            return Materials.createImage(key);
         })!;
     }
 

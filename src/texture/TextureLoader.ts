@@ -4,6 +4,7 @@ import * as THREE from "three";
 import { ImageLoader } from "../image/ImageLoader";
 import { createCanvas } from "../CanvasCompat";
 import { CanvasRenderingContext2D } from "canvas";
+import { Textures } from "../Textures";
 
 export class TextureLoader {
 
@@ -21,10 +22,7 @@ export class TextureLoader {
         texture.format = format;
         texture.rotation = rotation;
 
-        texture.magFilter = THREE.NearestFilter;
-        texture.minFilter = THREE.NearestFilter;
-        texture.anisotropy = 0;
-        return texture;
+        return Textures.initTextureProps(texture);
     }
 
     public static load(src: string,format: PixelFormat = RGBAFormat, rotation: number = 0): Texture {
@@ -36,10 +34,7 @@ export class TextureLoader {
         texture.format = format;
         texture.rotation = rotation;
 
-        texture.magFilter = THREE.NearestFilter;
-        texture.minFilter = THREE.NearestFilter;
-        texture.anisotropy = 0;
-        return texture;
+        return Textures.initTextureProps(texture);
     }
 
 

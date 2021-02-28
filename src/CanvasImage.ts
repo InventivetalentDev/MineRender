@@ -40,8 +40,8 @@ export class CanvasImage {
         return this.context.getImageData(sx, sy, sw, sh);
     }
 
-    putData(data: ImageData, dx = 0, dy = 0): void {
-        this.context.putImageData(data, dy, dy);
+    putData(data: ImageData, dx = 0, dy = 0, dirtyX = 0, dirtyY = 0, dirtyWidth=data.width,dirtyHeight=data.height): void {
+        this.context.putImageData(data, dy, dy, dirtyX, dirtyY, dirtyWidth, dirtyHeight);
     }
 
     test() {

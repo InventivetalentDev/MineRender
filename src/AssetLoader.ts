@@ -12,7 +12,7 @@ import { ImageInfo, ImageLoader } from "./image/ImageLoader";
 export interface ResponseParser<T extends MinecraftAsset> {
     config(request: AxiosRequestConfig);
 
-    parse(response: AxiosResponse): Maybe<T>;
+    parse(response: AxiosResponse): Maybe<T>|Promise<Maybe<T>>;
 }
 
 export class AssetLoader {
@@ -28,8 +28,8 @@ export class AssetLoader {
         config(request: AxiosRequestConfig) {
             request.responseType = "arraybuffer";
         },
-        parse(response: AxiosResponse): Maybe<TextureAsset> {
-            return ImageLoader.processResponse(response) as TextureAsset;
+        async parse(response: AxiosResponse): Promise<Maybe<TextureAsset>> {
+            return await ImageLoader.processResponse(response) as TextureAsset;
         }
     }
 
@@ -89,7 +89,7 @@ export class AssetLoader {
                         return undefined;
                     }
                 }
-                debug("Failed to load %j", key);
+                debug("Failed to load %j: %s", key, err?.message);
                 throw err;
             })
     }

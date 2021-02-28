@@ -7,6 +7,10 @@ import { Assets } from "./Assets";
 import { Maybe } from "./util";
 import { WrappedImage } from "./WrappedImage";
 import { CanvasImage } from "./CanvasImage";
+import { Mode } from "fs";
+import { TextureAtlas } from "./TextureAtlas";
+import { AssetKey, serializeAssetKey } from "./cache/CacheKey";
+import { Caching } from "./cache/Caching";
 
 export const DEFAULT_UV: QuadArray = [0, 0, 16, 16];
 
@@ -70,6 +74,7 @@ export class UVMapper {
         }
     }
 
+    //TODO: fix this stuff for atlas
     public static facesToUvArray(faces: ModelFaces, originalTextureSize: DoubleArray, actualTextureSize: DoubleArray): number[] {
         const array: number[] = [];
         for (let faceIndex = 0; faceIndex < CUBE_FACES.length; faceIndex++) {
@@ -89,26 +94,47 @@ export class UVMapper {
         return new Float32BufferAttribute(this.facesToUvArray(faces, originalTextureSize, actualTextureSize), 2);
     }
 
-    public static async createAtlas(model: Model) {
+    public static async getAtlas(model: Model): Promise<Maybe<TextureAtlas>> {
+        const keyStr = serializeAssetKey(model.key!);
+        return Caching.modelTextureAtlasCache.get(keyStr, k => {
+            return this.createAtlas(model);
+        })
+    }
+
+    public static async createAtlas(originalModel: Model): Promise<Maybe<TextureAtlas>> {
         const textureMap: { [key: string]: Maybe<WrappedImage>; } = {};
+        const model = { ...originalModel };
         if (model.textures) {
             const promises: Promise<void>[] = [];
+            const uniqueTextureNames: string[] = [];
+            const textureReferences: { [k: string]: string; } = {};
             for (let textureKey in model.textures) {
                 let textureValue = model.textures[textureKey];
-                promises.push(ModelTextures.get(Assets.parseAssetKey("textures", textureValue, model.key)).then(asset => {
-                    textureMap[textureKey] = new WrappedImage(asset!);
-                }));
+                if (textureValue.startsWith("#")) {
+                    textureReferences[textureKey] = textureValue.substr(1);
+                } else {
+                    uniqueTextureNames.push(textureKey);
+                    promises.push(ModelTextures.get(Assets.parseAssetKey("textures", textureValue, model.key)).then(asset => {
+                        textureMap[textureKey] = new WrappedImage(asset!);
+                    }));
+                }
             }
             await Promise.all(promises);
-             const textureCount = promises.length;
+            const textureCount = uniqueTextureNames.length;
+            console.log(textureCount + " textures")
 
-             const sizes: { [texture: string]: DoubleArray; } = {};
+            for (let refKey in textureReferences) {
+                textureMap[refKey] = textureMap[textureReferences[refKey]];
+            }
 
+            const sizes: { [texture: string]: DoubleArray; } = {};
+
+            // Find largest texture dimensions
             let maxWidth = 0;
             let maxHeight = 0;
-            for (let textureKey in textureMap) {
+            for (let textureKey of uniqueTextureNames) {
                 let texture = textureMap[textureKey];
-                if(!texture) continue;
+                if (!texture) continue;
                 sizes[textureKey] = [texture.width, texture.height];
                 if (texture.width > maxWidth) {
                     maxWidth = texture.width;
@@ -118,25 +144,37 @@ export class UVMapper {
                 }
             }
 
-            const s = Math.sqrt(textureCount);
-            const size = Math.ceil(s*maxWidth)
+            const s =/*
+                textureCount <= 1 ? 1 :
+                    textureCount === 2 ? 2 :*/
+                        (Math.round(Math.sqrt(textureCount) / 2) * 2);
+            console.log(s)
+            const size = Math.ceil(s * maxWidth)
+            console.log("size: " + size);
+            const squaredSize = size * size;
 
+            // Create image
             const image = new CanvasImage(size, size);
-
             const positions: { [texture: string]: DoubleArray; } = {};
 
-
+            // Draw all textures onto a single image
             let textureIndex = 0;
-            for (let textureKey in textureMap) {
+            for (let textureKey of uniqueTextureNames) {
                 let texture = textureMap[textureKey];
-                if(!texture)continue;
-                let x = Math.floor(textureIndex % maxWidth);
-                let y = Math.floor(textureIndex / maxWidth);
+                if (!texture) continue;
+                let y = Math.floor(textureIndex % s) * maxWidth;
+                let x = Math.floor(textureIndex / s) * maxWidth;
+                console.log(x);
+                console.log(y);
+                console.log(Buffer.from(texture.dataArray).toString("base64"))
                 positions[textureKey] = [x, y];
-                image.putData(texture.data, x, y);
+                image.putData(texture.data, x, y, 0, 0, maxWidth, maxWidth);
+                //TODO: only first frame for animated textures
+                textureIndex++;
             }
-            //TODO
+            console.log(image.toDataURL());
 
+            // Adjust UV positions
             if (model.elements) {
                 for (let elementIndex = 0; elementIndex < model.elements.length; elementIndex++) {
                     let element = model.elements[elementIndex];
@@ -144,12 +182,33 @@ export class UVMapper {
                         let faceName = CUBE_FACES[faceIndex];
                         let face = element.faces[faceName];
                         if (!face) continue;
+                        if (!face.uv) {
+                            face.uv = DEFAULT_UV;
+                        }
 
+                        let faceTexture = face.texture;
+                        if (!faceTexture) continue;
+                        faceTexture = faceTexture.substr(1); // remove #
+                        let position = positions[faceTexture];
+                        if (!position) continue;
 
+                        face.uv[0] += position[0];
+                        face.uv[2] += position[0];
+
+                        face.uv[1] += position[1];
+                        face.uv[3] += position[1];
                     }
                 }
             }
+
+            return {
+                model,
+                image,
+                sizes,
+                positions
+            };
         }
+        return undefined;
     }
 
 }

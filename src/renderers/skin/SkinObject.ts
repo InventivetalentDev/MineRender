@@ -71,8 +71,8 @@ export class SkinObject extends SceneObject {
     public setSkinTexture(src: string): void {
         this.skinTextureSrc = src;
 
-        //TODO: transparency
-        const mat = Materials.get({
+        //TODO
+        const mat = Materials.getImage({
             texture: { src: src },
             transparent: true
         });

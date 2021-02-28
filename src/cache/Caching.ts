@@ -12,6 +12,7 @@ import { Materials } from "../Materials";
 import { CompatImage } from "../CanvasCompat";
 import { Model, TextureAsset } from "../model/Model";
 import { WrappedImage } from "../WrappedImage";
+import { TextureAtlas } from "../TextureAtlas";
 
 export class Caching {
 
@@ -71,6 +72,11 @@ export class Caching {
         .expireAfterAccess(Time.minutes(5))
         .expirationInterval(Time.seconds(30))
         .buildAsync<CacheKey, Model>();
+    static readonly modelTextureAtlasCache: AsyncLoadingCache<CacheKey, TextureAtlas> = Caches.builder()
+        .expireAfterWrite(Time.minutes(10))
+        .expireAfterAccess(Time.minutes(5))
+        .expirationInterval(Time.seconds(30))
+        .buildAsync<CacheKey, TextureAtlas>();
 
 
     public static clear() {

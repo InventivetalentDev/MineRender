@@ -29,7 +29,11 @@ export class Models {
         }
         const keyStr = serializeAssetKey(key);
         return Caching.rawModelCache.get(keyStr, k => {
-            return AssetLoader.loadOrRetryWithDefaults(key, AssetLoader.MODEL);
+            return AssetLoader.loadOrRetryWithDefaults(key, AssetLoader.MODEL).then(asset => {
+                if (asset)
+                    asset.key = key;
+                return asset;
+            })
         });
     }
 

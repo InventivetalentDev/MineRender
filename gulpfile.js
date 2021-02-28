@@ -19,6 +19,10 @@ function bundle(watch) {
         }
     );
 
+    bundler.on('error', function (error) {
+        console.error(error);
+    });
+
     function rebundle() {
         console.log("[bundle] bundling...")
         return bundler
@@ -30,9 +34,6 @@ function bundle(watch) {
             })
 
             .bundle()
-            .on('error', function (error) {
-                console.error(error);
-            })
 
             .pipe(source('bundle.js'))
             .pipe(buffer())
@@ -40,9 +41,9 @@ function bundle(watch) {
             .pipe(sourcemaps.write('./'))
             .pipe(gulp.dest('dist'))
 
-            .on('end',function () {
+            .on('end', function () {
                 console.log("[bundle] done!")
-            })
+            });
     }
 
     if (watch) {

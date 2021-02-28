@@ -5,6 +5,9 @@ import { ModelTextures } from "../../ModelTextures";
 import webpack from "webpack";
 import { Assets } from "../../Assets";
 import { Maybe } from "../../util";
+import { UVMapper } from "../../UVMapper";
+import { TextureAtlas } from "../../TextureAtlas";
+import { EdgesGeometry, LineBasicMaterial, LineSegments } from "three";
 
 export class ModelObject extends SceneObject {
 
@@ -14,20 +17,40 @@ export class ModelObject extends SceneObject {
 
     private textureMap: { [key: string]: Maybe<TextureAsset>; } = {};
 
-    constructor(readonly model: Model, readonly options: ModelObjectOptions) {
+    private atlas?: TextureAtlas;
+
+    constructor(readonly originalModel: Model, readonly options: ModelObjectOptions) {
         super();
-        this.createMeshes();
+        // load textures first so we have the updated UV coordinates from the atlas
         this.loadTextures().then(()=>{
+            this.createMeshes();
             this.applyTextures();
         })
     }
+
+    protected async loadTextures(): Promise<void> {
+        this.atlas = await UVMapper.getAtlas(this.originalModel);
+        console.log(this.atlas)
+
+        // if (this.model.textures) {
+        //     let promises: Promise<void>[] = [];
+        //     for (let textureKey in this.model.textures) {
+        //         let textureValue = this.model.textures[textureKey];
+        //         promises.push(ModelTextures.preload(Assets.parseAssetKey("textures", textureValue, this.model.key)).then(asset => {
+        //             this.textureMap[textureKey] = asset;
+        //         }));
+        //     }
+        //     await Promise.all(promises);
+        // }
+    }
+
 
     protected createMeshes() {
         const mat = Materials.MISSING_TEXTURE;
 
         //TODO: merge geometries
-        this.model.elements?.forEach(el => {
-            const elGeo = this._getBoxGeometryFromElement(el, [16, 16], [this.textureWidth, this.textureHeight]);
+        this.atlas!.model.elements?.forEach(el => {
+            const elGeo = this._getBoxGeometryFromElement(el, [16, 16], [16,16]);
             const mesh = this.createAndAddMesh(undefined, undefined, elGeo, mat);
             if (el.from[0] > 0) {
                 mesh.translateX(el.from[0]);
@@ -40,38 +63,33 @@ export class ModelObject extends SceneObject {
             }
             //TODO: rotation
 
+
+
+            let wireGeo = new EdgesGeometry(elGeo);
+            let wireMat = new LineBasicMaterial({color: 0xffffff, linewidth: 2})
+            let wireframe = new LineSegments(wireGeo, wireMat);
+            mesh.add(wireframe);
+
         })
     }
 
-    protected async loadTextures(): Promise<void> {
-        if (this.model.textures) {
-            let promises: Promise<void>[] = [];
-            for (let textureKey in this.model.textures) {
-                let textureValue = this.model.textures[textureKey];
-                promises.push(ModelTextures.preload(Assets.parseAssetKey("textures", textureValue, this.model.key)).then(asset => {
-                    this.textureMap[textureKey] = asset;
-                }));
-            }
-            await Promise.all(promises);
-        }
-    }
 
     protected applyTextures() {
-        if (this.model.textures) {
-            for (let textureKey in this.model.textures) {
-                let asset = this.textureMap[textureKey];
-                if (asset) {
+        console.log(this.atlas!.model)
+        // if (this.atlas!.model.textures) {
+        //     for (let textureKey in this.atlas!.model.textures) {
+        //         let asset = this.textureMap[textureKey];
+        //         if (asset) {
                     //TODO: transparency
-                    let mat = Materials.get({
-                        texture: {src: asset.src!},
-                        transparent: true
-                    });
+                    console.log(this.atlas!.image!.canvas!)
+                    let mat = Materials.createCanvas(this.atlas!.image!.canvas! as HTMLCanvasElement);
+                    console.log(mat)
                     this.iterateAllMeshes(mesh=>{
                         mesh.material = mat;
                     })
-                }
-            }
-        }
+        //         }
+        //     }
+        // }
     }
 
 

@@ -7,7 +7,7 @@ import { Caching } from "./cache/Caching";
 export class Meshes {
 
     public static createBox(key: MeshKey): Mesh {
-        return new Mesh(Geometries.getBox(key.geometry), Materials.get(key.material));
+        return new Mesh(Geometries.getBox(key.geometry), Materials.getImage(key.material));
     }
 
     public static getBox(key: MeshKey): Mesh {
