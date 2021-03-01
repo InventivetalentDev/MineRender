@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import * as browserCrypto from "crypto-js";
 import CryptoJS from "crypto-js/core";
+import exp from "constants";
 
 export type Maybe<T> = T | undefined;
 
@@ -46,6 +47,13 @@ export function base64decode(str: string): string {
     return Buffer.from(str, "base64").toString("ascii");
 }
 
+export function toRadians(degrees: number): number {
+    return degrees*Math.PI/180;
+}
+
+export function toDegrees(radians: number): number {
+    return radians*180/Math.PI;
+}
 
 (function (){
     const source =[

@@ -65,16 +65,8 @@ export class ImageLoader {
 
     public static async processResponse(response: AxiosResponse): Promise<ImageInfo> {
         const src = response.config.url;
-        console.log(typeof response.data);
-        console.log(response.data)
         const data = Buffer.from(response.data);
-        console.log(data);
         const { width, height, type } = imageSize(data);
-        console.log(width);
-        console.log(height);
-        console.log(type);
-        // const blob = new Blob([data], {type: `image/${type}`});
-        // console.log(blob)
         return {
             src,
             width: width || 0,

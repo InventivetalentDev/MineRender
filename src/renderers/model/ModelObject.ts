@@ -22,7 +22,7 @@ export class ModelObject extends SceneObject {
     constructor(readonly originalModel: Model, readonly options: ModelObjectOptions) {
         super();
         // load textures first so we have the updated UV coordinates from the atlas
-        this.loadTextures().then(()=>{
+        this.loadTextures().then(() => {
             this.createMeshes();
             this.applyTextures();
         })
@@ -50,23 +50,23 @@ export class ModelObject extends SceneObject {
 
         //TODO: merge geometries
         this.atlas!.model.elements?.forEach(el => {
-            const elGeo = this._getBoxGeometryFromElement(el, [16, 16], [16,16]);
+            console.log(el);
+            const elGeo = this._getBoxGeometryFromElement(el);
             const mesh = this.createAndAddMesh(undefined, undefined, elGeo, mat);
-            if (el.from[0] > 0) {
+            if (el.from[0] !== 0) {
                 mesh.translateX(el.from[0]);
             }
-            if (el.from[1] > 0) {
+            if (el.from[1] !== 0) {
                 mesh.translateY(el.from[1]);
             }
-            if (el.from[2] > 0) {
+            if (el.from[2] !== 0) {
                 mesh.translateZ(el.from[2]);
             }
             //TODO: rotation
 
 
-
             let wireGeo = new EdgesGeometry(elGeo);
-            let wireMat = new LineBasicMaterial({color: 0xffffff, linewidth: 2})
+            let wireMat = new LineBasicMaterial({ color: 0xffffff, linewidth: 2 })
             let wireframe = new LineSegments(wireGeo, wireMat);
             mesh.add(wireframe);
 
@@ -80,13 +80,13 @@ export class ModelObject extends SceneObject {
         //     for (let textureKey in this.atlas!.model.textures) {
         //         let asset = this.textureMap[textureKey];
         //         if (asset) {
-                    //TODO: transparency
-                    console.log(this.atlas!.image!.canvas!)
-                    let mat = Materials.createCanvas(this.atlas!.image!.canvas! as HTMLCanvasElement);
-                    console.log(mat)
-                    this.iterateAllMeshes(mesh=>{
-                        mesh.material = mat;
-                    })
+        //TODO: transparency
+        console.log(this.atlas!.image!.canvas!)
+        let mat = Materials.createCanvas(this.atlas!.image!.canvas! as HTMLCanvasElement);
+        console.log(mat)
+        this.iterateAllMeshes(mesh => {
+            mesh.material = mat;
+        })
         //         }
         //     }
         // }

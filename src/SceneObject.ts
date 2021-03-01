@@ -119,12 +119,12 @@ export class SceneObject extends Object3D {
         });
     }
 
-    protected _getBoxGeometryFromElement(model: ModelElement, originalTextureSize: DoubleArray, actualTextureSize: DoubleArray): BoxGeometry {
-        const width = model.to[0] - model.from[0];
-        const height = model.to[1] - model.from[1];
-        const depth = model.to[2] - model.from[1];
+    protected _getBoxGeometryFromElement(element: ModelElement): BoxGeometry {
+        const width = element.to[0] - element.from[0];
+        const height = element.to[1] - element.from[1];
+        const depth = element.to[2] - element.from[2];
 
-        const uv = UVMapper.facesToUvArray(model.faces, originalTextureSize, actualTextureSize);
+        const uv = element.mappedUv;
 
         return Geometries.getBox({
             width,

@@ -14,6 +14,8 @@ export interface ModelElement extends FromTo {
     shade: boolean;
 
     faces: ModelFaces;
+
+    mappedUv?: number[];
 }
 
 export type ModelFaces = Record<CubeFace, Partial<ElementFace>>;

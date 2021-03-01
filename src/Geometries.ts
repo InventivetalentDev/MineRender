@@ -13,6 +13,7 @@ export class Geometries {
         }
 
 
+
         // if (key.coordinates) { // Create UV mappings
         //     const w = key.texWidth || 16;
         //     const h = key.texHeight || 16;

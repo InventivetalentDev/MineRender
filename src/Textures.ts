@@ -6,6 +6,8 @@ import * as THREE from "three";
 
 export class Textures {
 
+    static readonly MISSING_TEXTURE = Textures.getImage({ src: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABAAQMAAACQp+OdAAAABlBMVEX/AP8AAACfphTyAAAAFUlEQVQoz2MIhQKGVVAwKjIqQrwIAHRz/wFI17TEAAAAAElFTkSuQmCC"}    );
+
     public static initTextureProps<T extends Texture>(texture: T): T {
         texture.magFilter = THREE.NearestFilter;
         texture.minFilter = THREE.NearestFilter;

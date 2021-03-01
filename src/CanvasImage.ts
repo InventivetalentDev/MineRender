@@ -41,7 +41,7 @@ export class CanvasImage {
     }
 
     putData(data: ImageData, dx = 0, dy = 0, dirtyX = 0, dirtyY = 0, dirtyWidth=data.width,dirtyHeight=data.height): void {
-        this.context.putImageData(data, dy, dy, dirtyX, dirtyY, dirtyWidth, dirtyHeight);
+        this.context.putImageData(data, dx, dy, dirtyX, dirtyY, dirtyWidth, dirtyHeight);
     }
 
     test() {
