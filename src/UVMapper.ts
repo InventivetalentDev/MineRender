@@ -36,27 +36,119 @@ export class UVMapper {
         return [u1, v1, u2, v2];
     }
 
-    public static rotateUv(/*uv*/[u1, v1, u2, v2]: QuadArray, degrees: number): QuadArray {
-        //TODO
+    //
+    // public static rotateUv(/*uv*/[u1, v1, u2, v2]: QuadArray, degrees: number): QuadArray {
+    //     switch (degrees) {
+    //         case 90:
+    //         case -270:
+    //             return [u1, v2, u2, v1];
+    //         case 180:
+    //         case -180:
+    //             return [u2, v2, u1, v1];
+    //         case 270:
+    //         case -90:
+    //             return [u2, v1, u1, v2];
+    //         case 0:
+    //         case 360:
+    //         default:
+    //             // don't do anything
+    //             break;
+    //     }
+    //     return [u1, v1, u2, v2];
+    // }
+
+    public static rotateSingleUv([u, v]: DoubleArray, [px, py]: DoubleArray, radians: number): DoubleArray {
+        const sin = Math.sin(radians);
+        const cos = Math.cos(radians);
+
+        u -= px;
+        v -= py;
+
+        const uc = u;
+        const vc = v;
+
+        u = cos * uc - sin * vc;
+        v = cos * vc + sin * uc;
+
+        u += px;
+        v += py;
+
+        return [parseFloat(u.toFixed(4)), parseFloat(v.toFixed(4))];
+    }
+
+    public static rotateAllUvs(uvs: QuadArray<DoubleArray>, pivot: DoubleArray, radians: number): QuadArray<DoubleArray> {
+        for (let i = 0; i < uvs.length; i++) {
+            uvs[i] = this.rotateSingleUv(uvs[i], pivot, radians);
+        }
+        return uvs;
+    }
+
+    public static rotateUvs(uvs: QuadArray<DoubleArray>, degrees: number): QuadArray<DoubleArray> {
+        switch (degrees) {
+            case 90:
+            case -270:
+                return [
+                    uvs[1],
+                    uvs[2],
+                    uvs[3],
+                    uvs[0]
+                ]
+            case 180:
+            case -180:
+                return [
+                    uvs[2],
+                    uvs[3],
+                    uvs[0],
+                    uvs[1]
+                ]
+            case 270:
+            case -90:
+                return [
+                    uvs[3],
+                    uvs[0],
+                    uvs[1],
+                    uvs[2]
+                ]
+            case 0:
+            case 360:
+            default:
+                // don't do anything
+                break;
+        }
+        return uvs;
     }
 
     public static addCubeFaceUvToArray(array: number[], faceIndex: number, originalTextureSize: DoubleArray, actualTextureSize: DoubleArray, originalCoords: QuadArray) {
         const uv = this.makeUvCoords(originalTextureSize, actualTextureSize, originalCoords);
-        this.setFaceUvInArray(array, faceIndex, uv);
+        this.setCubeFaceUvInArray(array, faceIndex, uv);
     }
 
-    public static setFaceUvInArray(array: number[], faceIndex: number, [u1, v1, u2, v2]: QuadArray) {
-        array[((faceIndex + 0) * 2) + 0] = u1;
-        array[((faceIndex + 0) * 2) + 1] = v1;
+    public static setCubeFaceUvInArray(array: number[], faceIndex: number, [u1, v1, u2, v2]: QuadArray, rotationDegrees: number = 0) {
+        let a: DoubleArray = [u1, v1]; // top left
+        let b: DoubleArray = [u2, v1]; // top right
+        let c: DoubleArray = [u1, v2]; // bottom left
+        let d: DoubleArray = [u2, v2]; // bottom right
 
-        array[((faceIndex + 1) * 2) + 0] = u2;
-        array[((faceIndex + 1) * 2) + 1] = v1;
+        let uvs: QuadArray<DoubleArray> = [a, b, c, d];
+        if (rotationDegrees !== 0) {
+            uvs = this.rotateAllUvs(uvs, [(u1 + u2) / 2, (v1 + v2) / 2], toRadians(rotationDegrees));
+        }
 
-        array[((faceIndex + 2) * 2) + 0] = u1;
-        array[((faceIndex + 2) * 2) + 1] = v2;
+        this.setFaceUvInArray(array, faceIndex, uvs);
+    }
 
-        array[((faceIndex + 3) * 2) + 0] = u2;
-        array[((faceIndex + 3) * 2) + 1] = v2;
+    public static setFaceUvInArray(array: number[], faceIndex: number, uvs: QuadArray<DoubleArray>) {
+        array[((faceIndex + 0) * 2) + 0] = uvs[0][0];
+        array[((faceIndex + 0) * 2) + 1] = uvs[0][1];
+
+        array[((faceIndex + 1) * 2) + 0] = uvs[1][0];
+        array[((faceIndex + 1) * 2) + 1] = uvs[1][1];
+
+        array[((faceIndex + 2) * 2) + 0] = uvs[2][0];
+        array[((faceIndex + 2) * 2) + 1] = uvs[2][1];
+
+        array[((faceIndex + 3) * 2) + 0] = uvs[3][0];
+        array[((faceIndex + 3) * 2) + 1] = uvs[3][1];
     }
 
     public static setCubeFaceUvAttribute(attributes: BufferAttribute, faceIndex: number, originalTextureSize: DoubleArray, actualTextureSize: DoubleArray, originalCoords: QuadArray): void {
@@ -166,13 +258,13 @@ export class UVMapper {
 
             console.log(sizes);
 
-            const s =                (Math.ceil(Math.sqrt(textureCount) / 2) * 2);
+            const s = (Math.ceil(Math.sqrt(textureCount) / 2) * 2);
             console.log(s)
             const size = Math.ceil(s * maxWidth)
             console.log("size: " + size);
             const squaredSize = size * size;
 
-            const missing =await ImageLoader.loadData("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABAAQMAAACQp+OdAAAABlBMVEX/AP8AAACfphTyAAAAFUlEQVQoz2MIhQKGVVAwKjIqQrwIAHRz/wFI17TEAAAAAElFTkSuQmCC");
+            const missing = await ImageLoader.loadData("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABAAQMAAACQp+OdAAAABlBMVEX/AP8AAACfphTyAAAAFUlEQVQoz2MIhQKGVVAwKjIqQrwIAHRz/wFI17TEAAAAAElFTkSuQmCC");
 
 
             // Create image
@@ -182,19 +274,19 @@ export class UVMapper {
             const positions: { [texture: string]: DoubleArray; } = {};
 
             // Draw all textures onto a single image
-            let tx=0;
-            let ty=0;
+            let tx = 0;
+            let ty = 0;
             for (let textureIndex = 0; textureIndex < uniqueTextureNames.length; textureIndex++) {
                 let textureKey = uniqueTextureNames[textureIndex];
                 let texture = textureMap[textureKey];
                 console.log(tx);
                 console.log(ty);
-                let x = tx*maxWidth;
-                let y = ty*maxWidth;
+                let x = tx * maxWidth;
+                let y = ty * maxWidth;
                 console.log(x);
                 console.log(y);
                 positions[textureKey] = [x, y];
-                if(texture) {
+                if (texture) {
                     // console.log(Buffer.from(texture.dataArray).toString("base64"))
                     console.log(`drawing at ${ x } ${ y }`)
                     image.putData(texture.data, x, y, 0, 0, maxWidth, maxHeight);
@@ -202,8 +294,8 @@ export class UVMapper {
                     //TODO: only first frame for animated textures
                 }
                 tx++;
-                if(tx>=s) {
-                    tx=0;
+                if (tx >= s) {
+                    tx = 0;
                     ty++;
                 }
             }
@@ -233,6 +325,7 @@ export class UVMapper {
                     let uv: number[] = [];
                     for (let faceIndex = 0; faceIndex < CUBE_FACES.length; faceIndex++) {
                         let faceName = CUBE_FACES[faceIndex];
+                        console.log(faceName)
                         let face = element.faces[faceName];
                         if (!face) continue;
                         if (!face.uv) {
@@ -243,18 +336,18 @@ export class UVMapper {
                         if (!faceTexture) continue;
                         faceTexture = faceTexture.substr(1); // remove #
                         console.log(faceTexture)
-                        let texPosition = positions[faceTexture]||[0,0];
+                        let texPosition = positions[faceTexture] || [0, 0];
                         console.log("texPosition", texPosition);
                         let texSize = sizes[faceTexture] || [16, 16];
                         console.log("texSize", texSize)
 
                         console.log("face.uv", face.uv);
 
-                        let tempUv:QuadArray = [...face.uv];
-                        if (face.rotation&&face.rotation!==0) {
-                            tempUv = this.rotateUv(tempUv, face.rotation);
-                        }
-                        console.log("rotated tempUv",tempUv);
+                        let tempUv: QuadArray = [...face.uv];
+                        // if (face.rotation&&face.rotation!==0) {
+                        //     // tempUv = this.rotateUv(tempUv, face.rotation);
+                        // }
+                        // console.log("rotated tempUv",tempUv);
 
                         let fuv: QuadArray = [
                             tempUv[0] / size,
@@ -262,21 +355,22 @@ export class UVMapper {
                             tempUv[2] / size,
                             tempUv[3] / size
                         ];
-                        console.log("fuv",fuv);
+                        console.log("fuv", fuv);
 
                         if (texPosition) {
-                            fuv[0] += texPosition[0]/size;
-                            fuv[1] += texPosition[1]/size;
-                            fuv[2] += texPosition[0]/size;
-                            fuv[3] += texPosition[1]/size;
+                            fuv[0] += texPosition[0] / size;
+                            fuv[1] += texPosition[1] / size;
+                            fuv[2] += texPosition[0] / size;
+                            fuv[3] += texPosition[1] / size;
                         }
 
-                        fuv[1] = 1-fuv[1];
-                        fuv[3] = 1-fuv[3];
+                        fuv[1] = 1 - fuv[1];
+                        fuv[3] = 1 - fuv[3];
 
+                        face.mappedUv = fuv;
 
-                        console.log("fuv",fuv);
-                        this.setFaceUvInArray(uv, faceIndex * 4, fuv);
+                        console.log("fuv", fuv);
+                        this.setCubeFaceUvInArray(uv, faceIndex * 4, fuv, face.rotation);
                     }
 
                     console.log(element);

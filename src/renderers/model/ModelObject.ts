@@ -7,7 +7,10 @@ import { Assets } from "../../Assets";
 import { Maybe } from "../../util";
 import { UVMapper } from "../../UVMapper";
 import { TextureAtlas } from "../../TextureAtlas";
-import { EdgesGeometry, LineBasicMaterial, LineSegments } from "three";
+import { BoxHelper, BufferAttribute, EdgesGeometry, LineBasicMaterial, LineSegments, Matrix4 } from "three";
+import * as THREE from "three";
+
+require("three/examples/js/utils/BufferGeometryUtils");
 
 export class ModelObject extends SceneObject {
 
@@ -48,29 +51,41 @@ export class ModelObject extends SceneObject {
     protected createMeshes() {
         const mat = Materials.MISSING_TEXTURE;
 
+        // const combinedGeo = new THREE.Geometry()
+
+        let allGeos: THREE.BufferGeometry[] = [];
+
         //TODO: merge geometries
         this.atlas!.model.elements?.forEach(el => {
             console.log(el);
             const elGeo = this._getBoxGeometryFromElement(el);
-            const mesh = this.createAndAddMesh(undefined, undefined, elGeo, mat);
-            if (el.from[0] !== 0) {
-                mesh.translateX(el.from[0]);
-            }
-            if (el.from[1] !== 0) {
-                mesh.translateY(el.from[1]);
-            }
-            if (el.from[2] !== 0) {
-                mesh.translateZ(el.from[2]);
-            }
+            const mesh = this.createMesh(undefined, elGeo, mat);
+
+            elGeo.applyMatrix4(new THREE.Matrix4().makeTranslation((el.to[0] - el.from[0]) / 2, (el.to[1] - el.from[1]) / 2, (el.to[2] - el.from[2]) / 2));
+            elGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(el.from[0], el.from[1], el.from[2]));
+
             //TODO: rotation
 
+            // let wireGeo = new EdgesGeometry(elGeo);
+            // let wireMat = new LineBasicMaterial({ color: 0xffffff, linewidth: 2 })
+            // let wireframe = new LineSegments(wireGeo, wireMat);
+            // mesh.add(wireframe);
 
-            let wireGeo = new EdgesGeometry(elGeo);
-            let wireMat = new LineBasicMaterial({ color: 0xffffff, linewidth: 2 })
-            let wireframe = new LineSegments(wireGeo, wireMat);
-            mesh.add(wireframe);
+            // mesh.add(new BoxHelper(mesh));
 
-        })
+            mesh.updateMatrix();
+
+            // combinedGeo.merge(mesh.geometry);
+            allGeos.push(elGeo);
+        });
+
+        let combinedGeo = THREE.BufferGeometryUtils.mergeBufferGeometries(allGeos);
+        const combinedMesh = this.createAndAddMesh(undefined, undefined, combinedGeo, mat);
+
+        let wireGeo = new EdgesGeometry(combinedGeo);
+        let wireMat = new LineBasicMaterial({ color: 0xffffff, linewidth: 2 })
+        let wireframe = new LineSegments(wireGeo, wireMat);
+        combinedMesh.add(wireframe);
     }
 
 

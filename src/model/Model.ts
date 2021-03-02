@@ -5,7 +5,7 @@ import { MinecraftAsset } from "../MinecraftAsset";
 import { AssetKey } from "../cache/CacheKey";
 import { ImageInfo } from "../image/ImageLoader";
 
-export interface BlockModel extends Model{
+export interface BlockModel extends Model {
     textures?: BlockModelTextures;
     ambientocclusion?: boolean;
 }
@@ -44,6 +44,6 @@ export interface ItemModelTextures extends BlockModelTextures {
     /*layerN: number*/
 }
 
-export type DoubleArray = [number, number];
-export type TripleArray = [number, number, number];
-export type QuadArray = [number, number, number, number];
+export type DoubleArray<T = number> = [T, T];
+export type TripleArray<T=number> = [T, T, T];
+export type QuadArray<T=number> = [T, T, T, T];

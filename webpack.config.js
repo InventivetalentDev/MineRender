@@ -28,14 +28,16 @@ module.exports = {
             "buffer": require.resolve("buffer/"),
             "crypto": require.resolve("crypto-browserify"),
             "stream": require.resolve("stream-browserify"),
-            // "assert": require.resolve("assert/"),
-            // "https": require.resolve("https-browserify"),
-            // "url": require.resolve("url/"),
-            // "http": require.resolve("stream-http"),
-            // "tty": require.resolve("tty-browserify"),
-            // "zlib": require.resolve("browserify-zlib"),
-            // "net": false,
-            // "fs": false
+            "debug": require.resolve("debug/"),
+            "assert": require.resolve("assert/"),
+            "http": require.resolve("https-browserify"),
+            "https": require.resolve("https-browserify"),
+            "url": require.resolve("url/"),
+            "tty": require.resolve("tty-browserify"),
+            "zlib": require.resolve("browserify-zlib"),
+            "path":false,
+            "net": false,
+            "fs": false
         }
     },
     module: {

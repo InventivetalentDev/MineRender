@@ -12,19 +12,23 @@ const tsify = require('tsify');
 const babelify = require('babelify');
 
 function bundle(watch) {
-    let bundler = browserify('src/index.ts',
+    let bundler = browserify('src/index.ts', Object.assign({}, watchify.args,
         {
+            cache: {},
+            packageCache: {},
             debug: true,
             standalone: "MineRender"
         }
-    );
+    ));
+    bundler.on('log', l => console.log(l));
 
     bundler.on('error', function (error) {
         console.error(error);
     });
 
     function rebundle() {
-        console.log("[bundle] bundling...")
+        console.log("bundling...")
+        console.time("bundle")
         return bundler
 
             .plugin(tsify, {target: 'es6'})
@@ -34,6 +38,9 @@ function bundle(watch) {
             })
 
             .bundle()
+            .on('error', function (error) {
+                console.error(error);
+            })
 
             .pipe(source('bundle.js'))
             .pipe(buffer())
@@ -42,12 +49,14 @@ function bundle(watch) {
             .pipe(gulp.dest('dist'))
 
             .on('end', function () {
-                console.log("[bundle] done!")
+                console.timeEnd("bundle");
+                console.log("bundle done!")
             });
     }
 
     if (watch) {
-        bundler = watchify(bundler);
+        // bundler = watchify(bundler);
+        bundler.plugin(watchify)
         bundler.on('update', rebundle);
     }
     return rebundle();
