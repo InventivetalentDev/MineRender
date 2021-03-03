@@ -24,11 +24,14 @@ export class ModelObject extends SceneObject {
 
     constructor(readonly originalModel: Model, readonly options: ModelObjectOptions) {
         super();
+        if (originalModel.name) {
+            this.userData["modelName"] = originalModel.name;
+        }
         // load textures first so we have the updated UV coordinates from the atlas
         this.loadTextures().then(() => {
             this.createMeshes();
             this.applyTextures();
-        })
+        });
     }
 
     protected async loadTextures(): Promise<void> {
@@ -58,11 +61,12 @@ export class ModelObject extends SceneObject {
         //TODO: merge geometries
         this.atlas!.model.elements?.forEach(el => {
             console.log(el);
-            const elGeo = this._getBoxGeometryFromElement(el);
-            const mesh = this.createMesh(undefined, elGeo, mat);
+            const elGeo = this._getBoxGeometryFromElement(el).clone();
 
             elGeo.applyMatrix4(new THREE.Matrix4().makeTranslation((el.to[0] - el.from[0]) / 2, (el.to[1] - el.from[1]) / 2, (el.to[2] - el.from[2]) / 2));
             elGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(el.from[0], el.from[1], el.from[2]));
+
+            // const mesh = this.createAndAddMesh(undefined, undefined, elGeo, mat);
 
             //TODO: rotation
 
@@ -73,7 +77,7 @@ export class ModelObject extends SceneObject {
 
             // mesh.add(new BoxHelper(mesh));
 
-            mesh.updateMatrix();
+            // mesh.updateMatrix();
 
             // combinedGeo.merge(mesh.geometry);
             allGeos.push(elGeo);

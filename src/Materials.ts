@@ -1,5 +1,5 @@
 import { MaterialKey, serializeMaterialKey } from "./cache/CacheKey";
-import { DoubleSide, FrontSide, Material, MeshBasicMaterial } from "three";
+import { DoubleSide, FrontSide, Material, MeshBasicMaterial, MeshStandardMaterial } from "three";
 import { Textures } from "./Textures";
 import { Caching } from "./cache/Caching";
 
@@ -14,7 +14,7 @@ export class Materials {
             map: Textures.getImage(key.texture),
             transparent: transparent,
             side: transparent ? DoubleSide : FrontSide,
-            alphaTest: 0.1
+            alphaTest: 0.5
         });
         //TODO: params
     }
@@ -23,7 +23,9 @@ export class Materials {
         //TODO
         return new MeshBasicMaterial({
             map: Textures.createCanvas(canvas),
-            transparent: true
+            transparent: true,
+            side: FrontSide,
+            alphaTest: 0.5
         })
     }
 

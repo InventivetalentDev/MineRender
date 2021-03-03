@@ -12,6 +12,7 @@ import { TextureAtlas } from "./TextureAtlas";
 import { AssetKey, serializeAssetKey } from "./cache/CacheKey";
 import { Caching } from "./cache/Caching";
 import { ImageLoader } from "./image/ImageLoader";
+import { createImageData, ImageData } from "canvas";
 
 export const DEFAULT_UV: QuadArray = [0, 0, 16, 16];
 
@@ -73,7 +74,8 @@ export class UVMapper {
         u += px;
         v += py;
 
-        return [parseFloat(u.toFixed(4)), parseFloat(v.toFixed(4))];
+        // return [parseFloat(u.toFixed(8)), parseFloat(v.toFixed(8))];
+        return [u, v];
     }
 
     public static rotateAllUvs(uvs: QuadArray<DoubleArray>, pivot: DoubleArray, radians: number): QuadArray<DoubleArray> {
@@ -83,40 +85,40 @@ export class UVMapper {
         return uvs;
     }
 
-    public static rotateUvs(uvs: QuadArray<DoubleArray>, degrees: number): QuadArray<DoubleArray> {
-        switch (degrees) {
-            case 90:
-            case -270:
-                return [
-                    uvs[1],
-                    uvs[2],
-                    uvs[3],
-                    uvs[0]
-                ]
-            case 180:
-            case -180:
-                return [
-                    uvs[2],
-                    uvs[3],
-                    uvs[0],
-                    uvs[1]
-                ]
-            case 270:
-            case -90:
-                return [
-                    uvs[3],
-                    uvs[0],
-                    uvs[1],
-                    uvs[2]
-                ]
-            case 0:
-            case 360:
-            default:
-                // don't do anything
-                break;
-        }
-        return uvs;
-    }
+    // public static rotateUvs(uvs: QuadArray<DoubleArray>, degrees: number): QuadArray<DoubleArray> {
+    //     switch (degrees) {
+    //         case 90:
+    //         case -270:
+    //             return [
+    //                 uvs[1],
+    //                 uvs[2],
+    //                 uvs[3],
+    //                 uvs[0]
+    //             ]
+    //         case 180:
+    //         case -180:
+    //             return [
+    //                 uvs[2],
+    //                 uvs[3],
+    //                 uvs[0],
+    //                 uvs[1]
+    //             ]
+    //         case 270:
+    //         case -90:
+    //             return [
+    //                 uvs[3],
+    //                 uvs[0],
+    //                 uvs[1],
+    //                 uvs[2]
+    //             ]
+    //         case 0:
+    //         case 360:
+    //         default:
+    //             // don't do anything
+    //             break;
+    //     }
+    //     return uvs;
+    // }
 
     public static addCubeFaceUvToArray(array: number[], faceIndex: number, originalTextureSize: DoubleArray, actualTextureSize: DoubleArray, originalCoords: QuadArray) {
         const uv = this.makeUvCoords(originalTextureSize, actualTextureSize, originalCoords);
@@ -130,7 +132,7 @@ export class UVMapper {
         let d: DoubleArray = [u2, v2]; // bottom right
 
         let uvs: QuadArray<DoubleArray> = [a, b, c, d];
-        if (rotationDegrees !== 0) {
+        if (rotationDegrees && rotationDegrees !== 0) {
             uvs = this.rotateAllUvs(uvs, [(u1 + u2) / 2, (v1 + v2) / 2], toRadians(rotationDegrees));
         }
 
@@ -233,8 +235,8 @@ export class UVMapper {
             }
             await Promise.all(promises);
             const textureCount = uniqueTextureNames.length;
-            console.log(textureCount + " textures")
-            console.log(model.textures)
+            // console.log(textureCount + " textures")
+            // console.log(model.textures)
 
             this.fillMissingTextureKeys(model.textures, textureMap);
 
@@ -256,41 +258,43 @@ export class UVMapper {
             }
             this.fillMissingTextureKeys(model.textures, sizes);
 
-            console.log(sizes);
+            // console.log(sizes);
 
             const s = (Math.ceil(Math.sqrt(textureCount) / 2) * 2);
-            console.log(s)
+            // console.log(s)
             const size = Math.ceil(s * maxWidth)
-            console.log("size: " + size);
+            // console.log("size: " + size);
             const squaredSize = size * size;
 
             const missing = await ImageLoader.loadData("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABAAQMAAACQp+OdAAAABlBMVEX/AP8AAACfphTyAAAAFUlEQVQoz2MIhQKGVVAwKjIqQrwIAHRz/wFI17TEAAAAAElFTkSuQmCC");
-
+            const empty = await ImageLoader.loadData("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABAAQMAAACQp+OdAAAAA1BMVEUAAACnej3aAAAAAXRSTlMAQObYZgAAAA5JREFUKM9jGAWjgAIAAAJAAAFSSwuTAAAAAElFTkSuQmCC");
+            //TODO: add transparent texture and use as default uv
 
             // Create image
             const image = new CanvasImage(size, size);
             image.putData(missing, 0, 0);
+            image.putData(empty, 0, 0, 0, 0, maxWidth, maxWidth);
 
             const positions: { [texture: string]: DoubleArray; } = {};
 
             // Draw all textures onto a single image
-            let tx = 0;
+            let tx = 1; // start one over to leave room for the transparent space
             let ty = 0;
             for (let textureIndex = 0; textureIndex < uniqueTextureNames.length; textureIndex++) {
                 let textureKey = uniqueTextureNames[textureIndex];
                 let texture = textureMap[textureKey];
-                console.log(tx);
-                console.log(ty);
+                // console.log(tx);
+                // console.log(ty);
                 let x = tx * maxWidth;
                 let y = ty * maxWidth;
-                console.log(x);
-                console.log(y);
+                // console.log(x);
+                // console.log(y);
                 positions[textureKey] = [x, y];
                 if (texture) {
                     // console.log(Buffer.from(texture.dataArray).toString("base64"))
-                    console.log(`drawing at ${ x } ${ y }`)
-                    image.putData(texture.data, x, y, 0, 0, maxWidth, maxHeight);
-                    console.log(image.toDataURL())
+                    // console.log(`drawing at ${ x } ${ y }`)
+                    image.putData(texture.data, x, y, 0, 0, maxWidth, maxWidth);
+                    // console.log(image.toDataURL())
                     //TODO: only first frame for animated textures
                 }
                 tx++;
@@ -316,16 +320,20 @@ export class UVMapper {
             console.log(image.toDataURL());
             this.fillMissingTextureKeys(model.textures, positions);
 
-            console.log(positions);
+            // console.log(positions);
 
             // Adjust UV positions
             if (model.elements) {
                 for (let elementIndex = 0; elementIndex < model.elements.length; elementIndex++) {
                     let element = model.elements[elementIndex];
                     let uv: number[] = [];
+                    // Set default uvs
+                    for (let i = 0; i < CUBE_FACES.length; i++) {
+                        this.setCubeFaceUvInArray(uv, i * 4, [0, 1, 8 / size, (size - 8) / size])
+                    }
                     for (let faceIndex = 0; faceIndex < CUBE_FACES.length; faceIndex++) {
                         let faceName = CUBE_FACES[faceIndex];
-                        console.log(faceName)
+                        // console.log(faceName)
                         let face = element.faces[faceName];
                         if (!face) continue;
                         if (!face.uv) {
@@ -335,13 +343,13 @@ export class UVMapper {
                         let faceTexture = face.texture;
                         if (!faceTexture) continue;
                         faceTexture = faceTexture.substr(1); // remove #
-                        console.log(faceTexture)
+                        // console.log(faceTexture)
                         let texPosition = positions[faceTexture] || [0, 0];
-                        console.log("texPosition", texPosition);
+                        // console.log("texPosition", texPosition);
                         let texSize = sizes[faceTexture] || [16, 16];
-                        console.log("texSize", texSize)
+                        // console.log("texSize", texSize)
 
-                        console.log("face.uv", face.uv);
+                        // console.log("face.uv", face.uv);
 
                         let tempUv: QuadArray = [...face.uv];
                         // if (face.rotation&&face.rotation!==0) {
@@ -355,7 +363,7 @@ export class UVMapper {
                             tempUv[2] / size,
                             tempUv[3] / size
                         ];
-                        console.log("fuv", fuv);
+                        // console.log("fuv", fuv);
 
                         if (texPosition) {
                             fuv[0] += texPosition[0] / size;
@@ -369,12 +377,12 @@ export class UVMapper {
 
                         face.mappedUv = fuv;
 
-                        console.log("fuv", fuv);
+                        // console.log("fuv", fuv);
                         this.setCubeFaceUvInArray(uv, faceIndex * 4, fuv, face.rotation);
                     }
 
-                    console.log(element);
-                    console.log(uv);
+                    // console.log(element);
+                    // console.log(uv);
                     element.mappedUv = uv;
                 }
             }
