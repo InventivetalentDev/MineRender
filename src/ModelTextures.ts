@@ -1,5 +1,5 @@
 import { AssetKey, serializeAssetKey } from "./cache/CacheKey";
-import { Maybe } from "./util";
+import { Maybe } from "./util/util";
 import { TextureAsset } from "./model/Model";
 import { Caching } from "./cache/Caching";
 import { AssetLoader } from "./AssetLoader";

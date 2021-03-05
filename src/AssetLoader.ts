@@ -1,6 +1,6 @@
 import { AssetKey } from "./cache/CacheKey";
 import { Model, TextureAsset } from "./model/Model";
-import { Maybe } from "./util";
+import { Maybe } from "./util/util";
 import { Requests } from "./request/Requests";
 import { AxiosRequestConfig, AxiosResponse } from "axios";
 import { debug } from "./debug";

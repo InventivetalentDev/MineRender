@@ -4,23 +4,20 @@ import { Materials } from "../../Materials";
 import { ModelTextures } from "../../ModelTextures";
 import webpack from "webpack";
 import { Assets } from "../../Assets";
-import { Maybe } from "../../util";
+import { Maybe, toRadians } from "../../util/util";
 import { UVMapper } from "../../UVMapper";
 import { TextureAtlas } from "../../TextureAtlas";
 import { BoxHelper, BufferAttribute, EdgesGeometry, LineBasicMaterial, LineSegments, Matrix4 } from "three";
 import * as THREE from "three";
+import { Axis } from "../../Axis";
 
 require("three/examples/js/utils/BufferGeometryUtils");
 
 export class ModelObject extends SceneObject {
 
-    private textureSrc?: string;
-    private textureWidth: number = 16;
-    private textureHeight: number = 16;
-
-    private textureMap: { [key: string]: Maybe<TextureAsset>; } = {};
-
     private atlas?: TextureAtlas;
+
+    private meshesCreated: boolean = false;
 
     constructor(readonly originalModel: Model, readonly options: ModelObjectOptions) {
         super();
@@ -55,7 +52,9 @@ export class ModelObject extends SceneObject {
     }
 
 
-    protected createMeshes() {
+    protected createMeshes(force: boolean = false) {
+        if(this.meshesCreated && !force) return;
+
         const mat = Materials.MISSING_TEXTURE;
 
         // const combinedGeo = new THREE.Geometry()
@@ -73,6 +72,24 @@ export class ModelObject extends SceneObject {
             // const mesh = this.createAndAddMesh(undefined, undefined, elGeo, mat);
 
             //TODO: rotation
+            if(el.rotation) {
+                elGeo.translate(-el.rotation.origin[0], -el.rotation.origin[1], -el.rotation.origin[2]);
+                // elGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(-el.rotation.origin[0],-el.rotation.origin[1],-el.rotation.origin[2]));
+                switch (el.rotation.axis) {
+                    case Axis.X:
+                        elGeo.rotateX(toRadians(el.rotation.angle));
+                        break;
+                    case Axis.Y:
+                        elGeo.rotateY(toRadians(el.rotation.angle));
+                        break;
+                    case Axis.Z:
+                        elGeo.rotateZ(toRadians(el.rotation.angle));
+                        break;
+                }
+                elGeo.translate(el.rotation.origin[0], el.rotation.origin[1], el.rotation.origin[2]);
+                // elGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(el.rotation.origin[0],el.rotation.origin[1],el.rotation.origin[2]));
+            }
+
 
             // let wireGeo = new EdgesGeometry(elGeo);
             // let wireMat = new LineBasicMaterial({ color: 0xffffff, linewidth: 2 })
@@ -94,6 +111,8 @@ export class ModelObject extends SceneObject {
         let wireMat = new LineBasicMaterial({ color: 0xffffff, linewidth: 2 })
         let wireframe = new LineSegments(wireGeo, wireMat);
         combinedMesh.add(wireframe);
+
+        this.meshesCreated = true;
     }
 
 

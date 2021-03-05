@@ -1,5 +1,5 @@
 import { PixelFormat } from "three";
-import { md5 } from "../util";
+import { md5 } from "../util/util";
 
 export type CacheKey = string;
 

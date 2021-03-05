@@ -7,7 +7,7 @@ import { Axis, axisToVec3 } from "./Axis";
 import { BufferGeometry } from "three/src/core/BufferGeometry";
 import { Material } from "three/src/materials/Material";
 import { SkinPart } from "./renderers/skin/SkinPart";
-import { Maybe } from "./util";
+import { Maybe } from "./util/util";
 
 export class SceneObject extends Object3D {
 

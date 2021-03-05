@@ -1,10 +1,10 @@
-import { BoxGeometry, BufferAttribute, Float32BufferAttribute, Vec2, Vector2 } from "three";
+import { BoxGeometry, BufferAttribute, Float32BufferAttribute, Vec2, Vector2, Vector4 } from "three";
 import { DoubleArray, Model, QuadArray, TextureAsset } from "./model/Model";
 import { ModelElement, ModelFaces } from "./model/ModelElement";
 import { CUBE_FACES, CubeFace } from "./CubeFace";
 import { ModelTextures } from "./ModelTextures";
 import { Assets } from "./Assets";
-import { Maybe, toRadians } from "./util";
+import { Maybe, toRadians } from "./util/util";
 import { WrappedImage } from "./WrappedImage";
 import { CanvasImage } from "./CanvasImage";
 import { Mode } from "fs";
@@ -13,6 +13,7 @@ import { AssetKey, serializeAssetKey } from "./cache/CacheKey";
 import { Caching } from "./cache/Caching";
 import { ImageLoader } from "./image/ImageLoader";
 import { createImageData, ImageData } from "canvas";
+import { SSAOPassOUTPUT } from "three/examples/jsm/postprocessing/SSAOPass";
 
 export const DEFAULT_UV: QuadArray = [0, 0, 16, 16];
 const X = 0;
@@ -95,15 +96,22 @@ export class UVMapper {
         return uvs;
     }
 
-    public static rotateUvs(uvs: QuadArray, degrees: number): QuadArray {
+    public static rotateUvs(uvs: QuadArray<DoubleArray>, degrees: number): QuadArray<DoubleArray> {
+        // const ri = (degrees/90);
+        // return [
+        //     uvs[(ri+0)%4],
+        //     uvs[(ri+1)%4],
+        //     uvs[(ri+2)%4],
+        //     uvs[(ri+3)%4]
+        // ]
         switch (degrees) {
             case 90:
             case -270:
                 return [
-                    uvs[1],
-                    uvs[2],
-                    uvs[3],
-                    uvs[0]
+                    [uvs[1][1], uvs[1][0]],
+                    [uvs[2][1], uvs[2][0]],
+                    [uvs[3][1], uvs[3][0]],
+                    [uvs[0][1], uvs[0][0]]
                 ]
             case 180:
             case -180:
@@ -135,7 +143,7 @@ export class UVMapper {
         this.setCubeFaceUvInArray(array, faceIndex, uv);
     }
 
-    public static setCubeFaceUvInArray(array: number[], faceIndex: number, [u1, v1, u2, v2]: QuadArray, rotationDegrees: number = 0, rotationPivot?: DoubleArray) {
+    public static setCubeFaceUvInArray(array: number[], faceIndex: number, [u1, v1, u2, v2]: QuadArray, rotationDegrees: number = 0, texturePos?: DoubleArray) {
         let a: DoubleArray = [u1, v1]; // top left
         let b: DoubleArray = [u2, v1]; // top right
         let c: DoubleArray = [u1, v2]; // bottom left
@@ -143,10 +151,11 @@ export class UVMapper {
 
         let uvs: QuadArray<DoubleArray> = [a, b, c, d];
         if (rotationDegrees && rotationDegrees !== 0) {
-            // if (!rotationPivot) {
-            //     rotationPivot = [(u1 + u2) / 2, (v1 + v2) / 2];
+            // if (!texturePos) {
+            //     texturePos = [(u1 + u2) / 2, (v1 + v2) / 2];
             // }
-            // uvs = this.rotateAllUvs(uvs, rotationPivot, toRadians(rotationDegrees));
+            // // uvs = this.rotateAllUvs(uvs, rotationPivot, toRadians(rotationDegrees));
+            // uvs = this.rotateUvs(uvs, rotationDegrees);
             // console.log("rotated uvs", uvs);
         }
 
@@ -155,13 +164,28 @@ export class UVMapper {
 
     public static setWrappedCubeFaceUvInArray(array: number[], faceIndex: number, wrappedUv: MinecraftFaceUV, atlasSize: number, texPos: DoubleArray) {
         let uvs: QuadArray<DoubleArray> = [
-            [wrappedUv.getU(0) / atlasSize+texPos[0], wrappedUv.getV(0) / atlasSize+texPos[1]],
-            [wrappedUv.getU(1) / atlasSize+texPos[0], wrappedUv.getV(1) / atlasSize+texPos[1]],
-            [wrappedUv.getU(2) / atlasSize+texPos[0], wrappedUv.getV(2) / atlasSize+texPos[1]],
-            [wrappedUv.getU(3) / atlasSize+texPos[0], wrappedUv.getV(3) / atlasSize+texPos[1]],
+            [texPos[0] + wrappedUv.getU(0) / atlasSize, texPos[1] + wrappedUv.getV(0) / atlasSize],
+            [texPos[0] + wrappedUv.getU(1) / atlasSize, texPos[1] + wrappedUv.getV(1) / atlasSize],
+            [texPos[0] + wrappedUv.getU(2) / atlasSize, texPos[1] + wrappedUv.getV(2) / atlasSize],
+            [texPos[0] + wrappedUv.getU(3) / atlasSize, texPos[1] + wrappedUv.getV(3) / atlasSize],
         ];
+        console.log("wrapped uvs", uvs);
 
         this.setFaceUvInArray(array, faceIndex, uvs);
+    }
+
+    public static setFaceUvInArrayV(array: number[], faceIndex: number, uvs: QuadArray<Vector2>) {
+        array[((faceIndex + 0) * 2) + 0] = uvs[0].x;
+        array[((faceIndex + 0) * 2) + 1] = uvs[0].y;
+
+        array[((faceIndex + 1) * 2) + 0] = uvs[1].x;
+        array[((faceIndex + 1) * 2) + 1] = uvs[1].y;
+
+        array[((faceIndex + 2) * 2) + 0] = uvs[2].x;
+        array[((faceIndex + 2) * 2) + 1] = uvs[2].y;
+
+        array[((faceIndex + 3) * 2) + 0] = uvs[3].x;
+        array[((faceIndex + 3) * 2) + 1] = uvs[3].y;
     }
 
     public static setFaceUvInArray(array: number[], faceIndex: number, uvs: QuadArray<DoubleArray>) {
@@ -279,7 +303,7 @@ export class UVMapper {
             }
             await Promise.all(promises);
             const textureCount = uniqueTextureNames.length;
-            // console.log(textureCount + " textures")
+            console.log(textureCount + " textures")
             // console.log(model.textures)
 
             this.fillMissingTextureKeys(model.textures, textureMap);
@@ -304,8 +328,8 @@ export class UVMapper {
 
             // console.log(sizes);
 
-            const s = (Math.ceil(Math.sqrt(textureCount) / 2) * 2);
-            // console.log(s)
+            const s = (Math.ceil(Math.sqrt(textureCount + 1))); // +1 for transparency
+            console.log("s", s)
             const size = Math.ceil(s * maxWidth)
             // console.log("size: " + size);
             const squaredSize = size * size;
@@ -379,7 +403,7 @@ export class UVMapper {
                     }
                     for (let faceIndex = 0; faceIndex < CUBE_FACES.length; faceIndex++) {
                         let faceName = CUBE_FACES[faceIndex];
-                        // console.log(faceName)
+                        console.log(faceName)
                         let face = element.faces[faceName];
                         if (!face) {
                             // set uv transparent
@@ -389,8 +413,8 @@ export class UVMapper {
                         if (!face.uv) {
                             face.uv = this.getFallbackUv(element, faceName);
                         }
-                        const wrappedUv = new MinecraftFaceUV(face.uv, face.rotation);
-                        console.log("wrappedUV", wrappedUv)
+                        // const wrappedUv = new MinecraftFaceUV(face.uv, face.rotation);
+                        // console.log("wrappedUV", wrappedUv)
 
                         let faceTexture = face.texture;
                         let texPosition;
@@ -402,9 +426,11 @@ export class UVMapper {
                         }
 
                         let tempUv: QuadArray = [...face.uv];
-                        if (face.rotation&&face.rotation!==0) {
-                            tempUv = this.rotateUvs(tempUv, face.rotation);
-                        }
+                        let [u1, v1, u2, v2] = face.uv;
+                        // console.log("tempUv", tempUv);
+                        // if (face.rotation && face.rotation !== 0) {
+                        //     // tempUv = this.rotateUvs(tempUv, face.rotation);
+                        // }
                         // console.log("rotated tempUv",tempUv);
 
                         // convert uv to atlas dimensions
@@ -414,34 +440,102 @@ export class UVMapper {
                         //     wrappedUv.getU(2) / size,
                         //     wrappedUv.getV(2) / size
                         // ];
-                        let fuv: QuadArray = [
-                            tempUv[0] / size,
-                            tempUv[1] / size,
-                            tempUv[2] / size,
-                            tempUv[3] / size
-                        ];
+                        // let fuv: Vector4 = new Vector4(
+                        //     tempUv[0],
+                        //     tempUv[1],
+                        //     tempUv[2],
+                        //     tempUv[3]
+                        // );
+                        // fuv.divideScalar(size);
+                        // let fuv: QuadArray = [
+                        //     tempUv[0] / size,
+                        //     tempUv[1] / size,
+                        //     tempUv[2] / size,
+                        //     tempUv[3] / size
+                        // ];
 
-                        let mappedTexPos = [
+                        let texPosV = new Vector2(texPosition[0], texPosition[1]);
+
+                        let mappedTexPos: DoubleArray = [
                             texPosition[0] / size,
                             texPosition[1] / size
                         ];
 
-                        // move it to the updated atlas position
-                        if (texPosition) {
-                            fuv[0] += mappedTexPos[0];
-                            fuv[1] += mappedTexPos[1];
-                            fuv[2] += mappedTexPos[0];
-                            fuv[3] += mappedTexPos[1];
+                        let tl: Vector2 = new Vector2(u1, v1);// top left
+                        let tr: Vector2 = new Vector2(u2, v1);// top right
+                        let bl: Vector2 = new Vector2(u1, v2);// bottom left
+                        let br: Vector2 = new Vector2(u2, v2);// bottom right
+
+                        switch (face.rotation) {
+                            case 0:
+                            case 360:
+                            default:
+                                break;
+                            case 90:
+                                tl = new Vector2(u1, v2);
+                                tr = new Vector2(u1, v1);
+                                bl = new Vector2(u2, v2);
+                                br = new Vector2(u2, v1);
+                                break;
+                            case 180:
+                                // const ttl = tl;
+                                // const tbl = bl;
+                                // tl = tbl;
+                                // bl = ttl;
+                                //
+                                // const ttr = tr;
+                                // const tbr = br;
+                                // tr = tbr;
+                                // br = ttr;
+                                tl = new Vector2(u2, v2);
+                                tr = new Vector2(u1, v2);
+                                bl = new Vector2(u2, v1);
+                                br = new Vector2(u1, v1);
+                                break;
+                            case 270:
+                                tl = new Vector2(u2, v1);
+                                tr = new Vector2(u2, v2);
+                                bl = new Vector2(u1, v1);
+                                br = new Vector2(u1, v2);
+                                break;
                         }
 
+                        tl.add(texPosV);
+                        tr.add(texPosV);
+                        bl.add(texPosV);
+                        br.add(texPosV);
+
+                        tl.divideScalar(size);
+                        tr.divideScalar(size);
+                        bl.divideScalar(size);
+                        br.divideScalar(size);
+
+                        tl.y = 1 - tl.y;
+                        tr.y = 1 - tr.y;
+                        bl.y = 1 - bl.y;
+                        br.y = 1 - br.y;
+
+                        //TODO: figure out how uv lock works
+
+                        // move it to the updated atlas position
+                        // if (texPosition) {
+                        //     fuv[0] += mappedTexPos[0];
+                        //     fuv[1] += mappedTexPos[1];
+                        //     fuv[2] += mappedTexPos[0];
+                        //     fuv[3] += mappedTexPos[1];
+                        // }
+
                         // flip on y axis
-                        fuv[1] = 1 - fuv[1];
-                        fuv[3] = 1 - fuv[3];
+                        // fuv[1] = 1 - fuv[1];
+                        // fuv[3] = 1 - fuv[3];
 
-                        face.mappedUv = fuv;
+                        // face.mappedUv = fuv;
 
-                        this.setCubeFaceUvInArray(uv, faceIndex * 4, fuv, face.rotation);
-                        // this.setWrappedCubeFaceUvInArray(uv, faceIndex, wrappedUv, size, mappedTexPos);
+                        let uvs: QuadArray<Vector2> = [tl, tr, bl, br];
+                        console.log("uvs", uvs);
+                        this.setFaceUvInArrayV(uv, faceIndex * 4, uvs);
+                        // this.setCubeFaceUvInArray(uv, faceIndex * 4, fuv, face.rotation, mappedTexPos);
+                        // this.setWrappedCubeFaceUvInArray(uv, faceIndex*4, wrappedUv, size, mappedTexPos);
                     }
 
                     // console.log(element);

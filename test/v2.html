@@ -59,7 +59,7 @@
             MineRender.Models.getMerged({
                 assetType: "models",
                 type: "block",
-                path: "anvil",
+                path: "redstone_wall_torch_off",
                 extension: ".json"
             }).then(model => {
                 console.log(model)
@@ -70,29 +70,31 @@
             })
 
             let modelList = list.files;
-            for (let i = 0; i < 10; i++) {
-                let modelName = modelList[Math.floor(Math.random() * modelList.length)];
-                let split = modelName.split("\.");
-                modelName = split[0];
+            for (let i = 0; i < 1000; i++) {
+                setTimeout(()=>{
+                    let modelName = modelList[Math.floor(Math.random() * modelList.length)];
+                    let split = modelName.split("\.");
+                    modelName = split[0];
 
 
-                MineRender.Models.getMerged({
-                    assetType: "models",
-                    type: "block",
-                    path: modelName,
-                    extension: ".json"
-                }).then(model => {
-                    console.log(model)
-                    let obj = new MineRender.ModelObject(model);
+                    MineRender.Models.getMerged({
+                        assetType: "models",
+                        type: "block",
+                        path: modelName,
+                        extension: ".json"
+                    }).then(model => {
+                        console.log(model)
+                        let obj = new MineRender.ModelObject(model);
 
-                    obj.translateX(getRandomInt(-32, 32) * 8)
-                    obj.translateY(getRandomInt(-16, 16) * 8)
-                    obj.translateZ(getRandomInt(-32, 32) * 8);
+                        obj.translateX(getRandomInt(-16, 16) * 16)
+                        obj.translateY(getRandomInt(-8, 8) * 16)
+                        obj.translateZ(getRandomInt(-16, 16) * 16);
 
-                    renderer.scene.add(obj);
+                        renderer.scene.add(obj);
 
-                    console.log("Time to scene add: " + (Date.now() - start) + "ms");
-                })
+                        console.log("Time to scene add: " + (Date.now() - start) + "ms");
+                    })
+                }, i*10)
             }
 
 
