@@ -19,7 +19,12 @@ function bundle(watch) {
             debug: true,
             standalone: "MineRender"
         }
-    ));
+    ))
+        .plugin(tsify, {target: 'es6'})
+        .transform(babelify, {
+            extensions: ['.tsc', '.ts', '.js'],
+            sourceMaps: true
+        })
     bundler.on('log', l => console.log(l));
 
     bundler.on('error', function (error) {
@@ -30,12 +35,6 @@ function bundle(watch) {
         console.log("bundling...")
         console.time("bundle")
         return bundler
-
-            .plugin(tsify, {target: 'es6'})
-            .transform(babelify, {
-                extensions: ['.tsc', '.ts', '.js'],
-                sourceMaps: true
-            })
 
             .bundle()
             .on('error', function (error) {

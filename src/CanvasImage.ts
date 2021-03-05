@@ -32,6 +32,10 @@ export class CanvasImage {
         this.canvas.height = height;
     }
 
+    get dataUrl() {
+        return this.toDataURL();
+    }
+
     toDataURL(): string {
         return this.canvas.toDataURL();
     }

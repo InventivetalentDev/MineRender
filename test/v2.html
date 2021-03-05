@@ -1,12 +1,13 @@
 <html>
     <head>
         <style>
-            html,body {
+            html, body {
                 overflow: hidden;
                 width: 100%;
                 height: 100%;
                 margin: 0;
             }
+
             canvas {
                 top: 0;
                 left: 0;
@@ -20,7 +21,7 @@
         <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r125/three.min.js" integrity="sha512-XI02ivhfmEfnk8CEEnJ92ZS6hOqWoWMKF6pxF/tC/DXBVxDXgs2Kmlc9CHA0Aw2dX03nrr8vF54Z6Mqlkuabkw==" crossorigin="anonymous"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/stats.js/r17/Stats.min.js" integrity="sha512-mfOs9z5Hk96xJH71l0ptzjgGvflNJRnHA7brsEwqDZf7mJa8QDfUtcHICKMXq4Ys80g5HKQMD9rsY3R44ZlEug==" crossorigin="anonymous"></script>
 
-        <script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@dev/examples/js/controls/OrbitControls.js"></script>
+        <script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/js/controls/OrbitControls.js"></script>
 
         <script>
             (function () {
@@ -58,9 +59,9 @@
             MineRender.Models.getMerged({
                 assetType: "models",
                 type: "block",
-                path: "redstone_torch",
+                path: "anvil",
                 extension: ".json"
-            }).then(model=>{
+            }).then(model => {
                 console.log(model)
                 let obj = new MineRender.ModelObject(model);
                 renderer.scene.add(obj);
@@ -80,22 +81,19 @@
                     type: "block",
                     path: modelName,
                     extension: ".json"
-                }).then(model=>{
+                }).then(model => {
                     console.log(model)
                     let obj = new MineRender.ModelObject(model);
 
-                    obj.translateX(getRandomInt(-10, 10)*8)
-                    obj.translateY(getRandomInt(-5, 5)*8)
-                    obj.translateZ(getRandomInt(-10, 10)*8);
+                    obj.translateX(getRandomInt(-32, 32) * 8)
+                    obj.translateY(getRandomInt(-16, 16) * 8)
+                    obj.translateZ(getRandomInt(-32, 32) * 8);
 
                     renderer.scene.add(obj);
 
                     console.log("Time to scene add: " + (Date.now() - start) + "ms");
                 })
             }
-
-
-
 
 
             // let obj = new MineRender.ModelObject({
@@ -126,7 +124,7 @@
             // }, 2000);
 
             const gridHelper = new THREE.GridHelper(64, 8);
-            renderer.scene.add( gridHelper );
+            renderer.scene.add(gridHelper);
 
             const axesHelper = new THREE.AxesHelper(64);
             renderer.scene.add(axesHelper);
@@ -135,13 +133,12 @@
             renderer.camera.lookAt(new THREE.Vector3(0, 0, 0))
 
             const controls = new THREE.OrbitControls(renderer.camera, renderer.renderer.domElement);
-
             controls.update();
 
             // https://github.com/mrdoob/three.js/blob/master/examples/webgl_interactive_cubes.html
             const raycaster = new THREE.Raycaster();
-            document.addEventListener("click", event=>{
-                let mouse = new THREE.Vector2( ( event.clientX / window.innerWidth ) * 2 - 1, - ( event.clientY / window.innerHeight ) * 2 + 1);
+            document.addEventListener("click", event => {
+                let mouse = new THREE.Vector2((event.clientX / window.innerWidth) * 2 - 1, -(event.clientY / window.innerHeight) * 2 + 1);
                 raycaster.setFromCamera(mouse, renderer.camera);
                 let intersects = raycaster.intersectObjects(renderer.scene.children, true);
                 if (intersects.length > 0) {
@@ -158,7 +155,9 @@
 
                 // stats.end();
 
-                requestAnimationFrame(animate);
+                setTimeout(function () {
+                    requestAnimationFrame(animate);
+                }, 1000 / 60);
 
             }
 

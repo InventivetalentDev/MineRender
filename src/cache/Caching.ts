@@ -91,4 +91,10 @@ export class Caching {
         this.textureCache.end();
     }
 
+    public static get cacheSizes() {
+        return {
+            //TODO
+        }
+    }
+
 }

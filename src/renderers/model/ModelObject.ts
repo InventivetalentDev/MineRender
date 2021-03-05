@@ -34,9 +34,13 @@ export class ModelObject extends SceneObject {
         });
     }
 
+    public get textureAtlas(): Maybe<TextureAtlas> {
+        return this.atlas;
+    }
+
     protected async loadTextures(): Promise<void> {
         this.atlas = await UVMapper.getAtlas(this.originalModel);
-        console.log(this.atlas)
+        console.log(this.atlas);
 
         // if (this.model.textures) {
         //     let promises: Promise<void>[] = [];

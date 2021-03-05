@@ -28,4 +28,10 @@ export class Requests {
         this.mcAssetInstance.defaults.baseURL = root;
     }
 
+    public static get queueSizes() {
+        return {
+            mcAsset: this.mcAssetRequestQueue.size
+        }
+    }
+
 }
