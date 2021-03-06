@@ -38,17 +38,6 @@ export class ModelObject extends SceneObject {
     protected async loadTextures(): Promise<void> {
         this.atlas = await UVMapper.getAtlas(this.originalModel);
         console.log(this.atlas);
-
-        // if (this.model.textures) {
-        //     let promises: Promise<void>[] = [];
-        //     for (let textureKey in this.model.textures) {
-        //         let textureValue = this.model.textures[textureKey];
-        //         promises.push(ModelTextures.preload(Assets.parseAssetKey("textures", textureValue, this.model.key)).then(asset => {
-        //             this.textureMap[textureKey] = asset;
-        //         }));
-        //     }
-        //     await Promise.all(promises);
-        // }
     }
 
 
@@ -71,10 +60,11 @@ export class ModelObject extends SceneObject {
 
             // const mesh = this.createAndAddMesh(undefined, undefined, elGeo, mat);
 
-            //TODO: rotation
             if(el.rotation) {
+                // subtract origin
                 elGeo.translate(-el.rotation.origin[0], -el.rotation.origin[1], -el.rotation.origin[2]);
                 // elGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(-el.rotation.origin[0],-el.rotation.origin[1],-el.rotation.origin[2]));
+                // apply rotation
                 switch (el.rotation.axis) {
                     case Axis.X:
                         elGeo.rotateX(toRadians(el.rotation.angle));
@@ -86,6 +76,7 @@ export class ModelObject extends SceneObject {
                         elGeo.rotateZ(toRadians(el.rotation.angle));
                         break;
                 }
+                // add back origin
                 elGeo.translate(el.rotation.origin[0], el.rotation.origin[1], el.rotation.origin[2]);
                 // elGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(el.rotation.origin[0],el.rotation.origin[1],el.rotation.origin[2]));
             }
