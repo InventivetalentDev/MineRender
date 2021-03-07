@@ -65,6 +65,27 @@ export class SkinObject extends SceneObject {
                 const rightSleeve = this.createAndAddMesh("rightSleeve", rightArmGroup, rightSleeveGeo, mat, Axis.Y, -4);
             }
         }
+
+        {
+            {
+                const leftLegGroup = this.createAndAddGroup("leftLeg", -2, 6, 0, Axis.Y, 4);
+
+                const leftLegGeo = this.getBoxGeometry(SkinPart.LEFT_LEG);
+                const leftLeg = this.createAndAddMesh("leftLeg", leftLegGroup, leftLegGeo, mat, Axis.Y, -4);
+
+                const leftTrousersGeo = this.getBoxGeometry(SkinPart.LEFT_TROUSERS);
+                const leftTrousers = this.createAndAddMesh("leftTrousers", leftLegGroup, leftTrousersGeo, mat, Axis.Y, -4);
+            }
+            {
+                const rightLegGroup = this.createAndAddGroup("rightLeg", 2, 6, 0, Axis.Y, 4);
+
+                const rightLegGeo = this.getBoxGeometry(SkinPart.RIGHT_LEG);
+                const rightLeg = this.createAndAddMesh("rightLeg", rightLegGroup, rightLegGeo, mat, Axis.Y, -4);
+
+                const rightTrousersGeo = this.getBoxGeometry(SkinPart.RIGHT_TROUSERS);
+                const rightTrousers = this.createAndAddMesh("rightTrousers", rightLegGroup, rightTrousersGeo, mat, Axis.Y, -4);
+            }
+        }
     }
 
 

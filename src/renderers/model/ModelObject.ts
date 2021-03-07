@@ -98,10 +98,7 @@ export class ModelObject extends SceneObject {
         let combinedGeo = THREE.BufferGeometryUtils.mergeBufferGeometries(allGeos);
         const combinedMesh = this.createAndAddMesh(undefined, undefined, combinedGeo, mat);
 
-        let wireGeo = new EdgesGeometry(combinedGeo);
-        let wireMat = new LineBasicMaterial({ color: 0xffffff, linewidth: 2 })
-        let wireframe = new LineSegments(wireGeo, wireMat);
-        combinedMesh.add(wireframe);
+        this.addWireframeToMesh(combinedGeo, combinedMesh);
 
         this.meshesCreated = true;
     }

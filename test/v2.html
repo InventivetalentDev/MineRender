@@ -67,10 +67,14 @@
                 renderer.scene.add(obj);
 
                 console.log("Time to scene add: " + (Date.now() - start) + "ms");
-            })
+            });
+
+            let skinObj = new MineRender.SkinObject();
+            skinObj.setSkinTexture("https://crafatar.com/skins/bcd2033c63ec4bf88aca680b22461340?overlay");
+            renderer.scene.add(skinObj)
 
             let modelList = list.files;
-            for (let i = 0; i < 1000; i++) {
+            for (let i = 0; i < 0; i++) {
                 setTimeout(()=>{
                     let modelName = modelList[Math.floor(Math.random() * modelList.length)];
                     let split = modelName.split("\.");

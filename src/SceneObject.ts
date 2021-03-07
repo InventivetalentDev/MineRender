@@ -1,4 +1,4 @@
-import { BoxGeometry, Mesh, Object3D, Vector3 } from "three";
+import { BoxGeometry, EdgesGeometry, LineBasicMaterial, LineSegments, Mesh, Object3D, Vector3 } from "three";
 import { ModelElement, ModelFaces } from "./model/ModelElement";
 import { Geometries } from "./Geometries";
 import { UVMapper } from "./UVMapper";
@@ -132,6 +132,13 @@ export class SceneObject extends Object3D {
             depth,
             uv
         });
+    }
+
+    protected addWireframeToMesh(geo: BufferGeometry, mesh: Mesh) {
+        let wireGeo = new EdgesGeometry(geo);
+        let wireMat = new LineBasicMaterial({ color: 0xffffff, linewidth: 2, })
+        let wireframe = new LineSegments(wireGeo, wireMat);
+        mesh.add(wireframe);
     }
 
     ////
