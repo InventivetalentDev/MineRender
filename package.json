@@ -18,7 +18,7 @@
   "homepage": "https://minerender.org",
   "dependencies": {
     "@johh/three-effectcomposer": "0.0.7",
-    "debug": "^2.6.9",
+    "debug": "^4.0.0",
     "deepmerge": "^4.0.0",
     "esdoc": "^1.1.0",
     "esdoc-standard-plugin": "^1.0.0",
