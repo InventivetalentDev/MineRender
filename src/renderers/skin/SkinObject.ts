@@ -67,7 +67,7 @@ export class SkinObject extends SceneObject {
         }
 
         {
-            {
+            { 
                 const leftLegGroup = this.createAndAddGroup("leftLeg", -2, 6, 0, Axis.Y, 4);
 
                 const leftLegGeo = this.getBoxGeometry(SkinPart.LEFT_LEG);
