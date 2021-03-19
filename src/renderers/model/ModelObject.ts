@@ -7,9 +7,11 @@ import { Assets } from "../../Assets";
 import { Maybe, toRadians } from "../../util/util";
 import { UVMapper } from "../../UVMapper";
 import { TextureAtlas } from "../../TextureAtlas";
-import { BoxHelper, BufferAttribute, EdgesGeometry, LineBasicMaterial, LineSegments, Matrix4 } from "three";
+import { BoxHelper, BufferAttribute, EdgesGeometry, InstancedMesh, LineBasicMaterial, LineSegments, Matrix4, Mesh } from "three";
 import * as THREE from "three";
 import { Axis } from "../../Axis";
+import { SceneObjectOptions } from "../SceneObjectOptions";
+import { addWireframeToMesh, applyElementRotation } from "../../util/model";
 
 require("three/examples/js/utils/BufferGeometryUtils");
 
@@ -42,15 +44,12 @@ export class ModelObject extends SceneObject {
 
 
     protected createMeshes(force: boolean = false) {
-        if(this.meshesCreated && !force) return;
+        if (this.meshesCreated && !force) return;
 
         const mat = Materials.MISSING_TEXTURE;
 
-        // const combinedGeo = new THREE.Geometry()
-
         let allGeos: THREE.BufferGeometry[] = [];
 
-        //TODO: merge geometries
         this.atlas!.model.elements?.forEach(el => {
             console.log(el);
             const elGeo = this._getBoxGeometryFromElement(el).clone();
@@ -58,47 +57,33 @@ export class ModelObject extends SceneObject {
             elGeo.applyMatrix4(new THREE.Matrix4().makeTranslation((el.to[0] - el.from[0]) / 2, (el.to[1] - el.from[1]) / 2, (el.to[2] - el.from[2]) / 2));
             elGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(el.from[0], el.from[1], el.from[2]));
 
-            // const mesh = this.createAndAddMesh(undefined, undefined, elGeo, mat);
-
-            if(el.rotation) {
-                // subtract origin
-                elGeo.translate(-el.rotation.origin[0], -el.rotation.origin[1], -el.rotation.origin[2]);
-                // elGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(-el.rotation.origin[0],-el.rotation.origin[1],-el.rotation.origin[2]));
-                // apply rotation
-                switch (el.rotation.axis) {
-                    case Axis.X:
-                        elGeo.rotateX(toRadians(el.rotation.angle));
-                        break;
-                    case Axis.Y:
-                        elGeo.rotateY(toRadians(el.rotation.angle));
-                        break;
-                    case Axis.Z:
-                        elGeo.rotateZ(toRadians(el.rotation.angle));
-                        break;
-                }
-                // add back origin
-                elGeo.translate(el.rotation.origin[0], el.rotation.origin[1], el.rotation.origin[2]);
-                // elGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(el.rotation.origin[0],el.rotation.origin[1],el.rotation.origin[2]));
+            if (el.rotation) {
+                applyElementRotation(el.rotation, elGeo);
             }
 
-
-            // let wireGeo = new EdgesGeometry(elGeo);
-            // let wireMat = new LineBasicMaterial({ color: 0xffffff, linewidth: 2 })
-            // let wireframe = new LineSegments(wireGeo, wireMat);
-            // mesh.add(wireframe);
-
-            // mesh.add(new BoxHelper(mesh));
-
-            // mesh.updateMatrix();
-
-            // combinedGeo.merge(mesh.geometry);
-            allGeos.push(elGeo);
+            if (this.options.mergeMeshes) {
+                allGeos.push(elGeo);
+            } else {
+                const mesh = this.createAndAddMesh(undefined, undefined, elGeo, mat);
+                if (this.options.wireframe) {
+                    addWireframeToMesh(elGeo, mesh);
+                }
+            }
         });
 
-        let combinedGeo = THREE.BufferGeometryUtils.mergeBufferGeometries(allGeos);
-        const combinedMesh = this.createAndAddMesh(undefined, undefined, combinedGeo, mat);
-
-        this.addWireframeToMesh(combinedGeo, combinedMesh);
+        if (this.options.mergeMeshes) {
+            let combinedGeo = THREE.BufferGeometryUtils.mergeBufferGeometries(allGeos);
+            let mesh: Mesh;
+            if (this.options.instanceMeshes) {
+                mesh = this.createInstancedMesh(undefined, combinedGeo, mat, 100/* TODO: move to options */);
+                this.add(mesh);
+            } else {
+                mesh = this.createAndAddMesh(undefined, undefined, combinedGeo, mat)
+            }
+            if (this.options.wireframe) {
+                addWireframeToMesh(combinedGeo, mesh);
+            }
+        }
 
         this.meshesCreated = true;
     }
@@ -125,6 +110,6 @@ export class ModelObject extends SceneObject {
 
 }
 
-export interface ModelObjectOptions {
+export interface ModelObjectOptions extends SceneObjectOptions {
 
 }

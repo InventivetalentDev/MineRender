@@ -1,4 +1,4 @@
-import { BoxGeometry, EdgesGeometry, LineBasicMaterial, LineSegments, Mesh, Object3D, Vector3 } from "three";
+import { BoxGeometry, EdgesGeometry, InstancedMesh, LineBasicMaterial, LineSegments, Mesh, Object3D, Vector3 } from "three";
 import { ModelElement, ModelFaces } from "./model/ModelElement";
 import { Geometries } from "./Geometries";
 import { UVMapper } from "./UVMapper";
@@ -12,6 +12,8 @@ import { Maybe } from "./util/util";
 export class SceneObject extends Object3D {
 
     private materialCallbacks: { [key: string]: Array<(mat: Material, key: string) => void>; } = {};
+
+    protected isInstanced: boolean = false;
 
     constructor() {
         super();
@@ -78,6 +80,14 @@ export class SceneObject extends Object3D {
         return mesh;
     }
 
+    protected createInstancedMesh(name: Maybe<string>, geometry: BufferGeometry, material: Material | Material[], count: number): InstancedMesh {
+        const mesh = new InstancedMesh(geometry, material, count);
+        if (name) {
+            mesh.name = `mesh:${ name }`;
+        }
+        return mesh;
+    }
+
     /**
      * Get a mesh by its name
      */
@@ -132,13 +142,6 @@ export class SceneObject extends Object3D {
             depth,
             uv
         });
-    }
-
-    protected addWireframeToMesh(geo: BufferGeometry, mesh: Mesh) {
-        let wireGeo = new EdgesGeometry(geo);
-        let wireMat = new LineBasicMaterial({ color: 0xffffff, linewidth: 2, })
-        let wireframe = new LineSegments(wireGeo, wireMat);
-        mesh.add(wireframe);
     }
 
     ////
