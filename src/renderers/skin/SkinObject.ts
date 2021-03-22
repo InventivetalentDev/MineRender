@@ -1,4 +1,4 @@
-import { SceneObject } from "../../SceneObject";
+import { SceneObject } from "../SceneObject";
 import { BoxGeometry } from "three";
 import { SKIN_PARTS, SkinPart } from "./SkinPart";
 import { classicSkinTextureCoordinates, SkinTextureCoordinates, slimSkinTextureCoordinates } from "./SkinTextureCoordinates";

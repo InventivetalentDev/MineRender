@@ -2,13 +2,13 @@ import { BoxGeometry, BufferAttribute, Float32BufferAttribute, Vec2, Vector2, Ve
 import { DoubleArray, Model, QuadArray, TextureAsset } from "./model/Model";
 import { ModelElement, ModelFaces } from "./model/ModelElement";
 import { CUBE_FACES, CubeFace } from "./CubeFace";
-import { ModelTextures } from "./ModelTextures";
-import { Assets } from "./Assets";
+import { ModelTextures } from "./model/ModelTextures";
+import { Assets } from "./assets/Assets";
 import { Maybe, toRadians } from "./util/util";
 import { WrappedImage } from "./WrappedImage";
-import { CanvasImage } from "./CanvasImage";
+import { CanvasImage } from "./canvas/CanvasImage";
 import { Mode } from "fs";
-import { TextureAtlas } from "./TextureAtlas";
+import { TextureAtlas } from "./texture/TextureAtlas";
 import { AssetKey, serializeAssetKey } from "./cache/CacheKey";
 import { Caching } from "./cache/Caching";
 import { ImageLoader } from "./image/ImageLoader";

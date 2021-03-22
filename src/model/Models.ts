@@ -1,11 +1,11 @@
-import { Model } from "./model/Model";
-import { Caching } from "./cache/Caching";
-import { Textures } from "./Textures";
-import { Maybe } from "./util/util";
-import { debug } from "./debug";
+import { Model } from "./Model";
+import { Caching } from "../cache/Caching";
+import { Textures } from "../texture/Textures";
+import { Maybe } from "../util/util";
+import { debug } from "../debug";
 import { ModelMerger } from "./ModelMerger";
-import { AssetKey, serializeAssetKey } from "./cache/CacheKey";
-import { AssetLoader } from "./AssetLoader";
+import { AssetKey, serializeAssetKey } from "../cache/CacheKey";
+import { AssetLoader } from "../assets/AssetLoader";
 
 export const DEFAULT_ROOT = "https://assets.mcasset.cloud/1.16.5";
 export const DEFAULT_NAMESPACE = "minecraft";

@@ -1,7 +1,7 @@
 import { CanvasTexture, Texture } from "three";
-import { TextureLoader } from "./texture/TextureLoader";
-import { Caching } from "./cache/Caching";
-import { serializeTextureKey, TextureKey } from "./cache/CacheKey";
+import { TextureLoader } from "./TextureLoader";
+import { Caching } from "../cache/Caching";
+import { serializeTextureKey, TextureKey } from "../cache/CacheKey";
 import * as THREE from "three";
 
 export class Textures {

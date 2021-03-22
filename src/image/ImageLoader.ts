@@ -1,4 +1,4 @@
-import { CompatImage, createCanvas, createImage } from "../CanvasCompat";
+import { CompatImage, createCanvas, createImage } from "../canvas/CanvasCompat";
 import { serializeImageKey } from "../cache/CacheKey";
 import { Caching } from "../cache/Caching";
 import { AxiosResponse } from "axios";

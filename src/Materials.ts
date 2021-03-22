@@ -1,6 +1,6 @@
 import { MaterialKey, serializeMaterialKey } from "./cache/CacheKey";
 import { DoubleSide, FrontSide, Material, MeshBasicMaterial, MeshStandardMaterial } from "three";
-import { Textures } from "./Textures";
+import { Textures } from "./texture/Textures";
 import { Caching } from "./cache/Caching";
 
 export class Materials {

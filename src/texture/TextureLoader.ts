@@ -2,9 +2,9 @@ import { PixelFormat, RGBAFormat, Texture } from "three";
 import { Caching } from "../cache/Caching";
 import * as THREE from "three";
 import { ImageLoader } from "../image/ImageLoader";
-import { createCanvas } from "../CanvasCompat";
+import { createCanvas } from "../canvas/CanvasCompat";
 import { CanvasRenderingContext2D } from "canvas";
-import { Textures } from "../Textures";
+import { Textures } from "./Textures";
 
 export class TextureLoader {
 

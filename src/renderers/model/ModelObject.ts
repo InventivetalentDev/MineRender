@@ -1,12 +1,12 @@
-import { SceneObject } from "../../SceneObject";
+import { SceneObject } from "../SceneObject";
 import { Model, TextureAsset } from "../../model/Model";
 import { Materials } from "../../Materials";
-import { ModelTextures } from "../../ModelTextures";
+import { ModelTextures } from "../../model/ModelTextures";
 import webpack from "webpack";
-import { Assets } from "../../Assets";
+import { Assets } from "../../assets/Assets";
 import { Maybe, toRadians } from "../../util/util";
 import { UVMapper } from "../../UVMapper";
-import { TextureAtlas } from "../../TextureAtlas";
+import { TextureAtlas } from "../../texture/TextureAtlas";
 import { BoxHelper, BufferAttribute, EdgesGeometry, InstancedMesh, LineBasicMaterial, LineSegments, Matrix4, Mesh } from "three";
 import * as THREE from "three";
 import { Axis } from "../../Axis";

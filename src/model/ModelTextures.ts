@@ -1,10 +1,10 @@
-import { AssetKey, serializeAssetKey } from "./cache/CacheKey";
-import { Maybe } from "./util/util";
-import { TextureAsset } from "./model/Model";
-import { Caching } from "./cache/Caching";
-import { AssetLoader } from "./AssetLoader";
-import { CompatImage } from "./CanvasCompat";
-import { ImageLoader } from "./image/ImageLoader";
+import { AssetKey, serializeAssetKey } from "../cache/CacheKey";
+import { Maybe } from "../util/util";
+import { TextureAsset } from "./Model";
+import { Caching } from "../cache/Caching";
+import { AssetLoader } from "../assets/AssetLoader";
+import { CompatImage } from "../canvas/CanvasCompat";
+import { ImageLoader } from "../image/ImageLoader";
 
 export class ModelTextures {
 

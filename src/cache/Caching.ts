@@ -7,12 +7,12 @@ import { TextureLoader } from "../texture/TextureLoader";
 import { Geometry } from "three/examples/jsm/deprecated/Geometry";
 import { Geometries } from "../Geometries";
 import { Meshes } from "../Meshes";
-import { Textures } from "../Textures";
+import { Textures } from "../texture/Textures";
 import { Materials } from "../Materials";
-import { CompatImage } from "../CanvasCompat";
+import { CompatImage } from "../canvas/CanvasCompat";
 import { Model, TextureAsset } from "../model/Model";
 import { WrappedImage } from "../WrappedImage";
-import { TextureAtlas } from "../TextureAtlas";
+import { TextureAtlas } from "../texture/TextureAtlas";
 
 export class Caching {
 

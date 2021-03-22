@@ -1,5 +1,5 @@
-import { CanvasImage } from "./CanvasImage";
-import { DoubleArray, Model } from "./model/Model";
+import { CanvasImage } from "../canvas/CanvasImage";
+import { DoubleArray, Model } from "../model/Model";
 
 export interface TextureAtlas {
     model: Model;

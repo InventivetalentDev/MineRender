@@ -1,5 +1,5 @@
-import { DEFAULT_NAMESPACE } from "./Models";
-import { AssetKey, AssetType } from "./cache/CacheKey";
+import { DEFAULT_NAMESPACE } from "../model/Models";
+import { AssetKey, AssetType } from "../cache/CacheKey";
 
 export class Assets {
 

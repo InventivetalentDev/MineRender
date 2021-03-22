@@ -1,16 +1,16 @@
 import { BoxGeometry, Color, EdgesGeometry, Euler, InstancedMesh, LineBasicMaterial, LineSegments, Matrix4, Mesh, Object3D, Quaternion, Vector3 } from "three";
-import { ModelElement, ModelFaces } from "./model/ModelElement";
-import { Geometries } from "./Geometries";
-import { UVMapper } from "./UVMapper";
-import { DoubleArray, TripleArray } from "./model/Model";
-import { Axis, axisToVec3 } from "./Axis";
+import { ModelElement, ModelFaces } from "../model/ModelElement";
+import { Geometries } from "../Geometries";
+import { UVMapper } from "../UVMapper";
+import { DoubleArray, TripleArray } from "../model/Model";
+import { Axis, axisToVec3 } from "../Axis";
 import { BufferGeometry } from "three/src/core/BufferGeometry";
 import { Material } from "three/src/materials/Material";
-import { SkinPart } from "./renderers/skin/SkinPart";
-import { Maybe } from "./util/util";
-import { InstanceReference } from "./InstanceReference";
-import { MineRenderError } from "./error/MineRenderError";
-import { isInstancedMesh, isMesh } from "./util/three";
+import { SkinPart } from "./skin/SkinPart";
+import { Maybe } from "../util/util";
+import { InstanceReference } from "../InstanceReference";
+import { MineRenderError } from "../error/MineRenderError";
+import { isInstancedMesh, isMesh } from "../util/three";
 
 export class SceneObject extends Object3D {
 

@@ -1,7 +1,7 @@
-import { Model } from "./model/Model";
+import { Model } from "./Model";
 import { Models } from "./Models";
 import merge from "ts-deepmerge";
-import { Assets } from "./Assets";
+import { Assets } from "../assets/Assets";
 
 export class ModelMerger {
 

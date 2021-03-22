@@ -1,13 +1,13 @@
-import { AssetKey } from "./cache/CacheKey";
-import { Model, TextureAsset } from "./model/Model";
-import { Maybe } from "./util/util";
-import { Requests } from "./request/Requests";
+import { AssetKey } from "../cache/CacheKey";
+import { Model, TextureAsset } from "../model/Model";
+import { Maybe } from "../util/util";
+import { Requests } from "../request/Requests";
 import { AxiosRequestConfig, AxiosResponse } from "axios";
-import { debug } from "./debug";
-import { DEFAULT_NAMESPACE, DEFAULT_ROOT } from "./Models";
-import { MinecraftAsset } from "./MinecraftAsset";
+import { debug } from "../debug";
+import { DEFAULT_NAMESPACE, DEFAULT_ROOT } from "../model/Models";
+import { MinecraftAsset } from "../MinecraftAsset";
 import imageSize from "image-size";
-import { ImageInfo, ImageLoader } from "./image/ImageLoader";
+import { ImageInfo, ImageLoader } from "../image/ImageLoader";
 
 export interface ResponseParser<T extends MinecraftAsset> {
     config(request: AxiosRequestConfig);
