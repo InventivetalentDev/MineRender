@@ -1,4 +1,4 @@
-export * from "./debug";
+export * from "./util/debug";
 
 export * from "./renderers/Renderer";
 export * from "./Materials"

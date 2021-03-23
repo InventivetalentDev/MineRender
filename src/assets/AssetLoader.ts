@@ -3,7 +3,7 @@ import { Model, TextureAsset } from "../model/Model";
 import { Maybe } from "../util/util";
 import { Requests } from "../request/Requests";
 import { AxiosRequestConfig, AxiosResponse } from "axios";
-import { debug } from "../debug";
+import { debug } from "../util/debug";
 import { DEFAULT_NAMESPACE, DEFAULT_ROOT } from "../model/Models";
 import { MinecraftAsset } from "../MinecraftAsset";
 import imageSize from "image-size";

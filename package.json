@@ -50,6 +50,7 @@
     "stats.js": "^0.17.0",
     "stream-browserify": "^3.0.0",
     "stream-http": "^3.1.1",
+    "supports-color": "^7.2.0",
     "three": "^0.126.0",
     "ts-deepmerge": "^1.0.6",
     "tty-browserify": "^0.0.1",

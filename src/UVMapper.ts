@@ -14,6 +14,10 @@ import { Caching } from "./cache/Caching";
 import { ImageLoader } from "./image/ImageLoader";
 import { createImageData, ImageData } from "canvas";
 import { SSAOPassOUTPUT } from "three/examples/jsm/postprocessing/SSAOPass";
+import debug from "debug";
+import { DEBUG_NAMESPACE } from "./util/debug";
+
+const d = debug(`${ DEBUG_NAMESPACE }:UVMapper`);
 
 export const DEFAULT_UV: QuadArray = [0, 0, 16, 16];
 const X = 0;
@@ -247,7 +251,7 @@ export class UVMapper {
             }
             await Promise.all(promises);
             const textureCount = uniqueTextureNames.length;
-            console.log(textureCount + " textures")
+            d("Creating Atlas for %d textures", textureCount);
             // console.log(model.textures)
 
             this.fillMissingTextureKeys(model.textures, textureMap);
@@ -273,8 +277,8 @@ export class UVMapper {
             // console.log(sizes);
 
             const s = (Math.ceil(Math.sqrt(textureCount + 1))); // +1 for transparency
-            console.log("s", s)
             const size = Math.ceil(s * maxWidth)
+            d("Atlas size: %d", size);
             // console.log("size: " + size);
             const squaredSize = size * size;
 
@@ -316,7 +320,7 @@ export class UVMapper {
                 }
             }
             const atlasImageData = image.toDataURL();
-            console.log(atlasImageData);
+            // console.log(atlasImageData);
 
             this.fillMissingTextureKeys(model.textures, positions);
 
@@ -333,7 +337,7 @@ export class UVMapper {
                     }
                     for (let faceIndex = 0; faceIndex < CUBE_FACES.length; faceIndex++) {
                         let faceName = CUBE_FACES[faceIndex];
-                        console.log(faceName)
+                        // console.log(faceName)
                         let face = element.faces[faceName];
                         if (!face) {
                             // set uv transparent
@@ -379,7 +383,7 @@ export class UVMapper {
 
 
                         let uvs: QuadArray<Vector2> = [tl, tr, bl, br];
-                        console.log("uvs", uvs);
+                        // console.log("uvs", uvs);
                         this.setFaceUvInArrayV(uv, faceIndex * 4, uvs);
                     }
 

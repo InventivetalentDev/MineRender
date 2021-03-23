@@ -41,7 +41,6 @@ export class ModelObject extends SceneObject {
 
     protected async loadTextures(): Promise<void> {
         this.atlas = await UVMapper.getAtlas(this.originalModel);
-        console.log(this.atlas);
     }
 
 
@@ -53,7 +52,6 @@ export class ModelObject extends SceneObject {
         let allGeos: THREE.BufferGeometry[] = [];
 
         this.atlas!.model.elements?.forEach(el => {
-            console.log(el);
             const elGeo = this._getBoxGeometryFromElement(el).clone();
 
             elGeo.applyMatrix4(new THREE.Matrix4().makeTranslation((el.to[0] - el.from[0]) / 2, (el.to[1] - el.from[1]) / 2, (el.to[2] - el.from[2]) / 2));
@@ -94,15 +92,12 @@ export class ModelObject extends SceneObject {
 
 
     protected applyTextures() {
-        console.log(this.atlas!.model)
         // if (this.atlas!.model.textures) {
         //     for (let textureKey in this.atlas!.model.textures) {
         //         let asset = this.textureMap[textureKey];
         //         if (asset) {
         //TODO: transparency
-        console.log(this.atlas!.image!.canvas!)
         let mat = Materials.createCanvas(this.atlas!.image!.canvas! as HTMLCanvasElement);
-        console.log(mat)
         this.iterateAllMeshes(mesh => {
             mesh.material = mat;
         })

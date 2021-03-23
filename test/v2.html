@@ -130,6 +130,7 @@
                     wireframe: true,
                     maxInstanceCount: instanceCount
                 });
+                obj.init();
                 renderer.scene.add(obj);
                 incStat("modelCount")
 
@@ -172,6 +173,7 @@
                             wireframe: true,
                             maxInstanceCount: instanceCount
                         });
+                        obj.init();
 
                         // obj.translateX(getRandomInt(-16, 16) * 16)
                         // obj.translateY(getRandomInt(-8, 8) * 16)
