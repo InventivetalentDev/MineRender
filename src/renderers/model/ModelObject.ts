@@ -26,11 +26,13 @@ export class ModelObject extends SceneObject {
         if (originalModel.name) {
             this.userData["modelName"] = originalModel.name;
         }
+    }
+
+    protected async init(): Promise<void> {
         // load textures first so we have the updated UV coordinates from the atlas
-        this.loadTextures().then(() => {
-            this.createMeshes();
-            this.applyTextures();
-        });
+        await this.loadTextures();
+        this.createMeshes();
+        this.applyTextures();
     }
 
     public get textureAtlas(): Maybe<TextureAtlas> {

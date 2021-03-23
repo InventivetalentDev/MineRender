@@ -180,11 +180,15 @@
                         renderer.scene.add(obj);
                         incStat("modelCount")
 
+                        const R = 128;
+
                         //TODO: add event for finished mesh loading or set isInstanced sooner
                         setTimeout(() => {
                             for (let i = 0; i < instanceCount; i++) {
                                 let n = obj.nextInstance();
-                                obj.setPositionAt(n.index, new THREE.Vector3(getRandomInt(-64, 64) * 16, getRandomInt(-32, 32) * 16, getRandomInt(-64, 64) * 16));
+                                // obj.setPositionAt(n.index, new THREE.Vector3(getRandomInt(-64, 64) * 16, getRandomInt(-32, 32) * 16, getRandomInt(-64, 64) * 16));
+                                let p = getRandomSpherePoint();
+                                obj.setPositionAt(n.index, new THREE.Vector3(p.x * R * 16, p.y * R * 16, p.z * R * 16));
                                 incStat("instanceCount")
                             }
                         }, 2000);
@@ -267,6 +271,22 @@
                 min = Math.ceil(min);
                 max = Math.floor(max);
                 return Math.floor(Math.random() * (max - min) + min); //The maximum is exclusive and the minimum is inclusive
+            }
+
+            function getRandomSpherePoint() {
+                let u = Math.random();
+                let v = Math.random();
+                let theta = u * 2.0 * Math.PI;
+                let phi = Math.acos(2.0 * v - 1.0);
+                let r = Math.cbrt(Math.random());
+                let sinTheta = Math.sin(theta);
+                let cosTheta = Math.cos(theta);
+                let sinPhi = Math.sin(phi);
+                let cosPhi = Math.cos(phi);
+                let x = r * sinPhi * cosTheta;
+                let y = r * sinPhi * sinTheta;
+                let z = r * cosPhi;
+                return {x: x, y: y, z: z};
             }
         </script>
     </body>

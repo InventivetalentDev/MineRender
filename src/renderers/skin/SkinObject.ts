@@ -22,6 +22,10 @@ export class SkinObject extends SceneObject {
         this.createMeshes();
     }
 
+    protected async init(): Promise<void> {
+        this.createMeshes();
+    }
+
     protected createMeshes() {
         const mat = Materials.MISSING_TEXTURE;
 
