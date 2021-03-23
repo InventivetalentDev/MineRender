@@ -75,7 +75,7 @@ export class ModelObject extends SceneObject {
             let combinedGeo = THREE.BufferGeometryUtils.mergeBufferGeometries(allGeos);
             let mesh: Mesh;
             if (this.options.instanceMeshes) {
-                mesh = this.createInstancedMesh(undefined, combinedGeo, mat, 50/* TODO: move to options */);
+                mesh = this.createInstancedMesh(undefined, combinedGeo, mat, this.options.maxInstanceCount || 50);
                 this.add(mesh);
                 this.isInstanced = true;
                 //TODO
