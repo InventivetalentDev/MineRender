@@ -8,7 +8,7 @@ export class Renderer {
 
     constructor(readonly options: RenderOptions) {
         this._scene = new Scene();
-        this._camera = new PerspectiveCamera(50, this.viewWidth/ this.viewHeight); // TODO: config
+        this._camera = new PerspectiveCamera(50, this.viewWidth/ this.viewHeight,0.1,5000); // TODO: config
         this._renderer = new WebGLRenderer({}); // TODO: config
         this._renderer.setSize(this.viewWidth, this.viewHeight);
     }
