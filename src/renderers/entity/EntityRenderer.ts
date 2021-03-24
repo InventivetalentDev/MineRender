@@ -1,9 +1,9 @@
-import { Renderer, RenderOptions } from "../Renderer";
+import { Renderer, RendererOptions } from "../Renderer";
 
 export class EntityRenderer extends Renderer {
 
 }
 
-export interface EntityRenderOptions extends RenderOptions {
+export interface EntityRenderOptions extends RendererOptions {
 
 }

@@ -1,9 +1,9 @@
-import { debug as dbg } from "debug";
+import { debug } from "debug";
 
 export const DEBUG_NAMESPACE = "MineRender";
 
-export const debug = dbg(DEBUG_NAMESPACE);
+export const dbg = debug(`${ DEBUG_NAMESPACE }:Misc`);
 
 export function enableDebug() {
-    dbg.enable(`${ DEBUG_NAMESPACE }:*`);
+    debug.enable(`${ DEBUG_NAMESPACE }:*`);
 }

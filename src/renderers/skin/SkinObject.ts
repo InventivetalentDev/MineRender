@@ -22,7 +22,7 @@ export class SkinObject extends SceneObject {
         this.createMeshes();
     }
 
-    protected async init(): Promise<void> {
+    async init(): Promise<void> {
         this.createMeshes();
     }
 

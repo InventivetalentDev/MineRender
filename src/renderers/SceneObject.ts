@@ -14,6 +14,8 @@ import { isInstancedMesh, isMesh } from "../util/three";
 
 export class SceneObject extends Object3D {
 
+    public readonly isSceneObject: true = true;
+
     private materialCallbacks: { [key: string]: Array<(mat: Material, key: string) => void>; } = {};
 
     protected isInstanced: boolean = false;
@@ -23,7 +25,7 @@ export class SceneObject extends Object3D {
         super();
     }
 
-    protected async init(): Promise<void> {
+    async init(): Promise<void> {
     }
 
     //<editor-fold desc="GROUPS">

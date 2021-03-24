@@ -3,11 +3,14 @@ import { Model, TextureAsset } from "../model/Model";
 import { Maybe } from "../util/util";
 import { Requests } from "../request/Requests";
 import { AxiosRequestConfig, AxiosResponse } from "axios";
-import { debug } from "../util/debug";
+import { DEBUG_NAMESPACE } from "../util/debug";
 import { DEFAULT_NAMESPACE, DEFAULT_ROOT } from "../model/Models";
 import { MinecraftAsset } from "../MinecraftAsset";
 import imageSize from "image-size";
 import { ImageInfo, ImageLoader } from "../image/ImageLoader";
+import debug from "debug";
+
+const d = debug(`${ DEBUG_NAMESPACE }:AssetLoader`);
 
 export interface ResponseParser<T extends MinecraftAsset> {
     config(request: AxiosRequestConfig);
@@ -39,7 +42,7 @@ export class AssetLoader {
             return direct;
         }
         if (key.namespace !== DEFAULT_NAMESPACE) {
-            debug("Retrying %j with default namespace", key);
+            d("Retrying %j with default namespace", key);
             // Try on the same host but with default minecraft: namespace
             const namespaceKey = { ...key, ...{ namespace: DEFAULT_NAMESPACE } };
             const namespaced = await this.load<T>(namespaceKey, parser);
@@ -47,7 +50,7 @@ export class AssetLoader {
                 return namespaced;
             }
             if (key.root !== undefined && key.root !== DEFAULT_ROOT) {
-                debug("Retrying %j with default root+namespace", key);
+                d("Retrying %j with default root+namespace", key);
                 // Try both defaults
                 const namespacedRootedKey = { ...key, ...{ root: DEFAULT_ROOT, namespace: DEFAULT_NAMESPACE } }
                 const namespacedRooted = await this.load<T>(namespacedRootedKey, parser);
@@ -56,7 +59,7 @@ export class AssetLoader {
                 }
             }
         } else if (key.root !== undefined && key.root !== DEFAULT_ROOT) {
-            debug("Retrying %j with default root", key);
+            d("Retrying %j with default root", key);
             // Try on default root
             const rootKey = { ...key, ...{ root: DEFAULT_ROOT } };
             const rooted = await this.load<T>(rootKey, parser);
@@ -69,7 +72,7 @@ export class AssetLoader {
 
 
     protected static async load<T>(key: AssetKey, parser: ResponseParser<T>): Promise<Maybe<T>> {
-        debug("Loading %j", key);
+        d("Loading %j", key);
         let req: AxiosRequestConfig = {
             url: `${ this.assetBasePath(key) }${ key.type }/${ key.path }${ key.extension }`
         };
@@ -85,11 +88,11 @@ export class AssetLoader {
                 if (err.response) {
                     let response = err.response as AxiosResponse;
                     if (response.status === 404) {
-                        debug("%j not found", key);
+                        d("%j not found", key);
                         return undefined;
                     }
                 }
-                debug("Failed to load %j: %s", key, err?.message);
+                d("Failed to load %j: %s", key, err?.message);
                 throw err;
             })
     }

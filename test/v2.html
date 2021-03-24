@@ -108,43 +108,47 @@
             // document.body.appendChild( stats.dom );
 
             // const MineRender = require("../src");
-            const renderer = new MineRender.Renderer();
+            const renderer = new MineRender.Renderer({
+                render: {
+                    stats: true,
+                    fpsLimit: 0
+                }
+            });
             document.body.appendChild(renderer.renderer.domElement);
 
             setInterval(() => {
                 info["renderCalls"] = renderer.renderer.info.render.calls;
             }, 1000);
 
-            MineRender.Models.getMerged({
-                assetType: "models",
-                type: "block",
-                path: "anvil",
-                extension: ".json"
-            }).then(model => {
-                const instanceCount = 10;
-
-                console.log(model)
-                let obj = new MineRender.ModelObject(model, {
-                    mergeMeshes: true,
-                    instanceMeshes: true,
-                    wireframe: true,
-                    maxInstanceCount: instanceCount
-                });
-                obj.init();
-                renderer.scene.add(obj);
-                incStat("modelCount")
-
-                //TODO: add event for finished mesh loading or set isInstanced sooner
-                setTimeout(() => {
-                    for (let i = 0; i < instanceCount; i++) {
-                        let n = obj.nextInstance();
-                        obj.setPositionAt(n.index, new THREE.Vector3(getRandomInt(-16, 16) * 16, getRandomInt(-16, 16) * 16, getRandomInt(-16, 16) * 16));
-                        incStat("instanceCount")
-                    }
-                }, 2000);
-
-                console.log("Time to scene add: " + (Date.now() - start) + "ms");
-            });
+            // MineRender.Models.getMerged({
+            //     assetType: "models",
+            //     type: "block",
+            //     path: "anvil",
+            //     extension: ".json"
+            // }).then(model => {
+            //     const instanceCount = 10;
+            //
+            //     console.log(model)
+            //     let obj = new MineRender.ModelObject(model, {
+            //         mergeMeshes: true,
+            //         instanceMeshes: true,
+            //         wireframe: true,
+            //         maxInstanceCount: instanceCount
+            //     });
+            //     renderer.scene.initAndAdd(obj);
+            //     incStat("modelCount")
+            //
+            //     //TODO: add event for finished mesh loading or set isInstanced sooner
+            //     setTimeout(() => {
+            //         for (let i = 0; i < instanceCount; i++) {
+            //             let n = obj.nextInstance();
+            //             obj.setPositionAt(n.index, new THREE.Vector3(getRandomInt(-16, 16) * 16, getRandomInt(-16, 16) * 16, getRandomInt(-16, 16) * 16));
+            //             incStat("instanceCount")
+            //         }
+            //     }, 2000);
+            //
+            //     console.log("Time to scene add: " + (Date.now() - start) + "ms");
+            // });
 
             // let skinObj = new MineRender.SkinObject();
             // skinObj.setSkinTexture("https://crafatar.com/skins/bcd2033c63ec4bf88aca680b22461340?overlay");
@@ -166,36 +170,36 @@
                     }).then(model => {
                         const instanceCount = 1000;
 
-                        console.log(model)
+                        // console.log(model)
                         let obj = new MineRender.ModelObject(model, {
                             mergeMeshes: true,
                             instanceMeshes: true,
                             wireframe: true,
                             maxInstanceCount: instanceCount
                         });
-                        obj.init();
 
                         // obj.translateX(getRandomInt(-16, 16) * 16)
                         // obj.translateY(getRandomInt(-8, 8) * 16)
                         // obj.translateZ(getRandomInt(-16, 16) * 16);
 
-                        renderer.scene.add(obj);
-                        incStat("modelCount")
+                        renderer.scene.initAndAdd(obj).then(()=>{
+                            incStat("modelCount")
 
-                        const R = 128;
+                            const R = 128;
 
-                        //TODO: add event for finished mesh loading or set isInstanced sooner
-                        setTimeout(() => {
-                            for (let i = 0; i < instanceCount; i++) {
-                                let n = obj.nextInstance();
-                                // obj.setPositionAt(n.index, new THREE.Vector3(getRandomInt(-64, 64) * 16, getRandomInt(-32, 32) * 16, getRandomInt(-64, 64) * 16));
-                                let p = getRandomSpherePoint();
-                                obj.setPositionAt(n.index, new THREE.Vector3(p.x * R * 16, p.y * R * 16, p.z * R * 16));
-                                incStat("instanceCount")
-                            }
-                        }, 2000);
+                            //TODO: add event for finished mesh loading or set isInstanced sooner
+                            setTimeout(() => {
+                                for (let i = 0; i < instanceCount; i++) {
+                                    let n = obj.nextInstance();
+                                    // obj.setPositionAt(n.index, new THREE.Vector3(getRandomInt(-64, 64) * 16, getRandomInt(-32, 32) * 16, getRandomInt(-64, 64) * 16));
+                                    let p = getRandomSpherePoint();
+                                    obj.setPositionAt(n.index, new THREE.Vector3(p.x * R * 16, p.y * R * 16, p.z * R * 16));
+                                    incStat("instanceCount")
+                                }
+                            }, 2000);
 
-                        console.log("Time to scene add: " + (Date.now() - start) + "ms");
+                            console.log("Time to scene add: " + (Date.now() - start) + "ms");
+                        });
                     })
                 }, i * 5)
             }
@@ -252,22 +256,7 @@
             })
 
 
-            function animate() {
-
-                // stats.begin();
-
-                renderer.renderer.render(renderer.scene, renderer.camera);
-
-                // stats.end();
-
-                setTimeout(function () {
-                    requestAnimationFrame(animate);
-                }, 1000 / 60);
-
-            }
-
-            animate();
-
+            renderer.start();
 
             function getRandomInt(min, max) {
                 min = Math.ceil(min);

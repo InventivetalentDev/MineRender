@@ -400,6 +400,8 @@ export class UVMapper {
                 sizes,
                 positions
             };
+        } else {
+            d("Model does not have any textures %O", model);
         }
         return undefined;
     }

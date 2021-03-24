@@ -2,7 +2,6 @@ import { Model } from "./Model";
 import { Caching } from "../cache/Caching";
 import { Textures } from "../texture/Textures";
 import { Maybe } from "../util/util";
-import { debug } from "../util/debug";
 import { ModelMerger } from "./ModelMerger";
 import { AssetKey, serializeAssetKey } from "../cache/CacheKey";
 import { AssetLoader } from "../assets/AssetLoader";

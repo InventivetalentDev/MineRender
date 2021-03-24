@@ -7,11 +7,12 @@ import { Assets } from "../../assets/Assets";
 import { Maybe, toRadians } from "../../util/util";
 import { UVMapper } from "../../UVMapper";
 import { TextureAtlas } from "../../texture/TextureAtlas";
-import { BoxHelper, BufferAttribute, EdgesGeometry, InstancedMesh, LineBasicMaterial, LineSegments, Matrix4, Mesh } from "three";
+import { BoxGeometry, BoxHelper, BufferAttribute, EdgesGeometry, InstancedMesh, LineBasicMaterial, LineSegments, Matrix4, Mesh } from "three";
 import * as THREE from "three";
 import { Axis } from "../../Axis";
 import { SceneObjectOptions } from "../SceneObjectOptions";
 import { addWireframeToMesh, applyElementRotation } from "../../util/model";
+import { dbg } from "../../util/debug";
 
 require("three/examples/js/utils/BufferGeometryUtils");
 
@@ -28,9 +29,10 @@ export class ModelObject extends SceneObject {
         }
     }
 
-    protected async init(): Promise<void> {
+    async init(): Promise<void> {
         // load textures first so we have the updated UV coordinates from the atlas
         await this.loadTextures();
+
         this.createMeshes();
         this.applyTextures();
     }
@@ -51,28 +53,37 @@ export class ModelObject extends SceneObject {
 
         let allGeos: THREE.BufferGeometry[] = [];
 
-        this.atlas!.model.elements?.forEach(el => {
-            const elGeo = this._getBoxGeometryFromElement(el).clone();
+        if (this.atlas) {
+            this.atlas.model.elements?.forEach(el => {
+                const elGeo = this._getBoxGeometryFromElement(el).clone();
 
-            elGeo.applyMatrix4(new THREE.Matrix4().makeTranslation((el.to[0] - el.from[0]) / 2, (el.to[1] - el.from[1]) / 2, (el.to[2] - el.from[2]) / 2));
-            elGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(el.from[0], el.from[1], el.from[2]));
+                elGeo.applyMatrix4(new THREE.Matrix4().makeTranslation((el.to[0] - el.from[0]) / 2, (el.to[1] - el.from[1]) / 2, (el.to[2] - el.from[2]) / 2));
+                elGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(el.from[0], el.from[1], el.from[2]));
 
-            if (el.rotation) {
-                applyElementRotation(el.rotation, elGeo);
-            }
-
-            if (this.options.mergeMeshes) {
-                allGeos.push(elGeo);
-            } else {
-                const mesh = this.createAndAddMesh(undefined, undefined, elGeo, mat);
-                if (this.options.wireframe) {
-                    addWireframeToMesh(elGeo, mesh);
+                if (el.rotation) {
+                    applyElementRotation(el.rotation, elGeo);
                 }
-            }
-        });
+
+                if (this.options.mergeMeshes) {
+                    allGeos.push(elGeo);
+                } else {
+                    const mesh = this.createAndAddMesh(undefined, undefined, elGeo, mat);
+                    if (this.options.wireframe) {
+                        addWireframeToMesh(elGeo, mesh);
+                    }
+                }
+            });
+        } else {
+            dbg("Missing texture atlas for %O", this);
+        }
 
         if (this.options.mergeMeshes) {
-            let combinedGeo = THREE.BufferGeometryUtils.mergeBufferGeometries(allGeos);
+            let combinedGeo;
+            if (allGeos.length > 0) {
+                combinedGeo = THREE.BufferGeometryUtils.mergeBufferGeometries(allGeos);
+            } else {
+                combinedGeo = new BoxGeometry(16, 16, 16);
+            }
             let mesh: Mesh;
             if (this.options.instanceMeshes) {
                 mesh = this.createInstancedMesh(undefined, combinedGeo, mat, this.options.maxInstanceCount || 50);
@@ -97,10 +108,12 @@ export class ModelObject extends SceneObject {
         //         let asset = this.textureMap[textureKey];
         //         if (asset) {
         //TODO: transparency
-        let mat = Materials.createCanvas(this.atlas!.image!.canvas! as HTMLCanvasElement);
-        this.iterateAllMeshes(mesh => {
-            mesh.material = mat;
-        })
+        if(this.atlas) {
+            let mat = Materials.createCanvas(this.atlas.image!.canvas! as HTMLCanvasElement);
+            this.iterateAllMeshes(mesh => {
+                mesh.material = mat;
+            })
+        }
         //         }
         //     }
         // }
