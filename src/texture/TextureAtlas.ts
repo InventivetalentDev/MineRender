@@ -1,6 +1,7 @@
 import { CanvasImage } from "../canvas/CanvasImage";
 import { DoubleArray, Model } from "../model/Model";
 import { AnimatorFunction } from "../AnimatorFunction";
+import Timeout = NodeJS.Timeout;
 
 export interface TextureAtlas {
     model: Model;
@@ -10,4 +11,5 @@ export interface TextureAtlas {
 
     hasAnimation: boolean;
     animatorFunctions: { [texture: string]: AnimatorFunction; };
+    animator?: Timeout;
 }

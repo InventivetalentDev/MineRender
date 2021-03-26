@@ -123,7 +123,7 @@
             MineRender.Models.getMerged({
                 assetType: "models",
                 type: "block",
-                path: "seagrass",
+                path: "fire_side0",
                 extension: ".json"
             }).then(model => {
                 const instanceCount = 10;
@@ -155,9 +155,12 @@
             // renderer.scene.add(skinObj)
 
             let modelList = list.files;
-            for (let i = 0; i < 0; i++) {
+            for (let i = 0; i < 1000; i++) {
+                if(i>=modelList.length) continue;
+
                 setTimeout(() => {
-                    let modelName = modelList[Math.floor(Math.random() * modelList.length)];
+                    // let modelName = modelList[Math.floor(Math.random() * modelList.length)];
+                    let modelName = modelList[i];
                     let split = modelName.split("\.");
                     modelName = split[0];
 
@@ -168,7 +171,7 @@
                         path: modelName,
                         extension: ".json"
                     }).then(model => {
-                        const instanceCount = 1000;
+                        const instanceCount = 100;
 
                         // console.log(model)
                         let obj = new MineRender.ModelObject(model, {

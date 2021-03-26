@@ -108,7 +108,7 @@ export class ModelObject extends SceneObject {
         //         let asset = this.textureMap[textureKey];
         //         if (asset) {
         //TODO: transparency
-        if(this.atlas) {
+        if (this.atlas) {
             let mat = Materials.createCanvas(this.atlas.image!.canvas! as HTMLCanvasElement);
             this.iterateAllMeshes(mesh => {
                 mesh.material = mat;
@@ -116,12 +116,14 @@ export class ModelObject extends SceneObject {
 
             //TODO: move this somewhere else
             if (this.atlas.hasAnimation) {
-                setInterval(() => {
-                    for (let key in this.atlas!.animatorFunctions) {
-                        this.atlas!.animatorFunctions[key]();
-                    }
-                    mat.map!.needsUpdate = true;
-                }, 1000 / 20);
+                if (!this.atlas.animator) {
+                    this.atlas.animator = setInterval(() => {
+                        for (let key in this.atlas!.animatorFunctions) {
+                            this.atlas!.animatorFunctions[key]();
+                        }
+                        mat.map!.needsUpdate = true;
+                    }, 1000 / 20);
+                }
             }
         }
         //         }

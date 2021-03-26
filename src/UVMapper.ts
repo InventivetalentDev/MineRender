@@ -331,17 +331,22 @@ export class UVMapper {
                         const frameTime = meta?.animation?.frametime ?? 1;
 
                         let t = 0;
-                        let frame = 0;
+                        let f = 0;
 
                         animatorFunctions[textureKey] = () => {
                             //TODO: use mcmeta for frame count, delays, etc
+                            //TODO: interpolate?
                             if (t++ >= frameTime) {
                                 t = 0;
 
-                                image.putData(texture!.getFrameSectionData(frame++), x, y, 0, 0, maxWidth, maxWidth);
+                                const frames = meta?.animation?.frames;
+                                const frame = frames ? frames[f] as number : f; //TODO: frame.time support
 
-                                if (frame >= texture!.frameCount) {
-                                    frame = 0;
+                                image.putData(texture!.getFrameSectionData(frame), x, y, 0, 0, maxWidth, maxWidth);
+
+                                f++;
+                                if (f >= (frames ? frames.length : texture!.frameCount)) {
+                                    f = 0;
                                 }
                             }
                         }
