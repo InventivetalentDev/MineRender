@@ -112,7 +112,17 @@ export class ModelObject extends SceneObject {
             let mat = Materials.createCanvas(this.atlas.image!.canvas! as HTMLCanvasElement);
             this.iterateAllMeshes(mesh => {
                 mesh.material = mat;
-            })
+            });
+
+            //TODO: move this somewhere else
+            if (this.atlas.hasAnimation) {
+                setInterval(() => {
+                    for (let key in this.atlas!.animatorFunctions) {
+                        this.atlas!.animatorFunctions[key]();
+                    }
+                    mat.map!.needsUpdate = true;
+                }, 1000 / 20);
+            }
         }
         //         }
         //     }

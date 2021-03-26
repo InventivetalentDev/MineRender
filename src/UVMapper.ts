@@ -16,6 +16,8 @@ import { createImageData, ImageData } from "canvas";
 import { SSAOPassOUTPUT } from "three/examples/jsm/postprocessing/SSAOPass";
 import debug from "debug";
 import { DEBUG_NAMESPACE } from "./util/debug";
+import { AnimatorFunction } from "./AnimatorFunction";
+import { MinecraftTextureMeta } from "./MinecraftTextureMeta";
 
 const d = debug(`${ DEBUG_NAMESPACE }:UVMapper`);
 
@@ -233,6 +235,7 @@ export class UVMapper {
 
     public static async createAtlas(originalModel: Model): Promise<Maybe<TextureAtlas>> {
         const textureMap: { [key: string]: Maybe<WrappedImage>; } = {};
+        const metaMap: { [key: string]: Maybe<MinecraftTextureMeta>; } = {};
         const model = { ...originalModel };
         if (model.textures) {
             const promises: Promise<void>[] = [];
@@ -244,9 +247,13 @@ export class UVMapper {
                     textureReferences[textureKey] = textureValue.substr(1);
                 } else {
                     uniqueTextureNames.push(textureKey);
-                    promises.push(ModelTextures.get(Assets.parseAssetKey("textures", textureValue, model.key)).then(asset => {
+                    const assetKey = Assets.parseAssetKey("textures", textureValue, model.key);
+                    promises.push(ModelTextures.get(assetKey).then(asset => {
                         textureMap[textureKey] = new WrappedImage(asset!);
                     }));
+                    promises.push(ModelTextures.getMeta(assetKey).then(meta => {
+                        metaMap[textureKey] = meta;
+                    }))
                 }
             }
             await Promise.all(promises);
@@ -255,6 +262,7 @@ export class UVMapper {
             // console.log(model.textures)
 
             this.fillMissingTextureKeys(model.textures, textureMap);
+            this.fillMissingTextureKeys(model.textures, metaMap);
 
             const sizes: { [texture: string]: DoubleArray; } = {};
 
@@ -293,6 +301,10 @@ export class UVMapper {
 
             const positions: { [texture: string]: DoubleArray; } = {};
 
+            let hasAnimation = false;
+            const animatorFunctions: { [texture: string]: AnimatorFunction; } = {};
+
+
             // Draw all textures onto a single image
             let tx = 1; // start one over to leave room for the transparent space
             let ty = 0;
@@ -312,6 +324,28 @@ export class UVMapper {
                     image.putData(texture.data, x, y, 0, 0, maxWidth, maxWidth);
                     // console.log(image.toDataURL())
                     //TODO: only first frame for animated textures
+
+                    if (texture.animated) {
+                        hasAnimation = true;
+                        const meta = metaMap[textureKey];
+                        const frameTime = meta?.animation?.frametime ?? 1;
+
+                        let t = 0;
+                        let frame = 0;
+
+                        animatorFunctions[textureKey] = () => {
+                            //TODO: use mcmeta for frame count, delays, etc
+                            if (t++ >= frameTime) {
+                                t = 0;
+
+                                image.putData(texture!.getFrameSectionData(frame++), x, y, 0, 0, maxWidth, maxWidth);
+
+                                if (frame >= texture!.frameCount) {
+                                    frame = 0;
+                                }
+                            }
+                        }
+                    }
                 }
                 tx++;
                 if (tx >= s) {
@@ -398,7 +432,9 @@ export class UVMapper {
                 model,
                 image,
                 sizes,
-                positions
+                positions,
+                hasAnimation,
+                animatorFunctions
             };
         } else {
             d("Model does not have any textures %O", model);

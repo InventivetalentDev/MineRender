@@ -7,7 +7,7 @@ export class Materials {
 
     public static readonly MISSING_TEXTURE = Materials.getImage({ texture: { src: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABAAQMAAACQp+OdAAAABlBMVEX/AP8AAACfphTyAAAAFUlEQVQoz2MIhQKGVVAwKjIqQrwIAHRz/wFI17TEAAAAAElFTkSuQmCC" } });
 
-    public static createImage(key: MaterialKey): Material {
+    public static createImage(key: MaterialKey): MeshBasicMaterial {
         //TODO: type from key
         const transparent = key.transparent || false;
         return new MeshBasicMaterial({
@@ -19,7 +19,7 @@ export class Materials {
         //TODO: params
     }
 
-    public static createCanvas(canvas: HTMLCanvasElement): Material {
+    public static createCanvas(canvas: HTMLCanvasElement): MeshBasicMaterial {
         //TODO
         return new MeshBasicMaterial({
             map: Textures.createCanvas(canvas),

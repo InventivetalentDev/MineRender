@@ -1,6 +1,14 @@
+import { ImageData } from "canvas";
+import { ImageInfo } from "./image/ImageLoader";
+import { ExtractableImageData } from "./ExtractableImageData";
+
 export class WrappedImage {
 
-    constructor(readonly data: ImageData) {
+    constructor(readonly dta: ExtractableImageData) {
+    }
+
+    get data(): ImageData {
+        return this.getSectionData(0, 0, this.width, this.height);
     }
 
     get dataArray(): Uint8ClampedArray {
@@ -8,11 +16,11 @@ export class WrappedImage {
     }
 
     get width(): number {
-        return this.data.width;
+        return this.dta.width;
     }
 
     get height(): number {
-        return this.data.height;
+        return this.dta.height;
     }
 
     get animated(): boolean {
@@ -21,6 +29,19 @@ export class WrappedImage {
 
     get frameCount(): number {
         return this.height / this.width;
+    }
+
+    getFrameY(frame: number): number {
+        return (this.height / this.frameCount) * Math.max(0, Math.min(this.frameCount, frame));
+    }
+
+    getSectionData(sx: number, sy: number, sw: number, sh: number): ImageData {
+        return this.dta.data.getImageData(sx, sy, sw, sh);
+    }
+
+    getFrameSectionData(frame: number): ImageData {
+        const y = this.getFrameY(frame);
+        return this.getSectionData(0, y, this.width, this.width + y);
     }
 
 }

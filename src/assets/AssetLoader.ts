@@ -9,6 +9,7 @@ import { MinecraftAsset } from "../MinecraftAsset";
 import imageSize from "image-size";
 import { ImageInfo, ImageLoader } from "../image/ImageLoader";
 import debug from "debug";
+import { MinecraftTextureMeta } from "../MinecraftTextureMeta";
 
 const d = debug(`${ DEBUG_NAMESPACE }:AssetLoader`);
 
@@ -25,6 +26,13 @@ export class AssetLoader {
         },
         parse(response: AxiosResponse): Maybe<Model> {
             return response.data as Model;
+        }
+    }
+    static readonly META: ResponseParser<MinecraftTextureMeta> = {
+        config(request: AxiosRequestConfig) {
+        },
+        parse(response: AxiosResponse): Maybe<MinecraftTextureMeta> {
+            return response.data as MinecraftTextureMeta;
         }
     }
     static readonly IMAGE: ResponseParser<TextureAsset> = {

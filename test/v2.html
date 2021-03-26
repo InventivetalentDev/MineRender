@@ -120,42 +120,42 @@
                 info["renderCalls"] = renderer.renderer.info.render.calls;
             }, 1000);
 
-            // MineRender.Models.getMerged({
-            //     assetType: "models",
-            //     type: "block",
-            //     path: "anvil",
-            //     extension: ".json"
-            // }).then(model => {
-            //     const instanceCount = 10;
-            //
-            //     console.log(model)
-            //     let obj = new MineRender.ModelObject(model, {
-            //         mergeMeshes: true,
-            //         instanceMeshes: true,
-            //         wireframe: true,
-            //         maxInstanceCount: instanceCount
-            //     });
-            //     renderer.scene.initAndAdd(obj);
-            //     incStat("modelCount")
-            //
-            //     //TODO: add event for finished mesh loading or set isInstanced sooner
-            //     setTimeout(() => {
-            //         for (let i = 0; i < instanceCount; i++) {
-            //             let n = obj.nextInstance();
-            //             obj.setPositionAt(n.index, new THREE.Vector3(getRandomInt(-16, 16) * 16, getRandomInt(-16, 16) * 16, getRandomInt(-16, 16) * 16));
-            //             incStat("instanceCount")
-            //         }
-            //     }, 2000);
-            //
-            //     console.log("Time to scene add: " + (Date.now() - start) + "ms");
-            // });
+            MineRender.Models.getMerged({
+                assetType: "models",
+                type: "block",
+                path: "seagrass",
+                extension: ".json"
+            }).then(model => {
+                const instanceCount = 10;
+
+                console.log(model)
+                let obj = new MineRender.ModelObject(model, {
+                    mergeMeshes: true,
+                    instanceMeshes: true,
+                    wireframe: true,
+                    maxInstanceCount: instanceCount
+                });
+                renderer.scene.initAndAdd(obj);
+                incStat("modelCount")
+
+                //TODO: add event for finished mesh loading or set isInstanced sooner
+                setTimeout(() => {
+                    for (let i = 0; i < instanceCount; i++) {
+                        let n = obj.nextInstance();
+                        obj.setPositionAt(n.index, new THREE.Vector3(getRandomInt(-16, 16) * 16, getRandomInt(-16, 16) * 16, getRandomInt(-16, 16) * 16));
+                        incStat("instanceCount")
+                    }
+                }, 2000);
+
+                console.log("Time to scene add: " + (Date.now() - start) + "ms");
+            });
 
             // let skinObj = new MineRender.SkinObject();
             // skinObj.setSkinTexture("https://crafatar.com/skins/bcd2033c63ec4bf88aca680b22461340?overlay");
             // renderer.scene.add(skinObj)
 
             let modelList = list.files;
-            for (let i = 0; i < 1000; i++) {
+            for (let i = 0; i < 0; i++) {
                 setTimeout(() => {
                     let modelName = modelList[Math.floor(Math.random() * modelList.length)];
                     let split = modelName.split("\.");

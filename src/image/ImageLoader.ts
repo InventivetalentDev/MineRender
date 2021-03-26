@@ -6,6 +6,7 @@ import imageSize from "image-size";
 import { Requests } from "../request/Requests";
 import { SSAOPassOUTPUT } from "three/examples/jsm/postprocessing/SSAOPass";
 import { WrappedImage } from "../WrappedImage";
+import { ExtractableImageData } from "../ExtractableImageData";
 
 export interface ImageInfo {
     src?: string;
@@ -45,6 +46,25 @@ export class ImageLoader {
         return await this.infoToData(await this.loadInfo(src));
     }
 
+    public static async loadCanvasData(src: string): Promise<ExtractableImageData> {
+        return await this.infoToCanvasData(await this.loadInfo(src));
+    }
+
+    public static async infoToCanvasData(info: ImageInfo): Promise<ExtractableImageData> {
+        const image = await ImageLoader.loadAsync(info.src!);
+        const canvas = createCanvas(info.width, info.height);
+        const context = canvas.getContext("2d") as CanvasRenderingContext2D;
+        context.drawImage(image as CanvasImageSource, 0, 0);
+        return {
+            data: context,
+            width: info.width,
+            height: info.height
+        }
+
+        // return new ImageData(new Uint8ClampedArray(info.data), info.width, info.height)
+    }
+
+
     public static async infoToData(info: ImageInfo): Promise<ImageData> {
         const image = await ImageLoader.loadAsync(info.src!);
         const canvas = createCanvas(info.width, info.height);
@@ -60,6 +80,13 @@ export class ImageLoader {
         const keyStr = serializeImageKey({ src });
         return (await Caching.imageDataCache.get(keyStr, k => {
             return ImageLoader.loadData(src);
+        }))!;
+    }
+
+    public static async getCanvasData(src: string): Promise<ExtractableImageData> {
+        const keyStr = serializeImageKey({ src });
+        return (await Caching.canvasImageDataCache.get(keyStr, k => {
+            return ImageLoader.loadCanvasData(src);
         }))!;
     }
 
@@ -92,7 +119,7 @@ export class ImageLoader {
     }
 
     public static async loadWrapped(src: string): Promise<WrappedImage> {
-        const data = await this.getData(src);
+        const data = await this.getCanvasData(src);
         return new WrappedImage(data);
     }
 

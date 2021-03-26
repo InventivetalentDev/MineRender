@@ -13,6 +13,8 @@ import { CompatImage } from "../canvas/CanvasCompat";
 import { Model, TextureAsset } from "../model/Model";
 import { WrappedImage } from "../WrappedImage";
 import { TextureAtlas } from "../texture/TextureAtlas";
+import { ExtractableImageData } from "../ExtractableImageData";
+import { MinecraftTextureMeta } from "../MinecraftTextureMeta";
 
 export class Caching {
 
@@ -26,6 +28,11 @@ export class Caching {
         .expireAfterAccess(Time.minutes(1))
         .expirationInterval(Time.seconds(10))
         .buildAsync<CacheKey, ImageData>();
+    static readonly canvasImageDataCache: AsyncLoadingCache<CacheKey, ExtractableImageData> = Caches.builder()
+        .expireAfterWrite(Time.minutes(5))
+        .expireAfterAccess(Time.minutes(1))
+        .expirationInterval(Time.seconds(10))
+        .buildAsync<CacheKey, ExtractableImageData>();
     static readonly wrappedImageCache: AsyncLoadingCache<CacheKey, WrappedImage> = Caches.builder()
         .expireAfterWrite(Time.minutes(5))
         .expireAfterAccess(Time.minutes(1))
@@ -61,6 +68,11 @@ export class Caching {
         .expireAfterAccess(Time.minutes(2))
         .expirationInterval(Time.seconds(30))
         .buildAsync<CacheKey, TextureAsset>();
+    static readonly textureMetaCache: AsyncLoadingCache<CacheKey, MinecraftTextureMeta> = Caches.builder()
+        .expireAfterWrite(Time.minutes(4))
+        .expireAfterAccess(Time.minutes(2))
+        .expirationInterval(Time.seconds(30))
+        .buildAsync<CacheKey, MinecraftTextureMeta>();
 
     static readonly rawModelCache: AsyncLoadingCache<CacheKey, Model> = Caches.builder()
         .expireAfterWrite(Time.minutes(6))
