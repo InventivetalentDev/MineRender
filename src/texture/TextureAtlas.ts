@@ -11,5 +11,5 @@ export interface TextureAtlas {
 
     hasAnimation: boolean;
     animatorFunctions: { [texture: string]: AnimatorFunction; };
-    animator?: Timeout;
+    ticker?: number;
 }

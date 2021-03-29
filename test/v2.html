@@ -21,8 +21,8 @@
                 top: 0;
                 right: 0;
                 background-color: hsla(0, 0%, 59%, 0.5);
-                width: 60px;
-                height: 80px;
+                width: 80px;
+                height: 100px;
                 padding: 5px;
                 color: white;
                 text-shadow: 0 0 4px black;
@@ -36,6 +36,8 @@
             <span>IC <span id="instanceCount" title="instanceCount">0</span></span><br/>
             <br/>
             <span>RC <span id="renderCalls" title="renderCalls">0</span></span><br/>
+            <br/>
+            <span>TPS <span id="1sTps" title="1sTps">20</span>/<span id="5sTps" title="5sTps">20</span></span><br/>
         </div>
 
         <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r125/three.min.js" integrity="sha512-XI02ivhfmEfnk8CEEnJ92ZS6hOqWoWMKF6pxF/tC/DXBVxDXgs2Kmlc9CHA0Aw2dX03nrr8vF54Z6Mqlkuabkw==" crossorigin="anonymous"></script>
@@ -88,7 +90,9 @@
             const info = {
                 "modelCount": 0,
                 "instanceCount": 0,
-                "renderCalls": 0
+                "renderCalls": 0,
+                "1sTps": 0,
+                "5sTps": 0
             }
 
             setInterval(() => {
@@ -96,6 +100,11 @@
                     document.getElementById(k).innerText = "" + info[k];
                 }
             }, 500);
+
+            setInterval(() => {
+                info["1sTps"] = MineRender.Ticker.tpsOneSecond;
+                info["5sTps"] = MineRender.Ticker.tpsFiveSeconds;
+            }, 1000);
 
             function incStat(stat, amount = 1) {
                 info[stat] += amount;
@@ -155,7 +164,7 @@
             // renderer.scene.add(skinObj)
 
             let modelList = list.files;
-            for (let i = 0; i < 1000; i++) {
+            for (let i = 0; i < 5000; i++) {
                 if(i>=modelList.length) continue;
 
                 setTimeout(() => {
@@ -171,7 +180,7 @@
                         path: modelName,
                         extension: ".json"
                     }).then(model => {
-                        const instanceCount = 100;
+                        const instanceCount = 200;
 
                         // console.log(model)
                         let obj = new MineRender.ModelObject(model, {

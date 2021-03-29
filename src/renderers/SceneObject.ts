@@ -28,6 +28,9 @@ export class SceneObject extends Object3D {
     async init(): Promise<void> {
     }
 
+    public dispose() {
+    }
+
     //<editor-fold desc="GROUPS">
 
     protected createAndAddGroup(name?: string, x: number = 0, y: number = 0, z: number = 0, offsetAxis?: Axis, offset: number = 0): Object3D {

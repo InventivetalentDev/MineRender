@@ -13,6 +13,7 @@ import { Axis } from "../../Axis";
 import { SceneObjectOptions } from "../SceneObjectOptions";
 import { addWireframeToMesh, applyElementRotation } from "../../util/model";
 import { dbg } from "../../util/debug";
+import { Ticker } from "../../Ticker";
 
 require("three/examples/js/utils/BufferGeometryUtils");
 
@@ -35,6 +36,13 @@ export class ModelObject extends SceneObject {
 
         this.createMeshes();
         this.applyTextures();
+    }
+
+    dispose() {
+        super.dispose();
+        if (this.atlas) {
+            Ticker.remove(this.atlas.ticker);
+        }
     }
 
     public get textureAtlas(): Maybe<TextureAtlas> {
@@ -84,6 +92,7 @@ export class ModelObject extends SceneObject {
             } else {
                 combinedGeo = new BoxGeometry(16, 16, 16);
             }
+            // TODO: cache the combined geometry
             let mesh: Mesh;
             if (this.options.instanceMeshes) {
                 mesh = this.createInstancedMesh(undefined, combinedGeo, mat, this.options.maxInstanceCount || 50);
@@ -116,13 +125,13 @@ export class ModelObject extends SceneObject {
 
             //TODO: move this somewhere else
             if (this.atlas.hasAnimation) {
-                if (!this.atlas.animator) {
-                    this.atlas.animator = setInterval(() => {
+                if (!this.atlas.ticker) {
+                    this.atlas.ticker = Ticker.add(() => {
                         for (let key in this.atlas!.animatorFunctions) {
                             this.atlas!.animatorFunctions[key]();
                         }
                         mat.map!.needsUpdate = true;
-                    }, 1000 / 20);
+                    });
                 }
             }
         }

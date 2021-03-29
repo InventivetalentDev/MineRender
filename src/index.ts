@@ -13,4 +13,6 @@ export * from "./model/ModelMerger"
 export * from "./renderers/skin/SkinObject"
 export * from "./renderers/model/ModelObject"
 
+export * from "./Ticker";
+
 //export * from "three/examples/jsm/utils/BufferGeometryUtils"
