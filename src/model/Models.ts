@@ -6,9 +6,6 @@ import { ModelMerger } from "./ModelMerger";
 import { AssetKey, serializeAssetKey } from "../cache/CacheKey";
 import { AssetLoader } from "../assets/AssetLoader";
 
-export const DEFAULT_ROOT = "https://assets.mcasset.cloud/1.16.5";
-export const DEFAULT_NAMESPACE = "minecraft";
-
 export class Models {
 
     public static async loadAndMerge(key: AssetKey): Promise<Maybe<Model>> {

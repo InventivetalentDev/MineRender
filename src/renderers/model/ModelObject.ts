@@ -14,17 +14,23 @@ import { SceneObjectOptions } from "../SceneObjectOptions";
 import { addWireframeToMesh, applyElementRotation } from "../../util/model";
 import { dbg } from "../../util/debug";
 import { Ticker } from "../../Ticker";
+import merge from "ts-deepmerge";
 
 require("three/examples/js/utils/BufferGeometryUtils");
 
 export class ModelObject extends SceneObject {
 
+    public static readonly DEFAULT_OPTIONS: ModelObjectOptions = merge({}, SceneObject.DEFAULT_OPTIONS, <ModelObjectOptions>{});
+    public readonly options: ModelObjectOptions;
+
     private atlas?: TextureAtlas;
 
     private meshesCreated: boolean = false;
 
-    constructor(readonly originalModel: Model, readonly options: ModelObjectOptions) {
+    constructor(readonly originalModel: Model, options?: Partial<ModelObjectOptions>) {
         super();
+        this.options = merge({}, ModelObject.DEFAULT_OPTIONS, options ?? {});
+
         if (originalModel.name) {
             this.userData["modelName"] = originalModel.name;
         }
@@ -62,25 +68,29 @@ export class ModelObject extends SceneObject {
         let allGeos: THREE.BufferGeometry[] = [];
 
         if (this.atlas) {
-            this.atlas.model.elements?.forEach(el => {
-                const elGeo = this._getBoxGeometryFromElement(el).clone();
+            if (this.atlas.model.elements) { // block / block item
+                this.atlas.model.elements?.forEach(el => {
+                    const elGeo = this._getBoxGeometryFromElement(el).clone();
 
-                elGeo.applyMatrix4(new THREE.Matrix4().makeTranslation((el.to[0] - el.from[0]) / 2, (el.to[1] - el.from[1]) / 2, (el.to[2] - el.from[2]) / 2));
-                elGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(el.from[0], el.from[1], el.from[2]));
+                    elGeo.applyMatrix4(new THREE.Matrix4().makeTranslation((el.to[0] - el.from[0]) / 2, (el.to[1] - el.from[1]) / 2, (el.to[2] - el.from[2]) / 2));
+                    elGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(el.from[0], el.from[1], el.from[2]));
 
-                if (el.rotation) {
-                    applyElementRotation(el.rotation, elGeo);
-                }
-
-                if (this.options.mergeMeshes) {
-                    allGeos.push(elGeo);
-                } else {
-                    const mesh = this.createAndAddMesh(undefined, undefined, elGeo, mat);
-                    if (this.options.wireframe) {
-                        addWireframeToMesh(elGeo, mesh);
+                    if (el.rotation) {
+                        applyElementRotation(el.rotation, elGeo);
                     }
-                }
-            });
+
+                    if (this.options.mergeMeshes) {
+                        allGeos.push(elGeo);
+                    } else {
+                        const mesh = this.createAndAddMesh(undefined, undefined, elGeo, mat);
+                        if (this.options.wireframe) {
+                            addWireframeToMesh(elGeo, mesh);
+                        }
+                    }
+                });
+            } else { // simple item
+                //TODO
+            }
         } else {
             dbg("Missing texture atlas for %O", this);
         }

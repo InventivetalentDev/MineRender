@@ -4,12 +4,13 @@ import { Maybe } from "../util/util";
 import { Requests } from "../request/Requests";
 import { AxiosRequestConfig, AxiosResponse } from "axios";
 import { DEBUG_NAMESPACE } from "../util/debug";
-import { DEFAULT_NAMESPACE, DEFAULT_ROOT } from "../model/Models";
 import { MinecraftAsset } from "../MinecraftAsset";
 import imageSize from "image-size";
 import { ImageInfo, ImageLoader } from "../image/ImageLoader";
 import debug from "debug";
 import { MinecraftTextureMeta } from "../MinecraftTextureMeta";
+import { BlockState } from "../model/BlockState";
+import { DEFAULT_NAMESPACE, DEFAULT_ROOT } from "./Assets";
 
 const d = debug(`${ DEBUG_NAMESPACE }:AssetLoader`);
 
@@ -26,6 +27,13 @@ export class AssetLoader {
         },
         parse(response: AxiosResponse): Maybe<Model> {
             return response.data as Model;
+        }
+    }
+    static readonly BLOCKSTATE: ResponseParser<BlockState> = {
+        config(request: AxiosRequestConfig) {
+        },
+        parse(response: AxiosResponse): Maybe<BlockState> {
+            return response.data as BlockState;
         }
     }
     static readonly META: ResponseParser<MinecraftTextureMeta> = {
@@ -82,7 +90,7 @@ export class AssetLoader {
     protected static async load<T>(key: AssetKey, parser: ResponseParser<T>): Promise<Maybe<T>> {
         d("Loading %j", key);
         let req: AxiosRequestConfig = {
-            url: `${ this.assetBasePath(key) }${ key.type }/${ key.path }${ key.extension }`
+            url: `${ this.assetBasePath(key) }${ key.type ? '/' + key.type : '' }/${ key.path }${ key.extension }`
         };
         parser.config(req);
         return Requests.mcAssetRequest(req)
@@ -106,7 +114,7 @@ export class AssetLoader {
     }
 
     public static assetBasePath(key: AssetKey) {
-        return `${ key.root || DEFAULT_ROOT }/assets/${ key.namespace || DEFAULT_NAMESPACE }/${ key.assetType }/`;
+        return `${ key.root || DEFAULT_ROOT }/assets/${ key.namespace || DEFAULT_NAMESPACE }/${ key.assetType }`;
     }
 
 }

@@ -3,30 +3,29 @@ import { MineRenderScene } from "./MineRenderScene";
 import merge from "ts-deepmerge";
 import Stats from "stats.js";
 
-const DEFAULT_OPTIONS: RendererOptions = {
-    camera: {
-        type: "perspective",
-        near: 0.1,
-        far: 5000,
-        perspective: {
-            aspect: undefined,
-            fov: 50,
-        },
-        orthographic: {
-            left: undefined,
-            right: undefined,
-            top: undefined,
-            bottom: undefined
-        }
-    },
-    render: {
-        fpsLimit: 60,
-        stats: false
-    }
-}
-
 export class Renderer {
 
+    public static readonly DEFAULT_OPTIONS: RendererOptions = merge({}, <RendererOptions>{
+        camera: {
+            type: "perspective",
+            near: 0.1,
+            far: 5000,
+            perspective: {
+                aspect: undefined,
+                fov: 50,
+            },
+            orthographic: {
+                left: undefined,
+                right: undefined,
+                top: undefined,
+                bottom: undefined
+            }
+        },
+        render: {
+            fpsLimit: 60,
+            stats: false
+        }
+    });
     public readonly options: RendererOptions;
 
     protected _scene: Scene;
@@ -39,7 +38,7 @@ export class Renderer {
     protected _animationFrame?: number = undefined;
 
     constructor(options?: Partial<RendererOptions>) {
-        this.options = merge({}, DEFAULT_OPTIONS, options ?? {});
+        this.options = merge({}, Renderer.DEFAULT_OPTIONS, options ?? {});
 
         this._scene = this.createScene();
         this._camera = this.createCamera();

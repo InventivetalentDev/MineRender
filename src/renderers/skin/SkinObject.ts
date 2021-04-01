@@ -5,8 +5,13 @@ import { classicSkinTextureCoordinates, SkinTextureCoordinates, slimSkinTextureC
 import { classicSkinGeometries, SkinGeometries, slimSkinGeometries } from "./SkinGeometries";
 import { Axis } from "../../Axis";
 import { Materials } from "../../Materials";
+import { ModelObjectOptions } from "../model/ModelObject";
+import merge from "ts-deepmerge";
+import { SceneObjectOptions } from "../SceneObjectOptions";
 
 export class SkinObject extends SceneObject {
+
+    public readonly options: SkinObjectOptions;
 
     private slim: boolean = false;
 
@@ -17,8 +22,10 @@ export class SkinObject extends SceneObject {
     private capeTextureSrc?: string;
 
 
-    constructor(readonly options: SkinObjectOptions) {
+    constructor(options: SkinObjectOptions) {
         super();
+        this.options = merge({}, SceneObject.DEFAULT_OPTIONS, options ?? {});
+
         this.createMeshes();
     }
 
@@ -126,6 +133,6 @@ export class SkinObject extends SceneObject {
 
 }
 
-export interface SkinObjectOptions {
+export interface SkinObjectOptions extends SceneObjectOptions {
 
 }

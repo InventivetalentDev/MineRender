@@ -15,6 +15,8 @@ import { WrappedImage } from "../WrappedImage";
 import { TextureAtlas } from "../texture/TextureAtlas";
 import { ExtractableImageData } from "../ExtractableImageData";
 import { MinecraftTextureMeta } from "../MinecraftTextureMeta";
+import { BlockStates } from "../model/BlockStates";
+import { BlockState } from "../model/BlockState";
 
 export class Caching {
 
@@ -89,6 +91,12 @@ export class Caching {
         .expireAfterAccess(Time.minutes(5))
         .expirationInterval(Time.seconds(30))
         .buildAsync<CacheKey, TextureAtlas>();
+
+    static readonly blockStateCache: AsyncLoadingCache<CacheKey, BlockState> = Caches.builder()
+        .expireAfterWrite(Time.minutes(10))
+        .expireAfterAccess(Time.minutes(5))
+        .expirationInterval(Time.seconds(30))
+        .buildAsync<CacheKey, BlockState>();
 
 
     public static clear() {

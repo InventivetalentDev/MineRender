@@ -1,9 +1,11 @@
-export interface BlockState {
+import { MinecraftAsset } from "../MinecraftAsset";
+
+export interface BlockState extends MinecraftAsset {
     variants?: BlockStateVariants;
     multipart?: BlockStateMultipart[];
 }
 
-export type BlockStateVariants = { [key: string]: BlockStateVariant };
+export type BlockStateVariants = { [key: string]: BlockStateVariant | BlockStateVariant[] };
 
 export interface BlockStateVariant {
     model?: string;

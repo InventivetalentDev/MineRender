@@ -86,7 +86,7 @@ export function serializeMeshKey(key: MeshKey): string {
 
 ///
 
-export type AssetType = "models" | "textures" | string;
+export type AssetType = "models" | "textures" | "blockstates" | string;
 
 export interface AssetKey {
     root?: string;

@@ -11,8 +11,19 @@ import { Maybe } from "../util/util";
 import { InstanceReference } from "../InstanceReference";
 import { MineRenderError } from "../error/MineRenderError";
 import { isInstancedMesh, isMesh } from "../util/three";
+import { Disposable, isDisposable } from "../Disposable";
+import { SceneObjectOptions } from "./SceneObjectOptions";
+import merge from "ts-deepmerge";
 
-export class SceneObject extends Object3D {
+export class SceneObject extends Object3D implements Disposable {
+
+    public static readonly DEFAULT_OPTIONS: SceneObjectOptions = merge({}, <SceneObjectOptions>{
+        instanceMeshes: true,
+        maxInstanceCount: 50,
+        mergeMeshes: true,
+        wireframe: false
+    });
+    public readonly options: SceneObjectOptions;
 
     public readonly isSceneObject: true = true;
 
@@ -21,14 +32,12 @@ export class SceneObject extends Object3D {
     protected isInstanced: boolean = false;
     protected instanceCounter: number = 0;
 
-    constructor() {
+    constructor(options?: Partial<SceneObjectOptions>) {
         super();
+        this.options = merge({}, SceneObject.DEFAULT_OPTIONS, options ?? {});
     }
 
     async init(): Promise<void> {
-    }
-
-    public dispose() {
     }
 
     //<editor-fold desc="GROUPS">
@@ -239,5 +248,22 @@ export class SceneObject extends Object3D {
         }
         return false;
     }
+
+    //<editor-fold desc="CLEANUP">
+
+    public dispose() {
+        this.disposeAndRemoveAllChildren();
+    }
+
+    public disposeAndRemoveAllChildren() {
+        this.children.forEach(c => {
+            if (isDisposable(c)) {
+                c.dispose();
+                this.remove(c);
+            }
+        });
+    }
+
+    //</editor-fold>
 
 }
