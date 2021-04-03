@@ -20,6 +20,8 @@ require("three/examples/js/utils/BufferGeometryUtils");
 
 export class ModelObject extends SceneObject {
 
+    public readonly isModelObject: true = true;
+
     public static readonly DEFAULT_OPTIONS: ModelObjectOptions = merge({}, SceneObject.DEFAULT_OPTIONS, <ModelObjectOptions>{});
     public readonly options: ModelObjectOptions;
 
@@ -107,7 +109,7 @@ export class ModelObject extends SceneObject {
             if (this.options.instanceMeshes) {
                 mesh = this.createInstancedMesh(undefined, combinedGeo, mat, this.options.maxInstanceCount || 50);
                 this.add(mesh);
-                this.isInstanced = true;
+                this._isInstanced = true;
                 //TODO
             } else {
                 mesh = this.createAndAddMesh(undefined, undefined, combinedGeo, mat)
@@ -155,4 +157,8 @@ export class ModelObject extends SceneObject {
 
 export interface ModelObjectOptions extends SceneObjectOptions {
 
+}
+
+export function isModelObject(obj: any): obj is ModelObject {
+    return (<ModelObject>obj).isModelObject;
 }

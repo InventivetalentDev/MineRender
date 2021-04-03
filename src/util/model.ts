@@ -7,7 +7,7 @@ import { ElementRotation } from "../model/ModelElement";
 import { BufferGeometry } from "three/src/core/BufferGeometry";
 import { Axis } from "../Axis";
 import { toRadians } from "./util";
-import { EdgesGeometry, LineBasicMaterial, LineSegments, Mesh } from "three";
+import { EdgesGeometry, LineBasicMaterial, LineSegments, Mesh, Object3D } from "three";
 
 function rotateAboutPoint(obj: THREE.Object3D, point: THREE.Vector3, axis: THREE.Vector3, theta: number) {
     obj.position.sub(point); // remove the offset
@@ -36,6 +36,28 @@ export function applyElementRotation(rotation: ElementRotation, geometry: Buffer
     geometry.translate(rotation.origin[0], rotation.origin[1], rotation.origin[2]);
 }
 
+export function applyGenericRotation(axis: Axis,  rotation: number, obj: Object3D) {
+    // subtract origin
+    obj.translateX(8);
+    obj.translateZ(8);
+    obj.translateY(8);
+    // apply rotation
+    switch (axis) {
+        case Axis.X:
+            obj.rotateX(toRadians(rotation));
+            break;
+        case Axis.Y:
+            obj.rotateY(toRadians(rotation));
+            break;
+        case Axis.Z:
+            obj.rotateZ(toRadians(rotation));
+            break;
+    }
+    // add back origin
+    obj.translateX(-8);
+    obj.translateZ(-8);
+    obj.translateY(-8);
+}
 
 export function addWireframeToMesh(geo: BufferGeometry, mesh: Mesh) {
     let wireGeo = new EdgesGeometry(geo);

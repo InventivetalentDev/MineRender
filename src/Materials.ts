@@ -19,12 +19,12 @@ export class Materials {
         //TODO: params
     }
 
-    public static createCanvas(canvas: HTMLCanvasElement): MeshBasicMaterial {
+    public static createCanvas(canvas: HTMLCanvasElement, transparent: boolean = false): MeshBasicMaterial {
         //TODO
         return new MeshBasicMaterial({
             map: Textures.createCanvas(canvas),
-            transparent: true,
-            side: FrontSide,
+            transparent: transparent,
+            side: transparent ? DoubleSide : FrontSide,
             alphaTest: 0.5
         })
     }

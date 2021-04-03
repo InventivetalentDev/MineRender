@@ -296,10 +296,12 @@ export class UVMapper {
 
             // Create image
             const image = new CanvasImage(size, size);
-            image.putData(missing, 0, 0);
-            image.putData(empty, 0, 0, 0, 0, maxWidth, maxWidth);
+            image.putData(missing, 0, 0); // fill with invalid texture image
+            image.putData(empty, 0, 0, 0, 0, maxWidth, maxWidth); // add transparent section in the top-left corner
 
             const positions: { [texture: string]: DoubleArray; } = {};
+
+            let hasTransparency = false;
 
             let hasAnimation = false;
             const animatorFunctions: { [texture: string]: AnimatorFunction; } = {};

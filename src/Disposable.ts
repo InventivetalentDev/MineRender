@@ -2,6 +2,6 @@ export interface Disposable {
     dispose(): void;
 }
 
-export function isDisposable(object: any): object is Disposable {
-    return 'dispose' in object;
+export function isDisposable(obj: any): obj is Disposable {
+    return 'dispose' in obj;
 }

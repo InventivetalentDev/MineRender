@@ -17,6 +17,8 @@ import merge from "ts-deepmerge";
 
 export class SceneObject extends Object3D implements Disposable {
 
+    public readonly isSceneObject: true = true;
+
     public static readonly DEFAULT_OPTIONS: SceneObjectOptions = merge({}, <SceneObjectOptions>{
         instanceMeshes: true,
         maxInstanceCount: 50,
@@ -25,12 +27,10 @@ export class SceneObject extends Object3D implements Disposable {
     });
     public readonly options: SceneObjectOptions;
 
-    public readonly isSceneObject: true = true;
-
     private materialCallbacks: { [key: string]: Array<(mat: Material, key: string) => void>; } = {};
 
-    protected isInstanced: boolean = false;
-    protected instanceCounter: number = 0;
+    protected _isInstanced: boolean = false;
+    protected _instanceCounter: number = 0;
 
     constructor(options?: Partial<SceneObjectOptions>) {
         super();
@@ -173,9 +173,17 @@ export class SceneObject extends Object3D implements Disposable {
 
     //<editor-fold desc="INSTANCING">
 
+    get isInstanced(): boolean {
+        return this._isInstanced;
+    }
+
+    get instanceCounter(): number {
+        return this._instanceCounter;
+    }
+
     nextInstance(): InstanceReference {
         if (!this.isInstanced) throw new MineRenderError("Object is not instanced");
-        const i = this.instanceCounter++;
+        const i = this._instanceCounter++;
         this.setMatrixAt(i, new Matrix4());
         return {
             index: i
@@ -256,14 +264,19 @@ export class SceneObject extends Object3D implements Disposable {
     }
 
     public disposeAndRemoveAllChildren() {
-        this.children.forEach(c => {
+        while (this.children.length > 0) {
+            let c = this.children[0];
             if (isDisposable(c)) {
                 c.dispose();
-                this.remove(c);
             }
-        });
+            this.remove(c);
+        }
     }
 
     //</editor-fold>
 
+}
+
+export function isSceneObject(obj: any): obj is SceneObject {
+    return (<SceneObject>obj).isSceneObject;
 }
