@@ -1,6 +1,7 @@
 import { CompatCanvas, createCanvas } from "./CanvasCompat";
+import { Disposable } from "../Disposable";
 
-export class CanvasImage {
+export class CanvasImage implements Disposable {
 
     readonly canvas: CompatCanvas;
     readonly context: CanvasRenderingContext2D;
@@ -51,5 +52,7 @@ export class CanvasImage {
     test() {
     }
 
+    dispose() {
+    }
 
 }

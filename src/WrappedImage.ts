@@ -23,6 +23,16 @@ export class WrappedImage {
         return this.dta.height;
     }
 
+    get hasTransparency(): boolean {
+        const data = this.data.data;
+        for (let i = 0; i < data.length; i += 4) {
+            if (data[i + 3] < 255) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     get animated(): boolean {
         return this.height > this.width && this.height % this.width === 0;
     }

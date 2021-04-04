@@ -327,6 +327,10 @@ export class UVMapper {
                     // console.log(image.toDataURL())
                     //TODO: only first frame for animated textures
 
+                    if (texture.hasTransparency) {
+                        hasTransparency = true;
+                    }
+
                     if (texture.animated) {
                         hasAnimation = true;
                         const meta = metaMap[textureKey];
@@ -351,7 +355,7 @@ export class UVMapper {
                                     f = 0;
                                 }
                             }
-                        }
+                        };
                     }
                 }
                 tx++;
@@ -435,14 +439,15 @@ export class UVMapper {
             }
 
 
-            return {
+            return new TextureAtlas(
                 model,
                 image,
                 sizes,
                 positions,
                 hasAnimation,
-                animatorFunctions
-            };
+                animatorFunctions,
+                hasTransparency
+            );
         } else {
             d("Model does not have any textures %O", model);
         }

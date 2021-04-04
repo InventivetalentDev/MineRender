@@ -82,6 +82,7 @@ export class BlockObject extends SceneObject {
                     await this.createAVariant(part.apply);
                 } else {
                     let matches = true;
+                    // TODO: apparently AND is a thing too (https://yeleha.co/31Jec6P)
                     if ("OR" in part.when) {
                         const or = part.when.OR as MultipartCondition[];
                         let anyMatch = false;

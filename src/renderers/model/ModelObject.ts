@@ -48,9 +48,7 @@ export class ModelObject extends SceneObject {
 
     dispose() {
         super.dispose();
-        if (this.atlas) {
-            Ticker.remove(this.atlas.ticker);
-        }
+        this.atlas?.dispose();
     }
 
     public get textureAtlas(): Maybe<TextureAtlas> {
