@@ -1,6 +1,6 @@
 import { AssetKey, AssetType } from "../cache/CacheKey";
 
-export const DEFAULT_ROOT = "https://assets.mcasset.cloud/1.16.5";
+export const DEFAULT_ROOT = "https://cdn.mcasset.cloud/file/minecraft-assets/1.16.5";
 export const DEFAULT_NAMESPACE = "minecraft";
 
 export class Assets {

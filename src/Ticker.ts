@@ -7,11 +7,15 @@ export interface TickerFunction {
 export class Ticker {
 
     private static counter: number = 0;
-    private static readonly tickers: Map<number, TickerFunction> = new Map<number, TickerFunction>();
+    private static readonly _tickers: Map<number, TickerFunction> = new Map<number, TickerFunction>();
 
     private static readonly interval: Timeout = setInterval(() => {
-        Ticker.tickers.forEach(t => {
-            t()
+        Ticker._tickers.forEach(t => {
+            try{
+                t()
+            }catch (e) {
+                console.warn(e);
+            }
         });
         Ticker.oneSecondTicks++;
         Ticker.fiveSecondTicks++;
@@ -33,12 +37,16 @@ export class Ticker {
 
     public static add(tick: TickerFunction): number {
         const c = this.counter++;
-        this.tickers.set(c, tick);
+        this._tickers.set(c, tick);
         return c;
     }
 
     public static remove(c?: number) {
-        if (c) this.tickers.delete(c);
+        if (c) this._tickers.delete(c);
+    }
+
+    public static get tickers(): Map<number, TickerFunction> {
+        return this._tickers;
     }
 
     public static get tpsOneSecond() {

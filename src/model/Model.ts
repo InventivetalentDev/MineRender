@@ -5,6 +5,10 @@ import { MinecraftAsset } from "../MinecraftAsset";
 import { AssetKey } from "../cache/CacheKey";
 import { ImageInfo } from "../image/ImageLoader";
 
+export const DEFAULT_ELEMENTS: ModelElement[] = [
+
+]
+
 export interface BlockModel extends Model {
     textures?: BlockModelTextures;
     ambientocclusion?: boolean;

@@ -28,6 +28,21 @@
                 text-shadow: 0 0 4px black;
                 font-size: 12px;
             }
+
+            #rayinfo {
+                z-index: 100;
+                position: absolute;
+                bottom: 0;
+                right: 0;
+                background-color: hsla(0, 0%, 59%, 0.5);
+                width: 300px;
+                height: 500px;
+                padding: 5px;
+                color: white;
+                text-shadow: 0 0 4px black;
+                font-size: 12px;
+                overflow: auto;
+            }
         </style>
     </head>
     <body>
@@ -38,6 +53,8 @@
             <span>RC <span id="renderCalls" title="renderCalls">0</span></span><br/>
             <br/>
             <span>TPS <span id="1sTps" title="1sTps">20</span>/<span id="5sTps" title="5sTps">20</span></span><br/>
+        </div>
+        <div id="rayinfo">
         </div>
 
         <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r125/three.min.js" integrity="sha512-XI02ivhfmEfnk8CEEnJ92ZS6hOqWoWMKF6pxF/tC/DXBVxDXgs2Kmlc9CHA0Aw2dX03nrr8vF54Z6Mqlkuabkw==" crossorigin="anonymous"></script>
@@ -168,8 +185,8 @@
             })
 
             let blockList = blockStateList.files;
-            for (let i = 0; i < 500; i++) {
-                if(i>=blockList.length) continue;
+            for (let i = 0; i < 10000; i++) {
+                if (i >= blockList.length) continue;
 
                 setTimeout(() => {
                     let blockName = blockList[Math.floor(Math.random() * blockList.length)];
@@ -195,8 +212,8 @@
                             maxInstanceCount: 50
                         });
                         incStat("modelCount")
-                        renderer.scene.initAndAdd(obj).then(()=>{
-                            for (let i = 0; i < 500; i++) {
+                        renderer.scene.initAndAdd(obj).then(() => {
+                            for (let i = 0; i < 100; i++) {
                                 let n = obj.nextInstance();
                                 // obj.setPositionAt(n.index, new THREE.Vector3(getRandomInt(-64, 64) * 16, getRandomInt(-32, 32) * 16, getRandomInt(-64, 64) * 16));
                                 let p = getRandomSpherePoint();
@@ -344,6 +361,22 @@
                 let intersects = raycaster.intersectObjects(renderer.scene.children, true);
                 if (intersects.length > 0) {
                     console.log(intersects);
+                    const first = intersects[0];
+                    const modelObject = first.object.parent;
+                    const blockObject = modelObject.parent;
+                    document.getElementById("rayinfo").innerHTML =
+                        `<span>D: ${ first.distance }</span><br/>` +
+
+                        `<span>Model Key:</span>` +
+                        `<pre>${ JSON.stringify(modelObject.originalModel.key, null, 2) }</pre>` +
+
+                        `<span>State</span>` +
+                        `<pre>${ JSON.stringify(blockObject.state, null, 2) }</pre>` +
+
+                        `<span>Model</span>` +
+                        `<pre>${ JSON.stringify(modelObject.originalModel, null, 2) }</pre>` +
+                        `<span>BlockState</span>` +
+                        `<pre>${ JSON.stringify(blockObject.blockState, null, 2) }</pre>`
                 }
             })
 

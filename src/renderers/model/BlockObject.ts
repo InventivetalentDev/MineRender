@@ -19,8 +19,10 @@ export class BlockObject extends SceneObject {
 
     public readonly isBlockObject: true = true;
 
-    public static readonly DEFAULT_OPTIONS: BlockObjectOptions = merge({}, SceneObject.DEFAULT_OPTIONS, <BlockObjectOptions>{});
-    public readonly options: ModelObjectOptions;
+    public static readonly DEFAULT_OPTIONS: BlockObjectOptions = merge({}, SceneObject.DEFAULT_OPTIONS, <BlockObjectOptions>{
+        applyDefaultState: true
+    });
+    public readonly options: BlockObjectOptions;
 
     private _state: { [key: string]: string; } = {};
 
@@ -31,10 +33,21 @@ export class BlockObject extends SceneObject {
     }
 
     async init(): Promise<void> {
-        if (this.blockState.variants) {
-            await this.setState(Object.keys(this.blockState.variants)[0]);
+        if (this.options.applyDefaultState) {
+            if (this.blockState.variants) {
+                await this.setState(Object.keys(this.blockState.variants)[0]);
+            } else if (this.blockState.multipart) {
+                for (let part of this.blockState.multipart) {
+                    if (part.when && !("OR" in part.when)) {
+                        const k = Object.keys(part.when)[0];
+                        if (k) {
+                            await this.setState(k, part.when[k].split("|")[0]);
+                            break;
+                        }
+                    }
+                }
+            }
         } else {
-            //TODO: multipart default state
             await this.recreateModels();
         }
         //TODO
@@ -212,7 +225,7 @@ export class BlockObject extends SceneObject {
 }
 
 export interface BlockObjectOptions extends ModelObjectOptions {
-
+    applyDefaultState: boolean;
 }
 
 export function isBlockObject(obj: any): obj is BlockObject {

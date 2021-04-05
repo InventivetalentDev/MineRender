@@ -135,7 +135,7 @@ export class ModelObject extends SceneObject {
 
             //TODO: move this somewhere else
             if (this.atlas.hasAnimation) {
-                if (!this.atlas.ticker) {
+                if (!this.atlas.ticker) { //TODO: fix missing texture update for reused atlas
                     this.atlas.ticker = Ticker.add(() => {
                         for (let key in this.atlas!.animatorFunctions) {
                             this.atlas!.animatorFunctions[key]();

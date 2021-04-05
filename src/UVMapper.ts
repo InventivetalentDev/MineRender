@@ -371,6 +371,10 @@ export class UVMapper {
 
             // console.log(positions);
 
+            if (!model.elements) {
+
+            }
+
             // Adjust UV positions
             if (model.elements) {
                 for (let elementIndex = 0; elementIndex < model.elements.length; elementIndex++) {
