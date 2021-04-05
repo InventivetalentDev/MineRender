@@ -5,8 +5,22 @@ import { Maybe } from "../util/util";
 import { ModelMerger } from "./ModelMerger";
 import { AssetKey, serializeAssetKey } from "../cache/CacheKey";
 import { AssetLoader } from "../assets/AssetLoader";
+import { Memoize } from "typscript-memoize";
+import { DEFAULT_NAMESPACE, DEFAULT_ROOT } from "../assets/Assets";
 
 export class Models {
+
+    @Memoize()
+    public static async getItemList(): Promise<string[]> {
+        return AssetLoader.loadOrRetryWithDefaults({
+            root: DEFAULT_ROOT,
+            namespace: DEFAULT_NAMESPACE,
+            assetType: "models",
+            type: "item",
+            path: "_list",
+            extension: ".json"
+        }, AssetLoader.LIST).then(r => r?.files ?? []);
+    }
 
     public static async loadAndMerge(key: AssetKey): Promise<Maybe<Model>> {
         const model = await this.getRaw(key);

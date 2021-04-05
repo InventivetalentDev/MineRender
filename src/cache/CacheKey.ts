@@ -92,7 +92,7 @@ export interface AssetKey {
     root?: string;
     namespace: string;
     assetType: AssetType;
-    type: string;
+    type?: string;
     path: string;
     extension: ".json"|".png"|string;
 }

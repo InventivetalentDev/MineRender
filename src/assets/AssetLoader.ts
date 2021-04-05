@@ -11,6 +11,7 @@ import debug from "debug";
 import { MinecraftTextureMeta } from "../MinecraftTextureMeta";
 import { BlockState } from "../model/BlockState";
 import { DEFAULT_NAMESPACE, DEFAULT_ROOT } from "./Assets";
+import { ListAsset } from "../ListAsset";
 
 const d = debug(`${ DEBUG_NAMESPACE }:AssetLoader`);
 
@@ -49,6 +50,13 @@ export class AssetLoader {
         },
         async parse(response: AxiosResponse): Promise<Maybe<TextureAsset>> {
             return await ImageLoader.processResponse(response) as TextureAsset;
+        }
+    }
+    static readonly LIST: ResponseParser<ListAsset> = {
+        config(request: AxiosRequestConfig) {
+        },
+        parse(response: AxiosResponse): Maybe<ListAsset> {
+            return response.data as ListAsset;
         }
     }
 
