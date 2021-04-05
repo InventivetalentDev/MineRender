@@ -8,6 +8,7 @@
     "experimentalDecorators": true,
     "strictNullChecks": true,
     "strictPropertyInitialization": true,
+    "resolveJsonModule": true,
     "esModuleInterop": true,
     "moduleResolution": "node",
     "module": "CommonJS",

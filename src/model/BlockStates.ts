@@ -5,6 +5,8 @@ import { Caching } from "../cache/Caching";
 import { AssetLoader } from "../assets/AssetLoader";
 import { DEFAULT_NAMESPACE, DEFAULT_ROOT } from "../assets/Assets";
 import { Memoize } from "typscript-memoize";
+import defaultBlockStates from "./defaultBlockStates.json";
+import { BlockStateProperties } from "./BlockStateProperties";
 
 export class BlockStates {
 
@@ -18,6 +20,10 @@ export class BlockStates {
             path: "_list",
             extension: ".json"
         }, AssetLoader.LIST).then(r => r?.files ?? []);
+    }
+
+    public static getDefaultState(key: AssetKey): BlockStateProperties {
+        return defaultBlockStates["minecraft:" + key.path] as BlockStateProperties;
     }
 
     public static async get(key: AssetKey): Promise<Maybe<BlockState>> {

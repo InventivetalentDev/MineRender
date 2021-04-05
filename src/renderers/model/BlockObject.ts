@@ -14,6 +14,8 @@ import { MineRenderError } from "../../error/MineRenderError";
 import { isInstancedMesh } from "../../util/three";
 import { dbg } from "../../util/debug";
 import { types } from "util";
+import { BlockStateProperties } from "../../model/BlockStateProperties";
+import { BlockStates } from "../../model/BlockStates";
 
 export class BlockObject extends SceneObject {
 
@@ -24,7 +26,7 @@ export class BlockObject extends SceneObject {
     });
     public readonly options: BlockObjectOptions;
 
-    private _state: { [key: string]: string; } = {};
+    private _state: BlockStateProperties = {};
 
     constructor(readonly blockState: BlockState, options?: Partial<BlockObjectOptions>) {
         super();
@@ -34,15 +36,20 @@ export class BlockObject extends SceneObject {
 
     async init(): Promise<void> {
         if (this.options.applyDefaultState) {
-            if (this.blockState.variants) {
-                await this.setState(Object.keys(this.blockState.variants)[0]);
-            } else if (this.blockState.multipart) {
-                for (let part of this.blockState.multipart) {
-                    if (part.when && !("OR" in part.when)) {
-                        const k = Object.keys(part.when)[0];
-                        if (k) {
-                            await this.setState(k, part.when[k].split("|")[0]);
-                            break;
+            const defaultState = this.blockState.key ? BlockStates.getDefaultState(this.blockState.key) : undefined;
+            if (defaultState && Object.keys(defaultState).length > 0) { // use defined state
+                await this.setState(defaultState);
+            } else { // fallback to guessing from blockState definition
+                if (this.blockState.variants) {
+                    await this.setState(Object.keys(this.blockState.variants)[0]);
+                } else if (this.blockState.multipart) {
+                    for (let part of this.blockState.multipart) {
+                        if (part.when && !("OR" in part.when)) {
+                            const k = Object.keys(part.when)[0];
+                            if (k) {
+                                await this.setState(k, part.when[k].split("|")[0]);
+                                break;
+                            }
                         }
                     }
                 }
@@ -181,22 +188,29 @@ export class BlockObject extends SceneObject {
     }
 
     public async setState(string: string);
+    public async setState(state: BlockStateProperties);
     public async setState(key: string, value: string);
-    public async setState(stringOrKey: string, value?: string) {
-        this._setState(stringOrKey, value);
+    public async setState(stringOrKeyOrState: string | BlockStateProperties, value?: string) {
+        this._setState(stringOrKeyOrState, value);
         await this.recreateModels();
     }
 
-    protected _setState(stringOrKey: string, value?: string): void {
-        if (typeof value === "undefined") { // a=b,c=d,...
-            if (stringOrKey === "") return;
-            const split = stringOrKey.split(",");
-            for (let s of split) {
-                let [k, v] = s.split("=");
-                this._setState(k, v);
+    protected _setState(stringOrKeyOrState: string | BlockStateProperties, value?: string): void {
+        if (typeof value === "undefined") { // a=b,c=d,... or state object
+            if (typeof stringOrKeyOrState === "string") {
+                if (stringOrKeyOrState === "") return;
+                const split = stringOrKeyOrState.split(",");
+                for (let s of split) {
+                    let [k, v] = s.split("=");
+                    this._setState(k, v);
+                }
+            } else if (typeof stringOrKeyOrState === "object") {
+                for (let k in stringOrKeyOrState) {
+                    this._state[k] = stringOrKeyOrState[k];
+                }
             }
         } else {
-            this._state[stringOrKey] = value;
+            this._state[stringOrKeyOrState as string] = value;
         }
     }
 

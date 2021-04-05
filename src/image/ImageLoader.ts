@@ -43,11 +43,11 @@ export class ImageLoader {
     }
 
     public static async loadData(src: string): Promise<ImageData> {
-        return await this.infoToData(await this.loadInfo(src));
+        return await this.infoToData(await this.getInfo(src));
     }
 
     public static async loadCanvasData(src: string): Promise<ExtractableImageData> {
-        return await this.infoToCanvasData(await this.loadInfo(src));
+        return await this.infoToCanvasData(await this.getInfo(src));
     }
 
     public static async infoToCanvasData(info: ImageInfo): Promise<ExtractableImageData> {

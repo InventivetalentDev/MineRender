@@ -14,7 +14,7 @@ export class Requests {
     })
 
     private static mcAssetRequestQueue: JobQueue<AxiosRequestConfig, AxiosResponse>
-        = new JobQueue<AxiosRequestConfig, AxiosResponse>(request => Requests.mcAssetInstance.request(request), Time.millis(50));
+        = new JobQueue<AxiosRequestConfig, AxiosResponse>(request => Requests.mcAssetInstance.request(request), Time.millis(10));
 
     public static genericRequest(request: AxiosRequestConfig): Promise<AxiosResponse> {
         return this.axiosInstance.request(request);
@@ -22,6 +22,7 @@ export class Requests {
 
     public static mcAssetRequest(request: AxiosRequestConfig): Promise<AxiosResponse> {
         return this.mcAssetRequestQueue.add(request);
+        // return Requests.mcAssetInstance.request(request)
     }
 
     public static setMcAssetRoot(root: string) {
