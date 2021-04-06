@@ -169,34 +169,35 @@
             MineRender.BlockStates.get({
                 assetType: "blockstates",
                 type: undefined,
-                path: "redstone_wire",
+                path: "glass_pane",
                 extension: ".json"
             }).then(blockState => {
                 console.log(blockState);
 
                 let obj = new MineRender.BlockObject(blockState, {
                     mergeMeshes: true,
-                    instanceMeshes: false,
-                    wireframe: false,
+                    instanceMeshes: true,
+                    wireframe: true,
                     maxInstanceCount: 50
                 });
                 renderer.scene.initAndAdd(obj).then(e=>{
+                    let n = obj.nextInstance();
+                    incStat("instanceCount")
                     console.log("added", e);
+                    setTimeout(() => {
+                        for (let i = 0; i < 50; i++) {
+                            let n = obj.nextInstance();
+                            obj.setPositionAt(n.index, new THREE.Vector3(getRandomInt(-16, 16) * 16, getRandomInt(-16, 16) * 16, getRandomInt(-16, 16) * 16));
+                            incStat("instanceCount")
+                        }
+                    }, 500);
                 })
 
-                // TODO: instancing stuff
-                // setTimeout(() => {
-                //     for (let i = 0; i < 1; i++) {
-                //         let n = obj.nextInstance();
-                //         obj.setPositionAt(n.index, new THREE.Vector3(getRandomInt(-16, 16) * 16, getRandomInt(-16, 16) * 16, getRandomInt(-16, 16) * 16));
-                //         incStat("instanceCount")
-                //     }
-                // }, 2000);
             })
 
             MineRender.BlockStates.getList().then(blockList_=>{
                 const blockList = [...blockList_];
-                const c = 1000
+                const c = 0
                 for (let i = 0; i < c; i++) {
                     // const blockName = blockList[i].split("\.")[0]
                     const blockName = blockList.splice(Math.floor(Math.random() * blockList.length), 1)[0].split("\.")[0];
@@ -222,7 +223,7 @@
                             });
                             incStat("modelCount")
                             renderer.scene.initAndAdd(obj).then(() => {
-                                for (let i = 0; i < 1; i++) {
+                                for (let i = 0; i < 100; i++) {
                                     let n = obj.nextInstance();
                                     // obj.setPositionAt(n.index, new THREE.Vector3(getRandomInt(-64, 64) * 16, getRandomInt(-32, 32) * 16, getRandomInt(-64, 64) * 16));
                                     let p = getRandomSpherePoint();

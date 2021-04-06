@@ -69,7 +69,17 @@ export class BlockObject extends SceneObject {
     }
 
     public async recreateModels(): Promise<void> {
+        // Copy current instance info
+        const instanceInfo: Matrix4[] = [];
+        if (this.isInstanced) {
+            for (let i = 0; i < this.instanceCounter; i++) {
+                instanceInfo[i] = this.getMatrixAt(i);
+            }
+        }
+
+        // Remove all children
         this.disposeAndRemoveAllChildren();
+
 
         //TODO: might want to preload all possible states & cache their data
 
@@ -149,6 +159,12 @@ export class BlockObject extends SceneObject {
             }
         }
 
+        // Re-apply instances
+        if (instanceInfo.length>0) {
+            for (let i = 0; i < instanceInfo.length; i++) {
+                this.setMatrixAt(i, instanceInfo[i]);
+            }
+        }
     }
 
     protected async createAVariant(variants: BlockStateVariant | BlockStateVariant[]) {
