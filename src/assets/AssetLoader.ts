@@ -18,7 +18,7 @@ const d = debug(`${ DEBUG_NAMESPACE }:AssetLoader`);
 export interface ResponseParser<T extends MinecraftAsset> {
     config(request: AxiosRequestConfig);
 
-    parse(response: AxiosResponse): Maybe<T>|Promise<Maybe<T>>;
+    parse(response: AxiosResponse): Maybe<T> | Promise<Maybe<T>>;
 }
 
 export class AssetLoader {
@@ -101,7 +101,7 @@ export class AssetLoader {
             url: `${ this.assetBasePath(key) }${ key.type ? '/' + key.type : '' }/${ key.path }${ key.extension }`
         };
         parser.config(req);
-        return Requests.mcAssetRequest(req)
+        return await Requests.mcAssetRequest(req)
             .then(response => {
                 if (response && response.data) {
                     return parser.parse(response);
@@ -117,7 +117,7 @@ export class AssetLoader {
                     }
                 }
                 d("Failed to load %j: %s", key, err?.message);
-                throw err;
+                return undefined;
             })
     }
 

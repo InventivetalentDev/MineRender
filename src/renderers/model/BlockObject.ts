@@ -148,6 +148,7 @@ export class BlockObject extends SceneObject {
                 }
             }
         }
+
     }
 
     protected async createAVariant(variants: BlockStateVariant | BlockStateVariant[]) {

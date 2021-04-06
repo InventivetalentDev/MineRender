@@ -18,4 +18,6 @@ export * from "./renderers/model/BlockObject"
 
 export * from "./Ticker";
 
+export * from "./Env"
+
 //export * from "three/examples/jsm/utils/BufferGeometryUtils"

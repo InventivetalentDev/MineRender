@@ -306,7 +306,6 @@ export class UVMapper {
             let hasAnimation = false;
             const animatorFunctions: { [texture: string]: AnimatorFunction; } = {};
 
-
             // Draw all textures onto a single image
             let tx = 1; // start one over to leave room for the transparent space
             let ty = 0;
@@ -364,7 +363,7 @@ export class UVMapper {
                     ty++;
                 }
             }
-            const atlasImageData = image.toDataURL();
+            // const atlasImageData = image.toDataURL();
             // console.log(atlasImageData);
 
             this.fillMissingTextureKeys(model.textures, positions);
@@ -372,7 +371,7 @@ export class UVMapper {
             // console.log(positions);
 
             if (!model.elements) {
-
+                //TODO: default elements
             }
 
             // Adjust UV positions
@@ -441,7 +440,6 @@ export class UVMapper {
                     element.mappedUv = uv;
                 }
             }
-
 
             return new TextureAtlas(
                 model,

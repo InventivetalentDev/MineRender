@@ -21,7 +21,10 @@ export class Requests {
     }
 
     public static mcAssetRequest(request: AxiosRequestConfig): Promise<AxiosResponse> {
-        return this.mcAssetRequestQueue.add(request);
+        return this.mcAssetRequestQueue.add(request).catch(e=>{
+            console.log("mcAssetRequest catch " + e);
+            throw e;
+        });
         // return Requests.mcAssetInstance.request(request)
     }
 

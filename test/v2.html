@@ -113,6 +113,14 @@
             };
         </script>
 
+<!--        <script>-->
+<!--            navigator.serviceWorker.register('./serviceworker.js', {-->
+<!--                scope: '.'-->
+<!--            }).then(function(registration) {-->
+<!--                console.log('The service worker has been registered ', registration);-->
+<!--            });-->
+<!--        </script>-->
+
         <script src="../dist/bundle.js"></script>
 
         <script>
@@ -169,10 +177,12 @@
                 let obj = new MineRender.BlockObject(blockState, {
                     mergeMeshes: true,
                     instanceMeshes: false,
-                    wireframe: true,
+                    wireframe: false,
                     maxInstanceCount: 50
                 });
-                renderer.scene.initAndAdd(obj);
+                renderer.scene.initAndAdd(obj).then(e=>{
+                    console.log("added", e);
+                })
 
                 // TODO: instancing stuff
                 // setTimeout(() => {
@@ -186,8 +196,9 @@
 
             MineRender.BlockStates.getList().then(blockList_=>{
                 const blockList = [...blockList_];
-                const c = 10000;
+                const c = 1000
                 for (let i = 0; i < c; i++) {
+                    // const blockName = blockList[i].split("\.")[0]
                     const blockName = blockList.splice(Math.floor(Math.random() * blockList.length), 1)[0].split("\.")[0];
                     if(!blockName) continue;
 
@@ -206,7 +217,7 @@
                             let obj = new MineRender.BlockObject(blockState, {
                                 mergeMeshes: true,
                                 instanceMeshes: true,
-                                wireframe: true,
+                                wireframe: false,
                                 maxInstanceCount: 50
                             });
                             incStat("modelCount")
@@ -221,12 +232,12 @@
                             })
 
                         })
-                    }, i * 100)
+                    }, i * 5)
                 }
                 console.log(blockList)
                 setTimeout(()=>{
                     console.log(blockList)
-                }, c*100)
+                }, c*5)
             })
 
             // MineRender.Models.getMerged({
@@ -365,21 +376,25 @@
                 if (intersects.length > 0) {
                     console.log(intersects);
                     const first = intersects[0];
-                    const modelObject = first.object.parent;
-                    const blockObject = modelObject.parent;
-                    document.getElementById("rayinfo").innerHTML =
-                        `<span>D: ${ first.distance }</span><br/>` +
+                    if(first && first.object && first.object.parent) {
+                        const modelObject = first.object.parent;
+                        if(modelObject.originalModel) {
+                            const blockObject = modelObject.parent;
+                            document.getElementById("rayinfo").innerHTML =
+                                `<span>D: ${ first.distance }</span><br/>` +
 
-                        `<span>Model Key:</span>` +
-                        `<pre>${ JSON.stringify(modelObject.originalModel.key, null, 2) }</pre>` +
+                                `<span>Model Key:</span>` +
+                                `<pre>${ JSON.stringify(modelObject.originalModel.key, null, 2) }</pre>` +
 
-                        `<span>State</span>` +
-                        `<pre>${ JSON.stringify(blockObject.state, null, 2) }</pre>` +
+                                `<span>State</span>` +
+                                `<pre>${ JSON.stringify(blockObject.state, null, 2) }</pre>` +
 
-                        `<span>Model</span>` +
-                        `<pre>${ JSON.stringify(modelObject.originalModel, null, 2) }</pre>` +
-                        `<span>BlockState</span>` +
-                        `<pre>${ JSON.stringify(blockObject.blockState, null, 2) }</pre>`
+                                `<span>Model</span>` +
+                                `<pre>${ JSON.stringify(modelObject.originalModel, null, 2) }</pre>` +
+                                `<span>BlockState</span>` +
+                                `<pre>${ JSON.stringify(blockObject.blockState, null, 2) }</pre>`
+                        }
+                    }
                 }
             })
 

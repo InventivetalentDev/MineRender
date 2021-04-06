@@ -7,8 +7,11 @@ import { AssetKey, serializeAssetKey } from "../cache/CacheKey";
 import { AssetLoader } from "../assets/AssetLoader";
 import { Memoize } from "typscript-memoize";
 import { DEFAULT_NAMESPACE, DEFAULT_ROOT } from "../assets/Assets";
+import { PersistentCache } from "../cache/PersistentCache";
 
 export class Models {
+
+    private static PERSISTENT_CACHE = PersistentCache.open("minerender-models");
 
     @Memoize()
     public static async getItemList(): Promise<string[]> {
@@ -39,10 +42,12 @@ export class Models {
         }
         const keyStr = serializeAssetKey(key);
         return Caching.rawModelCache.get(keyStr, k => {
-            return AssetLoader.loadOrRetryWithDefaults(key, AssetLoader.MODEL).then(asset => {
-                if (asset)
-                    asset.key = key;
-                return asset;
+            return this.PERSISTENT_CACHE.getOrLoad(keyStr, k1 => {
+                return AssetLoader.loadOrRetryWithDefaults(key, AssetLoader.MODEL).then(asset => {
+                    if (asset)
+                        asset.key = key;
+                    return asset;
+                })
             })
         });
     }
