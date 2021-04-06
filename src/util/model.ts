@@ -7,7 +7,7 @@ import { ElementRotation } from "../model/ModelElement";
 import { BufferGeometry } from "three/src/core/BufferGeometry";
 import { Axis } from "../Axis";
 import { toRadians } from "./util";
-import { EdgesGeometry, LineBasicMaterial, LineSegments, Mesh, Object3D } from "three";
+import { AxesHelper, Box3, BoxGeometry, EdgesGeometry, LineBasicMaterial, LineSegments, Matrix4, Mesh, Object3D, Vector3, Vector4 } from "three";
 
 function rotateAboutPoint(obj: THREE.Object3D, point: THREE.Vector3, axis: THREE.Vector3, theta: number) {
     obj.position.sub(point); // remove the offset
@@ -37,31 +37,96 @@ export function applyElementRotation(rotation: ElementRotation, geometry: Buffer
 }
 
 export function applyGenericRotation(axis: Axis,  rotation: number, obj: Object3D) {
-    // subtract origin
-    obj.translateX(8);
-    obj.translateZ(8);
-    obj.translateY(8);
-    // apply rotation
+
+
+    // obj.position.sub(new Vector3(8,8,8).add(obj.position))
+    //
+    // switch (axis) {
+    //     case Axis.X:
+    //         obj.position.applyAxisAngle(new Vector3(1, 0, 0), toRadians(rotation));
+    //         break;
+    //     case Axis.Y:
+    //         obj.position.applyAxisAngle(new Vector3(0, 1, 0), toRadians(rotation));
+    //         break;
+    //     case Axis.Z:
+    //         obj.position.applyAxisAngle(new Vector3(0, 0, 1), toRadians(rotation));
+    //         break;
+    // }
+    //
+    // obj.position.add(new Vector3(8,8,8).add(obj.position))
+
     switch (axis) {
         case Axis.X:
-            obj.rotateX(toRadians(rotation));
+            obj.rotateOnAxis(new Vector3(1, 0, 0), toRadians(rotation));
             break;
         case Axis.Y:
-            obj.rotateY(toRadians(rotation));
+            obj.rotateOnAxis(new Vector3(0, 1, 0), toRadians(rotation));
             break;
         case Axis.Z:
-            obj.rotateZ(toRadians(rotation));
+            obj.rotateOnAxis(new Vector3(0, 0, 1), toRadians(rotation));
             break;
     }
-    // add back origin
-    obj.translateX(-8);
-    obj.translateZ(-8);
-    obj.translateY(-8);
+
+    // subtract origin
+    // obj.translateX(-8);
+    // obj.translateZ(-8);
+    // obj.translateY(-8);
+    // // apply rotation
+    // switch (axis) {
+    //     case Axis.X:
+    //         obj.rotateX(toRadians(rotation));
+    //         // matrix.makeRotationX(toRadians(rotation));
+    //         break;
+    //     case Axis.Y:
+    //         obj.rotateY(toRadians(rotation));
+    //         // matrix.makeRotationY(toRadians(rotation));
+    //         break;
+    //     case Axis.Z:
+    //         obj.rotateZ(toRadians(rotation));
+    //         // matrix.makeRotationZ(toRadians(rotation));
+    //         break;
+    // }
+    // // add back origin
+    // obj.translateX(8);
+    // obj.translateZ(8);
+    // obj.translateY(8);
+
+    // obj.applyMatrix4(matrix);
 }
 
-export function addWireframeToMesh(geo: BufferGeometry, mesh: Mesh) {
+export function addBox3WireframeToObject(box: Box3, obj: Object3D, color: number = 0xffffff, w: number = 2) {
+    let size = new Vector3();
+    box.getSize(size);
+
+    let boxGeo = new BoxGeometry(size.x, size.y, size.z, 1, 1, 1);
+    // boxGeo.translate(box.min.x, box.min.y, box.min.z);
+    let wireGeo = new EdgesGeometry(boxGeo);
+    let wireMat = new LineBasicMaterial({ color: color, linewidth: w, })
+    let wireframe = new LineSegments(wireGeo, wireMat);
+    obj.add(wireframe);
+
+    let axes = new AxesHelper(1);
+    obj.add(axes);
+}
+
+
+export function addWireframeToObject(obj: Object3D, color: number = 0xffffff, w: number = 2) {
+    let boxGeo = new BoxGeometry(16, 16, 16, 1, 1, 1);
+    let wireGeo = new EdgesGeometry(boxGeo);
+    let wireMat = new LineBasicMaterial({ color: color, linewidth: w, })
+    let wireframe = new LineSegments(wireGeo, wireMat);
+    obj.add(wireframe);
+
+    let axes = new AxesHelper(1);
+    obj.add(axes);
+}
+
+export function addWireframeToMesh(geo: BufferGeometry, mesh: Mesh, color: number = 0xffffff, w: number = 2) {
     let wireGeo = new EdgesGeometry(geo);
-    let wireMat = new LineBasicMaterial({ color: 0xffffff, linewidth: 2, })
+    let wireMat = new LineBasicMaterial({ color: color, linewidth: w, })
     let wireframe = new LineSegments(wireGeo, wireMat);
     mesh.add(wireframe);
+
+    let axes = new AxesHelper(1);
+    mesh.add(axes);
 }

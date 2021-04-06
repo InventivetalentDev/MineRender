@@ -30,7 +30,7 @@ export class SceneObject extends Object3D implements Disposable {
     private materialCallbacks: { [key: string]: Array<(mat: Material, key: string) => void>; } = {};
 
     protected _isInstanced: boolean = false;
-    protected _instanceCounter: number = 0;
+     _instanceCounter: number = 0;
 
     constructor(options?: Partial<SceneObjectOptions>) {
         super();
@@ -185,14 +185,17 @@ export class SceneObject extends Object3D implements Disposable {
         if (!this.isInstanced) throw new MineRenderError("Object is not instanced");
         const i = this._instanceCounter++;
         this.setMatrixAt(i, new Matrix4());
+        console.log("nextInstance "+i)
         return {
             index: i
         }
     }
 
     getMatrixAt(index: number, matrix: Matrix4 = new Matrix4()): Matrix4 {
+        console.log("getMatrixAt")
         if (!this.isInstanced) throw new MineRenderError("Object is not instanced");
         const child = this.children[0];
+        console.log(child)
         if (isInstancedMesh(child)) {
             child.getMatrixAt(index, matrix);
         }
@@ -200,6 +203,7 @@ export class SceneObject extends Object3D implements Disposable {
     }
 
     setMatrixAt(index: number, matrix: Matrix4) {
+        console.log("setMatrixAt")
         if (!this.isInstanced) throw new MineRenderError("Object is not instanced");
         const child = this.children[0];
         if (isInstancedMesh(child)) {
@@ -209,38 +213,72 @@ export class SceneObject extends Object3D implements Disposable {
     }
 
     setPositionRotationScaleAt(index: number, position?: Vector3, rotation?: Euler, scale?: Vector3) {
+        console.log("setPositionRotationScaleAt")
+        if (!this.isInstanced) throw new MineRenderError("Object is not instanced");
+
+        const oldPosition = new Vector3();
+        const oldRotation = new Quaternion();
+        const oldScale = new Vector3();
+
         const matrix = new Matrix4();
-        if (position) {
-            matrix.setPosition(position);
+        if (!scale || !rotation || !position) {
+            this.getMatrixAt(index, matrix).decompose(oldPosition, oldRotation, oldScale);
         }
-        if (rotation) {
-            matrix.makeRotationFromEuler(rotation);
-        }
-        if (scale) {
-            matrix.scale(scale);
-        }
+
+        matrix.compose(
+            position ? position : oldPosition,
+            rotation ? new Quaternion().setFromEuler(rotation) : oldRotation,
+            scale ? scale : oldScale
+        );
+
         this.setMatrixAt(index, matrix);
     }
 
     setPositionAt(index: number, position: Vector3) {
         if (!this.isInstanced) throw new MineRenderError("Object is not instanced");
-        const matrix = this.getMatrixAt(index);
-        matrix.setPosition(position);
-        this.setMatrixAt(index, matrix);
+        this.setPositionRotationScaleAt(index, position);
     }
 
     setRotationAt(index: number, rotation: Euler) {
         if (!this.isInstanced) throw new MineRenderError("Object is not instanced");
-        const matrix = this.getMatrixAt(index);
-        matrix.makeRotationFromEuler(rotation);
-        this.setMatrixAt(index, matrix);
+        this.setPositionRotationScaleAt(index, undefined, rotation, undefined);
     }
 
     setScaleAt(index: number, scale: Vector3) {
         if (!this.isInstanced) throw new MineRenderError("Object is not instanced");
-        const matrix = this.getMatrixAt(index);
-        matrix.scale(scale);
-        this.setMatrixAt(index, matrix);
+        this.setPositionRotationScaleAt(index, undefined, undefined, scale);
+    }
+
+    setPosition(position: Vector3) {
+        if (this.isInstanced) {
+            for (let i = 0; i < this.instanceCounter; i++) {
+                this.setPositionRotationScaleAt(i, position);
+            }
+        } else {
+            this.position.set(position.x, position.y, position.z);
+        }
+    }
+
+    setRotation(rotation: Euler) {
+        console.log("setRotation")
+        console.log(this.instanceCounter)
+        if (this.isInstanced) {
+            for (let i = 0; i < 1/*todo*/; i++) {
+                this.setPositionRotationScaleAt(i, undefined, rotation);
+            }
+        } else {
+            this.rotation.set(rotation.x, rotation.y, rotation.z);
+        }
+    }
+
+    setScale(scale: Vector3) {
+        if (this.isInstanced) {
+            for (let i = 0; i < this.instanceCounter; i++) {
+                this.setPositionRotationScaleAt(i, undefined, undefined, scale);
+            }
+        } else {
+            this.scale.set(scale.x, scale.y, scale.z);
+        }
     }
 
     //</editor-fold>

@@ -11,10 +11,11 @@ import { BoxGeometry, BoxHelper, BufferAttribute, EdgesGeometry, InstancedMesh, 
 import * as THREE from "three";
 import { Axis } from "../../Axis";
 import { SceneObjectOptions } from "../SceneObjectOptions";
-import { addWireframeToMesh, applyElementRotation } from "../../util/model";
+import { addBox3WireframeToObject, addWireframeToMesh, addWireframeToObject, applyElementRotation } from "../../util/model";
 import { dbg } from "../../util/debug";
 import { Ticker } from "../../Ticker";
 import merge from "ts-deepmerge";
+import { BufferGeometry } from "three/src/core/BufferGeometry";
 
 require("three/examples/js/utils/BufferGeometryUtils");
 
@@ -72,8 +73,12 @@ export class ModelObject extends SceneObject {
                 this.atlas.model.elements?.forEach(el => {
                     const elGeo = this._getBoxGeometryFromElement(el).clone();
 
+                    elGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(-8,-8,-8));
+
                     elGeo.applyMatrix4(new THREE.Matrix4().makeTranslation((el.to[0] - el.from[0]) / 2, (el.to[1] - el.from[1]) / 2, (el.to[2] - el.from[2]) / 2));
                     elGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(el.from[0], el.from[1], el.from[2]));
+
+                    // elGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(8,8,8));
 
                     if (el.rotation) {
                         applyElementRotation(el.rotation, elGeo);
@@ -96,12 +101,17 @@ export class ModelObject extends SceneObject {
         }
 
         if (this.options.mergeMeshes) {
-            let combinedGeo;
+            let combinedGeo: BufferGeometry;
             if (allGeos.length > 0) {
+                // if (this.options.wireframe) {
+                //     allGeos.push(new BoxGeometry(16, 16, 16, 1, 1, 1))
+                // }
                 combinedGeo = THREE.BufferGeometryUtils.mergeBufferGeometries(allGeos);
             } else {
                 combinedGeo = new BoxGeometry(16, 16, 16);
             }
+            combinedGeo.computeBoundingBox();
+            // combinedGeo.translate(-8, -8, -8);
             // TODO: cache the combined geometry
             let mesh: Mesh;
             if (this.options.instanceMeshes) {
@@ -113,8 +123,13 @@ export class ModelObject extends SceneObject {
                 mesh = this.createAndAddMesh(undefined, undefined, combinedGeo, mat)
             }
             if (this.options.wireframe) {
-                addWireframeToMesh(combinedGeo, mesh);
+                addWireframeToMesh(combinedGeo, mesh, 0x0000ff, 4);
+                addBox3WireframeToObject(combinedGeo.boundingBox!, mesh, 0x00ffff, 3);
             }
+        }
+
+        if (this.options.wireframe) {
+            addWireframeToObject(this, 0x00ff00, 3)
         }
 
         this.meshesCreated = true;

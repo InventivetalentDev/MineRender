@@ -6,9 +6,9 @@ import { Caching } from "../../cache/Caching";
 import { Models } from "../../model/Models";
 import { Assets } from "../../assets/Assets";
 import merge from "ts-deepmerge";
-import { Matrix4, Vector3 } from "three";
+import { Euler, Matrix4, Vector3 } from "three";
 import { toRadians } from "../../util/util";
-import { applyGenericRotation } from "../../util/model";
+import { addWireframeToObject, applyGenericRotation } from "../../util/model";
 import { Axis } from "../../Axis";
 import { MineRenderError } from "../../error/MineRenderError";
 import { isInstancedMesh } from "../../util/three";
@@ -16,6 +16,7 @@ import { dbg } from "../../util/debug";
 import { types } from "util";
 import { BlockStateProperties } from "../../model/BlockStateProperties";
 import { BlockStates } from "../../model/BlockStates";
+import { InstanceReference } from "../../InstanceReference";
 
 export class BlockObject extends SceneObject {
 
@@ -68,9 +69,22 @@ export class BlockObject extends SceneObject {
         return this._state;
     }
 
+    nextInstance(): InstanceReference {
+        const ref = super.nextInstance();
+        for (let child of this.children) {
+            if (isModelObject(child)) {
+                child._instanceCounter = this.instanceCounter;
+            }
+        }
+        return ref;
+    }
+
     public async recreateModels(): Promise<void> {
+        console.log("recreateModels")
+
         // Copy current instance info
         const instanceInfo: Matrix4[] = [];
+        console.log(this.instanceCounter)
         if (this.isInstanced) {
             for (let i = 0; i < this.instanceCounter; i++) {
                 instanceInfo[i] = this.getMatrixAt(i);
@@ -85,7 +99,7 @@ export class BlockObject extends SceneObject {
 
         if (this.blockState.variants) {
             if (Object.keys(this.blockState.variants).length === 1 && "" in this.blockState.variants) { // default variant
-                await this.createAVariant(this.blockState.variants[""]);
+                await this.createAVariant(this.blockState.variants[""], instanceInfo);
             }
             for (let variantKey in this.blockState.variants) {
                 const split = variantKey.split(",");
@@ -99,7 +113,7 @@ export class BlockObject extends SceneObject {
                 }
                 if (matches) {
                     const variants = this.blockState.variants[variantKey];
-                    await this.createAVariant(variants);
+                    await this.createAVariant(variants, instanceInfo);
                 }
             }
         } else if (this.blockState.multipart) {
@@ -109,7 +123,7 @@ export class BlockObject extends SceneObject {
                     continue;
                 }
                 if (!part.when) { // no condition -> always apply
-                    await this.createAVariant(part.apply);
+                    await this.createAVariant(part.apply, instanceInfo);
                 } else {
                     let matches = true;
                     // TODO: apparently AND is a thing too (https://yeleha.co/31Jec6P)
@@ -153,21 +167,22 @@ export class BlockObject extends SceneObject {
                     }
                     if (matches) {
                         const variants = part.apply;
-                        await this.createAVariant(variants);
+                        await this.createAVariant(variants, instanceInfo);
                     }
                 }
             }
         }
 
-        // Re-apply instances
-        if (instanceInfo.length>0) {
-            for (let i = 0; i < instanceInfo.length; i++) {
-                this.setMatrixAt(i, instanceInfo[i]);
-            }
-        }
+        // console.log(instanceInfo);
+        // // Re-apply instances
+        // if (instanceInfo.length>0) {
+        //     for (let i = 0; i < instanceInfo.length; i++) {
+        //         this.setMatrixAt(i, instanceInfo[i]);
+        //     }
+        // }
     }
 
-    protected async createAVariant(variants: BlockStateVariant | BlockStateVariant[]) {
+    protected async createAVariant(variants: BlockStateVariant | BlockStateVariant[], instanceInfo: Matrix4[]) {
         let variant: BlockStateVariant;
         if (Array.isArray(variants)) {
             //TODO: randomizer option / weights
@@ -176,10 +191,11 @@ export class BlockObject extends SceneObject {
             variant = variants as BlockStateVariant;
         }
 
-        await this.createVariant(variant);
+        await this.createVariant(variant, instanceInfo);
     }
 
-    protected async createVariant(variant: BlockStateVariant): Promise<void> {
+    protected async createVariant(variant: BlockStateVariant, instanceInfo: Matrix4[]): Promise<void> {
+        console.log("createVariant")
         //TODO: uvlock
         //TODO: default state?
         const model = await Models.getMerged(Assets.parseAssetKey("models", variant.model!));
@@ -189,14 +205,46 @@ export class BlockObject extends SceneObject {
             this._isInstanced = true;
         }
 
-        if (variant.x) {
-            applyGenericRotation(Axis.X, variant.x, obj);
-        }
-        if (variant.y) {
-            applyGenericRotation(Axis.Y, variant.y, obj);
+        this.add(obj);
+
+
+        // Re-apply instance info as a base
+        if (instanceInfo.length>0) {
+            for (let i = 0; i < instanceInfo.length; i++) {
+                obj.setMatrixAt(i, instanceInfo[i]);
+            }
         }
 
-        this.add(obj);
+        let rotation = new Euler(0, 0, 0);
+        if (variant.x) {
+            // obj.rotation.x = toRadians(variant.x);
+            // obj.rotation.set(obj.rotation.x + toRadians(variant.x), obj.rotation.y, obj.rotation.z);
+            // for (let child of obj.children) {
+            //     // applyGenericRotation(Axis.X, variant.x, child);
+            //     child.rotation.x = toRadians(variant.x);
+            // }
+            // this.setRotationAt(0, new Euler(variant.x, 0, 0));
+            rotation.x = toRadians(variant.x);
+        }
+        if (variant.y) {
+            // obj.rotation.y = toRadians(variant.y);
+            // obj.rotation.set(obj.rotation.x, obj.rotation.y + toRadians(variant.y), obj.rotation.z);
+            // for (let child of obj.children) {
+            //     // applyGenericRotation(Axis.Y, variant.y, child);
+            //     child.rotation.y = toRadians(variant.y);
+            // }
+            // this.setRotationAt(0, new Euler(0, variant.y, 0));
+            rotation.y = toRadians(variant.y);
+        }
+        console.log("rotation ", rotation);
+        console.log(obj.isInstanced);
+        obj.setRotation(rotation);
+
+
+
+        if (this.options.wireframe) {
+            addWireframeToObject(this, 0xff0000, 2)
+        }
     }
 
     public async resetState() {
@@ -234,7 +282,7 @@ export class BlockObject extends SceneObject {
     getMatrixAt(index: number, matrix: Matrix4 = new Matrix4()): Matrix4 {
         if (!this.isInstanced) throw new MineRenderError("Object is not instanced");
         const child = this.children[0];
-        if (isModelObject(child)) {
+        if (child && isModelObject(child)) {
             if (!child.isInstanced) throw new MineRenderError("Object is not instanced");
             child.getMatrixAt(index, matrix);
         }

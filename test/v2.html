@@ -113,13 +113,13 @@
             };
         </script>
 
-<!--        <script>-->
-<!--            navigator.serviceWorker.register('./serviceworker.js', {-->
-<!--                scope: '.'-->
-<!--            }).then(function(registration) {-->
-<!--                console.log('The service worker has been registered ', registration);-->
-<!--            });-->
-<!--        </script>-->
+        <!--        <script>-->
+        <!--            navigator.serviceWorker.register('./serviceworker.js', {-->
+        <!--                scope: '.'-->
+        <!--            }).then(function(registration) {-->
+        <!--                console.log('The service worker has been registered ', registration);-->
+        <!--            });-->
+        <!--        </script>-->
 
         <script src="../dist/bundle.js"></script>
 
@@ -166,10 +166,11 @@
                 info["renderCalls"] = renderer.renderer.info.render.calls;
             }, 1000);
 
+            //TODO: fire in wrong position, rescale thingy maybe?
             MineRender.BlockStates.get({
                 assetType: "blockstates",
                 type: undefined,
-                path: "glass_pane",
+                path: "campfire",
                 extension: ".json"
             }).then(blockState => {
                 console.log(blockState);
@@ -180,14 +181,15 @@
                     wireframe: true,
                     maxInstanceCount: 50
                 });
-                renderer.scene.initAndAdd(obj).then(e=>{
-                    let n = obj.nextInstance();
+                renderer.scene.initAndAdd(obj).then(e => {
                     incStat("instanceCount")
                     console.log("added", e);
                     setTimeout(() => {
-                        for (let i = 0; i < 50; i++) {
+                        for (let i = 0; i < 1; i++) {
                             let n = obj.nextInstance();
-                            obj.setPositionAt(n.index, new THREE.Vector3(getRandomInt(-16, 16) * 16, getRandomInt(-16, 16) * 16, getRandomInt(-16, 16) * 16));
+                            obj.setPositionAt(n.index, new THREE.Vector3(0,0,0));
+                            // obj.setPositionAt(n.index, new THREE.Vector3(16,64,16));
+                            // obj.setRotationAt(n.index, new THREE.Euler(0,1.5708,0));
                             incStat("instanceCount")
                         }
                     }, 500);
@@ -195,51 +197,102 @@
 
             })
 
-            MineRender.BlockStates.getList().then(blockList_=>{
+            MineRender.BlockStates.getList().then(blockList_ => {
                 const blockList = [...blockList_];
-                const c = 0
-                for (let i = 0; i < c; i++) {
-                    // const blockName = blockList[i].split("\.")[0]
-                    const blockName = blockList.splice(Math.floor(Math.random() * blockList.length), 1)[0].split("\.")[0];
-                    if(!blockName) continue;
+                const a = 30;
+                let c = 0
+                for (let x = 0; x < a; x++) {
+                    for (let y = 0; y < a; y++) {
+                        c++;
 
-                    setTimeout(() => {
+                        const blockName = blockList[c].split("\.")[0];
+                        if (!blockName) continue;
 
-                        MineRender.BlockStates.get({
-                            assetType: "blockstates",
-                            type: undefined,
-                            path: blockName,
-                            extension: ".json"
-                        }).then(blockState => {
-                            console.log(blockState);
+                        ((xc, yc, blockName) => {
+                            setTimeout(() => {
 
-                            const R = 64;
+                                MineRender.BlockStates.get({
+                                    assetType: "blockstates",
+                                    type: undefined,
+                                    path: blockName,
+                                    extension: ".json"
+                                }).then(blockState => {
+                                    console.log(xc + " " + yc);
+                                    console.log(blockState);
 
-                            let obj = new MineRender.BlockObject(blockState, {
-                                mergeMeshes: true,
-                                instanceMeshes: true,
-                                wireframe: false,
-                                maxInstanceCount: 50
-                            });
-                            incStat("modelCount")
-                            renderer.scene.initAndAdd(obj).then(() => {
-                                for (let i = 0; i < 100; i++) {
-                                    let n = obj.nextInstance();
-                                    // obj.setPositionAt(n.index, new THREE.Vector3(getRandomInt(-64, 64) * 16, getRandomInt(-32, 32) * 16, getRandomInt(-64, 64) * 16));
-                                    let p = getRandomSpherePoint();
-                                    obj.setPositionAt(n.index, new THREE.Vector3(p.x * R * 16, p.y * R * 16, p.z * R * 16));
-                                    incStat("instanceCount")
-                                }
-                            })
+                                    const R = 64;
 
-                        })
-                    }, i * 5)
+                                    let obj = new MineRender.BlockObject(blockState, {
+                                        mergeMeshes: true,
+                                        instanceMeshes: true,
+                                        wireframe: false,
+                                        maxInstanceCount: 50
+                                    });
+                                    incStat("modelCount")
+                                    renderer.scene.initAndAdd(obj).then(() => {
+                                        for (let i = 0; i < 1; i++) {
+                                            let n = obj.nextInstance();
+                                            // obj.setPositionAt(n.index, new THREE.Vector3(getRandomInt(-64, 64) * 16, getRandomInt(-32, 32) * 16, getRandomInt(-64, 64) * 16));
+                                            console.log(xc + " " + yc);
+                                            obj.setPositionAt(n.index, new THREE.Vector3(xc * 16, 0, yc * 16));
+                                            incStat("instanceCount")
+                                        }
+                                    })
+
+                                })
+                            }, c * 5)
+                        })(x, y, blockName);
+
+                    }
                 }
                 console.log(blockList)
-                setTimeout(()=>{
-                    console.log(blockList)
-                }, c*5)
             })
+
+            // MineRender.BlockStates.getList().then(blockList_=>{
+            //     const blockList = [...blockList_];
+            //     const c = 0
+            //     for (let i = 0; i < c; i++) {
+            //         // const blockName = blockList[i].split("\.")[0]
+            //         const blockName = blockList.splice(Math.floor(Math.random() * blockList.length), 1)[0].split("\.")[0];
+            //         if(!blockName) continue;
+            //
+            //         setTimeout(() => {
+            //
+            //             MineRender.BlockStates.get({
+            //                 assetType: "blockstates",
+            //                 type: undefined,
+            //                 path: blockName,
+            //                 extension: ".json"
+            //             }).then(blockState => {
+            //                 console.log(blockState);
+            //
+            //                 const R = 64;
+            //
+            //                 let obj = new MineRender.BlockObject(blockState, {
+            //                     mergeMeshes: true,
+            //                     instanceMeshes: true,
+            //                     wireframe: false,
+            //                     maxInstanceCount: 50
+            //                 });
+            //                 incStat("modelCount")
+            //                 renderer.scene.initAndAdd(obj).then(() => {
+            //                     for (let i = 0; i < 100; i++) {
+            //                         let n = obj.nextInstance();
+            //                         // obj.setPositionAt(n.index, new THREE.Vector3(getRandomInt(-64, 64) * 16, getRandomInt(-32, 32) * 16, getRandomInt(-64, 64) * 16));
+            //                         let p = getRandomSpherePoint();
+            //                         obj.setPositionAt(n.index, new THREE.Vector3(p.x * R * 16, p.y * R * 16, p.z * R * 16));
+            //                         incStat("instanceCount")
+            //                     }
+            //                 })
+            //
+            //             })
+            //         }, i * 5)
+            //     }
+            //     console.log(blockList)
+            //     setTimeout(()=>{
+            //         console.log(blockList)
+            //     }, c*5)
+            // })
 
             // MineRender.Models.getMerged({
             //     assetType: "models",
@@ -377,9 +430,9 @@
                 if (intersects.length > 0) {
                     console.log(intersects);
                     const first = intersects[0];
-                    if(first && first.object && first.object.parent) {
+                    if (first && first.object && first.object.parent) {
                         const modelObject = first.object.parent;
-                        if(modelObject.originalModel) {
+                        if (modelObject.originalModel) {
                             const blockObject = modelObject.parent;
                             document.getElementById("rayinfo").innerHTML =
                                 `<span>D: ${ first.distance }</span><br/>` +
