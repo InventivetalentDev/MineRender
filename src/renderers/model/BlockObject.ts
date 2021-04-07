@@ -7,14 +7,14 @@ import { Models } from "../../model/Models";
 import { Assets } from "../../assets/Assets";
 import merge from "ts-deepmerge";
 import { Euler, Matrix4, Vector3 } from "three";
-import { toRadians } from "../../util/util";
+import { Maybe, toRadians } from "../../util/util";
 import { addWireframeToObject, applyGenericRotation } from "../../util/model";
 import { Axis } from "../../Axis";
 import { MineRenderError } from "../../error/MineRenderError";
 import { isInstancedMesh } from "../../util/three";
 import { dbg } from "../../util/debug";
 import { types } from "util";
-import { BlockStateProperties } from "../../model/BlockStateProperties";
+import { BlockStateProperties, BlockStatePropertyDefaults } from "../../model/BlockStateProperties";
 import { BlockStates } from "../../model/BlockStates";
 import { InstanceReference } from "../../InstanceReference";
 
@@ -39,7 +39,11 @@ export class BlockObject extends SceneObject {
         if (this.options.applyDefaultState) {
             const defaultState = this.blockState.key ? BlockStates.getDefaultState(this.blockState.key) : undefined;
             if (defaultState && Object.keys(defaultState).length > 0) { // use defined state
-                await this.setState(defaultState);
+                const state = {};
+                for (let k in defaultState) {
+                    state[k] = defaultState[k].default;
+                }
+                await this.setState(state);
             } else { // fallback to guessing from blockState definition
                 if (this.blockState.variants) {
                     await this.setState(Object.keys(this.blockState.variants)[0]);
