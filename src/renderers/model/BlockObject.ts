@@ -22,7 +22,7 @@ export class BlockObject extends SceneObject {
 
     public readonly isBlockObject: true = true;
 
-    public static readonly DEFAULT_OPTIONS: BlockObjectOptions = merge({}, SceneObject.DEFAULT_OPTIONS, <BlockObjectOptions>{
+    public static readonly DEFAULT_OPTIONS: BlockObjectOptions = merge({}, ModelObject.DEFAULT_OPTIONS, <BlockObjectOptions>{
         applyDefaultState: true
     });
     public readonly options: BlockObjectOptions;
@@ -36,6 +36,7 @@ export class BlockObject extends SceneObject {
     }
 
     async init(): Promise<void> {
+        console.log("BlockObject.init")
         if (this.options.applyDefaultState) {
             const defaultState = this.blockState.key ? BlockStates.getDefaultState(this.blockState.key) : undefined;
             if (defaultState && Object.keys(defaultState).length > 0) { // use defined state
@@ -74,6 +75,8 @@ export class BlockObject extends SceneObject {
     }
 
     nextInstance(): InstanceReference {
+        console.log("nextInstance")
+
         const ref = super.nextInstance();
         for (let child of this.children) {
             if (isModelObject(child)) {
@@ -101,23 +104,28 @@ export class BlockObject extends SceneObject {
 
         //TODO: might want to preload all possible states & cache their data
 
+        console.log(this.blockState)
+        console.log(this.state)
+
         if (this.blockState.variants) {
             if (Object.keys(this.blockState.variants).length === 1 && "" in this.blockState.variants) { // default variant
                 await this.createAVariant(this.blockState.variants[""], instanceInfo);
-            }
-            for (let variantKey in this.blockState.variants) {
-                const split = variantKey.split(",");
-                let matches = true;
-                for (let s of split) {
-                    const [k, v] = s.split("=");
-                    if (this.state[k] !== v) {
-                        matches = false;
-                        break;
+            } else {
+                for (let variantKey in this.blockState.variants) {
+                    console.log(variantKey)
+                    const split = variantKey.split(",");
+                    let matches = true;
+                    for (let s of split) {
+                        const [k, v] = s.split("=");
+                        if (`${ this.state[k] }` !== `${ v }`) {
+                            matches = false;
+                            break;
+                        }
                     }
-                }
-                if (matches) {
-                    const variants = this.blockState.variants[variantKey];
-                    await this.createAVariant(variants, instanceInfo);
+                    if (matches) {
+                        const variants = this.blockState.variants[variantKey];
+                        await this.createAVariant(variants, instanceInfo);
+                    }
                 }
             }
         } else if (this.blockState.multipart) {
@@ -139,7 +147,7 @@ export class BlockObject extends SceneObject {
                                 const split = o[k].split("|");
                                 let m = false;
                                 for (let s of split) {
-                                    if (this.state[k] === s) {
+                                    if (`${ this.state[k] }` === `${ s }`) {
                                         m = true;
                                         break;
                                     }
@@ -158,7 +166,7 @@ export class BlockObject extends SceneObject {
                             const split = part.when[k].split("|");
                             let m = false;
                             for (let s of split) {
-                                if (this.state[k] === s) {
+                                if (`${ this.state[k] }` === `${ s }`) {
                                     m = true;
                                     break;
                                 }
@@ -187,6 +195,7 @@ export class BlockObject extends SceneObject {
     }
 
     protected async createAVariant(variants: BlockStateVariant | BlockStateVariant[], instanceInfo: Matrix4[]) {
+        console.log("BlockObject.createAVariant")
         let variant: BlockStateVariant;
         if (Array.isArray(variants)) {
             //TODO: randomizer option / weights
@@ -209,11 +218,9 @@ export class BlockObject extends SceneObject {
             this._isInstanced = true;
         }
 
-        this.add(obj);
-
 
         // Re-apply instance info as a base
-        if (instanceInfo.length>0) {
+        if (instanceInfo.length > 0) {
             for (let i = 0; i < instanceInfo.length; i++) {
                 obj.setMatrixAt(i, instanceInfo[i]);
             }
@@ -244,7 +251,7 @@ export class BlockObject extends SceneObject {
         console.log(obj.isInstanced);
         obj.setRotation(rotation);
 
-
+        this.add(obj);
 
         if (this.options.wireframe) {
             addWireframeToObject(this, 0xff0000, 2)

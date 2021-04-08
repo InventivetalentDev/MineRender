@@ -40,6 +40,7 @@ export class ModelObject extends SceneObject {
     }
 
     async init(): Promise<void> {
+        console.log("ModelObject.init")
         // load textures first so we have the updated UV coordinates from the atlas
         await this.loadTextures();
 
@@ -62,6 +63,7 @@ export class ModelObject extends SceneObject {
 
 
     protected createMeshes(force: boolean = false) {
+        console.log("createMeshes")
         if (this.meshesCreated && !force) return;
 
         const mat = Materials.MISSING_TEXTURE;
@@ -73,16 +75,20 @@ export class ModelObject extends SceneObject {
                 this.atlas.model.elements?.forEach(el => {
                     const elGeo = this._getBoxGeometryFromElement(el).clone();
 
-                    elGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(-8,-8,-8));
+                    // elGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(-8,-8,-8));
+
+
+
 
                     elGeo.applyMatrix4(new THREE.Matrix4().makeTranslation((el.to[0] - el.from[0]) / 2, (el.to[1] - el.from[1]) / 2, (el.to[2] - el.from[2]) / 2));
                     elGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(el.from[0], el.from[1], el.from[2]));
 
-                    // elGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(8,8,8));
-
                     if (el.rotation) {
                         applyElementRotation(el.rotation, elGeo);
                     }
+
+
+                    // elGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(8,8,8));
 
                     if (this.options.mergeMeshes) {
                         allGeos.push(elGeo);
@@ -114,6 +120,7 @@ export class ModelObject extends SceneObject {
             // combinedGeo.translate(-8, -8, -8);
             // TODO: cache the combined geometry
             let mesh: Mesh;
+            console.log("this.options.instanceMeshes",this.options.instanceMeshes)
             if (this.options.instanceMeshes) {
                 mesh = this.createInstancedMesh(undefined, combinedGeo, mat, this.options.maxInstanceCount || 50);
                 this.add(mesh);

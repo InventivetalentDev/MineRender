@@ -139,289 +139,289 @@
   },
   "minecraft:oak_log": {
     "axis": {
-      "default": "Y",
+      "default": "y",
       "type": "enum",
       "valueType": "Axis",
       "values": [
-        "X",
-        "Y",
-        "Z"
+        "x",
+        "y",
+        "z"
       ]
     }
   },
   "minecraft:spruce_log": {
     "axis": {
-      "default": "Y",
+      "default": "y",
       "type": "enum",
       "valueType": "Axis",
       "values": [
-        "X",
-        "Y",
-        "Z"
+        "x",
+        "y",
+        "z"
       ]
     }
   },
   "minecraft:birch_log": {
     "axis": {
-      "default": "Y",
+      "default": "y",
       "type": "enum",
       "valueType": "Axis",
       "values": [
-        "X",
-        "Y",
-        "Z"
+        "x",
+        "y",
+        "z"
       ]
     }
   },
   "minecraft:jungle_log": {
     "axis": {
-      "default": "Y",
+      "default": "y",
       "type": "enum",
       "valueType": "Axis",
       "values": [
-        "X",
-        "Y",
-        "Z"
+        "x",
+        "y",
+        "z"
       ]
     }
   },
   "minecraft:acacia_log": {
     "axis": {
-      "default": "Y",
+      "default": "y",
       "type": "enum",
       "valueType": "Axis",
       "values": [
-        "X",
-        "Y",
-        "Z"
+        "x",
+        "y",
+        "z"
       ]
     }
   },
   "minecraft:dark_oak_log": {
     "axis": {
-      "default": "Y",
+      "default": "y",
       "type": "enum",
       "valueType": "Axis",
       "values": [
-        "X",
-        "Y",
-        "Z"
+        "x",
+        "y",
+        "z"
       ]
     }
   },
   "minecraft:stripped_spruce_log": {
     "axis": {
-      "default": "Y",
+      "default": "y",
       "type": "enum",
       "valueType": "Axis",
       "values": [
-        "X",
-        "Y",
-        "Z"
+        "x",
+        "y",
+        "z"
       ]
     }
   },
   "minecraft:stripped_birch_log": {
     "axis": {
-      "default": "Y",
+      "default": "y",
       "type": "enum",
       "valueType": "Axis",
       "values": [
-        "X",
-        "Y",
-        "Z"
+        "x",
+        "y",
+        "z"
       ]
     }
   },
   "minecraft:stripped_jungle_log": {
     "axis": {
-      "default": "Y",
+      "default": "y",
       "type": "enum",
       "valueType": "Axis",
       "values": [
-        "X",
-        "Y",
-        "Z"
+        "x",
+        "y",
+        "z"
       ]
     }
   },
   "minecraft:stripped_acacia_log": {
     "axis": {
-      "default": "Y",
+      "default": "y",
       "type": "enum",
       "valueType": "Axis",
       "values": [
-        "X",
-        "Y",
-        "Z"
+        "x",
+        "y",
+        "z"
       ]
     }
   },
   "minecraft:stripped_dark_oak_log": {
     "axis": {
-      "default": "Y",
+      "default": "y",
       "type": "enum",
       "valueType": "Axis",
       "values": [
-        "X",
-        "Y",
-        "Z"
+        "x",
+        "y",
+        "z"
       ]
     }
   },
   "minecraft:stripped_oak_log": {
     "axis": {
-      "default": "Y",
+      "default": "y",
       "type": "enum",
       "valueType": "Axis",
       "values": [
-        "X",
-        "Y",
-        "Z"
+        "x",
+        "y",
+        "z"
       ]
     }
   },
   "minecraft:oak_wood": {
     "axis": {
-      "default": "Y",
+      "default": "y",
       "type": "enum",
       "valueType": "Axis",
       "values": [
-        "X",
-        "Y",
-        "Z"
+        "x",
+        "y",
+        "z"
       ]
     }
   },
   "minecraft:spruce_wood": {
     "axis": {
-      "default": "Y",
+      "default": "y",
       "type": "enum",
       "valueType": "Axis",
       "values": [
-        "X",
-        "Y",
-        "Z"
+        "x",
+        "y",
+        "z"
       ]
     }
   },
   "minecraft:birch_wood": {
     "axis": {
-      "default": "Y",
+      "default": "y",
       "type": "enum",
       "valueType": "Axis",
       "values": [
-        "X",
-        "Y",
-        "Z"
+        "x",
+        "y",
+        "z"
       ]
     }
   },
   "minecraft:jungle_wood": {
     "axis": {
-      "default": "Y",
+      "default": "y",
       "type": "enum",
       "valueType": "Axis",
       "values": [
-        "X",
-        "Y",
-        "Z"
+        "x",
+        "y",
+        "z"
       ]
     }
   },
   "minecraft:acacia_wood": {
     "axis": {
-      "default": "Y",
+      "default": "y",
       "type": "enum",
       "valueType": "Axis",
       "values": [
-        "X",
-        "Y",
-        "Z"
+        "x",
+        "y",
+        "z"
       ]
     }
   },
   "minecraft:dark_oak_wood": {
     "axis": {
-      "default": "Y",
+      "default": "y",
       "type": "enum",
       "valueType": "Axis",
       "values": [
-        "X",
-        "Y",
-        "Z"
+        "x",
+        "y",
+        "z"
       ]
     }
   },
   "minecraft:stripped_oak_wood": {
     "axis": {
-      "default": "Y",
+      "default": "y",
       "type": "enum",
       "valueType": "Axis",
       "values": [
-        "X",
-        "Y",
-        "Z"
+        "x",
+        "y",
+        "z"
       ]
     }
   },
   "minecraft:stripped_spruce_wood": {
     "axis": {
-      "default": "Y",
+      "default": "y",
       "type": "enum",
       "valueType": "Axis",
       "values": [
-        "X",
-        "Y",
-        "Z"
+        "x",
+        "y",
+        "z"
       ]
     }
   },
   "minecraft:stripped_birch_wood": {
     "axis": {
-      "default": "Y",
+      "default": "y",
       "type": "enum",
       "valueType": "Axis",
       "values": [
-        "X",
-        "Y",
-        "Z"
+        "x",
+        "y",
+        "z"
       ]
     }
   },
   "minecraft:stripped_jungle_wood": {
     "axis": {
-      "default": "Y",
+      "default": "y",
       "type": "enum",
       "valueType": "Axis",
       "values": [
-        "X",
-        "Y",
-        "Z"
+        "x",
+        "y",
+        "z"
       ]
     }
   },
   "minecraft:stripped_acacia_wood": {
     "axis": {
-      "default": "Y",
+      "default": "y",
       "type": "enum",
       "valueType": "Axis",
       "values": [
-        "X",
-        "Y",
-        "Z"
+        "x",
+        "y",
+        "z"
       ]
     }
   },
   "minecraft:stripped_dark_oak_wood": {
     "axis": {
-      "default": "Y",
+      "default": "y",
       "type": "enum",
       "valueType": "Axis",
       "values": [
-        "X",
-        "Y",
-        "Z"
+        "x",
+        "y",
+        "z"
       ]
     }
   },
@@ -577,16 +577,16 @@
   },
   "minecraft:dispenser": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "EAST",
-        "SOUTH",
-        "WEST",
-        "UP",
-        "DOWN"
+        "north",
+        "east",
+        "south",
+        "west",
+        "up",
+        "down"
       ]
     },
     "triggered": {
@@ -667,14 +667,14 @@
   },
   "minecraft:white_bed": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "occupied": {
@@ -687,25 +687,25 @@
       ]
     },
     "part": {
-      "default": "FOOT",
+      "default": "foot",
       "type": "enum",
       "valueType": "BedPart",
       "values": [
-        "HEAD",
-        "FOOT"
+        "head",
+        "foot"
       ]
     }
   },
   "minecraft:orange_bed": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "occupied": {
@@ -718,25 +718,25 @@
       ]
     },
     "part": {
-      "default": "FOOT",
+      "default": "foot",
       "type": "enum",
       "valueType": "BedPart",
       "values": [
-        "HEAD",
-        "FOOT"
+        "head",
+        "foot"
       ]
     }
   },
   "minecraft:magenta_bed": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "occupied": {
@@ -749,25 +749,25 @@
       ]
     },
     "part": {
-      "default": "FOOT",
+      "default": "foot",
       "type": "enum",
       "valueType": "BedPart",
       "values": [
-        "HEAD",
-        "FOOT"
+        "head",
+        "foot"
       ]
     }
   },
   "minecraft:light_blue_bed": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "occupied": {
@@ -780,25 +780,25 @@
       ]
     },
     "part": {
-      "default": "FOOT",
+      "default": "foot",
       "type": "enum",
       "valueType": "BedPart",
       "values": [
-        "HEAD",
-        "FOOT"
+        "head",
+        "foot"
       ]
     }
   },
   "minecraft:yellow_bed": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "occupied": {
@@ -811,25 +811,25 @@
       ]
     },
     "part": {
-      "default": "FOOT",
+      "default": "foot",
       "type": "enum",
       "valueType": "BedPart",
       "values": [
-        "HEAD",
-        "FOOT"
+        "head",
+        "foot"
       ]
     }
   },
   "minecraft:lime_bed": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "occupied": {
@@ -842,25 +842,25 @@
       ]
     },
     "part": {
-      "default": "FOOT",
+      "default": "foot",
       "type": "enum",
       "valueType": "BedPart",
       "values": [
-        "HEAD",
-        "FOOT"
+        "head",
+        "foot"
       ]
     }
   },
   "minecraft:pink_bed": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "occupied": {
@@ -873,25 +873,25 @@
       ]
     },
     "part": {
-      "default": "FOOT",
+      "default": "foot",
       "type": "enum",
       "valueType": "BedPart",
       "values": [
-        "HEAD",
-        "FOOT"
+        "head",
+        "foot"
       ]
     }
   },
   "minecraft:gray_bed": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "occupied": {
@@ -904,25 +904,25 @@
       ]
     },
     "part": {
-      "default": "FOOT",
+      "default": "foot",
       "type": "enum",
       "valueType": "BedPart",
       "values": [
-        "HEAD",
-        "FOOT"
+        "head",
+        "foot"
       ]
     }
   },
   "minecraft:light_gray_bed": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "occupied": {
@@ -935,25 +935,25 @@
       ]
     },
     "part": {
-      "default": "FOOT",
+      "default": "foot",
       "type": "enum",
       "valueType": "BedPart",
       "values": [
-        "HEAD",
-        "FOOT"
+        "head",
+        "foot"
       ]
     }
   },
   "minecraft:cyan_bed": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "occupied": {
@@ -966,25 +966,25 @@
       ]
     },
     "part": {
-      "default": "FOOT",
+      "default": "foot",
       "type": "enum",
       "valueType": "BedPart",
       "values": [
-        "HEAD",
-        "FOOT"
+        "head",
+        "foot"
       ]
     }
   },
   "minecraft:purple_bed": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "occupied": {
@@ -997,25 +997,25 @@
       ]
     },
     "part": {
-      "default": "FOOT",
+      "default": "foot",
       "type": "enum",
       "valueType": "BedPart",
       "values": [
-        "HEAD",
-        "FOOT"
+        "head",
+        "foot"
       ]
     }
   },
   "minecraft:blue_bed": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "occupied": {
@@ -1028,25 +1028,25 @@
       ]
     },
     "part": {
-      "default": "FOOT",
+      "default": "foot",
       "type": "enum",
       "valueType": "BedPart",
       "values": [
-        "HEAD",
-        "FOOT"
+        "head",
+        "foot"
       ]
     }
   },
   "minecraft:brown_bed": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "occupied": {
@@ -1059,25 +1059,25 @@
       ]
     },
     "part": {
-      "default": "FOOT",
+      "default": "foot",
       "type": "enum",
       "valueType": "BedPart",
       "values": [
-        "HEAD",
-        "FOOT"
+        "head",
+        "foot"
       ]
     }
   },
   "minecraft:green_bed": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "occupied": {
@@ -1090,25 +1090,25 @@
       ]
     },
     "part": {
-      "default": "FOOT",
+      "default": "foot",
       "type": "enum",
       "valueType": "BedPart",
       "values": [
-        "HEAD",
-        "FOOT"
+        "head",
+        "foot"
       ]
     }
   },
   "minecraft:red_bed": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "occupied": {
@@ -1121,25 +1121,25 @@
       ]
     },
     "part": {
-      "default": "FOOT",
+      "default": "foot",
       "type": "enum",
       "valueType": "BedPart",
       "values": [
-        "HEAD",
-        "FOOT"
+        "head",
+        "foot"
       ]
     }
   },
   "minecraft:black_bed": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "occupied": {
@@ -1152,12 +1152,12 @@
       ]
     },
     "part": {
-      "default": "FOOT",
+      "default": "foot",
       "type": "enum",
       "valueType": "BedPart",
       "values": [
-        "HEAD",
-        "FOOT"
+        "head",
+        "foot"
       ]
     }
   },
@@ -1172,16 +1172,16 @@
       ]
     },
     "shape": {
-      "default": "NORTH_SOUTH",
+      "default": "north_south",
       "type": "enum",
       "valueType": "RailShape",
       "values": [
-        "NORTH_SOUTH",
-        "EAST_WEST",
-        "ASCENDING_EAST",
-        "ASCENDING_WEST",
-        "ASCENDING_NORTH",
-        "ASCENDING_SOUTH"
+        "north_south",
+        "east_west",
+        "ascending_east",
+        "ascending_west",
+        "ascending_north",
+        "ascending_south"
       ]
     }
   },
@@ -1196,16 +1196,16 @@
       ]
     },
     "shape": {
-      "default": "NORTH_SOUTH",
+      "default": "north_south",
       "type": "enum",
       "valueType": "RailShape",
       "values": [
-        "NORTH_SOUTH",
-        "EAST_WEST",
-        "ASCENDING_EAST",
-        "ASCENDING_WEST",
-        "ASCENDING_NORTH",
-        "ASCENDING_SOUTH"
+        "north_south",
+        "east_west",
+        "ascending_east",
+        "ascending_west",
+        "ascending_north",
+        "ascending_south"
       ]
     }
   },
@@ -1220,27 +1220,27 @@
       ]
     },
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "EAST",
-        "SOUTH",
-        "WEST",
-        "UP",
-        "DOWN"
+        "north",
+        "east",
+        "south",
+        "west",
+        "up",
+        "down"
       ]
     }
   },
   "minecraft:tall_seagrass": {
     "half": {
-      "default": "LOWER",
+      "default": "lower",
       "type": "enum",
       "valueType": "DoubleBlockHalf",
       "values": [
-        "UPPER",
-        "LOWER"
+        "upper",
+        "lower"
       ]
     }
   },
@@ -1255,31 +1255,31 @@
       ]
     },
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "EAST",
-        "SOUTH",
-        "WEST",
-        "UP",
-        "DOWN"
+        "north",
+        "east",
+        "south",
+        "west",
+        "up",
+        "down"
       ]
     }
   },
   "minecraft:piston_head": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "EAST",
-        "SOUTH",
-        "WEST",
-        "UP",
-        "DOWN"
+        "north",
+        "east",
+        "south",
+        "west",
+        "up",
+        "down"
       ]
     },
     "short": {
@@ -1292,36 +1292,36 @@
       ]
     },
     "type": {
-      "default": "DEFAULT",
+      "default": "normal",
       "type": "enum",
       "valueType": "PistonType",
       "values": [
-        "DEFAULT",
-        "STICKY"
+        "normal",
+        "sticky"
       ]
     }
   },
   "minecraft:moving_piston": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "EAST",
-        "SOUTH",
-        "WEST",
-        "UP",
-        "DOWN"
+        "north",
+        "east",
+        "south",
+        "west",
+        "up",
+        "down"
       ]
     },
     "type": {
-      "default": "DEFAULT",
+      "default": "normal",
       "type": "enum",
       "valueType": "PistonType",
       "values": [
-        "DEFAULT",
-        "STICKY"
+        "normal",
+        "sticky"
       ]
     }
   },
@@ -1338,14 +1338,14 @@
   },
   "minecraft:wall_torch": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
@@ -1421,35 +1421,35 @@
   },
   "minecraft:oak_stairs": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "shape": {
-      "default": "STRAIGHT",
+      "default": "straight",
       "type": "enum",
       "valueType": "StairShape",
       "values": [
-        "STRAIGHT",
-        "INNER_LEFT",
-        "INNER_RIGHT",
-        "OUTER_LEFT",
-        "OUTER_RIGHT"
+        "straight",
+        "inner_left",
+        "inner_right",
+        "outer_left",
+        "outer_right"
       ]
     },
     "waterlogged": {
@@ -1464,14 +1464,14 @@
   },
   "minecraft:chest": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "type": {
@@ -1496,23 +1496,23 @@
   },
   "minecraft:redstone_wire": {
     "east": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WireConnection",
       "values": [
-        "UP",
-        "SIDE",
-        "NONE"
+        "up",
+        "side",
+        "none"
       ]
     },
     "north": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WireConnection",
       "values": [
-        "UP",
-        "SIDE",
-        "NONE"
+        "up",
+        "side",
+        "none"
       ]
     },
     "power": {
@@ -1539,23 +1539,23 @@
       ]
     },
     "south": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WireConnection",
       "values": [
-        "UP",
-        "SIDE",
-        "NONE"
+        "up",
+        "side",
+        "none"
       ]
     },
     "west": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WireConnection",
       "values": [
-        "UP",
-        "SIDE",
-        "NONE"
+        "up",
+        "side",
+        "none"
       ]
     }
   },
@@ -1595,14 +1595,14 @@
   },
   "minecraft:furnace": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "lit": {
@@ -1821,32 +1821,32 @@
   },
   "minecraft:oak_door": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "LOWER",
+      "default": "lower",
       "type": "enum",
       "valueType": "DoubleBlockHalf",
       "values": [
-        "UPPER",
-        "LOWER"
+        "upper",
+        "lower"
       ]
     },
     "hinge": {
-      "default": "LEFT",
+      "default": "left",
       "type": "enum",
       "valueType": "DoorHinge",
       "values": [
-        "LEFT",
-        "RIGHT"
+        "left",
+        "right"
       ]
     },
     "open": {
@@ -1870,14 +1870,14 @@
   },
   "minecraft:ladder": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "waterlogged": {
@@ -1892,54 +1892,54 @@
   },
   "minecraft:rail": {
     "shape": {
-      "default": "NORTH_SOUTH",
+      "default": "north_south",
       "type": "enum",
       "valueType": "RailShape",
       "values": [
-        "NORTH_SOUTH",
-        "EAST_WEST",
-        "ASCENDING_EAST",
-        "ASCENDING_WEST",
-        "ASCENDING_NORTH",
-        "ASCENDING_SOUTH",
-        "SOUTH_EAST",
-        "SOUTH_WEST",
-        "NORTH_WEST",
-        "NORTH_EAST"
+        "north_south",
+        "east_west",
+        "ascending_east",
+        "ascending_west",
+        "ascending_north",
+        "ascending_south",
+        "south_east",
+        "south_west",
+        "north_west",
+        "north_east"
       ]
     }
   },
   "minecraft:cobblestone_stairs": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "shape": {
-      "default": "STRAIGHT",
+      "default": "straight",
       "type": "enum",
       "valueType": "StairShape",
       "values": [
-        "STRAIGHT",
-        "INNER_LEFT",
-        "INNER_RIGHT",
-        "OUTER_LEFT",
-        "OUTER_RIGHT"
+        "straight",
+        "inner_left",
+        "inner_right",
+        "outer_left",
+        "outer_right"
       ]
     },
     "waterlogged": {
@@ -1954,14 +1954,14 @@
   },
   "minecraft:oak_wall_sign": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "waterlogged": {
@@ -1976,14 +1976,14 @@
   },
   "minecraft:spruce_wall_sign": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "waterlogged": {
@@ -1998,14 +1998,14 @@
   },
   "minecraft:birch_wall_sign": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "waterlogged": {
@@ -2020,14 +2020,14 @@
   },
   "minecraft:acacia_wall_sign": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "waterlogged": {
@@ -2042,14 +2042,14 @@
   },
   "minecraft:jungle_wall_sign": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "waterlogged": {
@@ -2064,14 +2064,14 @@
   },
   "minecraft:dark_oak_wall_sign": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "waterlogged": {
@@ -2096,14 +2096,14 @@
       ]
     },
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "powered": {
@@ -2129,32 +2129,32 @@
   },
   "minecraft:iron_door": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "LOWER",
+      "default": "lower",
       "type": "enum",
       "valueType": "DoubleBlockHalf",
       "values": [
-        "UPPER",
-        "LOWER"
+        "upper",
+        "lower"
       ]
     },
     "hinge": {
-      "default": "LEFT",
+      "default": "left",
       "type": "enum",
       "valueType": "DoorHinge",
       "values": [
-        "LEFT",
-        "RIGHT"
+        "left",
+        "right"
       ]
     },
     "open": {
@@ -2266,14 +2266,14 @@
   },
   "minecraft:redstone_wall_torch": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "lit": {
@@ -2298,14 +2298,14 @@
       ]
     },
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "powered": {
@@ -2445,75 +2445,75 @@
   },
   "minecraft:basalt": {
     "axis": {
-      "default": "Y",
+      "default": "y",
       "type": "enum",
       "valueType": "Axis",
       "values": [
-        "X",
-        "Y",
-        "Z"
+        "x",
+        "y",
+        "z"
       ]
     }
   },
   "minecraft:polished_basalt": {
     "axis": {
-      "default": "Y",
+      "default": "y",
       "type": "enum",
       "valueType": "Axis",
       "values": [
-        "X",
-        "Y",
-        "Z"
+        "x",
+        "y",
+        "z"
       ]
     }
   },
   "minecraft:soul_wall_torch": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
   "minecraft:nether_portal": {
     "axis": {
-      "default": "X",
+      "default": "x",
       "type": "enum",
       "valueType": "Axis",
       "values": [
-        "X",
-        "Z"
+        "x",
+        "z"
       ]
     }
   },
   "minecraft:carved_pumpkin": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
   "minecraft:jack_o_lantern": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
@@ -2546,14 +2546,14 @@
       ]
     },
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "locked": {
@@ -2577,23 +2577,23 @@
   },
   "minecraft:oak_trapdoor": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "open": {
@@ -2626,23 +2626,23 @@
   },
   "minecraft:spruce_trapdoor": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "open": {
@@ -2675,23 +2675,23 @@
   },
   "minecraft:birch_trapdoor": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "open": {
@@ -2724,23 +2724,23 @@
   },
   "minecraft:jungle_trapdoor": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "open": {
@@ -2773,23 +2773,23 @@
   },
   "minecraft:acacia_trapdoor": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "open": {
@@ -2822,23 +2822,23 @@
   },
   "minecraft:dark_oak_trapdoor": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "open": {
@@ -3086,13 +3086,13 @@
   },
   "minecraft:chain": {
     "axis": {
-      "default": "Y",
+      "default": "y",
       "type": "enum",
       "valueType": "Axis",
       "values": [
-        "X",
-        "Y",
-        "Z"
+        "x",
+        "y",
+        "z"
       ]
     },
     "waterlogged": {
@@ -3154,27 +3154,27 @@
   },
   "minecraft:attached_pumpkin_stem": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
   "minecraft:attached_melon_stem": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
@@ -3261,14 +3261,14 @@
   },
   "minecraft:oak_fence_gate": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "in_wall": {
@@ -3301,35 +3301,35 @@
   },
   "minecraft:brick_stairs": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "shape": {
-      "default": "STRAIGHT",
+      "default": "straight",
       "type": "enum",
       "valueType": "StairShape",
       "values": [
-        "STRAIGHT",
-        "INNER_LEFT",
-        "INNER_RIGHT",
-        "OUTER_LEFT",
-        "OUTER_RIGHT"
+        "straight",
+        "inner_left",
+        "inner_right",
+        "outer_left",
+        "outer_right"
       ]
     },
     "waterlogged": {
@@ -3344,35 +3344,35 @@
   },
   "minecraft:stone_brick_stairs": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "shape": {
-      "default": "STRAIGHT",
+      "default": "straight",
       "type": "enum",
       "valueType": "StairShape",
       "values": [
-        "STRAIGHT",
-        "INNER_LEFT",
-        "INNER_RIGHT",
-        "OUTER_LEFT",
-        "OUTER_RIGHT"
+        "straight",
+        "inner_left",
+        "inner_right",
+        "outer_left",
+        "outer_right"
       ]
     },
     "waterlogged": {
@@ -3445,35 +3445,35 @@
   },
   "minecraft:nether_brick_stairs": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "shape": {
-      "default": "STRAIGHT",
+      "default": "straight",
       "type": "enum",
       "valueType": "StairShape",
       "values": [
-        "STRAIGHT",
-        "INNER_LEFT",
-        "INNER_RIGHT",
-        "OUTER_LEFT",
-        "OUTER_RIGHT"
+        "straight",
+        "inner_left",
+        "inner_right",
+        "outer_left",
+        "outer_right"
       ]
     },
     "waterlogged": {
@@ -3552,14 +3552,14 @@
       ]
     },
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
@@ -3586,48 +3586,48 @@
       ]
     },
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
   "minecraft:sandstone_stairs": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "shape": {
-      "default": "STRAIGHT",
+      "default": "straight",
       "type": "enum",
       "valueType": "StairShape",
       "values": [
-        "STRAIGHT",
-        "INNER_LEFT",
-        "INNER_RIGHT",
-        "OUTER_LEFT",
-        "OUTER_RIGHT"
+        "straight",
+        "inner_left",
+        "inner_right",
+        "outer_left",
+        "outer_right"
       ]
     },
     "waterlogged": {
@@ -3642,14 +3642,14 @@
   },
   "minecraft:ender_chest": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "waterlogged": {
@@ -3673,14 +3673,14 @@
       ]
     },
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "powered": {
@@ -3760,35 +3760,35 @@
   },
   "minecraft:spruce_stairs": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "shape": {
-      "default": "STRAIGHT",
+      "default": "straight",
       "type": "enum",
       "valueType": "StairShape",
       "values": [
-        "STRAIGHT",
-        "INNER_LEFT",
-        "INNER_RIGHT",
-        "OUTER_LEFT",
-        "OUTER_RIGHT"
+        "straight",
+        "inner_left",
+        "inner_right",
+        "outer_left",
+        "outer_right"
       ]
     },
     "waterlogged": {
@@ -3803,35 +3803,35 @@
   },
   "minecraft:birch_stairs": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "shape": {
-      "default": "STRAIGHT",
+      "default": "straight",
       "type": "enum",
       "valueType": "StairShape",
       "values": [
-        "STRAIGHT",
-        "INNER_LEFT",
-        "INNER_RIGHT",
-        "OUTER_LEFT",
-        "OUTER_RIGHT"
+        "straight",
+        "inner_left",
+        "inner_right",
+        "outer_left",
+        "outer_right"
       ]
     },
     "waterlogged": {
@@ -3846,35 +3846,35 @@
   },
   "minecraft:jungle_stairs": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "shape": {
-      "default": "STRAIGHT",
+      "default": "straight",
       "type": "enum",
       "valueType": "StairShape",
       "values": [
-        "STRAIGHT",
-        "INNER_LEFT",
-        "INNER_RIGHT",
-        "OUTER_LEFT",
-        "OUTER_RIGHT"
+        "straight",
+        "inner_left",
+        "inner_right",
+        "outer_left",
+        "outer_right"
       ]
     },
     "waterlogged": {
@@ -3898,48 +3898,48 @@
       ]
     },
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "EAST",
-        "SOUTH",
-        "WEST",
-        "UP",
-        "DOWN"
+        "north",
+        "east",
+        "south",
+        "west",
+        "up",
+        "down"
       ]
     }
   },
   "minecraft:cobblestone_wall": {
     "east": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "north": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "south": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "up": {
@@ -3961,45 +3961,45 @@
       ]
     },
     "west": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     }
   },
   "minecraft:mossy_cobblestone_wall": {
     "east": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "north": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "south": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "up": {
@@ -4021,13 +4021,13 @@
       ]
     },
     "west": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     }
   },
@@ -4077,14 +4077,14 @@
       ]
     },
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "powered": {
@@ -4109,14 +4109,14 @@
       ]
     },
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "powered": {
@@ -4141,14 +4141,14 @@
       ]
     },
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "powered": {
@@ -4173,14 +4173,14 @@
       ]
     },
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "powered": {
@@ -4205,14 +4205,14 @@
       ]
     },
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "powered": {
@@ -4237,14 +4237,14 @@
       ]
     },
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "powered": {
@@ -4284,14 +4284,14 @@
   },
   "minecraft:skeleton_wall_skull": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
@@ -4322,14 +4322,14 @@
   },
   "minecraft:wither_skeleton_wall_skull": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
@@ -4360,14 +4360,14 @@
   },
   "minecraft:zombie_wall_head": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
@@ -4398,14 +4398,14 @@
   },
   "minecraft:player_wall_head": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
@@ -4436,14 +4436,14 @@
   },
   "minecraft:creeper_wall_head": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
@@ -4474,66 +4474,66 @@
   },
   "minecraft:dragon_wall_head": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
   "minecraft:anvil": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
   "minecraft:chipped_anvil": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
   "minecraft:damaged_anvil": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
   "minecraft:trapped_chest": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "type": {
@@ -4608,23 +4608,23 @@
   },
   "minecraft:comparator": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "mode": {
-      "default": "COMPARE",
+      "default": "compare",
       "type": "enum",
       "valueType": "ComparatorMode",
       "values": [
-        "COMPARE",
-        "SUBTRACT"
+        "compare",
+        "subtract"
       ]
     },
     "powered": {
@@ -4682,61 +4682,61 @@
       ]
     },
     "facing": {
-      "default": "DOWN",
+      "default": "down",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "DOWN",
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "down",
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
   "minecraft:quartz_pillar": {
     "axis": {
-      "default": "Y",
+      "default": "y",
       "type": "enum",
       "valueType": "Axis",
       "values": [
-        "X",
-        "Y",
-        "Z"
+        "x",
+        "y",
+        "z"
       ]
     }
   },
   "minecraft:quartz_stairs": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "shape": {
-      "default": "STRAIGHT",
+      "default": "straight",
       "type": "enum",
       "valueType": "StairShape",
       "values": [
-        "STRAIGHT",
-        "INNER_LEFT",
-        "INNER_RIGHT",
-        "OUTER_LEFT",
-        "OUTER_RIGHT"
+        "straight",
+        "inner_left",
+        "inner_right",
+        "outer_left",
+        "outer_right"
       ]
     },
     "waterlogged": {
@@ -4760,31 +4760,31 @@
       ]
     },
     "shape": {
-      "default": "NORTH_SOUTH",
+      "default": "north_south",
       "type": "enum",
       "valueType": "RailShape",
       "values": [
-        "NORTH_SOUTH",
-        "EAST_WEST",
-        "ASCENDING_EAST",
-        "ASCENDING_WEST",
-        "ASCENDING_NORTH",
-        "ASCENDING_SOUTH"
+        "north_south",
+        "east_west",
+        "ascending_east",
+        "ascending_west",
+        "ascending_north",
+        "ascending_south"
       ]
     }
   },
   "minecraft:dropper": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "EAST",
-        "SOUTH",
-        "WEST",
-        "UP",
-        "DOWN"
+        "north",
+        "east",
+        "south",
+        "west",
+        "up",
+        "down"
       ]
     },
     "triggered": {
@@ -5551,35 +5551,35 @@
   },
   "minecraft:acacia_stairs": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "shape": {
-      "default": "STRAIGHT",
+      "default": "straight",
       "type": "enum",
       "valueType": "StairShape",
       "values": [
-        "STRAIGHT",
-        "INNER_LEFT",
-        "INNER_RIGHT",
-        "OUTER_LEFT",
-        "OUTER_RIGHT"
+        "straight",
+        "inner_left",
+        "inner_right",
+        "outer_left",
+        "outer_right"
       ]
     },
     "waterlogged": {
@@ -5594,35 +5594,35 @@
   },
   "minecraft:dark_oak_stairs": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "shape": {
-      "default": "STRAIGHT",
+      "default": "straight",
       "type": "enum",
       "valueType": "StairShape",
       "values": [
-        "STRAIGHT",
-        "INNER_LEFT",
-        "INNER_RIGHT",
-        "OUTER_LEFT",
-        "OUTER_RIGHT"
+        "straight",
+        "inner_left",
+        "inner_right",
+        "outer_left",
+        "outer_right"
       ]
     },
     "waterlogged": {
@@ -5637,23 +5637,23 @@
   },
   "minecraft:iron_trapdoor": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "open": {
@@ -5686,35 +5686,35 @@
   },
   "minecraft:prismarine_stairs": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "shape": {
-      "default": "STRAIGHT",
+      "default": "straight",
       "type": "enum",
       "valueType": "StairShape",
       "values": [
-        "STRAIGHT",
-        "INNER_LEFT",
-        "INNER_RIGHT",
-        "OUTER_LEFT",
-        "OUTER_RIGHT"
+        "straight",
+        "inner_left",
+        "inner_right",
+        "outer_left",
+        "outer_right"
       ]
     },
     "waterlogged": {
@@ -5729,35 +5729,35 @@
   },
   "minecraft:prismarine_brick_stairs": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "shape": {
-      "default": "STRAIGHT",
+      "default": "straight",
       "type": "enum",
       "valueType": "StairShape",
       "values": [
-        "STRAIGHT",
-        "INNER_LEFT",
-        "INNER_RIGHT",
-        "OUTER_LEFT",
-        "OUTER_RIGHT"
+        "straight",
+        "inner_left",
+        "inner_right",
+        "outer_left",
+        "outer_right"
       ]
     },
     "waterlogged": {
@@ -5772,35 +5772,35 @@
   },
   "minecraft:dark_prismarine_stairs": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "shape": {
-      "default": "STRAIGHT",
+      "default": "straight",
       "type": "enum",
       "valueType": "StairShape",
       "values": [
-        "STRAIGHT",
-        "INNER_LEFT",
-        "INNER_RIGHT",
-        "OUTER_LEFT",
-        "OUTER_RIGHT"
+        "straight",
+        "inner_left",
+        "inner_right",
+        "outer_left",
+        "outer_right"
       ]
     },
     "waterlogged": {
@@ -5815,13 +5815,13 @@
   },
   "minecraft:prismarine_slab": {
     "type": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "SlabType",
       "values": [
-        "TOP",
-        "BOTTOM",
-        "DOUBLE"
+        "top",
+        "bottom",
+        "double"
       ]
     },
     "waterlogged": {
@@ -5836,13 +5836,13 @@
   },
   "minecraft:prismarine_brick_slab": {
     "type": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "SlabType",
       "values": [
-        "TOP",
-        "BOTTOM",
-        "DOUBLE"
+        "top",
+        "bottom",
+        "double"
       ]
     },
     "waterlogged": {
@@ -5857,13 +5857,13 @@
   },
   "minecraft:dark_prismarine_slab": {
     "type": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "SlabType",
       "values": [
-        "TOP",
-        "BOTTOM",
-        "DOUBLE"
+        "top",
+        "bottom",
+        "double"
       ]
     },
     "waterlogged": {
@@ -5878,79 +5878,79 @@
   },
   "minecraft:hay_block": {
     "axis": {
-      "default": "Y",
+      "default": "y",
       "type": "enum",
       "valueType": "Axis",
       "values": [
-        "X",
-        "Y",
-        "Z"
+        "x",
+        "y",
+        "z"
       ]
     }
   },
   "minecraft:sunflower": {
     "half": {
-      "default": "LOWER",
+      "default": "lower",
       "type": "enum",
       "valueType": "DoubleBlockHalf",
       "values": [
-        "UPPER",
-        "LOWER"
+        "upper",
+        "lower"
       ]
     }
   },
   "minecraft:lilac": {
     "half": {
-      "default": "LOWER",
+      "default": "lower",
       "type": "enum",
       "valueType": "DoubleBlockHalf",
       "values": [
-        "UPPER",
-        "LOWER"
+        "upper",
+        "lower"
       ]
     }
   },
   "minecraft:rose_bush": {
     "half": {
-      "default": "LOWER",
+      "default": "lower",
       "type": "enum",
       "valueType": "DoubleBlockHalf",
       "values": [
-        "UPPER",
-        "LOWER"
+        "upper",
+        "lower"
       ]
     }
   },
   "minecraft:peony": {
     "half": {
-      "default": "LOWER",
+      "default": "lower",
       "type": "enum",
       "valueType": "DoubleBlockHalf",
       "values": [
-        "UPPER",
-        "LOWER"
+        "upper",
+        "lower"
       ]
     }
   },
   "minecraft:tall_grass": {
     "half": {
-      "default": "LOWER",
+      "default": "lower",
       "type": "enum",
       "valueType": "DoubleBlockHalf",
       "values": [
-        "UPPER",
-        "LOWER"
+        "upper",
+        "lower"
       ]
     }
   },
   "minecraft:large_fern": {
     "half": {
-      "default": "LOWER",
+      "default": "lower",
       "type": "enum",
       "valueType": "DoubleBlockHalf",
       "values": [
-        "UPPER",
-        "LOWER"
+        "upper",
+        "lower"
       ]
     }
   },
@@ -6356,243 +6356,243 @@
   },
   "minecraft:white_wall_banner": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
   "minecraft:orange_wall_banner": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
   "minecraft:magenta_wall_banner": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
   "minecraft:light_blue_wall_banner": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
   "minecraft:yellow_wall_banner": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
   "minecraft:lime_wall_banner": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
   "minecraft:pink_wall_banner": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
   "minecraft:gray_wall_banner": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
   "minecraft:light_gray_wall_banner": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
   "minecraft:cyan_wall_banner": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
   "minecraft:purple_wall_banner": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
   "minecraft:blue_wall_banner": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
   "minecraft:brown_wall_banner": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
   "minecraft:green_wall_banner": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
   "minecraft:red_wall_banner": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
   "minecraft:black_wall_banner": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
   "minecraft:red_sandstone_stairs": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "shape": {
-      "default": "STRAIGHT",
+      "default": "straight",
       "type": "enum",
       "valueType": "StairShape",
       "values": [
-        "STRAIGHT",
-        "INNER_LEFT",
-        "INNER_RIGHT",
-        "OUTER_LEFT",
-        "OUTER_RIGHT"
+        "straight",
+        "inner_left",
+        "inner_right",
+        "outer_left",
+        "outer_right"
       ]
     },
     "waterlogged": {
@@ -6607,13 +6607,13 @@
   },
   "minecraft:oak_slab": {
     "type": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "SlabType",
       "values": [
-        "TOP",
-        "BOTTOM",
-        "DOUBLE"
+        "top",
+        "bottom",
+        "double"
       ]
     },
     "waterlogged": {
@@ -6628,13 +6628,13 @@
   },
   "minecraft:spruce_slab": {
     "type": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "SlabType",
       "values": [
-        "TOP",
-        "BOTTOM",
-        "DOUBLE"
+        "top",
+        "bottom",
+        "double"
       ]
     },
     "waterlogged": {
@@ -6649,13 +6649,13 @@
   },
   "minecraft:birch_slab": {
     "type": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "SlabType",
       "values": [
-        "TOP",
-        "BOTTOM",
-        "DOUBLE"
+        "top",
+        "bottom",
+        "double"
       ]
     },
     "waterlogged": {
@@ -6670,13 +6670,13 @@
   },
   "minecraft:jungle_slab": {
     "type": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "SlabType",
       "values": [
-        "TOP",
-        "BOTTOM",
-        "DOUBLE"
+        "top",
+        "bottom",
+        "double"
       ]
     },
     "waterlogged": {
@@ -6691,13 +6691,13 @@
   },
   "minecraft:acacia_slab": {
     "type": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "SlabType",
       "values": [
-        "TOP",
-        "BOTTOM",
-        "DOUBLE"
+        "top",
+        "bottom",
+        "double"
       ]
     },
     "waterlogged": {
@@ -6712,13 +6712,13 @@
   },
   "minecraft:dark_oak_slab": {
     "type": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "SlabType",
       "values": [
-        "TOP",
-        "BOTTOM",
-        "DOUBLE"
+        "top",
+        "bottom",
+        "double"
       ]
     },
     "waterlogged": {
@@ -6733,13 +6733,13 @@
   },
   "minecraft:stone_slab": {
     "type": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "SlabType",
       "values": [
-        "TOP",
-        "BOTTOM",
-        "DOUBLE"
+        "top",
+        "bottom",
+        "double"
       ]
     },
     "waterlogged": {
@@ -6754,13 +6754,13 @@
   },
   "minecraft:smooth_stone_slab": {
     "type": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "SlabType",
       "values": [
-        "TOP",
-        "BOTTOM",
-        "DOUBLE"
+        "top",
+        "bottom",
+        "double"
       ]
     },
     "waterlogged": {
@@ -6775,13 +6775,13 @@
   },
   "minecraft:sandstone_slab": {
     "type": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "SlabType",
       "values": [
-        "TOP",
-        "BOTTOM",
-        "DOUBLE"
+        "top",
+        "bottom",
+        "double"
       ]
     },
     "waterlogged": {
@@ -6796,13 +6796,13 @@
   },
   "minecraft:cut_sandstone_slab": {
     "type": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "SlabType",
       "values": [
-        "TOP",
-        "BOTTOM",
-        "DOUBLE"
+        "top",
+        "bottom",
+        "double"
       ]
     },
     "waterlogged": {
@@ -6817,13 +6817,13 @@
   },
   "minecraft:petrified_oak_slab": {
     "type": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "SlabType",
       "values": [
-        "TOP",
-        "BOTTOM",
-        "DOUBLE"
+        "top",
+        "bottom",
+        "double"
       ]
     },
     "waterlogged": {
@@ -6838,13 +6838,13 @@
   },
   "minecraft:cobblestone_slab": {
     "type": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "SlabType",
       "values": [
-        "TOP",
-        "BOTTOM",
-        "DOUBLE"
+        "top",
+        "bottom",
+        "double"
       ]
     },
     "waterlogged": {
@@ -6859,13 +6859,13 @@
   },
   "minecraft:brick_slab": {
     "type": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "SlabType",
       "values": [
-        "TOP",
-        "BOTTOM",
-        "DOUBLE"
+        "top",
+        "bottom",
+        "double"
       ]
     },
     "waterlogged": {
@@ -6880,13 +6880,13 @@
   },
   "minecraft:stone_brick_slab": {
     "type": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "SlabType",
       "values": [
-        "TOP",
-        "BOTTOM",
-        "DOUBLE"
+        "top",
+        "bottom",
+        "double"
       ]
     },
     "waterlogged": {
@@ -6901,13 +6901,13 @@
   },
   "minecraft:nether_brick_slab": {
     "type": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "SlabType",
       "values": [
-        "TOP",
-        "BOTTOM",
-        "DOUBLE"
+        "top",
+        "bottom",
+        "double"
       ]
     },
     "waterlogged": {
@@ -6922,13 +6922,13 @@
   },
   "minecraft:quartz_slab": {
     "type": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "SlabType",
       "values": [
-        "TOP",
-        "BOTTOM",
-        "DOUBLE"
+        "top",
+        "bottom",
+        "double"
       ]
     },
     "waterlogged": {
@@ -6943,13 +6943,13 @@
   },
   "minecraft:red_sandstone_slab": {
     "type": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "SlabType",
       "values": [
-        "TOP",
-        "BOTTOM",
-        "DOUBLE"
+        "top",
+        "bottom",
+        "double"
       ]
     },
     "waterlogged": {
@@ -6964,13 +6964,13 @@
   },
   "minecraft:cut_red_sandstone_slab": {
     "type": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "SlabType",
       "values": [
-        "TOP",
-        "BOTTOM",
-        "DOUBLE"
+        "top",
+        "bottom",
+        "double"
       ]
     },
     "waterlogged": {
@@ -6985,13 +6985,13 @@
   },
   "minecraft:purpur_slab": {
     "type": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "SlabType",
       "values": [
-        "TOP",
-        "BOTTOM",
-        "DOUBLE"
+        "top",
+        "bottom",
+        "double"
       ]
     },
     "waterlogged": {
@@ -7006,14 +7006,14 @@
   },
   "minecraft:spruce_fence_gate": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "in_wall": {
@@ -7046,14 +7046,14 @@
   },
   "minecraft:birch_fence_gate": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "in_wall": {
@@ -7086,14 +7086,14 @@
   },
   "minecraft:jungle_fence_gate": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "in_wall": {
@@ -7126,14 +7126,14 @@
   },
   "minecraft:acacia_fence_gate": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "in_wall": {
@@ -7166,14 +7166,14 @@
   },
   "minecraft:dark_oak_fence_gate": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "in_wall": {
@@ -7441,32 +7441,32 @@
   },
   "minecraft:spruce_door": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "LOWER",
+      "default": "lower",
       "type": "enum",
       "valueType": "DoubleBlockHalf",
       "values": [
-        "UPPER",
-        "LOWER"
+        "upper",
+        "lower"
       ]
     },
     "hinge": {
-      "default": "LEFT",
+      "default": "left",
       "type": "enum",
       "valueType": "DoorHinge",
       "values": [
-        "LEFT",
-        "RIGHT"
+        "left",
+        "right"
       ]
     },
     "open": {
@@ -7490,32 +7490,32 @@
   },
   "minecraft:birch_door": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "LOWER",
+      "default": "lower",
       "type": "enum",
       "valueType": "DoubleBlockHalf",
       "values": [
-        "UPPER",
-        "LOWER"
+        "upper",
+        "lower"
       ]
     },
     "hinge": {
-      "default": "LEFT",
+      "default": "left",
       "type": "enum",
       "valueType": "DoorHinge",
       "values": [
-        "LEFT",
-        "RIGHT"
+        "left",
+        "right"
       ]
     },
     "open": {
@@ -7539,32 +7539,32 @@
   },
   "minecraft:jungle_door": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "LOWER",
+      "default": "lower",
       "type": "enum",
       "valueType": "DoubleBlockHalf",
       "values": [
-        "UPPER",
-        "LOWER"
+        "upper",
+        "lower"
       ]
     },
     "hinge": {
-      "default": "LEFT",
+      "default": "left",
       "type": "enum",
       "valueType": "DoorHinge",
       "values": [
-        "LEFT",
-        "RIGHT"
+        "left",
+        "right"
       ]
     },
     "open": {
@@ -7588,32 +7588,32 @@
   },
   "minecraft:acacia_door": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "LOWER",
+      "default": "lower",
       "type": "enum",
       "valueType": "DoubleBlockHalf",
       "values": [
-        "UPPER",
-        "LOWER"
+        "upper",
+        "lower"
       ]
     },
     "hinge": {
-      "default": "LEFT",
+      "default": "left",
       "type": "enum",
       "valueType": "DoorHinge",
       "values": [
-        "LEFT",
-        "RIGHT"
+        "left",
+        "right"
       ]
     },
     "open": {
@@ -7637,32 +7637,32 @@
   },
   "minecraft:dark_oak_door": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "LOWER",
+      "default": "lower",
       "type": "enum",
       "valueType": "DoubleBlockHalf",
       "values": [
-        "UPPER",
-        "LOWER"
+        "upper",
+        "lower"
       ]
     },
     "hinge": {
-      "default": "LEFT",
+      "default": "left",
       "type": "enum",
       "valueType": "DoorHinge",
       "values": [
-        "LEFT",
-        "RIGHT"
+        "left",
+        "right"
       ]
     },
     "open": {
@@ -7686,16 +7686,16 @@
   },
   "minecraft:end_rod": {
     "facing": {
-      "default": "UP",
+      "default": "up",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "EAST",
-        "SOUTH",
-        "WEST",
-        "UP",
-        "DOWN"
+        "north",
+        "east",
+        "south",
+        "west",
+        "up",
+        "down"
       ]
     }
   },
@@ -7772,47 +7772,47 @@
   },
   "minecraft:purpur_pillar": {
     "axis": {
-      "default": "Y",
+      "default": "y",
       "type": "enum",
       "valueType": "Axis",
       "values": [
-        "X",
-        "Y",
-        "Z"
+        "x",
+        "y",
+        "z"
       ]
     }
   },
   "minecraft:purpur_stairs": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "shape": {
-      "default": "STRAIGHT",
+      "default": "straight",
       "type": "enum",
       "valueType": "StairShape",
       "values": [
-        "STRAIGHT",
-        "INNER_LEFT",
-        "INNER_RIGHT",
-        "OUTER_LEFT",
-        "OUTER_RIGHT"
+        "straight",
+        "inner_left",
+        "inner_right",
+        "outer_left",
+        "outer_right"
       ]
     },
     "waterlogged": {
@@ -7849,16 +7849,16 @@
       ]
     },
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "EAST",
-        "SOUTH",
-        "WEST",
-        "UP",
-        "DOWN"
+        "north",
+        "east",
+        "south",
+        "west",
+        "up",
+        "down"
       ]
     }
   },
@@ -7873,16 +7873,16 @@
       ]
     },
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "EAST",
-        "SOUTH",
-        "WEST",
-        "UP",
-        "DOWN"
+        "north",
+        "east",
+        "south",
+        "west",
+        "up",
+        "down"
       ]
     }
   },
@@ -7901,28 +7901,28 @@
   },
   "minecraft:bone_block": {
     "axis": {
-      "default": "Y",
+      "default": "y",
       "type": "enum",
       "valueType": "Axis",
       "values": [
-        "X",
-        "Y",
-        "Z"
+        "x",
+        "y",
+        "z"
       ]
     }
   },
   "minecraft:observer": {
     "facing": {
-      "default": "SOUTH",
+      "default": "south",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "EAST",
-        "SOUTH",
-        "WEST",
-        "UP",
-        "DOWN"
+        "north",
+        "east",
+        "south",
+        "west",
+        "up",
+        "down"
       ]
     },
     "powered": {
@@ -7937,464 +7937,464 @@
   },
   "minecraft:shulker_box": {
     "facing": {
-      "default": "UP",
+      "default": "up",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "EAST",
-        "SOUTH",
-        "WEST",
-        "UP",
-        "DOWN"
+        "north",
+        "east",
+        "south",
+        "west",
+        "up",
+        "down"
       ]
     }
   },
   "minecraft:white_shulker_box": {
     "facing": {
-      "default": "UP",
+      "default": "up",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "EAST",
-        "SOUTH",
-        "WEST",
-        "UP",
-        "DOWN"
+        "north",
+        "east",
+        "south",
+        "west",
+        "up",
+        "down"
       ]
     }
   },
   "minecraft:orange_shulker_box": {
     "facing": {
-      "default": "UP",
+      "default": "up",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "EAST",
-        "SOUTH",
-        "WEST",
-        "UP",
-        "DOWN"
+        "north",
+        "east",
+        "south",
+        "west",
+        "up",
+        "down"
       ]
     }
   },
   "minecraft:magenta_shulker_box": {
     "facing": {
-      "default": "UP",
+      "default": "up",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "EAST",
-        "SOUTH",
-        "WEST",
-        "UP",
-        "DOWN"
+        "north",
+        "east",
+        "south",
+        "west",
+        "up",
+        "down"
       ]
     }
   },
   "minecraft:light_blue_shulker_box": {
     "facing": {
-      "default": "UP",
+      "default": "up",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "EAST",
-        "SOUTH",
-        "WEST",
-        "UP",
-        "DOWN"
+        "north",
+        "east",
+        "south",
+        "west",
+        "up",
+        "down"
       ]
     }
   },
   "minecraft:yellow_shulker_box": {
     "facing": {
-      "default": "UP",
+      "default": "up",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "EAST",
-        "SOUTH",
-        "WEST",
-        "UP",
-        "DOWN"
+        "north",
+        "east",
+        "south",
+        "west",
+        "up",
+        "down"
       ]
     }
   },
   "minecraft:lime_shulker_box": {
     "facing": {
-      "default": "UP",
+      "default": "up",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "EAST",
-        "SOUTH",
-        "WEST",
-        "UP",
-        "DOWN"
+        "north",
+        "east",
+        "south",
+        "west",
+        "up",
+        "down"
       ]
     }
   },
   "minecraft:pink_shulker_box": {
     "facing": {
-      "default": "UP",
+      "default": "up",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "EAST",
-        "SOUTH",
-        "WEST",
-        "UP",
-        "DOWN"
+        "north",
+        "east",
+        "south",
+        "west",
+        "up",
+        "down"
       ]
     }
   },
   "minecraft:gray_shulker_box": {
     "facing": {
-      "default": "UP",
+      "default": "up",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "EAST",
-        "SOUTH",
-        "WEST",
-        "UP",
-        "DOWN"
+        "north",
+        "east",
+        "south",
+        "west",
+        "up",
+        "down"
       ]
     }
   },
   "minecraft:light_gray_shulker_box": {
     "facing": {
-      "default": "UP",
+      "default": "up",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "EAST",
-        "SOUTH",
-        "WEST",
-        "UP",
-        "DOWN"
+        "north",
+        "east",
+        "south",
+        "west",
+        "up",
+        "down"
       ]
     }
   },
   "minecraft:cyan_shulker_box": {
     "facing": {
-      "default": "UP",
+      "default": "up",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "EAST",
-        "SOUTH",
-        "WEST",
-        "UP",
-        "DOWN"
+        "north",
+        "east",
+        "south",
+        "west",
+        "up",
+        "down"
       ]
     }
   },
   "minecraft:purple_shulker_box": {
     "facing": {
-      "default": "UP",
+      "default": "up",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "EAST",
-        "SOUTH",
-        "WEST",
-        "UP",
-        "DOWN"
+        "north",
+        "east",
+        "south",
+        "west",
+        "up",
+        "down"
       ]
     }
   },
   "minecraft:blue_shulker_box": {
     "facing": {
-      "default": "UP",
+      "default": "up",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "EAST",
-        "SOUTH",
-        "WEST",
-        "UP",
-        "DOWN"
+        "north",
+        "east",
+        "south",
+        "west",
+        "up",
+        "down"
       ]
     }
   },
   "minecraft:brown_shulker_box": {
     "facing": {
-      "default": "UP",
+      "default": "up",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "EAST",
-        "SOUTH",
-        "WEST",
-        "UP",
-        "DOWN"
+        "north",
+        "east",
+        "south",
+        "west",
+        "up",
+        "down"
       ]
     }
   },
   "minecraft:green_shulker_box": {
     "facing": {
-      "default": "UP",
+      "default": "up",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "EAST",
-        "SOUTH",
-        "WEST",
-        "UP",
-        "DOWN"
+        "north",
+        "east",
+        "south",
+        "west",
+        "up",
+        "down"
       ]
     }
   },
   "minecraft:red_shulker_box": {
     "facing": {
-      "default": "UP",
+      "default": "up",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "EAST",
-        "SOUTH",
-        "WEST",
-        "UP",
-        "DOWN"
+        "north",
+        "east",
+        "south",
+        "west",
+        "up",
+        "down"
       ]
     }
   },
   "minecraft:black_shulker_box": {
     "facing": {
-      "default": "UP",
+      "default": "up",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "EAST",
-        "SOUTH",
-        "WEST",
-        "UP",
-        "DOWN"
+        "north",
+        "east",
+        "south",
+        "west",
+        "up",
+        "down"
       ]
     }
   },
   "minecraft:white_glazed_terracotta": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
   "minecraft:orange_glazed_terracotta": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
   "minecraft:magenta_glazed_terracotta": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
   "minecraft:light_blue_glazed_terracotta": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
   "minecraft:yellow_glazed_terracotta": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
   "minecraft:lime_glazed_terracotta": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
   "minecraft:pink_glazed_terracotta": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
   "minecraft:gray_glazed_terracotta": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
   "minecraft:light_gray_glazed_terracotta": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
   "minecraft:cyan_glazed_terracotta": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
   "minecraft:purple_glazed_terracotta": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
   "minecraft:blue_glazed_terracotta": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
   "minecraft:brown_glazed_terracotta": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
   "minecraft:green_glazed_terracotta": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
   "minecraft:red_glazed_terracotta": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
   "minecraft:black_glazed_terracotta": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
@@ -8678,14 +8678,14 @@
   },
   "minecraft:dead_tube_coral_wall_fan": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "waterlogged": {
@@ -8700,14 +8700,14 @@
   },
   "minecraft:dead_brain_coral_wall_fan": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "waterlogged": {
@@ -8722,14 +8722,14 @@
   },
   "minecraft:dead_bubble_coral_wall_fan": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "waterlogged": {
@@ -8744,14 +8744,14 @@
   },
   "minecraft:dead_fire_coral_wall_fan": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "waterlogged": {
@@ -8766,14 +8766,14 @@
   },
   "minecraft:dead_horn_coral_wall_fan": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "waterlogged": {
@@ -8788,14 +8788,14 @@
   },
   "minecraft:tube_coral_wall_fan": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "waterlogged": {
@@ -8810,14 +8810,14 @@
   },
   "minecraft:brain_coral_wall_fan": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "waterlogged": {
@@ -8832,14 +8832,14 @@
   },
   "minecraft:bubble_coral_wall_fan": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "waterlogged": {
@@ -8854,14 +8854,14 @@
   },
   "minecraft:fire_coral_wall_fan": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "waterlogged": {
@@ -8876,14 +8876,14 @@
   },
   "minecraft:horn_coral_wall_fan": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "waterlogged": {
@@ -8940,13 +8940,13 @@
       ]
     },
     "leaves": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "BambooLeaves",
       "values": [
-        "NONE",
-        "SMALL",
-        "LARGE"
+        "none",
+        "small",
+        "large"
       ]
     },
     "stage": {
@@ -8972,35 +8972,35 @@
   },
   "minecraft:polished_granite_stairs": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "shape": {
-      "default": "STRAIGHT",
+      "default": "straight",
       "type": "enum",
       "valueType": "StairShape",
       "values": [
-        "STRAIGHT",
-        "INNER_LEFT",
-        "INNER_RIGHT",
-        "OUTER_LEFT",
-        "OUTER_RIGHT"
+        "straight",
+        "inner_left",
+        "inner_right",
+        "outer_left",
+        "outer_right"
       ]
     },
     "waterlogged": {
@@ -9015,35 +9015,35 @@
   },
   "minecraft:smooth_red_sandstone_stairs": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "shape": {
-      "default": "STRAIGHT",
+      "default": "straight",
       "type": "enum",
       "valueType": "StairShape",
       "values": [
-        "STRAIGHT",
-        "INNER_LEFT",
-        "INNER_RIGHT",
-        "OUTER_LEFT",
-        "OUTER_RIGHT"
+        "straight",
+        "inner_left",
+        "inner_right",
+        "outer_left",
+        "outer_right"
       ]
     },
     "waterlogged": {
@@ -9058,35 +9058,35 @@
   },
   "minecraft:mossy_stone_brick_stairs": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "shape": {
-      "default": "STRAIGHT",
+      "default": "straight",
       "type": "enum",
       "valueType": "StairShape",
       "values": [
-        "STRAIGHT",
-        "INNER_LEFT",
-        "INNER_RIGHT",
-        "OUTER_LEFT",
-        "OUTER_RIGHT"
+        "straight",
+        "inner_left",
+        "inner_right",
+        "outer_left",
+        "outer_right"
       ]
     },
     "waterlogged": {
@@ -9101,35 +9101,35 @@
   },
   "minecraft:polished_diorite_stairs": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "shape": {
-      "default": "STRAIGHT",
+      "default": "straight",
       "type": "enum",
       "valueType": "StairShape",
       "values": [
-        "STRAIGHT",
-        "INNER_LEFT",
-        "INNER_RIGHT",
-        "OUTER_LEFT",
-        "OUTER_RIGHT"
+        "straight",
+        "inner_left",
+        "inner_right",
+        "outer_left",
+        "outer_right"
       ]
     },
     "waterlogged": {
@@ -9144,35 +9144,35 @@
   },
   "minecraft:mossy_cobblestone_stairs": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "shape": {
-      "default": "STRAIGHT",
+      "default": "straight",
       "type": "enum",
       "valueType": "StairShape",
       "values": [
-        "STRAIGHT",
-        "INNER_LEFT",
-        "INNER_RIGHT",
-        "OUTER_LEFT",
-        "OUTER_RIGHT"
+        "straight",
+        "inner_left",
+        "inner_right",
+        "outer_left",
+        "outer_right"
       ]
     },
     "waterlogged": {
@@ -9187,35 +9187,35 @@
   },
   "minecraft:end_stone_brick_stairs": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "shape": {
-      "default": "STRAIGHT",
+      "default": "straight",
       "type": "enum",
       "valueType": "StairShape",
       "values": [
-        "STRAIGHT",
-        "INNER_LEFT",
-        "INNER_RIGHT",
-        "OUTER_LEFT",
-        "OUTER_RIGHT"
+        "straight",
+        "inner_left",
+        "inner_right",
+        "outer_left",
+        "outer_right"
       ]
     },
     "waterlogged": {
@@ -9230,35 +9230,35 @@
   },
   "minecraft:stone_stairs": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "shape": {
-      "default": "STRAIGHT",
+      "default": "straight",
       "type": "enum",
       "valueType": "StairShape",
       "values": [
-        "STRAIGHT",
-        "INNER_LEFT",
-        "INNER_RIGHT",
-        "OUTER_LEFT",
-        "OUTER_RIGHT"
+        "straight",
+        "inner_left",
+        "inner_right",
+        "outer_left",
+        "outer_right"
       ]
     },
     "waterlogged": {
@@ -9273,35 +9273,35 @@
   },
   "minecraft:smooth_sandstone_stairs": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "shape": {
-      "default": "STRAIGHT",
+      "default": "straight",
       "type": "enum",
       "valueType": "StairShape",
       "values": [
-        "STRAIGHT",
-        "INNER_LEFT",
-        "INNER_RIGHT",
-        "OUTER_LEFT",
-        "OUTER_RIGHT"
+        "straight",
+        "inner_left",
+        "inner_right",
+        "outer_left",
+        "outer_right"
       ]
     },
     "waterlogged": {
@@ -9316,35 +9316,35 @@
   },
   "minecraft:smooth_quartz_stairs": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "shape": {
-      "default": "STRAIGHT",
+      "default": "straight",
       "type": "enum",
       "valueType": "StairShape",
       "values": [
-        "STRAIGHT",
-        "INNER_LEFT",
-        "INNER_RIGHT",
-        "OUTER_LEFT",
-        "OUTER_RIGHT"
+        "straight",
+        "inner_left",
+        "inner_right",
+        "outer_left",
+        "outer_right"
       ]
     },
     "waterlogged": {
@@ -9359,35 +9359,35 @@
   },
   "minecraft:granite_stairs": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "shape": {
-      "default": "STRAIGHT",
+      "default": "straight",
       "type": "enum",
       "valueType": "StairShape",
       "values": [
-        "STRAIGHT",
-        "INNER_LEFT",
-        "INNER_RIGHT",
-        "OUTER_LEFT",
-        "OUTER_RIGHT"
+        "straight",
+        "inner_left",
+        "inner_right",
+        "outer_left",
+        "outer_right"
       ]
     },
     "waterlogged": {
@@ -9402,35 +9402,35 @@
   },
   "minecraft:andesite_stairs": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "shape": {
-      "default": "STRAIGHT",
+      "default": "straight",
       "type": "enum",
       "valueType": "StairShape",
       "values": [
-        "STRAIGHT",
-        "INNER_LEFT",
-        "INNER_RIGHT",
-        "OUTER_LEFT",
-        "OUTER_RIGHT"
+        "straight",
+        "inner_left",
+        "inner_right",
+        "outer_left",
+        "outer_right"
       ]
     },
     "waterlogged": {
@@ -9445,35 +9445,35 @@
   },
   "minecraft:red_nether_brick_stairs": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "shape": {
-      "default": "STRAIGHT",
+      "default": "straight",
       "type": "enum",
       "valueType": "StairShape",
       "values": [
-        "STRAIGHT",
-        "INNER_LEFT",
-        "INNER_RIGHT",
-        "OUTER_LEFT",
-        "OUTER_RIGHT"
+        "straight",
+        "inner_left",
+        "inner_right",
+        "outer_left",
+        "outer_right"
       ]
     },
     "waterlogged": {
@@ -9488,35 +9488,35 @@
   },
   "minecraft:polished_andesite_stairs": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "shape": {
-      "default": "STRAIGHT",
+      "default": "straight",
       "type": "enum",
       "valueType": "StairShape",
       "values": [
-        "STRAIGHT",
-        "INNER_LEFT",
-        "INNER_RIGHT",
-        "OUTER_LEFT",
-        "OUTER_RIGHT"
+        "straight",
+        "inner_left",
+        "inner_right",
+        "outer_left",
+        "outer_right"
       ]
     },
     "waterlogged": {
@@ -9531,35 +9531,35 @@
   },
   "minecraft:diorite_stairs": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "shape": {
-      "default": "STRAIGHT",
+      "default": "straight",
       "type": "enum",
       "valueType": "StairShape",
       "values": [
-        "STRAIGHT",
-        "INNER_LEFT",
-        "INNER_RIGHT",
-        "OUTER_LEFT",
-        "OUTER_RIGHT"
+        "straight",
+        "inner_left",
+        "inner_right",
+        "outer_left",
+        "outer_right"
       ]
     },
     "waterlogged": {
@@ -9574,13 +9574,13 @@
   },
   "minecraft:polished_granite_slab": {
     "type": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "SlabType",
       "values": [
-        "TOP",
-        "BOTTOM",
-        "DOUBLE"
+        "top",
+        "bottom",
+        "double"
       ]
     },
     "waterlogged": {
@@ -9595,13 +9595,13 @@
   },
   "minecraft:smooth_red_sandstone_slab": {
     "type": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "SlabType",
       "values": [
-        "TOP",
-        "BOTTOM",
-        "DOUBLE"
+        "top",
+        "bottom",
+        "double"
       ]
     },
     "waterlogged": {
@@ -9616,13 +9616,13 @@
   },
   "minecraft:mossy_stone_brick_slab": {
     "type": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "SlabType",
       "values": [
-        "TOP",
-        "BOTTOM",
-        "DOUBLE"
+        "top",
+        "bottom",
+        "double"
       ]
     },
     "waterlogged": {
@@ -9637,13 +9637,13 @@
   },
   "minecraft:polished_diorite_slab": {
     "type": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "SlabType",
       "values": [
-        "TOP",
-        "BOTTOM",
-        "DOUBLE"
+        "top",
+        "bottom",
+        "double"
       ]
     },
     "waterlogged": {
@@ -9658,13 +9658,13 @@
   },
   "minecraft:mossy_cobblestone_slab": {
     "type": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "SlabType",
       "values": [
-        "TOP",
-        "BOTTOM",
-        "DOUBLE"
+        "top",
+        "bottom",
+        "double"
       ]
     },
     "waterlogged": {
@@ -9679,13 +9679,13 @@
   },
   "minecraft:end_stone_brick_slab": {
     "type": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "SlabType",
       "values": [
-        "TOP",
-        "BOTTOM",
-        "DOUBLE"
+        "top",
+        "bottom",
+        "double"
       ]
     },
     "waterlogged": {
@@ -9700,13 +9700,13 @@
   },
   "minecraft:smooth_sandstone_slab": {
     "type": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "SlabType",
       "values": [
-        "TOP",
-        "BOTTOM",
-        "DOUBLE"
+        "top",
+        "bottom",
+        "double"
       ]
     },
     "waterlogged": {
@@ -9721,13 +9721,13 @@
   },
   "minecraft:smooth_quartz_slab": {
     "type": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "SlabType",
       "values": [
-        "TOP",
-        "BOTTOM",
-        "DOUBLE"
+        "top",
+        "bottom",
+        "double"
       ]
     },
     "waterlogged": {
@@ -9742,13 +9742,13 @@
   },
   "minecraft:granite_slab": {
     "type": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "SlabType",
       "values": [
-        "TOP",
-        "BOTTOM",
-        "DOUBLE"
+        "top",
+        "bottom",
+        "double"
       ]
     },
     "waterlogged": {
@@ -9763,13 +9763,13 @@
   },
   "minecraft:andesite_slab": {
     "type": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "SlabType",
       "values": [
-        "TOP",
-        "BOTTOM",
-        "DOUBLE"
+        "top",
+        "bottom",
+        "double"
       ]
     },
     "waterlogged": {
@@ -9784,13 +9784,13 @@
   },
   "minecraft:red_nether_brick_slab": {
     "type": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "SlabType",
       "values": [
-        "TOP",
-        "BOTTOM",
-        "DOUBLE"
+        "top",
+        "bottom",
+        "double"
       ]
     },
     "waterlogged": {
@@ -9805,13 +9805,13 @@
   },
   "minecraft:polished_andesite_slab": {
     "type": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "SlabType",
       "values": [
-        "TOP",
-        "BOTTOM",
-        "DOUBLE"
+        "top",
+        "bottom",
+        "double"
       ]
     },
     "waterlogged": {
@@ -9826,13 +9826,13 @@
   },
   "minecraft:diorite_slab": {
     "type": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "SlabType",
       "values": [
-        "TOP",
-        "BOTTOM",
-        "DOUBLE"
+        "top",
+        "bottom",
+        "double"
       ]
     },
     "waterlogged": {
@@ -9847,33 +9847,33 @@
   },
   "minecraft:brick_wall": {
     "east": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "north": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "south": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "up": {
@@ -9895,45 +9895,45 @@
       ]
     },
     "west": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     }
   },
   "minecraft:prismarine_wall": {
     "east": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "north": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "south": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "up": {
@@ -9955,45 +9955,45 @@
       ]
     },
     "west": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     }
   },
   "minecraft:red_sandstone_wall": {
     "east": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "north": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "south": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "up": {
@@ -10015,45 +10015,45 @@
       ]
     },
     "west": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     }
   },
   "minecraft:mossy_stone_brick_wall": {
     "east": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "north": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "south": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "up": {
@@ -10075,45 +10075,45 @@
       ]
     },
     "west": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     }
   },
   "minecraft:granite_wall": {
     "east": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "north": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "south": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "up": {
@@ -10135,45 +10135,45 @@
       ]
     },
     "west": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     }
   },
   "minecraft:stone_brick_wall": {
     "east": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "north": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "south": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "up": {
@@ -10195,45 +10195,45 @@
       ]
     },
     "west": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     }
   },
   "minecraft:nether_brick_wall": {
     "east": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "north": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "south": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "up": {
@@ -10255,45 +10255,45 @@
       ]
     },
     "west": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     }
   },
   "minecraft:andesite_wall": {
     "east": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "north": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "south": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "up": {
@@ -10315,45 +10315,45 @@
       ]
     },
     "west": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     }
   },
   "minecraft:red_nether_brick_wall": {
     "east": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "north": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "south": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "up": {
@@ -10375,45 +10375,45 @@
       ]
     },
     "west": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     }
   },
   "minecraft:sandstone_wall": {
     "east": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "north": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "south": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "up": {
@@ -10435,45 +10435,45 @@
       ]
     },
     "west": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     }
   },
   "minecraft:end_stone_brick_wall": {
     "east": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "north": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "south": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "up": {
@@ -10495,45 +10495,45 @@
       ]
     },
     "west": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     }
   },
   "minecraft:diorite_wall": {
     "east": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "north": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "south": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "up": {
@@ -10555,13 +10555,13 @@
       ]
     },
     "west": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     }
   },
@@ -10602,29 +10602,29 @@
   },
   "minecraft:loom": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
   "minecraft:barrel": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "EAST",
-        "SOUTH",
-        "WEST",
-        "UP",
-        "DOWN"
+        "north",
+        "east",
+        "south",
+        "west",
+        "up",
+        "down"
       ]
     },
     "open": {
@@ -10639,14 +10639,14 @@
   },
   "minecraft:smoker": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "lit": {
@@ -10661,14 +10661,14 @@
   },
   "minecraft:blast_furnace": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "lit": {
@@ -10693,27 +10693,27 @@
       ]
     },
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
   "minecraft:lectern": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "has_book": {
@@ -10737,14 +10737,14 @@
   },
   "minecraft:stonecutter": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     }
   },
@@ -10761,14 +10761,14 @@
       ]
     },
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "powered": {
@@ -10823,14 +10823,14 @@
   },
   "minecraft:campfire": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "lit": {
@@ -10863,14 +10863,14 @@
   },
   "minecraft:soul_campfire": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "lit": {
@@ -10916,97 +10916,97 @@
   },
   "minecraft:warped_stem": {
     "axis": {
-      "default": "Y",
+      "default": "y",
       "type": "enum",
       "valueType": "Axis",
       "values": [
-        "X",
-        "Y",
-        "Z"
+        "x",
+        "y",
+        "z"
       ]
     }
   },
   "minecraft:stripped_warped_stem": {
     "axis": {
-      "default": "Y",
+      "default": "y",
       "type": "enum",
       "valueType": "Axis",
       "values": [
-        "X",
-        "Y",
-        "Z"
+        "x",
+        "y",
+        "z"
       ]
     }
   },
   "minecraft:warped_hyphae": {
     "axis": {
-      "default": "Y",
+      "default": "y",
       "type": "enum",
       "valueType": "Axis",
       "values": [
-        "X",
-        "Y",
-        "Z"
+        "x",
+        "y",
+        "z"
       ]
     }
   },
   "minecraft:stripped_warped_hyphae": {
     "axis": {
-      "default": "Y",
+      "default": "y",
       "type": "enum",
       "valueType": "Axis",
       "values": [
-        "X",
-        "Y",
-        "Z"
+        "x",
+        "y",
+        "z"
       ]
     }
   },
   "minecraft:crimson_stem": {
     "axis": {
-      "default": "Y",
+      "default": "y",
       "type": "enum",
       "valueType": "Axis",
       "values": [
-        "X",
-        "Y",
-        "Z"
+        "x",
+        "y",
+        "z"
       ]
     }
   },
   "minecraft:stripped_crimson_stem": {
     "axis": {
-      "default": "Y",
+      "default": "y",
       "type": "enum",
       "valueType": "Axis",
       "values": [
-        "X",
-        "Y",
-        "Z"
+        "x",
+        "y",
+        "z"
       ]
     }
   },
   "minecraft:crimson_hyphae": {
     "axis": {
-      "default": "Y",
+      "default": "y",
       "type": "enum",
       "valueType": "Axis",
       "values": [
-        "X",
-        "Y",
-        "Z"
+        "x",
+        "y",
+        "z"
       ]
     }
   },
   "minecraft:stripped_crimson_hyphae": {
     "axis": {
-      "default": "Y",
+      "default": "y",
       "type": "enum",
       "valueType": "Axis",
       "values": [
-        "X",
-        "Y",
-        "Z"
+        "x",
+        "y",
+        "z"
       ]
     }
   },
@@ -11082,13 +11082,13 @@
   },
   "minecraft:crimson_slab": {
     "type": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "SlabType",
       "values": [
-        "TOP",
-        "BOTTOM",
-        "DOUBLE"
+        "top",
+        "bottom",
+        "double"
       ]
     },
     "waterlogged": {
@@ -11103,13 +11103,13 @@
   },
   "minecraft:warped_slab": {
     "type": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "SlabType",
       "values": [
-        "TOP",
-        "BOTTOM",
-        "DOUBLE"
+        "top",
+        "bottom",
+        "double"
       ]
     },
     "waterlogged": {
@@ -11240,23 +11240,23 @@
   },
   "minecraft:crimson_trapdoor": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "open": {
@@ -11289,23 +11289,23 @@
   },
   "minecraft:warped_trapdoor": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "open": {
@@ -11338,14 +11338,14 @@
   },
   "minecraft:crimson_fence_gate": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "in_wall": {
@@ -11378,14 +11378,14 @@
   },
   "minecraft:warped_fence_gate": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "in_wall": {
@@ -11418,35 +11418,35 @@
   },
   "minecraft:crimson_stairs": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "shape": {
-      "default": "STRAIGHT",
+      "default": "straight",
       "type": "enum",
       "valueType": "StairShape",
       "values": [
-        "STRAIGHT",
-        "INNER_LEFT",
-        "INNER_RIGHT",
-        "OUTER_LEFT",
-        "OUTER_RIGHT"
+        "straight",
+        "inner_left",
+        "inner_right",
+        "outer_left",
+        "outer_right"
       ]
     },
     "waterlogged": {
@@ -11461,35 +11461,35 @@
   },
   "minecraft:warped_stairs": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "shape": {
-      "default": "STRAIGHT",
+      "default": "straight",
       "type": "enum",
       "valueType": "StairShape",
       "values": [
-        "STRAIGHT",
-        "INNER_LEFT",
-        "INNER_RIGHT",
-        "OUTER_LEFT",
-        "OUTER_RIGHT"
+        "straight",
+        "inner_left",
+        "inner_right",
+        "outer_left",
+        "outer_right"
       ]
     },
     "waterlogged": {
@@ -11514,14 +11514,14 @@
       ]
     },
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "powered": {
@@ -11546,14 +11546,14 @@
       ]
     },
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "powered": {
@@ -11568,32 +11568,32 @@
   },
   "minecraft:crimson_door": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "LOWER",
+      "default": "lower",
       "type": "enum",
       "valueType": "DoubleBlockHalf",
       "values": [
-        "UPPER",
-        "LOWER"
+        "upper",
+        "lower"
       ]
     },
     "hinge": {
-      "default": "LEFT",
+      "default": "left",
       "type": "enum",
       "valueType": "DoorHinge",
       "values": [
-        "LEFT",
-        "RIGHT"
+        "left",
+        "right"
       ]
     },
     "open": {
@@ -11617,32 +11617,32 @@
   },
   "minecraft:warped_door": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "LOWER",
+      "default": "lower",
       "type": "enum",
       "valueType": "DoubleBlockHalf",
       "values": [
-        "UPPER",
-        "LOWER"
+        "upper",
+        "lower"
       ]
     },
     "hinge": {
-      "default": "LEFT",
+      "default": "left",
       "type": "enum",
       "valueType": "DoorHinge",
       "values": [
-        "LEFT",
-        "RIGHT"
+        "left",
+        "right"
       ]
     },
     "open": {
@@ -11734,14 +11734,14 @@
   },
   "minecraft:crimson_wall_sign": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "waterlogged": {
@@ -11756,14 +11756,14 @@
   },
   "minecraft:warped_wall_sign": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "waterlogged": {
@@ -11855,14 +11855,14 @@
   },
   "minecraft:bee_nest": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "honey_level": {
@@ -11881,14 +11881,14 @@
   },
   "minecraft:beehive": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "honey_level": {
@@ -11921,35 +11921,35 @@
   },
   "minecraft:blackstone_stairs": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "shape": {
-      "default": "STRAIGHT",
+      "default": "straight",
       "type": "enum",
       "valueType": "StairShape",
       "values": [
-        "STRAIGHT",
-        "INNER_LEFT",
-        "INNER_RIGHT",
-        "OUTER_LEFT",
-        "OUTER_RIGHT"
+        "straight",
+        "inner_left",
+        "inner_right",
+        "outer_left",
+        "outer_right"
       ]
     },
     "waterlogged": {
@@ -11964,33 +11964,33 @@
   },
   "minecraft:blackstone_wall": {
     "east": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "north": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "south": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "up": {
@@ -12012,25 +12012,25 @@
       ]
     },
     "west": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     }
   },
   "minecraft:blackstone_slab": {
     "type": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "SlabType",
       "values": [
-        "TOP",
-        "BOTTOM",
-        "DOUBLE"
+        "top",
+        "bottom",
+        "double"
       ]
     },
     "waterlogged": {
@@ -12045,13 +12045,13 @@
   },
   "minecraft:polished_blackstone_brick_slab": {
     "type": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "SlabType",
       "values": [
-        "TOP",
-        "BOTTOM",
-        "DOUBLE"
+        "top",
+        "bottom",
+        "double"
       ]
     },
     "waterlogged": {
@@ -12066,35 +12066,35 @@
   },
   "minecraft:polished_blackstone_brick_stairs": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "shape": {
-      "default": "STRAIGHT",
+      "default": "straight",
       "type": "enum",
       "valueType": "StairShape",
       "values": [
-        "STRAIGHT",
-        "INNER_LEFT",
-        "INNER_RIGHT",
-        "OUTER_LEFT",
-        "OUTER_RIGHT"
+        "straight",
+        "inner_left",
+        "inner_right",
+        "outer_left",
+        "outer_right"
       ]
     },
     "waterlogged": {
@@ -12109,33 +12109,33 @@
   },
   "minecraft:polished_blackstone_brick_wall": {
     "east": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "north": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "south": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "up": {
@@ -12157,47 +12157,47 @@
       ]
     },
     "west": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     }
   },
   "minecraft:polished_blackstone_stairs": {
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "half": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "BlockHalf",
       "values": [
-        "TOP",
-        "BOTTOM"
+        "top",
+        "bottom"
       ]
     },
     "shape": {
-      "default": "STRAIGHT",
+      "default": "straight",
       "type": "enum",
       "valueType": "StairShape",
       "values": [
-        "STRAIGHT",
-        "INNER_LEFT",
-        "INNER_RIGHT",
-        "OUTER_LEFT",
-        "OUTER_RIGHT"
+        "straight",
+        "inner_left",
+        "inner_right",
+        "outer_left",
+        "outer_right"
       ]
     },
     "waterlogged": {
@@ -12212,13 +12212,13 @@
   },
   "minecraft:polished_blackstone_slab": {
     "type": {
-      "default": "BOTTOM",
+      "default": "bottom",
       "type": "enum",
       "valueType": "SlabType",
       "values": [
-        "TOP",
-        "BOTTOM",
-        "DOUBLE"
+        "top",
+        "bottom",
+        "double"
       ]
     },
     "waterlogged": {
@@ -12254,14 +12254,14 @@
       ]
     },
     "facing": {
-      "default": "NORTH",
+      "default": "north",
       "type": "enum",
       "valueType": "Direction",
       "values": [
-        "NORTH",
-        "SOUTH",
-        "WEST",
-        "EAST"
+        "north",
+        "south",
+        "west",
+        "east"
       ]
     },
     "powered": {
@@ -12276,33 +12276,33 @@
   },
   "minecraft:polished_blackstone_wall": {
     "east": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "north": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "south": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     },
     "up": {
@@ -12324,13 +12324,13 @@
       ]
     },
     "west": {
-      "default": "NONE",
+      "default": "none",
       "type": "enum",
       "valueType": "WallShape",
       "values": [
-        "NONE",
-        "LOW",
-        "TALL"
+        "none",
+        "low",
+        "tall"
       ]
     }
   }
