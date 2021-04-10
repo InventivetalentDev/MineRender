@@ -74,7 +74,7 @@ export class BlockObject extends SceneObject {
         return this._state;
     }
 
-    nextInstance(): InstanceReference<BlockObject> {
+    nextInstance(): InstanceReference<this> {
         console.log("nextInstance")
 
         const ref = super.nextInstance();
@@ -83,7 +83,7 @@ export class BlockObject extends SceneObject {
                 child._instanceCounter = this.instanceCounter;
             }
         }
-        return ref as InstanceReference<BlockObject>;
+        return ref;
     }
 
     public async recreateModels(): Promise<void> {

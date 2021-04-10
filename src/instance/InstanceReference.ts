@@ -3,6 +3,8 @@ import { Euler, Matrix4, Vector3 } from "three";
 
 export class InstanceReference<T extends Instanceable> {
 
+    public readonly isInstanceReference: true = true;
+
     constructor(readonly instanceable: T, readonly index: number) {
     }
 
@@ -34,4 +36,8 @@ export class InstanceReference<T extends Instanceable> {
         this.instanceable.setScaleAt(this.index, scale);
     }
 
+}
+
+export function isInstanceReference(obj: any): obj is InstanceReference<any> {
+    return (<InstanceReference<any>>obj).isInstanceReference;
 }

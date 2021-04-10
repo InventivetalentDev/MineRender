@@ -16,6 +16,7 @@ import { dbg } from "../../util/debug";
 import { Ticker } from "../../Ticker";
 import merge from "ts-deepmerge";
 import { BufferGeometry } from "three/src/core/BufferGeometry";
+import { isMineRenderScene } from "../MineRenderScene";
 
 require("three/examples/js/utils/BufferGeometryUtils");
 

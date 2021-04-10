@@ -14,8 +14,10 @@ import { isInstancedMesh, isMesh } from "../util/three";
 import { Disposable, isDisposable } from "../Disposable";
 import { SceneObjectOptions } from "./SceneObjectOptions";
 import merge from "ts-deepmerge";
+import { Instanceable } from "../instance/Instanceable";
+import { isMineRenderScene } from "./MineRenderScene";
 
-export class SceneObject extends Object3D implements Disposable {
+export class SceneObject extends Object3D implements Disposable, Instanceable {
 
     public readonly isSceneObject: true = true;
 
@@ -181,12 +183,15 @@ export class SceneObject extends Object3D implements Disposable {
         return this._instanceCounter;
     }
 
-    nextInstance(): InstanceReference<SceneObject> {
+    nextInstance(): InstanceReference<this> {
         if (!this.isInstanced) throw new MineRenderError("Object is not instanced");
         const i = this._instanceCounter++;
         this.setMatrixAt(i, new Matrix4());
-        console.log("nextInstance "+i)
-        return new InstanceReference<SceneObject>(this, i);
+        console.log("nextInstance "+i);
+        if (isMineRenderScene(this.parent)) {
+            this.parent.stats.instanceCount++;
+        }
+        return new InstanceReference<this>(this, i);
     }
 
     getMatrixAt(index: number, matrix: Matrix4 = new Matrix4()): Matrix4 {
