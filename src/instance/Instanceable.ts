@@ -1,7 +1,7 @@
 import { InstanceReference } from "./InstanceReference";
-import { MineRenderError } from "./error/MineRenderError";
+import { MineRenderError } from "../error/MineRenderError";
 import { Euler, Matrix4, Vector3 } from "three";
-import { isInstancedMesh } from "./util/three";
+import { isInstancedMesh } from "../util/three";
 
 export interface Instanceable {
 

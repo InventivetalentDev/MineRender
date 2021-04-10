@@ -8,7 +8,7 @@ import { BufferGeometry } from "three/src/core/BufferGeometry";
 import { Material } from "three/src/materials/Material";
 import { SkinPart } from "./skin/SkinPart";
 import { Maybe } from "../util/util";
-import { InstanceReference } from "../InstanceReference";
+import { InstanceReference } from "../instance/InstanceReference";
 import { MineRenderError } from "../error/MineRenderError";
 import { isInstancedMesh, isMesh } from "../util/three";
 import { Disposable, isDisposable } from "../Disposable";

@@ -16,7 +16,7 @@ import { dbg } from "../../util/debug";
 import { types } from "util";
 import { BlockStateProperties, BlockStatePropertyDefaults } from "../../model/BlockStateProperties";
 import { BlockStates } from "../../model/BlockStates";
-import { InstanceReference } from "../../InstanceReference";
+import { InstanceReference } from "../../instance/InstanceReference";
 
 export class BlockObject extends SceneObject {
 
