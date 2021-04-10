@@ -5,7 +5,7 @@ import { isInstancedMesh } from "./util/three";
 
 export interface Instanceable {
 
-    nextInstance(): InstanceReference;
+    nextInstance(): InstanceReference<this>;
 
     getMatrixAt(index: number, matrix?: Matrix4): Matrix4;
 

@@ -181,14 +181,12 @@ export class SceneObject extends Object3D implements Disposable {
         return this._instanceCounter;
     }
 
-    nextInstance(): InstanceReference {
+    nextInstance(): InstanceReference<SceneObject> {
         if (!this.isInstanced) throw new MineRenderError("Object is not instanced");
         const i = this._instanceCounter++;
         this.setMatrixAt(i, new Matrix4());
         console.log("nextInstance "+i)
-        return {
-            index: i
-        }
+        return new InstanceReference<SceneObject>(this, i);
     }
 
     getMatrixAt(index: number, matrix: Matrix4 = new Matrix4()): Matrix4 {

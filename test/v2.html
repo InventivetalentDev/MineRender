@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html>
     <head>
         <style>
@@ -215,7 +216,7 @@
                        setTimeout(()=>{
                            for (let i = 0; i < instances; i++) {
                                let n = obj.nextInstance();
-                               obj.setPositionAt(n.index, new THREE.Vector3(x,y,z));
+                               n.setPosition(new THREE.Vector3(x,y,z))
                                // obj.setPositionAt(n.index, new THREE.Vector3(16,64,16));
                                // obj.setRotationAt(n.index, new THREE.Euler(0,1.5708,0));
                                incStat("instanceCount")
