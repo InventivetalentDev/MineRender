@@ -3,7 +3,7 @@ import { BlockState, BlockStateVariant, BlockStateVariants, MultipartCondition }
 import { SceneObjectOptions } from "../SceneObjectOptions";
 import { isModelObject, ModelObject, ModelObjectOptions } from "./ModelObject";
 import { Caching } from "../../cache/Caching";
-import { Models } from "../../model/Models";
+import { Models } from "../../assets/Models";
 import { Assets } from "../../assets/Assets";
 import merge from "ts-deepmerge";
 import { Euler, Matrix4, Vector3 } from "three";
@@ -15,7 +15,7 @@ import { isInstancedMesh } from "../../util/three";
 import { dbg } from "../../util/debug";
 import { types } from "util";
 import { BlockStateProperties, BlockStatePropertyDefaults } from "../../model/BlockStateProperties";
-import { BlockStates } from "../../model/BlockStates";
+import { BlockStates } from "../../assets/BlockStates";
 import { InstanceReference } from "../../instance/InstanceReference";
 
 export class BlockObject extends SceneObject {

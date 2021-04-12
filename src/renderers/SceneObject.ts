@@ -16,8 +16,9 @@ import { SceneObjectOptions } from "./SceneObjectOptions";
 import merge from "ts-deepmerge";
 import { Instanceable } from "../instance/Instanceable";
 import { isMineRenderScene } from "./MineRenderScene";
+import { Transformable } from "../Transformable";
 
-export class SceneObject extends Object3D implements Disposable, Instanceable {
+export class SceneObject extends Object3D implements Disposable, Instanceable, Transformable {
 
     public readonly isSceneObject: true = true;
 

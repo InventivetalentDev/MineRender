@@ -1,5 +1,5 @@
 import { Model } from "./Model";
-import { Models } from "./Models";
+import { Models } from "../assets/Models";
 import merge from "ts-deepmerge";
 import { Assets } from "../assets/Assets";
 

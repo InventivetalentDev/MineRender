@@ -2,7 +2,7 @@ import { BoxGeometry, BufferAttribute, Float32BufferAttribute, Vec2, Vector2, Ve
 import { DoubleArray, Model, QuadArray, TextureAsset } from "./model/Model";
 import { ModelElement, ModelFaces } from "./model/ModelElement";
 import { CUBE_FACES, CubeFace } from "./CubeFace";
-import { ModelTextures } from "./model/ModelTextures";
+import { ModelTextures } from "./assets/ModelTextures";
 import { Assets } from "./assets/Assets";
 import { Maybe, toRadians } from "./util/util";
 import { WrappedImage } from "./WrappedImage";
@@ -27,7 +27,7 @@ const Y = 1;
 const Z = 2;
 
 /*
- * - Minecraft UVs are from the top-left to bottom-right
+ * - Minecraft Block UVs are from the top-left to bottom-right
  * - three.js UVs are from the bottom-left to top-right
  * - canvas coordinates are from the top-left to bottom-right
  */

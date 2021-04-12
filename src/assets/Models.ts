@@ -1,12 +1,12 @@
-import { Model } from "./Model";
+import { Model } from "../model/Model";
 import { Caching } from "../cache/Caching";
 import { Textures } from "../texture/Textures";
 import { Maybe } from "../util/util";
-import { ModelMerger } from "./ModelMerger";
+import { ModelMerger } from "../model/ModelMerger";
 import { AssetKey, serializeAssetKey } from "../cache/CacheKey";
-import { AssetLoader } from "../assets/AssetLoader";
+import { AssetLoader } from "./AssetLoader";
 import { Memoize } from "typscript-memoize";
-import { DEFAULT_NAMESPACE, DEFAULT_ROOT } from "../assets/Assets";
+import { DEFAULT_NAMESPACE, DEFAULT_ROOT } from "./Assets";
 import { PersistentCache } from "../cache/PersistentCache";
 
 export class Models {
@@ -63,6 +63,10 @@ export class Models {
         return Caching.mergedModelCache.get(keyStr, k => {
             return Models.loadAndMerge(key);
         });
+    }
+
+    public static async get(key: AssetKey): Promise<Maybe<Model>> {
+        return this.getMerged(key);
     }
 
 }

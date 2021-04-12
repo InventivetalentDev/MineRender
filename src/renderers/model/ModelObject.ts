@@ -1,7 +1,7 @@
 import { SceneObject } from "../SceneObject";
 import { Model, TextureAsset } from "../../model/Model";
 import { Materials } from "../../Materials";
-import { ModelTextures } from "../../model/ModelTextures";
+import { ModelTextures } from "../../assets/ModelTextures";
 import webpack from "webpack";
 import { Assets } from "../../assets/Assets";
 import { Maybe, toRadians } from "../../util/util";

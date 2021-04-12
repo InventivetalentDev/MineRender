@@ -9,8 +9,8 @@ export * from "./request/Requests"
 export * from "./UVMapper"
 export * from "./model/ModelMerger"
 
-export * from "./model/Models"
-export * from "./model/BlockStates"
+export * from "./assets/Models"
+export * from "./assets/BlockStates"
 
 export * from "./renderers/skin/SkinObject"
 export * from "./renderers/model/ModelObject"

@@ -1,12 +1,12 @@
 import { AssetKey, serializeAssetKey } from "../cache/CacheKey";
 import { Maybe } from "../util/util";
-import { BlockState } from "./BlockState";
+import { BlockState } from "../model/BlockState";
 import { Caching } from "../cache/Caching";
-import { AssetLoader } from "../assets/AssetLoader";
-import { DEFAULT_NAMESPACE, DEFAULT_ROOT } from "../assets/Assets";
+import { AssetLoader } from "./AssetLoader";
+import { DEFAULT_NAMESPACE, DEFAULT_ROOT } from "./Assets";
 import { Memoize } from "typscript-memoize";
-import defaultBlockStates from "./defaultBlockStates.json";
-import { BlockStateProperties, BlockStatePropertyDefaults } from "./BlockStateProperties";
+import defaultBlockStates from "../model/defaultBlockStates.json";
+import { BlockStateProperties, BlockStatePropertyDefaults } from "../model/BlockStateProperties";
 
 export class BlockStates {
 

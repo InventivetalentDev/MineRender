@@ -1,7 +1,8 @@
 import { Instanceable } from "./Instanceable";
 import { Euler, Matrix4, Vector3 } from "three";
+import { Transformable } from "../Transformable";
 
-export class InstanceReference<T extends Instanceable> {
+export class InstanceReference<T extends Instanceable> implements Transformable {
 
     public readonly isInstanceReference: true = true;
 

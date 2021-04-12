@@ -8,14 +8,16 @@ import { InstanceReference } from "../instance/InstanceReference";
 import { serializeAssetKey } from "../cache/CacheKey";
 import { SceneStats } from "../SceneStats";
 import { SSAOPassOUTPUT } from "three/examples/jsm/postprocessing/SSAOPass";
+import { MinecraftAsset } from "../MinecraftAsset";
+import { SceneObjectOptions } from "./SceneObjectOptions";
+import { BlockState } from "../model/BlockState";
+import { BlockObject, BlockObjectOptions } from "./model/BlockObject";
 
 export class MineRenderScene extends Scene {
 
     public readonly isMineRenderScene: true = true;
 
-    public static readonly DEFAULT_OPTIONS: MineRenderSceneOptions = merge({}, <MineRenderSceneOptions>{
-
-    });
+    public static readonly DEFAULT_OPTIONS: MineRenderSceneOptions = merge({}, <MineRenderSceneOptions>{});
     public readonly options: MineRenderSceneOptions;
 
     readonly stats: SceneStats = new SceneStats();
@@ -43,19 +45,19 @@ export class MineRenderScene extends Scene {
         return this.add(...object);
     }
 
-    public async addModel(model: Model, options?: Partial<ModelObjectOptions>): Promise<ModelObject | InstanceReference<ModelObject>> {
+    async addSceneObject<A extends MinecraftAsset, T extends SceneObject, O extends SceneObjectOptions>(asset: A, objectSupplier: () => T | Promise<T>, options?: Partial<O>): Promise<T | InstanceReference<T>> {
         console.log(this.instanceCache)
-        if (options?.instanceMeshes && model.key) {
+        if (options?.instanceMeshes && asset.key) {
             console.log("instanceMeshes + key")
             // check for existing instances
-            const key = serializeAssetKey(model.key);
+            const key = serializeAssetKey(asset.key);
             console.log(key)
             if (key in this.instanceCache) {
                 console.log("key in cache")
-                return this.instanceCache[key].nextInstance() as InstanceReference<ModelObject>;
+                return this.instanceCache[key].nextInstance() as InstanceReference<T>;
             } else {
                 console.log("key not in cache")
-                const obj = new ModelObject(model, options);
+                const obj = await objectSupplier();
                 await this.initAndAdd(obj);
                 const inst = obj.nextInstance();
                 console.log(inst);
@@ -64,10 +66,18 @@ export class MineRenderScene extends Scene {
             }
         } else {
             console.log("!instanceMeshes | !key")
-            const obj = new ModelObject(model, options);
+            const obj = await objectSupplier();
             await this.initAndAdd(obj);
             return obj;
         }
+    }
+
+    public async addModel(model: Model, options?: Partial<ModelObjectOptions>): Promise<ModelObject | InstanceReference<ModelObject>> {
+        return this.addSceneObject<Model, ModelObject, ModelObjectOptions>(model, () => new ModelObject(model, options), options);
+    }
+
+    public async addBlock(blockState: BlockState, options?: Partial<BlockObjectOptions>): Promise<BlockObject | InstanceReference<BlockObject>> {
+        return this.addSceneObject<BlockState, BlockObject, BlockObjectOptions>(blockState, () => new BlockObject(blockState, options), options);
     }
 
 }

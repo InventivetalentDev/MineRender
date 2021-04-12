@@ -1,4 +1,9 @@
 import { AssetKey, AssetType } from "../cache/CacheKey";
+import { Models } from "./Models";
+import { Model } from "../model/Model";
+import { Maybe } from "../util/util";
+import { BlockState } from "../model/BlockState";
+import { BlockStates } from "./BlockStates";
 
 export const DEFAULT_ROOT = "https://cdn.mcasset.cloud/file/minecraft-assets/1.16.5";
 export const DEFAULT_NAMESPACE = "minecraft";
@@ -30,6 +35,14 @@ export class Assets {
             path,
             extension
         }
+    }
+
+    public static async getModel(key: AssetKey): Promise<Maybe<Model>> {
+        return Models.getMerged(key);
+    }
+
+    public static async getBlockState(key: AssetKey): Promise<Maybe<BlockState>> {
+        return BlockStates.get(key);
     }
 
 }
