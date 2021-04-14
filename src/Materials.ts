@@ -2,6 +2,7 @@ import { MaterialKey, serializeMaterialKey } from "./cache/CacheKey";
 import { DoubleSide, FrontSide, Material, MeshBasicMaterial, MeshStandardMaterial } from "three";
 import { Textures } from "./texture/Textures";
 import { Caching } from "./cache/Caching";
+import { AssetKey } from "./assets/AssetKey";
 
 export class Materials {
 
@@ -18,6 +19,7 @@ export class Materials {
         });
         //TODO: params
     }
+
 
     public static createCanvas(canvas: HTMLCanvasElement, transparent: boolean = false): MeshBasicMaterial {
         //TODO

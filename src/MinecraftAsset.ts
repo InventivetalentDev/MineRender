@@ -1,7 +1,9 @@
-import { AssetKey } from "./cache/CacheKey";
+import { AssetKey, BasicAssetKey } from "./assets/AssetKey";
 
-export interface MinecraftAsset {
+export interface BasicMinecraftAsset {
+    key?: BasicAssetKey;
+}
+
+export interface MinecraftAsset extends BasicMinecraftAsset {
     key?: AssetKey;
-    name?: string;
-    names?: string[];
 }

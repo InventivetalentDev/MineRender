@@ -34,10 +34,6 @@ export class ModelObject extends SceneObject {
     constructor(readonly originalModel: Model, options?: Partial<ModelObjectOptions>) {
         super();
         this.options = merge({}, ModelObject.DEFAULT_OPTIONS, options ?? {});
-
-        if (originalModel.name) {
-            this.userData["modelName"] = originalModel.name;
-        }
     }
 
     async init(): Promise<void> {
@@ -101,7 +97,10 @@ export class ModelObject extends SceneObject {
                     }
                 });
             } else { // simple item
-                //TODO
+                // TODO
+                //  two planes, wrap edges
+
+
             }
         } else {
             dbg("Missing texture atlas for %O", this);

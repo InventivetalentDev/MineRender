@@ -5,7 +5,6 @@ import merge from "ts-deepmerge";
 import { Model } from "../model/Model";
 import { ModelObject, ModelObjectOptions } from "./model/ModelObject";
 import { InstanceReference } from "../instance/InstanceReference";
-import { serializeAssetKey } from "../cache/CacheKey";
 import { SceneStats } from "../SceneStats";
 import { SSAOPassOUTPUT } from "three/examples/jsm/postprocessing/SSAOPass";
 import { MinecraftAsset } from "../MinecraftAsset";
@@ -50,7 +49,7 @@ export class MineRenderScene extends Scene {
         if (options?.instanceMeshes && asset.key) {
             console.log("instanceMeshes + key")
             // check for existing instances
-            const key = serializeAssetKey(asset.key);
+            const key = asset.key.serialize();
             console.log(key)
             if (key in this.instanceCache) {
                 console.log("key in cache")

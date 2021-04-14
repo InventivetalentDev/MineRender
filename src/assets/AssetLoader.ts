@@ -1,17 +1,16 @@
-import { AssetKey } from "../cache/CacheKey";
 import { Model, TextureAsset } from "../model/Model";
 import { Maybe } from "../util/util";
 import { Requests } from "../request/Requests";
 import { AxiosRequestConfig, AxiosResponse } from "axios";
 import { DEBUG_NAMESPACE } from "../util/debug";
 import { MinecraftAsset } from "../MinecraftAsset";
-import imageSize from "image-size";
 import { ImageInfo, ImageLoader } from "../image/ImageLoader";
 import debug from "debug";
 import { MinecraftTextureMeta } from "../MinecraftTextureMeta";
 import { BlockState } from "../model/BlockState";
 import { DEFAULT_NAMESPACE, DEFAULT_ROOT } from "./Assets";
 import { ListAsset } from "../ListAsset";
+import { AssetKey } from "./AssetKey";
 
 const d = debug(`${ DEBUG_NAMESPACE }:AssetLoader`);
 
@@ -68,7 +67,7 @@ export class AssetLoader {
         if (key.namespace !== DEFAULT_NAMESPACE) {
             d("Retrying %j with default namespace", key);
             // Try on the same host but with default minecraft: namespace
-            const namespaceKey = { ...key, ...{ namespace: DEFAULT_NAMESPACE } };
+            const namespaceKey = new AssetKey(DEFAULT_NAMESPACE, key.path, key.assetType, key.type, key.extension, key.root);
             const namespaced = await this.load<T>(namespaceKey, parser);
             if (namespaced) {
                 return namespaced;
@@ -76,7 +75,7 @@ export class AssetLoader {
             if (key.root !== undefined && key.root !== DEFAULT_ROOT) {
                 d("Retrying %j with default root+namespace", key);
                 // Try both defaults
-                const namespacedRootedKey = { ...key, ...{ root: DEFAULT_ROOT, namespace: DEFAULT_NAMESPACE } }
+                const namespacedRootedKey = new AssetKey(DEFAULT_NAMESPACE, key.path, key.assetType, key.type, key.extension, DEFAULT_ROOT);
                 const namespacedRooted = await this.load<T>(namespacedRootedKey, parser);
                 if (namespacedRooted) {
                     return namespacedRooted;
@@ -85,7 +84,7 @@ export class AssetLoader {
         } else if (key.root !== undefined && key.root !== DEFAULT_ROOT) {
             d("Retrying %j with default root", key);
             // Try on default root
-            const rootKey = { ...key, ...{ root: DEFAULT_ROOT } };
+            const rootKey = new AssetKey(key.namespace, key.path, key.assetType, key.type, key.extension, DEFAULT_ROOT);
             const rooted = await this.load<T>(rootKey, parser);
             if (rooted) {
                 return rooted;

@@ -172,6 +172,15 @@ export class SceneObject extends Object3D implements Disposable, Instanceable, T
         });
     }
 
+    protected _getBoxGeometryForDimensionsAndUv(width: number, height: number, depth: number, uv:number[]): BoxGeometry {
+        return Geometries.getBox({
+            width,
+            height,
+            depth,
+            uv
+        });
+    }
+
     //</editor-fold>
 
     //<editor-fold desc="INSTANCING">

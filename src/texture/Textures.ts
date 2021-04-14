@@ -2,11 +2,10 @@ import { CanvasTexture, Texture } from "three";
 import { TextureLoader } from "./TextureLoader";
 import { Caching } from "../cache/Caching";
 import { serializeTextureKey, TextureKey } from "../cache/CacheKey";
+import { AssetKey } from "../assets/AssetKey";
 import * as THREE from "three";
 
 export class Textures {
-
-    static readonly MISSING_TEXTURE = Textures.getImage({ src: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABAAQMAAACQp+OdAAAABlBMVEX/AP8AAACfphTyAAAAFUlEQVQoz2MIhQKGVVAwKjIqQrwIAHRz/wFI17TEAAAAAElFTkSuQmCC"}    );
 
     public static initTextureProps<T extends Texture>(texture: T): T {
         texture.magFilter = THREE.NearestFilter;
@@ -15,8 +14,13 @@ export class Textures {
         return texture;
     }
 
+
     public static createImage(key: TextureKey): Texture {
         return TextureLoader.load(key.src, key.format, key.rotation);
+    }
+
+    public static createAsset(key: AssetKey): Texture {
+        return new Texture()
     }
 
     public static createCanvas(canvas: HTMLCanvasElement): Texture {

@@ -2,12 +2,16 @@ import { ModelElement } from "./ModelElement";
 import { DisplayPosition } from "./DisplayPosition";
 import { GuiLight } from "./GuiLight";
 import { MinecraftAsset } from "../MinecraftAsset";
-import { AssetKey } from "../cache/CacheKey";
 import { ImageInfo } from "../image/ImageLoader";
 
-export const DEFAULT_ELEMENTS: ModelElement[] = [
+export const DEFAULT_ELEMENTS: ModelElement[] = []
 
-]
+export interface Model extends MinecraftAsset {
+    textures?: ModelTextures;
+    parent?: string;
+    display?: ModelDisplay;
+    elements?: ModelElement[];
+}
 
 export interface BlockModel extends Model {
     textures?: BlockModelTextures;
@@ -19,14 +23,7 @@ export interface ItemModel extends Model {
     gui_light?: GuiLight;
 }
 
-export interface Model extends MinecraftAsset {
-    textures?: ModelTextures;
-    parent?: string;
-    display?: ModelDisplay;
-    elements?: ModelElement[];
-}
-
-export interface TextureAsset extends ImageInfo, MinecraftAsset {
+export interface TextureAsset extends MinecraftAsset, ImageInfo {
 }
 
 export interface ModelDisplay {
@@ -49,5 +46,5 @@ export interface ItemModelTextures extends BlockModelTextures {
 }
 
 export type DoubleArray<T = number> = [T, T];
-export type TripleArray<T=number> = [T, T, T];
-export type QuadArray<T=number> = [T, T, T, T];
+export type TripleArray<T = number> = [T, T, T];
+export type QuadArray<T = number> = [T, T, T, T];

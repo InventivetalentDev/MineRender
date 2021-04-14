@@ -3,11 +3,11 @@ import { Caching } from "../cache/Caching";
 import { Textures } from "../texture/Textures";
 import { Maybe } from "../util/util";
 import { ModelMerger } from "../model/ModelMerger";
-import { AssetKey, serializeAssetKey } from "../cache/CacheKey";
 import { AssetLoader } from "./AssetLoader";
 import { Memoize } from "typscript-memoize";
 import { DEFAULT_NAMESPACE, DEFAULT_ROOT } from "./Assets";
 import { PersistentCache } from "../cache/PersistentCache";
+import { AssetKey } from "./AssetKey";
 
 export class Models {
 
@@ -15,14 +15,14 @@ export class Models {
 
     @Memoize()
     public static async getItemList(): Promise<string[]> {
-        return AssetLoader.loadOrRetryWithDefaults({
-            root: DEFAULT_ROOT,
-            namespace: DEFAULT_NAMESPACE,
-            assetType: "models",
-            type: "item",
-            path: "_list",
-            extension: ".json"
-        }, AssetLoader.LIST).then(r => r?.files ?? []);
+        return AssetLoader.loadOrRetryWithDefaults(new AssetKey(
+            DEFAULT_NAMESPACE,
+            "_list",
+            "models",
+            "item",
+            ".json",
+            DEFAULT_ROOT
+        ), AssetLoader.LIST).then(r => r?.files ?? []);
     }
 
     public static async loadAndMerge(key: AssetKey): Promise<Maybe<Model>> {
@@ -40,7 +40,7 @@ export class Models {
         if (!key.extension) {
             key.extension = ".json";
         }
-        const keyStr = serializeAssetKey(key);
+        const keyStr = key.serialize();
         return Caching.rawModelCache.get(keyStr, k => {
             return this.PERSISTENT_CACHE.getOrLoad(keyStr, k1 => {
                 return AssetLoader.loadOrRetryWithDefaults(key, AssetLoader.MODEL).then(asset => {
@@ -59,7 +59,7 @@ export class Models {
         if (!key.extension) {
             key.extension = ".json";
         }
-        const keyStr = serializeAssetKey(key);
+        const keyStr = key.serialize();
         return Caching.mergedModelCache.get(keyStr, k => {
             return Models.loadAndMerge(key);
         });

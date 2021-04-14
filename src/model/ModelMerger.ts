@@ -7,13 +7,13 @@ export class ModelMerger {
 
     public static async mergeWithParents(model: Model): Promise<Model> {
         const models = await this.collectAllParents(model);
-        const names: string[] = models.map(m => m.name).filter(s => !!s) as string[];
+        // const names: string[] = models.map(m => m.name).filter(s => !!s) as string[];
         let merged: Model = {};
         for (let parentModel of models) {
             merged = merge(merged, parentModel);
         }
         merged = merge(merged, model);
-        merged.names = names;
+        // merged.names = names;
         delete merged.parent;
         return merged;
     }

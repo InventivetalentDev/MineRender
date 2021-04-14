@@ -86,18 +86,5 @@ export function serializeMeshKey(key: MeshKey): string {
 
 ///
 
-export type AssetType = "models" | "textures" | "blockstates" | string;
 
-export interface AssetKey {
-    root?: string;
-    namespace: string;
-    assetType: AssetType;
-    type?: string;
-    path: string;
-    extension: ".json"|".png"|string;
-}
-
-export function serializeAssetKey(key: AssetKey): string {
-    return md5([key.root, key.namespace, key.assetType, key.type, key.path].join("+"));
-}
 

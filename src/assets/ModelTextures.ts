@@ -1,4 +1,3 @@
-import { AssetKey, serializeAssetKey } from "../cache/CacheKey";
 import { Maybe } from "../util/util";
 import { TextureAsset } from "../model/Model";
 import { Caching } from "../cache/Caching";
@@ -9,6 +8,7 @@ import { ExtractableImageData } from "../ExtractableImageData";
 import { MinecraftTextureMeta } from "../MinecraftTextureMeta";
 import { PersistentCache } from "../cache/PersistentCache";
 import { keys } from "node-persist";
+import { AssetKey } from "./AssetKey";
 
 export class ModelTextures {
 
@@ -23,7 +23,7 @@ export class ModelTextures {
     }
 
     public static async preload(key: AssetKey): Promise<Maybe<TextureAsset>> {
-        const keyStr = serializeAssetKey(key);
+        const keyStr = key.serialize();
         return Caching.textureAssetCache.get(keyStr, k => {
             return AssetLoader.loadOrRetryWithDefaults<TextureAsset>(key, AssetLoader.IMAGE).then(asset => {
                 if (asset)
@@ -35,7 +35,7 @@ export class ModelTextures {
 
     public static async getMeta(key: AssetKey): Promise<Maybe<MinecraftTextureMeta>> {
         key.extension += ".mcmeta";
-        const keyStr = serializeAssetKey(key);
+        const keyStr = key.serialize();
 
         return Caching.textureMetaCache.get(keyStr, k => {
             return this.PERSISTENT_META_CACHE.getOrLoad(keyStr, k1 => {

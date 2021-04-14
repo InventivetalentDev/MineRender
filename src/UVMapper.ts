@@ -9,7 +9,6 @@ import { WrappedImage } from "./WrappedImage";
 import { CanvasImage } from "./canvas/CanvasImage";
 import { Mode } from "fs";
 import { TextureAtlas } from "./texture/TextureAtlas";
-import { AssetKey, serializeAssetKey } from "./cache/CacheKey";
 import { Caching } from "./cache/Caching";
 import { ImageLoader } from "./image/ImageLoader";
 import { createImageData, ImageData } from "canvas";
@@ -18,6 +17,7 @@ import debug from "debug";
 import { DEBUG_NAMESPACE } from "./util/debug";
 import { AnimatorFunction } from "./AnimatorFunction";
 import { MinecraftTextureMeta } from "./MinecraftTextureMeta";
+import { AssetKey } from "./assets/AssetKey";
 
 const d = debug(`${ DEBUG_NAMESPACE }:UVMapper`);
 
@@ -164,7 +164,7 @@ export class UVMapper {
     }
 
     public static async getAtlas(model: Model): Promise<Maybe<TextureAtlas>> {
-        const keyStr = serializeAssetKey(model.key!);
+        const keyStr = model.key!.serialize();
         return Caching.modelTextureAtlasCache.get(keyStr, k => {
             return this.createAtlas(model);
         })
@@ -247,7 +247,7 @@ export class UVMapper {
                     textureReferences[textureKey] = textureValue.substr(1);
                 } else {
                     uniqueTextureNames.push(textureKey);
-                    const assetKey = Assets.parseAssetKey("textures", textureValue, model.key);
+                    const assetKey = AssetKey.parse("textures", textureValue, model.key);
                     promises.push(ModelTextures.get(assetKey).then(asset => {
                         textureMap[textureKey] = new WrappedImage(asset!);
                     }));
