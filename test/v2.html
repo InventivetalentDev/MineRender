@@ -271,7 +271,7 @@
                 console.log(blockList)
             })
 
-            MineRender.BlockEntities.get(new MineRender.BasicAssetKey("minecraft", "chest")).then(model => {
+            MineRender.BlockEntities.get(new MineRender.BasicAssetKey("minecraft", "sign"), new MineRender.BasicAssetKey("minecraft","signs/oak")).then(model => {
                 let obj = new MineRender.BlockEntityObject(model, {
                     wireframe: true,
                 });

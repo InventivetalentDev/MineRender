@@ -4,6 +4,13 @@ import { CUBE_FACES, CubeFace } from "./CubeFace";
 import { DoubleArray, QuadArray } from "./model/Model";
 import { ExtractableImageData } from "./ExtractableImageData";
 
+/**
+ *          down  up
+ *  east    north    west    south
+ *
+ *  bottom-left to top-right
+ *  [bl, br, tl, tr]
+ */
 export class MinecraftCubeTexture {
 
     constructor(
@@ -12,87 +19,88 @@ export class MinecraftCubeTexture {
     ) {
     }
 
-    get mappedU() {
-        return this.u/this.width;
+
+    protected mapW(x: number) {
+        return x / this.width;
     }
 
-    get mappedV() {
-        return this.v/this.height;
+    protected mapH(x: number) {
+        return 1 - (x / this.height);
     }
 
     getUvEast(w: number, h: number, l: number): QuadArray<DoubleArray> {
         return [
-            [this.mappedU,this.mappedV+h],
-            [this.mappedU+w,this.mappedV+h],
-            [this.mappedU, this.mappedV],
-            [this.mappedU+w, this.mappedV]
+            [this.mapW(this.u), this.mapH(this.v + l + h)],
+            [this.mapW(this.u + l), this.mapH(this.v + l + h)],
+            [this.mapW(this.u), this.mapH(this.v + l)],
+            [this.mapW(this.u + l), this.mapH(this.v + l)],
         ]
     }
 
     getUvWest(w: number, h: number, l: number): QuadArray<DoubleArray> {
 //TODO
         return [
-            [this.mappedU,this.mappedV+h],
-            [this.mappedU+w,this.mappedV+h],
-            [this.mappedU, this.mappedV],
-            [this.mappedU+w, this.mappedV]
+            [this.mapW(this.u + l + w), this.mapH(this.v + l + h)],
+            [this.mapW(this.u + l + w + l), this.mapH(this.v + l + h)],
+            [this.mapW(this.u + l + w), this.mapH(this.v + l)],
+            [this.mapW(this.u + l + w + l), this.mapH(this.v + l)],
         ]
     }
 
     getUvUp(w: number, h: number, l: number): QuadArray<DoubleArray> {
 //TODO
         return [
-            [this.mappedU,this.mappedV+h],
-            [this.mappedU+w,this.mappedV+h],
-            [this.mappedU, this.mappedV],
-            [this.mappedU+w, this.mappedV]
+            [this.mapW(this.u + l + w), this.mapH(this.v + l)],
+            [this.mapW(this.u + l + w + w), this.mapH(this.v + l)],
+            [this.mapW(this.u + l + w), this.mapH(this.v)],
+            [this.mapW(this.u + l + w + w), this.mapH(this.v)],
         ]
     }
 
     getUvDown(w: number, h: number, l: number): QuadArray<DoubleArray> {
 //TODO
         return [
-            [this.mappedU,this.mappedV+h],
-            [this.mappedU+w,this.mappedV+h],
-            [this.mappedU, this.mappedV],
-            [this.mappedU+w, this.mappedV]
+            [this.mapW(this.u + l), this.mapH(this.v + l)],
+            [this.mapW(this.u + l + w), this.mapH(this.v + l)],
+            [this.mapW(this.u + l), this.mapH(this.v)],
+            [this.mapW(this.u + l+w), this.mapH(this.v)],
         ]
     }
 
     getUvSouth(w: number, h: number, l: number): QuadArray<DoubleArray> {
 //TODO
         return [
-            [this.mappedU,this.mappedV+h],
-            [this.mappedU+w,this.mappedV+h],
-            [this.mappedU, this.mappedV],
-            [this.mappedU+w, this.mappedV]
+            [this.mapW(this.u + l + w + l), this.mapH(this.v + l + h)],
+            [this.mapW(this.u + l + w + l + w), this.mapH(this.v + l + h)],
+            [this.mapW(this.u + l + w + l), this.mapH(this.v + l)],
+            [this.mapW(this.u + l + w + l + w), this.mapH(this.v + l)],
         ]
     }
 
     getUvNorth(w: number, h: number, l: number): QuadArray<DoubleArray> {
 //TODO
         return [
-            [this.mappedU,this.mappedV+h],
-            [this.mappedU+w,this.mappedV+h],
-            [this.mappedU, this.mappedV],
-            [this.mappedU+w, this.mappedV]
+            [this.mapW(this.u + l), this.mapH(this.v + l + h)],
+            [this.mapW(this.u + l + w), this.mapH(this.v + l + h)],
+            [this.mapW(this.u + l), this.mapH(this.v + l)],
+            [this.mapW(this.u + l + w), this.mapH(this.v + l)],
         ]
     }
 
     getFaceUv(face: CubeFace, w: number, h: number, l: number): QuadArray<DoubleArray> {
         switch (face) {
             case CubeFace.EAST:
-                return this.getUvEast(w,h,l);
+                return this.getUvEast(w, h, l);
             case CubeFace.WEST:
-                return this.getUvWest(w,h,l);
+                return this.getUvWest(w, h, l);
             case CubeFace.UP:
-                return this.getUvUp(w,h,l);
+                return this.getUvUp(w, h, l);
             case CubeFace.DOWN:
-                return this.getUvDown(w,h,l);
+                return this.getUvDown(w, h, l);
             case CubeFace.SOUTH:
-                return this.getUvSouth(w,h,l);
+                return this.getUvSouth(w, h, l);
             case CubeFace.NORTH:
-                return this.getUvNorth(w,h,l);
+                return this.getUvNorth(w, h, l);
         }
     }
 

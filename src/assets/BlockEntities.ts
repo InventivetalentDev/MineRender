@@ -9,10 +9,14 @@ export class BlockEntities {
         return Object.keys(blockEntityModels);
     }
 
-    public static async get(key: BasicAssetKey): Promise<BlockEntityModel> {
+    public static async get(modelKey: BasicAssetKey, textureKey?: BasicAssetKey): Promise<BlockEntityModel> {
+        if (!textureKey) {
+            textureKey = modelKey
+        }
+        const baseKey = modelKey.path.includes("/") ? new BasicAssetKey(modelKey.namespace, modelKey.path.split("\/")[0]) : modelKey;
         return {
-            key: key,
-            parts: blockEntityModels[key.toNamespacedString()]
+            key: textureKey,
+            parts: blockEntityModels[baseKey.toNamespacedString()]
         }
     }
 
