@@ -13,12 +13,12 @@ export * from "./assets/AssetKey";
 
 export * from "./assets/Models"
 export * from "./assets/BlockStates"
-export * from "./assets/BlockEntities";
+export * from "./assets/Entities";
 
 export * from "./renderers/skin/SkinObject"
 export * from "./renderers/model/ModelObject"
 export * from "./renderers/model/BlockObject"
-export * from "./renderers/entity/BlockEntityObject";
+export * from "./renderers/entity/EntityObject";
 
 export * from "./Ticker";
 
