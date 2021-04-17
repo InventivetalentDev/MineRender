@@ -29,12 +29,24 @@ export class InstanceReference<T extends Instanceable> implements Transformable 
         this.instanceable.setPositionAt(this.index, position);
     }
 
+    getPosition(): Vector3 {
+        return this.instanceable.getPositionAt(this.index);
+    }
+
     setRotation(rotation: Euler): void {
         this.instanceable.setRotationAt(this.index, rotation);
     }
 
+    getRotation(): Euler {
+        return this.instanceable.getRotationAt(this.index);
+    }
+
     setScale(scale: Vector3): void {
         this.instanceable.setScaleAt(this.index, scale);
+    }
+
+    getScale(): Vector3 {
+        return this.instanceable.getScaleAt(this.index);
     }
 
 }

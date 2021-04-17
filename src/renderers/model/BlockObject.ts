@@ -17,6 +17,7 @@ import { types } from "util";
 import { BlockStateProperties, BlockStatePropertyDefaults } from "../../model/BlockStateProperties";
 import { BlockStates } from "../../assets/BlockStates";
 import { InstanceReference } from "../../instance/InstanceReference";
+import { AssetKey } from "../../assets/AssetKey";
 
 export class BlockObject extends SceneObject {
 
@@ -211,7 +212,7 @@ export class BlockObject extends SceneObject {
         console.log("createVariant")
         //TODO: uvlock
         //TODO: default state?
-        const model = await Models.getMerged(Assets.parseAssetKey("models", variant.model!));
+        const model = await Models.getMerged(AssetKey.parse("models", variant.model!));
         const obj = new ModelObject(model!, this.options);
         await obj.init();
         if (obj.isInstanced) {

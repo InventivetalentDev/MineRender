@@ -15,9 +15,15 @@ export interface Instanceable {
 
     setPositionAt(index: number, position: Vector3): void;
 
+    getPositionAt(index: number, vector?: Vector3): Vector3;
+
     setRotationAt(index: number, rotation: Euler): void;
 
+    getRotationAt(index: number, euler?: Euler): Euler;
+
     setScaleAt(index: number, scale: Vector3): void;
+
+    getScaleAt(index: number, vector?: Vector3): Vector3;
 
 }
 

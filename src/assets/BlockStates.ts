@@ -37,10 +37,13 @@ export class BlockStates {
         const keyStr = key.serialize();
         return Caching.blockStateCache.get(keyStr, k => {
             return AssetLoader.loadOrRetryWithDefaults(key, AssetLoader.BLOCKSTATE).then(asset => {
-                if (asset)
-                    asset.key = key;
                 return asset;
             })
+        }).then(asset => {
+            if (asset) {
+                asset.key = key;
+            }
+            return asset;
         })
     }
 

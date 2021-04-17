@@ -44,12 +44,15 @@ export class Models {
         return Caching.rawModelCache.get(keyStr, k => {
             return this.PERSISTENT_CACHE.getOrLoad(keyStr, k1 => {
                 return AssetLoader.loadOrRetryWithDefaults(key, AssetLoader.MODEL).then(asset => {
-                    if (asset)
-                        asset.key = key;
                     return asset;
                 })
             })
-        });
+        }).then(asset => {
+            if (asset) {
+                asset.key = key;
+            }
+            return asset;
+        })
     }
 
     public static async getMerged(key: AssetKey): Promise<Maybe<Model>> {

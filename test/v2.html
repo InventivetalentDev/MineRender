@@ -174,7 +174,7 @@
             }, 1000);
 
 
-            async function createModel(type,name,instances=1,x=0,y=0,z=0) {
+            async function createModel(type, name, instances = 1, x = 0, y = 0, z = 0) {
                 return MineRender.Models.getMerged({
                     assetType: "models",
                     type: type,
@@ -206,41 +206,38 @@
                 });
             }
 
-            function createBlockState(name, instances = 1, x=0, y=0, z=0) {
-                MineRender.BlockStates.get({
-                    assetType: "blockstates",
-                    type: undefined,
-                    path: name,
-                    extension: ".json"
-                }).then(blockState => {
-                    console.log(blockState);
+            function createBlockState(name, instances = 1, x = 0, y = 0, z = 0) {
+                MineRender.BlockStates.get(new MineRender.AssetKey("minecraft", name, "blockstates", undefined, ".json"))
+                    .then(blockState => {
+                        console.log(blockState);
 
-                    let obj = new MineRender.BlockObject(blockState, {
-                        mergeMeshes: true,
-                        instanceMeshes: true,
-                        wireframe: false,
-                        maxInstanceCount: instances+5
-                    });
-                    console.log(obj);
-                    renderer.scene.initAndAdd(obj).then(() => {
-                        // incStat("instanceCount")
-                        console.log("added");
-                       setTimeout(()=>{
-                           for (let i = 0; i < instances; i++) {
-                               let n = obj.nextInstance();
-                               n.setPosition(new THREE.Vector3(x,y,z))
-                               // obj.setPositionAt(n.index, new THREE.Vector3(16,64,16));
-                               // obj.setRotationAt(n.index, new THREE.Euler(0,1.5708,0));
-                               // incStat("instanceCount")
-                           }
-                       },100)
+                        let obj = new MineRender.BlockObject(blockState, {
+                            mergeMeshes: true,
+                            instanceMeshes: true,
+                            wireframe: true,
+                            maxInstanceCount: instances + 5
+                        });
+                        console.log(obj);
+                        renderer.scene.initAndAdd(obj).then(() => {
+                            // incStat("instanceCount")
+                            console.log("added");
+                            setTimeout(() => {
+                                if (!obj.isInstanced) return;
+                                for (let i = 0; i < instances; i++) {
+                                    let n = obj.nextInstance();
+                                    n.setPosition(new THREE.Vector3(Math.random()*16*8,0,Math.random()*16*8))
+                                    // obj.setPositionAt(n.index, new THREE.Vector3(16,64,16));
+                                    // obj.setRotationAt(n.index, new THREE.Euler(0,1.5708,0));
+                                    // incStat("instanceCount")
+                                }
+                            }, 100)
+                        })
+
                     })
-
-                })
             }
 
             //TODO: fire in wrong position, rescale thingy maybe?
-            // createBlockState("campfire");
+            createBlockState("campfire",5);
             // createBlockState("glass",1,0,16,0);
             // (async () => {
             //     await createModel("block", "acacia_log", 1, 32, 32, 32)
@@ -271,12 +268,12 @@
                 console.log(blockList)
             })
 
-            MineRender.Entities.getEntity(new MineRender.BasicAssetKey("minecraft", "phantom"), new MineRender.BasicAssetKey("minecraft","phantom")).then(model => {
-                let obj = new MineRender.BlockEntityObject(model, {
-                    wireframe: true,
-                });
-                renderer.scene.initAndAdd(obj);
-            });
+            // MineRender.Entities.getEntity(new MineRender.BasicAssetKey("minecraft", "phantom"), new MineRender.BasicAssetKey("minecraft","phantom")).then(model => {
+            //     let obj = new MineRender.EntityObject(model, {
+            //         wireframe: true,
+            //     });
+            //     renderer.scene.initAndAdd(obj);
+            // });
 
             // MineRender.BlockStates.getList().then(blockList_=>{
             //     const blockList = [...blockList_];
@@ -460,40 +457,44 @@
             const controls = new THREE.OrbitControls(renderer.camera, renderer.renderer.domElement);
             controls.update();
 
+            const inspector = new MineRender.SceneInspector(renderer);
+            document.getElementById('rayinfo').append(inspector.objectInfoContainer);
+            document.getElementById('rayinfo').append(inspector.objectControlsContainer);
+
             // https://github.com/mrdoob/three.js/blob/master/examples/webgl_interactive_cubes.html
-            const raycaster = new THREE.Raycaster();
-            document.addEventListener("click", event => {
-                let mouse = new THREE.Vector2((event.clientX / window.innerWidth) * 2 - 1, -(event.clientY / window.innerHeight) * 2 + 1);
-                raycaster.setFromCamera(mouse, renderer.camera);
-                let intersects = raycaster.intersectObjects(renderer.scene.children, true);
-                if (intersects.length > 0) {
-                    console.log(intersects);
-                    const first = intersects[0];
-                    if (first && first.object && first.object.parent) {
-                        const modelObject = first.object.parent;
-                        if (modelObject.originalModel) {
-                            const blockObject = modelObject.parent;
-                            document.getElementById("rayinfo").innerHTML =
-                                `<span>D: ${ first.distance }</span><br/>` +
-
-                                `<span>Model Key:</span>` +
-                                `<pre>${ JSON.stringify(modelObject.originalModel.key, null, 2) }</pre>` +
-
-                                `<span>State</span>` +
-                                `<pre>${ JSON.stringify(blockObject.state, null, 2) }</pre>` +
-
-                                `<span>Model</span>` +
-                                `<pre>${ JSON.stringify(modelObject.originalModel, null, 2) }</pre>` +
-                                `<span>BlockState</span>` +
-                                `<pre>${ JSON.stringify(blockObject.blockState, null, 2) }</pre>`
-                        }else{
-                            document.getElementById("rayinfo").innerHTML =
-                                `<span>D: ${ first.distance }</span><br/>` +
-                                `<span>N: ${first.object.name}</span>`
-                        }
-                    }
-                }
-            })
+            // const raycaster = new THREE.Raycaster();
+            // document.addEventListener("click", event => {
+            //     let mouse = new THREE.Vector2((event.clientX / window.innerWidth) * 2 - 1, -(event.clientY / window.innerHeight) * 2 + 1);
+            //     raycaster.setFromCamera(mouse, renderer.camera);
+            //     let intersects = raycaster.intersectObjects(renderer.scene.children, true);
+            //     if (intersects.length > 0) {
+            //         console.log(intersects);
+            //         const first = intersects[0];
+            //         if (first && first.object && first.object.parent) {
+            //             const modelObject = first.object.parent;
+            //             if (modelObject.originalModel) {
+            //                 const blockObject = modelObject.parent;
+            //                 document.getElementById("rayinfo").innerHTML =
+            //                     `<span>D: ${ first.distance }</span><br/>` +
+            //
+            //                     `<span>Model Key:</span>` +
+            //                     `<pre>${ JSON.stringify(modelObject.originalModel.key, null, 2) }</pre>` +
+            //
+            //                     `<span>State</span>` +
+            //                     `<pre>${ JSON.stringify(blockObject.state, null, 2) }</pre>` +
+            //
+            //                     `<span>Model</span>` +
+            //                     `<pre>${ JSON.stringify(modelObject.originalModel, null, 2) }</pre>` +
+            //                     `<span>BlockState</span>` +
+            //                     `<pre>${ JSON.stringify(blockObject.blockState, null, 2) }</pre>`
+            //             }else{
+            //                 document.getElementById("rayinfo").innerHTML =
+            //                     `<span>D: ${ first.distance }</span><br/>` +
+            //                     `<span>N: ${first.object.name}</span>`
+            //             }
+            //         }
+            //     }
+            // })
 
 
             renderer.start();

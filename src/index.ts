@@ -24,4 +24,6 @@ export * from "./Ticker";
 
 export * from "./Env"
 
+export * from "./inspector/SceneInspector";
+
 //export * from "three/examples/jsm/utils/BufferGeometryUtils"

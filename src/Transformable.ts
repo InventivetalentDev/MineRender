@@ -4,8 +4,18 @@ export interface Transformable {
 
     setPosition(position: Vector3): void;
 
+    getPosition(): Vector3;
+
     setRotation(rotation: Euler): void;
+
+    getRotation(): Euler;
 
     setScale(scale: Vector3): void;
 
+    getScale(): Vector3;
+
+}
+
+export function isTransformable(obj: any): obj is Transformable {
+    return "setPosition" in obj && "setRotation" in obj && "setScale" in obj;
 }

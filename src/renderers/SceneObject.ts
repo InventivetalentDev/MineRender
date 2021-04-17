@@ -252,14 +252,35 @@ export class SceneObject extends Object3D implements Disposable, Instanceable, T
         this.setPositionRotationScaleAt(index, position);
     }
 
+    getPositionAt(index: number, vector: Vector3 = new Vector3()): Vector3 {
+        if (!this.isInstanced) throw new MineRenderError("Object is not instanced");
+        const matrix =this.getMatrixAt(index)
+        vector.setFromMatrixPosition(matrix);
+        return vector;
+    }
+
     setRotationAt(index: number, rotation: Euler) {
         if (!this.isInstanced) throw new MineRenderError("Object is not instanced");
         this.setPositionRotationScaleAt(index, undefined, rotation, undefined);
     }
 
+    getRotationAt(index: number, euler: Euler = new Euler()): Euler {
+        if (!this.isInstanced) throw new MineRenderError("Object is not instanced");
+        const matrix =this.getMatrixAt(index)
+        euler.setFromRotationMatrix(matrix);
+        return euler;
+    }
+
     setScaleAt(index: number, scale: Vector3) {
         if (!this.isInstanced) throw new MineRenderError("Object is not instanced");
         this.setPositionRotationScaleAt(index, undefined, undefined, scale);
+    }
+
+    getScaleAt(index: number, vector: Vector3 = new Vector3()): Vector3 {
+        if (!this.isInstanced) throw new MineRenderError("Object is not instanced");
+        const matrix =this.getMatrixAt(index)
+        vector.setFromMatrixScale(matrix);
+        return vector;
     }
 
     setPosition(position: Vector3) {
@@ -272,15 +293,31 @@ export class SceneObject extends Object3D implements Disposable, Instanceable, T
         }
     }
 
+    getPosition(): Vector3 {
+        if (this.isInstanced) {
+            return this.getPositionAt(0);
+        }else{
+            return this.position;
+        }
+    }
+
     setRotation(rotation: Euler) {
         console.log("setRotation")
         console.log(this.instanceCounter)
         if (this.isInstanced) {
-            for (let i = 0; i < 1/*todo*/; i++) {
+            for (let i = 0; i < this.instanceCounter; i++) {
                 this.setPositionRotationScaleAt(i, undefined, rotation);
             }
         } else {
             this.rotation.set(rotation.x, rotation.y, rotation.z);
+        }
+    }
+
+    getRotation(): Euler {
+        if (this.isInstanced) {
+            return this.getRotationAt(0);
+        }else{
+            return this.rotation;
         }
     }
 
@@ -291,6 +328,14 @@ export class SceneObject extends Object3D implements Disposable, Instanceable, T
             }
         } else {
             this.scale.set(scale.x, scale.y, scale.z);
+        }
+    }
+
+    getScale(): Vector3 {
+        if (this.isInstanced) {
+            return this.getScaleAt(0);
+        }else{
+            return this.scale;
         }
     }
 
