@@ -89,6 +89,8 @@ export class SceneInspector {
     }
 
     protected addControls(object: Object3D, intersection: Intersection) {
+        if(!object.parent) return;
+
         const container = document.createElement("div");
 
         container.append(this.toggleControl("V", object.visible, v => object.visible = v));
@@ -112,9 +114,9 @@ export class SceneInspector {
                 parent.setPosition(new Vector3(parent.getPosition().x, parent.getPosition().y, v))
             }));
         }else {
-            container.append(this.rangeControl("X", -posRange, posRange, object.position.x, v => object.position.setX(v)));
-            container.append(this.rangeControl("Y", -posRange, posRange, object.position.y, v => object.position.setY(v)));
-            container.append(this.rangeControl("Z", -posRange, posRange, object.position.z, v => object.position.setZ(v)));
+            container.append(this.rangeControl("X", -posRange, posRange, object.parent.position.x, v => object.parent!.position.setX(v)));
+            container.append(this.rangeControl("Y", -posRange, posRange, object.parent.position.y, v => object.parent!.position.setY(v)));
+            container.append(this.rangeControl("Z", -posRange, posRange, object.parent.position.z, v => object.parent!.position.setZ(v)));
         }
 
         const rotRange = 360;
@@ -130,9 +132,9 @@ export class SceneInspector {
                 parent.setRotation(new Euler(parent.getRotation().x, parent.getRotation().y, toRadians(v)));
             }));
         }else {
-            container.append(this.rangeControl("X", 0, rotRange, toDegrees(object.rotation.x), v => object.rotation.x = toRadians(v)));
-            container.append(this.rangeControl("Y", 0, rotRange, toDegrees(object.rotation.y), v => object.rotation.y = toRadians(v)));
-            container.append(this.rangeControl("Z", 0, rotRange, toDegrees(object.rotation.z), v => object.rotation.z = toRadians(v)));
+            container.append(this.rangeControl("X", 0, rotRange, toDegrees(object.parent.rotation.x), v => object.parent!.rotation.x = toRadians(v)));
+            container.append(this.rangeControl("Y", 0, rotRange, toDegrees(object.parent.rotation.y), v => object.parent!.rotation.y = toRadians(v)));
+            container.append(this.rangeControl("Z", 0, rotRange, toDegrees(object.parent.rotation.z), v => object.parent!.rotation.z = toRadians(v)));
         }
 
         this.objectControlsContainer.append(container);

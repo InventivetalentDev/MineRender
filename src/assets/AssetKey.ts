@@ -35,6 +35,7 @@ export class BasicAssetKey implements Serializable {
 }
 
 export class AssetKey extends BasicAssetKey {
+
     constructor(
         readonly namespace: string, readonly path: string,
         public assetType?: AssetType,
