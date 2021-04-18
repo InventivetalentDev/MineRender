@@ -75,8 +75,6 @@ export class ModelObject extends SceneObject {
                     // elGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(-8,-8,-8));
 
 
-
-
                     elGeo.applyMatrix4(new THREE.Matrix4().makeTranslation((el.to[0] - el.from[0]) / 2, (el.to[1] - el.from[1]) / 2, (el.to[2] - el.from[2]) / 2));
                     elGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(el.from[0], el.from[1], el.from[2]));
 

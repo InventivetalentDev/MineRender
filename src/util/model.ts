@@ -8,6 +8,7 @@ import { BufferGeometry } from "three/src/core/BufferGeometry";
 import { Axis } from "../Axis";
 import { toRadians } from "./util";
 import { AxesHelper, Box3, BoxGeometry, EdgesGeometry, LineBasicMaterial, LineSegments, Matrix4, Mesh, Object3D, Quaternion, Vector3, Vector4 } from "three";
+import { ModelPart } from "../model/ModelPart";
 
 function rotateAboutPoint(obj: THREE.Object3D, point: THREE.Vector3, axis: THREE.Vector3, theta: number) {
     obj.position.sub(point); // remove the offset
@@ -90,6 +91,25 @@ export function applyElementRotation(rotation: ElementRotation, geometry: Buffer
             geometry.scale(s, 1, s);
         }
     }
+
+    // add back origin
+    geometry.translate(origin.x, origin.y, origin.z);
+
+
+}
+
+export function applyModelPartRotation(modelPart: ModelPart, geometry: BufferGeometry) {
+    const origin = new Vector3(modelPart.pivotX,modelPart.pivotY,modelPart.pivotZ);
+
+
+    // subtract origin
+    geometry.translate(-origin.x, -origin.y, -origin.z);
+    // apply rotation
+    //TODO: these might be the wrong order
+            geometry.rotateX(toRadians(modelPart.pitch));
+            geometry.rotateY(toRadians(modelPart.yaw));
+            geometry.rotateZ(toRadians(modelPart.roll));
+
 
     // add back origin
     geometry.translate(origin.x, origin.y, origin.z);

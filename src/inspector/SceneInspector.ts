@@ -1,6 +1,5 @@
-import { MineRenderScene } from "../renderers/MineRenderScene";
 import { Renderer } from "../renderers/Renderer";
-import { Euler, Intersection, Object3D, Raycaster, Vector2, Vector3 } from "three";
+import { Intersection, Object3D, Raycaster, Vector2 } from "three";
 import { isSceneObject, SceneObject } from "../renderers/SceneObject";
 import { Maybe, toDegrees, toRadians } from "../util/util";
 import { isTransformable, Transformable } from "../Transformable";
@@ -56,8 +55,8 @@ export class SceneInspector {
                 targetObject = firstSceneObjectIntersection.object;
             } else {
                 // fallback to first intersect
-                // targetIntersection = firstIntersection;
-                // targetObject = firstObject;
+                targetIntersection = firstIntersection;
+                targetObject = firstObject;
             }
 
             if (!targetIntersection || !targetObject) return;
@@ -97,77 +96,105 @@ export class SceneInspector {
     }
 
     protected addControls(object: Object3D, intersection: Intersection) {
-        if (!object.parent) return;
-
         const container = document.createElement("div");
 
         container.append(this.toggleControl("Visibility", "V", object.visible, v => object.visible = v));
+
+        // let transformTarget = object.parent!;
+        // container.append(this.selectControl("Transform Target","T",["parent","mesh"],v=>{
+        //     switch (v) {
+        //         case "parent":
+        //             transformTarget = object.parent!;
+        //             break;
+        //         case "mesh":
+        //             transformTarget = object;
+        //             break;
+        //     }
+        // }))
+
+
+        if(object.parent) {
+            container.append(this.separator("Parent"))
+            this.addObjectControls(object.parent, intersection, container);
+            container.append(this.separator());
+        }
+
+        container.append(this.separator("Mesh"))
+        this.addObjectControls(object, intersection, container);
+        container.append(this.separator());
+
+
+
+        this.objectControlsContainer.append(container);
+    }
+
+    protected addObjectControls(target: Object3D, intersection: Intersection, container: HTMLElement) {
 
         const posRange = 16 * 8;
         const rotRange = 360;
         const scaleRange = 4;
 
-        if (intersection.instanceId && (<SceneObject>object.parent).isInstanced) {
-            const parent: SceneObject = object.parent as SceneObject;
+        if (intersection.instanceId && isSceneObject(target) && (<SceneObject>target).isInstanced) {
+            const scObj: SceneObject = target as SceneObject;
 
             container.append(this.separator("Position"))
 
-            let pos = parent.getPositionAt(intersection.instanceId);
+            let pos = scObj.getPositionAt(intersection.instanceId);
             container.append(this.rangeControl("X Position", "X", -posRange, posRange, pos.x, 1, v => {
-                pos = parent.getPositionAt(intersection.instanceId!);
+                pos = scObj.getPositionAt(intersection.instanceId!);
                 pos.x = v;
-                parent.setPositionAt(intersection.instanceId!, pos);
+                scObj.setPositionAt(intersection.instanceId!, pos);
             }));
             container.append(this.rangeControl("Y Position", "Y", -posRange, posRange, pos.y, 1, v => {
-                pos = parent.getPositionAt(intersection.instanceId!);
+                pos = scObj.getPositionAt(intersection.instanceId!);
                 pos.y = v;
-                parent.setPositionAt(intersection.instanceId!, pos);
+                scObj.setPositionAt(intersection.instanceId!, pos);
             }));
             container.append(this.rangeControl("Z Position", "Z", -posRange, posRange, pos.z, 1, v => {
-                pos = parent.getPositionAt(intersection.instanceId!);
+                pos = scObj.getPositionAt(intersection.instanceId!);
                 pos.z = v;
-                parent.setPositionAt(intersection.instanceId!, pos);
+                scObj.setPositionAt(intersection.instanceId!, pos);
             }));
 
             container.append(this.separator("Rotation"))
 
-            let rot = parent.getRotationAt(intersection.instanceId);
+            let rot = scObj.getRotationAt(intersection.instanceId);
             container.append(this.rangeControl("X Rotation", "X", 0, rotRange, Math.round(toDegrees(rot.x)), 1, v => {
-                rot = parent.getRotationAt(intersection.instanceId!);
+                rot = scObj.getRotationAt(intersection.instanceId!);
                 rot.x = toRadians(v);
-                parent.setRotationAt(intersection.instanceId!, rot);
+                scObj.setRotationAt(intersection.instanceId!, rot);
             }));
             container.append(this.rangeControl("Y Rotation", "Y", 0, rotRange, Math.round(toDegrees(rot.y)), 1, v => {
-                rot = parent.getRotationAt(intersection.instanceId!);
+                rot = scObj.getRotationAt(intersection.instanceId!);
                 rot.y = toRadians(v);
-                parent.setRotationAt(intersection.instanceId!, rot);
+                scObj.setRotationAt(intersection.instanceId!, rot);
             }));
             container.append(this.rangeControl("Z Rotation", "Z", 0, rotRange, Math.round(toDegrees(rot.z)), 1, v => {
-                rot = parent.getRotationAt(intersection.instanceId!);
+                rot = scObj.getRotationAt(intersection.instanceId!);
                 rot.z = toRadians(v);
-                parent.setRotationAt(intersection.instanceId!, rot);
+                scObj.setRotationAt(intersection.instanceId!, rot);
             }));
 
             container.append(this.separator("Scale"))
 
-            let scl = parent.getScale();
+            let scl = scObj.getScale();
             container.append(this.rangeControl("X Scale", "X", 0, scaleRange, scl.x, 0.1, v => {
-                scl = parent.getScaleAt(intersection.instanceId!);
+                scl = scObj.getScaleAt(intersection.instanceId!);
                 scl.x = v;
-                parent.setScaleAt(intersection.instanceId!, scl);
+                scObj.setScaleAt(intersection.instanceId!, scl);
             }));
             container.append(this.rangeControl("Y Scale", "Y", 0, scaleRange, scl.y, 0.1, v => {
-                scl = parent.getScaleAt(intersection.instanceId!);
+                scl = scObj.getScaleAt(intersection.instanceId!);
                 scl.y = v;
-                parent.setScaleAt(intersection.instanceId!, scl);
+                scObj.setScaleAt(intersection.instanceId!, scl);
             }));
             container.append(this.rangeControl("Z Scale", "Z", 0, scaleRange, scl.z, 0.1, v => {
-                scl = parent.getScaleAt(intersection.instanceId!);
+                scl = scObj.getScaleAt(intersection.instanceId!);
                 scl.z = v;
-                parent.setScaleAt(intersection.instanceId!, scl);
+                scObj.setScaleAt(intersection.instanceId!, scl);
             }));
-        } else if (isTransformable(object.parent)) {
-            const parent: Transformable = object.parent;
+        } else if (isTransformable(target)) {
+            const parent: Transformable = target;
 
             container.append(this.separator("Position"))
 
@@ -228,26 +255,44 @@ export class SceneInspector {
         } else {
             container.append(this.separator("Position"))
 
-            container.append(this.rangeControl("X Position", "X", -posRange, posRange, object.parent.position.x, 1, v => object.parent!.position.setX(v)));
-            container.append(this.rangeControl("Y Position", "Y", -posRange, posRange, object.parent.position.y, 1, v => object.parent!.position.setY(v)));
-            container.append(this.rangeControl("Z Position", "Z", -posRange, posRange, object.parent.position.z, 1, v => object.parent!.position.setZ(v)));
+            container.append(this.rangeControl("X Position", "X", -posRange, posRange, target.position.x, 1, v => target!.position.setX(v)));
+            container.append(this.rangeControl("Y Position", "Y", -posRange, posRange, target.position.y, 1, v => target!.position.setY(v)));
+            container.append(this.rangeControl("Z Position", "Z", -posRange, posRange, target.position.z, 1, v => target!.position.setZ(v)));
 
             container.append(this.separator("Rotation"))
 
-            container.append(this.rangeControl("X Rotation", "X", 0, rotRange, toDegrees(object.parent.rotation.x), 1, v => object.parent!.rotation.x = toRadians(v)));
-            container.append(this.rangeControl("Y Rotation", "Y", 0, rotRange, toDegrees(object.parent.rotation.y), 1, v => object.parent!.rotation.y = toRadians(v)));
-            container.append(this.rangeControl("Z Rotation", "Z", 0, rotRange, toDegrees(object.parent.rotation.z), 1, v => object.parent!.rotation.z = toRadians(v)));
+            container.append(this.rangeControl("X Rotation", "X", 0, rotRange, toDegrees(target.rotation.x), 1, v => target!.rotation.x = toRadians(v)));
+            container.append(this.rangeControl("Y Rotation", "Y", 0, rotRange, toDegrees(target.rotation.y), 1, v => target!.rotation.y = toRadians(v)));
+            container.append(this.rangeControl("Z Rotation", "Z", 0, rotRange, toDegrees(target.rotation.z), 1, v => target!.rotation.z = toRadians(v)));
 
             container.append(this.separator("Scale"))
 
-            container.append(this.rangeControl("X Scale", "X", 0, scaleRange, object.parent.scale.x, 0.1, v => object.parent!.scale.x = v));
-            container.append(this.rangeControl("Y Scale", "Y", 0, scaleRange, object.parent.scale.y, 0.1, v => object.parent!.scale.y = v));
-            container.append(this.rangeControl("Z Scale", "Z", 0, scaleRange, object.parent.scale.z, 0.1, v => object.parent!.scale.z = v));
+            container.append(this.rangeControl("X Scale", "X", 0, scaleRange, target.scale.x, 0.1, v => target!.scale.x = v));
+            container.append(this.rangeControl("Y Scale", "Y", 0, scaleRange, target.scale.y, 0.1, v => target!.scale.y = v));
+            container.append(this.rangeControl("Z Scale", "Z", 0, scaleRange, target.scale.z, 0.1, v => target!.scale.z = v));
         }
-
-        this.objectControlsContainer.append(container);
     }
 
+    protected selectControl(name: string, id: string, options: string[], change: (v: string) => void): HTMLElement {
+        const label = document.createElement("label");
+        label.innerText = id;
+        label.setAttribute("title", name);
+
+        const select = document.createElement("select");
+        options.forEach(o=>{
+            const opt = document.createElement("option");
+            opt.value = o;
+            opt.innerText = o;
+            select.append(opt);
+        });
+        select.addEventListener("change",e=>{
+            change(options[select.selectedIndex]);
+        });
+        select.selectedIndex = 0;
+        label.append(select);
+        label.append(document.createElement("br"));
+        return label;
+    }
 
     protected toggleControl(name: string, id: string, val: boolean, change: (v: boolean) => void): HTMLElement {
         const label = document.createElement("label");
@@ -288,6 +333,7 @@ export class SceneInspector {
         // range.addEventListener("change", onChange);
         range.addEventListener("input", onChange);
         range.addEventListener("wheel", e => {
+            e.preventDefault();
             if (e.deltaY < 0) {
                 range.value = `${ parseFloat(range.value) + step }`;
                 onChange();

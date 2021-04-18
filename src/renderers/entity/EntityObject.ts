@@ -5,9 +5,9 @@ import { Caching } from "../../cache/Caching";
 import { Models } from "../../assets/Models";
 import { Assets, DEFAULT_NAMESPACE } from "../../assets/Assets";
 import merge from "ts-deepmerge";
-import { Euler, Matrix4, Vector3 } from "three";
+import { AxesHelper, Euler, Matrix4, Object3D, Vector3 } from "three";
 import { Maybe, toRadians } from "../../util/util";
-import { addWireframeToMesh, addWireframeToObject, applyElementRotation, applyGenericRotation } from "../../util/model";
+import { addWireframeToMesh, addWireframeToObject, applyElementRotation, applyGenericRotation, applyModelPartRotation } from "../../util/model";
 import { Axis } from "../../Axis";
 import { MineRenderError } from "../../error/MineRenderError";
 import { isInstancedMesh } from "../../util/three";
@@ -71,6 +71,10 @@ export class EntityObject extends SceneObject {
         for (let partName in this.entity.parts) {
             const part = this.entity.parts[partName];
             const texture = new MinecraftCubeTexture(part.textureOffsetU, part.textureOffsetV, part.textureWidth, part.textureHeight);
+            const partAnchor = new Object3D();
+            partAnchor.position.x = part.pivotX;
+            partAnchor.position.y = part.pivotY;
+            partAnchor.position.z = part.pivotZ;
             for (let cube of part.cubes) {
                 const w = cube.maxX - cube.minX;
                 const h = cube.maxY - cube.minY;
@@ -81,19 +85,19 @@ export class EntityObject extends SceneObject {
 
                 cubeGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(w / 2, h / 2, l / 2));
                 cubeGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(cube.minX, cube.minY, cube.minZ));
-                cubeGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(part.pivotX, part.pivotY, part.pivotZ));
 
-                //TODO: rotation
-                // if (el.rotation) {
-                //     applyElementRotation(el.rotation, elGeo);
-                // }
+                applyModelPartRotation(part, cubeGeo);
+
 
                 // TODO: merge parts
-                const mesh = this.createAndAddMesh(partName, undefined, cubeGeo, mat);
+                // const mesh = this.createAndAddMesh(partName, undefined, cubeGeo, mat);
+                const mesh = this.createMesh(partName, cubeGeo, mat);
+                partAnchor.add(mesh);
                 if (this.options.wireframe) {
                     addWireframeToMesh(cubeGeo, mesh);
                 }
             }
+            this.add(partAnchor);
         }
 
         //TODO
