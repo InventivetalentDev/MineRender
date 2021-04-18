@@ -2,7 +2,7 @@ import { MineRenderScene } from "../renderers/MineRenderScene";
 import { Renderer } from "../renderers/Renderer";
 import { Euler, Intersection, Object3D, Raycaster, Vector2, Vector3 } from "three";
 import { isSceneObject, SceneObject } from "../renderers/SceneObject";
-import { toDegrees, toRadians } from "../util/util";
+import { Maybe, toDegrees, toRadians } from "../util/util";
 import { isTransformable, Transformable } from "../Transformable";
 
 export class SceneInspector {
@@ -11,6 +11,7 @@ export class SceneInspector {
     readonly objectControlsContainer: HTMLDivElement;
 
     protected readonly raycaster: Raycaster;
+    private readonly mouse: Vector2 = new Vector2();
 
     public selectedObject?: Object3D;
 
@@ -30,8 +31,9 @@ export class SceneInspector {
         document.addEventListener("click", event => {
             if ((<HTMLElement>event.target)?.nodeName !== "CANVAS") return;
 
-            const mouse = new Vector2((event.clientX / window.innerWidth) * 2 - 1, -(event.clientY / window.innerHeight) * 2 + 1);
-            this.raycaster.setFromCamera(mouse, this.renderer.camera);
+            this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            this.raycaster.setFromCamera(this.mouse, this.renderer.camera);
             const intersects = this.raycaster.intersectObjects(this.renderer.scene.children, true);
             if (intersects.length > 0) {
                 console.log(intersects);
@@ -46,35 +48,41 @@ export class SceneInspector {
             const firstObject = firstIntersection.object;
             console.log(firstObject);
 
-            let targetIntersection: Intersection;
-            let targetObject: Object3D;
+            let targetIntersection: Maybe<Intersection> = undefined;
+            let targetObject: Maybe<Object3D> = undefined;
             const firstSceneObjectIntersection = intersections.find(i => i.object && i.object.parent && isSceneObject(i.object.parent));
             if (firstSceneObjectIntersection && firstSceneObjectIntersection.object) {
                 targetIntersection = firstSceneObjectIntersection;
                 targetObject = firstSceneObjectIntersection.object;
             } else {
                 // fallback to first intersect
-                targetIntersection = firstIntersection;
-                targetObject = firstObject;
+                // targetIntersection = firstIntersection;
+                // targetObject = firstObject;
             }
 
-            this.selectedObject = targetObject;
+            if (!targetIntersection || !targetObject) return;
 
-            this.objectInfoContainer.innerHTML = '';
-            this.addInfoLine("Distance", "D", targetIntersection.distance);
-            this.addInfoLine("Instance #", "I", targetIntersection.instanceId);
-            this.addInfoLine("Type", "T", targetObject.type);
-            this.addInfoLine("Name", "N", targetObject.name);
-            if (targetObject.parent) {
-                this.addInfoLine("Parent", "P", targetObject.parent.constructor.name);
-                if (isSceneObject(targetObject.parent)) {
-
-                }
-            }
-
-            this.objectControlsContainer.innerHTML = '';
-            this.addControls(targetObject, targetIntersection);
+            this.selectObject(targetObject, targetIntersection);
         }
+    }
+
+    protected selectObject(targetObject: Object3D, targetIntersection: Intersection) {
+        this.selectedObject = targetObject;
+
+        this.objectInfoContainer.innerHTML = '';
+        this.addInfoLine("Distance", "D", targetIntersection.distance);
+        this.addInfoLine("Instance #", "I", targetIntersection.instanceId);
+        this.addInfoLine("Type", "T", targetObject.type);
+        this.addInfoLine("Name", "N", targetObject.name);
+        if (targetObject.parent) {
+            this.addInfoLine("Parent", "P", targetObject.parent.constructor.name);
+            if (isSceneObject(targetObject.parent)) {
+                //...
+            }
+        }
+
+        this.objectControlsContainer.innerHTML = '';
+        this.addControls(targetObject, targetIntersection);
     }
 
     protected addInfoLine(name: string, id: string, value: any): HTMLElement {
@@ -97,87 +105,144 @@ export class SceneInspector {
 
         const posRange = 16 * 8;
         const rotRange = 360;
+        const scaleRange = 4;
 
         if (intersection.instanceId && (<SceneObject>object.parent).isInstanced) {
             const parent: SceneObject = object.parent as SceneObject;
 
+            container.append(this.separator("Position"))
+
             let pos = parent.getPositionAt(intersection.instanceId);
-            container.append(this.rangeControl("X Rotation", "X", -posRange, posRange, pos.x, v => {
+            container.append(this.rangeControl("X Position", "X", -posRange, posRange, pos.x, 1, v => {
                 pos = parent.getPositionAt(intersection.instanceId!);
                 pos.x = v;
                 parent.setPositionAt(intersection.instanceId!, pos);
             }));
-            container.append(this.rangeControl("Y Rotation", "Y", -posRange, posRange, pos.y, v => {
+            container.append(this.rangeControl("Y Position", "Y", -posRange, posRange, pos.y, 1, v => {
                 pos = parent.getPositionAt(intersection.instanceId!);
                 pos.y = v;
                 parent.setPositionAt(intersection.instanceId!, pos);
             }));
-            container.append(this.rangeControl("Z Position", "Z", -posRange, posRange, pos.z, v => {
+            container.append(this.rangeControl("Z Position", "Z", -posRange, posRange, pos.z, 1, v => {
                 pos = parent.getPositionAt(intersection.instanceId!);
                 pos.z = v;
                 parent.setPositionAt(intersection.instanceId!, pos);
             }));
 
+            container.append(this.separator("Rotation"))
+
             let rot = parent.getRotationAt(intersection.instanceId);
-            container.append(this.rangeControl("X Rotation", "X", 0, rotRange, Math.round(toDegrees(rot.x)), v => {
+            container.append(this.rangeControl("X Rotation", "X", 0, rotRange, Math.round(toDegrees(rot.x)), 1, v => {
                 rot = parent.getRotationAt(intersection.instanceId!);
                 rot.x = toRadians(v);
                 parent.setRotationAt(intersection.instanceId!, rot);
             }));
-            container.append(this.rangeControl("Y Rotation", "Y", 0, rotRange, Math.round(toDegrees(rot.y)), v => {
+            container.append(this.rangeControl("Y Rotation", "Y", 0, rotRange, Math.round(toDegrees(rot.y)), 1, v => {
                 rot = parent.getRotationAt(intersection.instanceId!);
                 rot.y = toRadians(v);
                 parent.setRotationAt(intersection.instanceId!, rot);
             }));
-            container.append(this.rangeControl("Z Rotation", "Z", 0, rotRange, Math.round(toDegrees(rot.z)), v => {
+            container.append(this.rangeControl("Z Rotation", "Z", 0, rotRange, Math.round(toDegrees(rot.z)), 1, v => {
                 rot = parent.getRotationAt(intersection.instanceId!);
                 rot.z = toRadians(v);
                 parent.setRotationAt(intersection.instanceId!, rot);
+            }));
+
+            container.append(this.separator("Scale"))
+
+            let scl = parent.getScale();
+            container.append(this.rangeControl("X Scale", "X", 0, scaleRange, scl.x, 0.1, v => {
+                scl = parent.getScaleAt(intersection.instanceId!);
+                scl.x = v;
+                parent.setScaleAt(intersection.instanceId!, scl);
+            }));
+            container.append(this.rangeControl("Y Scale", "Y", 0, scaleRange, scl.y, 0.1, v => {
+                scl = parent.getScaleAt(intersection.instanceId!);
+                scl.y = v;
+                parent.setScaleAt(intersection.instanceId!, scl);
+            }));
+            container.append(this.rangeControl("Z Scale", "Z", 0, scaleRange, scl.z, 0.1, v => {
+                scl = parent.getScaleAt(intersection.instanceId!);
+                scl.z = v;
+                parent.setScaleAt(intersection.instanceId!, scl);
             }));
         } else if (isTransformable(object.parent)) {
             const parent: Transformable = object.parent;
 
+            container.append(this.separator("Position"))
+
             let pos = parent.getPosition();
-            container.append(this.rangeControl("X Position", "X", -posRange, posRange, pos.x, v => {
+            container.append(this.rangeControl("X Position", "X", -posRange, posRange, pos.x, 1, v => {
                 pos = parent.getPosition();
                 pos.x = v;
                 parent.setPosition(pos)
             }));
-            container.append(this.rangeControl("Y Position", "Y", -posRange, posRange, pos.y, v => {
+            container.append(this.rangeControl("Y Position", "Y", -posRange, posRange, pos.y, 1, v => {
                 pos = parent.getPosition();
                 pos.y = v;
                 parent.setPosition(pos)
             }));
-            container.append(this.rangeControl("Z Position", "Z", -posRange, posRange, pos.z, v => {
+            container.append(this.rangeControl("Z Position", "Z", -posRange, posRange, pos.z, 1, v => {
                 pos = parent.getPosition();
                 pos.z = v;
                 parent.setPosition(pos)
             }));
 
+            container.append(this.separator("Rotation"))
+
             let rot = parent.getRotation();
-            container.append(this.rangeControl("X Rotation", "X", 0, rotRange, Math.round(toDegrees(rot.x)), v => {
+            container.append(this.rangeControl("X Rotation", "X", 0, rotRange, Math.round(toDegrees(rot.x)), 1, v => {
                 rot = parent.getRotation();
                 rot.x = toRadians(v);
                 parent.setRotation(rot);
             }));
-            container.append(this.rangeControl("Y Rotation", "Y", 0, rotRange, Math.round(toDegrees(rot.y)), v => {
+            container.append(this.rangeControl("Y Rotation", "Y", 0, rotRange, Math.round(toDegrees(rot.y)), 1, v => {
                 rot = parent.getRotation();
                 rot.y = toRadians(v);
                 parent.setRotation(rot);
             }));
-            container.append(this.rangeControl("Z Rotation", "Z", 0, rotRange, Math.round(toDegrees(rot.z)), v => {
+            container.append(this.rangeControl("Z Rotation", "Z", 0, rotRange, Math.round(toDegrees(rot.z)), 1, v => {
                 rot = parent.getRotation();
                 rot.z = toRadians(v);
                 parent.setRotation(rot);
             }));
-        } else {
-            container.append(this.rangeControl("X Position", "X", -posRange, posRange, object.parent.position.x, v => object.parent!.position.setX(v)));
-            container.append(this.rangeControl("Y Position", "Y", -posRange, posRange, object.parent.position.y, v => object.parent!.position.setY(v)));
-            container.append(this.rangeControl("Z Position", "Z", -posRange, posRange, object.parent.position.z, v => object.parent!.position.setZ(v)));
 
-            container.append(this.rangeControl("X Rotation", "X", 0, rotRange, toDegrees(object.parent.rotation.x), v => object.parent!.rotation.x = toRadians(v)));
-            container.append(this.rangeControl("Y Rotation", "Y", 0, rotRange, toDegrees(object.parent.rotation.y), v => object.parent!.rotation.y = toRadians(v)));
-            container.append(this.rangeControl("Z Rotation", "Z", 0, rotRange, toDegrees(object.parent.rotation.z), v => object.parent!.rotation.z = toRadians(v)));
+            container.append(this.separator("Scale"))
+
+            let scl = parent.getScale();
+            container.append(this.rangeControl("X Scale", "X", 0, scaleRange, scl.x, 0.1, v => {
+                scl = parent.getScale();
+                scl.x = v;
+                parent.setScale(scl);
+            }));
+            container.append(this.rangeControl("Y Scale", "Y", 0, scaleRange, scl.y, 0.1, v => {
+                scl = parent.getScale();
+                scl.y = v;
+                parent.setScale(scl);
+            }));
+            container.append(this.rangeControl("Z Scale", "Z", 0, scaleRange, scl.z, 0.1, v => {
+                scl = parent.getScale();
+                scl.z = v;
+                parent.setScale(scl);
+            }));
+        } else {
+            container.append(this.separator("Position"))
+
+            container.append(this.rangeControl("X Position", "X", -posRange, posRange, object.parent.position.x, 1, v => object.parent!.position.setX(v)));
+            container.append(this.rangeControl("Y Position", "Y", -posRange, posRange, object.parent.position.y, 1, v => object.parent!.position.setY(v)));
+            container.append(this.rangeControl("Z Position", "Z", -posRange, posRange, object.parent.position.z, 1, v => object.parent!.position.setZ(v)));
+
+            container.append(this.separator("Rotation"))
+
+            container.append(this.rangeControl("X Rotation", "X", 0, rotRange, toDegrees(object.parent.rotation.x), 1, v => object.parent!.rotation.x = toRadians(v)));
+            container.append(this.rangeControl("Y Rotation", "Y", 0, rotRange, toDegrees(object.parent.rotation.y), 1, v => object.parent!.rotation.y = toRadians(v)));
+            container.append(this.rangeControl("Z Rotation", "Z", 0, rotRange, toDegrees(object.parent.rotation.z), 1, v => object.parent!.rotation.z = toRadians(v)));
+
+            container.append(this.separator("Scale"))
+
+            container.append(this.rangeControl("X Scale", "X", 0, scaleRange, object.parent.scale.x, 0.1, v => object.parent!.scale.x = v));
+            container.append(this.rangeControl("Y Scale", "Y", 0, scaleRange, object.parent.scale.y, 0.1, v => object.parent!.scale.y = v));
+            container.append(this.rangeControl("Z Scale", "Z", 0, scaleRange, object.parent.scale.z, 0.1, v => object.parent!.scale.z = v));
         }
 
         this.objectControlsContainer.append(container);
@@ -200,7 +265,7 @@ export class SceneInspector {
         return label;
     }
 
-    protected rangeControl(name: string, id: string, min: number, max: number, val: number, change: (v: number) => void): HTMLElement {
+    protected rangeControl(name: string, id: string, min: number, max: number, val: number, step: number, change: (v: number) => void): HTMLElement {
         const label = document.createElement("label");
         const labelText = document.createElement("span");
         label.append(labelText);
@@ -214,18 +279,36 @@ export class SceneInspector {
         range.style.width = "80%";
         range.max = `${ max }`;
         range.min = `${ min }`;
+        range.step = `${ step }`;
         range.value = `${ val }`;
-        range.addEventListener("change", e => {
-            change(parseInt(range.value));
+        const onChange = () => {
+            change(parseFloat(range.value));
             labelText.innerText = `${ id } (${ range.value })`
-        })
-        range.addEventListener("input", e => {
-            change(parseInt(range.value));
-            labelText.innerText = `${ id } (${ range.value })`
+        };
+        // range.addEventListener("change", onChange);
+        range.addEventListener("input", onChange);
+        range.addEventListener("wheel", e => {
+            if (e.deltaY < 0) {
+                range.value = `${ parseFloat(range.value) + step }`;
+                onChange();
+            } else if (e.deltaY > 0) {
+                range.value = `${ parseFloat(range.value) - step }`;
+                onChange();
+            }
         })
         label.append(range);
         label.append(document.createElement("br"));
         return label;
+    }
+
+    protected separator(name?: string): HTMLElement {
+        const span = document.createElement("span");
+        if (name) {
+            span.innerText = name;
+        }
+        span.prepend(document.createElement("br"));
+        span.append(document.createElement("br"));
+        return span;
     }
 
 }

@@ -204,6 +204,10 @@ export class SceneObject extends Object3D implements Disposable, Instanceable, T
         return new InstanceReference<this>(this, i);
     }
 
+    //</editor-fold>
+
+    //<editor-fold desc="TRANSFORMATION">
+
     getMatrixAt(index: number, matrix: Matrix4 = new Matrix4()): Matrix4 {
         console.log("getMatrixAt")
         if (!this.isInstanced) throw new MineRenderError("Object is not instanced");
@@ -243,6 +247,8 @@ export class SceneObject extends Object3D implements Disposable, Instanceable, T
             rotation ? new Quaternion().setFromEuler(rotation) : oldRotation,
             scale ? scale : oldScale
         );
+
+        console.log(matrix)
 
         this.setMatrixAt(index, matrix);
     }

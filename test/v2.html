@@ -213,7 +213,7 @@
 
                         let obj = new MineRender.BlockObject(blockState, {
                             mergeMeshes: true,
-                            instanceMeshes: false,
+                            instanceMeshes: true,
                             wireframe: true,
                             maxInstanceCount: instances + 5
                         });
@@ -225,7 +225,7 @@
                                 if (!obj.isInstanced) return;
                                 for (let i = 0; i < instances; i++) {
                                     let n = obj.nextInstance();
-                                    n.setPosition(new THREE.Vector3(Math.random()*16*8,0,Math.random()*16*8))
+                                    n.setPosition(new THREE.Vector3(x,y,z))
                                     // obj.setPositionAt(n.index, new THREE.Vector3(16,64,16));
                                     // obj.setRotationAt(n.index, new THREE.Euler(0,1.5708,0));
                                     // incStat("instanceCount")

@@ -46,6 +46,7 @@ export class Renderer {
 
         if (this.options.render.stats) {
             this._stats = new Stats();
+
             document.body.appendChild(this._stats.dom);//TODO
         }
     }
