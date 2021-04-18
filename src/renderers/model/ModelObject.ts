@@ -85,7 +85,7 @@ export class ModelObject extends SceneObject {
                     }
 
 
-                    // elGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(8,8,8));
+                    elGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(-8,-8,-8));
 
                     if (this.options.mergeMeshes) {
                         allGeos.push(elGeo);

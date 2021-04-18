@@ -1,7 +1,7 @@
 import { MineRenderScene } from "../renderers/MineRenderScene";
 import { Renderer } from "../renderers/Renderer";
 import { Euler, Intersection, Object3D, Raycaster, Vector2, Vector3 } from "three";
-import { isSceneObject } from "../renderers/SceneObject";
+import { isSceneObject, SceneObject } from "../renderers/SceneObject";
 import { toDegrees, toRadians } from "../util/util";
 import { isTransformable, Transformable } from "../Transformable";
 
@@ -89,61 +89,105 @@ export class SceneInspector {
     }
 
     protected addControls(object: Object3D, intersection: Intersection) {
-        if(!object.parent) return;
+        if (!object.parent) return;
 
         const container = document.createElement("div");
 
-        container.append(this.toggleControl("V", object.visible, v => object.visible = v));
-
-        if (intersection.instanceId) {
-            //TODO
-        } else {
-
-        }
+        container.append(this.toggleControl("Visibility", "V", object.visible, v => object.visible = v));
 
         const posRange = 16 * 8;
-        if(isTransformable(object.parent)){
-            const parent: Transformable = object.parent;
-            container.append(this.rangeControl("X", -posRange, posRange, object.parent.getPosition().x, v => {
-                parent.setPosition(new Vector3(v, parent.getPosition().y, parent.getPosition().z))
-            }));
-            container.append(this.rangeControl("Y", -posRange, posRange, object.parent.getPosition().y, v => {
-                parent.setPosition(new Vector3(parent.getPosition().x, v, parent.getPosition().z))
-            }));
-            container.append(this.rangeControl("Z", -posRange, posRange, object.parent.getPosition().z, v => {
-                parent.setPosition(new Vector3(parent.getPosition().x, parent.getPosition().y, v))
-            }));
-        }else {
-            container.append(this.rangeControl("X", -posRange, posRange, object.parent.position.x, v => object.parent!.position.setX(v)));
-            container.append(this.rangeControl("Y", -posRange, posRange, object.parent.position.y, v => object.parent!.position.setY(v)));
-            container.append(this.rangeControl("Z", -posRange, posRange, object.parent.position.z, v => object.parent!.position.setZ(v)));
-        }
-
         const rotRange = 360;
-        if(isTransformable(object.parent)){
+
+        if (intersection.instanceId && (<SceneObject>object.parent).isInstanced) {
+            const parent: SceneObject = object.parent as SceneObject;
+
+            let pos = parent.getPositionAt(intersection.instanceId);
+            container.append(this.rangeControl("X Rotation", "X", -posRange, posRange, pos.x, v => {
+                pos = parent.getPositionAt(intersection.instanceId!);
+                pos.x = v;
+                parent.setPositionAt(intersection.instanceId!, pos);
+            }));
+            container.append(this.rangeControl("Y Rotation", "Y", -posRange, posRange, pos.y, v => {
+                pos = parent.getPositionAt(intersection.instanceId!);
+                pos.y = v;
+                parent.setPositionAt(intersection.instanceId!, pos);
+            }));
+            container.append(this.rangeControl("Z Position", "Z", -posRange, posRange, pos.z, v => {
+                pos = parent.getPositionAt(intersection.instanceId!);
+                pos.z = v;
+                parent.setPositionAt(intersection.instanceId!, pos);
+            }));
+
+            let rot = parent.getRotationAt(intersection.instanceId);
+            container.append(this.rangeControl("X Rotation", "X", 0, rotRange, Math.round(toDegrees(rot.x)), v => {
+                rot = parent.getRotationAt(intersection.instanceId!);
+                rot.x = toRadians(v);
+                parent.setRotationAt(intersection.instanceId!, rot);
+            }));
+            container.append(this.rangeControl("Y Rotation", "Y", 0, rotRange, Math.round(toDegrees(rot.y)), v => {
+                rot = parent.getRotationAt(intersection.instanceId!);
+                rot.y = toRadians(v);
+                parent.setRotationAt(intersection.instanceId!, rot);
+            }));
+            container.append(this.rangeControl("Z Rotation", "Z", 0, rotRange, Math.round(toDegrees(rot.z)), v => {
+                rot = parent.getRotationAt(intersection.instanceId!);
+                rot.z = toRadians(v);
+                parent.setRotationAt(intersection.instanceId!, rot);
+            }));
+        } else if (isTransformable(object.parent)) {
             const parent: Transformable = object.parent;
-            container.append(this.rangeControl("X", 0, rotRange, toDegrees(object.parent.getRotation().x), v => {
-                parent.setRotation(new Euler(toRadians(v), parent.getRotation().y, parent.getRotation().z))
+
+            let pos = parent.getPosition();
+            container.append(this.rangeControl("X Position", "X", -posRange, posRange, pos.x, v => {
+                pos = parent.getPosition();
+                pos.x = v;
+                parent.setPosition(pos)
             }));
-            container.append(this.rangeControl("Y", 0, rotRange, toDegrees(object.parent.getRotation().y), v => {
-                parent.setRotation(new Euler(parent.getRotation().x, toRadians(v), parent.getRotation().z))
+            container.append(this.rangeControl("Y Position", "Y", -posRange, posRange, pos.y, v => {
+                pos = parent.getPosition();
+                pos.y = v;
+                parent.setPosition(pos)
             }));
-            container.append(this.rangeControl("Z", 0, rotRange, toDegrees(object.parent.getRotation().z), v => {
-                parent.setRotation(new Euler(parent.getRotation().x, parent.getRotation().y, toRadians(v)));
+            container.append(this.rangeControl("Z Position", "Z", -posRange, posRange, pos.z, v => {
+                pos = parent.getPosition();
+                pos.z = v;
+                parent.setPosition(pos)
             }));
-        }else {
-            container.append(this.rangeControl("X", 0, rotRange, toDegrees(object.parent.rotation.x), v => object.parent!.rotation.x = toRadians(v)));
-            container.append(this.rangeControl("Y", 0, rotRange, toDegrees(object.parent.rotation.y), v => object.parent!.rotation.y = toRadians(v)));
-            container.append(this.rangeControl("Z", 0, rotRange, toDegrees(object.parent.rotation.z), v => object.parent!.rotation.z = toRadians(v)));
+
+            let rot = parent.getRotation();
+            container.append(this.rangeControl("X Rotation", "X", 0, rotRange, Math.round(toDegrees(rot.x)), v => {
+                rot = parent.getRotation();
+                rot.x = toRadians(v);
+                parent.setRotation(rot);
+            }));
+            container.append(this.rangeControl("Y Rotation", "Y", 0, rotRange, Math.round(toDegrees(rot.y)), v => {
+                rot = parent.getRotation();
+                rot.y = toRadians(v);
+                parent.setRotation(rot);
+            }));
+            container.append(this.rangeControl("Z Rotation", "Z", 0, rotRange, Math.round(toDegrees(rot.z)), v => {
+                rot = parent.getRotation();
+                rot.z = toRadians(v);
+                parent.setRotation(rot);
+            }));
+        } else {
+            container.append(this.rangeControl("X Position", "X", -posRange, posRange, object.parent.position.x, v => object.parent!.position.setX(v)));
+            container.append(this.rangeControl("Y Position", "Y", -posRange, posRange, object.parent.position.y, v => object.parent!.position.setY(v)));
+            container.append(this.rangeControl("Z Position", "Z", -posRange, posRange, object.parent.position.z, v => object.parent!.position.setZ(v)));
+
+            container.append(this.rangeControl("X Rotation", "X", 0, rotRange, toDegrees(object.parent.rotation.x), v => object.parent!.rotation.x = toRadians(v)));
+            container.append(this.rangeControl("Y Rotation", "Y", 0, rotRange, toDegrees(object.parent.rotation.y), v => object.parent!.rotation.y = toRadians(v)));
+            container.append(this.rangeControl("Z Rotation", "Z", 0, rotRange, toDegrees(object.parent.rotation.z), v => object.parent!.rotation.z = toRadians(v)));
         }
 
         this.objectControlsContainer.append(container);
     }
 
 
-    protected toggleControl(name: string, val: boolean, change: (v: boolean) => void): HTMLElement {
+    protected toggleControl(name: string, id: string, val: boolean, change: (v: boolean) => void): HTMLElement {
         const label = document.createElement("label");
-        label.innerText = name;
+        label.innerText = id;
+        label.setAttribute("title", name);
 
         const toggle = document.createElement("input");
         toggle.setAttribute("type", "checkbox");
@@ -156,13 +200,14 @@ export class SceneInspector {
         return label;
     }
 
-    protected rangeControl(name: string, min: number, max: number, val: number, change: (v: number) => void): HTMLElement {
+    protected rangeControl(name: string, id: string, min: number, max: number, val: number, change: (v: number) => void): HTMLElement {
         const label = document.createElement("label");
         const labelText = document.createElement("span");
         label.append(labelText);
+        label.setAttribute("title", name);
         labelText.style.width = "15%";
         labelText.style.display = "inline-block";
-        labelText.innerText = `${ name } (${ val })`;
+        labelText.innerText = `${ id } (${ val })`;
 
         const range = document.createElement("input");
         range.setAttribute("type", "range");
@@ -172,11 +217,11 @@ export class SceneInspector {
         range.value = `${ val }`;
         range.addEventListener("change", e => {
             change(parseInt(range.value));
-            labelText.innerText = `${ name } (${ range.value })`
+            labelText.innerText = `${ id } (${ range.value })`
         })
         range.addEventListener("input", e => {
             change(parseInt(range.value));
-            labelText.innerText = `${ name } (${ range.value })`
+            labelText.innerText = `${ id } (${ range.value })`
         })
         label.append(range);
         label.append(document.createElement("br"));
