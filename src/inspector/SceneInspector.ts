@@ -67,6 +67,7 @@ export class SceneInspector {
 
     protected selectObject(targetObject: Object3D, targetIntersection: Intersection) {
         this.selectedObject = targetObject;
+        console.log("selected", targetObject);
 
         this.objectInfoContainer.innerHTML = '';
         this.addInfoLine("Distance", "D", targetIntersection.distance);
@@ -98,6 +99,23 @@ export class SceneInspector {
     protected addControls(object: Object3D, intersection: Intersection) {
         const container = document.createElement("div");
 
+        container.append(this.separator("Select Parent/Child"));
+
+        if (object.parent) {
+            container.append(this.buttonControl("Select Parent " + object.parent.name, "P", () => {
+                this.selectObject(object.parent!, intersection);
+            }));
+        }
+        if (object.children.length > 0) {
+            let i = 1;
+            for (let child of object.children) {
+                container.append(this.buttonControl("Select Child " + child.name, "C" + (i++), () => {
+                    this.selectObject(child, intersection);
+                }));
+            }
+        }
+        container.append(this.separator());
+
         container.append(this.toggleControl("Visibility", "V", object.visible, v => object.visible = v));
 
         // let transformTarget = object.parent!;
@@ -113,16 +131,16 @@ export class SceneInspector {
         // }))
 
 
-        if(object.parent) {
-            container.append(this.separator("Parent"))
-            this.addObjectControls(object.parent, intersection, container);
-            container.append(this.separator());
-        }
+        // if(object.parent) {
+        //     container.append(this.separator("Parent"))
+        //     this.addObjectControls(object.parent, intersection, container);
+        //     container.append(this.separator());
+        // }
+
 
         container.append(this.separator("Mesh"))
         this.addObjectControls(object, intersection, container);
         container.append(this.separator());
-
 
 
         this.objectControlsContainer.append(container);
@@ -273,19 +291,27 @@ export class SceneInspector {
         }
     }
 
+    protected buttonControl(name: string, id: string, click: () => void): HTMLElement {
+        const button = document.createElement("button");
+        button.innerText = id;
+        button.setAttribute("title", name);
+        button.addEventListener("click", click);
+        return button;
+    }
+
     protected selectControl(name: string, id: string, options: string[], change: (v: string) => void): HTMLElement {
         const label = document.createElement("label");
         label.innerText = id;
         label.setAttribute("title", name);
 
         const select = document.createElement("select");
-        options.forEach(o=>{
+        options.forEach(o => {
             const opt = document.createElement("option");
             opt.value = o;
             opt.innerText = o;
             select.append(opt);
         });
-        select.addEventListener("change",e=>{
+        select.addEventListener("change", e => {
             change(options[select.selectedIndex]);
         });
         select.selectedIndex = 0;
