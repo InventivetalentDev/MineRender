@@ -98,7 +98,6 @@ export class ModelObject extends SceneObject {
                 // TODO
                 //  two planes, wrap edges
 
-
             }
         } else {
             dbg("Missing texture atlas for %O", this);

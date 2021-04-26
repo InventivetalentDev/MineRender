@@ -19,6 +19,12 @@ export class TextureAtlas implements Disposable {
     ) {
     }
 
+    getData(texture: string): ImageData {
+        const pos = this.positions[texture];
+        const size = this.sizes[texture];
+        return this.image.getData(pos[0], pos[1], size[0], size[1]);
+    }
+
     dispose() {
         this.image.dispose();
         Ticker.remove(this.ticker);

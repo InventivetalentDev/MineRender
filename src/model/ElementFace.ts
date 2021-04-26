@@ -4,7 +4,7 @@ export interface ElementFace {
     uv: QuadArray;
     mappedUv?: QuadArray;
     texture: string;
-    cullface: string;
-    rotation: number;
-    tintindex: number;
+    cullface?: string;
+    rotation?: number;
+    tintindex?: number;
 }

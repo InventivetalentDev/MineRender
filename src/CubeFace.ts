@@ -7,5 +7,14 @@ export enum CubeFace {
     NORTH = "north", // nz
 }
 
+export enum CubeFaceIndex {
+    EAST,
+    WEST,
+    UP,
+    DOWN,
+    SOUTH,
+    NORTH
+}
+
 export const CUBE_FACES = Object.values(CubeFace);
 

@@ -4,6 +4,10 @@ import { GuiLight } from "./GuiLight";
 import { MinecraftAsset } from "../MinecraftAsset";
 import { ImageInfo } from "../image/ImageLoader";
 
+export const ITEM_GENERATED = "item/generated";
+export const BUILTIN_GENERATED = "builtin/generated";
+export const BUILTIN_ENTITY = "builtin/entity";
+
 export const DEFAULT_ELEMENTS: ModelElement[] = []
 
 export interface Model extends MinecraftAsset {

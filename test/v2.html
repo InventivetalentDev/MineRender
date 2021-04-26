@@ -175,12 +175,7 @@
 
 
             async function createModel(type, name, instances = 1, x = 0, y = 0, z = 0) {
-                return MineRender.Models.getMerged({
-                    assetType: "models",
-                    type: type,
-                    path: name,
-                    extension: ".json"
-                }).then(model => {
+                return MineRender.Models.getMerged(new MineRender.AssetKey("minecraft", name, "models", type)).then(model => {
                     console.log(model)
                     return renderer.scene.addModel(model, {
                         mergeMeshes: true,
@@ -244,6 +239,7 @@
             //     await createModel("block", "acacia_log", 1, 32, 32, 16)
             //     await createModel("block", "acacia_log", 1, 32, 32, 16)
             // })();
+            createModel("item", "wooden_sword")
 
             MineRender.BlockStates.getList().then(blockList_ => {
                 const blockList = [...blockList_];
@@ -268,12 +264,12 @@
                 console.log(blockList)
             })
 
-            MineRender.Entities.getEntity(new MineRender.BasicAssetKey("minecraft", "armor_stand"), new MineRender.BasicAssetKey("minecraft","armorstand/wood")).then(model => {
-                let obj = new MineRender.EntityObject(model, {
-                    wireframe: true,
-                });
-                renderer.scene.initAndAdd(obj);
-            });
+            // MineRender.Entities.getEntity(new MineRender.BasicAssetKey("minecraft", "armor_stand"), new MineRender.BasicAssetKey("minecraft","armorstand/wood")).then(model => {
+            //     let obj = new MineRender.EntityObject(model, {
+            //         wireframe: true,
+            //     });
+            //     renderer.scene.initAndAdd(obj);
+            // });
 
             // MineRender.BlockStates.getList().then(blockList_=>{
             //     const blockList = [...blockList_];

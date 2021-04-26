@@ -14,7 +14,7 @@ export class ModelMerger {
         }
         merged = merge(merged, model);
         // merged.names = names;
-        delete merged.parent;
+        // delete merged.parent;
         return merged;
     }
 

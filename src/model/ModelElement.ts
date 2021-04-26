@@ -9,16 +9,16 @@ export interface FromTo {
 }
 
 export interface ModelElement extends FromTo {
-    rotation: ElementRotation;
+    rotation?: ElementRotation;
 
-    shade: boolean;
+    shade?: boolean;
 
     faces: ModelFaces;
 
     mappedUv?: number[];
 }
 
-export type ModelFaces = Record<CubeFace, Partial<ElementFace>>;
+export type ModelFaces = Partial<Record<CubeFace, Partial<ElementFace>>>;
 
 export interface ElementRotation {
     origin: TripleArray;

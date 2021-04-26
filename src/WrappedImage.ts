@@ -49,6 +49,10 @@ export class WrappedImage {
         return this.dta.data.getImageData(sx, sy, sw, sh);
     }
 
+    getPixel(x: number, y: number): Uint8ClampedArray {
+        return this.dta.data.getImageData(x,y,1,1).data;
+    }
+
     getFrameSectionData(frame: number): ImageData {
         const y = this.getFrameY(frame);
         return this.getSectionData(0, y, this.width, this.width + y);

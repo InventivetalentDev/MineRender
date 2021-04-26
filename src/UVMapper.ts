@@ -18,6 +18,7 @@ import { DEBUG_NAMESPACE } from "./util/debug";
 import { AnimatorFunction } from "./AnimatorFunction";
 import { MinecraftTextureMeta } from "./MinecraftTextureMeta";
 import { AssetKey } from "./assets/AssetKey";
+import { ModelGenerator } from "./model/ModelGenerator";
 
 const d = debug(`${ DEBUG_NAMESPACE }:UVMapper`);
 
@@ -237,6 +238,8 @@ export class UVMapper {
         const textureMap: { [key: string]: Maybe<WrappedImage>; } = {};
         const metaMap: { [key: string]: Maybe<MinecraftTextureMeta>; } = {};
         const model = { ...originalModel };
+        const isItemModel = !("elements" in model);
+
         if (model.textures) {
             const promises: Promise<void>[] = [];
             const uniqueTextureNames: string[] = []; // TODO: make these actually unique
@@ -370,6 +373,18 @@ export class UVMapper {
 
             // console.log(positions);
 
+            if (isItemModel) {
+                d("Generating item model for %O", model);
+                model.elements = [];
+                for (let layerName of ModelGenerator.ITEM_LAYERS) {
+                    const textureImage = textureMap[layerName];
+                    if (textureImage) {
+                        model.elements.push(...ModelGenerator.generateItemModel(textureImage.data, layerName))
+                    }
+                }
+                console.log(model.elements)
+            }
+
             if (!model.elements) {
                 //TODO: default elements
             }
@@ -439,6 +454,8 @@ export class UVMapper {
                     // console.log(uv);
                     element.mappedUv = uv;
                 }
+            } else {
+                //TODO: item model
             }
 
             return new TextureAtlas(
