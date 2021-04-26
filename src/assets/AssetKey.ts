@@ -1,4 +1,4 @@
-import { md5 } from "../util/util";
+import { base64encode, md5 } from "../util/util";
 import { Serializable } from "../Serializable";
 import { DEFAULT_NAMESPACE } from "./Assets";
 
@@ -78,7 +78,7 @@ export class AssetKey extends BasicAssetKey {
     }
 
     serialize(): string {
-        return md5(this.toString());
+        return base64encode(this.toString());
     }
 }
 

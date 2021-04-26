@@ -15,6 +15,7 @@ export interface Model extends MinecraftAsset {
     parent?: string;
     display?: ModelDisplay;
     elements?: ModelElement[];
+    hierarchy?: string[];
 }
 
 export interface BlockModel extends Model {
