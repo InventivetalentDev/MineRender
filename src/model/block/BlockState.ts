@@ -1,4 +1,4 @@
-import { MinecraftAsset } from "../MinecraftAsset";
+import { MinecraftAsset } from "../../MinecraftAsset";
 
 export interface BlockState extends MinecraftAsset {
     variants?: BlockStateVariants;

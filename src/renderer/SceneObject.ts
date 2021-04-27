@@ -6,7 +6,7 @@ import { DoubleArray, TripleArray } from "../model/Model";
 import { Axis, axisToVec3 } from "../Axis";
 import { BufferGeometry } from "three/src/core/BufferGeometry";
 import { Material } from "three/src/materials/Material";
-import { SkinPart } from "./skin/SkinPart";
+import { SkinPart } from "../skin/SkinPart";
 import { Maybe } from "../util/util";
 import { InstanceReference } from "../instance/InstanceReference";
 import { MineRenderError } from "../error/MineRenderError";

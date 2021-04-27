@@ -16,7 +16,7 @@ import { TextureAtlas } from "../texture/TextureAtlas";
 import { ExtractableImageData } from "../ExtractableImageData";
 import { MinecraftTextureMeta } from "../MinecraftTextureMeta";
 import { BlockStates } from "../assets/BlockStates";
-import { BlockState } from "../model/BlockState";
+import { BlockState } from "../model/block/BlockState";
 
 export class Caching {
 

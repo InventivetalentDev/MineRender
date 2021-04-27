@@ -1,7 +1,7 @@
 import { Models } from "./Models";
 import { Model } from "../model/Model";
 import { Maybe } from "../util/util";
-import { BlockState } from "../model/BlockState";
+import { BlockState } from "../model/block/BlockState";
 import { BlockStates } from "./BlockStates";
 import { AssetKey, AssetType } from "./AssetKey";
 

@@ -1,6 +1,6 @@
-import { Renderer } from "../renderers/Renderer";
+import { Renderer } from "../renderer/Renderer";
 import { Intersection, Object3D, Raycaster, Vector2 } from "three";
-import { isSceneObject, SceneObject } from "../renderers/SceneObject";
+import { isSceneObject, SceneObject } from "../renderer/SceneObject";
 import { Maybe, toDegrees, toRadians } from "../util/util";
 import { isTransformable, Transformable } from "../Transformable";
 

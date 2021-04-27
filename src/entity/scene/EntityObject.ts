@@ -1,6 +1,6 @@
-import { SceneObject } from "../SceneObject";
-import { BlockState, BlockStateVariant, BlockStateVariants, MultipartCondition } from "../../model/BlockState";
-import { SceneObjectOptions } from "../SceneObjectOptions";
+import { SceneObject } from "../../renderer/SceneObject";
+import { BlockState, BlockStateVariant, BlockStateVariants, MultipartCondition } from "../../model/block/BlockState";
+import { SceneObjectOptions } from "../../renderer/SceneObjectOptions";
 import { Caching } from "../../cache/Caching";
 import { Models } from "../../assets/Models";
 import { Assets, DEFAULT_NAMESPACE } from "../../assets/Assets";
@@ -13,7 +13,7 @@ import { MineRenderError } from "../../error/MineRenderError";
 import { isInstancedMesh } from "../../util/three";
 import { dbg } from "../../util/debug";
 import { types } from "util";
-import { BlockStateProperties, BlockStatePropertyDefaults } from "../../model/BlockStateProperties";
+import { BlockStateProperties, BlockStatePropertyDefaults } from "../../model/block/BlockStateProperties";
 import { BlockStates } from "../../assets/BlockStates";
 import { InstanceReference } from "../../instance/InstanceReference";
 import { ModelTextures } from "../../assets/ModelTextures";
@@ -23,7 +23,7 @@ import { Materials } from "../../Materials";
 import { MinecraftCubeTexture } from "../../MinecraftCubeTexture";
 import * as THREE from "three";
 import { Ticker } from "../../Ticker";
-import { EntityModel } from "../../entity/EntityModel";
+import { EntityModel } from "../EntityModel";
 
 export class EntityObject extends SceneObject {
 

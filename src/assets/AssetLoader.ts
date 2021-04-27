@@ -7,7 +7,7 @@ import { MinecraftAsset } from "../MinecraftAsset";
 import { ImageInfo, ImageLoader } from "../image/ImageLoader";
 import debug from "debug";
 import { MinecraftTextureMeta } from "../MinecraftTextureMeta";
-import { BlockState } from "../model/BlockState";
+import { BlockState } from "../model/block/BlockState";
 import { DEFAULT_NAMESPACE, DEFAULT_ROOT } from "./Assets";
 import { ListAsset } from "../ListAsset";
 import { AssetKey } from "./AssetKey";

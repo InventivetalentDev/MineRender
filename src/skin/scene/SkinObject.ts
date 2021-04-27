@@ -1,13 +1,13 @@
-import { SceneObject } from "../SceneObject";
+import { SceneObject } from "../../renderer/SceneObject";
 import { BoxGeometry } from "three";
-import { SKIN_PARTS, SkinPart } from "./SkinPart";
-import { classicSkinTextureCoordinates, SkinTextureCoordinates, slimSkinTextureCoordinates } from "./SkinTextureCoordinates";
-import { classicSkinGeometries, SkinGeometries, slimSkinGeometries } from "./SkinGeometries";
+import { SKIN_PARTS, SkinPart } from "../SkinPart";
+import { classicSkinTextureCoordinates, SkinTextureCoordinates, slimSkinTextureCoordinates } from "../SkinTextureCoordinates";
+import { classicSkinGeometries, SkinGeometries, slimSkinGeometries } from "../SkinGeometries";
 import { Axis } from "../../Axis";
 import { Materials } from "../../Materials";
-import { ModelObjectOptions } from "../model/ModelObject";
+import { ModelObjectOptions } from "../../model/scene/ModelObject";
 import merge from "ts-deepmerge";
-import { SceneObjectOptions } from "../SceneObjectOptions";
+import { SceneObjectOptions } from "../../renderer/SceneObjectOptions";
 
 export class SkinObject extends SceneObject {
 

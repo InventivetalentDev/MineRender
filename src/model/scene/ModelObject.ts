@@ -1,5 +1,5 @@
-import { SceneObject } from "../SceneObject";
-import { Model, TextureAsset } from "../../model/Model";
+import { SceneObject } from "../../renderer/SceneObject";
+import { Model, TextureAsset } from "../Model";
 import { Materials } from "../../Materials";
 import { ModelTextures } from "../../assets/ModelTextures";
 import webpack from "webpack";
@@ -10,13 +10,13 @@ import { TextureAtlas } from "../../texture/TextureAtlas";
 import { BoxGeometry, BoxHelper, BufferAttribute, EdgesGeometry, InstancedMesh, LineBasicMaterial, LineSegments, Matrix4, Mesh } from "three";
 import * as THREE from "three";
 import { Axis } from "../../Axis";
-import { SceneObjectOptions } from "../SceneObjectOptions";
+import { SceneObjectOptions } from "../../renderer/SceneObjectOptions";
 import { addBox3WireframeToObject, addWireframeToMesh, addWireframeToObject, applyElementRotation } from "../../util/model";
 import { dbg } from "../../util/debug";
 import { Ticker } from "../../Ticker";
 import merge from "ts-deepmerge";
 import { BufferGeometry } from "three/src/core/BufferGeometry";
-import { isMineRenderScene } from "../MineRenderScene";
+import { isMineRenderScene } from "../../renderer/MineRenderScene";
 
 require("three/examples/js/utils/BufferGeometryUtils");
 

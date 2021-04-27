@@ -1,5 +1,5 @@
 import { SkinPart } from "./SkinPart";
-import { ModelFaces } from "../../model/ModelElement";
+import { ModelFaces } from "../model/ModelElement";
 
 
 export type SkinTextureCoordinates = Record<SkinPart, ModelFaces>;

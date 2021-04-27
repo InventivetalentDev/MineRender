@@ -1,6 +1,6 @@
 export * from "./util/debug";
 
-export * from "./renderers/Renderer";
+export * from "./renderer/Renderer";
 export * from "./Materials"
 export * from "./Geometries"
 export * from "./Meshes"
@@ -15,10 +15,10 @@ export * from "./assets/Models"
 export * from "./assets/BlockStates"
 export * from "./assets/Entities";
 
-export * from "./renderers/skin/SkinObject"
-export * from "./renderers/model/ModelObject"
-export * from "./renderers/model/BlockObject"
-export * from "./renderers/entity/EntityObject";
+export * from "./skin/scene/SkinObject"
+export * from "./model/scene/ModelObject"
+export * from "./model/block/scene/BlockObject"
+export * from "./entity/scene/EntityObject";
 
 export * from "./Ticker";
 

@@ -3,14 +3,14 @@ import { SceneObject } from "./SceneObject";
 import { isSceneObject } from "../util/three";
 import merge from "ts-deepmerge";
 import { Model } from "../model/Model";
-import { ModelObject, ModelObjectOptions } from "./model/ModelObject";
+import { ModelObject, ModelObjectOptions } from "../model/scene/ModelObject";
 import { InstanceReference } from "../instance/InstanceReference";
 import { SceneStats } from "../SceneStats";
 import { SSAOPassOUTPUT } from "three/examples/jsm/postprocessing/SSAOPass";
 import { MinecraftAsset } from "../MinecraftAsset";
 import { SceneObjectOptions } from "./SceneObjectOptions";
-import { BlockState } from "../model/BlockState";
-import { BlockObject, BlockObjectOptions } from "./model/BlockObject";
+import { BlockState } from "../model/block/BlockState";
+import { BlockObject, BlockObjectOptions } from "../model/block/scene/BlockObject";
 
 export class MineRenderScene extends Scene {
 
