@@ -1,17 +1,21 @@
 {
+  "extends": "./tsconfig.json",
   "compilerOptions": {
     "sourceMap": true,
     "declaration": true,
-//    "noImplicitAny": true,
+    //    "noImplicitAny": true,
     "noImplicitReturns": true,
     "noImplicitThis": true,
     "experimentalDecorators": true,
     "strictNullChecks": true,
     "strictPropertyInitialization": true,
+    "sourceRoot": "src",
+    "outDir": "lib",
+    "baseUrl": ".",
+    "moduleResolution": "node",
     "resolveJsonModule": true,
     "esModuleInterop": true,
-    "moduleResolution": "node",
-    "module": "CommonJS",
+    "module": "commonjs",
     "target": "es2018",
     "lib": [
       "es6",
@@ -22,6 +26,9 @@
     ]
   },
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "dist",
+    "lib",
+    "web"
   ]
 }

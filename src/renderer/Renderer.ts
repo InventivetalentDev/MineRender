@@ -28,7 +28,7 @@ export class Renderer {
     });
     public readonly options: RendererOptions;
 
-    protected _scene: Scene;
+    protected _scene: MineRenderScene;
     protected _camera: Camera;
     protected _renderer: WebGLRenderer;
 
@@ -53,7 +53,7 @@ export class Renderer {
 
     //<editor-fold desc="INIT">
 
-    protected createScene(): Scene {
+    protected createScene(): MineRenderScene {
         return new MineRenderScene();
     }
 
@@ -137,7 +137,7 @@ export class Renderer {
         return window.innerHeight;
     }
 
-    public get scene(): Scene {
+    public get scene(): MineRenderScene {
         return this._scene;
     }
 

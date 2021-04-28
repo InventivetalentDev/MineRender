@@ -1,8 +1,0 @@
-{
-  "extends": "../tsconfig.json",
-  "compilerOptions": {
-    "sourceRoot": ".",
-    "baseUrl": "."
-  },
-  "include": ["."]
-}
