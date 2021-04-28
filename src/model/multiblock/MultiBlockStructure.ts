@@ -8,7 +8,7 @@ export interface MultiBlockStructure {
 
 }
 
-interface MultiBlockBlock {
+export interface MultiBlockBlock {
 
     readonly type: string;
     readonly properties: BlockStateProperties;

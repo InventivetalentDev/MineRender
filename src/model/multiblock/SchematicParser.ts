@@ -1,9 +1,8 @@
-import { MultiBlockParser } from "./MultiBlockParser";
 import { MultiBlockStructure } from "./MultiBlockStructure";
 
-export class SchematicParser implements MultiBlockParser {
+export class SchematicParser {
 
-    parse(): Promise<MultiBlockStructure> {
+    public static async parse(): Promise<MultiBlockStructure> {
         // @ts-ignore
         return Promise.resolve({  });
     }

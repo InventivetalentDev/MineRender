@@ -9,6 +9,8 @@ export * from "./request/Requests"
 export * from "./UVMapper"
 export * from "./model/ModelMerger"
 export * from "./nbt/NBTHelper";
+export * from "./model/multiblock/StructureParser";
+export * from "./model/multiblock/SchematicParser";
 
 export * from "./assets/AssetKey";
 export * from "./assets/AssetLoader";
