@@ -8,8 +8,10 @@ export * from "./cache/Caching"
 export * from "./request/Requests"
 export * from "./UVMapper"
 export * from "./model/ModelMerger"
+export * from "./nbt/NBTHelper";
 
 export * from "./assets/AssetKey";
+export * from "./assets/AssetLoader";
 
 export * from "./assets/Models"
 export * from "./assets/BlockStates"

@@ -68,7 +68,7 @@ export class ModelObject extends SceneObject {
         let allGeos: THREE.BufferGeometry[] = [];
 
         if (this.atlas) {
-            if (this.atlas.model.elements) { // block / block item
+            if (this.atlas.model.elements) {
                 this.atlas.model.elements?.forEach(el => {
                     const elGeo = this._getBoxGeometryFromElement(el).clone();
 
@@ -94,10 +94,8 @@ export class ModelObject extends SceneObject {
                         }
                     }
                 });
-            } else { // simple item
-                // TODO
-                //  two planes, wrap edges
-
+            } else {
+                dbg("%O has no elements", this.atlas.model);
             }
         } else {
             dbg("Missing texture atlas for %O", this);

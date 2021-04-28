@@ -40,6 +40,7 @@ export class AssetKey extends BasicAssetKey {
         readonly namespace: string, readonly path: string,
         public assetType?: AssetType,
         public type?: string,
+        public rootType: "assets" | "data" | string = "assets",
         public extension: ".json" | ".png" | string = ".json",
         public root?: string,
     ) {
@@ -64,12 +65,13 @@ export class AssetKey extends BasicAssetKey {
             assetType === "textures" ? ".png" :
                 origin?.assetType || "";
 
-        return new AssetKey(namespace, path, assetType, type, extension, origin?.root);
+        return new AssetKey(namespace, path, assetType, type, "assets", extension, origin?.root);
     }
 
     toString(): string {
         return [
             "root" in this ? this.root : "__root__",
+            "rootType" in this ? this.rootType : "__rootType__",
             "assetType" in this ? this.assetType : "__assetType__",
             "type" in this ? this.type : "__type__",
             this.namespace,

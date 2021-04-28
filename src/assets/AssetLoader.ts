@@ -11,6 +11,8 @@ import { BlockState } from "../model/block/BlockState";
 import { DEFAULT_NAMESPACE, DEFAULT_ROOT } from "./Assets";
 import { ListAsset } from "../ListAsset";
 import { AssetKey } from "./AssetKey";
+import { NBT } from "prismarine-nbt";
+import { NBTAsset, NBTHelper } from "../nbt/NBTHelper";
 
 const d = debug(`${ DEBUG_NAMESPACE }:AssetLoader`);
 
@@ -38,9 +40,18 @@ export class AssetLoader {
     }
     static readonly META: ResponseParser<MinecraftTextureMeta> = {
         config(request: AxiosRequestConfig) {
+            request.responseType = "arraybuffer";
         },
         parse(response: AxiosResponse): Maybe<MinecraftTextureMeta> {
             return response.data as MinecraftTextureMeta;
+        }
+    }
+    static readonly NBT: ResponseParser<NBTAsset> = {
+        config(request: AxiosRequestConfig) {
+            request.responseType = "arraybuffer";
+        },
+        parse(response: AxiosResponse): Promise<Maybe<NBTAsset>> {
+            return NBTHelper.fromBuffer(Buffer.from(response.data));
         }
     }
     static readonly IMAGE: ResponseParser<TextureAsset> = {
@@ -56,6 +67,13 @@ export class AssetLoader {
         },
         parse(response: AxiosResponse): Maybe<ListAsset> {
             return response.data as ListAsset;
+        }
+    }
+    static readonly JSON: ResponseParser<any> = {
+        config(request: AxiosRequestConfig) {
+        },
+        parse(response: AxiosResponse): Maybe<any> {
+            return response.data;
         }
     }
 
@@ -121,7 +139,7 @@ export class AssetLoader {
     }
 
     public static assetBasePath(key: AssetKey) {
-        return `${ key.root || DEFAULT_ROOT }/assets/${ key.namespace || DEFAULT_NAMESPACE }/${ key.assetType }`;
+        return `${ key.root || DEFAULT_ROOT }/${ key.rootType || 'assets' }/${ key.namespace || DEFAULT_NAMESPACE }/${ key.assetType }`;
     }
 
 }

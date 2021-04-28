@@ -239,7 +239,11 @@
             //     await createModel("block", "acacia_log", 1, 32, 32, 16)
             //     await createModel("block", "acacia_log", 1, 32, 32, 16)
             // })();
-            createModel("item", "wooden_sword")
+            // createModel("item", "wooden_sword")
+
+            MineRender.AssetLoader.loadOrRetryWithDefaults(new MineRender.AssetKey("minecraft", "end_city/ship", "structures",undefined,"data", ".nbt"), MineRender.AssetLoader.NBT).then(asset=>{
+                console.log(asset);
+            })
 
             MineRender.BlockStates.getList().then(blockList_ => {
                 const blockList = [...blockList_];
