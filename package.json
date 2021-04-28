@@ -10,7 +10,9 @@
     "bundle": "gulp bundle",
     "bundle:w": "gulp bundle:w",
     "build": "npm run clean && npm run compile",
-    "doc": "typedoc --out docs src"
+    "doc": "typedoc --out docs src",
+    "web": "tsc -p ./web/tsconfig.web.json",
+    "web:w": "tsc -p ./web/tsconfig.web.json -w"
   },
   "browserify": {
     "transform": [
@@ -48,7 +50,7 @@
     "node-persist": "^3.1.0",
     "onscreen": "^1.3.2",
     "pako": "^2.0.3",
-    "prismarine-nbt": "^1.4.0",
+    "prismarine-nbt": "^1.5.0",
     "process": "^0.11.10",
     "stats.js": "^0.17.0",
     "stream-browserify": "^3.0.0",

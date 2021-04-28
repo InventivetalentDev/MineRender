@@ -20,7 +20,7 @@ function bundle(watch) {
             standalone: "MineRender"
         }
     ))
-        .plugin(tsify, {target: 'es6'})
+        .plugin(tsify, {target: 'es6', project: 'tsconfig.minerender.json'})
         .transform(babelify, {
             extensions: ['.tsc', '.ts', '.js'],
             sourceMaps: true
