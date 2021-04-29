@@ -57,8 +57,11 @@ export class AssetKey extends BasicAssetKey {
         }
 
         let split = str.split("\/");
-        let type = split[0];
-        split.shift();
+        let type = "";
+        if (split.length > 1) {
+            type = split[0];
+            split.shift();
+        }
         let path = split.join("/");
 
         let extension = assetType === "models" ? ".json" :
@@ -80,7 +83,7 @@ export class AssetKey extends BasicAssetKey {
     }
 
     serialize(): string {
-        return base64encode(this.toString());
+        return this.toString();
     }
 }
 

@@ -33,7 +33,7 @@ export class SceneObject extends Object3D implements Disposable, Instanceable, T
     private materialCallbacks: { [key: string]: Array<(mat: Material, key: string) => void>; } = {};
 
     protected _isInstanced: boolean = false;
-     _instanceCounter: number = 0;
+    _instanceCounter: number = 0;
 
     constructor(options?: Partial<SceneObjectOptions>) {
         super();
@@ -172,7 +172,7 @@ export class SceneObject extends Object3D implements Disposable, Instanceable, T
         });
     }
 
-    protected _getBoxGeometryForDimensionsAndUv(width: number, height: number, depth: number, uv:number[]): BoxGeometry {
+    protected _getBoxGeometryForDimensionsAndUv(width: number, height: number, depth: number, uv: number[]): BoxGeometry {
         return Geometries.getBox({
             width,
             height,
@@ -197,7 +197,7 @@ export class SceneObject extends Object3D implements Disposable, Instanceable, T
         if (!this.isInstanced) throw new MineRenderError("Object is not instanced");
         const i = this._instanceCounter++;
         this.setMatrixAt(i, new Matrix4());
-        console.log("nextInstance "+i);
+        console.log("nextInstance " + i);
         if (isMineRenderScene(this.parent)) {
             this.parent.stats.instanceCount++;
         }
@@ -260,7 +260,7 @@ export class SceneObject extends Object3D implements Disposable, Instanceable, T
 
     getPositionAt(index: number, vector: Vector3 = new Vector3()): Vector3 {
         if (!this.isInstanced) throw new MineRenderError("Object is not instanced");
-        const matrix =this.getMatrixAt(index)
+        const matrix = this.getMatrixAt(index)
         vector.setFromMatrixPosition(matrix);
         return vector;
     }
@@ -272,7 +272,7 @@ export class SceneObject extends Object3D implements Disposable, Instanceable, T
 
     getRotationAt(index: number, euler: Euler = new Euler()): Euler {
         if (!this.isInstanced) throw new MineRenderError("Object is not instanced");
-        const matrix =this.getMatrixAt(index)
+        const matrix = this.getMatrixAt(index)
         euler.setFromRotationMatrix(matrix);
         return euler;
     }
@@ -284,9 +284,27 @@ export class SceneObject extends Object3D implements Disposable, Instanceable, T
 
     getScaleAt(index: number, vector: Vector3 = new Vector3()): Vector3 {
         if (!this.isInstanced) throw new MineRenderError("Object is not instanced");
-        const matrix =this.getMatrixAt(index)
+        const matrix = this.getMatrixAt(index)
         vector.setFromMatrixScale(matrix);
         return vector;
+    }
+
+    setPositionRotationScale(position?: Vector3, rotation?: Euler, scale?: Vector3): void {
+        if (this.isInstanced) {
+            for (let i = 0; i < this.instanceCounter; i++) {
+                this.setPositionRotationScaleAt(i, position, rotation, scale);
+            }
+        } else {
+            if (position) {
+                this.position.set(position.x, position.y, position.z);
+            }
+            if (rotation) {
+                this.rotation.set(rotation.x, rotation.y, rotation.z);
+            }
+            if (scale) {
+                this.scale.set(scale.x, scale.y, scale.z);
+            }
+        }
     }
 
     setPosition(position: Vector3) {
@@ -302,7 +320,7 @@ export class SceneObject extends Object3D implements Disposable, Instanceable, T
     getPosition(): Vector3 {
         if (this.isInstanced) {
             return this.getPositionAt(0);
-        }else{
+        } else {
             return this.position;
         }
     }
@@ -322,7 +340,7 @@ export class SceneObject extends Object3D implements Disposable, Instanceable, T
     getRotation(): Euler {
         if (this.isInstanced) {
             return this.getRotationAt(0);
-        }else{
+        } else {
             return this.rotation;
         }
     }
@@ -340,7 +358,7 @@ export class SceneObject extends Object3D implements Disposable, Instanceable, T
     getScale(): Vector3 {
         if (this.isInstanced) {
             return this.getScaleAt(0);
-        }else{
+        } else {
             return this.scale;
         }
     }

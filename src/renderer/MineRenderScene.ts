@@ -20,7 +20,7 @@ export class MineRenderScene extends Scene {
     public readonly options: MineRenderSceneOptions;
 
     readonly stats: SceneStats = new SceneStats();
-    protected readonly instanceCache: { [key: string]: InstanceReference<SceneObject>; } = {};
+    protected readonly instanceCache: { [key: string]: Promise<InstanceReference<SceneObject>>; } = {};
 
     constructor(options?: Partial<MineRenderSceneOptions>) {
         super();
@@ -45,26 +45,32 @@ export class MineRenderScene extends Scene {
     }
 
     async addSceneObject<A extends MinecraftAsset, T extends SceneObject, O extends SceneObjectOptions>(asset: A, objectSupplier: () => T | Promise<T>, options?: Partial<O>): Promise<T | InstanceReference<T>> {
-        console.log(this.instanceCache)
+        // console.log(this.instanceCache)
         if (options?.instanceMeshes && asset.key) {
-            console.log("instanceMeshes + key")
+            // console.log("instanceMeshes + key")
             // check for existing instances
             const key = asset.key.serialize();
-            console.log(key)
+            // console.log(key)
             if (key in this.instanceCache) {
                 console.log("key in cache")
-                return this.instanceCache[key].nextInstance() as InstanceReference<T>;
+                // create next instance of existing object
+                return (await this.instanceCache[key]).nextInstance() as InstanceReference<T>;
             } else {
+                // create new object & first instance
                 console.log("key not in cache")
-                const obj = await objectSupplier();
-                await this.initAndAdd(obj);
-                const inst = obj.nextInstance();
-                console.log(inst);
-                this.instanceCache[key] = inst;
-                return inst;
+                const promise = new Promise<InstanceReference<SceneObject>>(async (resolve) => {
+                    const obj = await objectSupplier();
+                    await this.initAndAdd(obj);
+                    const inst = obj.nextInstance();
+                    // console.log(inst);
+                    this.instanceCache[key] = Promise.resolve(inst);
+                    resolve(inst);
+                })
+                this.instanceCache[key] = promise;
+                return await promise as InstanceReference<T>;
             }
         } else {
-            console.log("!instanceMeshes | !key")
+            // console.log("!instanceMeshes | !key")
             const obj = await objectSupplier();
             await this.initAndAdd(obj);
             return obj;

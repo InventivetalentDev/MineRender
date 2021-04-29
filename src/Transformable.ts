@@ -2,6 +2,8 @@ import { Euler, Vector3 } from "three";
 
 export interface Transformable {
 
+    setPositionRotationScale(position?: Vector3, rotation?: Euler, scale?: Vector3): void;
+
     setPosition(position: Vector3): void;
 
     getPosition(): Vector3;

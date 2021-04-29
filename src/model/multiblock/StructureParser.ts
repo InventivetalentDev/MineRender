@@ -21,6 +21,8 @@ export class StructureParser {
         const blocks: MultiBlockBlock[] =
             nbt.blocks.value.value.map(block => {
                 const state = palette.value.value[block.state.value];
+                if (state.Name.value === "minecraft:air") return undefined;
+
                 const props: BlockStateProperties = {};
                 for (let k in state.Properties?.value) {
                     props[k] = state.Properties.value[k].value;
@@ -28,10 +30,10 @@ export class StructureParser {
                 return <MultiBlockBlock>{
                     type: state.Name.value,
                     properties: props,
-                    position: block.pos.value,
+                    position: block.pos.value.value,
                     nbt: block.nbt
                 }
-            });
+            }).filter(m => typeof m !== "undefined") as  MultiBlockBlock[] ;
         return {
             blocks: blocks,
             size: nbt.size.value.value
@@ -91,7 +93,10 @@ interface PalettePropertyValue {
 interface BlockEntry {
     pos: {
         type: "list";
-        value: TripleArray;
+        value: {
+            type: "int";
+            value: TripleArray;
+        }
     }
     state: {
         type: "int";

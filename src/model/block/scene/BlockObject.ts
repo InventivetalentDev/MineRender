@@ -264,6 +264,7 @@ export class BlockObject extends SceneObject {
         await this.recreateModels();
     }
 
+    // TODO: support state per instance
     public async setState(string: string);
     public async setState(state: BlockStateProperties);
     public async setState(key: string, value: string);
