@@ -25,8 +25,6 @@ export class SkinObject extends SceneObject {
     constructor(options: SkinObjectOptions) {
         super();
         this.options = merge({}, SceneObject.DEFAULT_OPTIONS, options ?? {});
-
-        this.createMeshes();
     }
 
     async init(): Promise<void> {
