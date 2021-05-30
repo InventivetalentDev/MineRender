@@ -72,7 +72,7 @@ export class SceneInspector {
         this.objectInfoContainer.innerHTML = '';
         this.addInfoLine("Distance", "D", targetIntersection.distance);
         this.addInfoLine("Instance #", "I", targetIntersection.instanceId);
-        this.addInfoLine("Type", "T", targetObject.type);
+        this.addInfoLine("Type", "T", targetObject.constructor.name + "/" + targetObject.type);
         this.addInfoLine("Name", "N", targetObject.name);
         if (targetObject.parent) {
             this.addInfoLine("Parent", "P", targetObject.parent.constructor.name);
