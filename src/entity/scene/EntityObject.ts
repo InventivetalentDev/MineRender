@@ -57,6 +57,7 @@ export class EntityObject extends SceneObject {
             this.entity.key!.path,
             "textures",
             "entity",
+            "assets",
             ".png"
         ))
     }
@@ -112,6 +113,7 @@ export class EntityObject extends SceneObject {
             this.entity.key!.path,
             "textures",
             "entity",
+            "assets",
             ".png"
         ));
         // if (this.atlas!.model.textures) {

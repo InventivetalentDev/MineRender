@@ -40,7 +40,7 @@ export class AssetKey extends BasicAssetKey {
         readonly namespace: string, readonly path: string,
         public assetType?: AssetType,
         public type?: string,
-        public rootType: "assets" | "data" | string = "assets",
+        public rootType?: "assets" | "data" | string,
         public extension: ".json" | ".png" | string = ".json",
         public root?: string,
     ) {
@@ -57,7 +57,7 @@ export class AssetKey extends BasicAssetKey {
         }
 
         let split = str.split("\/");
-        let type = "";
+        let type: string | undefined = undefined;
         if (split.length > 1) {
             type = split[0];
             split.shift();

@@ -210,6 +210,7 @@ export class BlockObject extends SceneObject {
 
     protected async createVariant(variant: BlockStateVariant, instanceInfo: Matrix4[]): Promise<void> {
         console.log("createVariant")
+        console.log(variant)
         //TODO: uvlock
         //TODO: default state?
         const model = await Models.getMerged(AssetKey.parse("models", variant.model!));

@@ -85,7 +85,7 @@ export class AssetLoader {
         if (key.namespace !== DEFAULT_NAMESPACE) {
             d("Retrying %j with default namespace", key);
             // Try on the same host but with default minecraft: namespace
-            const namespaceKey = new AssetKey(DEFAULT_NAMESPACE, key.path, key.assetType, key.type, key.extension, key.root);
+            const namespaceKey = new AssetKey(DEFAULT_NAMESPACE, key.path, key.assetType, key.type, key.rootType, key.extension, key.root);
             const namespaced = await this.load<T>(namespaceKey, parser);
             if (namespaced) {
                 return namespaced;
@@ -93,7 +93,7 @@ export class AssetLoader {
             if (key.root !== undefined && key.root !== DEFAULT_ROOT) {
                 d("Retrying %j with default root+namespace", key);
                 // Try both defaults
-                const namespacedRootedKey = new AssetKey(DEFAULT_NAMESPACE, key.path, key.assetType, key.type, key.extension, DEFAULT_ROOT);
+                const namespacedRootedKey = new AssetKey(DEFAULT_NAMESPACE, key.path, key.assetType, key.type, key.rootType, key.extension, DEFAULT_ROOT);
                 const namespacedRooted = await this.load<T>(namespacedRootedKey, parser);
                 if (namespacedRooted) {
                     return namespacedRooted;
@@ -102,7 +102,7 @@ export class AssetLoader {
         } else if (key.root !== undefined && key.root !== DEFAULT_ROOT) {
             d("Retrying %j with default root", key);
             // Try on default root
-            const rootKey = new AssetKey(key.namespace, key.path, key.assetType, key.type, key.extension, DEFAULT_ROOT);
+            const rootKey = new AssetKey(key.namespace, key.path, key.assetType, key.type, key.rootType, key.extension, DEFAULT_ROOT);
             const rooted = await this.load<T>(rootKey, parser);
             if (rooted) {
                 return rooted;
@@ -114,8 +114,10 @@ export class AssetLoader {
 
     protected static async load<T>(key: AssetKey, parser: ResponseParser<T>): Promise<Maybe<T>> {
         d("Loading %j", key);
+        const url = `${ this.assetBasePath(key) }${ key.type !== undefined ? key.type + '/' : '' }${ key.path }${ key.extension }`;
+        d(url);
         let req: AxiosRequestConfig = {
-            url: `${ this.assetBasePath(key) }${ key.type ? '/' + key.type : '' }/${ key.path }${ key.extension }`
+            url: url
         };
         parser.config(req);
         return await Requests.mcAssetRequest(req)
@@ -139,7 +141,7 @@ export class AssetLoader {
     }
 
     public static assetBasePath(key: AssetKey) {
-        return `${ key.root || DEFAULT_ROOT }/${ key.rootType || 'assets' }/${ key.namespace || DEFAULT_NAMESPACE }/${ key.assetType }`;
+        return `${ key.root ?? DEFAULT_ROOT }/${ key.rootType !== undefined ? key.rootType + '/' : '' }${ key.namespace !== undefined ? key.namespace + '/' : '' }${ key.assetType !== undefined ? key.assetType + '/' : '' }`;
     }
 
 }

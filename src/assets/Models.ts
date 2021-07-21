@@ -20,6 +20,7 @@ export class Models {
             "_list",
             "models",
             "item",
+            "assets",
             ".json",
             DEFAULT_ROOT
         ), AssetLoader.LIST).then(r => r?.files ?? []);

@@ -18,6 +18,7 @@ export class BlockStates {
             "_list",
             "blockstates",
             undefined,
+            "assets",
             ".json",
             DEFAULT_ROOT
         ), AssetLoader.LIST).then(r => r?.files ?? []);

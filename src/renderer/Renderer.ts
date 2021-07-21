@@ -49,6 +49,10 @@ export class Renderer {
 
             document.body.appendChild(this._stats.dom);//TODO
         }
+
+        if (typeof window["__THREE_DEVTOOLS__"] !== 'undefined') {
+            window["__THREE_DEVTOOLS__"].dispatchEvent(new CustomEvent('observe', { detail: this.scene }));
+        }
     }
 
     //<editor-fold desc="INIT">
