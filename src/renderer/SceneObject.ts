@@ -291,6 +291,7 @@ export class SceneObject extends Object3D implements Disposable, Instanceable, T
 
     setPositionRotationScale(position?: Vector3, rotation?: Euler, scale?: Vector3): void {
         if (this.isInstanced) {
+            //TODO: specific instance
             for (let i = 0; i < this.instanceCounter; i++) {
                 this.setPositionRotationScaleAt(i, position, rotation, scale);
             }
@@ -309,6 +310,7 @@ export class SceneObject extends Object3D implements Disposable, Instanceable, T
 
     setPosition(position: Vector3) {
         if (this.isInstanced) {
+            //TODO: specific instance
             for (let i = 0; i < this.instanceCounter; i++) {
                 this.setPositionRotationScaleAt(i, position);
             }
@@ -329,6 +331,7 @@ export class SceneObject extends Object3D implements Disposable, Instanceable, T
         console.log("setRotation")
         console.log(this.instanceCounter)
         if (this.isInstanced) {
+            //TODO: specific instance
             for (let i = 0; i < this.instanceCounter; i++) {
                 this.setPositionRotationScaleAt(i, undefined, rotation);
             }
@@ -347,6 +350,7 @@ export class SceneObject extends Object3D implements Disposable, Instanceable, T
 
     setScale(scale: Vector3) {
         if (this.isInstanced) {
+            //TODO: specific instance
             for (let i = 0; i < this.instanceCounter; i++) {
                 this.setPositionRotationScaleAt(i, undefined, undefined, scale);
             }

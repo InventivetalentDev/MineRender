@@ -49,6 +49,8 @@ export class InstanceReference<T extends Instanceable> implements Transformable 
         return this.instanceable.getScaleAt(this.index);
     }
 
+    //TODO: support for custom methods e.g. setting block variants
+
 }
 
 export function isInstanceReference(obj: any): obj is InstanceReference<any> {
