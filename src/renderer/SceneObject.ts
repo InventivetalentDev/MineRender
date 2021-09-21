@@ -1,4 +1,4 @@
-import { BoxGeometry, Color, EdgesGeometry, Euler, InstancedMesh, LineBasicMaterial, LineSegments, Matrix4, Mesh, Object3D, Quaternion, Vector3 } from "three";
+import { BoxGeometry, Color, EdgesGeometry, Euler, InstancedMesh, LineBasicMaterial, LineSegments, Matrix4, Mesh, Object3D, Quaternion, Scene, Vector3 } from "three";
 import { ModelElement, ModelFaces } from "../model/ModelElement";
 import { Geometries } from "../Geometries";
 import { UVMapper } from "../UVMapper";
@@ -193,6 +193,10 @@ export class SceneObject extends Object3D implements Disposable, Instanceable, T
         return this._instanceCounter;
     }
 
+    protected constructInstanceReference(i: number): InstanceReference<SceneObject> {
+        return new InstanceReference<this>(this, i);
+    }
+
     nextInstance(): InstanceReference<this> {
         if (!this.isInstanced) throw new MineRenderError("Object is not instanced");
         const i = this._instanceCounter++;
@@ -201,7 +205,7 @@ export class SceneObject extends Object3D implements Disposable, Instanceable, T
         if (isMineRenderScene(this.parent)) {
             this.parent.stats.instanceCount++;
         }
-        return new InstanceReference<this>(this, i);
+        return this.constructInstanceReference(i);
     }
 
     //</editor-fold>

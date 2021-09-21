@@ -18,6 +18,7 @@ import { BlockStateProperties, BlockStatePropertyDefaults } from "../BlockStateP
 import { BlockStates } from "../../../assets/BlockStates";
 import { InstanceReference } from "../../../instance/InstanceReference";
 import { AssetKey } from "../../../assets/AssetKey";
+import { BlockInstance } from "./BlockInstance";
 
 export class BlockObject extends SceneObject {
 
@@ -29,6 +30,7 @@ export class BlockObject extends SceneObject {
     public readonly options: BlockObjectOptions;
 
     private _state: BlockStateProperties = {};
+    private _instanceState: BlockStateProperties[] = [];
 
     constructor(readonly blockState: BlockState, options?: Partial<BlockObjectOptions>) {
         super();
@@ -75,6 +77,10 @@ export class BlockObject extends SceneObject {
         return this._state;
     }
 
+    protected constructInstanceReference(i: number): BlockInstance {
+        return new BlockInstance(this, i);
+    }
+
     nextInstance(): InstanceReference<this> {
         console.log("nextInstance")
 
@@ -104,6 +110,7 @@ export class BlockObject extends SceneObject {
 
 
         //TODO: might want to preload all possible states & cache their data
+        //TODO: make sure to only instance stuff with different rotations together; i.e. not those with different multipart settings, or different models
 
         console.log(this.blockState)
         console.log(this.state)
@@ -291,6 +298,39 @@ export class BlockObject extends SceneObject {
         } else {
             this._state[stringOrKeyOrState as string] = value;
         }
+    }
+
+    public async setStateAt(index: number, string: string);
+    public async setStateAt(index: number, state: BlockStateProperties);
+    public async setStateAt(index: number, key: string, value: string);
+    public async setStateAt(index: number, stringOrKeyOrState: string | BlockStateProperties, value?: string);
+    public async setStateAt(index: number, stringOrKeyOrState: string | BlockStateProperties, value?: string) {
+        this._setStateAt(index, stringOrKeyOrState, value);
+        await this.recreateModels();
+    }
+
+    protected _setStateAt(index: number, stringOrKeyOrState: string | BlockStateProperties, value?: string): void {
+        if (!this._instanceState[index]) this._instanceState[index] = {};
+        if (typeof value === "undefined") { // a=b,c=d,... or state object
+            if (typeof stringOrKeyOrState === "string") {
+                if (stringOrKeyOrState === "") return;
+                const split = stringOrKeyOrState.split(",");
+                for (let s of split) {
+                    let [k, v] = s.split("=");
+                    this._setStateAt(index, k, v);
+                }
+            } else if (typeof stringOrKeyOrState === "object") {
+                for (let k in stringOrKeyOrState) {
+                    this._instanceState[index][k] = stringOrKeyOrState[k];
+                }
+            }
+        } else {
+            this._instanceState[index][stringOrKeyOrState as string] = value;
+        }
+    }
+
+    _getStateAt(index: number): BlockStateProperties {
+        return this._instanceState[index];
     }
 
     getMatrixAt(index: number, matrix: Matrix4 = new Matrix4()): Matrix4 {
