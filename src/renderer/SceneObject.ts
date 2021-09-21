@@ -197,7 +197,7 @@ export class SceneObject extends Object3D implements Disposable, Instanceable, T
         return new InstanceReference<this>(this, i);
     }
 
-    nextInstance(): InstanceReference<this> {
+    nextInstance(): InstanceReference<SceneObject> {
         if (!this.isInstanced) throw new MineRenderError("Object is not instanced");
         const i = this._instanceCounter++;
         this.setMatrixAt(i, new Matrix4());

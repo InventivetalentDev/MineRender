@@ -2,10 +2,11 @@ import { InstanceReference } from "./InstanceReference";
 import { MineRenderError } from "../error/MineRenderError";
 import { Euler, Matrix4, Vector3 } from "three";
 import { isInstancedMesh } from "../util/three";
+import { SceneObject } from "../renderer/SceneObject";
 
 export interface Instanceable {
 
-    nextInstance(): InstanceReference<this>;
+    nextInstance(): InstanceReference<SceneObject>;
 
     getMatrixAt(index: number, matrix?: Matrix4): Matrix4;
 

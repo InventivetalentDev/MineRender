@@ -81,7 +81,7 @@ export class BlockObject extends SceneObject {
         return new BlockInstance(this, i);
     }
 
-    nextInstance(): InstanceReference<this> {
+    nextInstance(): InstanceReference<SceneObject> {
         console.log("nextInstance")
 
         const ref = super.nextInstance();
