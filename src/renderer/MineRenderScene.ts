@@ -12,6 +12,7 @@ import { SceneObjectOptions } from "./SceneObjectOptions";
 import { BlockState } from "../model/block/BlockState";
 import { BlockObject, BlockObjectOptions } from "../model/block/scene/BlockObject";
 import { BlockInstance } from "../model/block/scene/BlockInstance";
+import { InstanceManager } from "../instance/InstanceManager";
 
 export class MineRenderScene extends Scene {
 
@@ -21,7 +22,7 @@ export class MineRenderScene extends Scene {
     public readonly options: MineRenderSceneOptions;
 
     readonly stats: SceneStats = new SceneStats();
-    protected readonly instanceCache: { [key: string]: Promise<InstanceReference<SceneObject>>; } = {};
+    protected readonly instanceManager: InstanceManager = new InstanceManager();
 
     constructor(options?: Partial<MineRenderSceneOptions>) {
         super();
@@ -45,35 +46,27 @@ export class MineRenderScene extends Scene {
         return this.add(...object);
     }
 
-    async addSceneObject<A extends MinecraftAsset, T extends SceneObject, O extends SceneObjectOptions>(asset: A, objectSupplier: () => T | Promise<T>, options?: Partial<O>): Promise<T | InstanceReference<T>> {
+    async addSceneObject<A extends MinecraftAsset, T extends SceneObject, O extends SceneObjectOptions>(asset: A, objectSupplier: () => T | Promise<T>, options?: Partial<O>, parent: Object3D = this): Promise<T | InstanceReference<T>> {
         // console.log(this.instanceCache)
         if (options?.instanceMeshes && asset.key) {
             // console.log("instanceMeshes + key")
             // check for existing instances
             const key = asset.key.serialize();
-            // console.log(key)
-            if (key in this.instanceCache) {
-                console.log("key in cache")
-                // create next instance of existing object
-                return (await this.instanceCache[key]).nextInstance() as InstanceReference<T>;
-            } else {
-                // create new object & first instance
-                console.log("key not in cache")
-                const promise = new Promise<InstanceReference<SceneObject>>(async (resolve) => {
-                    const obj = await objectSupplier();
-                    await this.initAndAdd(obj);
-                    const inst = obj.nextInstance();
-                    // console.log(inst);
-                    this.instanceCache[key] = Promise.resolve(inst);
-                    resolve(inst);
-                })
-                this.instanceCache[key] = promise;
-                return await promise as InstanceReference<T>;
-            }
+            //TODO use the parent's instance manager
+            return this.instanceManager.getOrCreate(key, async () => {
+                const obj = await objectSupplier();
+                obj.scene = this;
+                await obj.init();
+                parent.add(obj);
+                return obj;
+            });
         } else {
             // console.log("!instanceMeshes | !key")
             const obj = await objectSupplier();
-            await this.initAndAdd(obj);
+            obj.scene = this;
+            // await this.initAndAdd(obj);
+            await obj.init();
+            parent.add(obj);
             return obj;
         }
     }

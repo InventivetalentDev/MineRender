@@ -1,6 +1,7 @@
 import { Instanceable } from "./Instanceable";
 import { Euler, Matrix4, Vector3 } from "three";
 import { Transformable } from "../Transformable";
+import { SceneObject } from "../renderer/SceneObject";
 
 export class InstanceReference<T extends Instanceable> implements Transformable {
 
@@ -9,7 +10,7 @@ export class InstanceReference<T extends Instanceable> implements Transformable 
     constructor(readonly instanceable: T, readonly index: number) {
     }
 
-    nextInstance(): InstanceReference<T> {
+    nextInstance(): InstanceReference<SceneObject> {
         return this.instanceable.nextInstance();
     }
 

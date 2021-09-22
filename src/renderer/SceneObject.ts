@@ -15,7 +15,7 @@ import { Disposable, isDisposable } from "../Disposable";
 import { SceneObjectOptions } from "./SceneObjectOptions";
 import merge from "ts-deepmerge";
 import { Instanceable } from "../instance/Instanceable";
-import { isMineRenderScene } from "./MineRenderScene";
+import { isMineRenderScene, MineRenderScene } from "./MineRenderScene";
 import { Transformable } from "../Transformable";
 
 export class SceneObject extends Object3D implements Disposable, Instanceable, Transformable {
@@ -30,6 +30,8 @@ export class SceneObject extends Object3D implements Disposable, Instanceable, T
     });
     public readonly options: SceneObjectOptions;
 
+    private _scene: Maybe<MineRenderScene>;
+
     private materialCallbacks: { [key: string]: Array<(mat: Material, key: string) => void>; } = {};
 
     protected _isInstanced: boolean = false;
@@ -38,6 +40,16 @@ export class SceneObject extends Object3D implements Disposable, Instanceable, T
     constructor(options?: Partial<SceneObjectOptions>) {
         super();
         this.options = merge({}, SceneObject.DEFAULT_OPTIONS, options ?? {});
+    }
+
+    public set scene(scene: MineRenderScene) {
+        if (!!this._scene) throw new MineRenderError("Scene already set");
+        this._scene = scene;
+    }
+
+    public get scene(): MineRenderScene {
+        if (!this._scene) throw new MineRenderError("Scene not set");
+        return this._scene;
     }
 
     async init(): Promise<void> {

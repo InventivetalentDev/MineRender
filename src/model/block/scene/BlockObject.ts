@@ -30,7 +30,10 @@ export class BlockObject extends SceneObject {
     public readonly options: BlockObjectOptions;
 
     private _state: BlockStateProperties = {};
+    private _variant: Maybe<BlockStateVariant> = undefined;
+
     private _instanceState: BlockStateProperties[] = [];
+    private _instanceVariant: BlockStateVariant[][] = [];
 
     constructor(readonly blockState: BlockState, options?: Partial<BlockObjectOptions>) {
         super();
@@ -93,6 +96,93 @@ export class BlockObject extends SceneObject {
         return ref;
     }
 
+    protected async mapStateToVariant(state: BlockStateProperties): Promise<BlockStateVariant[]> {
+        console.log("mapStateToVariant");
+        console.log(this.blockState)
+        console.log(this.state)
+
+        const out: BlockStateVariant[] = [];
+        if (this.blockState.variants) {
+            if (Object.keys(this.blockState.variants).length === 1 && "" in this.blockState.variants) { // default variant
+                out.push(this.getSingleVariant(this.blockState.variants[""]));
+            } else {
+                for (let variantKey in this.blockState.variants) {
+                    console.log(variantKey)
+                    const split = variantKey.split(",");
+                    let matches = true;
+                    for (let s of split) {
+                        const [k, v] = s.split("=");
+                        if (`${ state[k] }` !== `${ v }`) {
+                            matches = false;
+                            break;
+                        }
+                    }
+                    if (matches) {
+                        const variants = this.blockState.variants[variantKey];
+                        out.push(this.getSingleVariant(variants));
+                    }
+                }
+            }
+        } else if (this.blockState.multipart) {
+            for (let part of this.blockState.multipart) {
+                if (!part.apply) {
+                    dbg("Missing apply for blockState part %O", part);
+                    continue;
+                }
+                if (!part.when) { // no condition -> always apply
+                    out.push(this.getSingleVariant(part.apply));
+                } else {
+                    let matches = true;
+                    // TODO: apparently AND is a thing too (https://yeleha.co/31Jec6P)
+                    if ("OR" in part.when) {
+                        const or = part.when.OR as MultipartCondition[];
+                        let anyMatch = false;
+                        for (let o of or) {
+                            for (let k in o) {
+                                const split = o[k].split("|");
+                                let m = false;
+                                for (let s of split) {
+                                    if (`${ state[k] }` === `${ s }`) {
+                                        m = true;
+                                        break;
+                                    }
+                                }
+                                if (m) {
+                                    anyMatch = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (!anyMatch) {
+                            matches = false;
+                        }
+                    } else {
+                        for (let k in part.when) {
+                            const split = part.when[k].split("|");
+                            let m = false;
+                            for (let s of split) {
+                                if (`${ state[k] }` === `${ s }`) {
+                                    m = true;
+                                    break;
+                                }
+                            }
+                            if (!m) { // none of the possible values match
+                                matches = false;
+                                break;
+                            }
+                        }
+                    }
+                    if (matches) {
+                        const variants = part.apply;
+                        out.push(this.getSingleVariant(variants));
+                    }
+                }
+            }
+        }
+
+        return out;
+    }
+
     public async recreateModels(): Promise<void> {
         console.log("recreateModels")
 
@@ -112,85 +202,16 @@ export class BlockObject extends SceneObject {
         //TODO: might want to preload all possible states & cache their data
         //TODO: make sure to only instance stuff with different rotations together; i.e. not those with different multipart settings, or different models
 
-        console.log(this.blockState)
-        console.log(this.state)
-
-        if (this.blockState.variants) {
-            if (Object.keys(this.blockState.variants).length === 1 && "" in this.blockState.variants) { // default variant
-                await this.createAVariant(this.blockState.variants[""], instanceInfo);
-            } else {
-                for (let variantKey in this.blockState.variants) {
-                    console.log(variantKey)
-                    const split = variantKey.split(",");
-                    let matches = true;
-                    for (let s of split) {
-                        const [k, v] = s.split("=");
-                        if (`${ this.state[k] }` !== `${ v }`) {
-                            matches = false;
-                            break;
-                        }
-                    }
-                    if (matches) {
-                        const variants = this.blockState.variants[variantKey];
-                        await this.createAVariant(variants, instanceInfo);
-                    }
-                }
+        if (this.isInstanced) {
+            //TODO: only map once per state
+            for (let i = 0; i < this.instanceCounter; i++) {
+                this._instanceVariant[i] = await this.mapStateToVariant(this._instanceState[i]);
             }
-        } else if (this.blockState.multipart) {
-            for (let part of this.blockState.multipart) {
-                if (!part.apply) {
-                    dbg("Missing apply for blockState part %O", part);
-                    continue;
-                }
-                if (!part.when) { // no condition -> always apply
-                    await this.createAVariant(part.apply, instanceInfo);
-                } else {
-                    let matches = true;
-                    // TODO: apparently AND is a thing too (https://yeleha.co/31Jec6P)
-                    if ("OR" in part.when) {
-                        const or = part.when.OR as MultipartCondition[];
-                        let anyMatch = false;
-                        for (let o of or) {
-                            for (let k in o) {
-                                const split = o[k].split("|");
-                                let m = false;
-                                for (let s of split) {
-                                    if (`${ this.state[k] }` === `${ s }`) {
-                                        m = true;
-                                        break;
-                                    }
-                                }
-                                if (m) {
-                                    anyMatch = true;
-                                    break;
-                                }
-                            }
-                        }
-                        if (!anyMatch) {
-                            matches = false;
-                        }
-                    } else {
-                        for (let k in part.when) {
-                            const split = part.when[k].split("|");
-                            let m = false;
-                            for (let s of split) {
-                                if (`${ this.state[k] }` === `${ s }`) {
-                                    m = true;
-                                    break;
-                                }
-                            }
-                            if (!m) { // none of the possible values match
-                                matches = false;
-                                break;
-                            }
-                        }
-                    }
-                    if (matches) {
-                        const variants = part.apply;
-                        await this.createAVariant(variants, instanceInfo);
-                    }
-                }
-            }
+            //TODO: actually create
+            //TODO: group by model
+        }else {
+            const variantsToCreate = await this.mapStateToVariant(this.state);
+            variantsToCreate.forEach(variant => this.createVariant(variant, []/*TODO*/));
         }
 
         // console.log(instanceInfo);
@@ -202,6 +223,16 @@ export class BlockObject extends SceneObject {
         // }
     }
 
+    protected getSingleVariant(variants: BlockStateVariant | BlockStateVariant[]) {
+        if (Array.isArray(variants)) {
+            //TODO: randomizer option / weights
+            return (<BlockStateVariant[]>variants)[0];
+        } else {
+            return variants as BlockStateVariant;
+        }
+    }
+
+    // @deprecated
     protected async createAVariant(variants: BlockStateVariant | BlockStateVariant[], instanceInfo: Matrix4[]) {
         console.log("BlockObject.createAVariant");
         let variant: BlockStateVariant;
