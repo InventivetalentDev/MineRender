@@ -239,14 +239,7 @@ export class BlockObject extends SceneObject {
     // @deprecated
     protected async createAVariant(variants: BlockStateVariant | BlockStateVariant[], instanceInfo: Matrix4[]) {
         console.log("BlockObject.createAVariant");
-        let variant: BlockStateVariant;
-        if (Array.isArray(variants)) {
-            //TODO: randomizer option / weights
-            variant = (<BlockStateVariant[]>variants)[0];
-        } else {
-            variant = variants as BlockStateVariant;
-        }
-
+        const variant = this.getSingleVariant(variants);
         await this.createVariant(variant);
     }
 

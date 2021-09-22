@@ -20,6 +20,7 @@ import { isMineRenderScene } from "../../renderer/MineRenderScene";
 
 require("three/examples/js/utils/BufferGeometryUtils");
 
+//TODO: might want to abstract this out into a generic model, and create a separate class for Block models
 export class ModelObject extends SceneObject {
 
     public readonly isModelObject: true = true;
