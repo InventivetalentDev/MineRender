@@ -16,7 +16,7 @@ import { dbg } from "../../../util/debug";
 import { types } from "util";
 import { BlockStateProperties, BlockStatePropertyDefaults } from "../BlockStateProperties";
 import { BlockStates } from "../../../assets/BlockStates";
-import { InstanceReference } from "../../../instance/InstanceReference";
+import { InstanceReference, isInstanceReference } from "../../../instance/InstanceReference";
 import { AssetKey } from "../../../assets/AssetKey";
 import { BlockInstance } from "./BlockInstance";
 
@@ -34,6 +34,7 @@ export class BlockObject extends SceneObject {
 
     private _instanceState: BlockStateProperties[] = [];
     private _instanceVariant: BlockStateVariant[][] = [];
+    private _instanceModel: (ModelObject | InstanceReference<ModelObject>)[] = [];
 
     constructor(readonly blockState: BlockState, options?: Partial<BlockObjectOptions>) {
         super();
@@ -206,12 +207,15 @@ export class BlockObject extends SceneObject {
             //TODO: only map once per state
             for (let i = 0; i < this.instanceCounter; i++) {
                 this._instanceVariant[i] = await this.mapStateToVariant(this._instanceState[i]);
+                for (let variant of this._instanceVariant[i]) {
+                    this._instanceModel[i] = await this.createVariant(variant);
+                }
             }
             //TODO: actually create
             //TODO: group by model
-        }else {
+        } else {
             const variantsToCreate = await this.mapStateToVariant(this.state);
-            variantsToCreate.forEach(variant => this.createVariant(variant, []/*TODO*/));
+            variantsToCreate.forEach(variant => this.createVariant(variant));
         }
 
         // console.log(instanceInfo);
@@ -243,28 +247,34 @@ export class BlockObject extends SceneObject {
             variant = variants as BlockStateVariant;
         }
 
-        await this.createVariant(variant, instanceInfo);
+        await this.createVariant(variant);
     }
 
-    protected async createVariant(variant: BlockStateVariant, instanceInfo: Matrix4[]): Promise<void> {
+    protected async createVariant(variant: BlockStateVariant): Promise<ModelObject | InstanceReference<ModelObject>> {
         console.log("createVariant")
         console.log(variant)
         //TODO: uvlock
         //TODO: default state?
         const model = await Models.getMerged(AssetKey.parse("models", variant.model!));
+        console.log(this.options)
+        const obj: ModelObject | InstanceReference<ModelObject> = await this.scene.addModel(model!, this.options, this);
+        /*
         const obj = new ModelObject(model!, this.options);
         await obj.init();
-        if (obj.isInstanced) {
+         */
+        if (isInstanceReference(obj) || (<ModelObject>obj).isInstanced) {
             this._isInstanced = true;
         }
 
 
+        /*
         // Re-apply instance info as a base
         if (instanceInfo.length > 0) {
             for (let i = 0; i < instanceInfo.length; i++) {
                 obj.setMatrixAt(i, instanceInfo[i]);
             }
         }
+         */
 
         let rotation = new Euler(0, 0, 0);
         if (variant.x) {
@@ -288,14 +298,17 @@ export class BlockObject extends SceneObject {
             rotation.y = toRadians(variant.y);
         }
         console.log("rotation ", rotation);
-        console.log(obj.isInstanced);
+        // console.log(obj.isInstanced);
         obj.setRotation(rotation);
 
+        /*
         this.add(obj);
 
         if (this.options.wireframe) {
             addWireframeToObject(this, 0xff0000, 2)
         }
+         */
+        return obj;
     }
 
     public async resetState() {
@@ -363,6 +376,7 @@ export class BlockObject extends SceneObject {
     _getStateAt(index: number): BlockStateProperties {
         return this._instanceState[index];
     }
+
 
     getMatrixAt(index: number, matrix: Matrix4 = new Matrix4()): Matrix4 {
         if (!this.isInstanced) throw new MineRenderError("Object is not instanced");
