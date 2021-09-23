@@ -388,6 +388,7 @@ export class BlockObject extends SceneObject {
         }
     }
 
+    /*
     public async setStateAt(index: number, string: string);
     public async setStateAt(index: number, state: BlockStateProperties);
     public async setStateAt(index: number, key: string, value: string);
@@ -420,6 +421,8 @@ export class BlockObject extends SceneObject {
     _getStateAt(index: number): BlockStateProperties {
         return this._instanceState[index];
     }
+
+     */
 
     setPositionRotationScaleAt(index: number, position?: Vector3, rotation?: Euler, scale?: Vector3) {
         super.setPositionRotationScaleAt(index, position, rotation, scale);
