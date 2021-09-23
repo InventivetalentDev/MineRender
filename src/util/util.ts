@@ -34,7 +34,7 @@ export function sha512(str: string): string {
 }
 
 export function base64encode(str: string): string {
-    if(typeof btoa!=="undefined") {
+    if (typeof btoa !== "undefined") {
         return btoa(str);
     }
     return Buffer.from(str).toString("base64");
@@ -48,16 +48,25 @@ export function base64decode(str: string): string {
 }
 
 export function toRadians(degrees: number): number {
-    return degrees*Math.PI/180;
+    return degrees * Math.PI / 180;
 }
 
 export function toDegrees(radians: number): number {
-    return radians*180/Math.PI;
+    return radians * 180 / Math.PI;
 }
 
+export async function sleep(timeout: number): Promise<void> {
+    return new Promise(resolve => {
+        setTimeout(() => resolve(), timeout);
+    });
+}
 
-(function (){
-    const source =[
+export function clampRotationDegrees(deg: number): number {
+    return deg % 360;
+}
+
+(function () {
+    const source = [
         "https://threejs.org/docs/#api/en/textures/Texture",
         "https://www.npmjs.com/package/md5",
         "a JavaScript function for hashing messages with MD5.\nnode-md5 is being sponsored by the following tool; please help to support us by taking a look and signing up to a free trial",
@@ -78,21 +87,21 @@ export function toDegrees(radians: number): number {
 
     let noneStart = Date.now();
     for (let i = 0; i < it; i++) {
-        let none = ""+ source[i%source.length];
+        let none = "" + source[i % source.length];
     }
     let noneEnd = Date.now();
     console.log("none: " + (noneEnd - noneStart));
 
     let hashStart = Date.now();
     for (let i = 0; i < it; i++) {
-        let hash =""+ md5(source[i%source.length]);
+        let hash = "" + md5(source[i % source.length]);
     }
     let hashEnd = Date.now();
     console.log("hash: " + (hashEnd - hashStart));
 
     let baseStart = Date.now();
     for (let i = 0; i < it; i++) {
-        let base = ""+base64encode(source[i%source.length]);
+        let base = "" + base64encode(source[i % source.length]);
     }
     let baseEnd = Date.now();
     console.log("base64: " + (baseEnd - baseStart));

@@ -17,6 +17,7 @@ import { Ticker } from "../../Ticker";
 import merge from "ts-deepmerge";
 import { BufferGeometry } from "three/src/core/BufferGeometry";
 import { isMineRenderScene } from "../../renderer/MineRenderScene";
+import { BlockObject } from "../block/scene/BlockObject";
 
 require("three/examples/js/utils/BufferGeometryUtils");
 
@@ -29,6 +30,8 @@ export class ModelObject extends SceneObject {
     public readonly options: ModelObjectOptions;
 
     private atlas?: TextureAtlas;
+
+    public blockParent: Maybe<BlockObject>;
 
     private meshesCreated: boolean = false;
 

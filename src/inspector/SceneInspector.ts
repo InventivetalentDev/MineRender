@@ -152,7 +152,7 @@ export class SceneInspector {
         const rotRange = 360;
         const scaleRange = 4;
 
-        if (intersection.instanceId && isSceneObject(target) && (<SceneObject>target).isInstanced) {
+        if (typeof intersection.instanceId !== "undefined" && isSceneObject(target) && (<SceneObject>target).isInstanced) {
             const scObj: SceneObject = target as SceneObject;
 
             container.append(this.separator("Position"))

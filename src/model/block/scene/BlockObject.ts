@@ -7,7 +7,7 @@ import { Models } from "../../../assets/Models";
 import { Assets } from "../../../assets/Assets";
 import merge from "ts-deepmerge";
 import { Euler, Matrix4, Vector3 } from "three";
-import { Maybe, toRadians } from "../../../util/util";
+import { clampRotationDegrees, Maybe, toRadians } from "../../../util/util";
 import { addWireframeToObject, applyGenericRotation } from "../../../util/model";
 import { Axis } from "../../../Axis";
 import { MineRenderError } from "../../../error/MineRenderError";
@@ -29,12 +29,16 @@ export class BlockObject extends SceneObject {
     });
     public readonly options: BlockObjectOptions;
 
+    private _previousState: BlockStateProperties = {};
     private _state: BlockStateProperties = {};
     private _variant: Maybe<BlockStateVariant> = undefined;
 
     private _instanceState: BlockStateProperties[] = [];
     private _instanceVariant: BlockStateVariant[][] = [];
     private _instanceModel: (ModelObject | InstanceReference<ModelObject>)[] = [];
+
+    private _variants: BlockStateVariant[] = [];
+    private _models: (ModelObject | InstanceReference<ModelObject>)[] = [];
 
     constructor(readonly blockState: BlockState, options?: Partial<BlockObjectOptions>) {
         super();
@@ -100,7 +104,7 @@ export class BlockObject extends SceneObject {
     protected async mapStateToVariant(state: BlockStateProperties): Promise<BlockStateVariant[]> {
         console.log("mapStateToVariant");
         console.log(this.blockState)
-        console.log(this.state)
+        console.log(state)
 
         const out: BlockStateVariant[] = [];
         if (this.blockState.variants) {
@@ -108,7 +112,6 @@ export class BlockObject extends SceneObject {
                 out.push(this.getSingleVariant(this.blockState.variants[""]));
             } else {
                 for (let variantKey in this.blockState.variants) {
-                    console.log(variantKey)
                     const split = variantKey.split(",");
                     let matches = true;
                     for (let s of split) {
@@ -187,6 +190,8 @@ export class BlockObject extends SceneObject {
     public async recreateModels(): Promise<void> {
         console.log("recreateModels")
 
+        //TODO: change this to create models once, and then modify rotations when updating the state
+
         // Copy current instance info
         const instanceInfo: Matrix4[] = [];
         console.log(this.instanceCounter)
@@ -197,12 +202,26 @@ export class BlockObject extends SceneObject {
         }
 
         // Remove all children
-        this.disposeAndRemoveAllChildren();
+        console.log("self uuid", this.uuid)
+        // this.disposeAndRemoveAllChildren(); //TODO: just removes all children of all instances atm...
+
+        // TODO: try to reuse models instead of just removing them and creating new ones
+        for (let model of this._models) {
+            if (isInstanceReference(model)) {
+                model.setScale(new Vector3(0, 0, 0));//TODO
+            } else {
+                model.dispose();
+            }
+        }
+        while (this._models.length > 0) {
+            this._models.shift();
+        }
 
 
         //TODO: might want to preload all possible states & cache their data
         //TODO: make sure to only instance stuff with different rotations together; i.e. not those with different multipart settings, or different models
 
+        /*
         if (this.isInstanced) {
             //TODO: only map once per state
             for (let i = 0; i < this.instanceCounter; i++) {
@@ -213,10 +232,20 @@ export class BlockObject extends SceneObject {
             }
             //TODO: actually create
             //TODO: group by model
+            this._isInstanced = true;
         } else {
-            const variantsToCreate = await this.mapStateToVariant(this.state);
-            variantsToCreate.forEach(variant => this.createVariant(variant));
+         */
+        console.log("this.state", this.state);
+        const variantsToCreate = await this.mapStateToVariant(this.state);
+        console.log("var to create", variantsToCreate)
+        this._variants = variantsToCreate;
+        for (let blockStateVariant of variantsToCreate) {
+            this._models.push(await this.createVariant(blockStateVariant));
         }
+        /*
+    }
+
+         */
 
         // console.log(instanceInfo);
         // // Re-apply instances
@@ -250,13 +279,21 @@ export class BlockObject extends SceneObject {
         //TODO: default state?
         const model = await Models.getMerged(AssetKey.parse("models", variant.model!));
         console.log(this.options)
-        const obj: ModelObject | InstanceReference<ModelObject> = await this.scene.addModel(model!, this.options, this);
+        const obj: ModelObject | InstanceReference<ModelObject> = await this.scene.addModel(model!, this.options);
         /*
         const obj = new ModelObject(model!, this.options);
         await obj.init();
          */
         if (isInstanceReference(obj) || (<ModelObject>obj).isInstanced) {
             this._isInstanced = true;
+            this._instanceCounter = 1;//TODO: BlockObject itself isn't technically instanced, but needs the id for the get/setMatrix calls to work properly
+            /*
+            if (isInstanceReference(obj)) {
+                this._instanceCounter = obj.index;
+            } else {
+                this._instanceCounter = (<ModelObject>obj).instanceCounter;
+            }
+            */
         }
 
 
@@ -270,7 +307,7 @@ export class BlockObject extends SceneObject {
          */
 
         let rotation = new Euler(0, 0, 0);
-        if (variant.x) {
+        if (typeof variant.x !== "undefined") {
             // obj.rotation.x = toRadians(variant.x);
             // obj.rotation.set(obj.rotation.x + toRadians(variant.x), obj.rotation.y, obj.rotation.z);
             // for (let child of obj.children) {
@@ -278,9 +315,9 @@ export class BlockObject extends SceneObject {
             //     child.rotation.x = toRadians(variant.x);
             // }
             // this.setRotationAt(0, new Euler(variant.x, 0, 0));
-            rotation.x = toRadians(variant.x);
+            rotation.x = toRadians(clampRotationDegrees(variant.x));
         }
-        if (variant.y) {
+        if (typeof variant.y !== "undefined") {
             // obj.rotation.y = toRadians(variant.y);
             // obj.rotation.set(obj.rotation.x, obj.rotation.y + toRadians(variant.y), obj.rotation.z);
             // for (let child of obj.children) {
@@ -288,11 +325,21 @@ export class BlockObject extends SceneObject {
             //     child.rotation.y = toRadians(variant.y);
             // }
             // this.setRotationAt(0, new Euler(0, variant.y, 0));
-            rotation.y = toRadians(variant.y);
+            // Y-Rotations are weird...
+            if(typeof variant.x!=="undefined"){
+                rotation.y = toRadians(clampRotationDegrees(variant.y));
+            }else{
+                rotation.y = toRadians(clampRotationDegrees(360-variant.y));
+            }
         }
         console.log("rotation ", rotation);
         // console.log(obj.isInstanced);
         obj.setRotation(rotation);
+        setTimeout(() => {
+            console.log("delayed rotation ", rotation);
+            obj.setRotation(rotation)
+        }, 150);//TODO
+        console.log(obj)
 
         /*
         this.add(obj);
@@ -305,6 +352,7 @@ export class BlockObject extends SceneObject {
     }
 
     public async resetState() {
+        this._previousState = this._state;
         this._state = {};
         await this.recreateModels();
     }
@@ -319,6 +367,9 @@ export class BlockObject extends SceneObject {
     }
 
     protected _setState(stringOrKeyOrState: string | BlockStateProperties, value?: string): void {
+        console.log("_setState", stringOrKeyOrState, value)
+        this._previousState = this._state;
+        console.log("prev state", this._previousState)
         if (typeof value === "undefined") { // a=b,c=d,... or state object
             if (typeof stringOrKeyOrState === "string") {
                 if (stringOrKeyOrState === "") return;
@@ -370,25 +421,54 @@ export class BlockObject extends SceneObject {
         return this._instanceState[index];
     }
 
+    setPositionRotationScaleAt(index: number, position?: Vector3, rotation?: Euler, scale?: Vector3) {
+        super.setPositionRotationScaleAt(index, position, rotation, scale);
+    }
 
     getMatrixAt(index: number, matrix: Matrix4 = new Matrix4()): Matrix4 {
+        console.log("BlockObject#getMatrixAt", this.uuid)
         if (!this.isInstanced) throw new MineRenderError("Object is not instanced");
+        console.log(this._models);
+        const child = this._models[0];
+        if (child && isModelObject(child)) {
+            child.getMatrixAt(index, matrix);
+        } else if (child && isInstanceReference(child)) {
+            child.getMatrix(matrix);
+        }
+        /*
+        console.log(this.children)
         const child = this.children[0];
         if (child && isModelObject(child)) {
             if (!child.isInstanced) throw new MineRenderError("Object is not instanced");
             child.getMatrixAt(index, matrix);
         }
         return matrix;
+         */
+        // return super.getMatrixAt(0, matrix);
+        return matrix;
     }
 
     setMatrixAt(index: number, matrix: Matrix4) {
+        console.log("BlockObject#setMatrixAt", this.uuid)
         if (!this.isInstanced) throw new MineRenderError("Object is not instanced");
-        for (let child of this.children) {
-            if (isModelObject(child)) {
-                if (!child.isInstanced) throw new MineRenderError("Object is not instanced");
+        console.log(this._models);
+        // const child = this._models[0];
+        for(let child of this._models) {
+            if (child && isModelObject(child)) {
                 child.setMatrixAt(index, matrix);
+            } else if (child && isInstanceReference(child)) {
+                child.setMatrix(matrix);
             }
         }
+        /*
+      console.log(this.children)
+      for (let child of this.children) {
+          if (isModelObject(child)) {
+              if (!child.isInstanced) throw new MineRenderError("Object is not instanced");
+              child.setMatrixAt(index, matrix);
+          }
+      }
+       */
     }
 
     //TODO

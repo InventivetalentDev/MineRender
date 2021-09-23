@@ -1,4 +1,4 @@
-import { BoxGeometry, Color, EdgesGeometry, Euler, InstancedMesh, LineBasicMaterial, LineSegments, Matrix4, Mesh, Object3D, Quaternion, Scene, Vector3 } from "three";
+import { BoxGeometry, Color, EdgesGeometry, Euler, InstancedMesh, LineBasicMaterial, LineSegments, MathUtils, Matrix4, Mesh, Object3D, Quaternion, Scene, Vector3 } from "three";
 import { ModelElement, ModelFaces } from "../model/ModelElement";
 import { Geometries } from "../Geometries";
 import { UVMapper } from "../UVMapper";
@@ -17,6 +17,7 @@ import merge from "ts-deepmerge";
 import { Instanceable } from "../instance/Instanceable";
 import { isMineRenderScene, MineRenderScene } from "./MineRenderScene";
 import { Transformable } from "../Transformable";
+import generateUUID = MathUtils.generateUUID;
 
 export class SceneObject extends Object3D implements Disposable, Instanceable, Transformable {
 
@@ -214,8 +215,11 @@ export class SceneObject extends Object3D implements Disposable, Instanceable, T
         const i = this._instanceCounter++;
         this.setMatrixAt(i, new Matrix4());
         console.log("nextInstance " + i);
-        if (isMineRenderScene(this.parent)) {
-            this.parent.stats.instanceCount++;
+        if (i === this.options.maxInstanceCount) {
+            console.warn("Max instance count reached for " + this);
+        }
+        if (this.scene) {
+            this.scene.stats.instanceCount++;
         }
         return this.constructInstanceReference(i);
     }
@@ -225,28 +229,29 @@ export class SceneObject extends Object3D implements Disposable, Instanceable, T
     //<editor-fold desc="TRANSFORMATION">
 
     getMatrixAt(index: number, matrix: Matrix4 = new Matrix4()): Matrix4 {
-        console.log("getMatrixAt")
+        console.log("SceneObject#getMatrixAt",this.uuid)
         if (!this.isInstanced) throw new MineRenderError("Object is not instanced");
         const child = this.children[0];
         console.log(child)
-        if (isInstancedMesh(child)) {
+        if (child && isInstancedMesh(child)) {//TODO: figure out why child isn't set
             child.getMatrixAt(index, matrix);
         }
         return matrix;
     }
 
     setMatrixAt(index: number, matrix: Matrix4) {
-        console.log("setMatrixAt")
+        console.log("SceneObject#setMatrixAt",this.uuid)
         if (!this.isInstanced) throw new MineRenderError("Object is not instanced");
+        console.log(this.children)
         const child = this.children[0];
-        if (isInstancedMesh(child)) {
+        if (child && isInstancedMesh(child)) {//TODO: figure out why child isn't set
             child.setMatrixAt(index, matrix);
             child.instanceMatrix.needsUpdate = true;
         }
     }
 
     setPositionRotationScaleAt(index: number, position?: Vector3, rotation?: Euler, scale?: Vector3) {
-        console.log("setPositionRotationScaleAt")
+        console.log("SceneObject#setPositionRotationScaleAt",position,rotation,scale)
         if (!this.isInstanced) throw new MineRenderError("Object is not instanced");
 
         const oldPosition = new Vector3();
@@ -406,6 +411,8 @@ export class SceneObject extends Object3D implements Disposable, Instanceable, T
     public disposeAndRemoveAllChildren() {
         while (this.children.length > 0) {
             let c = this.children[0];
+            console.log("dispose child", c)
+            console.log("parent",c.parent)
             if (isDisposable(c)) {
                 c.dispose();
             }

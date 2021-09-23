@@ -10,9 +10,10 @@ import { SSAOPassOUTPUT } from "three/examples/jsm/postprocessing/SSAOPass";
 import { MinecraftAsset } from "../MinecraftAsset";
 import { SceneObjectOptions } from "./SceneObjectOptions";
 import { BlockState } from "../model/block/BlockState";
-import { BlockObject, BlockObjectOptions } from "../model/block/scene/BlockObject";
+import { BlockObject, BlockObjectOptions, isBlockObject } from "../model/block/scene/BlockObject";
 import { BlockInstance } from "../model/block/scene/BlockInstance";
 import { InstanceManager } from "../instance/InstanceManager";
+import { sleep } from "../util/util";
 
 export class MineRenderScene extends Scene {
 
@@ -47,17 +48,19 @@ export class MineRenderScene extends Scene {
     }
 
     async addSceneObject<A extends MinecraftAsset, T extends SceneObject, O extends SceneObjectOptions>(asset: A, objectSupplier: () => T | Promise<T>, options?: Partial<O>, parent: Object3D = this): Promise<T | InstanceReference<T>> {
+        console.log("addSceneObject")
+        console.log("parent",parent)
         // console.log(this.instanceCache)
-        if (options?.instanceMeshes && asset.key) {
+        if (options?.instanceMeshes && asset.key && asset.key.assetType==="models"/*TODO*/) {
             // console.log("instanceMeshes + key")
             // check for existing instances
             const key = asset.key.serialize();
-            //TODO use the parent's instance manager
             return this.instanceManager.getOrCreate(key, async () => {
                 const obj = await objectSupplier();
                 obj.scene = this;
                 await obj.init();
                 parent.add(obj);
+                // await sleep(500)//TODO
                 return obj;
             });
         } else {
@@ -66,7 +69,10 @@ export class MineRenderScene extends Scene {
             obj.scene = this;
             // await this.initAndAdd(obj);
             await obj.init();
-            parent.add(obj);
+            if(!isBlockObject(obj)) { //TODO: adding block objects slows things down (since each block has its own)
+                parent.add(obj);
+            }
+            // await sleep(500)//TODO
             return obj;
         }
     }
