@@ -1,5 +1,6 @@
 import { TripleArray } from "../Model";
 import { BlockStateProperties } from "../block/BlockStateProperties";
+import { Block } from "../block/Block";
 
 export interface MultiBlockStructure {
 
@@ -8,11 +9,5 @@ export interface MultiBlockStructure {
 
 }
 
-export interface MultiBlockBlock {
-
-    readonly type: string;
-    readonly properties: BlockStateProperties;
-    readonly position: TripleArray;
-    readonly nbt?: any;
-
+export interface MultiBlockBlock extends Block {
 }

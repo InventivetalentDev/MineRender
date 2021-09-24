@@ -337,6 +337,8 @@ export class UVMapper {
                         hasAnimation = true;
                         const meta = metaMap[textureKey];
                         const frameTime = meta?.animation?.frametime ?? 1;
+                        console.log(meta);
+                        console.log(frameTime)
 
                         let t = 0;
                         let f = 0;
@@ -357,6 +359,7 @@ export class UVMapper {
                                     f = 0;
                                 }
                             }
+
                         };
                     }
                 }

@@ -143,6 +143,7 @@ export class ModelObject extends SceneObject {
 
 
     protected applyTextures() {
+        console.log("applyTextures")
         // if (this.atlas!.model.textures) {
         //     for (let textureKey in this.atlas!.model.textures) {
         //         let asset = this.textureMap[textureKey];
@@ -155,8 +156,9 @@ export class ModelObject extends SceneObject {
             });
 
             //TODO: move this somewhere else
+            //TODO: this seems to be ticking way too fast atm
             if (this.atlas.hasAnimation) {
-                if (!this.atlas.ticker) { //TODO: fix missing texture update for reused atlas
+                if (typeof this.atlas.ticker === "undefined") { //TODO: fix missing texture update for reused atlas
                     this.atlas.ticker = Ticker.add(() => {
                         for (let key in this.atlas!.animatorFunctions) {
                             this.atlas!.animatorFunctions[key]();

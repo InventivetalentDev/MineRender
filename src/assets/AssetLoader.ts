@@ -40,7 +40,7 @@ export class AssetLoader {
     }
     static readonly META: ResponseParser<MinecraftTextureMeta> = {
         config(request: AxiosRequestConfig) {
-            request.responseType = "arraybuffer";
+            // request.responseType = "arraybuffer";
         },
         parse(response: AxiosResponse): Maybe<MinecraftTextureMeta> {
             return response.data as MinecraftTextureMeta;

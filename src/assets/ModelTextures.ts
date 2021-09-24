@@ -48,5 +48,8 @@ export class ModelTextures {
         })
     }
 
+    public static async clearCache() {
+        await this.PERSISTENT_META_CACHE.clear();
+    }
 
 }

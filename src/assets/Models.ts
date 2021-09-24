@@ -73,4 +73,8 @@ export class Models {
         return this.getMerged(key);
     }
 
+    public static async clearCache() {
+        return this.PERSISTENT_CACHE.clear();
+    }
+
 }
