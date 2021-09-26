@@ -34,4 +34,6 @@ export * from "./Env"
 
 export * from "./inspector/SceneInspector";
 
+export * from "./util/BatchedExecutor"
+
 //export * from "three/examples/jsm/utils/BufferGeometryUtils"
