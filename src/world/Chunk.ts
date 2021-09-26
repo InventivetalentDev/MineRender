@@ -8,6 +8,7 @@ import { MineRenderScene } from "../renderer/MineRenderScene";
 import { BlockStates } from "../assets/BlockStates";
 import { AssetKey } from "../assets/AssetKey";
 import { MineRenderWorld } from "./MineRenderWorld";
+import { isTripleArray, TripleArray } from "../model/Model";
 
 export class Chunk {
 
@@ -25,19 +26,28 @@ export class Chunk {
 
     public getBlockAt(x: number, y: number, z: number): Maybe<BlockInfo>;
     public getBlockAt(pos: Vector3): Maybe<BlockInfo>;
-    public getBlockAt(posOrX: number | Vector3, y?: number, z?: number): Maybe<BlockInfo> {
+    public getBlockAt(pos: TripleArray): Maybe<BlockInfo>;
+    public getBlockAt(posOrX: number | Vector3 | TripleArray, y?: number, z?: number): Maybe<BlockInfo> {
         if (typeof posOrX == "number") {
             return this.getBlockAt(new Vector3(posOrX, y, z));
         }
-        const index = Chunk.chunkPosToBlockIndex(posOrX);
+        if (isTripleArray(posOrX)) {
+            return this.getBlockAt(new Vector3(posOrX[0], posOrX[1], posOrX[2]))
+        }
+        const pos: Vector3 = this.worldPosToChunkPos(posOrX);
+        const index = Chunk.chunkPosToBlockIndex(pos);
         return this._blocks[index];
     }
 
     public async setBlockAt(x: number, y: number, z: number, block: Block): Promise<Maybe<BlockInfo>>;
     public async setBlockAt(pos: Vector3, block: Block): Promise<Maybe<BlockInfo>>;
-    public async setBlockAt(posOrX: number | Vector3, yOrBlock?: number | Block, z?: number, block?: Block): Promise<Maybe<BlockInfo>> {
+    public async setBlockAt(pos: TripleArray, block: Block): Promise<Maybe<BlockInfo>>;
+    public async setBlockAt(posOrX: number | Vector3 | TripleArray, yOrBlock?: number | Block, z?: number, block?: Block): Promise<Maybe<BlockInfo>> {
         if (typeof posOrX == "number") {
             return this.setBlockAt(new Vector3(posOrX, yOrBlock as number, z), block as Block);
+        }
+        if (isTripleArray(posOrX)) {
+            return this.setBlockAt(new Vector3(posOrX[0], posOrX[1], posOrX[2]), yOrBlock as Block);
         }
         const worldPos: Vector3 = posOrX;
         const pos: Vector3 = this.worldPosToChunkPos(worldPos);

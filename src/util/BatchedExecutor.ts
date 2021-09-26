@@ -8,7 +8,7 @@ export class BatchedExecutor {
     private readonly queue: Task[];
     private readonly task: Timeout;
 
-    constructor(interval: number = 1, batch: number = 20) {
+    constructor(interval: number = 1, batch: number = 30) {
         this.interval = interval;
         this.batch = batch;
 
@@ -34,4 +34,4 @@ export class BatchedExecutor {
 
 }
 
-type Task = () => void | Promise<void>
+type Task = () => any | Promise<any>
