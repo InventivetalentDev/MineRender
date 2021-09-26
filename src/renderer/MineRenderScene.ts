@@ -11,7 +11,6 @@ import { MinecraftAsset } from "../MinecraftAsset";
 import { SceneObjectOptions } from "./SceneObjectOptions";
 import { BlockState } from "../model/block/BlockState";
 import { BlockObject, BlockObjectOptions, isBlockObject } from "../model/block/scene/BlockObject";
-import { BlockInstance } from "../model/block/scene/BlockInstance";
 import { InstanceManager } from "../instance/InstanceManager";
 import { sleep } from "../util/util";
 
@@ -81,8 +80,8 @@ export class MineRenderScene extends Scene {
         return this.addSceneObject<Model, ModelObject, ModelObjectOptions>(model, () => new ModelObject(model, options), options, parent);
     }
 
-    public async addBlock(blockState: BlockState, options?: Partial<BlockObjectOptions>, parent: Object3D = this): Promise<BlockObject | BlockInstance> {
-        return <BlockObject | BlockInstance>await this.addSceneObject<BlockState, BlockObject, BlockObjectOptions>(blockState, () => new BlockObject(blockState, options), options, parent);
+    public async addBlock(blockState: BlockState, options?: Partial<BlockObjectOptions>, parent: Object3D = this): Promise<BlockObject | InstanceReference<BlockObject>> {
+        return this.addSceneObject<BlockState, BlockObject, BlockObjectOptions>(blockState, () => new BlockObject(blockState, options), options, parent);
     }
 
 }

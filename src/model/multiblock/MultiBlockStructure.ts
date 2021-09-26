@@ -10,4 +10,5 @@ export interface MultiBlockStructure {
 }
 
 export interface MultiBlockBlock extends Block {
+    position: TripleArray;
 }

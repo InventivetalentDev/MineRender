@@ -4,8 +4,7 @@ import { TripleArray } from "../Model";
 export interface Block {
 
     type: string;
-    properties: BlockStateProperties;
-    position: TripleArray;
+    properties?: BlockStateProperties;
     nbt?: any;
 
 }

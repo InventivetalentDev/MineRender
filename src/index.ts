@@ -24,6 +24,10 @@ export * from "./model/scene/ModelObject"
 export * from "./model/block/scene/BlockObject"
 export * from "./entity/scene/EntityObject";
 
+export * from "./world/MineRenderWorld";
+export * from "./world/Chunk";
+export * from "./world/BlockInfo"
+
 export * from "./Ticker";
 
 export * from "./Env"

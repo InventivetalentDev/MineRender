@@ -18,7 +18,6 @@ import { BlockStateProperties, BlockStatePropertyDefaults } from "../BlockStateP
 import { BlockStates } from "../../../assets/BlockStates";
 import { InstanceReference, isInstanceReference } from "../../../instance/InstanceReference";
 import { AssetKey } from "../../../assets/AssetKey";
-import { BlockInstance } from "./BlockInstance";
 
 export class BlockObject extends SceneObject {
 
@@ -83,10 +82,6 @@ export class BlockObject extends SceneObject {
 
     public get state(): { [key: string]: string; } {
         return this._state;
-    }
-
-    protected constructInstanceReference(i: number): BlockInstance {
-        return new BlockInstance(this, i);
     }
 
     nextInstance(): InstanceReference<SceneObject> {
