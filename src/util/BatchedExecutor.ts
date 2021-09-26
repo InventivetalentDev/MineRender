@@ -8,7 +8,7 @@ export class BatchedExecutor {
     private readonly queue: Task[];
     private readonly task: Timeout;
 
-    constructor(interval: number = 1, batch: number = 50) {
+    constructor(interval: number = 1, batch: number = 20) {
         this.interval = interval;
         this.batch = batch;
 
