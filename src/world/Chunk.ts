@@ -51,6 +51,8 @@ export class Chunk {
             delete this._blocks[index];
         }
 
+        if (typeof block === "undefined" || typeof block.type === "undefined" || block.type === "air") return undefined; // only delete block
+
         const blockState = await BlockStates.get(AssetKey.parse("blockstates", block.type));
         if (blockState) {
             const blockObject: BlockObject = await this.scene.addBlock(blockState, {
@@ -59,7 +61,7 @@ export class Chunk {
                 wireframe: true,
                 maxInstanceCount: 100000 //TODO
             }) as BlockObject;//TODO
-            if(block.properties) {
+            if (block.properties) {
                 await blockObject.setState(block.properties);
             }
 
@@ -80,11 +82,11 @@ export class Chunk {
         return (pos.y * 16 * 16) + (pos.z * 16) + pos.x;
     }
 
-    worldPosToChunkPos(pos: Vector3):  Vector3 {
+    worldPosToChunkPos(pos: Vector3): Vector3 {
         return new Vector3(
-            pos.x-(this.x*16),
+            pos.x - (this.x * 16),
             pos.y,
-            pos.z-(this.z*16)
+            pos.z - (this.z * 16)
         )
     }
 
