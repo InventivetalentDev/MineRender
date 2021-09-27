@@ -15,6 +15,8 @@ export class MineRenderWorld {
     public readonly scene: MineRenderScene;
 
     private _size: number = 4; //TODO: expandable
+    private _blockSize: number = this._size * 16;
+
     private readonly _chunks: Chunk[] = [];
 
     constructor(scene: MineRenderScene) {
@@ -35,6 +37,7 @@ export class MineRenderWorld {
         if (typeof chunk === "undefined") {
             return undefined;
         }
+        this.validatePosBounds(posOrX);
         return chunk.getBlockAt(posOrX);
     }
 
@@ -48,6 +51,7 @@ export class MineRenderWorld {
         if (isTripleArray(posOrX)) {
             return this.setBlockAt(new Vector3(posOrX[0], posOrX[1], posOrX[2]), yOrBlock as Block);
         }
+        this.validatePosBounds(posOrX);
         const chunk = this.getOrCreateChunkAt(posOrX);
         return chunk.setBlockAt(posOrX, yOrBlock as Block);
     }
@@ -56,7 +60,7 @@ export class MineRenderWorld {
     public async placeMultiBlock(multiblock: MultiBlockStructure, useBatches: boolean = true, executor: BatchedExecutor = new BatchedExecutor()): Promise<void> {
         const place = async (block: MultiBlockBlock) => {
             if (useBatches && typeof executor !== "undefined") {
-                await new Promise((resolve,reject)=>{
+                await new Promise((resolve, reject) => {
                     executor.submit(() => {
                         this.setBlockAt(block.position, block).then(resolve).catch(reject)
                     })
@@ -75,7 +79,7 @@ export class MineRenderWorld {
         const index = this.worldPosToChunkIndex(pos);
         let chunk = this._chunks[index];
         if (typeof chunk === "undefined") {
-            chunk = new Chunk(this.scene, Math.floor(pos.x / 16), Math.floor(pos.z / 16));
+            chunk = new Chunk(this.scene, Math.floor(pos.x / 16), Math.floor(pos.y / 16), Math.floor(pos.z / 16));
             this._chunks[index] = chunk;
         }
         return chunk;
@@ -105,8 +109,18 @@ export class MineRenderWorld {
 
     worldPosToChunkIndex(pos: Vector3): number {
         const chunkX = Math.floor(pos.x / 16);
+        const chunkY = Math.floor(pos.y / 16);
         const chunkZ = Math.floor(pos.z / 16);
-        return chunkZ * this._size + chunkX;
+        return (chunkZ * this._size * this._size) + (chunkY * this._size) + chunkX;
+    }
+
+    validatePosBounds(pos: Vector3): void {
+        if (pos.x < 0) throw new Error("x<0");
+        if (pos.y < 0) throw new Error("y<0");
+        if (pos.z < 0) throw new Error("z<0");
+        if (pos.x > this._blockSize) throw new Error("x>" + this._blockSize);
+        if (pos.y > this._blockSize) throw new Error("y>" + this._blockSize);
+        if (pos.z > this._blockSize) throw new Error("z>" + this._blockSize);
     }
 
 }

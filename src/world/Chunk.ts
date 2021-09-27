@@ -1,6 +1,6 @@
 import { Block } from "../model/block/Block";
 import { BlockObject, isBlockObject } from "../model/block/scene/BlockObject";
-import { Vector3 } from "three";
+import { Box3, Object3D, Vector3 } from "three";
 import { Maybe } from "../util/util";
 import { BlockInfo } from "./BlockInfo";
 import { del } from "node-persist";
@@ -9,19 +9,33 @@ import { BlockStates } from "../assets/BlockStates";
 import { AssetKey } from "../assets/AssetKey";
 import { MineRenderWorld } from "./MineRenderWorld";
 import { isTripleArray, TripleArray } from "../model/Model";
+import { addBox3WireframeToObject } from "../util/model";
 
 export class Chunk {
 
     public readonly scene: MineRenderScene; //TODO: should probably be the world
+
     public readonly x: number;
+    public readonly y: number;
     public readonly z: number;
 
     private readonly _blocks: BlockInfo[] = [];
 
-    constructor(scene: MineRenderScene, x: number, z: number) {
+    constructor(scene: MineRenderScene, x: number, y: number, z: number) {
         this.scene = scene;
         this.x = x;
+        this.y = y;
         this.z = z;
+
+        //TODO: option to visualize chunks
+        let anchor = new Object3D();
+        scene.add(anchor)
+        anchor.position.set((this.x * 256) + 128 - 8, (this.y * 256) + 128 - 8, (this.z * 256) + 128 - 8);
+        addBox3WireframeToObject(
+            new Box3(new Vector3(0, 0, 0), new Vector3(256, 256, 256)),
+            anchor,
+            0x00ffff,
+            10);
     }
 
     public getBlockAt(x: number, y: number, z: number): Maybe<BlockInfo>;
@@ -95,15 +109,15 @@ export class Chunk {
     worldPosToChunkPos(pos: Vector3): Vector3 {
         return new Vector3(
             pos.x - (this.x * 16),
-            pos.y,
+            pos.y - (this.y * 16),
             pos.z - (this.z * 16)
         )
     }
 
-    chunkPosToWorldPos(pos: Vector3): Vector3 { //TODO: should probably just use x,y,z
+    chunkPosToWorldPos(pos: Vector3): Vector3 {
         return new Vector3(
             (this.x * 16) + pos.x,
-            pos.y,
+            (this.y * 16) + pos.y,
             (this.z * 16) + pos.z
         );
     }
