@@ -12,7 +12,7 @@ import { SceneObjectOptions } from "./SceneObjectOptions";
 import { BlockState } from "../model/block/BlockState";
 import { BlockObject, BlockObjectOptions, isBlockObject } from "../model/block/scene/BlockObject";
 import { InstanceManager } from "../instance/InstanceManager";
-import { sleep } from "../util/util";
+import { DeepPartial, sleep } from "../util/util";
 
 export class MineRenderScene extends Scene {
 
@@ -24,7 +24,7 @@ export class MineRenderScene extends Scene {
     readonly stats: SceneStats = new SceneStats();
     protected readonly instanceManager: InstanceManager = new InstanceManager();
 
-    constructor(options?: Partial<MineRenderSceneOptions>) {
+    constructor(options?: DeepPartial<MineRenderSceneOptions>) {
         super();
         this.options = merge({}, MineRenderScene.DEFAULT_OPTIONS, options ?? {});
     }

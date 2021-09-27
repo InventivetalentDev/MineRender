@@ -70,6 +70,10 @@ export function isVector3(obj: any): obj is Vector3 {
     return (<Vector3>obj).isVector3;
 }
 
+export type DeepPartial<T> = {
+    [P in keyof T]?: DeepPartial<T[P]>;
+};
+
 (function () {
     const source = [
         "https://threejs.org/docs/#api/en/textures/Texture",

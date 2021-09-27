@@ -27,7 +27,8 @@ export class Materials {
             map: Textures.createCanvas(canvas),
             transparent: transparent,
             side: transparent ? DoubleSide : FrontSide,
-            alphaTest: 0.5
+            alphaTest: 0.5,
+
         })
     }
 

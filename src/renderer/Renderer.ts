@@ -1,14 +1,26 @@
-import { Camera, OrthographicCamera, PerspectiveCamera, Scene, WebGLRenderer } from "three";
+import { Camera, OrthographicCamera, PCFSoftShadowMap, PerspectiveCamera, Scene, WebGLRenderer } from "three";
 import { MineRenderScene } from "./MineRenderScene";
 import merge from "ts-deepmerge";
 import Stats from "stats.js";
+import { DeepPartial } from "../util/util";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer";
+import { SSAARenderPass } from "three/examples/jsm/postprocessing/SSAARenderPass";
+import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass";
+import { CopyShader } from "three/examples/jsm/shaders/CopyShader";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass";
+import { SAOPass } from "three/examples/jsm/postprocessing/SAOPass";
+import { SSAOPass } from "three/examples/jsm/postprocessing/SSAOPass";
+import { FXAAShader } from "three/examples/jsm/shaders/FXAAShader";
+import { SMAAPass } from "three/examples/jsm/postprocessing/SMAAPass";
+import { SSAOShader } from "three/examples/jsm/shaders/SSAOShader";
+import { BloomPass } from "three/examples/jsm/postprocessing/BloomPass";
 
 export class Renderer {
 
     public static readonly DEFAULT_OPTIONS: RendererOptions = merge({}, <RendererOptions>{
         camera: {
             type: "perspective",
-            near: 0.1,
+            near: 1,
             far: 5000,
             perspective: {
                 aspect: undefined,
@@ -23,7 +35,11 @@ export class Renderer {
         },
         render: {
             fpsLimit: 60,
-            stats: false
+            stats: false,
+            antialias: true
+        },
+        composer: {
+            enabled: false
         }
     });
     public readonly options: RendererOptions;
@@ -31,18 +47,25 @@ export class Renderer {
     protected _scene: MineRenderScene;
     protected _camera: Camera;
     protected _renderer: WebGLRenderer;
+    protected _composer: EffectComposer;
 
     protected _stats?: Stats;
 
+    protected _animationLoop;
+    protected _fpsTimer;
     protected _animationTimer?: NodeJS.Timeout = undefined;
     protected _animationFrame?: number = undefined;
 
-    constructor(options?: Partial<RendererOptions>) {
+    constructor(options?: DeepPartial<RendererOptions>) {
         this.options = merge({}, Renderer.DEFAULT_OPTIONS, options ?? {});
+
+        this._animationLoop = this.animate.bind(this);
+        this._fpsTimer = this.options.render.fpsLimit > 0 ? (1000 / this.options.render.fpsLimit) : undefined;
 
         this._scene = this.createScene();
         this._camera = this.createCamera();
         this._renderer = this.createRenderer();
+        this._composer = this.createComposer();
 
         if (this.options.render.stats) {
             this._stats = new Stats();
@@ -86,9 +109,55 @@ export class Renderer {
     }
 
     protected createRenderer(): WebGLRenderer {
-        const renderer = new WebGLRenderer({}); // TODO: config
+        const renderer = new WebGLRenderer({
+            antialias: this.options.render.antialias,
+            alpha: true,
+            powerPreference: "high-performance",
+            depth: false
+        });
+
+        renderer.setClearColor(0x000000, 0);
+
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = PCFSoftShadowMap;
+
+        renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(this.viewWidth, this.viewHeight);
+
         return renderer;
+    }
+
+    protected createComposer(): EffectComposer {
+        const composer = new EffectComposer(this.renderer);
+        if (!this.options.composer.enabled) return composer;
+
+        composer.setSize(this.viewWidth, this.viewHeight);
+        //TODO: options
+
+        // This one just tanks completely down to ~2fps
+        // const ssaaPass = new SSAARenderPass(this.scene, this.camera, 0x000000, 0);//TODO: options
+        // ssaaPass.unbiased = true;
+        // composer.addPass(ssaaPass);
+
+
+
+        composer.addPass(new RenderPass(this.scene, this.camera));
+        //
+        // Makes movement sluggish
+        // const ssaoPass = new SSAOPass(this.scene, this.camera, this.viewWidth, this.viewHeight);
+        // composer.addPass(ssaoPass);
+
+        // const saoPass = new SAOPass(this.scene, this.camera);
+        // composer.addPass(saoPass);
+
+        composer.addPass(new SMAAPass(this.viewWidth, this.viewHeight));
+
+        // const shaderPass = new ShaderPass(CopyShader);
+        // shaderPass.renderToScreen = true;
+        // composer.addPass(shaderPass);
+
+
+        return composer;
     }
 
     //</editor-fold>
@@ -112,19 +181,27 @@ export class Renderer {
 
     private animate(t?: number): void {
 
+        this._animationFrame = requestAnimationFrame(this._animationLoop);
+
+        // this._animationTimer = setTimeout(() => {
+        //     this._animationFrame = requestAnimationFrame(this._animationLoop);
+        // }, this._fpsTimer);
+
         if (this._stats) {
             this._stats.begin();
         }
 
-        this.renderer.render(this.scene, this.camera);
+
+        if (this.options.composer.enabled) {
+            this.composer.render();
+        } else {
+            this.renderer.render(this.scene, this.camera);
+        }
 
         if (this._stats) {
             this._stats.end();
         }
 
-        this._animationTimer = setTimeout(() => {
-            this._animationFrame = requestAnimationFrame((t) => this.animate(t));
-        }, this.options.render.fpsLimit > 0 ? (1000 / this.options.render.fpsLimit) : undefined);
     }
 
     //</editor-fold>
@@ -153,6 +230,10 @@ export class Renderer {
         return this._renderer;
     }
 
+    public get composer(): EffectComposer {
+        return this._composer;
+    }
+
     ///
 
 
@@ -161,6 +242,7 @@ export class Renderer {
 export interface RendererOptions {
     camera: CameraOptions;
     render: RenderOptions;
+    composer: ComposerOptions;
 }
 
 export interface CameraOptions {
@@ -182,4 +264,9 @@ export interface CameraOptions {
 export interface RenderOptions {
     fpsLimit: number;
     stats: boolean;
+    antialias: boolean;
+}
+
+export interface ComposerOptions {
+    enabled: boolean;
 }

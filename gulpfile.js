@@ -20,10 +20,11 @@ function bundle(watch) {
             standalone: "MineRender"
         }
     ))
-        .plugin(tsify, {target: 'es6', project: 'tsconfig.json'})
+        .plugin(tsify, {target: 'es6', project: 'tsconfig.json',})
         .transform(babelify, {
             extensions: ['.tsc', '.ts', '.js'],
-            sourceMaps: true
+            sourceMaps: true,
+            global: true, plugins: ['@babel/plugin-transform-modules-commonjs']
         })
     bundler.on('log', l => console.log(l));
 

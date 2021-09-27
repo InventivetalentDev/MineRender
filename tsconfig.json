@@ -2,6 +2,7 @@
   "compilerOptions": {
     "sourceMap": true,
     "declaration": true,
+    "skipLibCheck": true,
     //    "noImplicitAny": true,
     "noImplicitReturns": true,
     "noImplicitThis": true,
