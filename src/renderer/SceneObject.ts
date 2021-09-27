@@ -113,6 +113,11 @@ export class SceneObject extends Object3D implements Disposable, Instanceable, T
         if (name) {
             mesh.name = `mesh:${ name }`;
         }
+
+        //TODO
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+
         if (offsetAxis) {
             mesh.translateOnAxis(axisToVec3(offsetAxis), offset);
         }

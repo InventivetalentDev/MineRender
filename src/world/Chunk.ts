@@ -34,8 +34,8 @@ export class Chunk {
         addBox3WireframeToObject(
             new Box3(new Vector3(0, 0, 0), new Vector3(256, 256, 256)),
             anchor,
-            0x00ffff,
-            10);
+            0xffff00,
+            4);
     }
 
     public getBlockAt(x: number, y: number, z: number): Maybe<BlockInfo>;

@@ -2,7 +2,7 @@ import crypto from "crypto";
 import * as browserCrypto from "crypto-js";
 import CryptoJS from "crypto-js/core";
 import exp from "constants";
-import { Vector3 } from "three";
+import { MeshBasicMaterial, Vector3 } from "three";
 
 export type Maybe<T> = T | undefined;
 

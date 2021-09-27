@@ -14,6 +14,7 @@ import { FXAAShader } from "three/examples/jsm/shaders/FXAAShader";
 import { SMAAPass } from "three/examples/jsm/postprocessing/SMAAPass";
 import { SSAOShader } from "three/examples/jsm/shaders/SSAOShader";
 import { BloomPass } from "three/examples/jsm/postprocessing/BloomPass";
+import { ToonShader1, ToonShader2 } from "three/examples/jsm/shaders/ToonShader";
 
 export class Renderer {
 
@@ -36,10 +37,11 @@ export class Renderer {
         render: {
             fpsLimit: 60,
             stats: false,
-            antialias: true
+            antialias: true,
+            shade: true
         },
         composer: {
-            enabled: false
+            enabled: true
         }
     });
     public readonly options: RendererOptions;
@@ -113,7 +115,7 @@ export class Renderer {
             antialias: this.options.render.antialias,
             alpha: true,
             powerPreference: "high-performance",
-            depth: false
+            depth: true
         });
 
         renderer.setClearColor(0x000000, 0);
@@ -142,6 +144,11 @@ export class Renderer {
 
 
         composer.addPass(new RenderPass(this.scene, this.camera));
+
+
+        composer.addPass(new SMAAPass(this.viewWidth, this.viewHeight));
+
+
         //
         // Makes movement sluggish
         // const ssaoPass = new SSAOPass(this.scene, this.camera, this.viewWidth, this.viewHeight);
@@ -150,11 +157,12 @@ export class Renderer {
         // const saoPass = new SAOPass(this.scene, this.camera);
         // composer.addPass(saoPass);
 
-        composer.addPass(new SMAAPass(this.viewWidth, this.viewHeight));
 
-        // const shaderPass = new ShaderPass(CopyShader);
-        // shaderPass.renderToScreen = true;
-        // composer.addPass(shaderPass);
+        //
+        //
+        // const shaderPass1 = new ShaderPass(CopyShader);
+        // shaderPass1.renderToScreen = true;
+        // composer.addPass(shaderPass1);
 
 
         return composer;
@@ -265,6 +273,7 @@ export interface RenderOptions {
     fpsLimit: number;
     stats: boolean;
     antialias: boolean;
+    shade: boolean;
 }
 
 export interface ComposerOptions {

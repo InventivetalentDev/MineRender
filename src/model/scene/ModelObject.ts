@@ -7,7 +7,7 @@ import { Assets } from "../../assets/Assets";
 import { Maybe, toRadians } from "../../util/util";
 import { UVMapper } from "../../UVMapper";
 import { TextureAtlas } from "../../texture/TextureAtlas";
-import { BoxGeometry, BoxHelper, BufferAttribute, EdgesGeometry, InstancedMesh, LineBasicMaterial, LineSegments, Matrix4, Mesh } from "three";
+import { BoxGeometry, BoxHelper, BufferAttribute, EdgesGeometry, InstancedMesh, LineBasicMaterial, LineSegments, Matrix4, Mesh, MeshBasicMaterial } from "three";
 import * as THREE from "three";
 import { Axis } from "../../Axis";
 import { SceneObjectOptions } from "../../renderer/SceneObjectOptions";
@@ -150,7 +150,7 @@ export class ModelObject extends SceneObject {
         //         if (asset) {
         //TODO: transparency
         if (this.atlas) {
-            let mat = Materials.createCanvas(this.atlas.image!.canvas! as HTMLCanvasElement, this.atlas.hasTransparency);
+            let mat = Materials.createCanvas(this.atlas.image!.canvas! as HTMLCanvasElement, this.atlas.hasTransparency, true/*TODO: get this from render options*/);
             this.iterateAllMeshes(mesh => {
                 mesh.material = mat;
             });
@@ -163,7 +163,9 @@ export class ModelObject extends SceneObject {
                         for (let key in this.atlas!.animatorFunctions) {
                             this.atlas!.animatorFunctions[key]();
                         }
-                        mat.map!.needsUpdate = true;
+                        if("map" in mat) {
+                            (mat as any).map!.needsUpdate = true;
+                        }
                     });
                 }
             }

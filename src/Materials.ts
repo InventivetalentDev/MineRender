@@ -1,5 +1,5 @@
 import { MaterialKey, serializeMaterialKey } from "./cache/CacheKey";
-import { DoubleSide, FrontSide, Material, MeshBasicMaterial, MeshStandardMaterial } from "three";
+import { DoubleSide, FrontSide, Material, MeshBasicMaterial, MeshLambertMaterial, MeshPhongMaterial, MeshStandardMaterial } from "three";
 import { Textures } from "./texture/Textures";
 import { Caching } from "./cache/Caching";
 import { AssetKey } from "./assets/AssetKey";
@@ -21,8 +21,17 @@ export class Materials {
     }
 
 
-    public static createCanvas(canvas: HTMLCanvasElement, transparent: boolean = false): MeshBasicMaterial {
+    public static createCanvas(canvas: HTMLCanvasElement, transparent: boolean = false, shade: boolean = false): Material {
         //TODO
+        if (shade) {
+            return new MeshStandardMaterial({
+                map: Textures.createCanvas(canvas),
+                transparent: transparent,
+                side: transparent ? DoubleSide : FrontSide,
+                alphaTest: 0.5,
+
+            })
+        }
         return new MeshBasicMaterial({
             map: Textures.createCanvas(canvas),
             transparent: transparent,
