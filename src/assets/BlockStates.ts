@@ -48,4 +48,10 @@ export class BlockStates {
         })
     }
 
+    public static getAll(keys: AssetKey[]): Promise<Maybe<BlockState>[]> {
+        const promises: Promise<Maybe<BlockState>>[] = [];
+        keys.forEach(key => promises.push(this.get(key)));
+        return Promise.all(promises);
+    }
+
 }
