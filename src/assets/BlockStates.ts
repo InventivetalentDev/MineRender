@@ -7,8 +7,11 @@ import { Memoize } from "typscript-memoize";
 import defaultBlockStates from "../model/defaultBlockStates.json";
 import { BlockStateProperties, BlockStatePropertyDefaults } from "../model/block/BlockStateProperties";
 import { AssetKey } from "./AssetKey";
+import { PersistentCache } from "../cache/PersistentCache";
 
 export class BlockStates {
+
+    private static PERSISTENT_CACHE = PersistentCache.open("minerender-blockstates");
 
     // BlockState names are hardcoded
     @Memoize()
@@ -37,8 +40,10 @@ export class BlockStates {
         }
         const keyStr = key.serialize();
         return Caching.blockStateCache.get(keyStr, k => {
-            return AssetLoader.loadOrRetryWithDefaults(key, AssetLoader.BLOCKSTATE).then(asset => {
-                return asset;
+            return this.PERSISTENT_CACHE.getOrLoad(keyStr, k1 => {
+                return AssetLoader.loadOrRetryWithDefaults(key, AssetLoader.BLOCKSTATE).then(asset => {
+                    return asset;
+                })
             })
         }).then(asset => {
             if (asset) {
@@ -48,9 +53,11 @@ export class BlockStates {
         })
     }
 
-    public static getAll(keys: AssetKey[]): Promise<Maybe<BlockState>[]> {
+    public static getAll(keys: AssetKey[] | Iterable<AssetKey>): Promise<Maybe<BlockState>[]> {
         const promises: Promise<Maybe<BlockState>>[] = [];
-        keys.forEach(key => promises.push(this.get(key)));
+        for (let key of keys) {
+            promises.push(this.get(key));
+        }
         return Promise.all(promises);
     }
 
