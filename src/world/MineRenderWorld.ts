@@ -8,7 +8,8 @@ import { Chunk } from "./Chunk";
 import { BlockInfo } from "./BlockInfo";
 import { MultiBlockBlock, MultiBlockStructure } from "../model/multiblock/MultiBlockStructure";
 import { BatchedExecutor } from "../util/BatchedExecutor";
-import * as stream from "stream";
+import { AssetKey } from "../assets/AssetKey";
+import { BlockStates } from "../assets/BlockStates";
 
 export class MineRenderWorld {
 
@@ -58,6 +59,10 @@ export class MineRenderWorld {
 
 
     public async placeMultiBlock(multiblock: MultiBlockStructure, useBatches: boolean = true, executor: BatchedExecutor = new BatchedExecutor()): Promise<void> {
+        // preload blockstates
+        const keys = new Set<AssetKey>(multiblock.blocks.map(block=>AssetKey.parse("blockstates", block.type)));
+        await BlockStates.getAll(keys);
+
         const place = async (block: MultiBlockBlock) => {
             if (useBatches && typeof executor !== "undefined") {
                 await new Promise((resolve, reject) => {
