@@ -126,6 +126,8 @@ export class SkinObject extends SceneObject {
         this.slim = slim;
     }
 
+    //TODO: layer toggles
+
 
     protected getBoxGeometry(part: SkinPart): BoxGeometry {
         const coordinates: SkinTextureCoordinates = this.slim ? slimSkinTextureCoordinates : classicSkinTextureCoordinates;
