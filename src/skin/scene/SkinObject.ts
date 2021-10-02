@@ -8,6 +8,7 @@ import { Materials } from "../../Materials";
 import { ModelObjectOptions } from "../../model/scene/ModelObject";
 import merge from "ts-deepmerge";
 import { SceneObjectOptions } from "../../renderer/SceneObjectOptions";
+import { DeepPartial } from "../../util/util";
 
 export class SkinObject extends SceneObject {
 
@@ -22,7 +23,7 @@ export class SkinObject extends SceneObject {
     private capeTextureSrc?: string;
 
 
-    constructor(options: SkinObjectOptions) {
+    constructor(options?: DeepPartial<SkinObjectOptions>) {
         super();
         this.options = merge({}, SceneObject.DEFAULT_OPTIONS, options ?? {});
     }
@@ -95,6 +96,8 @@ export class SkinObject extends SceneObject {
                 const rightTrousers = this.createAndAddMesh("rightTrousers", rightLegGroup, rightTrousersGeo, mat, Axis.Y, -4);
             }
         }
+
+        //TODO: cape
     }
 
 
@@ -113,6 +116,8 @@ export class SkinObject extends SceneObject {
             }
         }
     }
+
+    //TODO: cape
 
     public setSlim(slim: boolean): void {
         if (slim !== this.slim) {

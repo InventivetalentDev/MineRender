@@ -58,6 +58,8 @@ export class ModelObject extends SceneObject {
         return this.atlas;
     }
 
+    //TODO: support for replacing textures
+
     protected async loadTextures(): Promise<void> {
         this.atlas = await UVMapper.getAtlas(this.originalModel);
     }

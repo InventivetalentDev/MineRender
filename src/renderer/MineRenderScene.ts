@@ -13,6 +13,7 @@ import { BlockState } from "../model/block/BlockState";
 import { BlockObject, BlockObjectOptions, isBlockObject } from "../model/block/scene/BlockObject";
 import { InstanceManager } from "../instance/InstanceManager";
 import { DeepPartial, sleep } from "../util/util";
+import { SkinObject, SkinObjectOptions } from "../skin/scene/SkinObject";
 
 export class MineRenderScene extends Scene {
 
@@ -48,9 +49,9 @@ export class MineRenderScene extends Scene {
 
     async addSceneObject<A extends MinecraftAsset, T extends SceneObject, O extends SceneObjectOptions>(asset: A, objectSupplier: () => T | Promise<T>, options?: Partial<O>, parent: Object3D = this): Promise<T | InstanceReference<T>> {
         console.log("addSceneObject")
-        console.log("parent",parent)
+        console.log("parent", parent)
         // console.log(this.instanceCache)
-        if (options?.instanceMeshes && asset.key && asset.key.assetType==="models"/*TODO*/) {
+        if (options?.instanceMeshes && asset.key && asset.key.assetType === "models"/*TODO*/) {
             // console.log("instanceMeshes + key")
             // check for existing instances
             const key = asset.key.serialize();
@@ -68,7 +69,7 @@ export class MineRenderScene extends Scene {
             obj.scene = this;
             // await this.initAndAdd(obj);
             await obj.init();
-            if(!isBlockObject(obj)) { //TODO: adding block objects slows things down (since each block has its own)
+            if (!isBlockObject(obj)) { //TODO: adding block objects slows things down (since each block has its own)
                 parent.add(obj);
             }
             // await sleep(500)//TODO
@@ -82,6 +83,17 @@ export class MineRenderScene extends Scene {
 
     public async addBlock(blockState: BlockState, options?: Partial<BlockObjectOptions>, parent: Object3D = this): Promise<BlockObject | InstanceReference<BlockObject>> {
         return this.addSceneObject<BlockState, BlockObject, BlockObjectOptions>(blockState, () => new BlockObject(blockState, options), options, parent);
+    }
+
+    public async addSkin(skin?: string, options?: Partial<SkinObjectOptions>, parent: Object3D = this): Promise<SkinObject> {
+        const obj = new SkinObject(options);
+        obj.scene = this;
+        await obj.init();
+        if (skin) {
+            obj.setSkinTexture(skin);
+        }
+        parent.add(obj);
+        return obj;
     }
 
 }
