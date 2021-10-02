@@ -65,6 +65,7 @@ export class Models {
         }
         const keyStr = key.serialize();
         return Caching.mergedModelCache.get(keyStr, k => {
+            //TODO: persistent cache
             return Models.loadAndMerge(key);
         });
     }

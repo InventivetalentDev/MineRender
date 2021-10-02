@@ -1,6 +1,7 @@
 import { base64encode, md5 } from "../util/util";
 import { Serializable } from "../Serializable";
-import { DEFAULT_NAMESPACE } from "./Assets";
+import { DEFAULT_NAMESPACE, DEFAULT_ROOT } from "./Assets";
+import { AssetLoader } from "./AssetLoader";
 
 export type AssetType = "models" | "textures" | "blockstates" | string;
 
@@ -22,6 +23,7 @@ export class BasicAssetKey implements Serializable {
     }
 
     toNamespacedString() {
+        console.log("#toNamespacedString")
         return this.namespace + ":" + this.path;
     }
 
@@ -72,14 +74,16 @@ export class AssetKey extends BasicAssetKey {
     }
 
     toString(): string {
-        return [
-            "root" in this ? this.root : "__root__",
-            "rootType" in this ? this.rootType : "__rootType__",
-            "assetType" in this ? this.assetType : "__assetType__",
-            "type" in this ? this.type : "__type__",
+        let a = [
+            (typeof this.root !== 'undefined' || AssetLoader.ROOT !== DEFAULT_ROOT) ? (this.root ?? AssetLoader.ROOT) : "__root__",
+            this.rootType ?? "__rootType__",
+            this.assetType ?? "__assetType__",
+            this.type ?? "__type__",
             this.namespace,
             this.path
-        ].join("/");
+        ];
+        console.log("AssetKey#toString", a);
+        return a.join("/");
     }
 
     serialize(): string {
