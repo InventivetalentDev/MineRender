@@ -18,6 +18,7 @@ export * from "./assets/AssetLoader";
 export * from "./assets/Models"
 export * from "./assets/BlockStates"
 export * from "./assets/Entities";
+export * from "./skin/Skins";
 
 export * from "./skin/scene/SkinObject"
 export * from "./model/scene/ModelObject"

@@ -8,12 +8,13 @@ export class Skins {
     //<editor-fold desc="Skins">
 
     static async fromUuid(uuid: string): Promise<Maybe<string>> {
-        return this.getProfile(uuid).then(profile => {
-            if (profile) {
-                return profile.decoded.textures.SKIN?.url;
-            }
-            return undefined;
-        })
+        // return this.getProfile(uuid).then(profile => {
+        //     if (profile) {
+        //         return profile.decoded.textures.SKIN?.url;
+        //     }
+        //     return undefined;
+        // })
+        return this.getCrafatarSkinUrl(uuid);
     }
 
     static async fromUsername(username: string): Promise<Maybe<string>> {
@@ -40,12 +41,13 @@ export class Skins {
     //<editor-fold desc="Capes">
 
     static async capeFromUuid(uuid: string): Promise<Maybe<string>> {
-        return this.getProfile(uuid).then(profile => {
-            if (profile) {
-                return profile.decoded.textures.CAPE?.url;
-            }
-            return undefined;
-        })
+        // return this.getProfile(uuid).then(profile => {
+        //     if (profile) {
+        //         return profile.decoded.textures.CAPE?.url;
+        //     }
+        //     return undefined;
+        // })
+        return this.getCrafatarCapeUrl(uuid);
     }
 
     static async capeFromUsername(username: string): Promise<Maybe<string>> {
@@ -77,7 +79,7 @@ export class Skins {
             baseURL: 'https://api.minetools.eu',
             url: '/uuid/' + username
         }).then(res => {
-            if (res.status === 200 && res.data["status"] === "OK") {
+            if (res.status === 200) {
                 return res.data["id"];
             }
             return undefined;
@@ -92,7 +94,7 @@ export class Skins {
             baseURL: 'https://api.minetools.eu',
             url: '/profile/' + uuid
         }).then(res => {
-            if (res.status === 200 && res.data["status"] === "OK") {
+            if (res.status === 200) {
                 return res.data;
             }
         })
@@ -127,7 +129,15 @@ export class Skins {
             return undefined;
         })
     }
-    
+
+    private static getCrafatarSkinUrl(uuid: string): string {
+        return "https://crafatar.com/skins/" + uuid;
+    }
+
+    private static getCrafatarCapeUrl(uuid: string): string {
+        return "https://crafatar.com/capes/" + uuid;
+    }
+
     //</editor-fold>
 
 
