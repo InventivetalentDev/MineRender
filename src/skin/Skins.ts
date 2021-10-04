@@ -7,6 +7,13 @@ export class Skins {
 
     //<editor-fold desc="Skins">
 
+    static async fromUuidOrUsername(uuidOrUsername: string): Promise<Maybe<string>> {
+        if (uuidOrUsername.length === 32 || uuidOrUsername.length === 36) {
+            return this.fromUuid(uuidOrUsername);
+        }
+        return this.fromUsername(uuidOrUsername);
+    }
+
     static async fromUuid(uuid: string): Promise<Maybe<string>> {
         // return this.getProfile(uuid).then(profile => {
         //     if (profile) {
@@ -39,6 +46,13 @@ export class Skins {
 
 
     //<editor-fold desc="Capes">
+
+    static async capeFromUuidOrUsername(uuidOrUsername: string): Promise<Maybe<string>> {
+        if (uuidOrUsername.length === 32 || uuidOrUsername.length === 36) {
+            return this.capeFromUuid(uuidOrUsername);
+        }
+        return this.capeFromUsername(uuidOrUsername);
+    }
 
     static async capeFromUuid(uuid: string): Promise<Maybe<string>> {
         // return this.getProfile(uuid).then(profile => {
