@@ -1,4 +1,4 @@
-import { Camera, OrthographicCamera, PCFSoftShadowMap, PerspectiveCamera, Scene, WebGLRenderer } from "three";
+import { AxesHelper, Camera, GridHelper, OrthographicCamera, PCFSoftShadowMap, PerspectiveCamera, Scene, WebGLRenderer } from "three";
 import { MineRenderScene } from "./MineRenderScene";
 import merge from "ts-deepmerge";
 import Stats from "stats.js";
@@ -42,6 +42,10 @@ export class Renderer {
         },
         composer: {
             enabled: true
+        },
+        debug: {
+            grid: false,
+            axes: false
         }
     });
     public readonly options: RendererOptions;
@@ -75,9 +79,7 @@ export class Renderer {
             document.body.appendChild(this._stats.dom);//TODO
         }
 
-        if (typeof window["__THREE_DEVTOOLS__"] !== 'undefined') {
-            window["__THREE_DEVTOOLS__"].dispatchEvent(new CustomEvent('observe', { detail: this.scene }));
-        }
+        this.init();
     }
 
     //<editor-fold desc="INIT">
@@ -170,6 +172,30 @@ export class Renderer {
 
     //</editor-fold>
 
+    public init() {
+        if (typeof window["__THREE_DEVTOOLS__"] !== 'undefined') {
+            window["__THREE_DEVTOOLS__"].dispatchEvent(new CustomEvent('observe', { detail: this.scene }));
+        }
+
+        if (this.options.debug.grid) {
+            const gridHelper = new GridHelper(128, 16);
+            this.scene.add(gridHelper);
+
+            const gridHelper2 = new GridHelper(128, 16);
+            gridHelper2.rotation.x = 90 * (Math.PI / 180)
+            this.scene.add(gridHelper2);
+
+            const gridHelper3 = new GridHelper(128, 16);
+            gridHelper3.rotation.z = 90 * (Math.PI / 180)
+            this.scene.add(gridHelper3);
+        }
+
+        if (this.options.debug.axes) {
+            const axesHelper = new AxesHelper(64);
+            this.scene.add(axesHelper);
+        }
+    }
+
     //<editor-fold desc="RENDER">
 
     public start() {
@@ -251,6 +277,7 @@ export interface RendererOptions {
     camera: CameraOptions;
     render: RenderOptions;
     composer: ComposerOptions;
+    debug: DebugOptions;
 }
 
 export interface CameraOptions {
@@ -278,4 +305,9 @@ export interface RenderOptions {
 
 export interface ComposerOptions {
     enabled: boolean;
+}
+
+export interface DebugOptions {
+    grid: boolean;
+    axes: boolean;
 }
