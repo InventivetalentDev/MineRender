@@ -29,6 +29,7 @@ export class SceneInspector {
 
         document.addEventListener("click", event => {
             if ((<HTMLElement>event.target)?.nodeName !== "CANVAS") return;
+            //TODO: only cast when holding ctrl or something
 
             this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
             this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
@@ -39,6 +40,11 @@ export class SceneInspector {
                 this.handleRaycasterObjects(intersects)
             }
         })
+    }
+
+    appendTo(el: HTMLElement) {
+        el.append(this.objectInfoContainer);
+        el.append(this.objectControlsContainer);
     }
 
     protected handleRaycasterObjects(intersections: Intersection[]) {
