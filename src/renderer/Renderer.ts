@@ -34,8 +34,8 @@ export class Renderer {
                 top: undefined,
                 bottom: undefined
             },
-            position: [50, 50, 50],
-            lookingAt: [0, 0, 0]
+            position: new Vector3(50, 50, 50),
+            lookingAt: new Vector3(0, 0, 0)
         },
         render: {
             fpsLimit: 60,
@@ -312,8 +312,8 @@ export interface CameraOptions {
         top: undefined | number;
         bottom: undefined | number;
     }
-    position: TripleArray | Vector3;
-    lookingAt: TripleArray | Vector3;
+    position: Vector3;
+    lookingAt: Vector3;
 }
 
 export interface RenderOptions {
