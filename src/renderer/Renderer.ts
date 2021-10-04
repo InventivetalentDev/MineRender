@@ -1,8 +1,8 @@
-import { AxesHelper, Camera, GridHelper, OrthographicCamera, PCFSoftShadowMap, PerspectiveCamera, Scene, WebGLRenderer } from "three";
+import { AxesHelper, Camera, GridHelper, OrthographicCamera, PCFSoftShadowMap, PerspectiveCamera, Scene, Vector3, WebGLRenderer } from "three";
 import { MineRenderScene } from "./MineRenderScene";
 import merge from "ts-deepmerge";
 import Stats from "stats.js";
-import { DeepPartial } from "../util/util";
+import { DeepPartial, isVector3 } from "../util/util";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer";
 import { SSAARenderPass } from "three/examples/jsm/postprocessing/SSAARenderPass";
 import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass";
@@ -15,6 +15,7 @@ import { SMAAPass } from "three/examples/jsm/postprocessing/SMAAPass";
 import { SSAOShader } from "three/examples/jsm/shaders/SSAOShader";
 import { BloomPass } from "three/examples/jsm/postprocessing/BloomPass";
 import { ToonShader1, ToonShader2 } from "three/examples/jsm/shaders/ToonShader";
+import { isTripleArray, TripleArray } from "../model/Model";
 
 export class Renderer {
 
@@ -32,7 +33,9 @@ export class Renderer {
                 right: undefined,
                 top: undefined,
                 bottom: undefined
-            }
+            },
+            position: [50, 50, 50],
+            lookingAt: [0, 0, 0]
         },
         render: {
             fpsLimit: 60,
@@ -144,7 +147,6 @@ export class Renderer {
         // composer.addPass(ssaaPass);
 
 
-
         composer.addPass(new RenderPass(this.scene, this.camera));
 
 
@@ -177,6 +179,7 @@ export class Renderer {
             window["__THREE_DEVTOOLS__"].dispatchEvent(new CustomEvent('observe', { detail: this.scene }));
         }
 
+        /// DEBUG
         if (this.options.debug.grid) {
             const gridHelper = new GridHelper(128, 16);
             this.scene.add(gridHelper);
@@ -189,10 +192,25 @@ export class Renderer {
             gridHelper3.rotation.z = 90 * (Math.PI / 180)
             this.scene.add(gridHelper3);
         }
-
         if (this.options.debug.axes) {
             const axesHelper = new AxesHelper(64);
             this.scene.add(axesHelper);
+        }
+
+        /// CAMERA
+        if (this.options.camera.position) {
+            if (isVector3(this.options.camera.position)) {
+                this.camera.position.set(this.options.camera.position.x, this.options.camera.position.y, this.options.camera.position.z);
+            } else if (isTripleArray(this.options.camera.position)) {
+                this.camera.position.set(this.options.camera.position[0], this.options.camera.position[1], this.options.camera.position[2]);
+            }
+        }
+        if (this.options.camera.lookingAt) {
+            if (isVector3(this.options.camera.lookingAt)) {
+                this.camera.lookAt(this.options.camera.lookingAt);
+            } else if (isTripleArray(this.options.camera.lookingAt)) {
+                this.camera.lookAt(this.options.camera.lookingAt[0], this.options.camera.lookingAt[1], this.options.camera.lookingAt[2]);
+            }
         }
     }
 
@@ -294,6 +312,8 @@ export interface CameraOptions {
         top: undefined | number;
         bottom: undefined | number;
     }
+    position: TripleArray | Vector3;
+    lookingAt: TripleArray | Vector3;
 }
 
 export interface RenderOptions {
