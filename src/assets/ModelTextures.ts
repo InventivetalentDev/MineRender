@@ -34,7 +34,10 @@ export class ModelTextures {
     }
 
     public static async getMeta(key: AssetKey): Promise<Maybe<MinecraftTextureMeta>> {
-        key.extension += ".mcmeta";
+        if (!key.extension || !key.extension.endsWith(".mcmeta")) {
+            key = Object.assign(new AssetKey("", ""), key);
+            key.extension += ".mcmeta";
+        }
         const keyStr = key.serialize();
 
         return Caching.textureMetaCache.get(keyStr, k => {
