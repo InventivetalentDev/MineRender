@@ -202,7 +202,7 @@ export class UVMapper {
 
     protected static expandAndRotateMcUvs([u1, v1, u2, v2]: QuadArray, rotation: number = 0, actualWidth: number): QuadArray<Vector2> {
         // Resize coordinates to actual texture size
-        const mult = Math.ceil(actualWidth / 16);
+        const mult = (actualWidth / 16);
         u1 *= mult;
         v1 *= mult;
         u2 *= mult;
@@ -248,6 +248,8 @@ export class UVMapper {
         const isItemModel = !("elements" in model);
 
         if (model.textures) {
+            console.log(model.key)
+            console.log(model.textures)
             const promises: Promise<void>[] = [];
             const uniqueTextureNames: string[] = []; // TODO: make these actually unique
             const textureReferences: { [k: string]: string; } = {};
@@ -258,6 +260,7 @@ export class UVMapper {
                 } else {
                     uniqueTextureNames.push(textureKey);
                     const assetKey = AssetKey.parse("textures", textureValue, model.key);
+                    console.log(assetKey)
                     promises.push(ModelTextures.get(assetKey).then(asset => {
                         textureMap[textureKey] = new WrappedImage(asset!);
                     }));
@@ -376,8 +379,8 @@ export class UVMapper {
                     ty++;
                 }
             }
-            // const atlasImageData = image.toDataURL();
-            // console.log(atlasImageData);
+            const atlasImageData = image.toDataURL();
+            console.log("Atlas for",model.key,atlasImageData);
 
             this.fillMissingTextureKeys(model.textures, positions);
 
