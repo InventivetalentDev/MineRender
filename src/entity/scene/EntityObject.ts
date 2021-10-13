@@ -63,7 +63,6 @@ export class EntityObject extends SceneObject {
     }
 
     protected createMeshes(force: boolean = false) {
-        console.log("createMeshes")
         if (this.meshesCreated && !force) return;
 
         const mat = Materials.MISSING_TEXTURE;

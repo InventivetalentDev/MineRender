@@ -6,7 +6,6 @@ export class NBTHelper {
 
     public static async fromBuffer(buffer: Buffer): Promise<NBTAsset> {
         const { parsed, type, metadata } = await prismarineNbt.parse(buffer);
-        console.log(parsed);
         return parsed;
     }
 

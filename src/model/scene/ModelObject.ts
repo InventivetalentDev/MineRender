@@ -41,7 +41,6 @@ export class ModelObject extends SceneObject {
     }
 
     async init(): Promise<void> {
-        console.log("ModelObject.init")
         // load textures first so we have the updated UV coordinates from the atlas
         await this.loadTextures();
 
@@ -66,7 +65,6 @@ export class ModelObject extends SceneObject {
 
 
     protected createMeshes(force: boolean = false) {
-        console.log("createMeshes")
         if (this.meshesCreated && !force) return;
 
         const mat = Materials.MISSING_TEXTURE;
@@ -121,7 +119,6 @@ export class ModelObject extends SceneObject {
             // combinedGeo.translate(-8, -8, -8);
             // TODO: cache the combined geometry
             let mesh: Mesh;
-            console.log("this.options.instanceMeshes",this.options.instanceMeshes)
             if (this.options.instanceMeshes) {
                 mesh = this.createInstancedMesh(undefined, combinedGeo, mat, this.options.maxInstanceCount || 50);
                 this.add(mesh);
@@ -145,7 +142,6 @@ export class ModelObject extends SceneObject {
 
 
     protected applyTextures() {
-        console.log("applyTextures")
         // if (this.atlas!.model.textures) {
         //     for (let textureKey in this.atlas!.model.textures) {
         //         let asset = this.textureMap[textureKey];

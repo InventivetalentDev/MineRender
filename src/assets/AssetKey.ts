@@ -23,7 +23,6 @@ export class BasicAssetKey implements Serializable {
     }
 
     toNamespacedString() {
-        console.log("#toNamespacedString")
         return this.namespace + ":" + this.path;
     }
 
@@ -82,7 +81,6 @@ export class AssetKey extends BasicAssetKey {
             this.namespace,
             this.path
         ];
-        console.log("AssetKey#toString", a);
         return a.join("/");
     }
 

@@ -11,16 +11,13 @@ import { Mode } from "fs";
 import { TextureAtlas } from "./texture/TextureAtlas";
 import { Caching } from "./cache/Caching";
 import { ImageLoader } from "./image/ImageLoader";
-import { createImageData, ImageData } from "canvas";
-import { SSAOPassOUTPUT } from "three/examples/jsm/postprocessing/SSAOPass";
-import debug from "debug";
-import { DEBUG_NAMESPACE } from "./util/debug";
 import { AnimatorFunction } from "./AnimatorFunction";
 import { MinecraftTextureMeta } from "./MinecraftTextureMeta";
 import { AssetKey } from "./assets/AssetKey";
 import { ModelGenerator } from "./model/ModelGenerator";
+import { prefix } from "./util/log";
 
-const d = debug(`${ DEBUG_NAMESPACE }:UVMapper`);
+const p = prefix("UVMapper");
 
 export const DEFAULT_UV: QuadArray = [0, 0, 16, 16];
 const X = 0;
@@ -248,9 +245,9 @@ export class UVMapper {
         const model = { ...originalModel };
         const isItemModel = !("elements" in model);
 
+        console.debug(p, "Creating Atlas for", model.key);
+
         if (model.textures) {
-            console.log(model.key)
-            console.log(model.textures)
             const promises: Promise<void>[] = [];
             const uniqueTextureNames: string[] = []; // TODO: make these actually unique
             const textureReferences: { [k: string]: string; } = {};
@@ -261,7 +258,6 @@ export class UVMapper {
                 } else {
                     uniqueTextureNames.push(textureKey);
                     const assetKey = AssetKey.parse("textures", textureValue, model.key);
-                    console.log(assetKey)
                     promises.push(ModelTextures.get(assetKey).then(asset => {
                         textureMap[textureKey] = new WrappedImage(asset!);
                     }));
@@ -272,7 +268,7 @@ export class UVMapper {
             }
             await Promise.all(promises);
             const textureCount = uniqueTextureNames.length;
-            d("Creating Atlas for %d textures", textureCount);
+            console.debug(p, "Creating Atlas for", textureCount, "textures");
             // console.log(model.textures)
 
             this.fillMissingTextureKeys(model.textures, textureMap);
@@ -300,7 +296,7 @@ export class UVMapper {
 
             const s = (Math.ceil(Math.sqrt(textureCount + 1))); // +1 for transparency
             const size = Math.ceil(s * maxWidth)
-            d("Atlas size: %d", size);
+            console.debug(p, "Atlas size:", size);
             // console.log("size: " + size);
             const squaredSize = size * size;
 
@@ -326,16 +322,10 @@ export class UVMapper {
             for (let textureIndex = 0; textureIndex < uniqueTextureNames.length; textureIndex++) {
                 let textureKey = uniqueTextureNames[textureIndex];
                 let texture = textureMap[textureKey];
-                // console.log(tx);
-                // console.log(ty);
                 let x = tx * maxWidth;
                 let y = ty * maxWidth;
-                // console.log(x);
-                // console.log(y);
                 if (texture) {
                     positions[textureKey] = [x, y];
-                    // console.log(Buffer.from(texture.dataArray).toString("base64"))
-                    // console.log(`drawing at ${ x } ${ y }`)
                     image.putData(texture.data, x, y, 0, 0, maxWidth, maxWidth);
                     // console.log(image.toDataURL())
                     //TODO: only first frame for animated textures
@@ -348,8 +338,6 @@ export class UVMapper {
                         hasAnimation = true;
                         const meta = metaMap[textureKey];
                         const frameTime = meta?.animation?.frametime ?? 1;
-                        console.log(meta);
-                        console.log(frameTime)
 
                         let t = 0;
                         let f = 0;
@@ -381,14 +369,14 @@ export class UVMapper {
                 }
             }
             const atlasImageData = image.toDataURL();
-            console.log("Atlas for",model.key,atlasImageData);
+            console.log(p,"Atlas Image for", model.key, atlasImageData);
 
             this.fillMissingTextureKeys(model.textures, positions);
 
             // console.log(positions);
 
             if (isItemModel) {
-                d("Generating item model for %O", model);
+                console.debug(p, "Generating item model for", model);
                 model.elements = [];
                 for (let layerName of ModelGenerator.ITEM_LAYERS) {
                     const textureImage = textureMap[layerName];
@@ -396,7 +384,7 @@ export class UVMapper {
                         model.elements.push(...ModelGenerator.generateItemModel(textureImage.data, layerName))
                     }
                 }
-                console.log(model.elements)
+                console.debug(p,"Item model elements",model.elements)
             }
 
             if (!model.elements) {
@@ -464,8 +452,6 @@ export class UVMapper {
                         this.setFaceUvInArrayV(uv, faceIndex * 4, uvs);
                     }
 
-                    console.log(element);
-                    console.log(uv);
                     element.mappedUv = uv;
                 }
             } else {
@@ -482,7 +468,7 @@ export class UVMapper {
                 hasTransparency
             );
         } else {
-            d("Model does not have any textures %O", model);
+            console.warn(p, "Model does not have any textures", model);
         }
         return undefined;
     }

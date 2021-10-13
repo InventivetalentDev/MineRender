@@ -1,6 +1,9 @@
 import { InstanceReference } from "./InstanceReference";
 import { SceneObject } from "../renderer/SceneObject";
 import { Maybe } from "../util/util";
+import { prefix } from "../util/log";
+
+const p = prefix("InstanceManager");
 
 export class InstanceManager {
 
@@ -13,7 +16,7 @@ export class InstanceManager {
 
     public async get<T extends SceneObject>(key: string): Promise<Maybe<InstanceReference<T>>> {
         if (key in this.instanceCache) {
-            console.log("key in cache", key)
+            console.debug(p, "key in cache", key)
             // create next instance of existing object
             return (await this.instanceCache[key]).nextInstance() as InstanceReference<T>;
         }
@@ -25,7 +28,7 @@ export class InstanceManager {
         if (typeof cached !== "undefined") {
             return cached;
         }
-        console.log("key not in cache", key)
+        console.debug(p, "key not in cache", key)
         const promise = new Promise<InstanceReference<SceneObject>>(async (resolve) => {
             const obj = await supplier();
             const instance = obj.nextInstance();

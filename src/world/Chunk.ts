@@ -10,6 +10,10 @@ import { AssetKey } from "../assets/AssetKey";
 import { MineRenderWorld } from "./MineRenderWorld";
 import { isTripleArray, TripleArray } from "../model/Model";
 import { addBox3WireframeToObject } from "../util/model";
+import webpack from "webpack";
+import { prefix } from "../util/log";
+
+const p = prefix("Chunk");
 
 export class Chunk {
 
@@ -70,7 +74,7 @@ export class Chunk {
         const index = Chunk.chunkPosToBlockIndex(pos);
         const current = this._blocks[index];
         if (typeof current !== "undefined") {
-            console.log("deleting existing block at", pos, worldPos, index);
+            console.debug(p, "deleting existing block at", pos, worldPos, index);
             current.object.setScale(new Vector3(0, 0, 0));//TODO
             delete this._blocks[index];
         }

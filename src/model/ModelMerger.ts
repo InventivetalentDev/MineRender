@@ -20,14 +20,12 @@ export class ModelMerger {
     }
 
     protected static async collectAllParents(model: Model): Promise<Model[]> {
-        console.log("collectAllParents", model)
         if (!model.parent) {
             return [];
         }
         const models: Model[] = [];
         const parentKey = AssetKey.parse("models", model.parent);
         const parentModel = await Models.getRaw(parentKey);
-        console.log(parentModel);
         if (parentModel) {
             models.unshift(parentModel);
             models.unshift(...await this.collectAllParents(parentModel));

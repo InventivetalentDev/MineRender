@@ -2,18 +2,17 @@ import { Model, TextureAsset } from "../model/Model";
 import { Maybe } from "../util/util";
 import { Requests } from "../request/Requests";
 import { AxiosRequestConfig, AxiosResponse } from "axios";
-import { DEBUG_NAMESPACE } from "../util/debug";
 import { MinecraftAsset } from "../MinecraftAsset";
 import { ImageInfo, ImageLoader } from "../image/ImageLoader";
-import debug from "debug";
 import { MinecraftTextureMeta } from "../MinecraftTextureMeta";
 import { BlockState } from "../model/block/BlockState";
 import { DEFAULT_NAMESPACE, DEFAULT_ROOT } from "./Assets";
 import { ListAsset } from "../ListAsset";
 import { AssetKey } from "./AssetKey";
 import { NBTAsset, NBTHelper } from "../nbt/NBTHelper";
+import { prefix } from "../util/log";
 
-const d = debug(`${ DEBUG_NAMESPACE }:AssetLoader`);
+const p = prefix("AssetLoader");
 
 export interface ResponseParser<T extends MinecraftAsset> {
     config(request: AxiosRequestConfig);
@@ -80,12 +79,11 @@ export class AssetLoader {
 
     public static async loadOrRetryWithDefaults<T extends MinecraftAsset>(key: AssetKey, parser: ResponseParser<T>): Promise<Maybe<T>> {
         const direct = await this.load<T>(key, parser);
-        console.log(direct);
         if (typeof direct !== "undefined") {
             return direct;
         }
         if (key.namespace !== DEFAULT_NAMESPACE) {
-            d("Retrying %j with default namespace", key);
+            console.info(p, "Retrying", key, "with default namespace");
             // Try on the same host but with default minecraft: namespace
             const namespaceKey = new AssetKey(DEFAULT_NAMESPACE, key.path, key.assetType, key.type, key.rootType, key.extension, key.root);
             const namespaced = await this.load<T>(namespaceKey, parser);
@@ -93,7 +91,7 @@ export class AssetLoader {
                 return namespaced;
             }
             if ((typeof key.root !== "undefined" && key.root !== DEFAULT_ROOT) || (typeof this.ROOT !== "undefined" && this.ROOT !== DEFAULT_ROOT)) {
-                d("Retrying %j with default root+namespace", key);
+                console.info(p, "Retrying", key, "with default root+namespace");
                 // Try both defaults
                 const namespacedRootedKey = new AssetKey(DEFAULT_NAMESPACE, key.path, key.assetType, key.type, key.rootType, key.extension, DEFAULT_ROOT);
                 const namespacedRooted = await this.load<T>(namespacedRootedKey, parser);
@@ -102,7 +100,7 @@ export class AssetLoader {
                 }
             }
         } else if ((typeof key.root !== "undefined" && key.root !== DEFAULT_ROOT) || (typeof this.ROOT !== "undefined" && this.ROOT !== DEFAULT_ROOT)) {
-            d("Retrying %j with default root", key);
+            console.info(p, "Retrying", key, "with default root");
             // Try on default root
             const rootKey = new AssetKey(key.namespace, key.path, key.assetType, key.type, key.rootType, key.extension, DEFAULT_ROOT);
             const rooted = await this.load<T>(rootKey, parser);
@@ -115,9 +113,9 @@ export class AssetLoader {
 
 
     protected static async load<T>(key: AssetKey, parser: ResponseParser<T>): Promise<Maybe<T>> {
-        d("Loading %j", key);
+        console.info(p, "Loading", key);
         const url = `${ this.assetBasePath(key) }${ key.type !== undefined ? key.type + '/' : '' }${ key.path }${ key.extension }`;
-        d(url);
+        console.debug(p, url);
         let req: AxiosRequestConfig = {
             url: url
         };
@@ -138,11 +136,11 @@ export class AssetLoader {
                 if (err.response) {
                     let response = err.response as AxiosResponse;
                     if (response.status === 404) {
-                        d("%j not found", key);
+                        console.debug(p, key, "not found");
                         return undefined;
                     }
                 }
-                d("Failed to load %j: %s", key, err?.message);
+                console.debug(p, "Failed to load", key, err?.message);
                 return undefined;
             })
     }

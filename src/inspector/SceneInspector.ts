@@ -3,6 +3,9 @@ import { Intersection, Object3D, Raycaster, Vector2 } from "three";
 import { isSceneObject, SceneObject } from "../renderer/SceneObject";
 import { Maybe, toDegrees, toRadians } from "../util/util";
 import { isTransformable, Transformable } from "../Transformable";
+import { prefix } from "../util/log";
+
+const p = prefix("SceneInspector");
 
 export class SceneInspector {
 
@@ -36,7 +39,6 @@ export class SceneInspector {
             this.raycaster.setFromCamera(this.mouse, this.renderer.camera);
             const intersects = this.raycaster.intersectObjects(this.renderer.scene.children, true);
             if (intersects.length > 0) {
-                console.log(intersects);
                 this.handleRaycasterObjects(intersects)
             }
         })
@@ -51,7 +53,6 @@ export class SceneInspector {
         const firstIntersection = intersections[0];
         if (firstIntersection && firstIntersection.object) {
             const firstObject = firstIntersection.object;
-            console.log(firstObject);
 
             let targetIntersection: Maybe<Intersection> = undefined;
             let targetObject: Maybe<Object3D> = undefined;
@@ -73,7 +74,7 @@ export class SceneInspector {
 
     protected selectObject(targetObject: Object3D, targetIntersection: Intersection) {
         this.selectedObject = targetObject;
-        console.log("selected", targetObject);
+        console.log(p,"selected", targetObject);
 
         this.objectInfoContainer.innerHTML = '';
         this.addInfoLine("Distance", "D", targetIntersection.distance);

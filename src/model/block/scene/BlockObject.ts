@@ -46,7 +46,6 @@ export class BlockObject extends SceneObject {
     }
 
     async init(): Promise<void> {
-        console.log("BlockObject.init")
         if (this.options.applyDefaultState) {
             const defaultState = this.blockState.key ? BlockStates.getDefaultState(this.blockState.key) : undefined;
             if (defaultState && Object.keys(defaultState).length > 0) { // use defined state
@@ -85,7 +84,6 @@ export class BlockObject extends SceneObject {
     }
 
     nextInstance(): InstanceReference<SceneObject> {
-        console.log("nextInstance")
 
         const ref = super.nextInstance();
         for (let child of this.children) {
@@ -97,10 +95,6 @@ export class BlockObject extends SceneObject {
     }
 
     protected async mapStateToVariant(state: BlockStateProperties): Promise<BlockStateVariant[]> {
-        console.log("mapStateToVariant");
-        console.log(this.blockState)
-        console.log(state)
-
         const out: BlockStateVariant[] = [];
         if (this.blockState.variants) {
             if (Object.keys(this.blockState.variants).length === 1 && "" in this.blockState.variants) { // default variant
@@ -183,13 +177,10 @@ export class BlockObject extends SceneObject {
     }
 
     public async recreateModels(): Promise<void> {
-        console.log("recreateModels")
-
         //TODO: change this to create models once, and then modify rotations when updating the state
 
         // Copy current instance info
         const instanceInfo: Matrix4[] = [];
-        console.log(this.instanceCounter)
         if (this.isInstanced) {
             for (let i = 0; i < this.instanceCounter; i++) {
                 instanceInfo[i] = this.getMatrixAt(i);
@@ -197,7 +188,6 @@ export class BlockObject extends SceneObject {
         }
 
         // Remove all children
-        console.log("self uuid", this.uuid)
         // this.disposeAndRemoveAllChildren(); //TODO: just removes all children of all instances atm...
 
         // TODO: try to reuse models instead of just removing them and creating new ones
@@ -230,9 +220,7 @@ export class BlockObject extends SceneObject {
             this._isInstanced = true;
         } else {
          */
-        console.log("this.state", this.state);
         const variantsToCreate = await this.mapStateToVariant(this.state);
-        console.log("var to create", variantsToCreate)
         this._variants = variantsToCreate;
         for (let blockStateVariant of variantsToCreate) {
             this._models.push(await this.createVariant(blockStateVariant));
@@ -262,18 +250,14 @@ export class BlockObject extends SceneObject {
 
     // @deprecated
     protected async createAVariant(variants: BlockStateVariant | BlockStateVariant[], instanceInfo: Matrix4[]) {
-        console.log("BlockObject.createAVariant");
         const variant = this.getSingleVariant(variants);
         await this.createVariant(variant);
     }
 
     protected async createVariant(variant: BlockStateVariant): Promise<ModelObject | InstanceReference<ModelObject>> {
-        console.log("createVariant")
-        console.log(variant)
         //TODO: uvlock
         //TODO: default state?
         const model = await Models.getMerged(AssetKey.parse("models", variant.model!));
-        console.log(this.options)
         const obj: ModelObject | InstanceReference<ModelObject> = await this.scene.addModel(model!, this.options);
         /*
         const obj = new ModelObject(model!, this.options);
@@ -327,11 +311,9 @@ export class BlockObject extends SceneObject {
                 rotation.y = toRadians(clampRotationDegrees(360-variant.y));
             }
         }
-        console.log("rotation ", rotation);
         // console.log(obj.isInstanced);
         obj.setRotation(rotation);
         setTimeout(() => {
-            console.log("delayed rotation ", rotation);
             obj.setRotation(rotation)
         }, 150);//TODO
         console.log(obj)
@@ -362,9 +344,7 @@ export class BlockObject extends SceneObject {
     }
 
     protected _setState(stringOrKeyOrState: string | BlockStateProperties, value?: string): void {
-        console.log("_setState", stringOrKeyOrState, value)
         this._previousState = this._state;
-        console.log("prev state", this._previousState)
         if (typeof value === "undefined") { // a=b,c=d,... or state object
             if (typeof stringOrKeyOrState === "string") {
                 if (stringOrKeyOrState === "") return;
@@ -424,9 +404,7 @@ export class BlockObject extends SceneObject {
     }
 
     getMatrixAt(index: number, matrix: Matrix4 = new Matrix4()): Matrix4 {
-        console.log("BlockObject#getMatrixAt", this.uuid)
         if (!this.isInstanced) throw new MineRenderError("Object is not instanced");
-        console.log(this._models);
         const child = this._models[0];
         if (child && isModelObject(child)) {
             child.getMatrixAt(index, matrix);
@@ -447,9 +425,7 @@ export class BlockObject extends SceneObject {
     }
 
     setMatrixAt(index: number, matrix: Matrix4) {
-        console.log("BlockObject#setMatrixAt", this.uuid)
         if (!this.isInstanced) throw new MineRenderError("Object is not instanced");
-        console.log(this._models);
         // const child = this._models[0];
         for(let child of this._models) {
             if (child && isModelObject(child)) {

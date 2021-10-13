@@ -1,6 +1,9 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
 import { JobQueue } from "jobqu";
 import { Time } from "@inventivetalent/time";
+import { prefix } from "../util/log";
+
+const p = prefix("Requests");
 
 if (typeof window === "undefined") {
     axios.defaults.headers["User-Agent"] = "MineRender";
@@ -22,7 +25,7 @@ export class Requests {
 
     public static mcAssetRequest(request: AxiosRequestConfig): Promise<AxiosResponse> {
         return this.mcAssetRequestQueue.add(request).catch(e=>{
-            console.log("mcAssetRequest catch " + e);
+            console.debug(p, "mcAssetRequest catch " + e);
             throw e;
         });
         // return Requests.mcAssetInstance.request(request)

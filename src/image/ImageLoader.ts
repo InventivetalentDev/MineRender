@@ -8,6 +8,9 @@ import { SSAOPassOUTPUT } from "three/examples/jsm/postprocessing/SSAOPass";
 import { WrappedImage } from "../WrappedImage";
 import { ExtractableImageData } from "../ExtractableImageData";
 import { Buffer } from "buffer";
+import { prefix } from "../util/log";
+
+const p = prefix("ImageLoader");
 
 export interface ImageInfo {
     src?: string;
@@ -44,7 +47,7 @@ export class ImageLoader {
     }
 
     public static async loadData(src: string): Promise<ImageData> {
-        console.log("loadData")
+        console.debug(p, "loadData", src);
         return await this.infoToData(await this.getInfo(src));
     }
 
@@ -107,7 +110,6 @@ export class ImageLoader {
 
 
     public static async loadInfo(src: string): Promise<ImageInfo> {
-        console.log("loadInfo")
 
         // axios doesn't like data urls
         if (src.startsWith("data:image/png;base64")) {
@@ -126,8 +128,6 @@ export class ImageLoader {
         })
             .then(this.processResponse)
             .catch(err => {
-                console.log(src);
-                console.log(err);
                 return {
                     src,
                     width: 0,
