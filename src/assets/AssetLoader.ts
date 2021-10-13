@@ -125,7 +125,12 @@ export class AssetLoader {
         return await Requests.mcAssetRequest(req)
             .then(response => {
                 if (response && response.data) {
-                    return parser.parse(response);
+                    try {
+                        return parser.parse(response);
+                    } catch (e) {
+                        console.warn("Parser failed to process response", response, e);
+                        throw e;
+                    }
                 }
                 return undefined;
             })

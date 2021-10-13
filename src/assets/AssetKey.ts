@@ -42,7 +42,7 @@ export class AssetKey extends BasicAssetKey {
         readonly namespace: string, readonly path: string,
         public assetType?: AssetType,
         public type?: string,
-        public rootType?: "assets" | "data" | string,
+        public rootType: "assets" | "data" | string = "assets",
         public extension: ".json" | ".png" | string = ".json",
         public root?: string,
     ) {
