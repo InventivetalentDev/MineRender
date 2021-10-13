@@ -200,13 +200,14 @@ export class UVMapper {
         }
     }
 
-    protected static expandAndRotateMcUvs([u1, v1, u2, v2]: QuadArray, rotation: number = 0, actualWidth: number): QuadArray<Vector2> {
+    protected static expandAndRotateMcUvs([u1, v1, u2, v2]: QuadArray, rotation: number = 0, actualWidth: number, actualHeight: number): QuadArray<Vector2> {
         // Resize coordinates to actual texture size
-        const mult = (actualWidth / 16);
-        u1 *= mult;
-        v1 *= mult;
-        u2 *= mult;
-        v2 *= mult;
+        const scaleU = actualWidth / 16;
+        const scaleV = actualHeight / 16;
+        u1 *= scaleU;
+        v1 *= scaleV;
+        u2 *= scaleU;
+        v2 *= scaleV;
 
         let tl: Vector2 = new Vector2(u1, v1);// top left
         let tr: Vector2 = new Vector2(u2, v1);// top right
@@ -435,7 +436,7 @@ export class UVMapper {
 
                         let texPosV = new Vector2(texPosition[0], texPosition[1]);
 
-                        const [tl, tr, bl, br] = this.expandAndRotateMcUvs(face.uv, face.rotation, maxWidth);
+                        const [tl, tr, bl, br] = this.expandAndRotateMcUvs(face.uv, face.rotation, texSize[0], texSize[1]);
 
                         // move to atlas position
                         tl.add(texPosV);
