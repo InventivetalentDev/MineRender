@@ -15,7 +15,7 @@ export class SceneInspector {
     protected readonly raycaster: Raycaster;
     private readonly mouse: Vector2 = new Vector2();
 
-    public selectedObject?: Object3D;
+    private selectedObject?: Object3D;
 
     constructor(readonly renderer: Renderer) {
         this.objectInfoContainer = document.createElement("div");
@@ -72,13 +72,19 @@ export class SceneInspector {
         }
     }
 
-    protected selectObject(targetObject: Object3D, targetIntersection: Intersection) {
+    public selectObject(targetObject: Object3D, targetIntersection?: Intersection) {
         this.selectedObject = targetObject;
-        console.log(p,"selected", targetObject);
+        console.log(p, "selected", targetObject);
 
+        this.redraw(targetObject, targetIntersection);
+    }
+
+    protected redraw(targetObject: Object3D, targetIntersection?: Intersection) {
         this.objectInfoContainer.innerHTML = '';
-        this.addInfoLine("Distance", "D", targetIntersection.distance);
-        this.addInfoLine("Instance #", "I", targetIntersection.instanceId);
+        if (targetIntersection) {
+            this.addInfoLine("Distance", "D", targetIntersection.distance);
+            this.addInfoLine("Instance #", "I", targetIntersection.instanceId);
+        }
         this.addInfoLine("Type", "T", targetObject.constructor.name + "/" + targetObject.type);
         this.addInfoLine("Name", "N", targetObject.name);
         if (targetObject.parent) {
@@ -92,18 +98,7 @@ export class SceneInspector {
         this.addControls(targetObject, targetIntersection);
     }
 
-    protected addInfoLine(name: string, id: string, value: any): HTMLElement {
-        const el = document.createElement("span");
-        el.innerText = `${ id }: ${ value }`;
-        el.setAttribute("title", name);
-
-        this.objectInfoContainer.append(el);
-        this.objectInfoContainer.append(document.createElement("br"));
-
-        return el;
-    }
-
-    protected addControls(object: Object3D, intersection: Intersection) {
+    protected addControls(object: Object3D, intersection?: Intersection) {
         const container = document.createElement("div");
 
         container.append(this.separator("Select Parent/Child"));
@@ -153,13 +148,26 @@ export class SceneInspector {
         this.objectControlsContainer.append(container);
     }
 
-    protected addObjectControls(target: Object3D, intersection: Intersection, container: HTMLElement) {
+
+    protected addInfoLine(name: string, id: string, value: any): HTMLElement {
+        const el = document.createElement("span");
+        el.innerText = `${ id }: ${ value }`;
+        el.setAttribute("title", name);
+
+        this.objectInfoContainer.append(el);
+        this.objectInfoContainer.append(document.createElement("br"));
+
+        return el;
+    }
+
+
+    protected addObjectControls(target: Object3D, intersection: Maybe<Intersection>, container: HTMLElement) {
 
         const posRange = 16 * 8;
         const rotRange = 360;
         const scaleRange = 4;
 
-        if (typeof intersection.instanceId !== "undefined" && isSceneObject(target) && (<SceneObject>target).isInstanced) {
+        if (typeof intersection!=="undefined" && typeof intersection.instanceId !== "undefined" && isSceneObject(target) && (<SceneObject>target).isInstanced) {
             const scObj: SceneObject = target as SceneObject;
 
             container.append(this.separator("Position"))
