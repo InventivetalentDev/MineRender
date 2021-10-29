@@ -32,7 +32,7 @@ export class SceneInspector {
 
         document.addEventListener("click", event => {
             if ((<HTMLElement>event.target)?.nodeName !== "CANVAS") return;
-            //TODO: only cast when holding ctrl or something
+            if (!event.ctrlKey) return;
 
             this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
             this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
@@ -167,7 +167,7 @@ export class SceneInspector {
         const rotRange = 360;
         const scaleRange = 4;
 
-        if (typeof intersection!=="undefined" && typeof intersection.instanceId !== "undefined" && isSceneObject(target) && (<SceneObject>target).isInstanced) {
+        if (typeof intersection !== "undefined" && typeof intersection.instanceId !== "undefined" && isSceneObject(target) && (<SceneObject>target).isInstanced) {
             const scObj: SceneObject = target as SceneObject;
 
             container.append(this.separator("Position"))
