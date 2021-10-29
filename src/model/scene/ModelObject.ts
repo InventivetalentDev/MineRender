@@ -9,17 +9,17 @@ import { UVMapper } from "../../UVMapper";
 import { TextureAtlas } from "../../texture/TextureAtlas";
 import { BoxGeometry, BoxHelper, BufferAttribute, EdgesGeometry, InstancedMesh, LineBasicMaterial, LineSegments, Matrix4, Mesh, MeshBasicMaterial } from "three";
 import * as THREE from "three";
-import { Axis } from "../../Axis";
 import { SceneObjectOptions } from "../../renderer/SceneObjectOptions";
 import { addBox3WireframeToObject, addWireframeToMesh, addWireframeToObject, applyElementRotation } from "../../util/model";
-import { dbg } from "../../util/debug";
 import { Ticker } from "../../Ticker";
 import merge from "ts-deepmerge";
 import { BufferGeometry } from "three/src/core/BufferGeometry";
-import { isMineRenderScene } from "../../renderer/MineRenderScene";
 import { BlockObject } from "../block/scene/BlockObject";
+import { prefix } from "../../util/log";
 
 require("three/examples/js/utils/BufferGeometryUtils");
+
+const p = prefix("ModelObject");
 
 //TODO: might want to abstract this out into a generic model, and create a separate class for Block models
 export class ModelObject extends SceneObject {
@@ -99,10 +99,10 @@ export class ModelObject extends SceneObject {
                     }
                 });
             } else {
-                dbg("%O has no elements", this.atlas.model);
+                console.debug(p, this.atlas.model, "has no elements")
             }
         } else {
-            dbg("Missing texture atlas for %O", this);
+            console.debug(p, "Missing atlas for", this);
         }
 
         if (this.options.mergeMeshes) {

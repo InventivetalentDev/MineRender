@@ -4,20 +4,17 @@ import { SceneObjectOptions } from "../../../renderer/SceneObjectOptions";
 import { isModelObject, ModelObject, ModelObjectOptions } from "../../scene/ModelObject";
 import { Caching } from "../../../cache/Caching";
 import { Models } from "../../../assets/Models";
-import { Assets } from "../../../assets/Assets";
 import merge from "ts-deepmerge";
 import { Euler, Matrix4, Vector3 } from "three";
 import { clampRotationDegrees, Maybe, toRadians } from "../../../util/util";
-import { addWireframeToObject, applyGenericRotation } from "../../../util/model";
-import { Axis } from "../../../Axis";
 import { MineRenderError } from "../../../error/MineRenderError";
-import { isInstancedMesh } from "../../../util/three";
-import { dbg } from "../../../util/debug";
-import { types } from "util";
 import { BlockStateProperties, BlockStatePropertyDefaults } from "../BlockStateProperties";
 import { BlockStates } from "../../../assets/BlockStates";
 import { InstanceReference, isInstanceReference } from "../../../instance/InstanceReference";
 import { AssetKey } from "../../../assets/AssetKey";
+import { prefix } from "../../../util/log";
+
+const p = prefix("BlockObject");
 
 export class BlockObject extends SceneObject {
 
@@ -119,7 +116,7 @@ export class BlockObject extends SceneObject {
         } else if (this.blockState.multipart) {
             for (let part of this.blockState.multipart) {
                 if (!part.apply) {
-                    dbg("Missing apply for blockState part %O", part);
+                    console.debug(p, "Missing apply for blockState part",  part);
                     continue;
                 }
                 if (!part.when) { // no condition -> always apply

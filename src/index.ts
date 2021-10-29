@@ -1,5 +1,3 @@
-export * from "./util/debug";
-
 export * from "./renderer/Renderer";
 export * from "./Materials"
 export * from "./Geometries"
