@@ -11,6 +11,7 @@ import { BatchedExecutor } from "../util/BatchedExecutor";
 import { AssetKey } from "../assets/AssetKey";
 import { BlockStates } from "../assets/BlockStates";
 
+//TODO: maybe make this an Object3D to add children
 export class MineRenderWorld {
 
     public readonly scene: MineRenderScene;
@@ -18,7 +19,7 @@ export class MineRenderWorld {
     private _size: number = 4; //TODO: expandable
     private _blockSize: number = this._size * 16;
 
-    private readonly _chunks: Chunk[] = [];
+    private readonly _chunks: Map<string,Chunk> = new Map<string, Chunk>();
 
     constructor(scene: MineRenderScene) {
         this.scene = scene;
@@ -60,7 +61,7 @@ export class MineRenderWorld {
 
     public async placeMultiBlock(multiblock: MultiBlockStructure, useBatches: boolean = true, executor: BatchedExecutor = new BatchedExecutor()): Promise<void> {
         // preload blockstates
-        const keys = new Set<AssetKey>(multiblock.blocks.map(block=>AssetKey.parse("blockstates", block.type)));
+        const keys = new Set<AssetKey>(multiblock.blocks.map(block => AssetKey.parse("blockstates", block.type)));
         await BlockStates.getAll(keys);
 
         const place = async (block: MultiBlockBlock) => {
@@ -80,12 +81,22 @@ export class MineRenderWorld {
     }
 
 
+    public async clear(): Promise<void> {
+        console.log("CHUNKS",this._chunks)
+
+        for (let chunk of this._chunks.values()) {
+            console.log("dispose chunk",chunk)
+            await chunk?.dispose();
+        }
+        this._chunks.clear();
+    }
+
     private getOrCreateChunkAt(pos: Vector3): Chunk {
-        const index = this.worldPosToChunkIndex(pos);
-        let chunk = this._chunks[index];
+        const key = this.worldPosToChunkKey(pos);
+        let chunk = this._chunks.get(key);
         if (typeof chunk === "undefined") {
             chunk = new Chunk(this.scene, Math.floor(pos.x / 16), Math.floor(pos.y / 16), Math.floor(pos.z / 16));
-            this._chunks[index] = chunk;
+            this._chunks.set(key, chunk);
         }
         return chunk;
     }
@@ -117,6 +128,13 @@ export class MineRenderWorld {
         const chunkY = Math.floor(pos.y / 16);
         const chunkZ = Math.floor(pos.z / 16);
         return (chunkZ * this._size * this._size) + (chunkY * this._size) + chunkX;
+    }
+
+    worldPosToChunkKey(pos: Vector3): string {
+        const chunkX = Math.floor(pos.x / 16);
+        const chunkY = Math.floor(pos.y / 16);
+        const chunkZ = Math.floor(pos.z / 16);
+        return `${chunkX}_${chunkY}_${chunkZ}`;
     }
 
     validatePosBounds(pos: Vector3): void {
