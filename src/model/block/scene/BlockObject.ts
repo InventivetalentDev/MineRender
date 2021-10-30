@@ -76,6 +76,17 @@ export class BlockObject extends SceneObject {
         super.dispose();
     }
 
+    removeFromScene() {
+        for (let model of this._models) {
+            if (isModelObject(model)) {
+                model.removeFromScene();
+            } else if (isInstanceReference(model)) {
+                model.setScale(new Vector3(0, 0, 0));
+            }
+        }
+        super.removeFromScene();
+    }
+
     public get state(): { [key: string]: string; } {
         return this._state;
     }

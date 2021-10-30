@@ -417,6 +417,10 @@ export class SceneObject extends Object3D implements Disposable, Instanceable, T
         }
     }
 
+    public removeFromScene() {
+        this._scene?.remove(this);
+    }
+
     //</editor-fold>
 
 }
