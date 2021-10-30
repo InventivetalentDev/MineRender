@@ -150,7 +150,7 @@ export class Renderer {
         composer.addPass(new RenderPass(this.scene, this.camera));
 
 
-        composer.addPass(new SMAAPass(this.viewWidth, this.viewHeight));
+        // composer.addPass(new SMAAPass(this.viewWidth, this.viewHeight));
 
 
         //
