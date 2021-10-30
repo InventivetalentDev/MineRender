@@ -356,7 +356,7 @@ export class SceneInspector {
         const labelText = document.createElement("span");
         label.append(labelText);
         label.setAttribute("title", name);
-        labelText.style.width = "15%";
+        labelText.style.width = "16%";
         labelText.style.display = "inline-block";
         labelText.innerText = `${ id } (${ val })`;
 
