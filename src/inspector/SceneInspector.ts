@@ -7,6 +7,8 @@ import { prefix } from "../util/log";
 
 const p = prefix("SceneInspector");
 
+const help = "<span>Ctrl+Click to Select<br/></span><br/>";
+
 export class SceneInspector {
 
     readonly objectInfoContainer: HTMLDivElement;
@@ -29,6 +31,8 @@ export class SceneInspector {
     protected init() {
         this.objectInfoContainer.classList.add("minerender-inspector", "minerender-object-info");
         this.objectControlsContainer.classList.add("minerender-inspector", "minerender-object-controls");
+
+        this.objectInfoContainer.innerHTML = help;
 
         document.addEventListener("click", event => {
             if ((<HTMLElement>event.target)?.nodeName !== "CANVAS") return;
@@ -80,7 +84,7 @@ export class SceneInspector {
     }
 
     protected redraw(targetObject: Object3D, targetIntersection?: Intersection) {
-        this.objectInfoContainer.innerHTML = '';
+        this.objectInfoContainer.innerHTML = help;
         if (targetIntersection) {
             this.addInfoLine("Distance", "D", targetIntersection.distance);
             this.addInfoLine("Instance #", "I", targetIntersection.instanceId);
