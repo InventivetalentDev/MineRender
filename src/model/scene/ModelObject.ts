@@ -7,7 +7,7 @@ import { Assets } from "../../assets/Assets";
 import { Maybe, toRadians } from "../../util/util";
 import { UVMapper } from "../../UVMapper";
 import { TextureAtlas } from "../../texture/TextureAtlas";
-import { BoxGeometry, BoxHelper, BufferAttribute, EdgesGeometry, InstancedMesh, LineBasicMaterial, LineSegments, Matrix4, Mesh, MeshBasicMaterial } from "three";
+import { BoxGeometry, BoxHelper, BufferAttribute,  EdgesGeometry, InstancedMesh, LineBasicMaterial, LineSegments, Matrix4, Mesh, MeshBasicMaterial } from "three";
 import * as THREE from "three";
 import { SceneObjectOptions } from "../../renderer/SceneObjectOptions";
 import { addBox3WireframeToObject, addWireframeToMesh, addWireframeToObject, applyElementRotation } from "../../util/model";
@@ -16,8 +16,8 @@ import merge from "ts-deepmerge";
 import { BufferGeometry } from "three/src/core/BufferGeometry";
 import { BlockObject } from "../block/scene/BlockObject";
 import { prefix } from "../../util/log";
+import { mergeBufferGeometries } from "../../three/BufferGeometryUtils";
 
-require("three/examples/js/utils/BufferGeometryUtils");
 
 const p = prefix("ModelObject");
 
@@ -69,7 +69,7 @@ export class ModelObject extends SceneObject {
 
         const mat = Materials.MISSING_TEXTURE;
 
-        let allGeos: THREE.BufferGeometry[] = [];
+        let allGeos: BufferGeometry[] = [];
 
         if (this.atlas) {
             if (this.atlas.model.elements) {
@@ -79,15 +79,15 @@ export class ModelObject extends SceneObject {
                     // elGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(-8,-8,-8));
 
 
-                    elGeo.applyMatrix4(new THREE.Matrix4().makeTranslation((el.to[0] - el.from[0]) / 2, (el.to[1] - el.from[1]) / 2, (el.to[2] - el.from[2]) / 2));
-                    elGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(el.from[0], el.from[1], el.from[2]));
+                    elGeo.applyMatrix4(new Matrix4().makeTranslation((el.to[0] - el.from[0]) / 2, (el.to[1] - el.from[1]) / 2, (el.to[2] - el.from[2]) / 2));
+                    elGeo.applyMatrix4(new Matrix4().makeTranslation(el.from[0], el.from[1], el.from[2]));
 
                     if (el.rotation) {
                         applyElementRotation(el.rotation, elGeo);
                     }
 
 
-                    elGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(-8,-8,-8));
+                    elGeo.applyMatrix4(new Matrix4().makeTranslation(-8, -8, -8));
 
                     if (this.options.mergeMeshes) {
                         allGeos.push(elGeo);
@@ -111,7 +111,8 @@ export class ModelObject extends SceneObject {
                 // if (this.options.wireframe) {
                 //     allGeos.push(new BoxGeometry(16, 16, 16, 1, 1, 1))
                 // }
-                combinedGeo = THREE.BufferGeometryUtils.mergeBufferGeometries(allGeos);
+
+                combinedGeo = mergeBufferGeometries(allGeos);
             } else {
                 combinedGeo = new BoxGeometry(16, 16, 16);
             }
@@ -161,7 +162,7 @@ export class ModelObject extends SceneObject {
                         for (let key in this.atlas!.animatorFunctions) {
                             this.atlas!.animatorFunctions[key]();
                         }
-                        if("map" in mat) {
+                        if ("map" in mat) {
                             (mat as any).map!.needsUpdate = true;
                         }
                     });

@@ -3,11 +3,6 @@ import { BoxGeometryKey, CacheKey, serializeBoxGeometryKey, serializeImageKey, T
 import { Time } from "@inventivetalent/time";
 import { ImageInfo, ImageLoader } from "../image/ImageLoader";
 import { BoxGeometry, Material, Mesh, PixelFormat, RGBAFormat, Texture } from "three";
-import { TextureLoader } from "../texture/TextureLoader";
-import { Geometry } from "three/examples/jsm/deprecated/Geometry";
-import { Geometries } from "../Geometries";
-import { Meshes } from "../Meshes";
-import { Textures } from "../texture/Textures";
 import { Materials } from "../Materials";
 import { CompatImage } from "../canvas/CanvasCompat";
 import { Model, TextureAsset } from "../model/Model";

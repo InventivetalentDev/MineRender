@@ -35,4 +35,5 @@ export * from "./inspector/SceneInspector";
 
 export * from "./util/BatchedExecutor"
 
-//export * from "three/examples/jsm/utils/BufferGeometryUtils"
+export * from "./three/BufferGeometryUtils"
+export * from "./three/OrbitControls"

@@ -20,7 +20,6 @@
     ]
   },
   "browserify-shim": {
-    "three": "global:THREE",
     "canvas": "global:canvas"
   },
   "author": "Haylee Schäfer",
@@ -31,7 +30,7 @@
   },
   "homepage": "https://minerender.org",
   "dependencies": {
-    "@babel/plugin-transform-modules-commonjs": "^7.15.4",
+    "@babel/plugin-transform-runtime": "^7.16.0",
     "@inventivetalent/loading-cache": "^0.4.3",
     "@inventivetalent/time": "^1.0.0",
     "assert": "^2.0.0",
@@ -59,6 +58,7 @@
     "stream-http": "^3.1.1",
     "supports-color": "^7.2.0",
     "three": "^0.132.0",
+    "threejs-examples": "^60.0.0",
     "ts-deepmerge": "^1.0.6",
     "tty-browserify": "^0.0.1",
     "typscript-memoize": "git+https://github.com/InventivetalentDev/typescript-memoize.git",
@@ -67,6 +67,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.13.1",
+    "@babel/plugin-transform-modules-commonjs": "^7.15.4",
     "@babel/preset-env": "^7.13.5",
     "@mapbox/node-pre-gyp": "^1.0.0",
     "@types/browser-or-node": "^1.3.0",
