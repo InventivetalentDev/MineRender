@@ -54,6 +54,7 @@ export class EntityObject extends SceneObject {
         ))
     }
 
+    //TODO: abstract this, since extracted model data can be used for entities, blocks, players
     protected createMeshes(force: boolean = false) {
         if (this.meshesCreated && !force) return;
 
@@ -72,6 +73,9 @@ export class EntityObject extends SceneObject {
                 const h = cube.maxY - cube.minY;
                 const l = cube.maxZ - cube.minZ;
                 const uv = texture.toUvArray(w, h, l);
+
+                //TODO: mirror
+                // MC does it by flipping min and max X; might be easier than moving around all face UVs
 
                 const cubeGeo = this._getBoxGeometryForDimensionsAndUv(w, h, l, uv).clone();
 
