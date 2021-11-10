@@ -46,7 +46,7 @@ export class EntityObject extends SceneObject {
     protected async loadTextures(): Promise<void> {
         this.imageData = await ModelTextures.get(new AssetKey(
             this.entity.key?.namespace ?? DEFAULT_NAMESPACE,
-            this.entity.key!.path,
+            this.entity.key!.path, //TODO: texture may differ from entity name; most of them are in subdirectories for multiple variants etc.
             "textures",
             "entity",
             "assets",
