@@ -7,13 +7,16 @@ import { ModelObject, ModelObjectOptions } from "../model/scene/ModelObject";
 import { InstanceReference } from "../instance/InstanceReference";
 import { SceneStats } from "../SceneStats";
 import { SSAOPassOUTPUT } from "three/examples/jsm/postprocessing/SSAOPass";
-import { MinecraftAsset } from "../MinecraftAsset";
+import { BasicMinecraftAsset, MinecraftAsset } from "../MinecraftAsset";
 import { SceneObjectOptions } from "./SceneObjectOptions";
 import { BlockState } from "../model/block/BlockState";
 import { BlockObject, BlockObjectOptions, isBlockObject } from "../model/block/scene/BlockObject";
 import { InstanceManager } from "../instance/InstanceManager";
 import { DeepPartial, sleep } from "../util/util";
 import { SkinObject, SkinObjectOptions } from "../skin/scene/SkinObject";
+import { EntityObject, EntityObjectOptions } from "../entity/scene/EntityObject";
+import { EntityModel } from "../entity/EntityModel";
+import { isAssetKey } from "../assets/AssetKey";
 
 export class MineRenderScene extends Scene {
 
@@ -47,11 +50,11 @@ export class MineRenderScene extends Scene {
         return this.add(...object);
     }
 
-    async addSceneObject<A extends MinecraftAsset, T extends SceneObject, O extends SceneObjectOptions>(asset: A, objectSupplier: () => T | Promise<T>, options?: Partial<O>, parent: Object3D = this): Promise<T | InstanceReference<T>> {
+    async addSceneObject<A extends BasicMinecraftAsset, T extends SceneObject, O extends SceneObjectOptions>(asset: A, objectSupplier: () => T | Promise<T>, options?: Partial<O>, parent: Object3D = this): Promise<T | InstanceReference<T>> {
         console.log("addSceneObject")
         console.log("parent", parent)
         // console.log(this.instanceCache)
-        if (options?.instanceMeshes && asset.key && asset.key.assetType === "models"/*TODO*/) {
+        if (options?.instanceMeshes && asset.key && (isAssetKey(asset.key) && asset.key.assetType === "models")/*TODO*/) {
             // console.log("instanceMeshes + key")
             // check for existing instances
             const key = asset.key.serialize();
@@ -94,6 +97,10 @@ export class MineRenderScene extends Scene {
         }
         parent.add(obj);
         return obj;
+    }
+
+    public async addEntity(entity: EntityModel, options?: Partial<EntityObjectOptions>, parent: Object3D = this): Promise<EntityObject | InstanceReference<EntityObject>> {
+        return this.addSceneObject<EntityModel, EntityObject, BlockObjectOptions>(entity, () => new EntityObject(entity, options), options, parent);
     }
 
 }

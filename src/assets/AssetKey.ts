@@ -89,3 +89,10 @@ export class AssetKey extends BasicAssetKey {
     }
 }
 
+export function isBasicAssetKey(obj: any): obj is BasicAssetKey {
+    return "namespace" in obj && "path" in obj;
+}
+
+export function isAssetKey(obj: any): obj is AssetKey {
+    return isBasicAssetKey(obj) && "parse" in obj;
+}
