@@ -16,7 +16,7 @@ import { DeepPartial, sleep } from "../util/util";
 import { SkinObject, SkinObjectOptions } from "../skin/scene/SkinObject";
 import { EntityObject, EntityObjectOptions } from "../entity/scene/EntityObject";
 import { EntityModel } from "../entity/EntityModel";
-import { isAssetKey } from "../assets/AssetKey";
+import { AssetKey, isAssetKey } from "../assets/AssetKey";
 
 export class MineRenderScene extends Scene {
 
@@ -54,7 +54,7 @@ export class MineRenderScene extends Scene {
         console.log("addSceneObject")
         console.log("parent", parent)
         // console.log(this.instanceCache)
-        if (options?.instanceMeshes && asset.key && (isAssetKey(asset.key) && asset.key.assetType === "models")/*TODO*/) {
+        if (options?.instanceMeshes && asset.key &&  (<AssetKey>asset.key)?.assetType === "models"/*TODO*/) {
             // console.log("instanceMeshes + key")
             // check for existing instances
             const key = asset.key.serialize();

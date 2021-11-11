@@ -453,6 +453,15 @@ export class BlockObject extends SceneObject {
        */
     }
 
+    setPosition(position: Vector3) {
+        super.setPosition(position);
+        for (let model of this._models) {
+            model.setPosition(position);
+        }
+    }
+
+    //TODO: should override rotation + scale methods
+
     //TODO
 
 }
