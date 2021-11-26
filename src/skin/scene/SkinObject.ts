@@ -106,6 +106,8 @@ export class SkinObject extends SceneObject {
 
         this.skinTextureSrc = src;
 
+        //TODO: detect variant
+
         //TODO
         const mat = Materials.getImage({
             texture: { src: src },
