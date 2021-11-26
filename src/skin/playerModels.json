@@ -1,0 +1,678 @@
+{
+  "default": {
+    "leftSleeve": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 48,
+      "textureOffsetV": 48,
+      "pivotX": 5.0,
+      "pivotY": 2.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -1.0,
+          "minY": -2.0,
+          "minZ": -2.0,
+          "maxX": 3.0,
+          "maxY": 10.0,
+          "maxZ": 2.0
+        }
+      ],
+      "children": []
+    },
+    "rightSleeve": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 40,
+      "textureOffsetV": 32,
+      "pivotX": -5.0,
+      "pivotY": 2.0,
+      "pivotZ": 10.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -3.0,
+          "minY": -2.0,
+          "minZ": -2.0,
+          "maxX": 1.0,
+          "maxY": 10.0,
+          "maxZ": 2.0
+        }
+      ],
+      "children": []
+    },
+    "leftPantLeg": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 48,
+      "pivotX": 1.9,
+      "pivotY": 12.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -2.0,
+          "minY": 0.0,
+          "minZ": -2.0,
+          "maxX": 2.0,
+          "maxY": 12.0,
+          "maxZ": 2.0
+        }
+      ],
+      "children": []
+    },
+    "rightPantLeg": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 32,
+      "pivotX": -1.9,
+      "pivotY": 12.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -2.0,
+          "minY": 0.0,
+          "minZ": -2.0,
+          "maxX": 2.0,
+          "maxY": 12.0,
+          "maxZ": 2.0
+        }
+      ],
+      "children": []
+    },
+    "jacket": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 16,
+      "textureOffsetV": 32,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -4.0,
+          "minY": 0.0,
+          "minZ": -2.0,
+          "maxX": 4.0,
+          "maxY": 12.0,
+          "maxZ": 2.0
+        }
+      ],
+      "children": []
+    },
+    "cape": {
+      "textureWidth": 64.0,
+      "textureHeight": 32.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 0,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -5.0,
+          "minY": 0.0,
+          "minZ": -1.0,
+          "maxX": 5.0,
+          "maxY": 16.0,
+          "maxZ": 0.0
+        }
+      ],
+      "children": []
+    },
+    "ears": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 24,
+      "textureOffsetV": 0,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -3.0,
+          "minY": -6.0,
+          "minZ": -1.0,
+          "maxX": 3.0,
+          "maxY": 0.0,
+          "maxZ": 0.0
+        }
+      ],
+      "children": []
+    },
+    "head": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 0,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -4.0,
+          "minY": -8.0,
+          "minZ": -4.0,
+          "maxX": 4.0,
+          "maxY": 0.0,
+          "maxZ": 4.0
+        }
+      ],
+      "children": []
+    },
+    "helmet": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 32,
+      "textureOffsetV": 0,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -4.0,
+          "minY": -8.0,
+          "minZ": -4.0,
+          "maxX": 4.0,
+          "maxY": 0.0,
+          "maxZ": 4.0
+        }
+      ],
+      "children": []
+    },
+    "torso": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 16,
+      "textureOffsetV": 16,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -4.0,
+          "minY": 0.0,
+          "minZ": -2.0,
+          "maxX": 4.0,
+          "maxY": 12.0,
+          "maxZ": 2.0
+        }
+      ],
+      "children": []
+    },
+    "rightArm": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 40,
+      "textureOffsetV": 16,
+      "pivotX": -5.0,
+      "pivotY": 2.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -3.0,
+          "minY": -2.0,
+          "minZ": -2.0,
+          "maxX": 1.0,
+          "maxY": 10.0,
+          "maxZ": 2.0
+        }
+      ],
+      "children": []
+    },
+    "leftArm": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 32,
+      "textureOffsetV": 48,
+      "pivotX": 5.0,
+      "pivotY": 2.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -1.0,
+          "minY": -2.0,
+          "minZ": -2.0,
+          "maxX": 3.0,
+          "maxY": 10.0,
+          "maxZ": 2.0
+        }
+      ],
+      "children": []
+    },
+    "rightLeg": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 16,
+      "pivotX": -1.9,
+      "pivotY": 12.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -2.0,
+          "minY": 0.0,
+          "minZ": -2.0,
+          "maxX": 2.0,
+          "maxY": 12.0,
+          "maxZ": 2.0
+        }
+      ],
+      "children": []
+    },
+    "leftLeg": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 16,
+      "textureOffsetV": 48,
+      "pivotX": 1.9,
+      "pivotY": 12.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -2.0,
+          "minY": 0.0,
+          "minZ": -2.0,
+          "maxX": 2.0,
+          "maxY": 12.0,
+          "maxZ": 2.0
+        }
+      ],
+      "children": []
+    }
+  },
+  "slim": {
+    "leftSleeve": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 48,
+      "textureOffsetV": 48,
+      "pivotX": 5.0,
+      "pivotY": 2.5,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -1.0,
+          "minY": -2.0,
+          "minZ": -2.0,
+          "maxX": 2.0,
+          "maxY": 10.0,
+          "maxZ": 2.0
+        }
+      ],
+      "children": []
+    },
+    "rightSleeve": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 40,
+      "textureOffsetV": 32,
+      "pivotX": -5.0,
+      "pivotY": 2.5,
+      "pivotZ": 10.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -2.0,
+          "minY": -2.0,
+          "minZ": -2.0,
+          "maxX": 1.0,
+          "maxY": 10.0,
+          "maxZ": 2.0
+        }
+      ],
+      "children": []
+    },
+    "leftPantLeg": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 48,
+      "pivotX": 1.9,
+      "pivotY": 12.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -2.0,
+          "minY": 0.0,
+          "minZ": -2.0,
+          "maxX": 2.0,
+          "maxY": 12.0,
+          "maxZ": 2.0
+        }
+      ],
+      "children": []
+    },
+    "rightPantLeg": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 32,
+      "pivotX": -1.9,
+      "pivotY": 12.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -2.0,
+          "minY": 0.0,
+          "minZ": -2.0,
+          "maxX": 2.0,
+          "maxY": 12.0,
+          "maxZ": 2.0
+        }
+      ],
+      "children": []
+    },
+    "jacket": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 16,
+      "textureOffsetV": 32,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -4.0,
+          "minY": 0.0,
+          "minZ": -2.0,
+          "maxX": 4.0,
+          "maxY": 12.0,
+          "maxZ": 2.0
+        }
+      ],
+      "children": []
+    },
+    "cape": {
+      "textureWidth": 64.0,
+      "textureHeight": 32.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 0,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -5.0,
+          "minY": 0.0,
+          "minZ": -1.0,
+          "maxX": 5.0,
+          "maxY": 16.0,
+          "maxZ": 0.0
+        }
+      ],
+      "children": []
+    },
+    "ears": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 24,
+      "textureOffsetV": 0,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -3.0,
+          "minY": -6.0,
+          "minZ": -1.0,
+          "maxX": 3.0,
+          "maxY": 0.0,
+          "maxZ": 0.0
+        }
+      ],
+      "children": []
+    },
+    "head": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 0,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -4.0,
+          "minY": -8.0,
+          "minZ": -4.0,
+          "maxX": 4.0,
+          "maxY": 0.0,
+          "maxZ": 4.0
+        }
+      ],
+      "children": []
+    },
+    "helmet": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 32,
+      "textureOffsetV": 0,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -4.0,
+          "minY": -8.0,
+          "minZ": -4.0,
+          "maxX": 4.0,
+          "maxY": 0.0,
+          "maxZ": 4.0
+        }
+      ],
+      "children": []
+    },
+    "torso": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 16,
+      "textureOffsetV": 16,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -4.0,
+          "minY": 0.0,
+          "minZ": -2.0,
+          "maxX": 4.0,
+          "maxY": 12.0,
+          "maxZ": 2.0
+        }
+      ],
+      "children": []
+    },
+    "rightArm": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 40,
+      "textureOffsetV": 16,
+      "pivotX": -5.0,
+      "pivotY": 2.5,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -2.0,
+          "minY": -2.0,
+          "minZ": -2.0,
+          "maxX": 1.0,
+          "maxY": 10.0,
+          "maxZ": 2.0
+        }
+      ],
+      "children": []
+    },
+    "leftArm": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 32,
+      "textureOffsetV": 48,
+      "pivotX": 5.0,
+      "pivotY": 2.5,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -1.0,
+          "minY": -2.0,
+          "minZ": -2.0,
+          "maxX": 2.0,
+          "maxY": 10.0,
+          "maxZ": 2.0
+        }
+      ],
+      "children": []
+    },
+    "rightLeg": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 16,
+      "pivotX": -1.9,
+      "pivotY": 12.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -2.0,
+          "minY": 0.0,
+          "minZ": -2.0,
+          "maxX": 2.0,
+          "maxY": 12.0,
+          "maxZ": 2.0
+        }
+      ],
+      "children": []
+    },
+    "leftLeg": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 16,
+      "textureOffsetV": 48,
+      "pivotX": 1.9,
+      "pivotY": 12.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -2.0,
+          "minY": 0.0,
+          "minZ": -2.0,
+          "maxX": 2.0,
+          "maxY": 12.0,
+          "maxZ": 2.0
+        }
+      ],
+      "children": []
+    }
+  }
+}
