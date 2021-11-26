@@ -1,4 +1,4 @@
-import { InstancedMesh, Mesh, Object3D } from "three";
+import { InstancedMesh, Mesh, Object3D, OrthographicCamera, PerspectiveCamera } from "three";
 import { SceneObject } from "../renderer/SceneObject";
 
 export function isObject3D(obj: any): obj is Object3D {
@@ -15,4 +15,12 @@ export function isInstancedMesh(obj: any): obj is InstancedMesh {
 
 export function isSceneObject(obj: any): obj is SceneObject {
     return (<SceneObject> obj).isSceneObject;
+}
+
+export function isPerspectiveCamera(obj: any): obj is PerspectiveCamera {
+    return (<PerspectiveCamera>obj).isPerspectiveCamera;
+}
+
+export function isOrthographicCamera(obj: any): obj is OrthographicCamera {
+    return (<OrthographicCamera>obj).isOrthographicCamera;
 }

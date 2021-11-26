@@ -16,6 +16,7 @@ import { SSAOShader } from "three/examples/jsm/shaders/SSAOShader";
 import { BloomPass } from "three/examples/jsm/postprocessing/BloomPass";
 import { ToonShader1, ToonShader2 } from "three/examples/jsm/shaders/ToonShader";
 import { isTripleArray, TripleArray } from "../model/Model";
+import { isOrthographicCamera, isPerspectiveCamera } from "../util/three";
 
 export class Renderer {
 
@@ -41,7 +42,8 @@ export class Renderer {
             fpsLimit: 60,
             stats: false,
             antialias: true,
-            shade: true
+            shade: true,
+            autoResize: true
         },
         composer: {
             enabled: true
@@ -52,6 +54,8 @@ export class Renderer {
         }
     });
     public readonly options: RendererOptions;
+
+    public readonly element: HTMLElement;
 
     protected _scene: MineRenderScene;
     protected _camera: Camera;
@@ -64,9 +68,11 @@ export class Renderer {
     protected _fpsTimer;
     protected _animationTimer?: NodeJS.Timeout = undefined;
     protected _animationFrame?: number = undefined;
+    protected _resizeListener?: () => void = undefined;
 
-    constructor(options?: DeepPartial<RendererOptions>) {
+    constructor(options?: DeepPartial<RendererOptions>, element = document.body) {
         this.options = merge({}, Renderer.DEFAULT_OPTIONS, options ?? {});
+        this.element = element;
 
         this._animationLoop = this.animate.bind(this);
         this._fpsTimer = this.options.render.fpsLimit > 0 ? (1000 / this.options.render.fpsLimit) : undefined;
@@ -142,9 +148,9 @@ export class Renderer {
         //TODO: options
 
         // This one just tanks completely down to ~2fps
-        // const ssaaPass = new SSAARenderPass(this.scene, this.camera, 0x000000, 0);//TODO: options
-        // ssaaPass.unbiased = true;
-        // composer.addPass(ssaaPass);
+        const ssaaPass = new SSAARenderPass(this.scene, this.camera, 0x000000, 0);//TODO: options
+        ssaaPass.unbiased = true;
+        composer.addPass(ssaaPass);
 
 
         composer.addPass(new RenderPass(this.scene, this.camera));
@@ -164,9 +170,9 @@ export class Renderer {
 
         //
         //
-        // const shaderPass1 = new ShaderPass(CopyShader);
-        // shaderPass1.renderToScreen = true;
-        // composer.addPass(shaderPass1);
+        const shaderPass1 = new ShaderPass(CopyShader);
+        shaderPass1.renderToScreen = true;
+        composer.addPass(shaderPass1);
 
 
         return composer;
@@ -212,6 +218,32 @@ export class Renderer {
                 this.camera.lookAt(this.options.camera.lookingAt[0], this.options.camera.lookingAt[1], this.options.camera.lookingAt[2]);
             }
         }
+
+        if (this.options.render.autoResize) {
+            this._resizeListener = () => {
+                this.resize(this.viewWidth, this.viewHeight);
+            };
+            window.addEventListener('resize', this._resizeListener);//TODO: remove listener
+        }
+
+        // Add the canvas!
+        this.element.appendChild(this.renderer.domElement);
+    }
+
+    public resize(width: number, height: number) {
+        if (isPerspectiveCamera(this.camera)) {
+            this.camera.aspect = width / height;
+            this.camera.updateProjectionMatrix();
+        } else if (isOrthographicCamera(this.camera)) {
+            this.camera.left = width / -2;
+            this.camera.right = width / 2;
+            this.camera.top = height / 2;
+            this.camera.bottom = height / -2;
+            this.camera.updateProjectionMatrix();
+        }
+
+        this.renderer.setSize(width, height);
+        this.composer.setSize(width, height);
     }
 
     //<editor-fold desc="RENDER">
@@ -260,14 +292,16 @@ export class Renderer {
 
     ///
 
+    protected get attachedToBody() {
+        return this.element === document.body;
+    }
+
     protected get viewWidth() {
-        //TODO
-        return window.innerWidth;
+        return this.attachedToBody ? window.innerWidth : this.element.offsetWidth;
     }
 
     protected get viewHeight() {
-        //TODO
-        return window.innerHeight;
+        return this.attachedToBody ? window.innerHeight : this.element.offsetHeight;
     }
 
     public get scene(): MineRenderScene {
@@ -321,6 +355,7 @@ export interface RenderOptions {
     stats: boolean;
     antialias: boolean;
     shade: boolean;
+    autoResize: boolean;
 }
 
 export interface ComposerOptions {
