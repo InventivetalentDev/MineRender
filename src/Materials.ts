@@ -21,15 +21,35 @@ export class Materials {
     }
 
 
-    public static createCanvas(canvas: HTMLCanvasElement, transparent: boolean = false, shade: boolean = false): Material {
+    public static createBasicCanvasMaterial(canvas: HTMLCanvasElement, transparent: boolean = false, shade: boolean = false): Material {
+        if (shade) {
+            return new MeshStandardMaterial({
+                map: Textures.createCanvasTexture(canvas),
+                transparent: transparent,
+                side: transparent ? DoubleSide : FrontSide,
+                alphaTest: 0.5,
+
+            })
+        }
+        return new MeshBasicMaterial({
+            map: Textures.createCanvasTexture(canvas),
+            transparent: transparent,
+            side: transparent ? DoubleSide : FrontSide,
+            alphaTest: 0.5,
+
+        })
+    }
+
+    public static createShadedCanvasMaterial(canvas: HTMLCanvasElement, transparent: boolean = false, shade:boolean=false):Material {
         //TODO
         //  this might help https://github.com/JannisX11/blockbench/blob/1701f764641376414d29100c4f6c7cd74997fad8/js/preview/canvas.js#L62
 
 
         // Based on https://github.com/JannisX11/blockbench/blob/cc73aa8a9c0494fd9fe1cee4d062d060af4db06d/js/texturing/textures.js#L59
+        //  + support for instanced meshes
         const vertShader =`
             uniform bool SHADE;
-
+            
             varying vec2 vUv;
             varying float light;
             varying float lift;
@@ -61,8 +81,13 @@ export class Materials {
                 }
                 
                 vUv = uv;
-                vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
-                gl_Position = projectionMatrix * mvPosition;
+               
+                #ifdef USE_INSTANCING
+                    gl_Position = projectionMatrix * viewMatrix * modelMatrix * instanceMatrix * vec4(position, 1.0);
+                #else
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+                #endif
+                
             }
         `
         const fragShader = `
@@ -101,41 +126,28 @@ export class Materials {
         //TODO: this does add the MC-like shading, but breaks when stuff is instanced (can't updated position)
         //  https://medium.com/@pailhead011/instancing-with-three-js-part-2-3be34ae83c57 might help with that
 
-        // try {
-         //     return new ShaderMaterial({
-         //         uniforms: {
-         //             SHADE: { value: true },
-         //             BRIGHTNESS: { value: 1 },
-         //             EMISSIVE:{value:false},
-         //             base: { value: new Color(0xc1c1c1)/*TODO*/ },
-         //             map: {value:Textures.createCanvas(canvas)}
-         //         },
-         //         vertexShader: vertShader,
-         //         fragmentShader: fragShader,
-         //         vertexColors: true,
-         //         transparent: transparent,
-         //         side: transparent ? DoubleSide : FrontSide,
-         //         alphaTest: 0.5,
-         //     });
-         // } catch (e) {
-         //     console.warn(e)
-         // }
-        if (shade) {
-            return new MeshStandardMaterial({
-                map: Textures.createCanvas(canvas),
+        try {
+            return new ShaderMaterial({
+                uniforms: {
+                    SHADE: { value: true },
+                    BRIGHTNESS: { value: 1 },
+                    EMISSIVE:{value:false},
+                    base: { value: new Color(0xc1c1c1)/*TODO*/ },
+                    map: {value:Textures.createCanvasTexture(canvas)}
+                },
+                vertexShader: vertShader,
+                fragmentShader: fragShader,
+                vertexColors: true,
                 transparent: transparent,
                 side: transparent ? DoubleSide : FrontSide,
                 alphaTest: 0.5,
-
-            })
+            });
+        } catch (e) {
+            console.warn(e)
         }
-        return new MeshBasicMaterial({
-            map: Textures.createCanvas(canvas),
-            transparent: transparent,
-            side: transparent ? DoubleSide : FrontSide,
-            alphaTest: 0.5,
 
-        })
+        // fallback
+        return this.createBasicCanvasMaterial(canvas, transparent, shade);
     }
 
     public static getImage(key: MaterialKey): Material {

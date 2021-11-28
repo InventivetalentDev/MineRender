@@ -149,7 +149,7 @@ export class ModelObject extends SceneObject {
         //         if (asset) {
         //TODO: transparency
         if (this.atlas) {
-            let mat = Materials.createCanvas(this.atlas.image!.canvas! as HTMLCanvasElement, this.atlas.hasTransparency, false/*TODO: get this from render options*/);
+            let mat = Materials.createShadedCanvasMaterial(this.atlas.image!.canvas! as HTMLCanvasElement, this.atlas.hasTransparency, false/*TODO: get this from render options*/);
             this.iterateAllMeshes(mesh => {
                 mesh.material = mat;
             });

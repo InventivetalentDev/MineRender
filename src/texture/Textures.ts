@@ -23,7 +23,7 @@ export class Textures {
         return new Texture()
     }
 
-    public static createCanvas(canvas: HTMLCanvasElement): Texture {
+    public static createCanvasTexture(canvas: HTMLCanvasElement): CanvasTexture {
         return this.initTextureProps(new CanvasTexture(canvas));
     }
 
