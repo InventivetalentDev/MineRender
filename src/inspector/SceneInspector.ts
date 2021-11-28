@@ -1,9 +1,10 @@
 import { Renderer } from "../renderer/Renderer";
-import { Intersection, Object3D, Raycaster, Vector2 } from "three";
+import { InstancedMesh, Intersection, Mesh, Object3D, Raycaster, Vector2 } from "three";
 import { isSceneObject, SceneObject } from "../renderer/SceneObject";
 import { Maybe, toDegrees, toRadians } from "../util/util";
 import { isTransformable, Transformable } from "../Transformable";
 import { prefix } from "../util/log";
+import { isMesh } from "../util/three";
 
 const p = prefix("SceneInspector");
 
@@ -34,18 +35,37 @@ export class SceneInspector {
 
         this.objectInfoContainer.innerHTML = help;
 
-        document.addEventListener("click", event => {
-            if ((<HTMLElement>event.target)?.nodeName !== "CANVAS") return;
-            if (!event.ctrlKey) return;
+        document.addEventListener("click", this.onClick.bind(this), {
+            passive: true
+        })
+    }
 
+    findMeshChildren(from: Object3D, out: Mesh[] = []) {
+        for (let c of from.children) {
+            if (isMesh(c)) {
+                out.push(c);
+            }
+            this.findMeshChildren(c, out);
+        }
+        return out;
+    }
+
+    onClick(event) {
+        if ((<HTMLElement>event.target)?.nodeName !== "CANVAS") return;
+        if (!event.ctrlKey) return;
+
+        setTimeout(() => {
             this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
             this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
             this.raycaster.setFromCamera(this.mouse, this.renderer.camera);
-            const intersects = this.raycaster.intersectObjects(this.renderer.scene.children, true);
+            let start = Date.now();
+            let targets = this.findMeshChildren(this.renderer.scene);
+            const intersects = this.raycaster.intersectObjects(targets, false);
+            console.debug("Raycast took " + (Date.now() - start) + "ms for " + targets.length + " possible targets with " + intersects.length + " results");
             if (intersects.length > 0) {
                 this.handleRaycasterObjects(intersects)
             }
-        })
+        });
     }
 
     appendTo(el: HTMLElement) {
@@ -54,6 +74,7 @@ export class SceneInspector {
     }
 
     protected handleRaycasterObjects(intersections: Intersection[]) {
+        console.debug(intersections);
         const firstIntersection = intersections[0];
         if (firstIntersection && firstIntersection.object) {
             const firstObject = firstIntersection.object;
