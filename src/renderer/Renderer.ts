@@ -147,7 +147,7 @@ export class Renderer {
         composer.setSize(this.viewWidth, this.viewHeight);
         //TODO: options
 
-        // This one just tanks completely down to ~2fps
+        // This one just tanks completely down to ~2fps (in structures at least, works pretty well for simpler stuff)
         const ssaaPass = new SSAARenderPass(this.scene, this.camera, 0x000000, 0);//TODO: options
         ssaaPass.unbiased = true;
         composer.addPass(ssaaPass);
