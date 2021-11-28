@@ -63,7 +63,7 @@ export class Materials {
 
                 if (SHADE) {
 
-                    vec3 N = vec3( modelMatrix * vec4(normal, 0.0) );
+                    vec3 N = vec3( modelMatrix * instanceMatrix * vec4(normal, 0.0) );
 
                     float yLight = (1.0+N.y) * 0.5;
                     light = yLight * (1.0-AMBIENT) + N.x*N.x * XFAC + N.z*N.z * ZFAC + AMBIENT;
@@ -72,7 +72,7 @@ export class Materials {
 
                     light = 1.0;
 
-                }
+                } 
 
                 if (color.b > 1.1) {
                     lift = 0.1;
