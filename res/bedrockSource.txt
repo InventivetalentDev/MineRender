@@ -1,1 +1,2 @@
 https://www.minecraft.net/addons
+https://docs.microsoft.com/en-gb/minecraft/creator/documents/resourcepack
