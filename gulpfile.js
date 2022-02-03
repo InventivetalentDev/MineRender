@@ -33,6 +33,7 @@ function bundle(watch) {
     bundler.on('log', l => console.log(l));
 
     bundler.on('error', function (error) {
+        console.error("bundler error (1)");
         console.error(error);
     });
 
@@ -43,6 +44,7 @@ function bundle(watch) {
 
             .bundle()
             .on('error', function (error) {
+                console.error("bundler error (2)");
                 console.error(error);
             })
 

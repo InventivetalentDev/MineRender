@@ -8,7 +8,7 @@ import { Maybe, toRadians } from "../../util/util";
 import { UVMapper } from "../../UVMapper";
 import { TextureAtlas } from "../../texture/TextureAtlas";
 import { BoxGeometry, BoxHelper, BufferAttribute,  EdgesGeometry, InstancedMesh, LineBasicMaterial, LineSegments, Matrix4, Mesh, MeshBasicMaterial } from "three";
-import * as THREE from "three";
+import { mergeBufferGeometries } from "../../three/BufferGeometryUtils";
 import { SceneObjectOptions } from "../../renderer/SceneObjectOptions";
 import { addBox3WireframeToObject, addWireframeToMesh, addWireframeToObject, applyElementRotation } from "../../util/model";
 import { Ticker } from "../../Ticker";
@@ -16,7 +16,6 @@ import merge from "ts-deepmerge";
 import { BufferGeometry } from "three/src/core/BufferGeometry";
 import { BlockObject } from "../block/scene/BlockObject";
 import { prefix } from "../../util/log";
-import { mergeBufferGeometries } from "../../three/BufferGeometryUtils";
 
 
 const p = prefix("ModelObject");
