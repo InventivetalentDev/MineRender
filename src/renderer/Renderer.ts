@@ -43,7 +43,8 @@ export class Renderer {
             stats: false,
             antialias: true,
             shade: true,
-            autoResize: true
+            autoResize: true,
+            renderAlways: false
         },
         composer: {
             enabled: true
@@ -297,7 +298,7 @@ export class Renderer {
             this._stats.begin();
         }
 
-        if (this.dirty) {
+        if (this.dirty || this.options.render.renderAlways) {
             if (this.options.composer.enabled) {
                 this.composer.render();
             } else {
@@ -381,6 +382,7 @@ export interface RenderOptions {
     antialias: boolean;
     shade: boolean;
     autoResize: boolean;
+    renderAlways: boolean;
 }
 
 export interface ComposerOptions {
