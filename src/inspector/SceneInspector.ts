@@ -208,7 +208,7 @@ export class SceneInspector {
                 pos.y = v;
                 scObj.setPositionAt(intersection.instanceId!, pos);
             }));
-            container.append(this.rangeControl("Z Position", "Z", -posRange + pos.z, posRange, pos.z + pos.z, 1, v => {
+            container.append(this.rangeControl("Z Position", "Z", -posRange + pos.z, posRange + pos.z, pos.z, 1, v => {
                 pos = scObj.getPositionAt(intersection.instanceId!);
                 pos.z = v;
                 scObj.setPositionAt(intersection.instanceId!, pos);
