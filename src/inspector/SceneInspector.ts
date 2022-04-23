@@ -136,7 +136,7 @@ export class SceneInspector {
         if (object.children.length > 0) {
             let i = 1;
             for (let child of object.children) {
-                container.append(this.buttonControl("Select Child " + child.constructor.name + " "  + child.name, "C" + (i++), () => {
+                container.append(this.buttonControl("Select Child " + child.constructor.name + " " + child.name, "C" + (i++), () => {
                     this.selectObject(child, intersection);
                 }));
             }
@@ -188,7 +188,7 @@ export class SceneInspector {
 
     protected addObjectControls(target: Object3D, intersection: Maybe<Intersection>, container: HTMLElement) {
 
-        const posRange = 16 * 8;
+        const posRange = 16 * 16;
         const rotRange = 360;
         const scaleRange = 4;
 
@@ -198,17 +198,17 @@ export class SceneInspector {
             container.append(this.separator("Position"))
 
             let pos = scObj.getPositionAt(intersection.instanceId);
-            container.append(this.rangeControl("X Position", "X", -posRange, posRange, pos.x, 1, v => {
+            container.append(this.rangeControl("X Position", "X", -posRange + pos.x, posRange + pos.x, pos.x, 1, v => {
                 pos = scObj.getPositionAt(intersection.instanceId!);
                 pos.x = v;
                 scObj.setPositionAt(intersection.instanceId!, pos);
             }));
-            container.append(this.rangeControl("Y Position", "Y", -posRange, posRange, pos.y, 1, v => {
+            container.append(this.rangeControl("Y Position", "Y", -posRange + pos.y, posRange + pos.y, pos.y, 1, v => {
                 pos = scObj.getPositionAt(intersection.instanceId!);
                 pos.y = v;
                 scObj.setPositionAt(intersection.instanceId!, pos);
             }));
-            container.append(this.rangeControl("Z Position", "Z", -posRange, posRange, pos.z, 1, v => {
+            container.append(this.rangeControl("Z Position", "Z", -posRange + pos.z, posRange, pos.z + pos.z, 1, v => {
                 pos = scObj.getPositionAt(intersection.instanceId!);
                 pos.z = v;
                 scObj.setPositionAt(intersection.instanceId!, pos);
