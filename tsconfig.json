@@ -10,7 +10,7 @@
     "strictNullChecks": true,
     "strictPropertyInitialization": true,
     "sourceRoot": "src",
-    "outDir": "lib",
+    "outDir": "dist/esm",
     "baseUrl": ".",
     "moduleResolution": "node",
     "resolveJsonModule": true,
