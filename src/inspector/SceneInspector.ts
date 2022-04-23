@@ -129,14 +129,14 @@ export class SceneInspector {
         container.append(this.separator("Select Parent/Child"));
 
         if (object.parent) {
-            container.append(this.buttonControl("Select Parent " + object.parent.name, "P", () => {
+            container.append(this.buttonControl("Select Parent " + object.parent.constructor.name + " " + object.parent.name, "P", () => {
                 this.selectObject(object.parent!, intersection);
             }));
         }
         if (object.children.length > 0) {
             let i = 1;
             for (let child of object.children) {
-                container.append(this.buttonControl("Select Child " + child.name, "C" + (i++), () => {
+                container.append(this.buttonControl("Select Child " + child.constructor.name + " "  + child.name, "C" + (i++), () => {
                     this.selectObject(child, intersection);
                 }));
             }
