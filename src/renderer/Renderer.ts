@@ -265,11 +265,13 @@ export class Renderer {
 
     private animate(t?: number): void {
 
-        this._animationFrame = requestAnimationFrame(this._animationLoop);
-
-        // this._animationTimer = setTimeout(() => {
-        //     this._animationFrame = requestAnimationFrame(this._animationLoop);
-        // }, this._fpsTimer);
+        if (this.options.render.fpsLimit === 0) {
+            this._animationFrame = requestAnimationFrame(this._animationLoop);
+        } else {
+            this._animationTimer = setTimeout(() => {
+                this._animationFrame = requestAnimationFrame(this._animationLoop);
+            }, this._fpsTimer);
+        }
 
         if (this._stats) {
             this._stats.begin();
