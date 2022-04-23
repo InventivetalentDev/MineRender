@@ -134,7 +134,7 @@ export class Renderer {
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = PCFSoftShadowMap;
 
-        renderer.setPixelRatio(window.devicePixelRatio);
+        // renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(this.viewWidth, this.viewHeight);
 
         return renderer;
