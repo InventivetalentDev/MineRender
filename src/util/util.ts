@@ -4,6 +4,8 @@ import CryptoJS from "crypto-js/core";
 import exp from "constants";
 import { MeshBasicMaterial, Vector3 } from "three";
 
+export const changeEvent = { type: 'change'};
+
 export type Maybe<T> = T | undefined;
 
 export function md5(str: string): string {

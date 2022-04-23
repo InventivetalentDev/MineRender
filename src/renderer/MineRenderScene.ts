@@ -28,22 +28,37 @@ export class MineRenderScene extends Scene {
     readonly stats: SceneStats = new SceneStats();
     protected readonly instanceManager: InstanceManager = new InstanceManager();
 
+    public dirty: boolean = true;
+
     constructor(options?: DeepPartial<MineRenderSceneOptions>) {
         super();
         this.options = merge({}, MineRenderScene.DEFAULT_OPTIONS, options ?? {});
     }
 
     add(...object): this {
+        this.dirty = true;
         this.stats.objectCount += object.length;
         for (let obj of object) {
             if (isSceneObject(obj)) {
                 this.stats.sceneObjectCount++;
             }
+            // obj.addEventListener('dirty',event=>{
+            //     this.dirty = true;
+            // });
+            obj.addEventListener('change',event=>{
+                this.dirty = true;
+            });
         }
         return super.add(...object);
     }
 
+    remove(...object): this {
+        this.dirty = true;
+        return super.remove(...object);
+    }
+
     public async initAndAdd(...object: SceneObject[]): Promise<this> {
+        this.dirty = true;
         for (let obj of object) {
             await obj.init();
         }
@@ -53,6 +68,7 @@ export class MineRenderScene extends Scene {
     async addSceneObject<A extends BasicMinecraftAsset, T extends SceneObject, O extends SceneObjectOptions>(asset: A, objectSupplier: () => T | Promise<T>, options?: Partial<O>, parent: Object3D = this): Promise<T | InstanceReference<T>> {
         console.log("addSceneObject")
         console.log("parent", parent)
+        this.dirty = true;
         // console.log(this.instanceCache)
         if (options?.instanceMeshes && asset.key &&  (<AssetKey>asset.key)?.assetType === "models"/*TODO*/) {
             // console.log("instanceMeshes + key")
@@ -89,6 +105,7 @@ export class MineRenderScene extends Scene {
     }
 
     public async addSkin(skin?: string, options?: Partial<SkinObjectOptions>, parent: Object3D = this): Promise<SkinObject> {
+        this.dirty = true;
         const obj = new SkinObject(options);
         obj.scene = this;
         await obj.init();

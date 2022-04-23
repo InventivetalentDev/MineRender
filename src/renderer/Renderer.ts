@@ -1,4 +1,4 @@
-import { AxesHelper, Camera, GridHelper, OrthographicCamera, PCFSoftShadowMap, PerspectiveCamera, Scene, Vector3, WebGLRenderer } from "three";
+import { AxesHelper, Camera, EventDispatcher, GridHelper, OrthographicCamera, PCFSoftShadowMap, PerspectiveCamera, Scene, Vector3, WebGLRenderer } from "three";
 import { MineRenderScene } from "./MineRenderScene";
 import merge from "ts-deepmerge";
 import Stats from "stats.js";
@@ -63,6 +63,8 @@ export class Renderer {
     protected _composer: EffectComposer;
 
     protected _stats?: Stats;
+
+    protected _dirty: boolean = true;
 
     protected _animationLoop;
     protected _fpsTimer;
@@ -230,6 +232,15 @@ export class Renderer {
         this.element.appendChild(this.renderer.domElement);
     }
 
+    /**
+     * Register an EventDispatcher which may update the scene or renderer in order to redraw the scene
+     */
+    public registerEventDispatcher(dispatcher: EventDispatcher, changeEvent: string = 'change') {
+        dispatcher.addEventListener(changeEvent,event=>{
+            this._dirty = true;
+        })
+    }
+
     public resize(width: number, height: number) {
         if (isPerspectiveCamera(this.camera)) {
             this.camera.aspect = width / height;
@@ -247,6 +258,15 @@ export class Renderer {
     }
 
     //<editor-fold desc="RENDER">
+
+    public get dirty(): boolean {
+        return this._dirty || this.scene.dirty;
+    }
+
+    public set dirty(dirty: boolean) {
+        this._dirty = dirty;
+        this.scene.dirty = dirty;
+    }
 
     public start() {
         stop(); // just in case
@@ -277,12 +297,15 @@ export class Renderer {
             this._stats.begin();
         }
 
-
-        if (this.options.composer.enabled) {
-            this.composer.render();
-        } else {
-            this.renderer.render(this.scene, this.camera);
+        if (this.dirty) {
+            if (this.options.composer.enabled) {
+                this.composer.render();
+            } else {
+                this.renderer.render(this.scene, this.camera);
+            }
         }
+
+        this.dirty = false;
 
         if (this._stats) {
             this._stats.end();

@@ -7,7 +7,7 @@ import { Axis, axisToVec3 } from "../Axis";
 import { BufferGeometry } from "three/src/core/BufferGeometry";
 import { Material } from "three/src/materials/Material";
 import { SkinPart } from "../skin/SkinPart";
-import { Maybe } from "../util/util";
+import { changeEvent, Maybe } from "../util/util";
 import { InstanceReference } from "../instance/InstanceReference";
 import { MineRenderError } from "../error/MineRenderError";
 import { isInstancedMesh, isMesh } from "../util/three";
@@ -59,11 +59,16 @@ export class SceneObject extends Object3D implements Disposable, Instanceable, T
     async init(): Promise<void> {
     }
 
+    public notifyDirty() {
+        this.dispatchEvent(changeEvent);
+    }
+
     //<editor-fold desc="GROUPS">
 
     protected createAndAddGroup(name?: string, x: number = 0, y: number = 0, z: number = 0, offsetAxis?: Axis, offset: number = 0): Object3D {
         const group = this.createGroup(name, x, y, z, offsetAxis, offset);
         this.add(group);
+        this.notifyDirty();
         return group;
     }
 
@@ -108,6 +113,7 @@ export class SceneObject extends Object3D implements Disposable, Instanceable, T
         } else {
             this.add(mesh);
         }
+        this.notifyDirty();
         return mesh;
     }
 
@@ -229,6 +235,7 @@ export class SceneObject extends Object3D implements Disposable, Instanceable, T
         if (this.scene) {
             this.scene.stats.instanceCount++;
         }
+        this.notifyDirty();
         return this.constructInstanceReference(i);
     }
 
@@ -252,6 +259,7 @@ export class SceneObject extends Object3D implements Disposable, Instanceable, T
             child.setMatrixAt(index, matrix);
             child.instanceMatrix.needsUpdate = true;
         }
+        this.notifyDirty();
     }
 
     setPositionRotationScaleAt(index: number, position?: Vector3, rotation?: Euler, scale?: Vector3) {
@@ -328,6 +336,7 @@ export class SceneObject extends Object3D implements Disposable, Instanceable, T
                 this.scale.set(scale.x, scale.y, scale.z);
             }
         }
+        this.notifyDirty();
     }
 
     setPosition(position: Vector3) {
@@ -339,6 +348,7 @@ export class SceneObject extends Object3D implements Disposable, Instanceable, T
         } else {
             this.position.set(position.x, position.y, position.z);
         }
+        this.notifyDirty();
     }
 
     getPosition(): Vector3 {
@@ -358,6 +368,7 @@ export class SceneObject extends Object3D implements Disposable, Instanceable, T
         } else {
             this.rotation.set(rotation.x, rotation.y, rotation.z);
         }
+        this.notifyDirty();
     }
 
     getRotation(): Euler {
@@ -377,6 +388,7 @@ export class SceneObject extends Object3D implements Disposable, Instanceable, T
         } else {
             this.scale.set(scale.x, scale.y, scale.z);
         }
+        this.notifyDirty();
     }
 
     getScale(): Vector3 {
@@ -398,6 +410,7 @@ export class SceneObject extends Object3D implements Disposable, Instanceable, T
             }
             return object.visible;
         }
+        this.notifyDirty();
         return false;
     }
 
@@ -405,6 +418,7 @@ export class SceneObject extends Object3D implements Disposable, Instanceable, T
 
     public dispose() {
         this.disposeAndRemoveAllChildren();
+        this.notifyDirty();
     }
 
     public disposeAndRemoveAllChildren() {
@@ -415,10 +429,12 @@ export class SceneObject extends Object3D implements Disposable, Instanceable, T
             }
             this.remove(c);
         }
+        this.notifyDirty();
     }
 
     public removeFromScene() {
         this._scene?.remove(this);
+        this.notifyDirty();
     }
 
     //</editor-fold>
