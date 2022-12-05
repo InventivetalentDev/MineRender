@@ -103,6 +103,10 @@
                 filter: drop-shadow(5px 5px 5px #222);
             }
 
+            .pull-right {
+                float: right;
+            }
+
         </style>
 
         <!-- Hotjar Tracking Code for https://minerender.org -->
@@ -697,7 +701,7 @@
             </div>
             <div class="footer-copyright">
                 <div class="container">
-                    Made by <a class="blue-text" href="https://inventivetalent.org" target="_blank" rel="noopener">inventivetalent</a>
+                    Made by <a class="blue-text" href="https://inventivetalent.org" target="_blank">inventivetalent</a> | <span>More projects: <span class="pageref" class="cyan-text"></span>
                     <span class="pull-right">
                         This website is not affiliated with Minecraft / Mojang AB.
                     </span>
@@ -930,6 +934,8 @@ guiRender.render(gui);</code></pre>
         <script src="/dist/entity.min.js" defer></script>
         <script src="/js/data.min.js"></script>
         <script src="/js/main.min.js" async defer></script>
+
+        <script async src="https://pageref.inventive.workers.dev/script.js"></script>
 
         <script>
             window.DOP_config = {
