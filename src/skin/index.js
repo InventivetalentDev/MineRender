@@ -112,7 +112,7 @@ class SkinRender extends Render {
         skinRender._skinImage.crossOrigin = "anonymous";
         skinRender._capeImage = new Image();
         skinRender._capeImage.crossOrigin = "anonymous";
-        let hasCape = texture.cape !== undefined || texture.capeUrl !== undefined || texture.capeData !== undefined || texture.mineskin !== undefined;
+        let hasCape = texture.cape !== undefined || texture.capeUser !== undefined || texture.capeUrl !== undefined || texture.capeData !== undefined || texture.mineskin !== undefined;
         let slim = false;
         let skinLoaded = false;
         let capeLoaded = false;
@@ -270,10 +270,16 @@ class SkinRender extends Render {
                 if (texture.cape.length > 36) { // Likely either a cape ID or URL
                     let capeDataUrl = texture.cape.startsWith("http") ? texture.cape : "https://api.capes.dev/get/" + texture.cape;
                     getJSON(capeDataUrl, function (err, data) {
-                        if (err) return console.log(err);
+                        if (err) {
+                            console.log("failed to get capes.dev")
+                            skinRender._capeImage.onload(); // avoid getting stuck
+                            return console.log(err);
+                        }
                         if (data.exists) {
                             texture._capeType = data.type;
                             skinRender._capeImage.src = data.imageUrls.base.full;
+                        } else {
+                            skinRender._capeImage.onload(); // avoid getting stuck
                         }
                     })
                 } else { // Type
@@ -290,11 +296,17 @@ class SkinRender extends Render {
                     capeLoadUrl += "/" + texture.cape; // append type
 
                     getJSON(capeLoadUrl, function (err, data) {
-                        if (err) return console.log(err);
+                        if (err) {
+                            console.log("failed to get capes.dev")
+                            skinRender._capeImage.onload(); // avoid getting stuck
+                            return console.log(err);
+                        }
                         // Should be a single object of the requested type
                         if (data.exists) {
                             texture._capeType = data.type;
                             skinRender._capeImage.src = data.imageUrls.base.full;
+                        } else {
+                            skinRender._capeImage.onload(); // avoid getting stuck
                         }
                     })
                 }
