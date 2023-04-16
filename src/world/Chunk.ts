@@ -105,7 +105,7 @@ export class Chunk {
                 mergeMeshes: true,
                 instanceMeshes: true,
                 wireframe: true,
-                maxInstanceCount: 1000 //TODO: setting this to high kills FPS; increase on demand somehow?
+                maxInstanceCount: 2000 //TODO: setting this to high kills FPS; increase on demand somehow?
             }) as BlockObject;//TODO
             if (block.properties) {
                 await blockObject.setState(block.properties);
