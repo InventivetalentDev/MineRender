@@ -259,10 +259,14 @@ export class UVMapper {
                     uniqueTextureNames.push(textureKey);
                     const assetKey = AssetKey.parse("textures", textureValue, model.key);
                     promises.push(ModelTextures.get(assetKey).then(asset => {
-                        textureMap[textureKey] = new WrappedImage(asset!);
+                        if (asset) {
+                            textureMap[textureKey] = new WrappedImage(asset);
+                        }
                     }));
                     promises.push(ModelTextures.getMeta(assetKey).then(meta => {
-                        metaMap[textureKey] = meta;
+                        if (meta) {
+                            metaMap[textureKey] = meta;
+                        }
                     }))
                 }
             }
