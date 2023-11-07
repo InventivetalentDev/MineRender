@@ -2,9 +2,9 @@
   "name": "minerender",
   "version": "2.0.0-alpha.2",
   "description": "",
-  "main": "dist/cjs/index.js",
-  "module": "dist/esm/index.js",
-  "types": "dist/cjs/index",
+  "main": "./dist/cjs/index.js",
+  "types": "./dist/cjs/index.d.ts",
+  "module": "./dist/esm/index.js",
   "scripts": {
     "clean": "rm -rf dist && rm -rf lib",
     "compile": "tsc -p tsconfig.json && tsc -p tsconfig-cjs.json",
