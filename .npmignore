@@ -1,0 +1,6 @@
+*.idea/
+res/rp/*
+js/data.min.js
+js/main.min.js
+res/tools/java/in*
+node_modules/*
