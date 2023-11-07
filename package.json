@@ -1,6 +1,6 @@
 {
   "name": "minerender",
-  "version": "2.0.0-alpha.4",
+  "version": "2.0.0-alpha.5",
   "description": "",
   "main": "./dist/cjs/index.js",
   "types": "./dist/cjs/index.d.ts",
@@ -69,7 +69,7 @@
     "threejs-examples": "^60.0.0",
     "ts-deepmerge": "^1.0.6",
     "tty-browserify": "^0.0.1",
-    "typscript-memoize": "git+https://github.com/InventivetalentDev/typescript-memoize.git",
+    "typescript-memoize": "^1.1.1",
     "url": "^0.11.0",
     "util": "^0.12.3"
   },

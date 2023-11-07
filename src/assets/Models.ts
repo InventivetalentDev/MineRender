@@ -4,7 +4,7 @@ import { Textures } from "../texture/Textures";
 import { Maybe } from "../util/util";
 import { ModelMerger } from "../model/ModelMerger";
 import { AssetLoader } from "./AssetLoader";
-import { Memoize } from "typscript-memoize";
+import { Memoize } from "typescript-memoize";
 import { DEFAULT_NAMESPACE, DEFAULT_ROOT } from "./Assets";
 import { PersistentCache } from "../cache/PersistentCache";
 import { AssetKey } from "./AssetKey";
