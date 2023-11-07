@@ -14,7 +14,8 @@
     "bundle:w": "",
     "build": "npm run clean && npm run compile",
     "build:w": "npm run clean && npm run compile:w",
-    "doc": "typedoc --out docs src"
+    "doc": "typedoc --out docs src",
+    "publish:alpha": "npm version prerelease --preid=alpha && npm publish --tag=alpha"
   },
   "browserify": {
     "transform": [
