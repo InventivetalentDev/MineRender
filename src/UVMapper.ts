@@ -325,6 +325,7 @@ export class UVMapper {
                 let x = tx * maxWidth;
                 let y = ty * maxWidth;
                 if (texture) {
+                    console.log(texture);
                     positions[textureKey] = [x, y];
                     image.putData(texture.data, x, y, 0, 0, maxWidth, maxWidth);
                     // console.log(image.toDataURL())
@@ -338,11 +339,14 @@ export class UVMapper {
                         hasAnimation = true;
                         const meta = metaMap[textureKey];
                         const frameTime = meta?.animation?.frametime ?? 1;
+                        console.log(meta);
+                        console.log(frameTime);
 
                         let t = 0;
                         let f = 0;
 
                         animatorFunctions[textureKey] = () => {
+                            console.log("animating", textureKey)
                             //TODO: use mcmeta for frame count, delays, etc
                             //TODO: interpolate?
                             if (t++ >= frameTime) {
