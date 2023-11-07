@@ -17,7 +17,8 @@ function bundle(watch) {
             cache: {},
             packageCache: {},
             debug: true,
-            standalone: "MineRender"
+            standalone: "MineRender",
+            insertGlobals: true,
         }
     ))
         .plugin(tsify, {

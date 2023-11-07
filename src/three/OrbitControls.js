@@ -122,12 +122,13 @@ class OrbitControls extends EventDispatcher {
 
         };
 
-        this.listenToKeyEvents = function ( domElement ) {
-
-            domElement.addEventListener( 'keydown', onKeyDown );
-            this._domElementKeyEvents = domElement;
-
-        };
+        // typescript compile doesn't like this for reasons
+        // this.listenToKeyEvents = function ( domElement ) {
+        //
+        //     domElement.addEventListener( 'keydown', onKeyDown );
+        //     this._domElementKeyEvents = domElement;
+        //
+        // };
 
         this.saveState = function () {
 
