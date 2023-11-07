@@ -112,7 +112,7 @@ export class AssetLoader {
     }
 
 
-    protected static async load<T>(key: AssetKey, parser: ResponseParser<T>): Promise<Maybe<T>> {
+    protected static async load<T extends MinecraftAsset>(key: AssetKey, parser: ResponseParser<T>): Promise<Maybe<T>> {
         console.info(p, "Loading", key);
         const url = `${ this.assetBasePath(key) }${ key.type !== undefined ? key.type + '/' : '' }${ key.path }${ key.extension }`;
         console.debug(p, url);

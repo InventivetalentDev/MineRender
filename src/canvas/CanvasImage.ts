@@ -1,3 +1,4 @@
+import {ImageData, CanvasRenderingContext2D} from "canvas";
 import { CompatCanvas, createCanvas } from "./CanvasCompat";
 import { Disposable } from "../Disposable";
 
