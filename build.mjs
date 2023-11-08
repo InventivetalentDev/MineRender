@@ -15,6 +15,6 @@ await esbuild.build({
         ".node":"file"
     },
     globalName:"MineRender",
-    plugins: [polyfillNode()],
+    plugins: [polyfillNode()]
 });
 setTimeout(() => process.exit(0), 100);
