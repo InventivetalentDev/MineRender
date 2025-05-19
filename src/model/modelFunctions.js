@@ -1,4 +1,4 @@
-import { loadBlockState, loadJsonFromPath, loadTextureAsBase64 } from "../functions";
+import {loadBlockState, loadJsonFromPath, loadTextureAsBase64} from "../functions";
 import merge from "deepmerge";
 
 import * as debugg from "debug";
@@ -348,6 +348,9 @@ export function parseModelType(string) {
 export function loadModel(model, type/* block OR item */, assetRoot) {
     return new Promise((resolve, reject) => {
         if (typeof model === "string") {
+            if (model.startsWith("minecraft:")) {
+                model = model.substring("minecraft:".length);
+            }
             if (model.startsWith("{") && model.endsWith("}")) {// JSON string
                 resolve(JSON.parse(model));
             } else if (model.startsWith("http")) {// URL
@@ -448,10 +451,16 @@ let mergeParents_ = function (model, name, stack, hierarchy, assetRoot, resolve,
     delete model["parent"];// remove the child's parent so it will be replaced by the parent's parent
     hierarchy.push(parent);
 
+    if (parent.startsWith("minecraft:")) {
+        parent = parent.substring("minecraft:".length);
+    }
     loadJsonFromPath(assetRoot, "/assets/minecraft/models/" + parent + ".json").then((parentData) => {
         let mergedModel = Object.assign({}, model, parentData);
         mergeParents_(mergedModel, name, stack, hierarchy, assetRoot, resolve, reject);
-    }).catch(reject);
+    }).catch(reason => {
+        console.warn("Failed to load parent model " + parent);
+        reject(reason);
+    });
 
 };
 

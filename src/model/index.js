@@ -3,17 +3,18 @@ import * as THREE from "three";
 require("three-instanced-mesh")(THREE);
 import * as $ from 'jquery';
 import merge from 'deepmerge'
-import Render, { defaultOptions, deepDisposeMesh, mergeCubeMeshes } from "../renderBase";
-import { loadTextureAsBase64, scaleUv, DEFAULT_ROOT, loadJsonFromPath, loadBlockState, loadTextureMeta } from "../functions";
+import Render, {defaultOptions, deepDisposeMesh, mergeCubeMeshes} from "../renderBase";
+import {loadTextureAsBase64, scaleUv, DEFAULT_ROOT, loadJsonFromPath, loadBlockState, loadTextureMeta} from "../functions";
 import ModelConverter from "./modelConverter";
 import * as md5 from "md5";
 
-import { parseModel, loadAndMergeModel, loadModelTexture, modelCacheKey, toRadians, deleteObjectProperties, loadTextures } from "./modelFunctions";
+import {parseModel, loadAndMergeModel, loadModelTexture, modelCacheKey, toRadians, deleteObjectProperties, loadTextures} from "./modelFunctions";
 
 import work from 'webworkify-webpack';
 import SkinRender from "../skin";
 import off from "onscreen/lib/methods/off";
 import * as debugg from "debug";
+
 const debug = debugg("minerender");
 
 const ModelWorker = require.resolve("./ModelWorker.js");
@@ -1005,6 +1006,9 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                             }
                             if (name.indexOf("/") !== -1) {
                                 name = name.substr(name.indexOf("/") + 1);
+                            }
+                            if (name.startsWith("minecraft:")) {
+                                name = name.substr(name.indexOf(":") + 1);
                             }
                             loadTextureMeta(name, assetRoot).then((meta) => {
                                 loadTextureWithMeta(canvas, meta);
