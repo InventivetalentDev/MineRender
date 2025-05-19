@@ -62,14 +62,14 @@ export function parseModel(model, modelOptions, parsedModelList, assetRoot) {
                         if (model.hasOwnProperty("variant")) {
                             let variantKey = findMatchingVariant(blockstate.variants, model.variant);
                             if (variantKey === null) {
-                                console.warn("Missing variant key for " + model.blockstate + ": " + model.variant);
+                                console.warn(`Missing variant key for ${model.blockstate}: "${model.variant}"`);
                                 console.warn(blockstate.variants);
                                 resolve(null);
                                 return;
                             }
                             let variant = blockstate.variants[variantKey];
                             if (!variant) {
-                                console.warn("Missing variant for " + model.blockstate + ": " + model.variant);
+                                console.warn(`Missing variant for ${model.blockstate}: "${model.variant}"`);
                                 variant = blockstate.variants[Object.keys(blockstate.variants)[0]];
                             }
 
@@ -319,22 +319,25 @@ export function variantStringToObject(str) {
 }
 
 export function parseModelType(string) {
+    if (string.startsWith("minecraft:")) {
+        string = string.substring("minecraft:".length);
+    }
     if (string.startsWith("block/")) {
         // if (type === "item") {
         //     throw new Error("Tried to mix block/item models");
         // }
         return {
             type: "block",
-            model: string.substr("block/".length)
-        }
+            model: string.substring("block/".length)
+        };
     } else if (string.startsWith("item/")) {
         // if (type === "block") {
         //     throw new Error("Tried to mix item/block models");
         // }
         return {
             type: "item",
-            model: string.substr("item/".length)
-        }
+            model: string.substring("item/".length)
+        };
     }
     return {
         type: "block",
