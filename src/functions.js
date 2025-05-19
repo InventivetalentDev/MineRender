@@ -1,4 +1,5 @@
 import * as debugg from "debug";
+
 const debug = debugg("minerender");
 
 /**
@@ -39,9 +40,12 @@ const modelCallbacks = {};
  * @returns {Promise<string>}
  */
 export function loadTextureAsBase64(root, namespace, dir, name) {
+    if (name.startsWith("minecraft:")) {
+        name = name.substring(10);
+    }
     return new Promise((resolve, reject) => {
         loadTexture(root, namespace, dir, name, resolve, reject);
-    })
+    });
 };
 
 /**
@@ -50,6 +54,10 @@ export function loadTextureAsBase64(root, namespace, dir, name) {
  * @ignore
  */
 function loadTexture(root, namespace, dir, name, resolve, reject, forceLoad) {
+    if (name.startsWith("minecraft:")) {
+        name = name.substring(10);
+    }
+
     let path = "/assets/" + namespace + "/textures" + dir + name + ".png";
 
     if (textureCache.hasOwnProperty(path)) {
@@ -115,10 +123,16 @@ function loadTexture(root, namespace, dir, name, resolve, reject, forceLoad) {
  * @returns {Promise<object>}
  */
 export function loadBlockState(state, assetRoot) {
+    if (state.startsWith("minecraft:")) {
+        state = state.substring(10);
+    }
     return loadJsonFromPath(assetRoot, "/assets/minecraft/blockstates/" + state + ".json")
-};
+}
 
 export function loadTextureMeta(texture, assetRoot) {
+    if (texture.startsWith("minecraft:")) {
+        texture = texture.substring(10);
+    }
     return loadJsonFromPath(assetRoot, "/assets/minecraft/textures/block/" + texture + ".png.mcmeta")
 }
 

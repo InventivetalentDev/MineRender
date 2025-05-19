@@ -1,4 +1,4 @@
-import { loadBlockState, loadJsonFromPath, loadTextureAsBase64 } from "../functions";
+import {loadBlockState, loadJsonFromPath, loadTextureAsBase64} from "../functions";
 import merge from "deepmerge";
 
 import * as debugg from "debug";
@@ -62,14 +62,14 @@ export function parseModel(model, modelOptions, parsedModelList, assetRoot) {
                         if (model.hasOwnProperty("variant")) {
                             let variantKey = findMatchingVariant(blockstate.variants, model.variant);
                             if (variantKey === null) {
-                                console.warn("Missing variant key for " + model.blockstate + ": " + model.variant);
+                                console.warn(`Missing variant key for ${model.blockstate}: "${model.variant}"`);
                                 console.warn(blockstate.variants);
                                 resolve(null);
                                 return;
                             }
                             let variant = blockstate.variants[variantKey];
                             if (!variant) {
-                                console.warn("Missing variant for " + model.blockstate + ": " + model.variant);
+                                console.warn(`Missing variant for ${model.blockstate}: "${model.variant}"`);
                                 variant = blockstate.variants[Object.keys(blockstate.variants)[0]];
                             }
 
@@ -319,22 +319,25 @@ export function variantStringToObject(str) {
 }
 
 export function parseModelType(string) {
+    if (string.startsWith("minecraft:")) {
+        string = string.substring("minecraft:".length);
+    }
     if (string.startsWith("block/")) {
         // if (type === "item") {
         //     throw new Error("Tried to mix block/item models");
         // }
         return {
             type: "block",
-            model: string.substr("block/".length)
-        }
+            model: string.substring("block/".length)
+        };
     } else if (string.startsWith("item/")) {
         // if (type === "block") {
         //     throw new Error("Tried to mix item/block models");
         // }
         return {
             type: "item",
-            model: string.substr("item/".length)
-        }
+            model: string.substring("item/".length)
+        };
     }
     return {
         type: "block",
@@ -345,6 +348,9 @@ export function parseModelType(string) {
 export function loadModel(model, type/* block OR item */, assetRoot) {
     return new Promise((resolve, reject) => {
         if (typeof model === "string") {
+            if (model.startsWith("minecraft:")) {
+                model = model.substring("minecraft:".length);
+            }
             if (model.startsWith("{") && model.endsWith("}")) {// JSON string
                 resolve(JSON.parse(model));
             } else if (model.startsWith("http")) {// URL
@@ -445,10 +451,16 @@ let mergeParents_ = function (model, name, stack, hierarchy, assetRoot, resolve,
     delete model["parent"];// remove the child's parent so it will be replaced by the parent's parent
     hierarchy.push(parent);
 
+    if (parent.startsWith("minecraft:")) {
+        parent = parent.substring("minecraft:".length);
+    }
     loadJsonFromPath(assetRoot, "/assets/minecraft/models/" + parent + ".json").then((parentData) => {
         let mergedModel = Object.assign({}, model, parentData);
         mergeParents_(mergedModel, name, stack, hierarchy, assetRoot, resolve, reject);
-    }).catch(reject);
+    }).catch(reason => {
+        console.warn("Failed to load parent model " + parent);
+        reject(reason);
+    });
 
 };
 
