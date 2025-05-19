@@ -1002,13 +1002,10 @@ let createCube = function (width, height, depth, name, faces, fallbackFaces, tex
                         if ((canvas.height > canvas.width) && (canvas.height % canvas.width === 0)) {// Taking a guess that this is an animated texture
                             let name = textureNames[textureRef];
                             if (name.startsWith("#")) {
-                                name = textureNames[name.substr(1)];
+                                name = textureNames[name.substring(1)];
                             }
                             if (name.indexOf("/") !== -1) {
-                                name = name.substr(name.indexOf("/") + 1);
-                            }
-                            if (name.startsWith("minecraft:")) {
-                                name = name.substr(name.indexOf(":") + 1);
+                                name = name.substring(name.indexOf("/") + 1);
                             }
                             loadTextureMeta(name, assetRoot).then((meta) => {
                                 loadTextureWithMeta(canvas, meta);

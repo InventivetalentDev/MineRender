@@ -1,7 +1,7 @@
 import * as pako from "pako";
 import * as NBT from "prismarine-nbt";
 import SkinRender from "../skin/index";
-import { loadBlockState } from "../functions";
+import {loadBlockState} from "../functions";
 
 /**
  * Helper to convert multi-block structures to models used by {@link ModelRender}
@@ -113,6 +113,7 @@ function loadNBT(source) {
         }
     })
 }
+
 ModelConverter.loadNBT = loadNBT;
 
 function parseStructureData(data, paletteIndex) {
@@ -157,7 +158,7 @@ function parseStructureData(data, paletteIndex) {
                     let variantString = "";
                     if (palette[blocks[i].state.value].hasOwnProperty("Properties")) {
                         let strs = [];
-                        for (let p in  palette[blocks[i].state.value].Properties.value) {
+                        for (let p in palette[blocks[i].state.value].Properties.value) {
                             if (palette[blocks[i].state.value].Properties.value.hasOwnProperty(p)) {
                                 let prop = palette[blocks[i].state.value].Properties.value[p];
 
@@ -202,6 +203,7 @@ function parseStructureData(data, paletteIndex) {
         }
     })
 }
+
 ModelConverter.parseStructureData = parseStructureData;
 
 function parseSchematicData(data, idToNameMap) {
@@ -271,6 +273,7 @@ function parseSchematicData(data, idToNameMap) {
         resolve(arr);
     })
 }
+
 ModelConverter.parseSchematicData = parseSchematicData;
 
 let specialVariants = {

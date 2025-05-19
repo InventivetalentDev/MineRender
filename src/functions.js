@@ -1,4 +1,5 @@
 import * as debugg from "debug";
+
 const debug = debugg("minerender");
 
 /**
@@ -129,7 +130,7 @@ export function loadBlockState(state, assetRoot) {
 }
 
 export function loadTextureMeta(texture, assetRoot) {
-     if (texture.startsWith("minecraft:")) {
+    if (texture.startsWith("minecraft:")) {
         texture = texture.substring(10);
     }
     return loadJsonFromPath(assetRoot, "/assets/minecraft/textures/block/" + texture + ".png.mcmeta")
