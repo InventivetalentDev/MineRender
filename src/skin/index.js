@@ -244,10 +244,10 @@ class SkinRender extends Render {
                 getJSON("https://minerender.org/nameToUuid.php?name=" + texture, function (err, data) {
                     if (err) return console.log(err);
                     console.log(data);
-                    skinRender._skinImage.src = "https://crafatar.com/skins/" + (data.id ? data.id : texture);
+                    skinRender._skinImage.src = "https://crafthead.net/skin/" + (data.id ? data.id : texture);
                 });
             } else if (texture.length <= 36) {// Probably player UUID
-                image.src = "https://crafatar.com/skins/" + texture + "?overlay";
+                image.src = "https://crafthead.net/skin/" + texture + "?overlay";
             } else {// taking a guess that it's a Base64 image
                 skinRender._skinImage.src = texture;
             }
@@ -259,10 +259,10 @@ class SkinRender extends Render {
             } else if (texture.username) {
                 getJSON("https://minerender.org/nameToUuid.php?name=" + texture.username, function (err, data) {
                     if (err) return console.log(err);
-                    skinRender._skinImage.src = "https://crafatar.com/skins/" + (data.id ? data.id : texture.username) + "?overlay";
+                    skinRender._skinImage.src = "https://crafthead.net/skin/" + (data.id ? data.id : texture.username) + "?overlay";
                 });
             } else if (texture.uuid) {
-                skinRender._skinImage.src = "https://crafatar.com/skins/" + texture.uuid + "?overlay";
+                skinRender._skinImage.src = "https://crafthead.net/skin/" + texture.uuid + "?overlay";
             } else if (texture.mineskin) {
                 skinRender._skinImage.src = "https://api.mineskin.org/render/texture/" + texture.mineskin;
             }

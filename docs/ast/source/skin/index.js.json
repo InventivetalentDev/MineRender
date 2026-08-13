@@ -13678,10 +13678,10 @@
                                                       }
                                                     },
                                                     "extra": {
-                                                      "rawValue": "https://crafatar.com/skins/",
-                                                      "raw": "\"https://crafatar.com/skins/\""
+                                                      "rawValue": "https://crafthead.net/skin/",
+                                                      "raw": "\"https://crafthead.net/skin/\""
                                                     },
-                                                    "value": "https://crafatar.com/skins/"
+                                                    "value": "https://crafthead.net/skin/"
                                                   },
                                                   "operator": "+",
                                                   "right": {
@@ -14091,10 +14091,10 @@
                                               }
                                             },
                                             "extra": {
-                                              "rawValue": "https://crafatar.com/skins/",
-                                              "raw": "\"https://crafatar.com/skins/\""
+                                              "rawValue": "https://crafthead.net/skin/",
+                                              "raw": "\"https://crafthead.net/skin/\""
                                             },
-                                            "value": "https://crafatar.com/skins/"
+                                            "value": "https://crafthead.net/skin/"
                                           },
                                           "operator": "+",
                                           "right": {
@@ -15517,10 +15517,10 @@
                                                             }
                                                           },
                                                           "extra": {
-                                                            "rawValue": "https://crafatar.com/skins/",
-                                                            "raw": "\"https://crafatar.com/skins/\""
+                                                            "rawValue": "https://crafthead.net/skin/",
+                                                            "raw": "\"https://crafthead.net/skin/\""
                                                           },
-                                                          "value": "https://crafatar.com/skins/"
+                                                          "value": "https://crafthead.net/skin/"
                                                         },
                                                         "operator": "+",
                                                         "right": {
@@ -15961,10 +15961,10 @@
                                                   }
                                                 },
                                                 "extra": {
-                                                  "rawValue": "https://crafatar.com/skins/",
-                                                  "raw": "\"https://crafatar.com/skins/\""
+                                                  "rawValue": "https://crafthead.net/skin/",
+                                                  "raw": "\"https://crafthead.net/skin/\""
                                                 },
-                                                "value": "https://crafatar.com/skins/"
+                                                "value": "https://crafthead.net/skin/"
                                               },
                                               "operator": "+",
                                               "right": {
@@ -67533,10 +67533,10 @@
                                                         }
                                                       },
                                                       "extra": {
-                                                        "rawValue": "https://crafatar.com/skins/",
-                                                        "raw": "\"https://crafatar.com/skins/\""
+                                                        "rawValue": "https://crafthead.net/skin/",
+                                                        "raw": "\"https://crafthead.net/skin/\""
                                                       },
-                                                      "value": "https://crafatar.com/skins/"
+                                                      "value": "https://crafthead.net/skin/"
                                                     },
                                                     "operator": "+",
                                                     "right": {
@@ -67946,10 +67946,10 @@
                                                 }
                                               },
                                               "extra": {
-                                                "rawValue": "https://crafatar.com/skins/",
-                                                "raw": "\"https://crafatar.com/skins/\""
+                                                "rawValue": "https://crafthead.net/skin/",
+                                                "raw": "\"https://crafthead.net/skin/\""
                                               },
-                                              "value": "https://crafatar.com/skins/"
+                                              "value": "https://crafthead.net/skin/"
                                             },
                                             "operator": "+",
                                             "right": {
@@ -69372,10 +69372,10 @@
                                                               }
                                                             },
                                                             "extra": {
-                                                              "rawValue": "https://crafatar.com/skins/",
-                                                              "raw": "\"https://crafatar.com/skins/\""
+                                                              "rawValue": "https://crafthead.net/skin/",
+                                                              "raw": "\"https://crafthead.net/skin/\""
                                                             },
-                                                            "value": "https://crafatar.com/skins/"
+                                                            "value": "https://crafthead.net/skin/"
                                                           },
                                                           "operator": "+",
                                                           "right": {
@@ -69816,10 +69816,10 @@
                                                     }
                                                   },
                                                   "extra": {
-                                                    "rawValue": "https://crafatar.com/skins/",
-                                                    "raw": "\"https://crafatar.com/skins/\""
+                                                    "rawValue": "https://crafthead.net/skin/",
+                                                    "raw": "\"https://crafthead.net/skin/\""
                                                   },
-                                                  "value": "https://crafatar.com/skins/"
+                                                  "value": "https://crafthead.net/skin/"
                                                 },
                                                 "operator": "+",
                                                 "right": {
@@ -102154,7 +102154,7 @@
         "binop": null,
         "updateContext": null
       },
-      "value": "https://crafatar.com/skins/",
+      "value": "https://crafthead.net/skin/",
       "start": 8380,
       "end": 8409,
       "loc": {
@@ -103003,7 +103003,7 @@
         "binop": null,
         "updateContext": null
       },
-      "value": "https://crafatar.com/skins/",
+      "value": "https://crafthead.net/skin/",
       "start": 8564,
       "end": 8593,
       "loc": {
@@ -105784,7 +105784,7 @@
         "binop": null,
         "updateContext": null
       },
-      "value": "https://crafatar.com/skins/",
+      "value": "https://crafthead.net/skin/",
       "start": 9253,
       "end": 9282,
       "loc": {
@@ -106721,7 +106721,7 @@
         "binop": null,
         "updateContext": null
       },
-      "value": "https://crafatar.com/skins/",
+      "value": "https://crafthead.net/skin/",
       "start": 9444,
       "end": 9473,
       "loc": {
