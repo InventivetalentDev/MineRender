@@ -21,11 +21,14 @@ export abstract class PersistentCache<B = unknown> {
 
     abstract get<T>(key: string): Promise<T>;
 
+    /** Loads a missing entry and stores only non-nullish results. */
     async getOrLoad<T>(key: string, loader: (key: string) => Promise<T>): Promise<T> {
         let v = await this.get<T>(key);
         if (typeof v === "undefined" || v === null) {
             v = await loader(key);
-            await this.put<T>(key, v);
+            if (typeof v !== "undefined" && v !== null) {
+                await this.put<T>(key, v);
+            }
         }
         return v;
     }

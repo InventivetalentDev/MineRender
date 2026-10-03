@@ -77,6 +77,12 @@ and decode errors instead of returning 0×0 placeholders. Failed loads can be re
 `Textures.getImage()` and `Materials.getImage()` methods return a fresh placeholder on the next
 lookup after a failure; existing scene objects need the replacement texture or material assigned.
 
+Item/blockstate lists, default blockstates, and entity model dictionaries share concurrent loads
+and cache successful responses. Missing or rejected loads can retry on the next call; valid empty
+lists remain cached. After replacing asset sources, use `Caching.clear()` to reset in-memory
+caches, including these lookups. Persistent stores are cleared separately. `PersistentCache.getOrLoad()`
+skips writes for `null` and `undefined`, while preserving other values.
+
 The optional `canvas` dependency requires a working native installation for Node imports.
 Browser development can proceed if its native build fails. Actual headless rendering still
 requires the renderer work described in the roadmap.

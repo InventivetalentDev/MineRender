@@ -10,7 +10,9 @@ import { WrappedImage } from "../WrappedImage";
 import { TextureAtlas } from "../texture/TextureAtlas";
 import { ExtractableImageData } from "../ExtractableImageData";
 import { MinecraftTextureMeta } from "../MinecraftTextureMeta";
-import { BlockStates } from "../assets/BlockStates";
+import type { DefaultBlockStates } from "../assets/BlockStates";
+import type { EntityModels } from "../assets/Entities";
+import type { ListAsset } from "../ListAsset";
 import { BlockState } from "../model/block/BlockState";
 
 export class Caching {
@@ -93,6 +95,24 @@ export class Caching {
         .expirationInterval(Time.seconds(30))
         .buildAsync<CacheKey, BlockState>();
 
+    static readonly listAssetCache: AsyncLoadingCache<CacheKey, ListAsset> = Caches.builder()
+        .expireAfterWrite(Time.minutes(10))
+        .expireAfterAccess(Time.minutes(5))
+        .expirationInterval(Time.seconds(30))
+        .buildAsync<CacheKey, ListAsset>();
+
+    static readonly defaultBlockStatesCache: AsyncLoadingCache<CacheKey, DefaultBlockStates> = Caches.builder()
+        .expireAfterWrite(Time.minutes(10))
+        .expireAfterAccess(Time.minutes(5))
+        .expirationInterval(Time.seconds(30))
+        .buildAsync<CacheKey, DefaultBlockStates>();
+
+    static readonly entityModelsCache: AsyncLoadingCache<CacheKey, EntityModels> = Caches.builder()
+        .expireAfterWrite(Time.minutes(10))
+        .expireAfterAccess(Time.minutes(5))
+        .expirationInterval(Time.seconds(30))
+        .buildAsync<CacheKey, EntityModels>();
+
 
     /** Every cache above, so clear()/end() can never fall out of sync with the field list again. */
     private static get all(): { invalidateAll(): void; end(): void }[] {
@@ -110,7 +130,10 @@ export class Caching {
             this.rawModelCache,
             this.mergedModelCache,
             this.modelTextureAtlasCache,
-            this.blockStateCache
+            this.blockStateCache,
+            this.listAssetCache,
+            this.defaultBlockStatesCache,
+            this.entityModelsCache
         ];
     }
 

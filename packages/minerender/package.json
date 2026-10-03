@@ -111,8 +111,7 @@
     "postprocessing": "^6.33.3",
     "prismarine-nbt": "^2.2.1",
     "stats.js": "^0.17.0",
-    "ts-deepmerge": "2.0.2",
-    "typescript-memoize": "^1.1.1"
+    "ts-deepmerge": "2.0.2"
   },
   "devDependencies": {
     "@types/crypto-js": "^4.0.1",
