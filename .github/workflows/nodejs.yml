@@ -4,7 +4,7 @@ on:
   push:
     branches: [master, typescript, 'refactor/**']
   pull_request:
-    branches: [master, typescript]
+    branches: [master, typescript, 'refactor/**']
 
 permissions:
   contents: read
