@@ -73,7 +73,7 @@ The private Yarn workspace root contains the public library and its consumers. U
 
 ## Load-bearing conventions
 
-- **Dirty flag**: anything that mutates visuals must end up calling `notifyDirty()` / setting `scene.dirty`, or the frame never repaints. Built-in OrbitControls (`controls: { enabled: true }`) register automatically and update before the dirty check. Register external event sources, including manually created controls, via `renderer.registerEventDispatcher(...)`.
+- **Dirty flag**: anything that mutates visuals must end up calling `notifyDirty()` / setting `scene.dirty`, or the frame never repaints. Built-in OrbitControls (`controls: { enabled: true }`) register automatically and update before the dirty check and frame limit. `render.fpsLimit` caps draws (default 60; nonpositive values disable the cap), retaining dirty state on skipped frames. Register external event sources, including manually created controls, via `renderer.registerEventDispatcher(...)`.
 - **Renderer ownership**: `stop()` pauses and `start()` resumes. `dispose()` is final and idempotent: it detaches scene children, removes the renderer's listeners and DOM, disposes its built-in controls/debug helpers/composer/WebGL renderer, and releases its owned GL context. Caller-owned controls and shared scene assets remain the caller's responsibility; it does not clear global caches or stop the shared Ticker.
 - **Face order**: `CUBE_FACES` = east, west, up, down, south, north (three.js BoxGeometry material order). UV buffers are written at `faceIndex * 4` vertices. Skins, entities, and models all rely on this ordering.
 - **Scale**: 1 block = 16 scene units (= Minecraft model space); 1 chunk = 256 units.
@@ -109,7 +109,7 @@ Added since: `shutdown()`, `Env`/`EnvProvider`, `BrowserEnv`/`NodeEnv` (per-entr
 
 Steps 1–4 of the original plan are **done** (dev env, tsup migration, import-time side effects, the browser/Node seam). The workspace migration and its verification status are recorded in [ROADMAP.md](./ROADMAP.md). It does not complete any renderer or feature-parity work. The remaining order is:
 
-1. **Remaining renderer fixes** — lifecycle cleanup, resize invalidation, and opt-in OrbitControls are implemented; continue with `fpsLimit`, composer brightness, and `outputEncoding` → `outputColorSpace`.
+1. **Remaining renderer fixes** — lifecycle cleanup, resize invalidation, opt-in OrbitControls, and frame limiting are implemented; continue with composer brightness and `outputEncoding` → `outputColorSpace`.
 2. **Model/blockstate bug batch** — `Axis.X = "X"` silently disables every x-axis element rotation; the missing `await` on `BlockStates.getDefaultState`.
 3. **Finish skins** (slim UVs, capes) and entity child-part recursion.
 4. **Instance lifecycle overhaul** (slot reclamation, grow) then the world redesign for large-scale renders.

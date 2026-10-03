@@ -49,6 +49,10 @@ Controls use `camera.lookingAt` as their initial orbit target. While the rendere
 damping and auto-rotation before deciding whether to redraw. Configure these behaviors through
 `renderer.controls`. Controls are off by default; existing manual controls remain supported.
 
+Set `render.fpsLimit` at construction to limit drawing (60 FPS by default). Zero or a negative
+value disables the limit. Idle scenes still wait for a change unless `render.renderAlways` is
+enabled. Controls update on every animation callback, including callbacks that skip drawing.
+
 Use `renderer.stop()` to pause rendering and `renderer.start()` to resume. When a renderer is
 no longer needed, call `renderer.dispose()` to remove its canvas, stats, and listeners and release
 its rendering resources and built-in controls. Disposal is final and safe to repeat. Dispose caller-owned controls
