@@ -2,9 +2,9 @@ name: Node CI
 
 on:
   push:
-    branches: [master, typescript, 'refactor/**']
+    branches: [master, main, typescript, 'refactor/**', 'fix/**']
   pull_request:
-    branches: [master, typescript]
+    branches: [master, main, typescript, 'refactor/**', 'fix/**']
 
 permissions:
   contents: read
