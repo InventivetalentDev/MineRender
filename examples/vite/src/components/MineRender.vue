@@ -47,7 +47,6 @@ AssetLoader.addSource("mcassets", new HostedAssetSource(assetRoot, {retryDefault
 
 const renderContainer = ref<HTMLDivElement>();
 
-const zip = ref<File>();
 let activeRenderer: Renderer | undefined;
 let pendingLoads = Promise.resolve();
 
@@ -55,14 +54,11 @@ const onFileChange = (event: Event) => {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
-    zip.value = file;
-    recreate();
+    recreate(file);
 }
 
-const recreate = () => {
-    const previous = activeRenderer;
-    activeRenderer = undefined;
-    previous?.dispose();
+const recreate = (file?: File) => {
+    activeRenderer?.dispose();
 
     const renderer = new Renderer({
         camera: {
@@ -87,13 +83,11 @@ const recreate = () => {
     });
     activeRenderer = renderer;
     const isCurrent = () => activeRenderer === renderer;
-    const file = zip.value;
 
 // @ts-ignore
     window['renderer'] = renderer as any;
 
     async function createModel(type: string, name: string, position: Vector3, instances = 1) {
-        if (!isCurrent()) return;
         const model = await Models.getMerged(new AssetKey("minecraft", name, "models", type, "assets"));
         if (!isCurrent()) return;
         if (!model) throw new Error(`Could not load ${type}/${name}`);
@@ -103,17 +97,7 @@ const recreate = () => {
             wireframe: true,
             maxInstanceCount: instances
         });
-        if (!isCurrent()) {
-            renderer.scene.clear();
-            return;
-        }
-        object.setPosition(position);
-    }
-
-    async function createSkin() {
-        if (!isCurrent()) return;
-        await renderer.scene.addSkin("https://textures.minecraft.net/texture/fb5f93b1ccebf7b385fa488c6d4cfec87cf1b855f8dbe0308da44167cae170b");
-        if (!isCurrent()) renderer.scene.clear();
+        if (isCurrent()) object.setPosition(position);
     }
 
     renderer.appendTo(renderContainer.value!);
@@ -134,19 +118,17 @@ const recreate = () => {
 
         const results = await Promise.allSettled([
             createModel("item", "diamond_sword", new Vector3(-16 * 3, 0, 0)),
-            createSkin(),
+            renderer.scene.addSkin("https://textures.minecraft.net/texture/fb5f93b1ccebf7b385fa488c6d4cfec87cf1b855f8dbe0308da44167cae170b"),
             createModel("block", "stone", new Vector3(16 * 3, 0, 0))
         ]);
-        if (!isCurrent()) {
-            renderer.scene.clear();
-            return;
-        }
+        if (!isCurrent()) return;
         for (const result of results) {
             if (result.status === "rejected") console.error(result.reason);
         }
     }).catch(error => {
         if (isCurrent()) console.error(error);
-        else renderer.scene.clear();
+    }).finally(() => {
+        if (!isCurrent()) renderer.scene.clear();
     });
 }
 
