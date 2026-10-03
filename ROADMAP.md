@@ -1,19 +1,15 @@
-# MineRender V2 — Status, Parity & Continuation Plan
+# MineRender V2 roadmap
 
-> Snapshot from a full repo + ecosystem audit, 2026-08. Baseline: branch `typescript` @ `bd141e4` ("yarn4", 2025-05-22), v2.0.0-alpha.15, plus uncommitted tsup-migration working-tree changes.
->
-> **Update 2026-08-12:** steps 1-4 below are done — see the "Completed" section. The parity-matrix rows for build, packaging, clean import and dual-target are historical; everything from step 5 on still stands. Companion repos audited: `../MineRender` (V1), `../MineRenderServer`, `../MineRenderVite`, `../MineRenderWeb`, `../MineRenderSimple`.
-
-**Headline:** the source is fully type-clean (`tsc --noEmit`: 0 errors across 129 files). The stall was never TypeScript debt — it is (a) a platform-mismatched `node_modules` (installed by npm from Windows, built from WSL2: wrong-platform esbuild/rollup/canvas natives), (b) three coexisting build systems with the newest (tsup) entirely uncommitted, and (c) the structural lack of a browser/Node packaging seam, which every build system so far (browserify-shim → esbuild polyfills → dual-tsc → tsup) merely relocated.
+Track V1 feature parity and the remaining V2 work here. Commands and architecture are in [AGENTS.md](./AGENTS.md).
 
 ## Feature-parity matrix (V1 → V2)
 
 | Feature | V1 | V2 today | Priority |
 |---|---|---|---|
-| Build & dev environment | webpack 4 per-feature IIFE bundles, works | Broken: wrong-platform natives, stale `yarn.lock`, tsup migration uncommitted | **critical** |
-| Packaging / npm hygiene | script-tag CDN | `types` points at empty dir, no `files` whitelist (alpha.5 shipped the whole V1 website), exports map missing browser/node/types conditions, tests aimed at deleted output | **critical** |
-| Clean import (no side effects) | window globals, telemetry beacon | Telemetry gone, but: 300k-iteration benchmark IIFE runs at import (`util/util.ts:79`), `Ticker` starts 3 intervals at import (keeps Node alive) | **critical** |
-| Browser/Node dual-target | browser-only by design | Static imports of `canvas`/node-persist/localforage behind runtime branches; consumers need polyfill plugins; `Env.ts` empty | **critical** |
+| Build & dev environment | webpack 4 per-feature IIFE bundles, works | Yarn 4 and tsup | complete |
+| Packaging / npm hygiene | script-tag CDN | Browser/Node conditional exports, declarations, and a package files whitelist | complete |
+| Clean import (no side effects) | window globals, telemetry beacon | Lazy platform initialization and Ticker; `shutdown()` ends dependency timers | high |
+| Browser/Node dual-target | browser-only by design | Separate entries register platform providers; Node canvas stays optional for browsers | complete |
 | Renderer core | continuous loop, SSAA, fps limit, dispose() | Dirty-flag loop (better), but `stop()` calls `window.stop()` (`Renderer.ts:280`), no dispose(), fpsLimit dead, composer default-on with known brightness defect | high |
 | Camera controls | built-in OrbitControls via `options.controls` | Vendored twice, integrated nowhere; consumers must wire it + `registerEventDispatcher` manually | high |
 | Skins — classic 64×64 | full, named toggleable parts | Works (named groups/meshes, overlay toggling) — missing variant auto-detect, `makeNonTransparentOpaque` | medium |
@@ -28,7 +24,7 @@
 | Legacy .schematic | full incl. AddBlocks nibbles | `SchematicParser` returns `{}`; mapping data (`res/idsToNames.json`, `legacyBlockList.json`) present but unreferenced | medium |
 | Combined multi-renderer scene | CombinedRender wrapper | Superseded by design (one scene hosts all types) — **at parity** | — |
 | Screenshots & 3D export | toImage(trim,mime), toObj/toGLTF/toPLY | Bare `toDataURL()`; no exporters | medium |
-| Asset loading & resource packs | swappable assetRoot, fallback | More ambitious (sources, caches, zips) but: all-sources-parallel + deep-merge (double fetches, binary corruption risk), node-persist never `.init()`'d, every texture downloaded twice, errors swallowed, pinned to 1.17.1 with no version API, zips browser-only | high |
+| Asset loading & resource packs | swappable assetRoot, fallback | Source results merge and can corrupt assets; textures download twice; failed loads can remain cached; source errors swallowed; pinned to 1.17.1, ZIPs browser-only | high |
 | Per-frame animation API | `<type>Render` CustomEvents | No supported hook (dirty-flag loop only) | medium |
 | Embeds & website | minerender.org + iframe embeds | Demo/test pages only, non-deployable (hardcoded sibling paths, dual three r125/r158 loading) | low |
 | **Large-scale worlds (V2 goal)** | n/a | Prototype, effectively dead code: 64³ box, `getChunkAt` broken (Map indexed with number), object-per-block, no meshing/culling/lighting/LOD, instance slots never freed | high |
@@ -39,27 +35,30 @@
 
 ## Continuation plan (ordered)
 
-### 1-4. Build, packaging, side effects, browser/Node seam — **DONE** (2026-08-12)
+### 1–4. Build and platform support
 
-**Dev environment.** `node_modules` reinstalled from WSL (linux-x64 natives), `yarn.lock` regenerated for the three→peerDependencies move, npm `package-lock.json` and `yarn-error.log` removed, `.gitignore` updated for yarn 4, `.gitattributes` added (`eol=lf`) so the Windows/WSL split stops rewriting every file. `canvas` moved to `optionalDependencies` — it has no prebuilt binary for current Node and a source build needs cairo/pango/pixman, so a browser-only install must not be blocked by it. TypeScript 4.1 → 5.6 (tsup's `dts` needs ≥4.5), typedoc 0.25 → 0.26 to match.
+- ~~Build tooling, package exports, import-time initialization, and browser/Node providers.~~
+- Update cache and queue dependencies so idle imports let Node exit.
 
-**Build.** `build.mjs`, `tsconfig-cjs.json` and the `compile*` scripts are gone; tsup is the only build tool, with three passes (browser / node / iife) described in AGENTS.md. `dist/bundle.js` keeps its path. Packaging fixed: conditional `exports` (browser/node × import/require × types), `files` whitelist (tarball: 17 files, was the entire V1 website), `prepublishOnly`, correct `types`. `splitting` off. ava now runs the TS sources through esbuild-runner. `scripts/make-exports.sh` rewritten bottom-up — no more duplicated barrel lines — and it now excludes `src/env/` and the entries. Dead deps pruned: assert, browser-or-node, colors, onscreen, pako, process, stream-http, supports-color, threejs-examples, url, util, @ava/typescript, glob, event-stream, progress-stream, @mapbox/node-pre-gyp, @types/md5.
+### 5. Renderer core
 
-**Import-time side effects.** Benchmark IIFE deleted; `Ticker` starts lazily, unrefs, and `remove(0)`/`dispose()` fixed; `Materials.MISSING_TEXTURE` and the three `PERSISTENT_CACHE` fields are lazy getters (they used to decode an image / open IndexedDB at import); stray `constants`, `fs` and `node-persist` imports removed. Remaining: `loading-cache` and `jobqu` never `unref()` their self-rescheduling timers, so `shutdown()` (`src/shutdown.ts`) exists to end them — fixing that upstream would let it be optional.
+- Fix start/stop, disposal, resize invalidation, and scene listeners.
+- Integrate opt-in OrbitControls.
+- Implement frame limiting.
+- Align Three types and color spaces; fix direct/composer brightness.
 
-**The seam.** `src/Env.ts` now defines `EnvProvider` (`createCanvas`, `createImage`, `imageSize`, `openCache`) with `src/env/browser/` and `src/env/node/` implementations, selected by the entry (`src/index.browser.ts` / `src/index.node.ts`). `image-size` can't run in a browser (top-level `fs`), so the browser provider ships a small PNG/GIF/JPEG header probe instead. `NodeCache` now calls node-persist's required `init()` (lazily) — the Node cache path had never actually worked. `ts-deepmerge` is inlined to dodge a CJS/ESM interop break, and the `crypto-js/core` deep import was dropped as unresolvable under Node ESM.
+### 6. Asset pipeline
 
-Verified: `tsc --noEmit` clean; all three targets build; browser output contains **zero** Node-module references (only a dynamic `import("prismarine-nbt")` remains, and only structure loading triggers it); CJS+ESM browser builds and the Node build (canvas stubbed — no native binary available on this machine) all load, register the right provider, round-trip the persistent cache, and exit cleanly after `shutdown()`.
+- Resolve sources in priority order and return the first defined asset.
+- ~~Initialize node-persist before use.~~
+- Decode fetched image bytes once; reject invalid images and allow retry.
+- Skip nullish persistent writes and evict missing or rejected async cache loads.
+- Bound request concurrency, retries, cancellation, timeouts, and shutdown.
+- Propagate hosted/archive and model initialization errors with source context.
+- Add an asset-version selection API; the default is pinned to 1.17.1.
+- Fix `WrappedImage` frame math.
 
-**Not done / follow-ups:** confirm MineRenderVite builds without `vite-plugin-node-polyfills`; give MineRenderWeb one delivery format instead of loading `dist/bundle.js` *and* bundling the package; `unref()` upstream in loading-cache and jobqu; `@types/three` is still 33 minors behind; `src/lib/OrbitControls.js`, `src/_model/`, root `three/`, `mccolor.js` still un-deleted; console.log sweep still pending.
-
-### 5. Renderer core fixes + built-in OrbitControls — high
-Fix `stop(); // just in case` calling `window.stop()` (`Renderer.ts:280`). Implement `dispose()`. Restore or delete `fpsLimit`. Resolve the composer brightness defect (`Renderer.ts:144`) or default `composer.enabled` to false. Integrate vendored OrbitControls behind `options.controls` with automatic `registerEventDispatcher` (MineRenderWeb's TODO asks for exactly this). Bump `@types/three` to ~0.158, migrate `outputEncoding` → `outputColorSpace`, rewrite `three/src/*` deep imports to bare `three`. Fix `MineRenderScene.remove()` (detach listeners, decrement stats).
-
-### 6. Asset pipeline correctness & performance — high
-Sequential-priority source resolution with early return (replace Promise.all + unconditional deep-merge, which double-fetches everything and can corrupt binary assets). `PersistentCache`: call node-persist `.init()`, stop persisting `undefined`. Raise request concurrency (currently 1 req/10ms globally), add retry to the CDN queue, stop mutating global axios defaults. Decode images from the already-fetched Buffer (every texture is currently downloaded twice). Stop caching fake 0×0 images on error — surface errors. Replace `@Memoize` on async statics with failure-evicting caches. Add an asset-version selection API (root is hardcoded to 1.17.1). Fix `WrappedImage` frame math.
-
-### 7. Model/blockstate correctness bug batch — high
+### 7. Model/blockstate correctness — high
 Small, high-impact: (1) `Axis.X = "X"` → lowercase (x-rotations silently no-op); (2) missing `await` on `BlockStates.getDefaultState` (`BlockObject.ts:47`); (3) texPosition-undefined crash (`UVMapper.ts:426`); (4) ModelMerger: child `elements` must override, not concat; (5) replace the 150ms setTimeout rotation hack with awaited init ordering; (6) multipart AND + `apply` arrays + weighted variants; (7) `AssetKey.parse` extension fallback + broken `isAssetKey`. Then tintindex, uvlock, display transforms. Grow the test suite around these (ModelMerger, `mapStateToVariant`).
 
 ### 8. Finish skins: slim, cape, legacy — high
@@ -84,4 +83,4 @@ New world-format layer feeding the redesigned chunk storage: .mca region parsing
 Implement `GuiObject` (empty stub today): layered textured planes with UV crop, pixel positioning, z-layering, camera auto-fit. V1's `guiPositions.js` (boss bars, book, chest, crafting table atlases) and `guiHelper.js` (`inventorySlot` math + `recipe()` for crafting_shaped/shapeless JSON) port nearly verbatim; update texture paths for the newer asset layout. Wire `scene.addGui(...)`.
 
 ### 15. Polish: exports, animation API, inspector, demos, docs — medium
-Port toObj/toGLTF and toImage trim/mime. Add a per-frame callback + `autoRotate` convenience integrated with the dirty flag (replaces V1's CustomEvent contract). Fix `SceneInspector` raycast normalization (against canvas rect, not window) and `SceneStatsDisplay`'s leaked interval. Fix animated-texture tick rate + full mcmeta support. Update companions: MineRenderWeb (untangle dual three loading, drop hardcoded `../../../../MineRender2/dist/bundle.js` paths, commit its yarn4 migration), MineRenderVite (renderer leak on recreate); delete MineRenderWweb. Grow the test suite beyond AssetKey and document the consumer API contract (see AGENTS.md) as the beta compatibility baseline.
+Port toObj/toGLTF and toImage trim/mime. Add a per-frame callback + `autoRotate` convenience integrated with the dirty flag (replaces V1's CustomEvent contract). Fix `SceneInspector` raycast normalization (against canvas rect, not window) and `SceneStatsDisplay`'s leaked interval. Fix animated-texture tick rate + full mcmeta support. Finish the demos and V2 website, including embeds. Remove unused V1 website files from the V2 tree while preserving V1 delivery URLs. Add regression coverage for remaining model and blockstate work; keep the consumer API contract in AGENTS.md as the beta compatibility baseline.

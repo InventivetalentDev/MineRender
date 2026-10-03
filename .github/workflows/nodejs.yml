@@ -1,8 +1,6 @@
 name: Node CI
 
 on:
-  push:
-    branches: [master, main, typescript, 'refactor/**', 'fix/**']
   pull_request:
     branches: [master, main, typescript, 'refactor/**', 'fix/**']
 
@@ -27,7 +25,7 @@ jobs:
         run: yarn install --immutable
       - name: Build the library
         run: yarn build
-      - name: Check types and run existing tests
+      - name: Check types and run tests
         run: |
           yarn typecheck
           yarn test
