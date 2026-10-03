@@ -47,7 +47,7 @@ export default defineConfig([
         outDir: "dist/node",
         format: ["esm", "cjs"],
         platform: "node",
-        target: "node16",
+        target: "node22",
         // canvas is an optionalDependency - never inline it
         external: ["three", "canvas"]
     },

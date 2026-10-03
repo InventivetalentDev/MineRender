@@ -81,7 +81,7 @@
     "publish:alpha": "yarn build && yarn version $(node ./scripts/next-alpha.cjs) --immediate && yarn npm publish --tag alpha"
   },
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=22.0.0"
   },
   "author": "Haylee Schäfer",
   "license": "MIT",
@@ -101,7 +101,6 @@
     "@inventivetalent/loading-cache": "^1.0.0",
     "@inventivetalent/time": "^1.0.4",
     "@zip.js/zip.js": "^2.7.31",
-    "axios": "^0.21.1",
     "buffer": "^6.0.3",
     "crypto-js": "^4.0.0",
     "image-size": "^0.9.4",

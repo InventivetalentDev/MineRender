@@ -1,7 +1,7 @@
 import { CompatImage, createCanvas, createImage } from "../canvas/CanvasCompat";
 import { serializeImageKey } from "../cache/CacheKey";
 import { Caching } from "../cache/Caching";
-import { AxiosResponse } from "axios";
+import type { RequestResponse } from "../request/Requests";
 import { Env } from "../Env";
 import { Requests } from "../request/Requests";
 import { WrappedImage } from "../WrappedImage";
@@ -101,9 +101,9 @@ export class ImageLoader {
         }))!;
     }
 
-    public static async processResponse(response: Partial<AxiosResponse>): Promise<ImageInfo> {
-        const src = response.config?.url;
-        const data = Buffer.from(response.data!);
+    public static async processResponse(response: Pick<RequestResponse<ArrayBuffer>, "data" | "url">): Promise<ImageInfo> {
+        const src = response.url;
+        const data = Buffer.from(response.data);
         const { width, height, type } = Env.provider.imageSize(data);
         if (!width || !height || !Number.isInteger(width) || !Number.isInteger(height) || width < 0 || height < 0) {
             throw new Error("Invalid or unsupported image dimensions");
@@ -120,17 +120,6 @@ export class ImageLoader {
 
     public static async loadInfo(src: string): Promise<ImageInfo> {
 
-        // axios doesn't like data urls
-        if (src.startsWith("data:image/png;base64")) {
-            return this.processResponse({
-                config: {
-                    url: src
-                },
-                data: Buffer.from(src.substr("data:image/png;base64,".length), "base64")
-            })
-        }
-
-        //TODO: figure out a way to allow data/base64 requests
         return Requests.genericRequest({
             url: src,
             responseType: "arraybuffer"

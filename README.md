@@ -6,7 +6,8 @@ V2 is in alpha; [ROADMAP.md](./ROADMAP.md) tracks feature parity and remaining w
 
 ## Develop locally
 
-Use Node.js 22 or 24 with Corepack, then run these commands from the repository root:
+V2 requires Node.js 22 or later, or a browser with native Fetch and AbortController. CI checks
+Node.js 22 and 24. With Corepack enabled, run these commands from the repository root:
 
 ```sh
 corepack enable
@@ -83,13 +84,41 @@ lists remain cached. After replacing asset sources, use `Caching.clear()` to res
 caches, including these lookups. Persistent stores are cleared separately. `PersistentCache.getOrLoad()`
 skips writes for `null` and `undefined`, while preserving other values.
 
-Each request queue starts at most one attempt per 10 ms, with up to eight requests active.
+Requests use native Fetch. Each queue starts at most one attempt per 10 ms, with up to eight
+requests active through body reading. Each attempt times out after five seconds by default.
 Transient GET failures can retry three times, after 100, 200, and 400 ms. `Retry-After` can extend
 these delays to 30 seconds; a longer server-requested delay ends the call without retrying early.
-404s, cancellations, and non-GET requests are not retried. Caller request objects and global Axios
-defaults remain unchanged. `Requests.queueSizes` counts unsettled calls, including retry waits;
+404s, cancellations, invalid request options, JSON parse errors, and non-GET requests are not
+retried. Browser Fetch cannot distinguish CORS failures from network failures, so both receive
+the bounded retry policy. Caller request objects and global Fetch remain unchanged.
+`Requests.queueSizes` counts unsettled calls, including retry waits;
 callers sharing a queued request each count once. Use `shutdown()` for final cleanup: queued,
 retrying, and future calls reject, while active HTTP requests can finish.
+
+The low-level request API uses MineRender's `RequestConfig` and `RequestResponse` types instead
+of Axios types. `RequestConfig` accepts Fetch's `RequestInit` options plus `url`, `baseURL`,
+`timeout` (milliseconds; `0` disables it), and `responseType` (`"json"` or `"arraybuffer"`).
+A relative `url` is appended to `baseURL`, preserving its path; an absolute URL overrides the base.
+Use `signal` for cancellation and `body` for request content. Encode JSON bodies explicitly and
+set `Content-Type: application/json` when sending them.
+
+For example, download binary data with a caller-controlled cancellation signal:
+
+```ts
+const controller = new AbortController();
+const response = await Requests.genericRequest({
+    url: "https://example.com/texture.png",
+    responseType: "arraybuffer",
+    signal: controller.signal,
+});
+const contentType = response.headers.get("Content-Type");
+```
+
+Responses expose decoded `data`, `status`, `statusText`, native `Headers`, and the final `url`
+after redirects. JSON is the default; bodyless HEAD/204/205 responses return `data: undefined`. Custom `ResponseParser` implementations use these fields; `ImageLoader.processResponse()`
+accepts `{ data: ArrayBuffer, url: string }`. HTTP failures reject with `RequestError.response`
+(status and headers, without a decoded body); timeouts reject with `RequestTimeoutError`.
+Aborting rejects with the signal's reason. Renderer and asset-loading APIs retain their signatures.
 
 The optional `canvas` dependency requires a working native installation for Node imports.
 Browser development can proceed if its native build fails. Actual headless rendering still

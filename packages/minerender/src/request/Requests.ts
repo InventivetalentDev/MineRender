@@ -1,26 +1,119 @@
-import axios from "axios";
-import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
 import { JobCancelledError, JobQueue } from "jobqu";
 import { Time } from "@inventivetalent/time";
 import { prefix } from "../util/log";
 
 const p = prefix("Requests");
 
-interface RequestCancellation {
-    cancel?: (error: unknown) => void;
+export interface RequestConfig extends RequestInit {
+    url: string;
+    /** Prepended to relative URLs, preserving any path in the base URL. */
+    baseURL?: string;
+    /** Timeout per attempt in milliseconds, including body reading. Defaults to 5000; 0 disables it. */
+    timeout?: number;
+    responseType?: "json" | "arraybuffer";
 }
 
-class RequestQueue extends JobQueue<AxiosRequestConfig, AxiosResponse> {
+export interface RequestResponse<T = any> {
+    data: T;
+    status: number;
+    statusText: string;
+    headers: Headers;
+    /** Final URL after redirects. */
+    url: string;
+}
+
+export class RequestError extends Error {
+    constructor(message: string, readonly response?: RequestResponse<undefined>, readonly cause?: unknown) {
+        super(message);
+        this.name = "RequestError";
+    }
+}
+
+export class RequestTimeoutError extends Error {
+    constructor() {
+        super("Request timed out");
+        this.name = "RequestTimeoutError";
+    }
+}
+
+function isNetworkFailure(error: unknown): boolean {
+    if (!(error instanceof TypeError)) {
+        return false;
+    }
+    const cause = (error as TypeError & { cause?: { code?: string } }).cause;
+    if (cause) {
+        return ["ETIMEDOUT", "ECONNRESET", "ECONNREFUSED", "EAI_AGAIN", "UND_ERR_CONNECT_TIMEOUT",
+            "UND_ERR_HEADERS_TIMEOUT", "UND_ERR_BODY_TIMEOUT", "UND_ERR_SOCKET"].includes(cause.code ?? "");
+    }
+    // Browsers expose network and CORS failures as TypeError without an underlying cause.
+    return typeof window !== "undefined";
+}
+
+async function fetchRequest(config: RequestConfig, defaultBaseURL?: string): Promise<RequestResponse> {
+    const { url, baseURL = defaultBaseURL, timeout = 5000, responseType = "json", signal, ...options } = config;
+    if (!Number.isFinite(timeout) || timeout < 0 || timeout > 2147483647) {
+        throw new RangeError("Request timeout must be between 0 and 2147483647 milliseconds");
+    }
+    if (responseType !== "json" && responseType !== "arraybuffer") {
+        throw new TypeError("Unsupported response type");
+    }
+    const target = baseURL && !/^([a-z][a-z\d+.-]*:|\/\/)/i.test(url)
+        ? `${baseURL.replace(/\/+$/, "")}/${url.replace(/^\/+/, "")}` : url;
+    const headers = new Headers(options.headers);
+    if (typeof window === "undefined" && !headers.has("User-Agent")) {
+        headers.set("User-Agent", "MineRender");
+    }
+    const controller = new AbortController();
+    // Validate configuration before classifying any Fetch rejection as a network failure.
+    const request = new Request(target, { ...options, headers, signal: controller.signal });
+    signal?.throwIfAborted();
+    const abort = () => controller.abort(signal!.reason);
+    signal?.addEventListener("abort", abort, { once: true });
+    const timer = timeout > 0 ? setTimeout(() => controller.abort(new RequestTimeoutError()), timeout) : undefined;
+    try {
+        const response = await fetch(request);
+        const result: RequestResponse<undefined> = {
+            data: undefined,
+            status: response.status,
+            statusText: response.statusText,
+            headers: response.headers,
+            url: response.url
+        };
+        if (!response.ok) {
+            // Release error bodies without letting cleanup hide the HTTP status.
+            await response.body?.cancel().catch(() => {});
+            throw new RequestError(`Request failed with status ${response.status}`, result);
+        }
+        const emptyBody = request.method === "HEAD" || response.status === 204 || response.status === 205;
+        const data = responseType === "arraybuffer" ? await response.arrayBuffer()
+            : emptyBody || response.body === null ? undefined : await response.json();
+        return { ...result, data };
+    } catch (error) {
+        if (controller.signal.aborted) {
+            throw controller.signal.reason;
+        }
+        if (/^https?:/.test(request.url) && request.redirect !== "error" && isNetworkFailure(error)) {
+            throw new RequestError("Network request failed", undefined, error);
+        }
+        throw error;
+    } finally {
+        clearTimeout(timer);
+        signal?.removeEventListener("abort", abort);
+    }
+}
+
+class RequestQueue extends JobQueue<RequestConfig, RequestResponse> {
 
     private static readonly MAX_ACTIVE = 8;
     private static readonly MAX_RETRIES = 3;
     private static readonly MAX_RETRY_DELAY = 30000;
 
+    public baseURL?: string;
     private pendingRequests = 0;
     private readonly retryTimers = new Map<ReturnType<typeof setTimeout>, (error: unknown) => void>();
 
-    constructor(instance: AxiosInstance) {
-        super(request => instance.request({ ...request }), Time.millis(10), 1);
+    constructor() {
+        super(request => fetchRequest(request, this.baseURL), Time.millis(10), 1);
     }
 
     protected run(): void {
@@ -36,18 +129,18 @@ class RequestQueue extends JobQueue<AxiosRequestConfig, AxiosResponse> {
         }
     }
 
-    public async request(request: AxiosRequestConfig): Promise<AxiosResponse> {
+    public async request(request: RequestConfig): Promise<RequestResponse> {
         this.pendingRequests++;
-        const cancellation: RequestCancellation = {};
+        const signal = request.signal;
+        let abort: (() => void) | undefined;
         try {
-            // Axios 0.21 cannot unsubscribe token listeners. Clear the callback after settling
-            // so a retained token does not retain a completed request.
-            const cancelled = request.cancelToken ? new Promise<never>((_, reject) => {
-                cancellation.cancel = reject;
-                request.cancelToken!.promise.then(reason => cancellation.cancel?.(reason));
+            signal?.throwIfAborted();
+            const cancelled = signal ? new Promise<never>((_, reject) => {
+                abort = () => reject(signal.reason);
+                signal.addEventListener("abort", abort, { once: true });
             }) : undefined;
             for (let retries = 0; ; retries++) {
-                request.cancelToken?.throwIfRequested();
+                signal?.throwIfAborted();
                 try {
                     const attempt = this.add(request);
                     return await (cancelled ? Promise.race([attempt, cancelled]) : attempt);
@@ -61,39 +154,36 @@ class RequestQueue extends JobQueue<AxiosRequestConfig, AxiosResponse> {
                 }
             }
         } finally {
-            cancellation.cancel = undefined;
-            if (request.cancelToken?.reason) {
+            if (abort) {
+                signal!.removeEventListener("abort", abort);
+            }
+            if (signal?.aborted) {
                 this.remove(request);
             }
             this.pendingRequests--;
         }
     }
 
-    private retryDelay(error: unknown, request: AxiosRequestConfig, retries: number): number | undefined {
+    private retryDelay(error: unknown, request: RequestConfig, retries: number): number | undefined {
         if (this.ended || retries >= RequestQueue.MAX_RETRIES ||
-            (request.method ?? "get").toLowerCase() !== "get" ||
-            request.cancelToken?.reason || error === null || typeof error !== "object" ||
-            axios.isCancel(error) || !axios.isAxiosError(error)) {
+            (request.method ?? "get").toLowerCase() !== "get" || request.signal?.aborted) {
             return undefined;
         }
-
-        if (error.response) {
-            if (![408, 429, 500, 502, 503, 504].includes(error.response.status)) {
+        if (error instanceof RequestError) {
+            if (error.response && ![408, 429, 500, 502, 503, 504].includes(error.response.status)) {
                 return undefined;
             }
-        } else if (error.message === "Request aborted" ||
-            !(["ECONNABORTED", "ETIMEDOUT", "ECONNRESET", "ECONNREFUSED", "EAI_AGAIN", "ERR_NETWORK"].includes(error.code ?? "") ||
-                (!error.code && error.request && error.message === "Network Error"))) {
+        } else if (!(error instanceof RequestTimeoutError)) {
             return undefined;
         }
 
         let delay = 100 * (2 ** retries);
-        const retryAfter = error.response?.headers?.["retry-after"];
-        if (typeof retryAfter === "string" || typeof retryAfter === "number") {
+        const retryAfter = error instanceof RequestError ? error.response?.headers.get("Retry-After") : undefined;
+        if (retryAfter) {
             const seconds = Number(retryAfter);
             const requestedDelay = Number.isFinite(seconds) && seconds >= 0
                 ? seconds * 1000
-                : Date.parse(String(retryAfter)) - Date.now();
+                : Date.parse(retryAfter) - Date.now();
             if (Number.isFinite(requestedDelay)) {
                 delay = Math.max(delay, requestedDelay);
             }
@@ -134,29 +224,19 @@ class RequestQueue extends JobQueue<AxiosRequestConfig, AxiosResponse> {
 
 export class Requests {
 
-    private static createInstance(): AxiosInstance {
-        return axios.create({
-            timeout: 5000,
-            headers: typeof window === "undefined" ? { "User-Agent": "MineRender" } : {}
-        });
-    }
+    private static genericQueue = new RequestQueue();
+    private static mcAssetRequestQueue = new RequestQueue();
 
-    private static axiosInstance: AxiosInstance = Requests.createInstance();
-    private static mcAssetInstance: AxiosInstance = Requests.createInstance();
-
-    private static genericQueue = new RequestQueue(Requests.axiosInstance);
-    private static mcAssetRequestQueue = new RequestQueue(Requests.mcAssetInstance);
-
-    public static genericRequest(request: AxiosRequestConfig): Promise<AxiosResponse> {
+    public static genericRequest(request: RequestConfig): Promise<RequestResponse> {
         return this.genericQueue.request(request);
     }
 
-    public static mcAssetRequest(request: AxiosRequestConfig): Promise<AxiosResponse> {
+    public static mcAssetRequest(request: RequestConfig): Promise<RequestResponse> {
         return this.mcAssetRequestQueue.request(request);
     }
 
     public static setMcAssetRoot(root: string) {
-        this.mcAssetInstance.defaults.baseURL = root;
+        this.mcAssetRequestQueue.baseURL = root;
     }
 
     /** Counts unsettled calls, including retry delays and requests still running after shutdown. */

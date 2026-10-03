@@ -8,7 +8,7 @@ import { Maybe, prefix } from "../../../util";
 import { Requests } from "../../../request";
 import { HostedAssetSource } from "../HostedAssetSource";
 import { AssetLoader } from "../../AssetLoader";
-import { AxiosRequestConfig, AxiosResponse } from "axios";
+import type { RequestConfig, RequestResponse } from "../../../request";
 import { BrowserArchiveProxy } from "./BrowserArchiveProxy";
 
 const p = prefix("ArchiveAssetSource");
@@ -71,7 +71,7 @@ export class ArchiveAssetSource extends AssetSource implements ArchiveProxy {
             })
             .catch(err => {
                 if (err.response) {
-                    let response = err.response as AxiosResponse;
+                    let response = err.response as RequestResponse;
                     if (response.status === 404) {
                         console.debug(p, key, "not found");
                         return undefined;
@@ -87,7 +87,7 @@ export class ArchiveAssetSource extends AssetSource implements ArchiveProxy {
         console.info(p, "Loading", key);
         const url = `${this.assetBasePath(key)}${key.type !== undefined ? key.type + '/' : ''}${key.path}${key.extension}`;
         console.debug(p, url);
-        let req: AxiosRequestConfig = {
+        let req: RequestConfig = {
             url: url
         };
         parser.config(req);
@@ -106,7 +106,7 @@ export class ArchiveAssetSource extends AssetSource implements ArchiveProxy {
             })
             .catch(err => {
                 if (err.response) {
-                    let response = err.response as AxiosResponse;
+                    let response = err.response as RequestResponse;
                     if (response.status === 404) {
                         console.debug(p, key, "not found");
                         return undefined;
