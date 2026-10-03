@@ -83,6 +83,14 @@ lists remain cached. After replacing asset sources, use `Caching.clear()` to res
 caches, including these lookups. Persistent stores are cleared separately. `PersistentCache.getOrLoad()`
 skips writes for `null` and `undefined`, while preserving other values.
 
+Each request queue starts at most one attempt per 10 ms, with up to eight requests active.
+Transient GET failures can retry three times, after 100, 200, and 400 ms. `Retry-After` can extend
+these delays to 30 seconds; a longer server-requested delay ends the call without retrying early.
+404s, cancellations, and non-GET requests are not retried. Caller request objects and global Axios
+defaults remain unchanged. `Requests.queueSizes` counts unsettled calls, including retry waits;
+callers sharing a queued request each count once. Use `shutdown()` for final cleanup: queued,
+retrying, and future calls reject, while active HTTP requests can finish.
+
 The optional `canvas` dependency requires a working native installation for Node imports.
 Browser development can proceed if its native build fails. Actual headless rendering still
 requires the renderer work described in the roadmap.

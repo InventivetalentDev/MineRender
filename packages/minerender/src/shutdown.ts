@@ -8,8 +8,8 @@ import { Ticker } from "./Ticker";
  * Idle Node processes can exit without calling this: cache and Ticker timers are unref'd,
  * and idle request queues hold no timer. Pending requests keep their normal timer references.
  *
- * Call this only when finished with MineRender. Waiting and future requests reject; requests
- * already running can finish. Queue shutdown is permanent, and cache expiry timers do not restart.
+ * Call this only when finished with MineRender. Queued, retrying, and future requests reject;
+ * HTTP requests already running can finish. Queue shutdown is permanent, and cache expiry timers do not restart.
  */
 export function shutdown(): void {
     Ticker.dispose();
