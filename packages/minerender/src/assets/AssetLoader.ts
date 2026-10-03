@@ -53,7 +53,6 @@ export class AssetLoader {
     }
 
     public static async getAll<T extends MinecraftAsset>(key: AssetKey, parser: AssetParser | string): Promise<T[]> {
-        console.log(this._SOURCES)
         let promises: Promise<Maybe<T>>[] = [];
         for (const source of this._SOURCES) {
             promises.push(source.source.get<T>(key, parser));
@@ -65,7 +64,6 @@ export class AssetLoader {
 
     /** Returns the first defined result in source-priority order, without merging assets. */
     public static async get<T extends MinecraftAsset>(key: AssetKey, parser: AssetParser | string): Promise<Maybe<T>> {
-        console.log(this._SOURCES)
         // Source changes affect later lookups, not the priority of an in-flight lookup.
         const sources = [...this._SOURCES];
         for (const source of sources) {
