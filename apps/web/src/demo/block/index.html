@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Block | MineRender</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@100;400;500;600&display=swap" rel="stylesheet">
+
+        <link rel="stylesheet" href="../../demo_shared.css">
+    </head>
+    <body>
+        <div id="input" class="overlay top-right">
+            <label for="block-input">BlockState</label><br/>
+            <input type="text" id="block-input" value="stone" list="block-suggestions">
+            <datalist id="block-suggestions"></datalist>
+        </div>
+        <div id="inspector" class="overlay bottom-right"></div>
+
+
+
+        <script type="module" src="script.bundle.js"></script>
+    </body>
+</html>

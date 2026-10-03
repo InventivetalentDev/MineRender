@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "sourceRoot": "src",
+    "baseUrl": ".",
+    "skipLibCheck": true,
+    "moduleResolution": "Node",
+    "module": "ES6",
+    "target": "ES6",
+    "esModuleInterop": true,
+    "lib": [
+      "es6",
+      "dom"
+    ]
+  },
+  "include": ["src"],
+  "exclude": [
+    "node_modules"
+  ]
+}

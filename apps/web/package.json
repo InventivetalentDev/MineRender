@@ -1,0 +1,28 @@
+{
+  "name": "@minerender/web",
+  "version": "2.0.0",
+  "description": "MineRender demo and manual test pages",
+  "scripts": {
+    "build": "node ./build.mjs",
+    "bundle": "node ./build.mjs",
+    "dev": "node ./build.mjs --serve"
+  },
+  "author": "Haylee Schäfer",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/InventivetalentDev/MineRender.git"
+  },
+  "homepage": "https://minerender.org",
+  "dependencies": {
+    "minerender": "workspace:*",
+    "three": "^0.158.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.19.5",
+    "esbuild-plugin-polyfill-node": "^0.3.0",
+    "glob": "^7.1.6",
+    "typescript": "~5.6.3"
+  },
+  "private": true
+}

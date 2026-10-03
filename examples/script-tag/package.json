@@ -1,0 +1,17 @@
+{
+  "name": "@minerender/example-script-tag",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "dev": "node build.mjs --serve"
+  },
+  "dependencies": {
+    "minerender": "workspace:*",
+    "three": "^0.158.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.19.5"
+  }
+}

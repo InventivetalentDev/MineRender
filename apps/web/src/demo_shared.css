@@ -1,0 +1,74 @@
+/* CANVAS */
+html, body {
+    overflow: hidden;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+
+    font-family: 'Roboto Mono', sans-serif;
+}
+
+canvas {
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.overlay {
+    z-index: 100;
+    position: absolute;
+    background-color: hsla(0, 0%, 60%, 0.5);
+    padding: 5px;
+    color: white;
+    text-shadow: 0 0 4px black;
+    font-size: 12px;
+    overflow: auto;
+}
+
+/* INFOBOX */
+.infobox {
+    width: 80px;
+    height: 100px;
+}
+
+.infobox.small {
+}
+
+.infobox.large {
+    width: 300px;
+    height: 500px;
+}
+
+
+/* INSPECTOR */
+#inspector {
+    width: 300px;
+    height: 500px;
+}
+
+/* INPUT */
+#input {
+    /*width: 300px;*/
+    /*height: 300px;*/
+}
+
+.top-right {
+    top: 0;
+    right: 0;
+}
+
+.bottom-right {
+    bottom: 0;
+    right: 0;
+}
+
+.top-left {
+    top: 0;
+    left: 0;
+}
+
+.bottom-left {
+    bottom: 0;
+    left: 0;
+}
