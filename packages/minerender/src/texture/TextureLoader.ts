@@ -14,6 +14,7 @@ export class TextureLoader {
 
     public static loadInBackground(src: string, format: PixelFormat = RGBAFormat, rotation: number = 0): Texture {
         const texture = this.createTexture();
+        texture.colorSpace = THREE.SRGBColorSpace;
         const image = ImageLoader.loadElement(src);
         image.onload = function () {
             texture.needsUpdate = true;
@@ -27,6 +28,7 @@ export class TextureLoader {
 
     public static load(src: string,format: PixelFormat = RGBAFormat, rotation: number = 0): Texture {
         const texture = new Texture();
+        texture.colorSpace = THREE.SRGBColorSpace;
         ImageLoader.getData(src).then(image=>{
             texture.needsUpdate = true;
             texture.image = image;

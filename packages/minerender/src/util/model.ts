@@ -4,7 +4,7 @@
 // axis - the axis of rotation (normalized THREE.Vector3)
 // theta - radian value of rotation
 import { ElementRotation } from "../model/ModelElement";
-import { BufferGeometry } from "three/src/core/BufferGeometry";
+import type { BufferGeometry } from "three";
 import { Axis } from "../Axis";
 import { toRadians } from "./util";
 import { AxesHelper, Box3, BoxGeometry, EdgesGeometry, LineBasicMaterial, LineSegments, Matrix4, Mesh, Object3D, Quaternion, Vector3, Vector4 } from "three";

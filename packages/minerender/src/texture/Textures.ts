@@ -24,7 +24,9 @@ export class Textures {
     }
 
     public static createCanvasTexture(canvas: HTMLCanvasElement): CanvasTexture {
-        return this.initTextureProps(new CanvasTexture(canvas));
+        const texture = new CanvasTexture(canvas);
+        texture.colorSpace = THREE.SRGBColorSpace;
+        return this.initTextureProps(texture);
     }
 
     public static getImage(key: TextureKey): Texture {

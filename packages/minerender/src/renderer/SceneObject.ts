@@ -4,8 +4,7 @@ import { Geometries } from "../Geometries";
 import { UVMapper } from "../UVMapper";
 import { DoubleArray, TripleArray } from "../model/Model";
 import { Axis, axisToVec3 } from "../Axis";
-import { BufferGeometry } from "three/src/core/BufferGeometry";
-import { Material } from "three/src/materials/Material";
+import type { BufferGeometry, Material, Object3DEventMap } from "three";
 import { SkinPart } from "../skin/SkinPart";
 import { changeEvent, Maybe } from "../util/util";
 import { InstanceReference } from "../instance/InstanceReference";
@@ -22,7 +21,7 @@ import { prefix } from "../util/log";
 
 const p = prefix("SceneObject");
 
-export class SceneObject extends Object3D implements Disposable, Instanceable, Transformable {
+export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> implements Disposable, Instanceable, Transformable {
 
     public readonly isSceneObject: true = true;
 

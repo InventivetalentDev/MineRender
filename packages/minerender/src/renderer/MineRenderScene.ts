@@ -30,7 +30,7 @@ export class MineRenderScene extends Scene {
     public dirty: boolean = true;
 
     private readonly observedObjects = new Set<Object3D>();
-    private readonly onObjectChange = (event: Event) => {
+    private readonly onObjectChange = (event: Event<'change', Object3D>) => {
         if (event.target?.parent === this) {
             this.dirty = true;
         }

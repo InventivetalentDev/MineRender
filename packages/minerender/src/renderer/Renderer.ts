@@ -1,4 +1,4 @@
-import { AxesHelper, Camera, EventDispatcher, GridHelper, LinearEncoding, OrthographicCamera, PCFSoftShadowMap, PerspectiveCamera, Scene, sRGBEncoding, TextureEncoding, Vector3, warn, WebGLRenderer } from "three";
+import { AxesHelper, Camera, EventDispatcher, GridHelper, OrthographicCamera, PCFSoftShadowMap, PerspectiveCamera, SRGBColorSpace, Vector3, WebGLRenderer } from "three";
 import {MineRenderScene} from "./MineRenderScene";
 import merge from "ts-deepmerge";
 import Stats from "stats.js";
@@ -69,7 +69,7 @@ export class Renderer implements Disposable {
     private _nextFrameTime?: number;
     private _disposed: boolean = false;
     private readonly _debugHelpers: Array<GridHelper | AxesHelper> = [];
-    private readonly _eventDispatchers = new Map<EventDispatcher, Set<string>>();
+    private readonly _eventDispatchers = new Map<EventDispatcher<any>, Set<string>>();
     private readonly _changeListener = () => {
         this._dirty = true;
     };
@@ -138,8 +138,7 @@ export class Renderer implements Disposable {
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = PCFSoftShadowMap;
 
-        // supposedly the default is already LinearEncoding, but not doing this renders the scene way too bright
-        renderer.outputEncoding = LinearEncoding;
+        renderer.outputColorSpace = SRGBColorSpace;
 
         // renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(this.viewWidth, this.viewHeight);
@@ -148,13 +147,16 @@ export class Renderer implements Disposable {
     }
 
     protected createComposer(): EffectComposer {
+        const autoClear = this.renderer.autoClear;
         const composer = new EffectComposer(this.renderer);
-        if (!this.options.composer.enabled) return composer;
+        if (!this.options.composer.enabled) {
+            // The composer disables automatic clearing, but direct rendering still needs it.
+            this.renderer.autoClear = autoClear;
+            return composer;
+        }
 
         composer.setSize(this.viewWidth, this.viewHeight);
         //TODO: options
-
-        //TODO: compser seems to cause skin objects to appear way too bright
 
         // // This one just tanks completely down to ~2fps (in structures at least, works pretty well for simpler stuff)
         // const ssaaPass = new SSAARenderPass(this.scene, this.camera, 0x000000, 0);//TODO: options
@@ -285,7 +287,7 @@ export class Renderer implements Disposable {
      * Redraws when the dispatcher emits the selected event. Registering the same pair twice has no effect.
      * The renderer removes its listener on disposal; the caller retains ownership of the dispatcher.
      */
-    public registerEventDispatcher(dispatcher: EventDispatcher, changeEvent: string = 'change') {
+    public registerEventDispatcher(dispatcher: EventDispatcher<any>, changeEvent: string = 'change') {
         if (this._disposed) return;
 
         let events = this._eventDispatchers.get(dispatcher);

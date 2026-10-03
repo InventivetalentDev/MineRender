@@ -53,6 +53,10 @@ Set `render.fpsLimit` at construction to limit drawing (60 FPS by default). Zero
 value disables the limit. Idle scenes still wait for a change unless `render.renderAlways` is
 enabled. Controls update on every animation callback, including callbacks that skip drawing.
 
+Rendering uses sRGB output in both composer and direct mode. MineRender's image textures and
+canvas atlases are tagged as sRGB; its model shader applies shading in linear light before
+converting the result for display. See [Three.js color management](https://threejs.org/manual/pages/color-management.html).
+
 Use `renderer.stop()` to pause rendering and `renderer.start()` to resume. When a renderer is
 no longer needed, call `renderer.dispose()` to remove its canvas, stats, and listeners and release
 its rendering resources and built-in controls. Disposal is final and safe to repeat. Dispose caller-owned controls

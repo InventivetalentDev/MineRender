@@ -75,6 +75,7 @@ The private Yarn workspace root contains the public library and its consumers. U
 
 - **Dirty flag**: anything that mutates visuals must end up calling `notifyDirty()` / setting `scene.dirty`, or the frame never repaints. Built-in OrbitControls (`controls: { enabled: true }`) register automatically and update before the dirty check and frame limit. `render.fpsLimit` caps draws (default 60; nonpositive values disable the cap), retaining dirty state on skipped frames. Register external event sources, including manually created controls, via `renderer.registerEventDispatcher(...)`.
 - **Renderer ownership**: `stop()` pauses and `start()` resumes. `dispose()` is final and idempotent: it detaches scene children, removes the renderer's listeners and DOM, disposes its built-in controls/debug helpers/composer/WebGL renderer, and releases its owned GL context. Caller-owned controls and shared scene assets remain the caller's responsibility; it does not clear global caches or stop the shared Ticker.
+- **Color pipeline**: image and canvas color-texture factories set `SRGBColorSpace`; the renderer uses sRGB output in both direct and composer mode. Custom model shaders apply shading in linear light and include Three's tone-mapping and output-color chunks. Keep the generic `Textures.initTextureProps` helper limited to sampling settings so it preserves caller-supplied data-texture color spaces.
 - **Face order**: `CUBE_FACES` = east, west, up, down, south, north (three.js BoxGeometry material order). UV buffers are written at `faceIndex * 4` vertices. Skins, entities, and models all rely on this ordering.
 - **Scale**: 1 block = 16 scene units (= Minecraft model space); 1 chunk = 256 units.
 - **Instance deletion = scale-to-zero**: removal writes a zero-scale matrix; slots are never reclaimed (known design debt).
@@ -90,7 +91,7 @@ The private Yarn workspace root contains the public library and its consumers. U
 - **A Node process will not exit on its own.** `@inventivetalent/loading-cache` (14 cache expiry timers) and `jobqu` (2 queue timers) both use self-rescheduling `setTimeout`s that are not `unref`'d, so merely importing the library holds the event loop open. Call `shutdown()` (`src/shutdown.ts`) when done — it ends the caches, the request queues and the Ticker. The real fix is an `unref()` upstream in those two packages, which are Haylee's own.
 - `@Memoize` on async statics (`BlockStates.getList`, `Entities.*`) caches the **first** promise forever — including rejections.
 - All asset/network failures collapse to `undefined` (and `ImageLoader` caches fake 0×0 images on error); "missing asset" and "network down" are indistinguishable.
-- `@types/three` (0.125) is 33 minor versions behind the `three` peer (^0.158); some imports (`warn`, `sRGBEncoding`) only survive because they tree-shake away. Deep `three/src/*` / `three/examples/jsm/*` imports must stay type-only.
+- `@types/three` (~0.158) matches the runtime `three` peer (^0.158). Keep their minor versions aligned. Import geometry/material types from bare `three`; any remaining deep helper imports must stay type-only.
 - `canvas` is an **optionalDependency**: browser-only installs must not be forced to compile node-canvas, and it has no prebuilt binary for recent Node (a source build needs cairo/pango/pixman). Its *types* still resolve because the package is downloaded either way. The Node entry genuinely requires the binary at runtime.
 - Dead code to not be confused by: `src/_model/` (orphaned schema experiment), `src/lib/OrbitControls.js` (older duplicate of `src/three/OrbitControls.js`), root `mccolor.js`, the empty root `three/` dir.
 - V1's repo doubles as the live minerender.org website; V2's repo also carries website leftovers (`index.html`, `manifest.json`) — now excluded from the tarball by the `files` whitelist.
@@ -109,7 +110,7 @@ Added since: `shutdown()`, `Env`/`EnvProvider`, `BrowserEnv`/`NodeEnv` (per-entr
 
 Steps 1–4 of the original plan are **done** (dev env, tsup migration, import-time side effects, the browser/Node seam). The workspace migration and its verification status are recorded in [ROADMAP.md](./ROADMAP.md). It does not complete any renderer or feature-parity work. The remaining order is:
 
-1. **Remaining renderer fixes** — lifecycle cleanup, resize invalidation, opt-in OrbitControls, and frame limiting are implemented; continue with composer brightness and `outputEncoding` → `outputColorSpace`.
+1. **Asset pipeline correctness** — the renderer lifecycle, controls, frame limiting, and color batches are implemented. Continue with ordered source resolution, failure handling, and duplicate texture downloads.
 2. **Model/blockstate bug batch** — `Axis.X = "X"` silently disables every x-axis element rotation; the missing `await` on `BlockStates.getDefaultState`.
 3. **Finish skins** (slim UVs, capes) and entity child-part recursion.
 4. **Instance lifecycle overhaul** (slot reclamation, grow) then the world redesign for large-scale renders.

@@ -127,6 +127,9 @@ export class Materials {
                     gl_FragColor = vec4(lift + color.rgb * light2, 1.0);
 
                 }
+
+                #include <tonemapping_fragment>
+                #include <colorspace_fragment>
             }
         `
         //TODO: this does add the MC-like shading, but breaks when stuff is instanced (can't updated position)

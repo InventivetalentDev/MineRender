@@ -10,7 +10,7 @@ import { SceneObjectOptions } from "../../renderer/SceneObjectOptions";
 import { addBox3WireframeToObject, addWireframeToMesh, addWireframeToObject, applyElementRotation } from "../../util/model";
 import { Ticker } from "../../Ticker";
 import merge from "ts-deepmerge";
-import { BufferGeometry } from "three/src/core/BufferGeometry";
+import type { BufferGeometry } from "three";
 import { BlockObject } from "../block/scene/BlockObject";
 import { prefix } from "../../util/log";
 
