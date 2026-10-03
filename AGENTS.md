@@ -18,7 +18,7 @@ The private Yarn workspace root contains the public library and its consumers. U
 | `examples/script-tag/` | Plain HTML consumer, imported from `MineRender/example-bundle`. Loads the library's IIFE as `MineRender`. |
 | `InventivetalentDev/MineRender` (V1 checkout: `MineRenderV1`) | `master` contains V1 (JS, webpack 4, three 0.93, browser-only), the feature-parity reference. V2 development shares this repository on `typescript` and the stacked refactor branches. Preserve V1 tags, bundles, and website URLs. |
 | `InventivetalentDev/MineRenderServer`  | V1-era headless render HTTP API (Express + headless-gl + patched node-canvas + three-png-stream under xvfb). Reference only; not imported. Its contract includes `GET /render/skin/[:texture]`, `GET /render/model/:type/:model`, the `minerender-options` header, and an MD5-keyed PNG cache. |
-| [minerender-fallback-assets](https://github.com/InventivetalentDev/minerender-fallback-assets) | GitHub repo serving the custom `minerender:` namespace assets (entityModels, blockEntityModels, defaultBlockStates) and fallback copies of vanilla assets. The JSON files inside `src/` here are **reference copies only** — runtime fetches from that repo (see Gotchas). |
+| [minerender-fallback-assets](https://github.com/InventivetalentDev/minerender-fallback-assets) | GitHub repo serving the custom `minerender:` namespace assets (entityModels, blockEntityModels, defaultBlockStates) and fallback copies of vanilla assets. The corresponding JSON files inside `src/` are **reference copies only** — runtime fetches from that repo (see Gotchas). |
 | `assets.mcasset.cloud` | Primary vanilla-asset CDN, defaults to MC **1.21.11** in `src/assets/Assets.ts` (`DEFAULT_ROOT`). Provides synthetic `_list.json` directory indexes that `getList()` APIs depend on. |
 | `minecraft-skin-proxy.inventive.workers.dev` | Own Cloudflare worker for CORS-safe skin/cape/UUID lookups (`src/skin/Skins.ts`); also api.mineskin.org, api.capes.dev. |
 
@@ -87,7 +87,7 @@ The private Yarn workspace root contains the public library and its consumers. U
 
 ## Gotchas
 
-- JSON model dictionaries in `src/` are reference copies. Runtime data comes from the fallback-assets repository; local edits do not change hosted assets.
+- JSON model dictionaries in `src/` are reference copies fetched from the fallback-assets repository. `src/entity/entityTextures.json` is bundled locally and maps texture paths to logical atlas dimensions.
 - Idle caches and request queues let Node exit. `shutdown()` clears shared caches, permanently ends request queues, and stops Ticker.
 - Requests require Fetch and `AbortSignal.any/timeout`, with bounded GET retries and timeouts through body reading. Cancellation aborts a call; shutdown rejects waiting work and lets active calls finish.
 - Async list/dictionary caches evict missing and rejected loads. Clear in-memory caches when sources change; persistent storage must be cleared separately.

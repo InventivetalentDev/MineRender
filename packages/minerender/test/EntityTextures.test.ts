@@ -5,6 +5,7 @@ import { Entities } from "../src/assets/Entities";
 import { ModelTextures } from "../src/assets/ModelTextures";
 import { AssetSource } from "../src/assets/source/AssetSource";
 import { Caching } from "../src/cache/Caching";
+import entityTextures from "../src/entity/entityTextures.json";
 import type { MinecraftAsset } from "../src/MinecraftAsset";
 import type { ModelPart } from "../src/model/ModelPart";
 import type { TextureAsset } from "../src/model/Model";
@@ -16,12 +17,22 @@ class TextureSource extends AssetSource {
 }
 
 const part: ModelPart = {
-    textureWidth: 64, textureHeight: 32, textureOffsetU: 0, textureOffsetV: 16,
+    textureWidth: 48, textureHeight: 24, textureOffsetU: 0, textureOffsetV: 12,
     pivotX: 0, pivotY: 0, pivotZ: 0, pitch: 0, yaw: 0, roll: 0,
     mirror: false, cubes: [], children: []
 };
-const parts = { leg: part };
-const oldPaths = { chicken: "chicken", pig: "pig/pig", cow: "cow/cow" };
+const parts = { body: { ...part, children: [{ ...part, children: [{ ...part }] }] } };
+const baseParts = { leg: part };
+const definitions = {
+    "custom:beast": [
+        { path: "beast/legacy" },
+        { path: "beast/modern", textureWidth: 96, textureHeight: 48 }
+    ],
+    "custom:beast/arctic": [
+        { path: "beast/arctic_old" },
+        { path: "painted:beast/arctic", textureWidth: 120, textureHeight: 60 }
+    ]
+};
 const originalModels = Entities.getEntityModels;
 let defaults: Array<{ name: string; source: AssetSource }>;
 
@@ -32,97 +43,92 @@ test.beforeEach(() => {
         const source = AssetLoader.removeSource(name);
         if (source) defaults.push({ name, source });
     }
-    Entities.getEntityModels = async () => Object.fromEntries([
-        ...Object.keys(oldPaths).map(name => [`minecraft:${name}`, parts]), ["custom:chicken", parts]
-    ]);
+    Entities.getEntityModels = async () => ({
+        "custom:beast": baseParts, "custom:beast/arctic": parts, "custom:unannotated": parts
+    });
+    Object.assign(entityTextures, definitions);
 });
 test.afterEach.always(() => {
-    for (const name of ["test-textures", "test-pack"]) AssetLoader.removeSource(name);
+    for (const name of ["test-assets", "test-pack"]) AssetLoader.removeSource(name);
     for (const { name, source } of defaults.reverse()) AssetLoader.addSource(name, source);
     Entities.getEntityModels = originalModels;
+    for (const name of Object.keys(definitions)) Reflect.deleteProperty(entityTextures, name);
     Caching.clear();
 });
 
-function texture(height = 32): TextureAsset {
-    return { width: 64, height, type: "png", data: Buffer.from([1]) };
+function texture(): TextureAsset {
+    return { width: 240, height: 120, type: "png", data: Buffer.from([1]) };
 }
 
-test.serial("modern farm-animal textures select the matching logical atlas height and reuse fetched bytes", async t => {
-    const calls: string[] = [];
-    AssetLoader.addSource("test-textures", new TextureSource(key => {
-        calls.push(key.path);
-        return key.path.includes("/temperate_") ? texture(key.path.startsWith("chicken/") ? 32 : 64) : undefined;
-    }));
-    for (const name of Object.keys(oldPaths)) {
-        const modelKey = new BasicAssetKey("minecraft", name);
-        const entity = (await Entities.getEntity(modelKey))!;
-        t.is(entity.key?.path, `${name}/temperate_${name}`);
-        t.is(entity.parts?.leg.textureHeight, name === "chicken" ? 32 : 64);
-        const count = calls.length;
-        const encoded = await ModelTextures.preload(entity.key as AssetKey);
-        t.is(encoded?.key, entity.key);
-        await Entities.getEntity(modelKey);
-        t.is(calls.length, count);
-    }
-    t.is(part.textureHeight, 32);
-});
-
-test.serial("an old texture in a higher-priority pack keeps the legacy atlas dimensions", async t => {
-    let lowerCalls = 0;
-    AssetLoader.addSource("test-textures", new TextureSource(() => { lowerCalls++; return texture(64); }));
-    AssetLoader.addSource("test-pack", new TextureSource(key => Object.values(oldPaths).includes(key.path) ? texture() : undefined));
-    for (const [name, path] of Object.entries(oldPaths)) {
-        const entity = (await Entities.getEntity(new BasicAssetKey("minecraft", name)))!;
-        t.is(entity.key?.path, path);
-        t.is(entity.parts, parts);
-        t.is(entity.parts?.leg.textureHeight, 32);
-    }
-    t.is(lowerCalls, 0);
-});
-
-test.serial("explicit modern farm-animal texture paths use their atlas dimensions without probing sources", async t => {
-    AssetLoader.addSource("test-textures", new TextureSource(() => { throw new Error("unexpected texture lookup"); }));
-    for (const name of ["pig", "cow"]) {
-        const modelKey = new BasicAssetKey("minecraft", name);
-        const modernKey = new BasicAssetKey("minecraft", `${name}/temperate_${name}`);
-        for (const entity of [await Entities.getEntity(modernKey), await Entities.getEntity(modelKey, modernKey)]) {
-            t.is(entity?.key, modernKey);
-            t.is(entity?.parts?.leg.textureHeight, 64);
-            t.not(entity?.parts, parts);
-        }
-        for (const key of [new BasicAssetKey("minecraft", `${name}/${name}`), new BasicAssetKey("custom", modernKey.path)]) {
-            const entity = await Entities.getEntity(modelKey, key);
-            t.is(entity?.key, key);
-            t.is(entity?.parts, parts);
-            t.is(entity?.parts?.leg.textureHeight, 32);
-        }
-    }
-    t.is(part.textureHeight, 32);
-});
-
-test.serial("implicit aliases do not replace explicit texture keys or custom namespaces, including warm caches", async t => {
+test.serial("nested custom models use metadata paths and recursively apply logical atlas dimensions", async t => {
     let calls = 0;
-    AssetLoader.addSource("test-textures", new TextureSource(key => {
+    AssetLoader.addSource("test-assets", new TextureSource(key => {
         calls++;
-        return key.path === "chicken/temperate_chicken" ? texture() : undefined;
+        return key.namespace === "painted" && key.path === "beast/arctic" ? texture() : undefined;
     }));
-    const modelKey = new BasicAssetKey("minecraft", "chicken");
-    await Entities.getEntity(modelKey);
+    const modelKey = new BasicAssetKey("custom", "beast/arctic");
+    const entity = (await Entities.getEntity(modelKey))!;
+    t.is(entity.key?.namespace, "painted");
+    t.is(entity.key?.path, "beast/arctic");
+    const body = entity.parts!.body;
+    for (const resized of [body, body.children[0], body.children[0].children[0]]) {
+        t.is(resized.textureWidth, 120);
+        t.is(resized.textureHeight, 60);
+        t.is(resized.textureOffsetV, 12);
+    }
+    t.is(parts.body.textureWidth, 48);
+    t.is(parts.body.children[0].children[0].textureHeight, 24);
     const count = calls;
-    const explicitKey = new AssetKey("minecraft", "chicken", "textures", "entity", "assets", ".png");
+    t.is((await ModelTextures.preload(entity.key as AssetKey))?.key, entity.key);
+    await Entities.getEntity(modelKey);
+    t.is(calls, count);
+    const explicitKey = new AssetKey("custom", "beast/arctic_old", "textures", "entity", "assets", ".png");
     t.is((await Entities.getEntity(modelKey, explicitKey))?.key, explicitKey);
-    const customKey = new BasicAssetKey("custom", "chicken");
-    t.is((await Entities.getEntity(customKey))?.key, customKey);
     t.is(calls, count);
     t.is(await ModelTextures.preload(explicitKey), undefined);
     t.is(calls, count + 1);
 });
 
+test.serial("a legacy texture in a higher-priority pack keeps the original atlas dimensions", async t => {
+    let lowerCalls = 0;
+    AssetLoader.addSource("test-assets", new TextureSource(() => { lowerCalls++; return texture(); }));
+    AssetLoader.addSource("test-pack", new TextureSource(key => key.path === "beast/legacy" ? texture() : undefined));
+    const entity = (await Entities.getEntity(new BasicAssetKey("custom", "beast")))!;
+    t.is(entity.key?.path, "beast/legacy");
+    t.is(entity.parts, baseParts);
+    t.is(entity.parts?.leg.textureHeight, 24);
+    t.is(lowerCalls, 0);
+});
+
+test.serial("explicit keys and variant paths apply only matching metadata without probing textures", async t => {
+    AssetLoader.addSource("test-assets", new TextureSource(() => { throw new Error("unexpected texture lookup"); }));
+    const modelKey = new BasicAssetKey("custom", "beast");
+    const modernKey = new BasicAssetKey("custom", "beast/modern");
+    for (const entity of [await Entities.getEntity(modernKey), await Entities.getEntity(modelKey, modernKey)]) {
+        t.is(entity?.key, modernKey);
+        t.is(entity?.parts?.leg.textureWidth, 96);
+        t.is(entity?.parts?.leg.textureHeight, 48);
+    }
+    const otherKey = new BasicAssetKey("other", modernKey.path);
+    const other = await Entities.getEntity(modelKey, otherKey);
+    t.is(other?.key, otherKey);
+    t.is(other?.parts, baseParts);
+    t.is(part.textureHeight, 24);
+});
+
+test.serial("models without texture metadata retain their existing keys and parts", async t => {
+    AssetLoader.addSource("test-assets", new TextureSource(() => { throw new Error("unexpected texture lookup"); }));
+    const modelKey = new BasicAssetKey("custom", "unannotated");
+    const entity = await Entities.getEntity(modelKey);
+    t.is(entity?.key, modelKey);
+    t.is(entity?.parts, parts);
+});
+
 test.serial("texture source failures reject entity resolution without trying lower sources", async t => {
     const failure = new Error("texture source unavailable");
     let lowerCalls = 0;
-    AssetLoader.addSource("test-textures", new TextureSource(() => { lowerCalls++; return texture(); }));
+    AssetLoader.addSource("test-assets", new TextureSource(() => { lowerCalls++; return texture(); }));
     AssetLoader.addSource("test-pack", new TextureSource(() => { throw failure; }));
-    await t.throwsAsync(Entities.getEntity(new BasicAssetKey("minecraft", "chicken")), { is: failure });
+    await t.throwsAsync(Entities.getEntity(new BasicAssetKey("custom", "beast")), { is: failure });
     t.is(lowerCalls, 0);
 });

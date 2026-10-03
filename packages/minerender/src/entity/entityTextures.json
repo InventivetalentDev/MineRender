@@ -1,0 +1,16 @@
+{
+  "minecraft:chicken": [
+    { "path": "chicken" },
+    { "path": "chicken/temperate_chicken" }
+  ],
+  "minecraft:pig": [
+    { "path": "pig" },
+    { "path": "pig/pig" },
+    { "path": "pig/temperate_pig", "textureWidth": 64, "textureHeight": 64 }
+  ],
+  "minecraft:cow": [
+    { "path": "cow" },
+    { "path": "cow/cow" },
+    { "path": "cow/temperate_cow", "textureWidth": 64, "textureHeight": 64 }
+  ]
+}
