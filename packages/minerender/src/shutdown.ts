@@ -3,14 +3,13 @@ import { Requests } from "./request/Requests";
 import { Ticker } from "./Ticker";
 
 /**
- * Releases every long-lived timer MineRender holds, so a Node process can exit.
+ * Stops the shared Ticker and request queues, and clears the in-memory caches.
  *
- * Both `@inventivetalent/loading-cache` (cache expiry) and `jobqu` (request queue draining) use
- * self-rescheduling timers that are not unref'd, which keeps the event loop alive for as long as
- * the library is loaded. Browsers don't care, but anything headless - a render server, a CLI, a
- * test run - has to call this when it's done.
+ * Idle Node processes can exit without calling this: cache and Ticker timers are unref'd,
+ * and idle request queues hold no timer. Pending requests keep their normal timer references.
  *
- * The library stays usable afterwards; the caches and queues simply start over.
+ * Call this only when finished with MineRender. Waiting and future requests reject; requests
+ * already running can finish. Queue shutdown is permanent, and cache expiry timers do not restart.
  */
 export function shutdown(): void {
     Ticker.dispose();

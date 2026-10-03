@@ -72,14 +72,15 @@ export class Requests {
 
     public static get queueSizes() {
         return {
-            generic: this.genericQueue.size,
-            mcAsset: this.mcAssetRequestQueue.size
+            generic: this.genericQueue.size + this.genericQueue.activeSize,
+            mcAsset: this.mcAssetRequestQueue.size + this.mcAssetRequestQueue.activeSize
         }
     }
 
     /**
-     * Stops both queue timers. jobqu reschedules itself indefinitely, so a Node process will not
-     * exit until this is called - see {@link shutdown}.
+     * Permanently stops both queues and rejects waiting and future requests.
+     * Requests already running can finish. Idle queues hold no timer, so Node can exit without
+     * this cleanup. See {@link shutdown}.
      */
     public static end() {
         this.genericQueue.end();
