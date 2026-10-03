@@ -11,7 +11,3 @@
 [MineRender.org](https://minerender.org/)
 
 V2 requires Node.js 22 or later, or a browser with native Fetch and AbortController.
-The low-level request API uses `RequestConfig`/`RequestResponse` and `AbortSignal`.
-Pass native Fetch options plus `url`, optional `baseURL`, `timeout` in milliseconds, and
-`responseType` (`"json"` or `"arraybuffer"`). Responses expose decoded `data`, HTTP status,
-native `Headers`, and the final `url` after redirects.
