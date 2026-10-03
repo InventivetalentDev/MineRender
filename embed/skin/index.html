@@ -48,6 +48,11 @@
             skin.data           Skin Data (Base64)
             skin.name           Skin Username
 
+            cape                Set this param to enable capes - Cape type from capes.dev or direct link to cape data
+            cape.user           Cape username / uuid
+            cape.url            Cape URL
+            cape.data           Cape Data (Base64)
+
             controls            enable/disable controls
             controls.zoom       enable/disable zoom controls
             controls.rotate     enable/disable rotation controls
@@ -79,6 +84,16 @@
                 } else {
                     console.error("Missing Skin param in url");
                     return;
+                }
+
+                if (params.get("cape")) {
+                    renderParams.cape = params.get("cape");
+                } else if (params.get("cape.user")) {
+                    renderParams.capeUser = params.get("cape.user");
+                } else if (params.get("cape.url")) {
+                    renderParams.capeUrl = params.get("cape.url")
+                } else if (params.get("cape.data")) {
+                    renderParams.capeData = params.get("cape.data");
                 }
 
                 if (params.get("skin.slim")) {
