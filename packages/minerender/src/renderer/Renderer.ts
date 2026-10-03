@@ -55,7 +55,7 @@ export class Renderer implements Disposable {
     protected _scene: MineRenderScene;
     protected _camera: Camera;
     protected _renderer: WebGLRenderer;
-    protected _composer: EffectComposer;
+    protected _composer?: EffectComposer;
     protected _controls?: OrbitControls;
 
     protected _stats?: Stats;
@@ -146,14 +146,10 @@ export class Renderer implements Disposable {
         return renderer;
     }
 
-    protected createComposer(): EffectComposer {
-        const autoClear = this.renderer.autoClear;
+    protected createComposer(): Maybe<EffectComposer> {
+        if (!this.options.composer.enabled) return undefined;
+
         const composer = new EffectComposer(this.renderer);
-        if (!this.options.composer.enabled) {
-            // The composer disables automatic clearing, but direct rendering still needs it.
-            this.renderer.autoClear = autoClear;
-            return composer;
-        }
 
         composer.setSize(this.viewWidth, this.viewHeight);
         //TODO: options
@@ -316,7 +312,7 @@ export class Renderer implements Disposable {
         }
 
         this.renderer.setSize(width, height);
-        this.composer.setSize(width, height);
+        this.composer?.setSize(width, height);
         this._dirty = true;
     }
 
@@ -372,42 +368,26 @@ export class Renderer implements Disposable {
         this.renderer.domElement.remove();
         this._element = undefined;
 
-        let failed = false;
-        let failure: unknown;
-        const cleanup = (action: () => void) => {
-            try {
-                action();
-            } catch (error) {
-                if (!failed) failure = error;
-                failed = true;
-            }
-        };
-
         if (this._controls) {
             const controls = this._controls;
             this._controls = undefined;
             controls.enabled = false;
-            cleanup(() => controls.dispose());
+            controls.dispose();
         }
 
-        // A removal or disposal listener must not prevent the remaining resources from being released.
-        for (const object of [...this.scene.children]) {
-            cleanup(() => this.scene.remove(object));
-        }
+        this.scene.clear();
         for (const helper of this._debugHelpers) {
-            cleanup(() => helper.geometry.dispose());
+            helper.geometry.dispose();
             const materials = Array.isArray(helper.material) ? helper.material : [helper.material];
             for (const material of materials) {
-                cleanup(() => material.dispose());
+                material.dispose();
             }
         }
         this._debugHelpers.length = 0;
 
-        cleanup(() => this.composer.dispose());
-        cleanup(() => this.renderer.dispose());
-        cleanup(() => this.renderer.forceContextLoss());
-
-        if (failed) throw failure;
+        this.composer?.dispose();
+        this.renderer.dispose();
+        this.renderer.forceContextLoss();
     }
 
     private animate(t: number = performance.now()): void {
@@ -433,7 +413,7 @@ export class Renderer implements Disposable {
             this._stats.begin();
         }
 
-        if (this.options.composer.enabled) {
+        if (this.options.composer.enabled && this.composer) {
             this.composer.render();
         } else {
             this.renderer.render(this.scene, this.camera);
@@ -480,7 +460,7 @@ export class Renderer implements Disposable {
         return this._renderer;
     }
 
-    public get composer(): EffectComposer {
+    public get composer(): Maybe<EffectComposer> {
         return this._composer;
     }
 
