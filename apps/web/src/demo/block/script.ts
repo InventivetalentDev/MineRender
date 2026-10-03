@@ -1,4 +1,3 @@
-import "../../assets";
 import { AssetKey, BlockObject, BlockStates, Renderer, SceneInspector, SkinObject, Skins } from "minerender";
 import { Intersection, Vector3 } from "three";
 

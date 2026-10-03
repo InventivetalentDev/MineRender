@@ -9,14 +9,6 @@
 <body>
 <script src="./bundle.js"></script>
 <script>
-    const assetRoot = "https://assets.mcasset.cloud/1.17.1";
-    MineRender.AssetLoader.ROOT = assetRoot;
-    MineRender.AssetLoader.addSource("mcassets-fallback", new MineRender.HostedAssetSource(
-        "https://raw.githubusercontent.com/InventivetalentDev/minerender-fallback-assets/master",
-        {retryDefaults: false}
-    ));
-    MineRender.AssetLoader.addSource("mcassets", new MineRender.HostedAssetSource(assetRoot, {retryDefaults: false}));
-
     const renderer = new MineRender.Renderer({
         camera: {
             near: 1,

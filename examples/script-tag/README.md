@@ -11,5 +11,3 @@ From the repository root:
 Run `yarn workspace @minerender/example-script-tag build` to copy the page and library bundle into `examples/script-tag/dist`. You can serve that directory with any static web server. The page fetches Minecraft assets over HTTPS.
 
 After editing the page or rebuilding the library, restart the development server to copy the updated files.
-
-Vanilla assets load from `https://assets.mcasset.cloud/1.17.1`.

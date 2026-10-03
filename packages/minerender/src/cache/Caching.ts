@@ -95,23 +95,19 @@ export class Caching {
         .expirationInterval(Time.seconds(30))
         .buildAsync<CacheKey, BlockState>();
 
-    static readonly listAssetCache: AsyncLoadingCache<CacheKey, ListAsset> = Caches.builder()
-        .expireAfterWrite(Time.minutes(10))
-        .expireAfterAccess(Time.minutes(5))
-        .expirationInterval(Time.seconds(30))
-        .buildAsync<CacheKey, ListAsset>();
+    static readonly listAssetCache: AsyncLoadingCache<CacheKey, ListAsset> = Caching.createAssetCache<ListAsset>();
 
-    static readonly defaultBlockStatesCache: AsyncLoadingCache<CacheKey, DefaultBlockStates> = Caches.builder()
-        .expireAfterWrite(Time.minutes(10))
-        .expireAfterAccess(Time.minutes(5))
-        .expirationInterval(Time.seconds(30))
-        .buildAsync<CacheKey, DefaultBlockStates>();
+    static readonly defaultBlockStatesCache: AsyncLoadingCache<CacheKey, DefaultBlockStates> = Caching.createAssetCache<DefaultBlockStates>();
 
-    static readonly entityModelsCache: AsyncLoadingCache<CacheKey, EntityModels> = Caches.builder()
-        .expireAfterWrite(Time.minutes(10))
-        .expireAfterAccess(Time.minutes(5))
-        .expirationInterval(Time.seconds(30))
-        .buildAsync<CacheKey, EntityModels>();
+    static readonly entityModelsCache: AsyncLoadingCache<CacheKey, EntityModels> = Caching.createAssetCache<EntityModels>();
+
+    private static createAssetCache<T>(): AsyncLoadingCache<CacheKey, T> {
+        return Caches.builder()
+            .expireAfterWrite(Time.minutes(10))
+            .expireAfterAccess(Time.minutes(5))
+            .expirationInterval(Time.seconds(30))
+            .buildAsync<CacheKey, T>();
+    }
 
 
     /** Every cache above, so clear()/end() can never fall out of sync with the field list again. */

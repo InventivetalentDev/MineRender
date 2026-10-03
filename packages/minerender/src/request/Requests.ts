@@ -1,5 +1,4 @@
 import { JobCancelledError, JobQueue } from "jobqu";
-import { Time } from "@inventivetalent/time";
 import { prefix } from "../util/log";
 
 const p = prefix("Requests");
@@ -29,47 +28,20 @@ export class RequestError extends Error {
     }
 }
 
-export class RequestTimeoutError extends Error {
-    constructor() {
-        super("Request timed out");
-        this.name = "RequestTimeoutError";
-    }
-}
-
-function isNetworkFailure(error: unknown): boolean {
-    if (!(error instanceof TypeError)) {
-        return false;
-    }
-    const cause = (error as TypeError & { cause?: { code?: string } }).cause;
-    if (cause) {
-        return ["ETIMEDOUT", "ECONNRESET", "ECONNREFUSED", "EAI_AGAIN", "UND_ERR_CONNECT_TIMEOUT",
-            "UND_ERR_HEADERS_TIMEOUT", "UND_ERR_BODY_TIMEOUT", "UND_ERR_SOCKET"].includes(cause.code ?? "");
-    }
-    // Browsers expose network and CORS failures as TypeError without an underlying cause.
-    return typeof window !== "undefined";
-}
-
 async function fetchRequest(config: RequestConfig, defaultBaseURL?: string): Promise<RequestResponse> {
     const { url, baseURL = defaultBaseURL, timeout = 5000, responseType = "json", signal, ...options } = config;
-    if (!Number.isFinite(timeout) || timeout < 0 || timeout > 2147483647) {
-        throw new RangeError("Request timeout must be between 0 and 2147483647 milliseconds");
-    }
-    if (responseType !== "json" && responseType !== "arraybuffer") {
-        throw new TypeError("Unsupported response type");
-    }
     const target = baseURL && !/^([a-z][a-z\d+.-]*:|\/\/)/i.test(url)
         ? `${baseURL.replace(/\/+$/, "")}/${url.replace(/^\/+/, "")}` : url;
     const headers = new Headers(options.headers);
     if (typeof window === "undefined" && !headers.has("User-Agent")) {
         headers.set("User-Agent", "MineRender");
     }
-    const controller = new AbortController();
-    // Validate configuration before classifying any Fetch rejection as a network failure.
-    const request = new Request(target, { ...options, headers, signal: controller.signal });
-    signal?.throwIfAborted();
-    const abort = () => controller.abort(signal!.reason);
-    signal?.addEventListener("abort", abort, { once: true });
-    const timer = timeout > 0 ? setTimeout(() => controller.abort(new RequestTimeoutError()), timeout) : undefined;
+    const attemptSignal = AbortSignal.any([
+        ...(signal ? [signal] : []), ...(timeout === 0 ? [] : [AbortSignal.timeout(timeout)])
+    ]);
+    // Validate configuration before classifying Fetch TypeErrors as network failures.
+    const request = new Request(target, { ...options, headers, signal: attemptSignal });
+    attemptSignal.throwIfAborted();
     try {
         const response = await fetch(request);
         const result: RequestResponse<undefined> = {
@@ -89,122 +61,93 @@ async function fetchRequest(config: RequestConfig, defaultBaseURL?: string): Pro
             : emptyBody || response.body === null ? undefined : await response.json();
         return { ...result, data };
     } catch (error) {
-        if (controller.signal.aborted) {
-            throw controller.signal.reason;
-        }
-        if (/^https?:/.test(request.url) && request.redirect !== "error" && isNetworkFailure(error)) {
+        attemptSignal.throwIfAborted();
+        if (/^https?:/.test(request.url) && request.redirect !== "error" && error instanceof TypeError) {
             throw new RequestError("Network request failed", undefined, error);
         }
         throw error;
-    } finally {
-        clearTimeout(timer);
-        signal?.removeEventListener("abort", abort);
     }
 }
 
-class RequestQueue extends JobQueue<RequestConfig, RequestResponse> {
+async function abortable<T>(promise: Promise<T>, signal?: AbortSignal | null): Promise<T> {
+    if (!signal) return promise;
+    let abort: () => void;
+    const cancelled = new Promise<never>((_, reject) => {
+        abort = () => reject(signal.reason);
+        signal.addEventListener("abort", abort, { once: true });
+        if (signal.aborted) abort();
+    });
+    try {
+        return await Promise.race([promise, cancelled]);
+    } finally {
+        signal.removeEventListener("abort", abort!);
+    }
+}
 
-    private static readonly MAX_ACTIVE = 8;
-    private static readonly MAX_RETRIES = 3;
-    private static readonly MAX_RETRY_DELAY = 30000;
+class RequestQueue {
 
     public baseURL?: string;
     private pendingRequests = 0;
-    private readonly retryTimers = new Map<ReturnType<typeof setTimeout>, (error: unknown) => void>();
-
-    constructor() {
-        super(request => fetchRequest(request, this.baseURL), Time.millis(10), 1);
-    }
-
-    protected run(): void {
-        if (this.activeSize < RequestQueue.MAX_ACTIVE) {
-            super.run();
-        }
-    }
-
-    protected ensureScheduled(): void {
-        // Finishing an active job resumes dispatch without polling a full queue.
-        if (this.activeSize < RequestQueue.MAX_ACTIVE) {
-            super.ensureScheduled();
-        }
-    }
+    private readonly stopped = new AbortController();
+    private readonly queue = new JobQueue<RequestConfig, RequestResponse>(
+        request => fetchRequest(request, this.baseURL), 10, 1, { maxActive: 8 });
 
     public async request(request: RequestConfig): Promise<RequestResponse> {
         this.pendingRequests++;
         const signal = request.signal;
-        let abort: (() => void) | undefined;
         try {
-            signal?.throwIfAborted();
-            const cancelled = signal ? new Promise<never>((_, reject) => {
-                abort = () => reject(signal.reason);
-                signal.addEventListener("abort", abort, { once: true });
-            }) : undefined;
             for (let retries = 0; ; retries++) {
                 signal?.throwIfAborted();
                 try {
-                    const attempt = this.add(request);
-                    return await (cancelled ? Promise.race([attempt, cancelled]) : attempt);
+                    return await abortable(this.queue.add(request), signal);
                 } catch (error) {
                     console.debug(p, "Request failed", error);
                     const delay = this.retryDelay(error, request, retries);
                     if (delay === undefined) {
                         throw error;
                     }
-                    await this.waitForRetry(delay, cancelled);
+                    await this.waitForRetry(delay, signal);
                 }
             }
         } finally {
-            if (abort) {
-                signal!.removeEventListener("abort", abort);
-            }
             if (signal?.aborted) {
-                this.remove(request);
+                this.queue.remove(request);
             }
             this.pendingRequests--;
         }
     }
 
     private retryDelay(error: unknown, request: RequestConfig, retries: number): number | undefined {
-        if (this.ended || retries >= RequestQueue.MAX_RETRIES ||
+        if (this.stopped.signal.aborted || retries >= 3 ||
             (request.method ?? "get").toLowerCase() !== "get" || request.signal?.aborted) {
             return undefined;
         }
         if (error instanceof RequestError) {
-            if (error.response && ![408, 429, 500, 502, 503, 504].includes(error.response.status)) {
-                return undefined;
-            }
-        } else if (!(error instanceof RequestTimeoutError)) {
+            const status = error.response?.status;
+            if (status !== undefined && status !== 408 && status !== 429 && !(status >= 500 && status < 600)) return undefined;
+        } else if (!(error instanceof DOMException && error.name === "TimeoutError")) {
             return undefined;
         }
 
         let delay = 100 * (2 ** retries);
         const retryAfter = error instanceof RequestError ? error.response?.headers.get("Retry-After") : undefined;
-        if (retryAfter) {
+        if (retryAfter !== undefined && retryAfter !== null) {
             const seconds = Number(retryAfter);
-            const requestedDelay = Number.isFinite(seconds) && seconds >= 0
-                ? seconds * 1000
-                : Date.parse(retryAfter) - Date.now();
-            if (Number.isFinite(requestedDelay)) {
-                delay = Math.max(delay, requestedDelay);
+            if (!retryAfter.trim() || !Number.isFinite(seconds) || seconds < 0) {
+                return undefined;
             }
+            delay = Math.max(delay, seconds * 1000);
         }
-        // Do not retry earlier than the server requested or keep a retry pending indefinitely.
-        return delay <= RequestQueue.MAX_RETRY_DELAY ? delay : undefined;
+        return delay;
     }
 
-    private async waitForRetry(delay: number, cancelled?: Promise<never>): Promise<void> {
-        let timer: ReturnType<typeof setTimeout> | undefined;
+    private async waitForRetry(delay: number, signal?: AbortSignal | null): Promise<void> {
+        let timer: ReturnType<typeof setTimeout>;
+        const waiting = new Promise<void>(resolve => { timer = setTimeout(resolve, delay); });
         try {
-            const waiting = new Promise<void>((resolve, reject) => {
-                timer = setTimeout(resolve, delay);
-                this.retryTimers.set(timer, reject);
-            });
-            await (cancelled ? Promise.race([waiting, cancelled]) : waiting);
+            await abortable(waiting, AbortSignal.any([this.stopped.signal, ...(signal ? [signal] : [])]));
         } finally {
-            if (timer !== undefined) {
-                clearTimeout(timer);
-                this.retryTimers.delete(timer);
-            }
+            clearTimeout(timer!);
         }
     }
 
@@ -213,12 +156,8 @@ class RequestQueue extends JobQueue<RequestConfig, RequestResponse> {
     }
 
     public end(): void {
-        super.end();
-        for (const [timer, reject] of this.retryTimers) {
-            clearTimeout(timer);
-            reject(new JobCancelledError("ended"));
-        }
-        this.retryTimers.clear();
+        this.queue.end();
+        this.stopped.abort(new JobCancelledError("ended"));
     }
 }
 
