@@ -1,0 +1,1401 @@
+{
+  "minecraft:bed": {
+    "field_20813": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 0,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": 0.0,
+          "minY": 0.0,
+          "minZ": 0.0,
+          "maxX": 16.0,
+          "maxY": 16.0,
+          "maxZ": 6.0
+        }
+      ],
+      "children": []
+    },
+    "field_20814": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 22,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": 0.0,
+          "minY": 0.0,
+          "minZ": 0.0,
+          "maxX": 16.0,
+          "maxY": 16.0,
+          "maxZ": 6.0
+        }
+      ],
+      "children": []
+    }
+  },
+  "minecraft:sign": {
+    "field": {
+      "textureWidth": 64.0,
+      "textureHeight": 32.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 0,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -12.0,
+          "minY": -14.0,
+          "minZ": -1.0,
+          "maxX": 12.0,
+          "maxY": -2.0,
+          "maxZ": 1.0
+        }
+      ],
+      "children": []
+    },
+    "foot": {
+      "textureWidth": 64.0,
+      "textureHeight": 32.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 14,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -1.0,
+          "minY": -2.0,
+          "minZ": -1.0,
+          "maxX": 1.0,
+          "maxY": 12.0,
+          "maxZ": 1.0
+        }
+      ],
+      "children": []
+    }
+  },
+  "minecraft:beacon": {},
+  "minecraft:lectern": {
+    "leftCover": {
+      "textureWidth": 64.0,
+      "textureHeight": 32.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 0,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": -1.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -6.0,
+          "minY": -5.0,
+          "minZ": -0.005,
+          "maxX": 0.0,
+          "maxY": 5.0,
+          "maxZ": 0.0
+        }
+      ],
+      "children": []
+    },
+    "rightCover": {
+      "textureWidth": 64.0,
+      "textureHeight": 32.0,
+      "textureOffsetU": 16,
+      "textureOffsetV": 0,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 1.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": 0.0,
+          "minY": -5.0,
+          "minZ": -0.005,
+          "maxX": 6.0,
+          "maxY": 5.0,
+          "maxZ": 0.0
+        }
+      ],
+      "children": []
+    },
+    "leftBlock": {
+      "textureWidth": 64.0,
+      "textureHeight": 32.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 10,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": 0.0,
+          "minY": -4.0,
+          "minZ": -0.99,
+          "maxX": 5.0,
+          "maxY": 4.0,
+          "maxZ": 0.00999999
+        }
+      ],
+      "children": []
+    },
+    "rightBlock": {
+      "textureWidth": 64.0,
+      "textureHeight": 32.0,
+      "textureOffsetU": 12,
+      "textureOffsetV": 10,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": 0.0,
+          "minY": -4.0,
+          "minZ": -0.01,
+          "maxX": 5.0,
+          "maxY": 4.0,
+          "maxZ": 0.99
+        }
+      ],
+      "children": []
+    },
+    "leftPage": {
+      "textureWidth": 64.0,
+      "textureHeight": 32.0,
+      "textureOffsetU": 24,
+      "textureOffsetV": 10,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": 0.0,
+          "minY": -4.0,
+          "minZ": 0.0,
+          "maxX": 5.0,
+          "maxY": 4.0,
+          "maxZ": 0.005
+        }
+      ],
+      "children": []
+    },
+    "rightPage": {
+      "textureWidth": 64.0,
+      "textureHeight": 32.0,
+      "textureOffsetU": 24,
+      "textureOffsetV": 10,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": 0.0,
+          "minY": -4.0,
+          "minZ": 0.0,
+          "maxX": 5.0,
+          "maxY": 4.0,
+          "maxZ": 0.005
+        }
+      ],
+      "children": []
+    },
+    "spine": {
+      "textureWidth": 64.0,
+      "textureHeight": 32.0,
+      "textureOffsetU": 12,
+      "textureOffsetV": 0,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 1.5707964,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -1.0,
+          "minY": -5.0,
+          "minZ": 0.0,
+          "maxX": 1.0,
+          "maxY": 5.0,
+          "maxZ": 0.005
+        }
+      ],
+      "children": []
+    }
+  },
+  "minecraft:campfire": {},
+  "minecraft:trapped_chest": {
+    "singleChestLid": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 0,
+      "pivotX": 0.0,
+      "pivotY": 9.0,
+      "pivotZ": 1.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": 1.0,
+          "minY": 0.0,
+          "minZ": 0.0,
+          "maxX": 15.0,
+          "maxY": 5.0,
+          "maxZ": 14.0
+        }
+      ],
+      "children": []
+    },
+    "singleChestBase": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 19,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": 1.0,
+          "minY": 0.0,
+          "minZ": 1.0,
+          "maxX": 15.0,
+          "maxY": 10.0,
+          "maxZ": 15.0
+        }
+      ],
+      "children": []
+    },
+    "singleChestLatch": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 0,
+      "pivotX": 0.0,
+      "pivotY": 8.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": 7.0,
+          "minY": -1.0,
+          "minZ": 15.0,
+          "maxX": 9.0,
+          "maxY": 3.0,
+          "maxZ": 16.0
+        }
+      ],
+      "children": []
+    },
+    "doubleChestRightLid": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 0,
+      "pivotX": 0.0,
+      "pivotY": 9.0,
+      "pivotZ": 1.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": 1.0,
+          "minY": 0.0,
+          "minZ": 0.0,
+          "maxX": 16.0,
+          "maxY": 5.0,
+          "maxZ": 14.0
+        }
+      ],
+      "children": []
+    },
+    "doubleChestRightBase": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 19,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": 1.0,
+          "minY": 0.0,
+          "minZ": 1.0,
+          "maxX": 16.0,
+          "maxY": 10.0,
+          "maxZ": 15.0
+        }
+      ],
+      "children": []
+    },
+    "doubleChestRightLatch": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 0,
+      "pivotX": 0.0,
+      "pivotY": 8.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": 15.0,
+          "minY": -1.0,
+          "minZ": 15.0,
+          "maxX": 16.0,
+          "maxY": 3.0,
+          "maxZ": 16.0
+        }
+      ],
+      "children": []
+    },
+    "doubleChestLeftLid": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 0,
+      "pivotX": 0.0,
+      "pivotY": 9.0,
+      "pivotZ": 1.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": 0.0,
+          "minY": 0.0,
+          "minZ": 0.0,
+          "maxX": 15.0,
+          "maxY": 5.0,
+          "maxZ": 14.0
+        }
+      ],
+      "children": []
+    },
+    "doubleChestLeftBase": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 19,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": 0.0,
+          "minY": 0.0,
+          "minZ": 1.0,
+          "maxX": 15.0,
+          "maxY": 10.0,
+          "maxZ": 15.0
+        }
+      ],
+      "children": []
+    },
+    "doubleChestLeftLatch": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 0,
+      "pivotX": 0.0,
+      "pivotY": 8.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": 0.0,
+          "minY": -1.0,
+          "minZ": 15.0,
+          "maxX": 1.0,
+          "maxY": 3.0,
+          "maxZ": 16.0
+        }
+      ],
+      "children": []
+    }
+  },
+  "minecraft:end_gateway": {},
+  "minecraft:piston": {},
+  "minecraft:ender_chest": {
+    "singleChestLid": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 0,
+      "pivotX": 0.0,
+      "pivotY": 9.0,
+      "pivotZ": 1.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": 1.0,
+          "minY": 0.0,
+          "minZ": 0.0,
+          "maxX": 15.0,
+          "maxY": 5.0,
+          "maxZ": 14.0
+        }
+      ],
+      "children": []
+    },
+    "singleChestBase": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 19,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": 1.0,
+          "minY": 0.0,
+          "minZ": 1.0,
+          "maxX": 15.0,
+          "maxY": 10.0,
+          "maxZ": 15.0
+        }
+      ],
+      "children": []
+    },
+    "singleChestLatch": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 0,
+      "pivotX": 0.0,
+      "pivotY": 8.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": 7.0,
+          "minY": -1.0,
+          "minZ": 15.0,
+          "maxX": 9.0,
+          "maxY": 3.0,
+          "maxZ": 16.0
+        }
+      ],
+      "children": []
+    },
+    "doubleChestRightLid": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 0,
+      "pivotX": 0.0,
+      "pivotY": 9.0,
+      "pivotZ": 1.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": 1.0,
+          "minY": 0.0,
+          "minZ": 0.0,
+          "maxX": 16.0,
+          "maxY": 5.0,
+          "maxZ": 14.0
+        }
+      ],
+      "children": []
+    },
+    "doubleChestRightBase": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 19,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": 1.0,
+          "minY": 0.0,
+          "minZ": 1.0,
+          "maxX": 16.0,
+          "maxY": 10.0,
+          "maxZ": 15.0
+        }
+      ],
+      "children": []
+    },
+    "doubleChestRightLatch": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 0,
+      "pivotX": 0.0,
+      "pivotY": 8.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": 15.0,
+          "minY": -1.0,
+          "minZ": 15.0,
+          "maxX": 16.0,
+          "maxY": 3.0,
+          "maxZ": 16.0
+        }
+      ],
+      "children": []
+    },
+    "doubleChestLeftLid": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 0,
+      "pivotX": 0.0,
+      "pivotY": 9.0,
+      "pivotZ": 1.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": 0.0,
+          "minY": 0.0,
+          "minZ": 0.0,
+          "maxX": 15.0,
+          "maxY": 5.0,
+          "maxZ": 14.0
+        }
+      ],
+      "children": []
+    },
+    "doubleChestLeftBase": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 19,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": 0.0,
+          "minY": 0.0,
+          "minZ": 1.0,
+          "maxX": 15.0,
+          "maxY": 10.0,
+          "maxZ": 15.0
+        }
+      ],
+      "children": []
+    },
+    "doubleChestLeftLatch": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 0,
+      "pivotX": 0.0,
+      "pivotY": 8.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": 0.0,
+          "minY": -1.0,
+          "minZ": 15.0,
+          "maxX": 1.0,
+          "maxY": 3.0,
+          "maxZ": 16.0
+        }
+      ],
+      "children": []
+    }
+  },
+  "minecraft:enchanting_table": {
+    "leftCover": {
+      "textureWidth": 64.0,
+      "textureHeight": 32.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 0,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": -1.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -6.0,
+          "minY": -5.0,
+          "minZ": -0.005,
+          "maxX": 0.0,
+          "maxY": 5.0,
+          "maxZ": 0.0
+        }
+      ],
+      "children": []
+    },
+    "rightCover": {
+      "textureWidth": 64.0,
+      "textureHeight": 32.0,
+      "textureOffsetU": 16,
+      "textureOffsetV": 0,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 1.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": 0.0,
+          "minY": -5.0,
+          "minZ": -0.005,
+          "maxX": 6.0,
+          "maxY": 5.0,
+          "maxZ": 0.0
+        }
+      ],
+      "children": []
+    },
+    "leftBlock": {
+      "textureWidth": 64.0,
+      "textureHeight": 32.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 10,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": 0.0,
+          "minY": -4.0,
+          "minZ": -0.99,
+          "maxX": 5.0,
+          "maxY": 4.0,
+          "maxZ": 0.00999999
+        }
+      ],
+      "children": []
+    },
+    "rightBlock": {
+      "textureWidth": 64.0,
+      "textureHeight": 32.0,
+      "textureOffsetU": 12,
+      "textureOffsetV": 10,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": 0.0,
+          "minY": -4.0,
+          "minZ": -0.01,
+          "maxX": 5.0,
+          "maxY": 4.0,
+          "maxZ": 0.99
+        }
+      ],
+      "children": []
+    },
+    "leftPage": {
+      "textureWidth": 64.0,
+      "textureHeight": 32.0,
+      "textureOffsetU": 24,
+      "textureOffsetV": 10,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": 0.0,
+          "minY": -4.0,
+          "minZ": 0.0,
+          "maxX": 5.0,
+          "maxY": 4.0,
+          "maxZ": 0.005
+        }
+      ],
+      "children": []
+    },
+    "rightPage": {
+      "textureWidth": 64.0,
+      "textureHeight": 32.0,
+      "textureOffsetU": 24,
+      "textureOffsetV": 10,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": 0.0,
+          "minY": -4.0,
+          "minZ": 0.0,
+          "maxX": 5.0,
+          "maxY": 4.0,
+          "maxZ": 0.005
+        }
+      ],
+      "children": []
+    },
+    "spine": {
+      "textureWidth": 64.0,
+      "textureHeight": 32.0,
+      "textureOffsetU": 12,
+      "textureOffsetV": 0,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 1.5707964,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -1.0,
+          "minY": -5.0,
+          "minZ": 0.0,
+          "maxX": 1.0,
+          "maxY": 5.0,
+          "maxZ": 0.005
+        }
+      ],
+      "children": []
+    }
+  },
+  "minecraft:structure_block": {},
+  "minecraft:end_portal": {},
+  "minecraft:bell": {
+    "field_20816": {
+      "textureWidth": 32.0,
+      "textureHeight": 32.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 0,
+      "pivotX": 8.0,
+      "pivotY": 12.0,
+      "pivotZ": 8.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -3.0,
+          "minY": -6.0,
+          "minZ": -3.0,
+          "maxX": 3.0,
+          "maxY": 1.0,
+          "maxZ": 3.0
+        }
+      ],
+      "children": [
+        {
+          "textureWidth": 32.0,
+          "textureHeight": 32.0,
+          "textureOffsetU": 0,
+          "textureOffsetV": 13,
+          "pivotX": -8.0,
+          "pivotY": -12.0,
+          "pivotZ": -8.0,
+          "pitch": 0.0,
+          "yaw": 0.0,
+          "roll": 0.0,
+          "mirror": false,
+          "cubes": [
+            {
+              "minX": 4.0,
+              "minY": 4.0,
+              "minZ": 4.0,
+              "maxX": 12.0,
+              "maxY": 6.0,
+              "maxZ": 12.0
+            }
+          ],
+          "children": []
+        }
+      ]
+    }
+  },
+  "minecraft:banner": {
+    "banner": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 0,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -10.0,
+          "minY": 0.0,
+          "minZ": -2.0,
+          "maxX": 10.0,
+          "maxY": 40.0,
+          "maxZ": -1.0
+        }
+      ],
+      "children": []
+    },
+    "pillar": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 44,
+      "textureOffsetV": 0,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -1.0,
+          "minY": -30.0,
+          "minZ": -1.0,
+          "maxX": 1.0,
+          "maxY": 12.0,
+          "maxZ": 1.0
+        }
+      ],
+      "children": []
+    },
+    "crossbar": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 42,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -10.0,
+          "minY": -32.0,
+          "minZ": -1.0,
+          "maxX": 10.0,
+          "maxY": -30.0,
+          "maxZ": 1.0
+        }
+      ],
+      "children": []
+    }
+  },
+  "minecraft:mob_spawner": {},
+  "minecraft:chest": {
+    "singleChestLid": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 0,
+      "pivotX": 0.0,
+      "pivotY": 9.0,
+      "pivotZ": 1.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": 1.0,
+          "minY": 0.0,
+          "minZ": 0.0,
+          "maxX": 15.0,
+          "maxY": 5.0,
+          "maxZ": 14.0
+        }
+      ],
+      "children": []
+    },
+    "singleChestBase": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 19,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": 1.0,
+          "minY": 0.0,
+          "minZ": 1.0,
+          "maxX": 15.0,
+          "maxY": 10.0,
+          "maxZ": 15.0
+        }
+      ],
+      "children": []
+    },
+    "singleChestLatch": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 0,
+      "pivotX": 0.0,
+      "pivotY": 8.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": 7.0,
+          "minY": -1.0,
+          "minZ": 15.0,
+          "maxX": 9.0,
+          "maxY": 3.0,
+          "maxZ": 16.0
+        }
+      ],
+      "children": []
+    },
+    "doubleChestRightLid": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 0,
+      "pivotX": 0.0,
+      "pivotY": 9.0,
+      "pivotZ": 1.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": 1.0,
+          "minY": 0.0,
+          "minZ": 0.0,
+          "maxX": 16.0,
+          "maxY": 5.0,
+          "maxZ": 14.0
+        }
+      ],
+      "children": []
+    },
+    "doubleChestRightBase": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 19,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": 1.0,
+          "minY": 0.0,
+          "minZ": 1.0,
+          "maxX": 16.0,
+          "maxY": 10.0,
+          "maxZ": 15.0
+        }
+      ],
+      "children": []
+    },
+    "doubleChestRightLatch": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 0,
+      "pivotX": 0.0,
+      "pivotY": 8.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": 15.0,
+          "minY": -1.0,
+          "minZ": 15.0,
+          "maxX": 16.0,
+          "maxY": 3.0,
+          "maxZ": 16.0
+        }
+      ],
+      "children": []
+    },
+    "doubleChestLeftLid": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 0,
+      "pivotX": 0.0,
+      "pivotY": 9.0,
+      "pivotZ": 1.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": 0.0,
+          "minY": 0.0,
+          "minZ": 0.0,
+          "maxX": 15.0,
+          "maxY": 5.0,
+          "maxZ": 14.0
+        }
+      ],
+      "children": []
+    },
+    "doubleChestLeftBase": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 19,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": 0.0,
+          "minY": 0.0,
+          "minZ": 1.0,
+          "maxX": 15.0,
+          "maxY": 10.0,
+          "maxZ": 15.0
+        }
+      ],
+      "children": []
+    },
+    "doubleChestLeftLatch": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 0,
+      "pivotX": 0.0,
+      "pivotY": 8.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": 0.0,
+          "minY": -1.0,
+          "minZ": 15.0,
+          "maxX": 1.0,
+          "maxY": 3.0,
+          "maxZ": 16.0
+        }
+      ],
+      "children": []
+    }
+  },
+  "minecraft:shulker_box": {
+    "bottomShell": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 28,
+      "pivotX": 0.0,
+      "pivotY": 24.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -8.0,
+          "minY": -8.0,
+          "minZ": -8.0,
+          "maxX": 8.0,
+          "maxY": 0.0,
+          "maxZ": 8.0
+        }
+      ],
+      "children": []
+    },
+    "topShell": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 0,
+      "pivotX": 0.0,
+      "pivotY": 24.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -8.0,
+          "minY": -16.0,
+          "minZ": -8.0,
+          "maxX": 8.0,
+          "maxY": -4.0,
+          "maxZ": 8.0
+        }
+      ],
+      "children": []
+    },
+    "head": {
+      "textureWidth": 64.0,
+      "textureHeight": 64.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 52,
+      "pivotX": 0.0,
+      "pivotY": 12.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -3.0,
+          "minY": 0.0,
+          "minZ": -3.0,
+          "maxX": 3.0,
+          "maxY": 6.0,
+          "maxZ": 3.0
+        }
+      ],
+      "children": []
+    }
+  },
+  "minecraft:conduit": {
+    "field_20823": {
+      "textureWidth": 16.0,
+      "textureHeight": 16.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 0,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -4.0,
+          "minY": -4.0,
+          "minZ": 0.0,
+          "maxX": 4.0,
+          "maxY": 4.0,
+          "maxZ": 0.0
+        }
+      ],
+      "children": []
+    },
+    "field_20824": {
+      "textureWidth": 64.0,
+      "textureHeight": 32.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 0,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -8.0,
+          "minY": -8.0,
+          "minZ": -8.0,
+          "maxX": 8.0,
+          "maxY": 8.0,
+          "maxZ": 8.0
+        }
+      ],
+      "children": []
+    },
+    "field_20825": {
+      "textureWidth": 32.0,
+      "textureHeight": 16.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 0,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -3.0,
+          "minY": -3.0,
+          "minZ": -3.0,
+          "maxX": 3.0,
+          "maxY": 3.0,
+          "maxZ": 3.0
+        }
+      ],
+      "children": []
+    },
+    "field_20826": {
+      "textureWidth": 32.0,
+      "textureHeight": 16.0,
+      "textureOffsetU": 0,
+      "textureOffsetV": 0,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0,
+      "roll": 0.0,
+      "mirror": false,
+      "cubes": [
+        {
+          "minX": -4.0,
+          "minY": -4.0,
+          "minZ": -4.0,
+          "maxX": 4.0,
+          "maxY": 4.0,
+          "maxZ": 4.0
+        }
+      ],
+      "children": []
+    }
+  },
+  "minecraft:skull": {}
+}

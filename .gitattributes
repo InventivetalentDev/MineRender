@@ -1,0 +1,5 @@
+# keep line endings consistent regardless of which side of the WSL mount does the checkout
+* text=auto eol=lf
+*.png binary
+*.ico binary
+*.nbt binary

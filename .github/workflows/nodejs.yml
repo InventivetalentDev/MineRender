@@ -1,25 +1,33 @@
 name: Node CI
 
-on: [push]
+on:
+  pull_request:
+    branches: [master, main, typescript, 'refactor/**', 'fix/**']
+
+permissions:
+  contents: read
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
     strategy:
       matrix:
-        node-version: [8.x, 10.x, 12.x]
-
+        node-version: [22.x, 24.x]
     steps:
-    - uses: actions/checkout@v1
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v1
-      with:
-        node-version: ${{ matrix.node-version }}
-    - name: npm install, build, and test
-      run: |
-        npm install
-        npm run build
-      env:
-        CI: true
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node-version }}
+          package-manager-cache: false
+      - name: Enable Yarn
+        run: corepack enable
+      - name: Install dependencies
+        run: yarn install --immutable
+      - name: Build the library
+        run: yarn build
+      - name: Check types and run tests
+        run: |
+          yarn typecheck
+          yarn test
+      - name: Pack the public library
+        run: yarn pack --out /tmp/minerender.tgz
