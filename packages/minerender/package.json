@@ -78,7 +78,7 @@
     "test": "ava",
     "doc": "typedoc --out docs src",
     "prepublishOnly": "yarn run build",
-    "publish:alpha": "yarn build && yarn version $(node ./scripts/next-alpha.cjs) --immediate && yarn npm publish --tag alpha"
+    "publish:alpha": "yarn build && yarn version prerelease --immediate && yarn npm publish --tag alpha"
   },
   "engines": {
     "node": ">=16.0.0"
@@ -123,7 +123,6 @@
     "esbuild": "^0.19.5",
     "esbuild-plugin-polyfill-node": "^0.3.0",
     "esbuild-runner": "^2.2.2",
-    "semver": "^7.3.5",
     "three": "^0.158.0",
     "tsup": "^8.5.0",
     "typedoc": "^0.26.11",

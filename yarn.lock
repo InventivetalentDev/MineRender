@@ -4033,7 +4033,6 @@ __metadata:
     node-persist: "npm:^3.1.0"
     postprocessing: "npm:^6.33.3"
     prismarine-nbt: "npm:^2.2.1"
-    semver: "npm:^7.3.5"
     stats.js: "npm:^0.17.0"
     three: "npm:^0.158.0"
     ts-deepmerge: "npm:2.0.2"
