@@ -90,7 +90,7 @@ class RequestQueue {
     private pendingRequests = 0;
     private readonly stopped = new AbortController();
     private readonly queue = new JobQueue<RequestConfig, RequestResponse>(
-        request => fetchRequest(request, this.baseURL), 10, 1, { maxActive: 8 });
+        request => fetchRequest(request, this.baseURL), { interval: 10, maxPerRun: 1, maxActive: 8 });
 
     public async request(request: RequestConfig): Promise<RequestResponse> {
         this.pendingRequests++;
