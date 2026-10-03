@@ -105,7 +105,7 @@ export class ImageLoader {
         const src = response.config?.url;
         const data = Buffer.from(response.data!);
         const { width, height, type } = Env.provider.imageSize(data);
-        if (!width || !height || !Number.isInteger(width) || !Number.isInteger(height) || width < 0 || height < 0) {
+        if (!width || !height) {
             throw new Error("Invalid or unsupported image dimensions");
         }
         return {
