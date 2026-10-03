@@ -1,6 +1,7 @@
 import { MaterialKey, serializeMaterialKey } from "./cache/CacheKey";
 import { Color, DoubleSide, FrontSide, Material, MeshBasicMaterial, MeshLambertMaterial, MeshPhongMaterial, MeshStandardMaterial, ShaderMaterial } from "three";
 import { Textures } from "./texture/Textures";
+import { TextureLoader } from "./texture/TextureLoader";
 import { Caching } from "./cache/Caching";
 import { AssetKey } from "./assets/AssetKey";
 
@@ -161,6 +162,10 @@ export class Materials {
 
     public static getImage(key: MaterialKey): Material {
         const keyStr = serializeMaterialKey(key);
+        const map = (Caching.materialCache.peek(keyStr) as MeshBasicMaterial | undefined)?.map;
+        if (map && TextureLoader.hasFailed(map)) {
+            Caching.materialCache.invalidate(keyStr);
+        }
         return Caching.materialCache.get(keyStr, k => {
             return Materials.createImage(key);
         })!;

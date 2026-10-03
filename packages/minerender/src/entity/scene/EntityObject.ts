@@ -43,15 +43,19 @@ export class EntityObject extends SceneObject {
         super.dispose();
     }
 
-    protected async loadTextures(): Promise<void> {
-        this.imageData = await ModelTextures.get(new AssetKey(
+    private get textureKey(): AssetKey {
+        return new AssetKey(
             this.entity.key?.namespace ?? DEFAULT_NAMESPACE,
             this.entity.key!.path, //TODO: texture may differ from entity name; most of them are in subdirectories for multiple variants etc.
             "textures",
             "entity",
             "assets",
             ".png"
-        ))
+        );
+    }
+
+    protected async loadTextures(): Promise<void> {
+        this.imageData = await ModelTextures.get(this.textureKey);
     }
 
     //TODO: abstract this, since extracted model data can be used for entities, blocks, players
@@ -102,29 +106,27 @@ export class EntityObject extends SceneObject {
     }
 
     protected async applyTextures() {
-
-        const textureAsset = await ModelTextures.preload(new AssetKey(
-            this.entity.key?.namespace ?? DEFAULT_NAMESPACE,
-            this.entity.key!.path,
-            "textures",
-            "entity",
-            "assets",
-            ".png"
-        ));
-        // if (this.atlas!.model.textures) {
-        //     for (let textureKey in this.atlas!.model.textures) {
-        //         let asset = this.textureMap[textureKey];
-        //         if (asset) {
-        //TODO: transparency
-        if (textureAsset) {
-            let mat = Materials.getImage({ texture: { src: textureAsset.src! } })
-            this.iterateAllMeshes(mesh => {
-                mesh.material = mat;
-            });
+        const assetKeyStr = this.textureKey.serialize();
+        const keyStr = `entity:${ assetKeyStr }`;
+        let mat = Caching.materialCache.getIfPresent(keyStr);
+        if (!mat) {
+            const pending = this.loadTextures();
+            const cachedAsset = Caching.textureAssetCache.getIfPresent(assetKeyStr);
+            await pending;
+            if (!this.imageData) return;
+            const canvas = (this.imageData.data as CanvasRenderingContext2D).canvas;
+            //TODO: transparency
+            const createMaterial = () => Materials.createBasicCanvasMaterial(canvas);
+            // A cache clear during decoding must not restore an older source's material.
+            mat = cachedAsset && Caching.textureAssetCache.getIfPresent(assetKeyStr) === cachedAsset
+                ? Caching.materialCache.get(keyStr, createMaterial)!
+                : createMaterial();
+            this.imageData = undefined;
         }
-        //         }
-        //     }
-        // }
+        this.iterateAllMeshes(mesh => {
+            mesh.material = mat!;
+        });
+        this.notifyDirty();
     }
 
 
