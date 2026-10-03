@@ -55,7 +55,7 @@ export class Renderer implements Disposable {
     protected _scene: MineRenderScene;
     protected _camera: Camera;
     protected _renderer: WebGLRenderer;
-    protected _composer: EffectComposer;
+    protected _composer?: EffectComposer;
     protected _controls?: OrbitControls;
 
     protected _stats?: Stats;
@@ -146,14 +146,10 @@ export class Renderer implements Disposable {
         return renderer;
     }
 
-    protected createComposer(): EffectComposer {
-        const autoClear = this.renderer.autoClear;
+    protected createComposer(): Maybe<EffectComposer> {
+        if (!this.options.composer.enabled) return undefined;
+
         const composer = new EffectComposer(this.renderer);
-        if (!this.options.composer.enabled) {
-            // The composer disables automatic clearing, but direct rendering still needs it.
-            this.renderer.autoClear = autoClear;
-            return composer;
-        }
 
         composer.setSize(this.viewWidth, this.viewHeight);
         //TODO: options
@@ -316,7 +312,7 @@ export class Renderer implements Disposable {
         }
 
         this.renderer.setSize(width, height);
-        this.composer.setSize(width, height);
+        this.composer?.setSize(width, height);
         this._dirty = true;
     }
 
@@ -403,7 +399,7 @@ export class Renderer implements Disposable {
         }
         this._debugHelpers.length = 0;
 
-        cleanup(() => this.composer.dispose());
+        cleanup(() => this.composer?.dispose());
         cleanup(() => this.renderer.dispose());
         cleanup(() => this.renderer.forceContextLoss());
 
@@ -433,7 +429,7 @@ export class Renderer implements Disposable {
             this._stats.begin();
         }
 
-        if (this.options.composer.enabled) {
+        if (this.options.composer.enabled && this.composer) {
             this.composer.render();
         } else {
             this.renderer.render(this.scene, this.camera);
@@ -480,7 +476,7 @@ export class Renderer implements Disposable {
         return this._renderer;
     }
 
-    public get composer(): EffectComposer {
+    public get composer(): Maybe<EffectComposer> {
         return this._composer;
     }
 
