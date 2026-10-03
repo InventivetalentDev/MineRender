@@ -11,5 +11,3 @@ From the repository root:
 Run `yarn workspace @minerender/example-vite build` to typecheck the example and generate `examples/vite/dist`. Rebuild the library after changing its source.
 
 The example fetches Minecraft assets over HTTPS. It keeps the Node polyfill plugin because the library's asset loaders include the NBT parser, which uses `zlib`.
-
-The example replaces the library's default vanilla source with `https://assets.mcasset.cloud/1.17.1`; the library's older default URL is retained until the asset-pipeline work.

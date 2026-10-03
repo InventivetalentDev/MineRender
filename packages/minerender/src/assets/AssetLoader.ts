@@ -49,8 +49,8 @@ export class AssetLoader {
     }
 
     static {
-        this.addSource("mcassets-fallback", new HostedAssetSource('https://raw.githubusercontent.com/InventivetalentDev/minerender-fallback-assets/master'));
-        this.addSource("mcassets", new HostedAssetSource(DEFAULT_ROOT));
+        this.addSource("mcassets-fallback", new HostedAssetSource('https://raw.githubusercontent.com/InventivetalentDev/minerender-fallback-assets/master', { retryDefaults: false }));
+        this.addSource("mcassets", new HostedAssetSource(DEFAULT_ROOT, { retryDefaults: false }));
     }
 
     public static async getAll<T extends MinecraftAsset>(key: AssetKey, parser: AssetParser | string): Promise<T[]> {
