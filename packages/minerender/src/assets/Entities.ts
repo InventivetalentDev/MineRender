@@ -5,6 +5,14 @@ import { AssetLoader } from "./AssetLoader";
 import { AssetParser } from "./source";
 import { Maybe } from "../util";
 import { Caching } from "../cache/Caching";
+import { ModelTextures } from "./ModelTextures";
+import { DEFAULT_NAMESPACE } from "./Assets";
+
+const ENTITY_TEXTURE_PATHS: Record<string, string[]> = {
+    chicken: ["chicken", "chicken/temperate_chicken"],
+    pig: ["pig", "pig/pig", "pig/temperate_pig"],
+    cow: ["cow", "cow/cow", "cow/temperate_cow"]
+};
 
 export class Entities {
 
@@ -61,13 +69,26 @@ export class Entities {
         if (!models) {
             return undefined;
         }
-        if (!textureKey) {
-            textureKey = modelKey
-        }
+        const texturePaths = modelKey.namespace === DEFAULT_NAMESPACE && ENTITY_TEXTURE_PATHS[modelKey.path];
         const baseKey = modelKey.path.includes("/") ? new BasicAssetKey(modelKey.namespace, modelKey.path.split("\/")[0]) : modelKey;
+        let parts: EntityModel["parts"] = models[baseKey.toNamespacedString()];
+        if (!textureKey && texturePaths && parts) {
+            const keys = texturePaths.map(path => new AssetKey(modelKey.namespace, path, "textures", "entity", "assets", ".png"));
+            const texture = await ModelTextures.preload(keys[0], keys.slice(1));
+            textureKey = texture?.key;
+        }
+        textureKey ??= modelKey;
+        if (parts && baseKey.namespace === DEFAULT_NAMESPACE && textureKey.namespace === DEFAULT_NAMESPACE &&
+            ["pig", "cow"].includes(baseKey.path) && textureKey.path === `${baseKey.path}/temperate_${baseKey.path}`) {
+            // Modern farm-animal atlases keep the legacy regions in the upper half.
+            parts = Object.fromEntries(Object.entries(parts).map(([name, part]) => [name, {
+                ...part,
+                textureHeight: part.textureHeight === 32 ? 64 : part.textureHeight
+            }]));
+        }
         return {
             key: textureKey,
-            parts: models[baseKey.toNamespacedString()]
+            parts
         }
     }
 

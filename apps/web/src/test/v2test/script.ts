@@ -201,8 +201,8 @@ world.setBlockAt(0, 0, 0, {
 
 
 
-const structureAsset = new AssetKey("minecraft", "end_city/ship", "structures", undefined, "data", ".nbt");
-// const structureAsset = new AssetKey("minecraft", "pillager_outpost/watchtower", "structures", undefined, "data", ".nbt");
+const structureAsset = new AssetKey("minecraft", "end_city/ship", "structure", undefined, "data", ".nbt");
+// const structureAsset = new AssetKey("minecraft", "pillager_outpost/watchtower", "structure", undefined, "data", ".nbt");
 // const structureAsset = new AssetKey(undefined, "all_blocks_16", undefined, undefined, undefined, ".nbt", "https://corsfiles.inventivetalent.dev")
 // const structureAsset = new AssetKey(undefined, "world_test", undefined, undefined, undefined, ".nbt", "https://corsfiles.inventivetalent.dev")
 

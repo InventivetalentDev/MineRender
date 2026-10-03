@@ -37,9 +37,16 @@ export class ModelTextures {
         }
     }
 
-    public static async preload(key: AssetKey): Promise<Maybe<TextureAsset>> {
-        const keyStr = key.serialize();
+    public static async preload(key: AssetKey, alternatives: AssetKey[] = []): Promise<Maybe<TextureAsset>> {
+        const keyStr = alternatives.length ? JSON.stringify([key, ...alternatives].map(candidate => candidate.serialize())) : key.serialize();
         return Caching.textureAssetCache.get(keyStr, k => {
+            if (alternatives.length) {
+                return AssetLoader.getFirst<TextureAsset>([key, ...alternatives], AssetParser.IMAGE).then(result => {
+                    if (!result) return undefined;
+                    result.asset.key = result.key;
+                    return Caching.textureAssetCache.get(result.key.serialize(), () => Promise.resolve(result.asset));
+                });
+            }
             return AssetLoader.get<TextureAsset>(key, AssetParser.IMAGE).then(asset => {
                 if (asset)
                     asset.key = key;

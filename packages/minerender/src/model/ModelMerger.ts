@@ -25,6 +25,7 @@ export class ModelMerger {
         }
         const models: Model[] = [];
         const parentKey = AssetKey.parse("models", model.parent);
+        parentKey.root = model.key?.root;
         const parentModel = await Models.getRaw(parentKey);
         if (parentModel) {
             models.unshift(parentModel);

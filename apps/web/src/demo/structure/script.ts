@@ -91,7 +91,7 @@ async function setStructure(structureName: string) {
     await world.clear();
 
    try{
-       const structureAsset = new AssetKey("minecraft", structureName, "structures", undefined, "data", ".nbt");
+       const structureAsset = new AssetKey("minecraft", structureName, "structure", undefined, "data", ".nbt");
 
        const asset = await AssetLoader.get<NBTAsset>(structureAsset, AssetParser.NBT);
        console.log(asset);
@@ -118,10 +118,10 @@ structureInput.addEventListener("change", () => {
 });
 const structureSuggestions = document.getElementById("structure-suggestions") as HTMLDataListElement;
 setTimeout(() => {
-    fetch(AssetLoader.ROOT + "/data/minecraft/structures/_list.json").then(res => res.json()).then(rootList => {
+    fetch(AssetLoader.ROOT + "/data/minecraft/structure/_list.json").then(res => res.json()).then(rootList => {
         console.log(rootList)
         rootList["directories"].forEach(dir => {
-            fetch(AssetLoader.ROOT + "/data/minecraft/structures/" + dir + "/_list.json").then(res => res.json()).then(list => {
+            fetch(AssetLoader.ROOT + "/data/minecraft/structure/" + dir + "/_list.json").then(res => res.json()).then(list => {
                 console.log(list)
                 list["files"].forEach(file => {
                     const option = document.createElement("option");
