@@ -1,4 +1,3 @@
-import "../../assets";
 import {
     AssetKey,
     AssetLoader,
