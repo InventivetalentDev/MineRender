@@ -1,6 +1,6 @@
 # MineRender V2 — Agent & Contributor Guide
 
-MineRender V2 is a from-scratch TypeScript rewrite of [MineRender](https://minerender.org), a three.js-based library for interactive 3D renders of Minecraft content: player skins, block/item models, entities, GUIs, and structures/worlds. Published on npm as `minerender` (currently `2.0.0-alpha.15`). Development starts from the `typescript` branch. The monorepo migration uses `refactor/v2-monorepo` in a separate worktree.
+MineRender V2 is a from-scratch TypeScript rewrite of [MineRender](https://minerender.org), a three.js-based library for interactive 3D renders of Minecraft content: player skins, block/item models, entities, GUIs, and structures/worlds. Published on npm as `minerender`; V2 is in alpha.
 
 V2's goals beyond V1 parity: cleaner code, better performance, **usable from both browser and server-side Node**, and **large-scale rendering of full Minecraft worlds** (V1 topped out at structure files).
 
@@ -16,23 +16,23 @@ The private Yarn workspace root contains the public library and its consumers. U
 | `apps/web/` | MineRenderWeb demo/test pages, built with esbuild against the library workspace. |
 | `examples/vite/` | Vue 3 + Vite consumer, imported from `MineRender/example-vite`. Uses ESM named imports and a workspace dependency. |
 | `examples/script-tag/` | Plain HTML consumer, imported from `MineRender/example-bundle`. Loads the library's IIFE as `MineRender`. |
-| `InventivetalentDev/MineRender` (local checkout: `MineRenderV1`) | V1 (JS, webpack 4, three 0.93, browser-only), the feature-parity reference. Its `typescript` branch is an ancestor of V2, 75 commits behind the migration base. Preserve its existing branches, tags, bundles, and website URLs. |
-| `InventivetalentDev/MineRenderServer` (local checkout: `MineRenderServer`) | V1-era headless render HTTP API (Express + headless-gl + patched node-canvas + three-png-stream under xvfb). Reference only; not imported. Its contract includes `GET /render/skin/[:texture]`, `GET /render/model/:type/:model`, the `minerender-options` header, and an MD5-keyed PNG cache. |
+| `InventivetalentDev/MineRender`  | V1 (JS, webpack 4, three 0.93, browser-only), the feature-parity reference. Preserve its existing branches, tags, bundles, and website URLs. |
+| `InventivetalentDev/MineRenderServer`  | V1-era headless render HTTP API (Express + headless-gl + patched node-canvas + three-png-stream under xvfb). Reference only; not imported. Its contract includes `GET /render/skin/[:texture]`, `GET /render/model/:type/:model`, the `minerender-options` header, and an MD5-keyed PNG cache. |
 | [minerender-fallback-assets](https://github.com/InventivetalentDev/minerender-fallback-assets) | GitHub repo serving the custom `minerender:` namespace assets (entityModels, blockEntityModels, defaultBlockStates) and fallback copies of vanilla assets. The JSON files inside `src/` here are **reference copies only** — runtime fetches from that repo (see Gotchas). |
-| `cdn.mcasset.cloud` | Primary vanilla-asset CDN, hardcoded to MC **1.17.1** in `src/assets/Assets.ts` (`DEFAULT_ROOT`). Provides synthetic `_list.json` directory indexes that `getList()` APIs depend on. |
+| `assets.mcasset.cloud` | Primary vanilla-asset CDN, hardcoded to MC **1.17.1** in `src/assets/Assets.ts` (`DEFAULT_ROOT`). Provides synthetic `_list.json` directory indexes that `getList()` APIs depend on. |
 | `minecraft-skin-proxy.inventive.workers.dev` | Own Cloudflare worker for CORS-safe skin/cape/UUID lookups (`src/skin/Skins.ts`); also api.mineskin.org, api.capes.dev. |
 
 ## Build, test, publish
 
 - **Package manager: yarn 4 (`packageManager: yarn@4.5.3`, corepack), `nodeLinker: node-modules`.** Do not use npm here.
-- **The migration checkout is on macOS.** Install dependencies on the machine that runs the build; esbuild, Rollup, and `canvas` binaries are platform-specific. Do not reuse `node_modules` from the earlier Windows/WSL checkout.
+- Install dependencies on the OS that runs the build; esbuild, Rollup, and `canvas` use platform-specific binaries.
 - Root commands delegate to the workspaces:
 
   | Command | Scope |
   |---|---|
   | `yarn build` | Build the library, web demos, and both examples. |
   | `yarn build:lib` | Build the public library only. |
-  | `yarn test` | Run the library's existing AVA tests. |
+  | `yarn test` | Run the library's AVA tests. |
   | `yarn typecheck` | Typecheck the library and Vite example. |
   | `yarn dev:web`, `yarn dev:vite`, `yarn dev:script-tag` | Start the corresponding local consumer. |
 
@@ -46,14 +46,13 @@ The private Yarn workspace root contains the public library and its consumers. U
 
   `package.json` `exports` routes `browser`/`node` conditions to the matching build; `dist/bundle.js` keeps its historical path for unpkg/script-tag consumers.
 - `ts-deepmerge` is deliberately `noExternal` (inlined): it is CJS exporting `{default: fn}`, which Node's ESM loader will not unwrap, so `import merge from "ts-deepmerge"` breaks in `.mjs` output unless esbuild does the interop at build time.
-- The library tests run TS sources through `esbuild-runner`. One test file exists (`test/AssetKey.test.ts`), containing three AVA tests. Use the existing test style and keep the library type-clean.
-- Publish only the `minerender` workspace; the root, web app, and examples are private. The library `files` whitelist includes `dist` + README + LICENSE. `yarn publish:alpha` builds the library, computes the next `alpha` version with semver, applies it with Yarn, and publishes to the registry's `alpha` tag. It does not create a Git commit or Git tag; no publication is part of the migration. The npm package retains `dist/bundle.js`, browser/Node exports, and its public API.
+- `yarn test` runs AVA tests from `test/*.test.ts` through `esbuild-runner`. Follow the existing test style and cover behavior that can regress.
+- Publish only the `minerender` workspace with `yarn publish:alpha`: build, increment the prerelease version with Yarn, and publish under `alpha`. Commit and tag the release separately. The package includes `dist`, README, and LICENSE.
 - `src/index.ts` is **autogenerated** by `scripts/make-exports.sh` — the *shared* barrel, and everything in it must work on both platforms. `src/env/` is excluded on purpose (see the Env seam below), as are the two entry files. Don't hand-edit it beyond regenerating (`yarn workspace minerender exports`).
-- Root `res/tools/` contains offline scripts that generate entity-model JSON for the fallback-assets repo (java-parser over decompiled vanilla renderers and a Bedrock geometry converter). Its historical package manifest is absent from this checkout; it is not a workspace or part of the library build.
+- Root `res/tools/` contains offline scripts that generate entity-model JSON for the fallback-assets repo (java-parser over decompiled vanilla renderers and a Bedrock geometry converter). It is not a workspace or part of the library build.
 
 ## Architecture
 
-~130 TS files, ~8k lines (excluding vendored three helpers in `src/three/` and `src/lib/`).
 
 **Rendering core** (`src/renderer/`): `Renderer` owns a `WebGLRenderer` + `postprocessing` EffectComposer and a **dirty-flag render loop** — frames render only when `dirty` (or `options.render.renderAlways`). `MineRenderScene extends THREE.Scene` with asset-aware `addModel/addBlock/addSkin/addEntity`, all funneling through `addSceneObject`. `SceneObject extends Object3D` is the base for `ModelObject`, `BlockObject`, `SkinObject`, `EntityObject`, `GuiObject` (empty stub); it provides named-group/mesh addressing (`group:head`, `mesh:head` via `getGroupByName`/`getMeshByName`) and the instancing plumbing.
 
@@ -85,14 +84,14 @@ The private Yarn workspace root contains the public library and its consumers. U
 
 ## Gotchas
 
-- **The JSON data files in `src/` (`entityModels.json`, `blockEntityModels.json`, `defaultBlockStates.json`, `playerModels.json`, `legacyBlockList.json`) are not imported by code.** Runtime fetches them as `minerender:` namespace assets from the fallback-assets GitHub repo. Editing the local copies changes nothing until pushed there.
-- **A Node process will not exit on its own.** `@inventivetalent/loading-cache` (14 cache expiry timers) and `jobqu` (2 queue timers) both use self-rescheduling `setTimeout`s that are not `unref`'d, so merely importing the library holds the event loop open. Call `shutdown()` (`src/shutdown.ts`) when done — it ends the caches, the request queues and the Ticker. The real fix is an `unref()` upstream in those two packages, which are Haylee's own.
-- `@Memoize` on async statics (`BlockStates.getList`, `Entities.*`) caches the **first** promise forever — including rejections.
-- All asset/network failures collapse to `undefined` (and `ImageLoader` caches fake 0×0 images on error); "missing asset" and "network down" are indistinguishable.
-- `@types/three` (0.125) is 33 minor versions behind the `three` peer (^0.158); some imports (`warn`, `sRGBEncoding`) only survive because they tree-shake away. Deep `three/src/*` / `three/examples/jsm/*` imports must stay type-only.
-- `canvas` is an **optionalDependency**: browser-only installs must not be forced to compile node-canvas, and it has no prebuilt binary for recent Node (a source build needs cairo/pango/pixman). Its *types* still resolve because the package is downloaded either way. The Node entry genuinely requires the binary at runtime.
-- Dead code to not be confused by: `src/_model/` (orphaned schema experiment), `src/lib/OrbitControls.js` (older duplicate of `src/three/OrbitControls.js`), root `mccolor.js`, the empty root `three/` dir.
-- V1's repo doubles as the live minerender.org website; V2's repo also carries website leftovers (`index.html`, `manifest.json`) — now excluded from the tarball by the `files` whitelist.
+- JSON model dictionaries in `src/` are reference copies. Runtime data comes from the fallback-assets repository; local edits do not change hosted assets.
+- Dependency timers keep Node alive. Call `shutdown()` for final cache, queue, and Ticker cleanup.
+- Async `@Memoize` methods retain their first promise, including failures.
+- Image failures can leave cached 0×0 placeholders; asset loading can collapse errors to `undefined`.
+- `@types/three` 0.125 trails the Three 0.158 runtime. Deep Three helper imports must remain type-only.
+- Node imports require a working native `canvas` installation; browser-only installs can skip its optional build.
+- `src/_model/`, `src/lib/OrbitControls.js`, root `mccolor.js`, and the empty root `three/` are unused legacy code.
+- Preserve V1 `master`, tags, bundles, and website URLs. Legacy website files are excluded from the V2 npm package.
 
 ## Public API compatibility contract
 
@@ -102,14 +101,8 @@ The union of what the three consumers (`examples/vite`, `apps/web`, `examples/sc
 
 Delivery formats that must all keep working: ESM named imports under a bundler, CJS require, and the `window.MineRender` IIFE bundle (script tag / unpkg). All three are built by `yarn build:lib`. Check imports under Node as well as loading the consumers in a browser.
 
-Added since: `shutdown()`, `Env`/`EnvProvider`, `BrowserEnv`/`NodeEnv` (per-entry), `Caching.end`, `Requests.end`, `Ticker.start/stop`.
+Additional public APIs: `shutdown()`, `Env`/`EnvProvider`, `BrowserEnv`/`NodeEnv` (per-entry), `Caching.end`, `Requests.end`, `Ticker.start/stop`.
 
 ## Where to continue
 
-Steps 1–4 of the original plan are **done** (dev env, tsup migration, import-time side effects, the browser/Node seam). The workspace migration and its verification status are recorded in [ROADMAP.md](./ROADMAP.md). It does not complete any renderer or feature-parity work. The remaining order is:
-
-1. **Renderer core fixes + built-in OrbitControls** — `Renderer.stop()` calls `window.stop()`; `outputEncoding` → `outputColorSpace`.
-2. **Model/blockstate bug batch** — `Axis.X = "X"` silently disables every x-axis element rotation; the missing `await` on `BlockStates.getDefaultState`.
-3. **Finish skins** (slim UVs, capes) and entity child-part recursion.
-4. **Instance lifecycle overhaul** (slot reclamation, grow) then the world redesign for large-scale renders.
-5. **Headless Node rendering** — the seam and `shutdown()` are in place; what's missing is a GL context (`headless-gl`) and an image encode path, per the MineRenderServer spec.
+Follow the ordered tasks in [ROADMAP.md](./ROADMAP.md).

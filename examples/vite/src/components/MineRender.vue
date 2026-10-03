@@ -27,7 +27,6 @@
 import {
     AssetKey,
     AssetLoader,
-    HostedAssetSource,
     Models,
     OrbitControls,
     Renderer,
@@ -37,14 +36,6 @@ import {
 } from "minerender";
 import {Vector3} from "three";
 import { onMounted, ref } from "vue";
-
-const assetRoot = "https://assets.mcasset.cloud/1.17.1";
-AssetLoader.ROOT = assetRoot;
-AssetLoader.addSource("mcassets-fallback", new HostedAssetSource(
-    "https://raw.githubusercontent.com/InventivetalentDev/minerender-fallback-assets/master",
-    {retryDefaults: false}
-));
-AssetLoader.addSource("mcassets", new HostedAssetSource(assetRoot, {retryDefaults: false}));
 
 const renderContainer = ref<HTMLDivElement>();
 
