@@ -1,7 +1,6 @@
 import "../../assets";
 import { AssetKey, BlockObject, BlockStates, Renderer, SceneInspector, SkinObject, Skins } from "minerender";
 import { Intersection, Vector3 } from "three";
-import { OrbitControls } from "minerender";
 
 console.log("hi");
 
@@ -10,6 +9,9 @@ const renderer = new Renderer({
         near: 1,
         far: 2000,
         position: [50, 35, 50]
+    },
+    controls: {
+        enabled: true
     },
     render: {
         stats: true,
@@ -78,10 +80,3 @@ BlockStates.getList().then(list => {
         blockSuggestions.appendChild(option);
     })
 })
-
-
-//TODO: include this in renderer constructor
-// @ts-ignore meh.
-const controls = new OrbitControls(renderer.camera, renderer.renderer.domElement);
-renderer.registerEventDispatcher(controls);
-controls.update();

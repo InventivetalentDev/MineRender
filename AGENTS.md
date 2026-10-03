@@ -16,7 +16,7 @@ The private Yarn workspace root contains the public library and its consumers. U
 | `apps/web/` | MineRenderWeb demo/test pages, built with esbuild against the library workspace. |
 | `examples/vite/` | Vue 3 + Vite consumer, imported from `MineRender/example-vite`. Uses ESM named imports and a workspace dependency. |
 | `examples/script-tag/` | Plain HTML consumer, imported from `MineRender/example-bundle`. Loads the library's IIFE as `MineRender`. |
-| `InventivetalentDev/MineRender` (local checkout: `MineRenderV1`) | V1 (JS, webpack 4, three 0.93, browser-only), the feature-parity reference. Its `typescript` branch is an ancestor of V2, 75 commits behind the migration base. Preserve its existing branches, tags, bundles, and website URLs. |
+| `InventivetalentDev/MineRender` (V1 checkout: `MineRenderV1`) | `master` contains V1 (JS, webpack 4, three 0.93, browser-only), the feature-parity reference. V2 development shares this repository on `typescript` and the stacked refactor branches. Preserve V1 tags, bundles, and website URLs. |
 | `InventivetalentDev/MineRenderServer` (local checkout: `MineRenderServer`) | V1-era headless render HTTP API (Express + headless-gl + patched node-canvas + three-png-stream under xvfb). Reference only; not imported. Its contract includes `GET /render/skin/[:texture]`, `GET /render/model/:type/:model`, the `minerender-options` header, and an MD5-keyed PNG cache. |
 | [minerender-fallback-assets](https://github.com/InventivetalentDev/minerender-fallback-assets) | GitHub repo serving the custom `minerender:` namespace assets (entityModels, blockEntityModels, defaultBlockStates) and fallback copies of vanilla assets. The JSON files inside `src/` here are **reference copies only** — runtime fetches from that repo (see Gotchas). |
 | `cdn.mcasset.cloud` | Primary vanilla-asset CDN, hardcoded to MC **1.17.1** in `src/assets/Assets.ts` (`DEFAULT_ROOT`). Provides synthetic `_list.json` directory indexes that `getList()` APIs depend on. |
@@ -73,8 +73,8 @@ The private Yarn workspace root contains the public library and its consumers. U
 
 ## Load-bearing conventions
 
-- **Dirty flag**: anything that mutates visuals must end up calling `notifyDirty()` / setting `scene.dirty`, or the frame never repaints. External event sources (e.g. OrbitControls) must be registered via `renderer.registerEventDispatcher(...)`.
-- **Renderer ownership**: `stop()` pauses and `start()` resumes. `dispose()` is final and idempotent: it detaches scene children, removes the renderer's listeners and DOM, disposes its debug helpers/composer/WebGL renderer, and releases its owned GL context. Caller-owned controls and shared scene assets remain the caller's responsibility; it does not clear global caches or stop the shared Ticker.
+- **Dirty flag**: anything that mutates visuals must end up calling `notifyDirty()` / setting `scene.dirty`, or the frame never repaints. Built-in OrbitControls (`controls: { enabled: true }`) register automatically and update before the dirty check. Register external event sources, including manually created controls, via `renderer.registerEventDispatcher(...)`.
+- **Renderer ownership**: `stop()` pauses and `start()` resumes. `dispose()` is final and idempotent: it detaches scene children, removes the renderer's listeners and DOM, disposes its built-in controls/debug helpers/composer/WebGL renderer, and releases its owned GL context. Caller-owned controls and shared scene assets remain the caller's responsibility; it does not clear global caches or stop the shared Ticker.
 - **Face order**: `CUBE_FACES` = east, west, up, down, south, north (three.js BoxGeometry material order). UV buffers are written at `faceIndex * 4` vertices. Skins, entities, and models all rely on this ordering.
 - **Scale**: 1 block = 16 scene units (= Minecraft model space); 1 chunk = 256 units.
 - **Instance deletion = scale-to-zero**: removal writes a zero-scale matrix; slots are never reclaimed (known design debt).
@@ -103,13 +103,13 @@ The union of what the three consumers (`examples/vite`, `apps/web`, `examples/sc
 
 Delivery formats that must all keep working: ESM named imports under a bundler, CJS require, and the `window.MineRender` IIFE bundle (script tag / unpkg). All three are built by `yarn build:lib`. Check imports under Node as well as loading the consumers in a browser.
 
-Added since: `shutdown()`, `Env`/`EnvProvider`, `BrowserEnv`/`NodeEnv` (per-entry), `Caching.end`, `Requests.end`, `Ticker.start/stop`, `Renderer.dispose`.
+Added since: `shutdown()`, `Env`/`EnvProvider`, `BrowserEnv`/`NodeEnv` (per-entry), `Caching.end`, `Requests.end`, `Ticker.start/stop`, `Renderer.dispose`, optional `controls.enabled`, and `renderer.controls` (undefined unless enabled at construction, and after disposal).
 
 ## Where to continue
 
 Steps 1–4 of the original plan are **done** (dev env, tsup migration, import-time side effects, the browser/Node seam). The workspace migration and its verification status are recorded in [ROADMAP.md](./ROADMAP.md). It does not complete any renderer or feature-parity work. The remaining order is:
 
-1. **Remaining renderer fixes + built-in OrbitControls** — lifecycle cleanup and resize invalidation are implemented; continue with controls, `fpsLimit`, composer brightness, and `outputEncoding` → `outputColorSpace`.
+1. **Remaining renderer fixes** — lifecycle cleanup, resize invalidation, and opt-in OrbitControls are implemented; continue with `fpsLimit`, composer brightness, and `outputEncoding` → `outputColorSpace`.
 2. **Model/blockstate bug batch** — `Axis.X = "X"` silently disables every x-axis element rotation; the missing `await` on `BlockStates.getDefaultState`.
 3. **Finish skins** (slim UVs, capes) and entity child-part recursion.
 4. **Instance lifecycle overhaul** (slot reclamation, grow) then the world redesign for large-scale renders.

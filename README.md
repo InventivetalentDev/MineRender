@@ -36,9 +36,22 @@ against the existing library output. `yarn typecheck` checks the library and Vue
 `yarn test` runs the existing AVA tests. `yarn doc` writes API documentation to
 `packages/minerender/docs/`.
 
+Enable renderer-owned OrbitControls at construction:
+
+```ts
+const renderer = new Renderer({ controls: { enabled: true } });
+if (renderer.controls) {
+    renderer.controls.enableDamping = true;
+}
+```
+
+Controls use `camera.lookingAt` as their initial orbit target. While the renderer runs, it updates
+damping and auto-rotation before deciding whether to redraw. Configure these behaviors through
+`renderer.controls`. Controls are off by default; existing manual controls remain supported.
+
 Use `renderer.stop()` to pause rendering and `renderer.start()` to resume. When a renderer is
 no longer needed, call `renderer.dispose()` to remove its canvas, stats, and listeners and release
-its rendering resources. Disposal is final and safe to repeat. Dispose caller-owned controls
+its rendering resources and built-in controls. Disposal is final and safe to repeat. Dispose caller-owned controls
 separately; scene objects are detached without disposing their shared geometry, materials, or textures.
 
 The optional `canvas` dependency requires a working native installation for Node imports.

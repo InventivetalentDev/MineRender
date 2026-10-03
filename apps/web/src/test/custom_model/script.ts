@@ -26,7 +26,6 @@ import {
     sRGBEncoding,
     Vector3
 } from "three";
-import { OrbitControls } from "minerender";
 
 
 console.log("hi")
@@ -70,6 +69,9 @@ const renderer = new Renderer({
     camera: {
         near: 1,
         far: 2000
+    },
+    controls: {
+        enabled: true
     },
     render: {
         stats: true,
@@ -133,10 +135,6 @@ async function createModel(type, name, instances = 1, x = 0, y = 0, z = 0) {
 
 createModel("item", "blockbench-test");
 
-// @ts-ignore meh.
-const controls = new OrbitControls(renderer.camera, renderer.renderer.domElement);
-renderer.registerEventDispatcher(controls);
-controls.update();
 
 
 
