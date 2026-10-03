@@ -89,7 +89,7 @@ The private Yarn workspace root contains the public library and its consumers. U
 
 - JSON model dictionaries in `src/` are reference copies. Runtime data comes from the fallback-assets repository; local edits do not change hosted assets.
 - Idle caches and request queues let Node exit. `shutdown()` clears shared caches, permanently ends request queues, and stops Ticker.
-- Requests use native Fetch, bounded GET retries, and per-attempt timeouts through body reading. Cancellation aborts a call; shutdown rejects waiting work and lets active calls finish.
+- Requests require Fetch and `AbortSignal.any/timeout`, with bounded GET retries and timeouts through body reading. Cancellation aborts a call; shutdown rejects waiting work and lets active calls finish.
 - Async list/dictionary caches evict missing and rejected loads. Clear in-memory caches when sources change; persistent storage must be cleared separately.
 - Image decode failures reject and evict the matching cache entry. Failed synchronous image placeholders are retried on the next lookup.
 - Hosted/archive failures reject with `AssetLoadError`. Only missing assets or an explicit `undefined` parser result permit fallback.

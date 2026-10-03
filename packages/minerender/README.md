@@ -23,4 +23,4 @@ The package provides ESM and CommonJS entries for browsers and Node.js, plus
 `dist/bundle.js` for the `MineRender` browser global. Node imports require the optional
 native `canvas` dependency; headless rendering is still in development.
 
-Requires Node.js 22+ or a browser with native Fetch and AbortController.
+Requires Node.js 22+ or a browser with Fetch, `AbortSignal.any()`, and `AbortSignal.timeout()`.
