@@ -62,6 +62,15 @@ no longer needed, call `renderer.dispose()` to remove its canvas, stats, and lis
 its rendering resources and built-in controls. Disposal is final and safe to repeat. Dispose caller-owned controls
 separately; scene objects are detached without disposing their shared geometry, materials, or textures.
 
+`AssetLoader.addSource()` gives the added source highest priority. `AssetLoader.get()` tries a
+snapshot of that order one source at a time and returns the first defined asset unchanged.
+Resource-pack files replace lower-priority files as a whole; model-parent inheritance is separate.
+`getAll()` still collects results from every source. A rejecting source rejects the lookup.
+
+Each hosted source keeps its namespace/root retry behavior. For strict source layering, create
+`HostedAssetSource` with `{ retryDefaults: false }`. Cache generation 2 uses fresh persistent
+stores so old source-merged assets are not reused; legacy stores are left untouched.
+
 The optional `canvas` dependency requires a working native installation for Node imports.
 Browser development can proceed if its native build fails. Actual headless rendering still
 requires the renderer work described in the roadmap.

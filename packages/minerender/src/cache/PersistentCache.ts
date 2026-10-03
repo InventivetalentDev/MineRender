@@ -10,7 +10,7 @@ import { Env } from "../Env";
 export abstract class PersistentCache<B = unknown> {
 
     /** Bump to invalidate every persisted entry. */
-    public static readonly VERSION = 1;
+    public static readonly VERSION = 2;
 
     public static open(name: string): PersistentCache {
         return Env.provider.openCache(name, PersistentCache.VERSION);
