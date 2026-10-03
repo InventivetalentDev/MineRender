@@ -56,7 +56,7 @@
 
     createModel("item", "diamond_sword").then(model => {
         model.setPosition(model.getPosition().set(-24, 0, 0));
-    });
+    }).catch(error => console.error(error));
     renderer.scene.addSkin("https://textures.minecraft.net/texture/fb5f93b1ccebf7b385fa488c6d4cfec87cf1b855f8dbe0308da44167cae170b");
 </script>
 </body>

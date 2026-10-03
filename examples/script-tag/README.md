@@ -12,4 +12,4 @@ Run `yarn workspace @minerender/example-script-tag build` to copy the page and l
 
 After editing the page or rebuilding the library, restart the development server to copy the updated files.
 
-The example replaces the library's default vanilla source with `https://assets.mcasset.cloud/1.17.1`; the library's older default URL is retained until the asset-pipeline work.
+Vanilla assets load from `https://assets.mcasset.cloud/1.17.1`.

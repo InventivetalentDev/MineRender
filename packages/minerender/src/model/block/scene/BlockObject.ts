@@ -44,7 +44,7 @@ export class BlockObject extends SceneObject {
 
     async init(): Promise<void> {
         if (this.options.applyDefaultState) {
-            const defaultState = this.blockState.key ? BlockStates.getDefaultState(this.blockState.key) : undefined;
+            const defaultState = this.blockState.key ? await BlockStates.getDefaultState(this.blockState.key) : undefined;
             if (defaultState && Object.keys(defaultState).length > 0) { // use defined state
                 const state = {};
                 for (let k in defaultState) {

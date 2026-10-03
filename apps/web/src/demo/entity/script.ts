@@ -68,7 +68,7 @@ function setEntity(entity: string) {
             instanceId: entityObject.isInstanced ? entityObject.instanceCounter : undefined
         }
         sceneInspector.selectObject(entityObject, intersection)
-    })
+    }).catch(error => console.error(error));
 }
 
 window["setEntity"] = setEntity;
@@ -84,11 +84,11 @@ Entities.getEntityList().then(list => {
         option.value = l;
         entitySuggestions.appendChild(option);
     })
-})
+}).catch(error => console.error(error));
 Entities.getBlockList().then(list => {
     list.forEach(l => {
         const option = document.createElement("option");
         option.value = l;
         entitySuggestions.appendChild(option);
     })
-})
+}).catch(error => console.error(error));
