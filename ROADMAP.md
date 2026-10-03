@@ -1,6 +1,6 @@
 # MineRender V2 — Status, Parity & Continuation Plan
 
-The library's build, packaging, and browser/Node boundary are complete as of `typescript` commit `2d17ebe`. The next runtime milestone is renderer lifecycle and controls. The monorepo migration organizes the existing library and consumers; it does not complete any rendering features.
+The library's build, packaging, and browser/Node boundary are complete as of `typescript` commit `2d17ebe`. Renderer lifecycle fixes are implemented on `fix/renderer-lifecycle`; built-in controls and color handling remain next. The monorepo migration organizes the existing library and consumers; it does not complete any rendering features.
 
 Library paths in this document (`src/`, `test/`, `dist/`, and build configuration) are relative to `packages/minerender/`. Root `res/` contains offline asset tools and reference data. See [AGENTS.md](./AGENTS.md) for commands and architecture.
 
@@ -9,6 +9,8 @@ Library paths in this document (`src/`, `test/`, `dist/`, and build configuratio
 The migration uses `refactor/v2-monorepo`, based on V2 `typescript`, in the worktree `.worktrees/v2-monorepo`. The private Yarn 4 root contains one public package, `packages/minerender/`, plus `apps/web/`, `examples/vite/`, and `examples/script-tag/`. The library's npm exports, `dist/bundle.js`, and public API remain the compatibility contract.
 
 The companion imports are source snapshots. Their Git history remains in the original repositories; no repository transfer, archive, merge, publication, or domain change is part of this milestone. Source revisions are recorded below.
+
+V2 development returned to `InventivetalentDev/MineRender` on 2026-10-03. Its `typescript` branch was fast-forwarded from `bff759b` to the V2 base `2d17ebe`, preserving history. The monorepo branch is stacked above it in [PR #159](https://github.com/InventivetalentDev/MineRender/pull/159). V1 `master`, tags, and delivery URLs are unchanged; the superseded PR in `MineRender/MineRender` is closed.
 
 | Source repository | Branch and commit | Destination or purpose |
 |---|---|---|
@@ -55,7 +57,7 @@ The approved demo asset configuration uses `https://assets.mcasset.cloud/1.17.1`
 | Packaging / npm hygiene | script-tag CDN | Conditional browser/Node/types exports and `files` whitelist; one public workspace | complete baseline |
 | Clean import (no side effects) | window globals, telemetry beacon | Benchmark removed; ticker, image creation, and persistent caches are lazy; call `shutdown()` to stop dependency timers | complete baseline |
 | Browser/Node dual-target | browser-only by design | Separate entries register browser/Node `EnvProvider` implementations; native canvas is optional for browser consumers | complete baseline |
-| Renderer core | continuous loop, SSAA, fps limit, dispose() | Dirty-flag loop (better), but `stop()` calls `window.stop()` (`Renderer.ts:280`), no dispose(), fpsLimit dead, composer default-on with known brightness defect | high |
+| Renderer core | continuous loop, SSAA, fps limit, dispose() | Dirty-flag loop, safe start/stop, owned-resource disposal, and resize invalidation; fpsLimit dead, composer default-on with known brightness defect | high |
 | Camera controls | built-in OrbitControls via `options.controls` | Vendored twice, integrated nowhere; consumers must wire it + `registerEventDispatcher` manually | high |
 | Skins — classic 64×64 | full, named toggleable parts | Works (named groups/meshes, overlay toggling) — missing variant auto-detect, `makeNonTransparentOpaque` | medium |
 | Skins — slim + legacy 64×32 | auto-detected, dedicated UVs | Half-done: slim geometry ✔, slim UVs = copy of classic (`SkinTextureCoordinates.ts:690`), no 64×32, no auto-detect | high |
@@ -95,7 +97,12 @@ Verified in August 2026: `tsc --noEmit` clean; all three targets build; browser 
 **Follow-ups:** consumer build and delivery-format verification is tracked in the monorepo milestone above; `unref()` upstream in loading-cache and jobqu; `@types/three` is still 33 minors behind; `src/lib/OrbitControls.js`, `src/_model/`, root `three/`, `mccolor.js` still un-deleted; console.log sweep still pending.
 
 ### 5. Renderer core fixes + built-in OrbitControls — high
-Fix `stop(); // just in case` calling `window.stop()` (`Renderer.ts:280`). Implement `dispose()`. Restore or delete `fpsLimit`. Resolve the composer brightness defect (`Renderer.ts:144`) or default `composer.enabled` to false. Integrate vendored OrbitControls behind `options.controls` with automatic `registerEventDispatcher` (MineRenderWeb's TODO asks for exactly this). Bump `@types/three` to ~0.158, migrate `outputEncoding` → `outputColorSpace`, rewrite `three/src/*` deep imports to bare `three`. Fix `MineRenderScene.remove()` (detach listeners, decrement stats).
+
+**Lifecycle batch implemented — 2026-10-03, `fix/renderer-lifecycle`.** `start()` now calls `this.stop()` instead of the browser's `window.stop()`. `dispose()` stops animation, removes owned listeners and DOM, detaches scene objects, disposes debug helpers and rendering resources, and releases the owned GL context. Disposal is final and idempotent; cleanup continues if a scene removal or resource disposal callback throws, then rethrows the first error. Shared scene assets, caller-owned controls, global caches, and the shared Ticker are retained. Resizing marks the renderer dirty. Scene add/remove operations pair change listeners with direct-child membership, so duplicate adds, reparenting, removal, and re-addition keep object counts consistent. Instance allocation and `instanceCount` semantics are unchanged.
+
+**Verified:** all workspace builds, typechecks, and the three existing AVA tests pass. Temporary regression checks pass 12 scene cases (66 assertions) and 27 isolated-browser lifecycle assertions, including stop/resume, resize, repeat disposal, cleanup errors, and pixel-identical rendering by a second composer sharing assets. The unchanged baseline fails both the multi-add count and `window.stop()` regression checks. The built Vite, script-tag, and web block consumers render, respond to OrbitControls, and remove their renderer canvas/stats on disposal without uncaught browser errors. Browser CJS/ESM imports and `shutdown()` pass. Temporary regression scripts remain outside the repository; the native canvas limitation recorded above is unchanged.
+
+**Remaining:** restore or delete `fpsLimit`. Resolve the composer brightness defect or default `composer.enabled` to false. Integrate vendored OrbitControls behind `options.controls` with automatic `registerEventDispatcher` (MineRenderWeb's TODO asks for exactly this). Bump `@types/three` to ~0.158, migrate `outputEncoding` → `outputColorSpace`, and rewrite `three/src/*` deep imports to bare `three`.
 
 ### 6. Asset pipeline correctness & performance — high
 Sequential-priority source resolution with early return (replace Promise.all + unconditional deep-merge, which double-fetches everything and can corrupt binary assets). `PersistentCache`: stop persisting `undefined` (`NodeCache` already initializes node-persist lazily). Raise request concurrency (currently 1 req/10ms globally), add retry to the CDN queue, stop mutating global axios defaults. Decode images from the already-fetched Buffer (every texture is currently downloaded twice). Stop caching fake 0×0 images on error — surface errors. Replace `@Memoize` on async statics with failure-evicting caches. Add an asset-version selection API (root is hardcoded to 1.17.1). Fix `WrappedImage` frame math.

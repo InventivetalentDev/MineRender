@@ -1,6 +1,6 @@
 # MineRender V2 — Agent & Contributor Guide
 
-MineRender V2 is a from-scratch TypeScript rewrite of [MineRender](https://minerender.org), a three.js-based library for interactive 3D renders of Minecraft content: player skins, block/item models, entities, GUIs, and structures/worlds. Published on npm as `minerender` (currently `2.0.0-alpha.15`). Development starts from the `typescript` branch. The monorepo migration uses `refactor/v2-monorepo` in a separate worktree.
+MineRender V2 is a from-scratch TypeScript rewrite of [MineRender](https://minerender.org), a three.js-based library for interactive 3D renders of Minecraft content: player skins, block/item models, entities, GUIs, and structures/worlds. Published on npm as `minerender` (currently `2.0.0-alpha.15`). Development uses the `typescript` branch in `InventivetalentDev/MineRender`. The monorepo migration uses `refactor/v2-monorepo`; lifecycle fixes use `fix/renderer-lifecycle`, based on that migration, in a separate worktree.
 
 V2's goals beyond V1 parity: cleaner code, better performance, **usable from both browser and server-side Node**, and **large-scale rendering of full Minecraft worlds** (V1 topped out at structure files).
 
@@ -74,6 +74,7 @@ The private Yarn workspace root contains the public library and its consumers. U
 ## Load-bearing conventions
 
 - **Dirty flag**: anything that mutates visuals must end up calling `notifyDirty()` / setting `scene.dirty`, or the frame never repaints. External event sources (e.g. OrbitControls) must be registered via `renderer.registerEventDispatcher(...)`.
+- **Renderer ownership**: `stop()` pauses and `start()` resumes. `dispose()` is final and idempotent: it detaches scene children, removes the renderer's listeners and DOM, disposes its debug helpers/composer/WebGL renderer, and releases its owned GL context. Caller-owned controls and shared scene assets remain the caller's responsibility; it does not clear global caches or stop the shared Ticker.
 - **Face order**: `CUBE_FACES` = east, west, up, down, south, north (three.js BoxGeometry material order). UV buffers are written at `faceIndex * 4` vertices. Skins, entities, and models all rely on this ordering.
 - **Scale**: 1 block = 16 scene units (= Minecraft model space); 1 chunk = 256 units.
 - **Instance deletion = scale-to-zero**: removal writes a zero-scale matrix; slots are never reclaimed (known design debt).
@@ -102,13 +103,13 @@ The union of what the three consumers (`examples/vite`, `apps/web`, `examples/sc
 
 Delivery formats that must all keep working: ESM named imports under a bundler, CJS require, and the `window.MineRender` IIFE bundle (script tag / unpkg). All three are built by `yarn build:lib`. Check imports under Node as well as loading the consumers in a browser.
 
-Added since: `shutdown()`, `Env`/`EnvProvider`, `BrowserEnv`/`NodeEnv` (per-entry), `Caching.end`, `Requests.end`, `Ticker.start/stop`.
+Added since: `shutdown()`, `Env`/`EnvProvider`, `BrowserEnv`/`NodeEnv` (per-entry), `Caching.end`, `Requests.end`, `Ticker.start/stop`, `Renderer.dispose`.
 
 ## Where to continue
 
 Steps 1–4 of the original plan are **done** (dev env, tsup migration, import-time side effects, the browser/Node seam). The workspace migration and its verification status are recorded in [ROADMAP.md](./ROADMAP.md). It does not complete any renderer or feature-parity work. The remaining order is:
 
-1. **Renderer core fixes + built-in OrbitControls** — `Renderer.stop()` calls `window.stop()`; `outputEncoding` → `outputColorSpace`.
+1. **Remaining renderer fixes + built-in OrbitControls** — lifecycle cleanup and resize invalidation are implemented; continue with controls, `fpsLimit`, composer brightness, and `outputEncoding` → `outputColorSpace`.
 2. **Model/blockstate bug batch** — `Axis.X = "X"` silently disables every x-axis element rotation; the missing `await` on `BlockStates.getDefaultState`.
 3. **Finish skins** (slim UVs, capes) and entity child-part recursion.
 4. **Instance lifecycle overhaul** (slot reclamation, grow) then the world redesign for large-scale renders.
