@@ -30,7 +30,7 @@ legacy website cleanup is a separate task.
 | Capes (vanilla/OptiFine/LabyMod) | full, 3 layouts, capes.dev | Not rendered at all (resolvers exist in `Skins.ts`, no meshes) | medium |
 | Block/item model rendering | full incl. tint, display transforms | Works for common blocks; x-axis rotations no-op (`Axis.X` casing), texPosition crash, parent-merge concatenates `elements`, no tint/uvlock/display/builtin-entity | high |
 | Blockstate resolution | variants + weighted random + multipart AND/OR | Default states awaited; no AND, no weighted pick, 150ms-setTimeout rotation hack | high |
-| Animated textures | frametime honored | Ticks too fast (per-frame not per-50ms-tick), frame-math bugs in `WrappedImage`, no interpolation | medium |
+| Animated textures | frametime honored | Frame extraction handles static images and vertical strips; timing and full mcmeta support remain | medium |
 | Entity rendering | 76 hosted models, mirror, inheritance | Richer data (107+19 ModelPart dumps) but children never recursed, mirror TODO, texture paths guessed, box-UV math unverified | high |
 | GUI / inventory / recipes | full GuiRender + Positions + recipe() | `GuiObject` is an empty stub | high |
 | Structure (.nbt) loading | works via ModelConverter | Parses correctly; placement serialized, debug wireframes hardcoded on, no entities/DataVersion | high |
@@ -68,8 +68,8 @@ legacy website cleanup is a separate task.
 - ~~Skip nullish persistent writes and evict missing or rejected async cache loads.~~
 - ~~Bound request concurrency, retries, cancellation, timeouts, and shutdown.~~
 - ~~Propagate hosted/archive and model initialization errors with source context.~~
-- Add an asset-version selection API; the default is pinned to 1.17.1.
-- Fix `WrappedImage` frame math.
+- Add an asset-version selection API; switch the default to 1.21.11 after item, entity, and structure compatibility updates.
+- ~~Fix `WrappedImage` frame math.~~
 
 ### 7. Model/blockstate correctness — high
 Small, high-impact: (1) `Axis.X = "X"` → lowercase (x-rotations silently no-op); (2) ~~await `BlockStates.getDefaultState`~~; (3) texPosition-undefined crash (`UVMapper.ts:426`); (4) ModelMerger: child `elements` must override, not concat; (5) replace the 150ms setTimeout rotation hack with awaited init ordering; (6) multipart AND + `apply` arrays + weighted variants; (7) `AssetKey.parse` extension fallback + broken `isAssetKey`. Then tintindex, uvlock, display transforms. Grow the test suite around these (ModelMerger, `mapStateToVariant`).

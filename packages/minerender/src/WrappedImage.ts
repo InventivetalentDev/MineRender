@@ -1,6 +1,5 @@
 import type { ImageData } from "canvas";
-import { ImageInfo } from "./image/ImageLoader";
-import { ExtractableImageData } from "./ExtractableImageData";
+import type { ExtractableImageData } from "./ExtractableImageData";
 
 export class WrappedImage {
 
@@ -46,11 +45,11 @@ export class WrappedImage {
     }
 
     get frameCount(): number {
-        return this.height / this.width;
+        return this.height / this.frameHeight;
     }
 
     getFrameY(frame: number): number {
-        return (this.height / this.frameCount) * Math.max(0, Math.min(this.frameCount, frame));
+        return this.frameHeight * Math.max(0, Math.min(this.frameCount - 1, frame));
     }
 
     getSectionData(sx: number, sy: number, sw: number, sh: number): ImageData {
@@ -63,7 +62,7 @@ export class WrappedImage {
 
     getFrameSectionData(frame: number): ImageData {
         const y = this.getFrameY(frame);
-        return this.getSectionData(0, y, this.width, this.width + y);
+        return this.getSectionData(0, y, this.frameWidth, this.frameHeight);
     }
 
 }
