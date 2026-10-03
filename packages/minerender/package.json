@@ -1,0 +1,131 @@
+{
+  "name": "minerender",
+  "version": "2.1.0-alpha.1",
+  "description": "Interactive 3D renders of Minecraft skins, models, blocks, entities and worlds",
+  "main": "./dist/node/index.js",
+  "module": "./dist/browser/index.mjs",
+  "browser": "./dist/browser/index.mjs",
+  "types": "./dist/browser/index.d.ts",
+  "unpkg": "./dist/bundle.js",
+  "jsdelivr": "./dist/bundle.js",
+  "exports": {
+    ".": {
+      "browser": {
+        "import": {
+          "types": "./dist/browser/index.d.mts",
+          "default": "./dist/browser/index.mjs"
+        },
+        "require": {
+          "types": "./dist/browser/index.d.ts",
+          "default": "./dist/browser/index.js"
+        }
+      },
+      "node": {
+        "import": {
+          "types": "./dist/node/index.d.mts",
+          "default": "./dist/node/index.mjs"
+        },
+        "require": {
+          "types": "./dist/node/index.d.ts",
+          "default": "./dist/node/index.js"
+        }
+      },
+      "default": {
+        "import": {
+          "types": "./dist/browser/index.d.mts",
+          "default": "./dist/browser/index.mjs"
+        },
+        "require": {
+          "types": "./dist/browser/index.d.ts",
+          "default": "./dist/browser/index.js"
+        }
+      }
+    },
+    "./browser": {
+      "import": {
+        "types": "./dist/browser/index.d.mts",
+        "default": "./dist/browser/index.mjs"
+      },
+      "require": {
+        "types": "./dist/browser/index.d.ts",
+        "default": "./dist/browser/index.js"
+      }
+    },
+    "./node": {
+      "import": {
+        "types": "./dist/node/index.d.mts",
+        "default": "./dist/node/index.mjs"
+      },
+      "require": {
+        "types": "./dist/node/index.d.ts",
+        "default": "./dist/node/index.js"
+      }
+    },
+    "./bundle": "./dist/bundle.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "clean": "rm -rf dist docs",
+    "build": "rm -rf dist && tsup",
+    "build:watch": "tsup --watch",
+    "exports": "bash ./scripts/make-exports.sh",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "ava",
+    "doc": "typedoc --out docs src",
+    "prepublishOnly": "yarn run build",
+    "publish:alpha": "yarn build && yarn version prerelease --immediate && yarn npm publish --tag alpha"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "author": "Haylee Schäfer",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/InventivetalentDev/MineRender.git",
+    "directory": "packages/minerender"
+  },
+  "homepage": "https://minerender.org",
+  "peerDependencies": {
+    "three": "^0.158.0"
+  },
+  "optionalDependencies": {
+    "canvas": "^2.6.1"
+  },
+  "dependencies": {
+    "@inventivetalent/loading-cache": "^0.4.3",
+    "@inventivetalent/time": "^1.0.0",
+    "@zip.js/zip.js": "^2.7.31",
+    "axios": "^0.21.1",
+    "buffer": "^6.0.3",
+    "crypto-js": "^4.0.0",
+    "image-size": "^0.9.4",
+    "jobqu": "^2.0.5",
+    "localforage": "^1.9.0",
+    "node-persist": "^3.1.0",
+    "postprocessing": "^6.33.3",
+    "prismarine-nbt": "^2.2.1",
+    "stats.js": "^0.17.0",
+    "ts-deepmerge": "2.0.2",
+    "typescript-memoize": "^1.1.1"
+  },
+  "devDependencies": {
+    "@types/crypto-js": "^4.0.1",
+    "@types/node": "^20.17.6",
+    "@types/node-persist": "^3.1.1",
+    "@types/three": "^0.125.2",
+    "ava": "^5.3.1",
+    "esbuild": "^0.19.5",
+    "esbuild-plugin-polyfill-node": "^0.3.0",
+    "esbuild-runner": "^2.2.2",
+    "three": "^0.158.0",
+    "tsup": "^8.5.0",
+    "typedoc": "^0.26.11",
+    "typescript": "~5.6.3"
+  }
+}

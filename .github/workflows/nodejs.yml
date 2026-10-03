@@ -21,13 +21,13 @@ jobs:
           package-manager-cache: false
       - name: Enable Yarn
         run: corepack enable
-      - name: Install dependencies
+      - name: Install workspace dependencies
         run: yarn install --immutable
-      - name: Build the library
+      - name: Build the library and consumers
         run: yarn build
       - name: Check types and run tests
         run: |
           yarn typecheck
           yarn test
       - name: Pack the public library
-        run: yarn pack --out /tmp/minerender.tgz
+        run: yarn workspace minerender pack --out /tmp/minerender.tgz

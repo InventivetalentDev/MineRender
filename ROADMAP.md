@@ -2,6 +2,19 @@
 
 Track V1 feature parity and the remaining V2 work here. Commands and architecture are in [AGENTS.md](./AGENTS.md).
 
+Library paths below are relative to `packages/minerender/`; `res/` remains at the repository root.
+
+## Monorepo imports
+
+| Source | Destination | Revision |
+|---|---|---|
+| InventivetalentDev/MineRenderWeb | `apps/web/` | `01ff6efdb2d83549b4ac93f05ae9acc68ac96fee` |
+| MineRender/example-vite | `examples/vite/` | `1c2fc275d8b3dc9f6c8beb0bcf7d5538975b577d` |
+| MineRender/example-bundle | `examples/script-tag/` | `411044c1edf241bff8b919296a72183e53fcf709` |
+
+V1 `master`, tags, bundles, and website URLs must remain available. V2 targets `main`;
+legacy website cleanup is a separate task.
+
 ## Feature-parity matrix (V1 → V2)
 
 | Feature | V1 | V2 today | Priority |
@@ -26,7 +39,7 @@ Track V1 feature parity and the remaining V2 work here. Commands and architectur
 | Screenshots & 3D export | toImage(trim,mime), toObj/toGLTF/toPLY | Bare `toDataURL()`; no exporters | medium |
 | Asset loading & resource packs | swappable assetRoot, fallback | Source results merge and can corrupt assets; textures download twice; failed loads can remain cached; source errors swallowed; pinned to 1.17.1, ZIPs browser-only | high |
 | Per-frame animation API | `<type>Render` CustomEvents | No supported hook (dirty-flag loop only) | medium |
-| Embeds & website | minerender.org + iframe embeds | Demo/test pages only, non-deployable (hardcoded sibling paths, dual three r125/r158 loading) | low |
+| Embeds & website | minerender.org + iframe embeds | Workspace demos and examples; V2 website and embeds remain | low |
 | **Large-scale worlds (V2 goal)** | n/a | Prototype, effectively dead code: 64³ box, `getChunkAt` broken (Map indexed with number), object-per-block, no meshing/culling/lighting/LOD, instance slots never freed | high |
 | **Anvil .mca / world formats (V2 goal)** | n/a | Zero code | high |
 | **Node headless rendering (V2 goal)** | faked externally by MineRenderServer | No DOM-free Renderer construction, no render-to-buffer API | high |
@@ -51,7 +64,7 @@ Track V1 feature parity and the remaining V2 work here. Commands and architectur
 
 - Resolve sources in priority order and return the first defined asset.
 - ~~Initialize node-persist before use.~~
-- Decode fetched image bytes once; reject invalid images and allow retry.
+- Decode fetched image bytes without refetching them; reject invalid images and allow retry.
 - Skip nullish persistent writes and evict missing or rejected async cache loads.
 - Bound request concurrency, retries, cancellation, timeouts, and shutdown.
 - Propagate hosted/archive and model initialization errors with source context.
@@ -74,7 +87,7 @@ Manage `InstancedMesh.count` (GPU currently always processes full capacity); add
 Immediate fixes: `getChunkAt` uses `this._chunks[numericIndex]` on a Map — use `.get(key)` (`MineRenderWorld.ts:104`); remove the 4×4×4 bound and negative-coordinate rejection (1.18+ needs negative Y); remove hardcoded debug wireframes (`Chunk.ts:34-43, 102-107`); fix `BatchedExecutor`'s missing setInterval delay + add `stop()`; parallelize `placeMultiBlock` (the `await` inside the loop serializes everything). Then the real redesign: palette + typed-array section storage (drop object-per-block `BlockInfo`), one merged mesh per chunk section with neighbor face culling via the model `cullface` attribute (currently entirely unhandled), chunk load/unload + frustum culling, baked per-vertex AO (SSAO was abandoned at ~2fps), biome tint. Keep 1 block = 16 units.
 
 ### 12. Node headless rendering entry point — high
-Make `Renderer` constructible without DOM: injectable canvas + GL context (headless-gl or OffscreenCanvas), `renderOnce()`/`renderToBuffer()` bypassing the animation loop, `toImage()` returning a Buffer in Node (V1's `trimCanvas` is portable). `../MineRenderServer` is the reference contract — it faked all of this against V1 and reached into `_scene`/`_camera`; V2 already exposes them publicly. Then a thin V2 server can revive `GET /render/skin/:texture` and `GET /render/model/:type/:model`.
+Make `Renderer` constructible without DOM: injectable canvas + GL context (headless-gl or OffscreenCanvas), `renderOnce()`/`renderToBuffer()` bypassing the animation loop, `toImage()` returning a Buffer in Node (V1's `trimCanvas` is portable). `InventivetalentDev/MineRenderServer` is the reference contract — it faked all of this against V1 and reached into `_scene`/`_camera`; V2 already exposes them publicly. Then a thin V2 server can revive `GET /render/skin/:texture` and `GET /render/model/:type/:model`.
 
 ### 13. Anvil region (.mca) + schematic loaders — high
 New world-format layer feeding the redesigned chunk storage: .mca region parsing (sector table, section palettes, DataVersion) — `NBTHelper` must stop discarding prismarine-nbt type/compression metadata; implement `SchematicParser` (legacy .schematic) using the already-present `legacyBlockList.json` / `res/idsToNames.json` mappings (V1 reference: `modelConverter.js:209-275`); Sponge `.schem` + litematica as follow-ups; structure entities + DataVersion handling.

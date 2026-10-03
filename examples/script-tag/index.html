@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MineRender script-tag example</title>
+    <style>body { margin: 0; } canvas { display: block; }</style>
+</head>
+<body>
+<script src="./bundle.js"></script>
+<script>
+    const renderer = new MineRender.Renderer({
+        camera: {
+            near: 1,
+            far: 2000
+        },
+        render: {
+            stats: true,
+            fpsLimit: 0,
+            antialias: false
+        },
+        composer: {
+            enabled: false
+        },
+        debug: {
+            grid: true,
+            axes: true
+        }
+    });
+    renderer.appendTo(document.body);
+    window.renderer = renderer;
+
+    const controls = new MineRender.OrbitControls(renderer.camera, renderer.renderer.domElement);
+    renderer.registerEventDispatcher(controls);
+    controls.update();
+    renderer.start();
+
+    async function createModel(type, name, instances = 1) {
+        const model = await MineRender.Models.getMerged(new MineRender.AssetKey("minecraft", name, "models", type, "assets"));
+        if (!model) throw new Error(`Could not load ${type}/${name}`);
+        return renderer.scene.addModel(model, {
+            mergeMeshes: true,
+            instanceMeshes: true,
+            wireframe: true,
+            maxInstanceCount: instances
+        });
+    }
+
+    createModel("item", "diamond_sword").then(model => {
+        model.setPosition(model.getPosition().set(-24, 0, 0));
+    });
+    renderer.scene.addSkin("https://textures.minecraft.net/texture/fb5f93b1ccebf7b385fa488c6d4cfec87cf1b855f8dbe0308da44167cae170b");
+</script>
+</body>
+</html>

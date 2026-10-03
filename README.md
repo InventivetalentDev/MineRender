@@ -1,26 +1,30 @@
 # MineRender V2
 
-A TypeScript library for interactive Minecraft skins, models, blocks, entities, and worlds.
-V2 is in alpha. See the [roadmap](https://github.com/InventivetalentDev/MineRender/blob/main/ROADMAP.md) for feature parity and remaining work.
+A TypeScript library for rendering Minecraft skins, models, blocks, entities, and worlds.
+This monorepo contains the `minerender` package, demo pages, and examples.
+V2 is in alpha; see [ROADMAP.md](./ROADMAP.md) for progress and remaining work,
+including headless Node rendering.
 
-Install the alpha package with its three.js peer:
+## Develop locally
+
+Use Node.js 22+ and Yarn 4.5.3 through Corepack. Run these commands from the repository root:
 
 ```sh
-yarn add minerender@alpha three@^0.158.0
+corepack enable
+yarn install --immutable
+yarn build
 ```
 
-In a browser application:
+Choose a workspace to work on:
 
-```ts
-import { Renderer } from "minerender";
+| Workspace | Purpose | Development command |
+|---|---|---|
+| [packages/minerender](./packages/minerender) | Public library | `yarn build:watch` |
+| [apps/web](./apps/web) | Demo and manual test pages | `yarn dev:web` |
+| [examples/vite](./examples/vite) | Vue/Vite example | `yarn dev:vite` |
+| [examples/script-tag](./examples/script-tag) | Plain HTML example | `yarn dev:script-tag` |
 
-const renderer = new Renderer();
-renderer.appendTo(document.body);
-renderer.start();
-```
+The `dev:*` commands build the library before starting their server.
+Run `yarn typecheck` and `yarn test` to check your changes.
 
-The package provides ESM and CommonJS entries for browsers and Node.js, plus
-`dist/bundle.js` for the `MineRender` browser global. Node imports require the optional
-native `canvas` dependency; headless rendering is still in development.
-
-For development, use Node.js 22+ and Yarn 4.5.3 through Corepack. Run `yarn install --immutable`, `yarn build`, `yarn typecheck`, and `yarn test`. See [AGENTS.md](./AGENTS.md) for contributor guidance.
+See [AGENTS.md](./AGENTS.md) for architecture, contributor conventions, and publishing instructions.
