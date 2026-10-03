@@ -1,64 +1,30 @@
-# MineRender V2 — Status, Parity & Continuation Plan
+# MineRender V2 roadmap
 
-The library's build, packaging, and browser/Node boundary are complete as of `typescript` commit `2d17ebe`. Renderer lifecycle fixes are implemented on `fix/renderer-lifecycle`, opt-in controls on `refactor/renderer-controls`, frame limiting on `refactor/renderer-frame-limit`, and color handling on `refactor/renderer-brightness`. Ordered asset-source selection is implemented on `refactor/asset-source-selection`, dependency timer fixes on `refactor/dependency-timers`, image loading on `fix/image-loading`, and cache failure recovery on `fix/cache-failure-recovery`; source error reporting and request scheduling remain next. The monorepo migration organizes the existing library and consumers; it does not complete any rendering features.
+Track V1 feature parity and the remaining V2 work here. Commands and architecture are in [AGENTS.md](./AGENTS.md).
 
-Library paths in this document (`src/`, `test/`, `dist/`, and build configuration) are relative to `packages/minerender/`. Root `res/` contains offline asset tools and reference data. See [AGENTS.md](./AGENTS.md) for commands and architecture.
+Library paths below are relative to `packages/minerender/`; `res/` remains at the repository root.
 
-## Monorepo migration — 2026-10-03
+## Monorepo imports
 
-The migration uses `refactor/v2-monorepo`, based on V2 `typescript`, in the worktree `.worktrees/v2-monorepo`. The private Yarn 4 root contains one public package, `packages/minerender/`, plus `apps/web/`, `examples/vite/`, and `examples/script-tag/`. The library's npm exports, `dist/bundle.js`, and public API remain the compatibility contract.
-
-The companion imports are source snapshots. Their Git history remains in the original repositories; no repository transfer, archive, merge, publication, or domain change is part of this milestone. Source revisions are recorded below.
-
-V2 development returned to `InventivetalentDev/MineRender` on 2026-10-03. Its `typescript` branch was fast-forwarded from `bff759b` to the V2 base `2d17ebe`, preserving history. The monorepo branch is stacked above it in [PR #159](https://github.com/InventivetalentDev/MineRender/pull/159). V1 `master`, tags, and delivery URLs are unchanged; the superseded PR in `MineRender/MineRender` is closed.
-
-| Source repository | Branch and commit | Destination or purpose |
+| Source | Destination | Revision |
 |---|---|---|
-| `MineRender/MineRender` | `typescript` · `2d17ebe39d796dd467b20142252a373a18a769fc` | Library moved to `packages/minerender/`; repository history retained. |
-| `InventivetalentDev/MineRenderWeb` | `master` · `01ff6efdb2d83549b4ac93f05ae9acc68ac96fee` | Snapshot imported into `apps/web/`. |
-| `MineRender/example-vite` | `master` · `1c2fc275d8b3dc9f6c8beb0bcf7d5538975b577d` | Snapshot imported into `examples/vite/`. |
-| `MineRender/example-bundle` | `master` · `411044c1edf241bff8b919296a72183e53fcf709` | Snapshot imported into `examples/script-tag/`. |
-| `InventivetalentDev/MineRender` | `master` · `5e1ffa3cd8d46334d37e68b2021a9064f32f9202` | V1 reference only; local checkout named `MineRenderV1`. |
-| `InventivetalentDev/MineRenderServer` | `master` · `f54d8169f15f84e9aeed2099af727e921fa1fc0b` | Server contract reference only; not imported. |
+| InventivetalentDev/MineRenderWeb | `apps/web/` | `01ff6efdb2d83549b4ac93f05ae9acc68ac96fee` |
+| MineRender/example-vite | `examples/vite/` | `1c2fc275d8b3dc9f6c8beb0bcf7d5538975b577d` |
+| MineRender/example-bundle | `examples/script-tag/` | `411044c1edf241bff8b919296a72183e53fcf709` |
 
-### Branch audit
-
-All 61 remote branches across these six repositories were inventoried; remote heads matched the locally cached refs on 2026-10-03. No additional feature implementation needs importing for the workspace migration.
-
-- V1 `typescript` (`bff759b`) is a direct ancestor of the V2 migration base, 75 commits behind. V2 `typescript-assetsource` (`72e73b2`) and `typescript-zipsource` (`5a76649`) are also ancestors, 52 and 42 commits behind. The V2 `master` branch is a stripped placeholder after V1 history.
-- V1 `capesdev-support` (`ef35054`) and `prefix` (`6539928`) have distinct commit IDs but their work was squash-merged into V1 `master` as `05d31cf` (#72) and `f2a1c89` (#158). V1 `image-cache`, `model_merge`, `skin-textures-fix`, `web_workers`, and `gh-file-sync` are ancestors. Do not merge these branches again.
-- Vite `zipsource` equals `master`. The bundle example has only `master`. Web's extra branch, `renovate/configure`, adds only Renovate configuration.
-- V2 `test` (`e97a54a`) is an unmerged Jest/Babel experiment with console-only tests and removed memoization. Retain the existing AVA setup. Other unmerged V1 and server branches contain dependency updates, not missing runtime features.
-
-### Preserve V1 delivery URLs
-
-Keep V1 branches, tags, and generated bundles at their existing paths. The skin and model embeds load `https://cdn.jsdelivr.net/gh/InventivetalentDev/MineRender@master/dist/skin.min.js` and `.../dist/model.min.js` directly; homepage examples also use version tags. Moving these files into a `legacy/` directory would break those URLs. Preserve all ten `dist/{all,entity,gui,model,skin}{,.min}.js` files on the V1 refs.
-
-A future website migration must preserve `minerender.org/embed/{skin,model}/`, `/demo/`, `/dist/`, `/res/models/entities/`, `/res/idsToNames.json`, `/CORSpipe.php`, `/nameToUuid.php`, and the deep links and assets at `docs.minerender.org`. The V1 root and `docs/CNAME`, plus the V2 root `CNAME`, all specify `docs.minerender.org`; the actual hosting configuration remains unresolved. Verify it before changing deployment or domains. This milestone leaves the generated root `docs/` and V1 website files in place.
-
-### Verification
-
-The macOS baseline at `2d17ebe`, using Node 26.10.0, passed library typechecking, all three existing AVA tests, and tsup browser/Node/IIFE builds with declarations. The earlier Windows/WSL native-module failure is historical.
-
-The migration passed these checks on macOS with Node 26.10.0 and Yarn 4.5.3:
-
-- `yarn install --immutable`, root `yarn build`, `yarn typecheck`, and all three existing AVA tests pass. Builds cover the library's browser/Node/IIFE outputs and declarations, all eight web pages, the Vue/Vite example, and the script-tag example. CI now runs these commands on Node 22 and 24; the remote jobs have not run yet.
-- All 149 library source and test files are unchanged apart from their paths. The packed library preserves the baseline's 17 file paths, package version, entry points, and conditional exports. Browser CJS/ESM, Node CJS/ESM, and IIFE import checks preserve their export names. Browser output contains no Node-only imports. The alpha-version command was checked in a temporary workspace; no release was published.
-- Isolated Playwright checks show textured models and skins in both examples, a textured stone block in the web demo, a skin supplied through the URL input, and completed placement of the end-city ship structure. OrbitControls respond to dragging. The four web demos and both examples load without uncaught JavaScript errors or failed local requests. The four manual stress/custom-model pages were built but not visually validated.
-- Native Node imports remain blocked by the missing `canvas.node` binary, as they were before the move. Node import checks used a temporary canvas stub; real persistent-cache round trips and `shutdown()` pass. This does not verify native canvas or headless rendering. The web skin demo's default `inventivetalent` lookup returns no UUID, and the entity demo's guessed pig texture path returns 404. The custom-model page still depends on its external Blockbench host. These are runtime or service follow-ups, not completed features.
-
-The approved demo asset configuration uses `https://assets.mcasset.cloud/1.17.1`, including directory-list requests and the existing fallback repository. This endpoint passed browser CORS checks; the library's default root is unchanged. Consumer adaptations also use the current NBT asset API, the library's exported OrbitControls, and a Vite polyfill resolution fix. The release command now uses Yarn workspace versioning and publishing; Git release commits and tags remain separate maintainer actions.
+V1 `master`, tags, bundles, and website URLs must remain available. V2 targets `main`;
+legacy website cleanup is a separate task.
 
 ## Feature-parity matrix (V1 → V2)
 
 | Feature | V1 | V2 today | Priority |
 |---|---|---|---|
-| Build & dev environment | webpack 4 per-feature IIFE bundles | Yarn 4, tsup, and the library baseline pass on macOS; workspace verification recorded above | complete baseline |
-| Packaging / npm hygiene | script-tag CDN | Conditional browser/Node/types exports and `files` whitelist; one public workspace | complete baseline |
-| Clean import (no side effects) | window globals, telemetry beacon | Benchmark removed; ticker, image creation, and persistent caches are lazy; idle cache and request queues no longer keep Node alive | complete baseline |
-| Browser/Node dual-target | browser-only by design | Separate entries register browser/Node `EnvProvider` implementations; native canvas is optional for browser consumers | complete baseline |
-| Renderer core | continuous loop, SSAA, fps limit, dispose() | Dirty-flag loop, safe start/stop, owned-resource disposal, resize invalidation, frame limiting, and consistent sRGB color handling; composer remains default-on | core fixes complete |
-| Camera controls | built-in OrbitControls via `options.controls` | Opt-in `controls.enabled`, exposed controls, automatic redraw/update/disposal; manual controls still supported | basic integration complete |
+| Build & dev environment | webpack 4 per-feature IIFE bundles, works | Yarn 4 and tsup | complete |
+| Packaging / npm hygiene | script-tag CDN | Browser/Node conditional exports, declarations, and a package files whitelist | complete |
+| Clean import (no side effects) | window globals, telemetry beacon | Lazy platform initialization and Ticker; idle caches and queues let Node exit | complete |
+| Browser/Node dual-target | browser-only by design | Separate entries register platform providers; Node canvas stays optional for browsers | complete |
+| Renderer core | continuous loop, SSAA, fps limit, dispose() | Dirty-flag loop, start/stop, disposal, and resize invalidation; frame limiting; sRGB color handling | complete |
+| Camera controls | built-in OrbitControls via `options.controls` | Opt-in renderer-owned OrbitControls, including redraw and disposal | complete |
 | Skins — classic 64×64 | full, named toggleable parts | Works (named groups/meshes, overlay toggling) — missing variant auto-detect, `makeNonTransparentOpaque` | medium |
 | Skins — slim + legacy 64×32 | auto-detected, dedicated UVs | Half-done: slim geometry ✔, slim UVs = copy of classic (`SkinTextureCoordinates.ts:690`), no 64×32, no auto-detect | high |
 | Capes (vanilla/OptiFine/LabyMod) | full, 3 layouts, capes.dev | Not rendered at all (resolvers exist in `Skins.ts`, no meshes) | medium |
@@ -71,9 +37,9 @@ The approved demo asset configuration uses `https://assets.mcasset.cloud/1.17.1`
 | Legacy .schematic | full incl. AddBlocks nibbles | `SchematicParser` returns `{}`; mapping data (`res/idsToNames.json`, `legacyBlockList.json`) present but unreferenced | medium |
 | Combined multi-renderer scene | CombinedRender wrapper | Superseded by design (one scene hosts all types) — **at parity** | — |
 | Screenshots & 3D export | toImage(trim,mime), toObj/toGLTF/toPLY | Bare `toDataURL()`; no exporters | medium |
-| Asset loading & resource packs | swappable assetRoot, fallback | Ordered source selection returns whole assets; image decoding reuses fetched bytes, failed loads can retry, and list/dictionary caches support explicit clearing; source errors still swallowed, pinned to 1.17.1 with no version API, zips browser-only | high |
+| Asset loading & resource packs | swappable assetRoot, fallback | Ordered whole-asset source selection; decode fetched bytes; failure-evicting caches; source errors swallowed; pinned to 1.17.1, ZIPs browser-only | high |
 | Per-frame animation API | `<type>Render` CustomEvents | No supported hook (dirty-flag loop only) | medium |
-| Embeds & website | minerender.org + iframe embeds | Existing demos and examples imported into workspaces; a complete V2 website and embeds remain to build | low |
+| Embeds & website | minerender.org + iframe embeds | Workspace demos and examples; V2 website and embeds remain | low |
 | **Large-scale worlds (V2 goal)** | n/a | Prototype, effectively dead code: 64³ box, `getChunkAt` broken (Map indexed with number), object-per-block, no meshing/culling/lighting/LOD, instance slots never freed | high |
 | **Anvil .mca / world formats (V2 goal)** | n/a | Zero code | high |
 | **Node headless rendering (V2 goal)** | faked externally by MineRenderServer | No DOM-free Renderer construction, no render-to-buffer API | high |
@@ -82,65 +48,34 @@ The approved demo asset configuration uses `https://assets.mcasset.cloud/1.17.1`
 
 ## Continuation plan (ordered)
 
-### 1-4. Build, packaging, side effects, browser/Node seam — **DONE** (2026-08-12)
+### 1–4. Build and platform support
 
-**Dev environment.** `node_modules` reinstalled from WSL (linux-x64 natives), `yarn.lock` regenerated for the three→peerDependencies move, npm `package-lock.json` and `yarn-error.log` removed, `.gitignore` updated for yarn 4, `.gitattributes` added (`eol=lf`) so the Windows/WSL split stops rewriting every file. `canvas` moved to `optionalDependencies` — it has no prebuilt binary for current Node and a source build needs cairo/pango/pixman, so a browser-only install must not be blocked by it. TypeScript 4.1 → 5.6 (tsup's `dts` needs ≥4.5), typedoc 0.25 → 0.26 to match.
+- ~~Build tooling, package exports, import-time initialization, and browser/Node providers.~~
+- ~~Update cache and queue dependencies so idle imports let Node exit.~~
 
-**Build.** `build.mjs`, `tsconfig-cjs.json` and the `compile*` scripts are gone; tsup is the library build tool, with three passes (browser / node / iife) described in AGENTS.md. `dist/bundle.js` keeps its path. Packaging fixed: conditional `exports` (browser/node × import/require × types), `files` whitelist (tarball: 17 files, was the entire V1 website), `prepublishOnly`, correct `types`. `splitting` off. ava now runs the TS sources through esbuild-runner. `scripts/make-exports.sh` rewritten bottom-up — no more duplicated barrel lines — and it now excludes `src/env/` and the entries. Dead deps pruned: assert, browser-or-node, colors, onscreen, pako, process, stream-http, supports-color, threejs-examples, url, util, @ava/typescript, glob, event-stream, progress-stream, @mapbox/node-pre-gyp, @types/md5.
+### 5. Renderer core
 
-**Import-time side effects.** Benchmark IIFE deleted; `Ticker` starts lazily, unrefs, and `remove(0)`/`dispose()` fixed; `Materials.MISSING_TEXTURE` and the three `PERSISTENT_CACHE` fields are lazy getters (they used to decode an image / open IndexedDB at import); stray `constants`, `fs` and `node-persist` imports removed. `shutdown()` (`src/shutdown.ts`) provides final cleanup. The dependency batch below removes the remaining idle-process timer blockers.
+- ~~Fix start/stop, disposal, resize invalidation, and scene listeners.~~
+- ~~Integrate opt-in OrbitControls.~~
+- ~~Implement frame limiting.~~
+- ~~Align Three types and color spaces; fix direct/composer brightness.~~
 
-**The seam.** `src/Env.ts` now defines `EnvProvider` (`createCanvas`, `createImage`, `imageSize`, `openCache`) with `src/env/browser/` and `src/env/node/` implementations, selected by the entry (`src/index.browser.ts` / `src/index.node.ts`). `image-size` can't run in a browser (top-level `fs`), so the browser provider ships a small PNG/GIF/JPEG header probe instead. `NodeCache` now calls node-persist's required `init()` (lazily) — the Node cache path had never actually worked. `ts-deepmerge` is inlined to dodge a CJS/ESM interop break, and the `crypto-js/core` deep import was dropped as unresolvable under Node ESM.
+### 6. Asset pipeline
 
-Verified in August 2026: `tsc --noEmit` clean; all three targets build; browser output contains **zero** Node-module references (only a dynamic `import("prismarine-nbt")` remains, and only structure loading triggers it); CJS+ESM browser builds and the Node build (canvas stubbed — no native binary was available in that environment) all load, register the right provider, round-trip the persistent cache, and exit cleanly after `shutdown()`.
+- ~~Resolve sources in priority order and return the first defined asset.~~
+- ~~Initialize node-persist before use.~~
+- ~~Decode fetched image bytes without refetching them; reject invalid images and allow retry.~~
+- ~~Skip nullish persistent writes and evict missing or rejected async cache loads.~~
+- Bound request concurrency, retries, cancellation, timeouts, and shutdown.
+- Propagate hosted/archive and model initialization errors with source context.
+- Add an asset-version selection API; the default is pinned to 1.17.1.
+- Fix `WrappedImage` frame math.
 
-**Follow-ups:** consumer build and delivery-format verification is tracked in the monorepo milestone above; `src/lib/OrbitControls.js`, `src/_model/`, root `three/`, `mccolor.js` still un-deleted; console.log sweep still pending. The color batch below aligns `@types/three` with the runtime.
-
-**Dependency timer batch implemented — 2026-10-03, `refactor/dependency-timers`.** `@inventivetalent/loading-cache` 1.0.0 unrefs cache expiry timers, and `@inventivetalent/time` 1.0.4 supplies compatible CJS/ESM exports. The `jobqu` 3.0.0 update schedules timers only for pending work. Idle imports can exit without `shutdown()`, while pending queue timers remain referenced. Each request queue retains its one-request-per-10-ms dispatch rate; requests can now overlap. `Requests.queueSizes` includes waiting and active requests. `shutdown()` remains final cleanup: waiting and future requests reject, running requests can finish, and queues and cache expiry timers do not restart. Loading-cache now evicts missing and rejected loads; MineRender's persistent caches, placeholder images, and memoized failures still need the asset-pipeline work below.
-
-**Verified:** the immutable install, all workspace builds and typechecks, and the three existing AVA tests pass. Temporary published-package checks pass 43 assertions for CJS/ESM compatibility, unref'd cache timers, cache expiry/deduplication/retry, queue scheduling, pending work, and final shutdown. A separate 16-case harness passes 71 assertions, including built browser CJS/ESM imports under Node, real queued HTTP completion followed by natural exit, waiting/active queue counts, and repeated/final shutdown. The previous branch remains alive after imports and drained requests, and leaves requests pending after shutdown. Isolated browser checks pass 22 assertions for ZIP and hosted assets, atlas/WebGL rendering, persistent cache isolation, and Vite pack replacement/disposal. Browser output remains free of Node-only imports. Temporary checks remain outside the repository; the native canvas limitation recorded above is unchanged.
-
-### 5. Renderer core fixes + built-in OrbitControls — baseline complete
-
-**Lifecycle batch implemented — 2026-10-03, `fix/renderer-lifecycle`.** `start()` now calls `this.stop()` instead of the browser's `window.stop()`. `dispose()` stops animation, removes owned listeners and DOM, detaches scene objects, disposes debug helpers and rendering resources, and releases the owned GL context. Disposal is final and idempotent; cleanup continues if a scene removal or resource disposal callback throws, then rethrows the first error. Shared scene assets, caller-owned controls, global caches, and the shared Ticker are retained. Resizing marks the renderer dirty. Scene add/remove operations pair change listeners with direct-child membership, so duplicate adds, reparenting, removal, and re-addition keep object counts consistent. Instance allocation and `instanceCount` semantics are unchanged.
-
-**Verified:** all workspace builds, typechecks, and the three existing AVA tests pass. Temporary regression checks pass 12 scene cases (66 assertions) and 27 isolated-browser lifecycle assertions, including stop/resume, resize, repeat disposal, cleanup errors, and pixel-identical rendering by a second composer sharing assets. The unchanged baseline fails both the multi-add count and `window.stop()` regression checks. The built Vite, script-tag, and web block consumers render, respond to OrbitControls, and remove their renderer canvas/stats on disposal without uncaught browser errors. Browser CJS/ESM imports and `shutdown()` pass. Temporary regression scripts remain outside the repository; the native canvas limitation recorded above is unchanged.
-
-**Controls batch implemented — 2026-10-03, `refactor/renderer-controls`.** `controls: { enabled: true }` creates renderer-owned OrbitControls, available as `renderer.controls`. Controls default off to preserve manual integrations. The configured camera position and `lookingAt` target define the initial and reset view. The render loop updates enabled controls before its dirty check, supporting damping and auto-rotation without continuous redraws of settled scenes. Disposal cleans up owned controls; external controls retain caller ownership. All eight web pages and both examples opt in. The Vite example disposes before recreation/unmount, ignores stale asset completions, and waits for earlier loads before replacing the global ZIP source and clearing caches. The vendored controls still use frame-dependent auto-rotation, and their declared keyboard-listener method is not implemented.
-
-**Verified:** all workspace builds, typechecks, and the three existing AVA tests pass. Temporary checks pass 37 browser controls assertions and six asynchronous consumer cases (33 assertions). Browser checks cover perspective/orthographic camera targets and reset, drag/zoom, damping, auto-rotation, disabled controls, stop/resume, and disposal during a drag or change callback. The built Vite example loads the latest of two rapidly selected ZIP packs, releases replaced renderers, and detaches pending results after unmount. Script-tag and web block demos retain working controls and cleanup. Browser CJS/ESM imports and `shutdown()` pass. Temporary test scripts and ZIP fixtures remain outside the repository.
-
-**Frame-limiting batch implemented — 2026-10-03, `refactor/renderer-frame-limit`.** `render.fpsLimit` caps drawing using animation timestamps (default 60; nonpositive values disable the cap). Skipped frames retain dirty state, and controls update on every callback. Fractional intervals preserve the target cadence; idle periods and long frames do not build up pending draws. Stop/start resets pacing so the first pending frame can draw immediately. Stats measure rendered frames, and the unused timer-based scheduling code is removed.
-
-**Verified:** all workspace builds, typechecks, and the three existing AVA tests pass. Temporary browser checks pass 37 deterministic timing assertions and 13 live-animation assertions, covering direct/composer draws, fractional timestamps, different callback rates, dirty retention, idle/hitch recovery, stats, controls, and disposal. Live checks measure 10 and 30 FPS at those configured limits. The previous controls branch fails the cap regression. Built Vite, script-tag, and web block consumers render, redraw after dragging, and dispose without uncaught JavaScript errors. Browser CJS/ESM imports and `shutdown()` pass. Regression scripts remain outside the repository.
-
-**Color batch implemented — 2026-10-03, `refactor/renderer-brightness`.** Image and canvas color-texture factories set `SRGBColorSpace`, the renderer uses `outputColorSpace`, and the custom atlas shader converts its linear-light result for display. The generic texture sampling helper preserves caller-selected color spaces. The composer remains enabled by default. When composition is disabled, renderer construction restores the automatic clearing setting that the composer overrides, preventing transparent-frame accumulation and stale pixels after movement or removal. `@types/three` matches runtime 0.158 in the library and Vite example; geometry/material type imports use bare `three`.
-
-**Baseline diagnosis:** the historical composer-only brightness mismatch does not reproduce with the installed single-RenderPass pipeline: first-frame pixels match direct rendering. Both paths instead use inconsistent input/output color spaces (a plain gray of 128 renders as 55, while untagged PNG values appear correct because the two errors cancel). Direct rendering also fails to clear: repeated half-transparent frames increase alpha from 128 to 192 to 224 and leave pixels behind after removal.
-
-**Verified:** all workspace builds, typechecks, the immutable install, and the three existing AVA tests pass. Temporary browser checks pass 55 assertions: solid colors match their inputs, image/skin colors are preserved, atlas shading matches linear-light calculations, all eight direct/composer cases match, and transparent frames stay stable and clear after movement/removal. Color-texture factories set sRGB while the generic sampling helper preserves caller-selected color spaces. Built Vite, script-tag, and web block consumers render, redraw, and dispose without shader errors or deprecated encoding warnings. Browser CJS/ESM imports and `shutdown()` pass; browser output remains free of Node-only dependencies. Regression scripts and fixtures remain outside the repository.
-
-### 6. Asset pipeline correctness & performance — high
-
-**Source-selection batch implemented — 2026-10-03, `refactor/asset-source-selection`.** `AssetLoader.get()` snapshots the registered source order, awaits one source at a time, and returns its first defined asset without merging or contacting lower-priority sources. Newly added sources have highest priority. An absent result advances to the next source; a rejection propagates. `getAll()` keeps its parallel aggregation behavior, and model-parent inheritance remains separate. Hosted namespace/default-root retries and explicit `AssetKey.root` precedence are unchanged; disable `retryDefaults` for strict source layering. `PersistentCache.VERSION = 2` avoids old source-merged model, blockstate, and texture-metadata records. Browser database names now include the generation, matching Node's versioned directories, because changing IndexedDB's schema version alone retains records. Legacy stores remain untouched.
-
-**Verified:** all workspace builds, typechecks, and the three existing AVA tests pass. Temporary source checks pass 22 cases (76 assertions), covering priority, identity/arrays/binary/NBT data, errors, concurrent lookups, registry changes, `getAll()`, hosted retries, and cache-generation routing. Browser checks pass 22 unique assertions for real ZIP model/PNG overrides, request order, atlas/WebGL rendering, legacy model/blockstate/metadata cache isolation, persistence after reload, and Vite pack reselection/disposal. The baseline reproduces a one-element ZIP model becoming three elements and unnecessary lower-source requests. Browser CJS/ESM imports and `shutdown()` pass; the browser dependency boundary is preserved. Regression scripts and fixtures remain outside the repository.
-
-**Image-loading batch implemented — 2026-10-03, `fix/image-loading`.** URL and model textures decode `ImageInfo.data` through a data URL, using the existing browser/Node image interface without fetching `src` again. `src` remains optional provenance. Image handlers are installed before assigning `src`, including for synchronous Node decoding. Request failures and invalid dimensions reject instead of returning fake 0×0 images. Decode failures evict matching raw/model texture cache entries while preserving newer loads. The synchronous texture/material APIs record and report failed loads, then replace failed cached placeholders on the next lookup; callers must assign the replacement to existing objects. Entities use decoded model texture bytes and retain shared, opaque materials. Older entity decodes cannot populate a replacement asset's material cache. Hosted/archive fallback and their error-to-`undefined` behavior remain separate work.
-
-**Verified:** all workspace builds and typechecks, the immutable install, and the three existing AVA tests pass. Temporary browser checks pass 38 assertions for request counts, pixels/transparency, HTTP/header/decode recovery, ZIP bytes, failed texture/material retries, and shared entity textures. Seven additional JPEG/GIF assertions and 22 existing asset/Vite checks also pass. Temporary Node checks use an injected image/canvas provider to verify synchronous callbacks, cache retries, and stale-failure guards; caller and entity race checks cover shared materials and both completion orders during cache replacement. The previous branch reproduces duplicate image requests, failed retries, and a synchronous image-load hang. Browser CJS/ESM imports exit naturally, and browser output retains its platform boundary. Native canvas rendering remains unverified because its binary is unavailable locally. Regression scripts and fixtures remain outside the repository.
-
-**Cache failure recovery implemented — 2026-10-03, `fix/cache-failure-recovery`.** `PersistentCache.getOrLoad()` stores only non-nullish loader results, preserving `false`, `0`, empty strings, arrays, and objects. Existing nullish records remain cache misses, so the persistent generation stays at 2. The five async memoizers in Models, BlockStates, and Entities now use three typed shared caches keyed by `AssetKey.serialize()`. They retain the existing asset roots and return types, share concurrent loads, and evict missing or rejected results. List fallbacks to `[]` happen after caching, so a failed request can retry while a valid empty list stays cached. Entries use the existing 10-minute write/5-minute access expiry and participate in `Caching.clear()` and `Caching.end()`. The unused memoization dependency is removed. CI includes `fix/**` pushes and pull-request bases so stacked fixes run the workspace checks. Source replacement still requires in-memory cache clearing; persistent clearing and hosted/archive error handling are unchanged.
-
-**Verified:** the immutable install, all workspace builds and typechecks, and the three existing AVA tests pass. Temporary Node checks pass 304 assertions across the five loaders, cache lifecycle, stale completions, nullish/falsy values, and real node-persist disk round trips. Isolated browser checks pass 23 assertions for IndexedDB storage and reload, HTTP failure/recovery with concurrent callers, explicit list roots, empty-list handling, and clearing after hosted/ZIP source changes. The previous branch reproduces stuck misses/rejections and nullish writes. Browser CJS/ESM imports exit naturally; no Node-only imports enter browser output. Native canvas remains outside these cache checks. Regression scripts and fixtures remain outside the repository.
-
-**Remaining:** Configure a concurrency bound (jobqu 3 dispatches up to 1 req/10ms per queue with overlapping requests), add retry to the CDN queue, stop mutating global axios defaults. Distinguish missing assets from network/parser failures in hosted and archive sources. Add an asset-version selection API (root is hardcoded to 1.17.1). Fix `WrappedImage` frame math.
-
-### 7. Model/blockstate correctness bug batch — high
+### 7. Model/blockstate correctness — high
 Small, high-impact: (1) `Axis.X = "X"` → lowercase (x-rotations silently no-op); (2) missing `await` on `BlockStates.getDefaultState` (`BlockObject.ts:47`); (3) texPosition-undefined crash (`UVMapper.ts:426`); (4) ModelMerger: child `elements` must override, not concat; (5) replace the 150ms setTimeout rotation hack with awaited init ordering; (6) multipart AND + `apply` arrays + weighted variants; (7) `AssetKey.parse` extension fallback + broken `isAssetKey`. Then tintindex, uvlock, display transforms. Grow the test suite around these (ModelMerger, `mapStateToVariant`).
 
 ### 8. Finish skins: slim, cape, legacy — high
-Preferred route: migrate `SkinObject` onto the ModelPart pipeline using the completely unused `src/skin/playerModels.json` (correct default+slim trees already there), unifying with `EntityObject` — slim UVs come for free and the hand-written slim stub retires. Add cape meshes (vanilla layout first; OptiFine/LabyMod layouts portable from V1 `texturePositions.js:896-1047`) wired to the existing `Skins.ts` resolvers. Add 64×32 legacy layout + slim/legacy auto-detection (port V1's pixel-scan, V1 `src/skin/index.js:129-158`). Dispose replaced geometries/materials on `setSlim` rebuilds.
+Preferred route: migrate `SkinObject` onto the ModelPart pipeline using the completely unused `src/skin/playerModels.json` (correct default+slim trees already there), unifying with `EntityObject` — slim UVs come for free and the hand-written slim stub retires. Add cape meshes (vanilla layout first; OptiFine/LabyMod layouts portable from V1 `texturePositions.js:896-1047`) wired to the existing `Skins.ts` resolvers. Add 64×32 legacy layout + slim/legacy auto-detection (port V1's pixel-scan, `MineRender/src/skin/index.js:129-158`). Dispose replaced geometries/materials on `setSlim` rebuilds.
 
 ### 9. Entity rendering completion — high
 Recurse `ModelPart.children` (most multi-part entities currently render incomplete). Implement `mirror`. Verify the five TODO face-UV methods in `MinecraftCubeTexture.ts` and the possibly-doubled pivot translation. Replace guessed `textures/entity/<name>.png` with a proper mapping (subdirs/variants). In `res/tools`, remap intermediary names (`field_20813`) in blockEntityModels and regenerate the hosted JSON.
@@ -161,4 +96,4 @@ New world-format layer feeding the redesigned chunk storage: .mca region parsing
 Implement `GuiObject` (empty stub today): layered textured planes with UV crop, pixel positioning, z-layering, camera auto-fit. V1's `guiPositions.js` (boss bars, book, chest, crafting table atlases) and `guiHelper.js` (`inventorySlot` math + `recipe()` for crafting_shaped/shapeless JSON) port nearly verbatim; update texture paths for the newer asset layout. Wire `scene.addGui(...)`.
 
 ### 15. Polish: exports, animation API, inspector, demos, docs — medium
-Port toObj/toGLTF and toImage trim/mime. Add a per-frame callback (replaces V1's CustomEvent contract); built-in controls already expose `autoRotate`. Fix `SceneInspector` raycast normalization (against canvas rect, not window) and `SceneStatsDisplay`'s leaked interval. Fix animated-texture tick rate + full mcmeta support. Finish consumer behavior and presentation in `apps/web/` and `examples/vite/`; renderer recreation cleanup is implemented in the controls batch. Workspace wiring belongs to the migration milestone above. Grow the test suite beyond AssetKey and document the consumer API contract (see AGENTS.md) as the beta compatibility baseline.
+Port toObj/toGLTF and toImage trim/mime. Add a per-frame callback integrated with the dirty flag (replaces V1's CustomEvent contract). Fix `SceneInspector` raycast normalization (against canvas rect, not window) and `SceneStatsDisplay`'s leaked interval. Fix animated-texture tick rate + full mcmeta support. Finish the demos and V2 website, including embeds. Remove unused V1 website files from the V2 tree while preserving V1 delivery URLs. Add regression coverage for remaining model and blockstate work; keep the consumer API contract in AGENTS.md as the beta compatibility baseline.
