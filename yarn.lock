@@ -3595,10 +3595,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"jobqu@npm:^3.0.0":
-  version: 3.0.0
-  resolution: "jobqu@npm:3.0.0"
-  checksum: 10c0/2dcadf9e8cae05495db972477efebe77e9972b8ea773d0fd7e06368f54496a16187d0f03197169646306bb4a6f921d36fd25dbbb6a38937b9a9506731e75ae34
+"jobqu@npm:^3.1.0":
+  version: 3.1.0
+  resolution: "jobqu@npm:3.1.0"
+  checksum: 10c0/f25d84550cd5e74ee4d048501e65ebf5f3c19686fd94ce8ce88e956e9ee0430bda3ee485c48fe2d5ea5bd60b1da94d22c3ad3b1d4220a2bea48cc09a93148177
   languageName: node
   linkType: hard
 
@@ -4008,7 +4008,7 @@ __metadata:
     esbuild-plugin-polyfill-node: "npm:^0.3.0"
     esbuild-runner: "npm:^2.2.2"
     image-size: "npm:^0.9.4"
-    jobqu: "npm:^3.0.0"
+    jobqu: "npm:^3.1.0"
     localforage: "npm:^1.9.0"
     node-persist: "npm:^3.1.0"
     postprocessing: "npm:^6.33.3"

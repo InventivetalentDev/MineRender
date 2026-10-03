@@ -104,7 +104,7 @@
     "buffer": "^6.0.3",
     "crypto-js": "^4.0.0",
     "image-size": "^0.9.4",
-    "jobqu": "^3.0.0",
+    "jobqu": "^3.1.0",
     "localforage": "^1.9.0",
     "node-persist": "^3.1.0",
     "postprocessing": "^6.33.3",
