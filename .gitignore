@@ -18,5 +18,3 @@ yarn-error.log
 
 # npm lockfile must not come back - this repo is yarn 4 only
 package-lock.json
-
-.worktrees/

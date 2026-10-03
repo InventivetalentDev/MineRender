@@ -370,42 +370,26 @@ export class Renderer implements Disposable {
         this.renderer.domElement.remove();
         this._element = undefined;
 
-        let failed = false;
-        let failure: unknown;
-        const cleanup = (action: () => void) => {
-            try {
-                action();
-            } catch (error) {
-                if (!failed) failure = error;
-                failed = true;
-            }
-        };
-
         if (this._controls) {
             const controls = this._controls;
             this._controls = undefined;
             controls.enabled = false;
-            cleanup(() => controls.dispose());
+            controls.dispose();
         }
 
-        // A removal or disposal listener must not prevent the remaining resources from being released.
-        for (const object of [...this.scene.children]) {
-            cleanup(() => this.scene.remove(object));
-        }
+        this.scene.clear();
         for (const helper of this._debugHelpers) {
-            cleanup(() => helper.geometry.dispose());
+            helper.geometry.dispose();
             const materials = Array.isArray(helper.material) ? helper.material : [helper.material];
             for (const material of materials) {
-                cleanup(() => material.dispose());
+                material.dispose();
             }
         }
         this._debugHelpers.length = 0;
 
-        cleanup(() => this.composer.dispose());
-        cleanup(() => this.renderer.dispose());
-        cleanup(() => this.renderer.forceContextLoss());
-
-        if (failed) throw failure;
+        this.composer.dispose();
+        this.renderer.dispose();
+        this.renderer.forceContextLoss();
     }
 
     private animate(t: number = performance.now()): void {
