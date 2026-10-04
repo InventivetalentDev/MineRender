@@ -107,10 +107,14 @@ export class MineRenderScene extends Scene {
         const obj = await objectSupplier();
         if (obj?.options?.instanceMeshes && asset.key &&  (<AssetKey>asset.key)?.assetType === "models"/*TODO*/) {
             console.log("instanceMeshes + key")
-            // check for existing instances
-            // UV-locked rotations need separate geometry, but still share their texture atlas.
-            const uvLockRotation = isModelObject(obj) ? obj.options.uvLockRotation : undefined;
-            const key = asset.key.serialize() + (uvLockRotation ? `|uvlock:${uvLockRotation.join(",")}` : "");
+            // UV-lock rotations and tint palettes change vertex data, but still share an atlas.
+            let key = asset.key.serialize();
+            if (isModelObject(obj)) {
+                const { uvLockRotation, tints } = obj.options;
+                if (uvLockRotation) key += `|uvlock:${uvLockRotation.join(",")}`;
+                const palette = Object.entries(tints ?? {}).sort(([a], [b]) => Number(a) - Number(b));
+                if (palette.length) key += `|tints:${JSON.stringify(palette)}`;
+            }
             return this.instanceManager.getOrCreate(key, async () => {
                 // const obj = await objectSupplier();
                 obj.scene = this;

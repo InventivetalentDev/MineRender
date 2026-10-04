@@ -10,17 +10,20 @@ export class ModelGenerator {
     public static readonly ITEM_LAYERS: string[] = ["layer0", "layer1", "layer2", "layer3", "layer4"];
 
     public static generateItemModel(imageData: ImageData, layer: string): ModelElement[] {
+        const tintindex = this.ITEM_LAYERS.indexOf(layer);
         const mainElement: ModelElement = {
             from: [0,0,7.5],
             to: [16,16,8.5],
             faces: {
                 "south": {
                     uv: [0,0,16,16],
-                    texture: `#${layer}`
+                    texture: `#${layer}`,
+                    tintindex
                 },
                 "north": {
                     uv: [16,0,0,16],
-                    texture: `#${layer}`
+                    texture: `#${layer}`,
+                    tintindex
                 }
             },
             shade: true
