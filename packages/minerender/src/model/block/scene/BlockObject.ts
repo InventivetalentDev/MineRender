@@ -13,6 +13,7 @@ import { BlockStates } from "../../../assets/BlockStates";
 import { InstanceReference, isInstanceReference } from "../../../instance/InstanceReference";
 import { AssetKey } from "../../../assets/AssetKey";
 import { prefix } from "../../../util/log";
+import { BlockTints } from "../BlockTints";
 
 const p = prefix("BlockObject");
 
@@ -247,6 +248,7 @@ export class BlockObject extends SceneObject {
         const model = await Models.getMerged(AssetKey.parse("models", variant.model!));
         const options: Partial<ModelObjectOptions> = {
             ...this.options,
+            tints: model ? await BlockTints.get(this.blockState.key, this.state, model, this.options.tints) : this.options.tints,
             uvLockRotation: variant.uvlock && (rotation.x !== 0 || rotation.y !== 0)
                 ? [rotation.x, rotation.y, rotation.z] : undefined
         };

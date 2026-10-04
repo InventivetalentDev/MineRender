@@ -2,4 +2,5 @@
 export * from './Block';
 export * from './BlockState';
 export * from './BlockStateProperties';
+export * from './BlockTints';
 export * from './scene';
