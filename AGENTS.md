@@ -24,6 +24,7 @@ The private Yarn workspace root contains the public library and its consumers. U
 
 ## Build, test, publish
 
+- **Runtime: Node.js 22+**, or a browser with native Fetch and AbortController. Node builds target Node 22.
 - **Package manager: yarn 4 (`packageManager: yarn@4.5.3`, corepack), `nodeLinker: node-modules`.** Do not use npm here.
 - Install dependencies on the OS that runs the build; esbuild, Rollup, and `canvas` use platform-specific binaries.
 - Root commands delegate to the workspaces:
@@ -58,7 +59,7 @@ The private Yarn workspace root contains the public library and its consumers. U
 
 **Instancing** (`src/instance/`): `InstanceManager` dedupes identical models — same `AssetKey.serialize()` — into shared fixed-capacity `InstancedMesh`es (default 50, 2000 for world blocks); callers get an `InstanceReference` (instanceable + index) that proxies transforms to `set*At(index)`. This is the core large-world performance mechanism, and its lifecycle (grow/free/count) is unfinished — see ROADMAP.
 
-**Asset pipeline** (`src/assets/`, `src/cache/`, `src/request/`): assets are addressed by `AssetKey` `{namespace, path, assetType, type, rootType, extension, root}`; `AssetKey.serialize()` is the universal cache key (it embeds the asset root). `AssetLoader` holds an ordered `AssetSource` registry (`HostedAssetSource` for CDNs, `ArchiveAssetSource` + `BrowserArchiveProxy` for resource-pack zips — browser-only today). Added sources have highest priority. `get()` snapshots that order and returns the first defined result unchanged; `getAll()` still collects all sources. Hosted namespace/root retries remain per-source; use `retryDefaults: false` for strict layering. Caching layers: in-memory TTL caches (`Caching`, 10min/5min) over `PersistentCache` (node-persist in Node / localforage in browser; `VERSION = 2` selects fresh directories/databases and leaves older stores untouched). Requests go through `jobqu` queues over axios (`Requests.ts`).
+**Asset pipeline** (`src/assets/`, `src/cache/`, `src/request/`): assets are addressed by `AssetKey` `{namespace, path, assetType, type, rootType, extension, root}`; `AssetKey.serialize()` is the universal cache key (it embeds the asset root). `AssetLoader` holds an ordered `AssetSource` registry (`HostedAssetSource` for CDNs, `ArchiveAssetSource` + `BrowserArchiveProxy` for resource-pack zips — browser-only today). Added sources have highest priority. `get()` snapshots that order and returns the first defined result unchanged; `getAll()` still collects all sources. Hosted namespace/root retries remain per-source; use `retryDefaults: false` for strict layering. Caching layers: in-memory TTL caches (`Caching`, 10min/5min) over `PersistentCache` (node-persist in Node / localforage in browser; `VERSION = 2` selects fresh directories/databases and leaves older stores untouched). Requests go through `jobqu` queues over native Fetch (`Requests.ts`). `RequestConfig` extends Fetch options with `url`, `baseURL`, `timeout`, and `responseType`; `RequestResponse` contains decoded data, native `Headers`, and the final URL. Custom response parsers use these library-owned types.
 
 **Model pipeline** (`src/model/`, `src/UVMapper.ts`): Java-edition model JSON → `ModelMerger` resolves the parent chain (ts-deepmerge) → `UVMapper.createAtlas` builds a **per-model texture atlas** on a compat canvas and bakes atlas UVs into `element.mappedUv` *before* geometry creation → `ModelObject.init` builds cached `BoxGeometry`s per element, optionally merges (`mergeMeshes`) and instances (`instanceMeshes`). Blockstates (`src/model/block/`): `BlockObject` resolves variants/multipart via `mapStateToVariant` and creates its visuals as `ModelObject`s through `scene.addModel` (so blocks share model instances). Item models get synthesized elements via `ModelGenerator`.
 
@@ -88,6 +89,7 @@ The private Yarn workspace root contains the public library and its consumers. U
 
 - JSON model dictionaries in `src/` are reference copies. Runtime data comes from the fallback-assets repository; local edits do not change hosted assets.
 - Idle caches and request queues let Node exit. `shutdown()` clears shared caches, permanently ends request queues, and stops Ticker.
+- Requests require Fetch and `AbortSignal.any/timeout`, with bounded GET retries and timeouts through body reading. Cancellation aborts a call; shutdown rejects waiting work and lets active calls finish.
 - Async list/dictionary caches evict missing and rejected loads. Clear in-memory caches when sources change; persistent storage must be cleared separately.
 - Image decode failures reject and evict the matching cache entry. Failed synchronous image placeholders are retried on the next lookup.
 - Keep `@types/three` and `three` on the same minor version; import geometry/material types from bare `three`.

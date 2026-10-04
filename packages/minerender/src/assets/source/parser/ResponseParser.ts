@@ -1,9 +1,9 @@
-import { AxiosRequestConfig, AxiosResponse } from "axios";
+import type { RequestConfig, RequestResponse } from "../../../request";
 import { Maybe } from "../../../util";
 import { MinecraftAsset } from "../../../MinecraftAsset";
 
 export interface ResponseParser<T extends MinecraftAsset> {
-    config(request: AxiosRequestConfig);
+    config(request: RequestConfig);
 
-    parse(response: AxiosResponse): Maybe<T> | Promise<Maybe<T>>;
+    parse(response: RequestResponse): Maybe<T> | Promise<Maybe<T>>;
 }

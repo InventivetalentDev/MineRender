@@ -1,7 +1,6 @@
 import { Model, TextureAsset } from "../model/Model";
 import { Maybe } from "../util/util";
 import { Requests } from "../request/Requests";
-import { AxiosRequestConfig, AxiosResponse } from "axios";
 import { MinecraftAsset } from "../MinecraftAsset";
 import { ImageInfo, ImageLoader } from "../image/ImageLoader";
 import { MinecraftTextureMeta } from "../MinecraftTextureMeta";

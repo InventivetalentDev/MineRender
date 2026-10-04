@@ -1,6 +1,6 @@
 import { AssetSource } from ".";
 import { BlockState, Model, TextureAsset } from "../../model";
-import { AxiosRequestConfig, AxiosResponse } from "axios";
+import type { RequestConfig, RequestResponse } from "../../request";
 import { Maybe, prefix } from "../../util";
 import { MinecraftTextureMeta } from "../../MinecraftTextureMeta";
 import { NBTAsset, NBTHelper } from "../../nbt";
@@ -24,54 +24,54 @@ const DEFAULT_OPTIONS: HostedAssetSourceOptions = {
 export class HostedAssetSource extends AssetSource {
 
     static readonly MODEL: ResponseParser<Model> = {
-        config(request: AxiosRequestConfig) {
+        config(request: RequestConfig) {
         },
-        parse(response: AxiosResponse): Maybe<Model> {
+        parse(response: RequestResponse): Maybe<Model> {
             return response.data as Model;
         }
     }
     static readonly BLOCKSTATE: ResponseParser<BlockState> = {
-        config(request: AxiosRequestConfig) {
+        config(request: RequestConfig) {
         },
-        parse(response: AxiosResponse): Maybe<BlockState> {
+        parse(response: RequestResponse): Maybe<BlockState> {
             return response.data as BlockState;
         }
     }
     static readonly META: ResponseParser<MinecraftTextureMeta> = {
-        config(request: AxiosRequestConfig) {
+        config(request: RequestConfig) {
             // request.responseType = "arraybuffer";
         },
-        parse(response: AxiosResponse): Maybe<MinecraftTextureMeta> {
+        parse(response: RequestResponse): Maybe<MinecraftTextureMeta> {
             return response.data as MinecraftTextureMeta;
         }
     }
     static readonly NBT: ResponseParser<NBTAsset> = {
-        config(request: AxiosRequestConfig) {
+        config(request: RequestConfig) {
             request.responseType = "arraybuffer";
         },
-        parse(response: AxiosResponse): Promise<Maybe<NBTAsset>> {
+        parse(response: RequestResponse): Promise<Maybe<NBTAsset>> {
             return NBTHelper.fromBuffer(Buffer.from(response.data));
         }
     }
     static readonly IMAGE: ResponseParser<TextureAsset> = {
-        config(request: AxiosRequestConfig) {
+        config(request: RequestConfig) {
             request.responseType = "arraybuffer";
         },
-        async parse(response: AxiosResponse): Promise<Maybe<TextureAsset>> {
+        async parse(response: RequestResponse): Promise<Maybe<TextureAsset>> {
             return await ImageLoader.processResponse(response) as TextureAsset;
         }
     }
     static readonly LIST: ResponseParser<ListAsset> = {
-        config(request: AxiosRequestConfig) {
+        config(request: RequestConfig) {
         },
-        parse(response: AxiosResponse): Maybe<ListAsset> {
+        parse(response: RequestResponse): Maybe<ListAsset> {
             return response.data as ListAsset;
         }
     }
     static readonly JSON: ResponseParser<any> = {
-        config(request: AxiosRequestConfig) {
+        config(request: RequestConfig) {
         },
-        parse(response: AxiosResponse): Maybe<any> {
+        parse(response: RequestResponse): Maybe<any> {
             return response.data;
         }
     }
@@ -125,7 +125,7 @@ export class HostedAssetSource extends AssetSource {
         console.info(p, "Loading", key);
         const url = `${ this.assetBasePath(key) }${ key.type !== undefined ? key.type + '/' : '' }${ key.path }${ key.extension }`;
         console.debug(p, url);
-        let req: AxiosRequestConfig = {
+        let req: RequestConfig = {
             url: url
         };
         parser.config(req);
@@ -144,7 +144,7 @@ export class HostedAssetSource extends AssetSource {
             })
             .catch(err => {
                 if (err.response) {
-                    let response = err.response as AxiosResponse;
+                    let response = err.response as RequestResponse;
                     if (response.status === 404) {
                         console.debug(p, key, "not found");
                         return undefined;

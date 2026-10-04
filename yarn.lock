@@ -1553,15 +1553,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"axios@npm:^0.21.1":
-  version: 0.21.4
-  resolution: "axios@npm:0.21.4"
-  dependencies:
-    follow-redirects: "npm:^1.14.0"
-  checksum: 10c0/fbcff55ec68f71f02d3773d467db2fcecdf04e749826c82c2427a232f9eba63242150a05f15af9ef15818352b814257541155de0281f8fb2b7e8a5b79f7f2142
-  languageName: node
-  linkType: hard
-
 "balanced-match@npm:^1.0.0":
   version: 1.0.2
   resolution: "balanced-match@npm:1.0.2"
@@ -2939,16 +2930,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"follow-redirects@npm:^1.14.0":
-  version: 1.15.9
-  resolution: "follow-redirects@npm:1.15.9"
-  peerDependenciesMeta:
-    debug:
-      optional: true
-  checksum: 10c0/5829165bd112c3c0e82be6c15b1a58fa9dcfaede3b3c54697a82fe4a62dd5ae5e8222956b448d2f98e331525f05d00404aba7d696de9e761ef6e42fdc780244f
-  languageName: node
-  linkType: hard
-
 "for-each@npm:^0.3.5":
   version: 0.3.5
   resolution: "for-each@npm:0.3.5"
@@ -3614,10 +3595,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"jobqu@npm:^3.0.0":
-  version: 3.0.0
-  resolution: "jobqu@npm:3.0.0"
-  checksum: 10c0/2dcadf9e8cae05495db972477efebe77e9972b8ea773d0fd7e06368f54496a16187d0f03197169646306bb4a6f921d36fd25dbbb6a38937b9a9506731e75ae34
+"jobqu@npm:^3.1.0":
+  version: 3.1.0
+  resolution: "jobqu@npm:3.1.0"
+  checksum: 10c0/f25d84550cd5e74ee4d048501e65ebf5f3c19686fd94ce8ce88e956e9ee0430bda3ee485c48fe2d5ea5bd60b1da94d22c3ad3b1d4220a2bea48cc09a93148177
   languageName: node
   linkType: hard
 
@@ -4020,7 +4001,6 @@ __metadata:
     "@types/three": "npm:~0.158.0"
     "@zip.js/zip.js": "npm:^2.7.31"
     ava: "npm:^5.3.1"
-    axios: "npm:^0.21.1"
     buffer: "npm:^6.0.3"
     canvas: "npm:^2.6.1"
     crypto-js: "npm:^4.0.0"
@@ -4028,7 +4008,7 @@ __metadata:
     esbuild-plugin-polyfill-node: "npm:^0.3.0"
     esbuild-runner: "npm:^2.2.2"
     image-size: "npm:^0.9.4"
-    jobqu: "npm:^3.0.0"
+    jobqu: "npm:^3.1.0"
     localforage: "npm:^1.9.0"
     node-persist: "npm:^3.1.0"
     postprocessing: "npm:^6.33.3"

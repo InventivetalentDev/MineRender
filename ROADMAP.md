@@ -66,7 +66,7 @@ legacy website cleanup is a separate task.
 - ~~Initialize node-persist before use.~~
 - ~~Decode fetched image bytes without refetching them; reject invalid images and allow retry.~~
 - ~~Skip nullish persistent writes and evict missing or rejected async cache loads.~~
-- Bound request concurrency, retries, cancellation, timeouts, and shutdown.
+- ~~Bound request concurrency, retries, cancellation, timeouts, and shutdown.~~
 - Propagate hosted/archive and model initialization errors with source context.
 - Add an asset-version selection API; the default is pinned to 1.17.1.
 - Fix `WrappedImage` frame math.
