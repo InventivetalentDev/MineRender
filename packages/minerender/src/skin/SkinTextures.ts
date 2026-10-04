@@ -1,4 +1,4 @@
-import { DataTexture, DoubleSide, MeshBasicMaterial, SRGBColorSpace } from "three";
+import { DataTexture, DoubleSide, FrontSide, MeshBasicMaterial, SRGBColorSpace } from "three";
 import { Caching } from "../cache/Caching";
 import { serializeImageKey } from "../cache/CacheKey";
 import { MineRenderError } from "../error/MineRenderError";
@@ -27,13 +27,28 @@ export class SkinTextures {
         const key = `skin:${serializeImageKey({ src })}:${isLegacy}`;
         const material = Caching.materialCache.get(key, () => {
             const pixels = isLegacy ? this.normalizeLegacy(image, scale) : new Uint8Array(image.data);
-            const texture = Textures.initTextureProps(new DataTexture(pixels, image.width, image.width));
-            texture.colorSpace = SRGBColorSpace;
-            texture.flipY = true;
-            texture.needsUpdate = true;
-            return new MeshBasicMaterial({ map: texture, transparent: true, side: DoubleSide, alphaTest: 0.5 });
+            return this.createMaterial(pixels, image.width, image.width);
         }) as MeshBasicMaterial;
         return { material, slim, legacy: isLegacy };
+    }
+
+    public static async getCape(src: string): Promise<MeshBasicMaterial> {
+        const image = await ImageLoader.getData(src);
+        const scale = image.width / 64;
+        if (!Number.isInteger(scale) || scale < 1 || image.height !== image.width / 2) {
+            throw new MineRenderError(`Invalid cape dimensions ${image.width}x${image.height}; expected 64x32 or an integer-scaled equivalent`);
+        }
+        return Caching.materialCache.get(`cape:${serializeImageKey({ src })}`, () => {
+            return this.createMaterial(new Uint8Array(image.data), image.width, image.height, false);
+        }) as MeshBasicMaterial;
+    }
+
+    private static createMaterial(pixels: Uint8Array, width: number, height: number, transparent: boolean = true): MeshBasicMaterial {
+        const texture = Textures.initTextureProps(new DataTexture(pixels, width, height));
+        texture.colorSpace = SRGBColorSpace;
+        texture.flipY = true;
+        texture.needsUpdate = true;
+        return new MeshBasicMaterial({ map: texture, transparent, side: transparent ? DoubleSide : FrontSide, alphaTest: transparent ? 0.5 : 0 });
     }
 
     private static isSlim(image: ImageData, scale: number): boolean {

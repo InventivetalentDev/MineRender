@@ -628,56 +628,13 @@ const baseSkinCoordinates: SkinTextureCoordinates = {
             rotation: 180
         }
     },
-    cape: {//TODO
-        east: {
-            uv: [
-                0,
-                36,
-                4,
-                48
-            ]
-        },
-        west: {
-            uv: [
-                8,
-                36,
-                12,
-                48
-            ]
-        },
-        north: {
-            uv: [
-                4,
-                36,
-                8,
-                48
-            ]
-        },
-        south: {
-            uv: [
-                12,
-                36,
-                16,
-                48
-            ]
-        },
-        up: {
-            uv: [
-                4,
-                32,
-                8,
-                36
-            ]
-        },
-        down: {
-            uv: [
-                8,
-                32,
-                12,
-                36
-            ],
-            rotation: 180
-        }
+    cape: {
+        east: { uv: [0, 1, 1, 17] },
+        west: { uv: [11, 1, 12, 17] },
+        north: { uv: [1, 1, 11, 17] },
+        south: { uv: [12, 1, 22, 17] },
+        up: { uv: [11, 1, 1, 0] },
+        down: { uv: [21, 0, 11, 1] }
     }
 }
 

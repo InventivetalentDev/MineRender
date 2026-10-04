@@ -58,7 +58,19 @@ async function setSkin(skin: string) {
 
 window["setSkin"] = setSkin;
 
+async function setCape(cape: string) {
+    const src = !cape ? undefined : cape.startsWith("http") ? cape : await Skins.capeFromUuidOrUsername(cape);
+    await skinObject.setCapeTexture(src);
+}
+
+window["setCape"] = setCape;
+
 const skinInput = document.getElementById("skin-input") as HTMLInputElement;
 skinInput.addEventListener("change", () => {
     setSkin(skinInput.value).catch(console.error);
-})
+});
+
+const capeInput = document.getElementById("cape-input") as HTMLInputElement;
+capeInput.addEventListener("change", () => {
+    setCape(capeInput.value).catch(console.error);
+});
