@@ -12,14 +12,13 @@ export interface BlockStateVariant {
     y?: number;
     x?: number;
     uvlock?: boolean;
+    weight?: number;
 }
 
 
 export interface BlockStateMultipart {
-    when?: MultipartCondition | { OR: MultipartCondition[] };
-    apply?: BlockStateVariant;
+    when?: MultipartCondition;
+    apply?: BlockStateVariant | BlockStateVariant[];
 }
 
-export interface MultipartCondition {
-    [key: string]: string;
-}
+export type MultipartCondition = Record<string, string> | { OR: MultipartCondition[] } | { AND: MultipartCondition[] };
