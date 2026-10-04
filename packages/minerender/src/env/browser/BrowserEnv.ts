@@ -34,7 +34,8 @@ export class BrowserEnv implements EnvProvider {
 
     openCache(name: string, version: number): PersistentCache {
         return new BrowserCache(localforage.createInstance({
-            name: name,
+            // IndexedDB schema upgrades retain records; each cache generation needs its own database.
+            name: name + version,
             version: version
         }));
     }

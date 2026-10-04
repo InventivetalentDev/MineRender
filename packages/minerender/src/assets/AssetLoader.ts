@@ -14,7 +14,6 @@ import { prefix } from "../util/log";
 import { AssetSource } from "./source/AssetSource";
 import { AssetParser } from "./source/parser/AssetParsers";
 import { HostedAssetSource } from "./source";
-import merge from "ts-deepmerge";
 
 const p = prefix("AssetLoader");
 
@@ -54,7 +53,6 @@ export class AssetLoader {
     }
 
     public static async getAll<T extends MinecraftAsset>(key: AssetKey, parser: AssetParser | string): Promise<T[]> {
-        console.log(this._SOURCES)
         let promises: Promise<Maybe<T>>[] = [];
         for (const source of this._SOURCES) {
             promises.push(source.source.get<T>(key, parser));
@@ -64,25 +62,17 @@ export class AssetLoader {
         });
     }
 
+    /** Returns the first defined result in source-priority order, without merging assets. */
     public static async get<T extends MinecraftAsset>(key: AssetKey, parser: AssetParser | string): Promise<Maybe<T>> {
-        console.log(this._SOURCES)
-        let promises: Promise<Maybe<T>>[] = [];
-        for (const source of this._SOURCES) {
-            promises.push(source.source.get<T>(key, parser));
-        }
-        return Promise.all(promises).then(results => {
-            const fallback = results[results.length - 1];
-            for (const result of results) {
-                if (result) {
-                    if (fallback) {
-                        // we have a fallback, so merge it with the result
-                        return merge({}, fallback, result) as T;
-                    }
-                    return result;
-                }
+        // Source changes affect later lookups, not the priority of an in-flight lookup.
+        const sources = [...this._SOURCES];
+        for (const source of sources) {
+            const result = await source.source.get<T>(key, parser);
+            if (result !== undefined) {
+                return result;
             }
-            return undefined;
-        });
+        }
+        return undefined;
     }
 
 }
