@@ -10,9 +10,9 @@ export class ModelMerger {
         const models = await this.collectAllParents(model);
         let merged: Model = {};
         for (let parentModel of models) {
-            merged = merge(merged, parentModel);
+            merged = merge.withOptions({ mergeArrays: false }, merged, parentModel);
         }
-        merged = merge(merged, model);
+        merged = merge.withOptions({ mergeArrays: false }, merged, model);
         merged.hierarchy = models.map(m => m.parent).filter(p => `${p}`) as string[];
         merged.hierarchy.push(`${merged.parent}`);
         // delete merged.parent;

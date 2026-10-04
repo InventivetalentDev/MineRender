@@ -1,7 +1,7 @@
 import { Vector3 } from "three";
 
 export enum Axis {
-    X = "X",
+    X = "x",
     Y = "y",
     Z = "z"
 }
