@@ -42,6 +42,8 @@ export class Entities {
             texture = isAssetKey(textureKey) && textureKey.assetType === "textures" && path.startsWith("entity/")
                 ? textureKey
                 : new AssetKey(textureKey.namespace, path, "textures", "entity", "assets", ".png", isAssetKey(textureKey) ? textureKey.root : undefined);
+        } else if (layer.textureLocation !== undefined) {
+            texture = AssetKey.parse("textures", layer.textureLocation.replace(/^([^:]+:)?textures\//, "$1"));
         } else {
             texture = await this.resolveTexture(modelKey);
         }
