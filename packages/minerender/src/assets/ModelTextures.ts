@@ -19,11 +19,22 @@ export class ModelTextures {
     }
 
     public static async get(key: AssetKey): Promise<Maybe<ExtractableImageData>> {
-        const asset = await this.preload(key);
-        if (asset) {
-            return ImageLoader.infoToCanvasData(asset);
+        const keyStr = key.serialize();
+        const pending = this.preload(key);
+        const cached = Caching.textureAssetCache.getIfPresent(keyStr);
+        try {
+            const asset = await pending;
+            if (asset) {
+                return await ImageLoader.infoToCanvasData(asset);
+            }
+            return undefined;
+        } catch (err) {
+            // Discard corrupt encoded bytes, but preserve any newer load for this key.
+            if (cached && Caching.textureAssetCache.getIfPresent(keyStr) === cached) {
+                Caching.textureAssetCache.invalidate(keyStr);
+            }
+            throw err;
         }
-        return undefined;
     }
 
     public static async preload(key: AssetKey): Promise<Maybe<TextureAsset>> {

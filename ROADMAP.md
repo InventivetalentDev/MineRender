@@ -37,7 +37,7 @@ legacy website cleanup is a separate task.
 | Legacy .schematic | full incl. AddBlocks nibbles | `SchematicParser` returns `{}`; mapping data (`res/idsToNames.json`, `legacyBlockList.json`) present but unreferenced | medium |
 | Combined multi-renderer scene | CombinedRender wrapper | Superseded by design (one scene hosts all types) — **at parity** | — |
 | Screenshots & 3D export | toImage(trim,mime), toObj/toGLTF/toPLY | Bare `toDataURL()`; no exporters | medium |
-| Asset loading & resource packs | swappable assetRoot, fallback | Ordered whole-asset source selection; textures download twice; failed loads can remain cached; source errors swallowed; pinned to 1.17.1, ZIPs browser-only | high |
+| Asset loading & resource packs | swappable assetRoot, fallback | Ordered whole-asset source selection; decode fetched bytes; failed loads can remain cached; source errors swallowed; pinned to 1.17.1, ZIPs browser-only | high |
 | Per-frame animation API | `<type>Render` CustomEvents | No supported hook (dirty-flag loop only) | medium |
 | Embeds & website | minerender.org + iframe embeds | Workspace demos and examples; V2 website and embeds remain | low |
 | **Large-scale worlds (V2 goal)** | n/a | Prototype, effectively dead code: 64³ box, `getChunkAt` broken (Map indexed with number), object-per-block, no meshing/culling/lighting/LOD, instance slots never freed | high |
@@ -64,7 +64,7 @@ legacy website cleanup is a separate task.
 
 - ~~Resolve sources in priority order and return the first defined asset.~~
 - ~~Initialize node-persist before use.~~
-- Decode fetched image bytes without refetching them; reject invalid images and allow retry.
+- ~~Decode fetched image bytes without refetching them; reject invalid images and allow retry.~~
 - Skip nullish persistent writes and evict missing or rejected async cache loads.
 - Bound request concurrency, retries, cancellation, timeouts, and shutdown.
 - Propagate hosted/archive and model initialization errors with source context.

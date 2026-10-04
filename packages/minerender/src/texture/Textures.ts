@@ -31,6 +31,10 @@ export class Textures {
 
     public static getImage(key: TextureKey): Texture {
         const keyStr = serializeTextureKey(key);
+        const cached = Caching.textureCache.peek(keyStr);
+        if (cached && TextureLoader.hasFailed(cached)) {
+            Caching.textureCache.invalidate(keyStr);
+        }
         return Caching.textureCache.get(keyStr, k=>{
             return Textures.createImage(key);
         })!;

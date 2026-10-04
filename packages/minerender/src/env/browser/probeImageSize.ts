@@ -5,7 +5,7 @@ import type { ImageSizeInfo } from "../../Env";
  *
  * `image-size` pulls in `fs`/`path` at module scope, so it can only live in the Node build.
  * Everything MineRender loads is a PNG in practice; GIF and JPEG are handled as a courtesy and
- * anything else falls through to an empty result (callers treat that as 0x0).
+ * anything else falls through to an empty result, which ImageLoader rejects.
  */
 export function probeImageSize(data: Uint8Array): ImageSizeInfo {
     if (data.length < 10) {

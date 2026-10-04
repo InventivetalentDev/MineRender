@@ -8,6 +8,13 @@ import { Textures } from "./Textures";
 
 export class TextureLoader {
 
+    private static readonly failedTextures = new WeakSet<Texture>();
+
+    /** Reports whether image loading failed, so cached textures can be retried. */
+    public static hasFailed(texture: Texture): boolean {
+        return this.failedTextures.has(texture);
+    }
+
     protected static createTexture(): Texture {
         return new Texture();
     }
@@ -15,10 +22,12 @@ export class TextureLoader {
     public static loadInBackground(src: string, format: PixelFormat = RGBAFormat, rotation: number = 0): Texture {
         const texture = this.createTexture();
         texture.colorSpace = THREE.SRGBColorSpace;
-        const image = ImageLoader.loadElement(src);
-        image.onload = function () {
+        const image = ImageLoader.loadElement(src, () => {
             texture.needsUpdate = true;
-        }
+        }, error => {
+            this.failedTextures.add(texture);
+            console.warn("Failed to load texture", src, error);
+        });
         texture.image = image;
         texture.format = format;
         texture.rotation = rotation;
@@ -30,9 +39,12 @@ export class TextureLoader {
         const texture = new Texture();
         texture.colorSpace = THREE.SRGBColorSpace;
         ImageLoader.getData(src).then(image=>{
-            texture.needsUpdate = true;
             texture.image = image;
-        })
+            texture.needsUpdate = true;
+        }).catch(error => {
+            this.failedTextures.add(texture);
+            console.warn("Failed to load texture", src, error);
+        });
         texture.format = format;
         texture.rotation = rotation;
 

@@ -89,7 +89,7 @@ The private Yarn workspace root contains the public library and its consumers. U
 - JSON model dictionaries in `src/` are reference copies. Runtime data comes from the fallback-assets repository; local edits do not change hosted assets.
 - Idle caches and request queues let Node exit. `shutdown()` clears shared caches, permanently ends request queues, and stops Ticker.
 - Async `@Memoize` methods retain their first promise, including failures.
-- Image failures can leave cached 0×0 placeholders; asset loading can collapse errors to `undefined`.
+- Image decode failures reject and evict the matching cache entry. Failed synchronous image placeholders are retried on the next lookup.
 - Keep `@types/three` and `three` on the same minor version; import geometry/material types from bare `three`.
 - Node imports require a working native `canvas` installation; browser-only installs can skip its optional build.
 - `src/_model/`, `src/lib/OrbitControls.js`, root `mccolor.js`, and the empty root `three/` are unused legacy code.
