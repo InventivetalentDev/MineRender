@@ -37,6 +37,8 @@ export class BasicAssetKey implements Serializable {
 // TODO: rewrite this to be less dumb
 export class AssetKey extends BasicAssetKey {
 
+    public readonly isAssetKey: true = true;
+
     constructor(
         readonly namespace: string, readonly path: string,
         public assetType?: AssetType,
@@ -65,8 +67,11 @@ export class AssetKey extends BasicAssetKey {
         }
         let path = split.join("/");
 
-        let extension = assetType === "textures" ? ".png" :
-            origin?.assetType || ".json";
+        const extension = assetType === "textures" ? ".png" :
+            origin?.extension ?? ".json";
+        if (extension && path.endsWith(extension)) {
+            path = path.slice(0, -extension.length);
+        }
 
         return new AssetKey(namespace, path, assetType, type, "assets", extension, origin?.root);
     }
@@ -102,9 +107,10 @@ export class AssetKey extends BasicAssetKey {
 }
 
 export function isBasicAssetKey(obj: any): obj is BasicAssetKey {
-    return "namespace" in obj && "path" in obj;
+    return obj !== null && typeof obj === "object"
+        && typeof obj.namespace === "string" && typeof obj.path === "string";
 }
 
 export function isAssetKey(obj: any): obj is AssetKey {
-    return isBasicAssetKey(obj) && "parse" in obj;
+    return isBasicAssetKey(obj) && (<AssetKey>obj).isAssetKey === true;
 }
