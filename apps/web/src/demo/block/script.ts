@@ -62,7 +62,7 @@ function setBlock(block: string) {
             instanceId: blockObject.isInstanced ? blockObject.instanceCounter : undefined
         }
         sceneInspector.selectObject(blockObject, intersection)
-    });
+    }).catch(error => console.error(error));
 }
 
 window["setBlock"] = setBlock;
@@ -78,4 +78,4 @@ BlockStates.getList().then(list => {
         option.value = l.replace("\.json", "");
         blockSuggestions.appendChild(option);
     })
-})
+}).catch(error => console.error(error));

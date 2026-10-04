@@ -29,7 +29,7 @@ legacy website cleanup is a separate task.
 | Skins — slim + legacy 64×32 | auto-detected, dedicated UVs | Half-done: slim geometry ✔, slim UVs = copy of classic (`SkinTextureCoordinates.ts:690`), no 64×32, no auto-detect | high |
 | Capes (vanilla/OptiFine/LabyMod) | full, 3 layouts, capes.dev | Not rendered at all (resolvers exist in `Skins.ts`, no meshes) | medium |
 | Block/item model rendering | full incl. tint, display transforms | Works for common blocks; x-axis rotations no-op (`Axis.X` casing), texPosition crash, parent-merge concatenates `elements`, no tint/uvlock/display/builtin-entity | high |
-| Blockstate resolution | variants + weighted random + multipart AND/OR | Missing `await` defeats default states (`BlockObject.ts:47`), no AND, no weighted pick, 150ms-setTimeout rotation hack | high |
+| Blockstate resolution | variants + weighted random + multipart AND/OR | Default states awaited; no AND, no weighted pick, 150ms-setTimeout rotation hack | high |
 | Animated textures | frametime honored | Ticks too fast (per-frame not per-50ms-tick), frame-math bugs in `WrappedImage`, no interpolation | medium |
 | Entity rendering | 76 hosted models, mirror, inheritance | Richer data (107+19 ModelPart dumps) but children never recursed, mirror TODO, texture paths guessed, box-UV math unverified | high |
 | GUI / inventory / recipes | full GuiRender + Positions + recipe() | `GuiObject` is an empty stub | high |
@@ -37,7 +37,7 @@ legacy website cleanup is a separate task.
 | Legacy .schematic | full incl. AddBlocks nibbles | `SchematicParser` returns `{}`; mapping data (`res/idsToNames.json`, `legacyBlockList.json`) present but unreferenced | medium |
 | Combined multi-renderer scene | CombinedRender wrapper | Superseded by design (one scene hosts all types) — **at parity** | — |
 | Screenshots & 3D export | toImage(trim,mime), toObj/toGLTF/toPLY | Bare `toDataURL()`; no exporters | medium |
-| Asset loading & resource packs | swappable assetRoot, fallback | Ordered whole-asset source selection; decode fetched bytes; failure-evicting caches; source errors swallowed; pinned to 1.17.1, ZIPs browser-only | high |
+| Asset loading & resource packs | swappable assetRoot, fallback | Ordered whole-asset source selection; decode fetched bytes; failure-evicting caches; contextual errors; pinned to 1.17.1, ZIPs browser-only | high |
 | Per-frame animation API | `<type>Render` CustomEvents | No supported hook (dirty-flag loop only) | medium |
 | Embeds & website | minerender.org + iframe embeds | Workspace demos and examples; V2 website and embeds remain | low |
 | **Large-scale worlds (V2 goal)** | n/a | Prototype, effectively dead code: 64³ box, `getChunkAt` broken (Map indexed with number), object-per-block, no meshing/culling/lighting/LOD, instance slots never freed | high |
@@ -67,12 +67,12 @@ legacy website cleanup is a separate task.
 - ~~Decode fetched image bytes without refetching them; reject invalid images and allow retry.~~
 - ~~Skip nullish persistent writes and evict missing or rejected async cache loads.~~
 - ~~Bound request concurrency, retries, cancellation, timeouts, and shutdown.~~
-- Propagate hosted/archive and model initialization errors with source context.
+- ~~Propagate hosted/archive and model initialization errors with source context.~~
 - Add an asset-version selection API; the default is pinned to 1.17.1.
 - Fix `WrappedImage` frame math.
 
 ### 7. Model/blockstate correctness — high
-Small, high-impact: (1) `Axis.X = "X"` → lowercase (x-rotations silently no-op); (2) missing `await` on `BlockStates.getDefaultState` (`BlockObject.ts:47`); (3) texPosition-undefined crash (`UVMapper.ts:426`); (4) ModelMerger: child `elements` must override, not concat; (5) replace the 150ms setTimeout rotation hack with awaited init ordering; (6) multipart AND + `apply` arrays + weighted variants; (7) `AssetKey.parse` extension fallback + broken `isAssetKey`. Then tintindex, uvlock, display transforms. Grow the test suite around these (ModelMerger, `mapStateToVariant`).
+Small, high-impact: (1) `Axis.X = "X"` → lowercase (x-rotations silently no-op); (2) ~~await `BlockStates.getDefaultState`~~; (3) texPosition-undefined crash (`UVMapper.ts:426`); (4) ModelMerger: child `elements` must override, not concat; (5) replace the 150ms setTimeout rotation hack with awaited init ordering; (6) multipart AND + `apply` arrays + weighted variants; (7) `AssetKey.parse` extension fallback + broken `isAssetKey`. Then tintindex, uvlock, display transforms. Grow the test suite around these (ModelMerger, `mapStateToVariant`).
 
 ### 8. Finish skins: slim, cape, legacy — high
 Preferred route: migrate `SkinObject` onto the ModelPart pipeline using the completely unused `src/skin/playerModels.json` (correct default+slim trees already there), unifying with `EntityObject` — slim UVs come for free and the hand-written slim stub retires. Add cape meshes (vanilla layout first; OptiFine/LabyMod layouts portable from V1 `texturePositions.js:896-1047`) wired to the existing `Skins.ts` resolvers. Add 64×32 legacy layout + slim/legacy auto-detection (port V1's pixel-scan, `MineRender/src/skin/index.js:129-158`). Dispose replaced geometries/materials on `setSlim` rebuilds.

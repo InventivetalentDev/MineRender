@@ -92,6 +92,7 @@ The private Yarn workspace root contains the public library and its consumers. U
 - Requests require Fetch and `AbortSignal.any/timeout`, with bounded GET retries and timeouts through body reading. Cancellation aborts a call; shutdown rejects waiting work and lets active calls finish.
 - Async list/dictionary caches evict missing and rejected loads. Clear in-memory caches when sources change; persistent storage must be cleared separately.
 - Image decode failures reject and evict the matching cache entry. Failed synchronous image placeholders are retried on the next lookup.
+- Hosted/archive failures reject with `AssetLoadError`. Only missing assets or an explicit `undefined` parser result permit fallback.
 - Keep `@types/three` and `three` on the same minor version; import geometry/material types from bare `three`.
 - Node imports require a working native `canvas` installation; browser-only installs can skip its optional build.
 - `src/_model/`, `src/lib/OrbitControls.js`, root `mccolor.js`, and the empty root `three/` are unused legacy code.

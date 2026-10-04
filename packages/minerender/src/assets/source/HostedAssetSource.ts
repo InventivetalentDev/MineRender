@@ -1,4 +1,4 @@
-import { AssetSource } from ".";
+import { AssetLoadError, AssetSource } from "./AssetSource";
 import { BlockState, Model, TextureAsset } from "../../model";
 import type { RequestConfig, RequestResponse } from "../../request";
 import { Maybe, prefix } from "../../util";
@@ -9,7 +9,7 @@ import { ListAsset } from "../../ListAsset";
 import { MinecraftAsset } from "../../MinecraftAsset";
 import { AssetKey } from "../AssetKey";
 import { DEFAULT_NAMESPACE, DEFAULT_ROOT } from "../Assets";
-import { Requests } from "../../request";
+import { RequestError, Requests } from "../../request";
 import { AssetLoader } from "../AssetLoader";
 import { AssetParser } from "./parser";
 import { ResponseParser } from "./parser";
@@ -125,34 +125,26 @@ export class HostedAssetSource extends AssetSource {
         console.info(p, "Loading", key);
         const url = `${ this.assetBasePath(key) }${ key.type !== undefined ? key.type + '/' : '' }${ key.path }${ key.extension }`;
         console.debug(p, url);
-        let req: RequestConfig = {
-            url: url
-        };
-        parser.config(req);
-        // @ts-ignore
-        return await Requests.mcAssetRequest(req)
-            .then(response => {
-                if (response && response.data) {
-                    try {
-                        return parser.parse(response);
-                    } catch (e) {
-                        console.warn("Parser failed to process response", response, e);
-                        throw e;
-                    }
+        const request: RequestConfig = { url };
+        try {
+            parser.config(request);
+            let response: RequestResponse;
+            try {
+                response = await Requests.mcAssetRequest(request);
+            } catch (cause) {
+                // HTTP 404 is the only request failure that permits source fallback.
+                if (cause instanceof RequestError && cause.response?.status === 404) {
+                    return undefined;
                 }
-                return undefined;
-            })
-            .catch(err => {
-                if (err.response) {
-                    let response = err.response as RequestResponse;
-                    if (response.status === 404) {
-                        console.debug(p, key, "not found");
-                        return undefined;
-                    }
-                }
-                console.debug(p, "Failed to load", key, err?.message);
-                return undefined;
-            })
+                throw cause;
+            }
+            if (response.data === undefined) {
+                throw new Error("Asset response has no data");
+            }
+            return await parser.parse(response);
+        } catch (cause) {
+            throw new AssetLoadError(this, key, request.url, cause);
+        }
     }
 
     public assetBasePath(key: AssetKey) {

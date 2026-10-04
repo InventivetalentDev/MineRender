@@ -28,13 +28,16 @@ export class InstanceManager {
             return await (this.get<T>(key)) as InstanceReference<T>;
         }
         console.debug(p, "key not in cache", key)
-        this.instanceCache[key] = new Promise<InstanceReference<SceneObject>>(async (resolve) => {
-            const obj = await supplier();
-            const instance = obj.nextInstance();
-            // this.instanceCache[key] = Promise.resolve(instance);
-            resolve(instance);
-        })
-        return await this.instanceCache[key] as InstanceReference<T>;
+        const pending = Promise.resolve().then(supplier).then(obj => obj.nextInstance());
+        this.instanceCache[key] = pending;
+        try {
+            return await pending as InstanceReference<T>;
+        } catch (error) {
+            if (this.instanceCache[key] === pending) {
+                delete this.instanceCache[key];
+            }
+            throw error;
+        }
     }
 
     public reset() {
