@@ -156,6 +156,7 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
 
     protected createInstancedMesh(name: Maybe<string>, geometry: BufferGeometry, material: Material | Material[], count: number): InstancedMesh {
         const mesh = new InstancedMesh(geometry, material, count);
+        mesh.count = 0;
         if (name) {
             mesh.name = `mesh:${name}`;
         }
@@ -249,6 +250,11 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
         if (!this.isInstanced) throw new MineRenderError("Object is not instanced");
         const i = this._instanceCounter++;
         this.setMatrixAt(i, new Matrix4());
+        const mesh = this.children[0];
+        if (mesh && isInstancedMesh(mesh)) {
+            // Unused slots contain identity matrices and must not be drawn.
+            mesh.count = Math.min(this._instanceCounter, mesh.instanceMatrix.count);
+        }
         console.debug(p, "nextInstance " + i);
         if (i === this.options.maxInstanceCount) {
             console.warn(p, "Max instance count reached for " + this);
