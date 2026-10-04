@@ -16,6 +16,17 @@ import { prefix } from "../../../util/log";
 
 const p = prefix("BlockObject");
 
+function matchesCondition(condition: MultipartCondition, state: BlockStateProperties): boolean {
+    return Object.entries(condition).every(([key, value]) => {
+        if (Array.isArray(value)) {
+            if (key === "OR") return value.some(child => matchesCondition(child, state));
+            if (key === "AND") return value.every(child => matchesCondition(child, state));
+            return false;
+        }
+        return typeof value === "string" && state[key] !== undefined && value.split("|").includes(`${state[key]}`);
+    });
+}
+
 export class BlockObject extends SceneObject {
 
     public readonly isBlockObject: true = true;
@@ -55,15 +66,13 @@ export class BlockObject extends SceneObject {
                 if (this.blockState.variants) {
                     await this.setState(Object.keys(this.blockState.variants)[0]);
                 } else if (this.blockState.multipart) {
-                    for (let part of this.blockState.multipart) {
-                        if (part.when && !("OR" in part.when)) {
-                            const k = Object.keys(part.when)[0];
-                            if (k) {
-                                await this.setState(k, part.when[k].split("|")[0]);
-                                break;
-                            }
-                        }
-                    }
+                    // Guess preview values only from a flat condition; logical groups need a known state.
+                    const condition = this.blockState.multipart.map(part => part.when)
+                        .find((when): when is Record<string, string> =>
+                            when !== undefined && Object.values(when).every(value => typeof value === "string"));
+                    const state = Object.fromEntries(Object.entries(condition ?? {})
+                        .map(([key, value]) => [key, value.split("|")[0]]));
+                    await this.setState(state);
                 }
             }
         } else {
@@ -130,53 +139,8 @@ export class BlockObject extends SceneObject {
                     console.debug(p, "Missing apply for blockState part",  part);
                     continue;
                 }
-                if (!part.when) { // no condition -> always apply
+                if (!part.when || matchesCondition(part.when, state)) {
                     out.push(this.getSingleVariant(part.apply));
-                } else {
-                    let matches = true;
-                    // TODO: apparently AND is a thing too (https://yeleha.co/31Jec6P)
-                    if ("OR" in part.when) {
-                        const or = part.when.OR as MultipartCondition[];
-                        let anyMatch = false;
-                        for (let o of or) {
-                            for (let k in o) {
-                                const split = o[k].split("|");
-                                let m = false;
-                                for (let s of split) {
-                                    if (`${ state[k] }` === `${ s }`) {
-                                        m = true;
-                                        break;
-                                    }
-                                }
-                                if (m) {
-                                    anyMatch = true;
-                                    break;
-                                }
-                            }
-                        }
-                        if (!anyMatch) {
-                            matches = false;
-                        }
-                    } else {
-                        for (let k in part.when) {
-                            const split = part.when[k].split("|");
-                            let m = false;
-                            for (let s of split) {
-                                if (`${ state[k] }` === `${ s }`) {
-                                    m = true;
-                                    break;
-                                }
-                            }
-                            if (!m) { // none of the possible values match
-                                matches = false;
-                                break;
-                            }
-                        }
-                    }
-                    if (matches) {
-                        const variants = part.apply;
-                        out.push(this.getSingleVariant(variants));
-                    }
                 }
             }
         }
@@ -247,13 +211,22 @@ export class BlockObject extends SceneObject {
         // }
     }
 
-    protected getSingleVariant(variants: BlockStateVariant | BlockStateVariant[]) {
-        if (Array.isArray(variants)) {
-            //TODO: randomizer option / weights
-            return (<BlockStateVariant[]>variants)[0];
-        } else {
-            return variants as BlockStateVariant;
+    protected getSingleVariant(variants: BlockStateVariant | BlockStateVariant[]): BlockStateVariant {
+        if (!Array.isArray(variants)) return variants;
+        if (!variants.length) throw new MineRenderError("Blockstate variant arrays must not be empty");
+        const total = variants.reduce((sum, variant) => {
+            const weight = variant.weight ?? 1;
+            if (!Number.isInteger(weight) || weight < 1) {
+                throw new MineRenderError(`Invalid blockstate variant weight: ${weight}`);
+            }
+            return sum + weight;
+        }, 0);
+        let choice = Math.random() * total;
+        for (const variant of variants) {
+            choice -= variant.weight ?? 1;
+            if (choice < 0) return variant;
         }
+        return variants[variants.length - 1];
     }
 
     // @deprecated
