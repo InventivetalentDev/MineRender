@@ -44,7 +44,7 @@ legacy website cleanup is a separate task.
 | **Anvil .mca / world formats (V2 goal)** | n/a | Zero code | high |
 | **Node headless rendering (V2 goal)** | faked externally by MineRenderServer | No DOM-free Renderer construction, no render-to-buffer API | high |
 | Bedrock geometry (V2 ambition) | n/a | Type declarations only | low |
-| Instancing architecture | merged Geometry + instanced-mesh fork | Cleaner concept; fixed capacity w/ silent overflow, whole-object transforms move ALL instances, `children[0]` assumption, no slot reclamation, non-instanced shaders reference `instanceMatrix` | high |
+| Instancing architecture | merged Geometry + instanced-mesh fork | Cleaner concept; fixed capacity w/ silent overflow, whole-object transforms move ALL instances, `children[0]` assumption, no slot reclamation | high |
 
 ## Continuation plan (ordered)
 
@@ -59,6 +59,7 @@ legacy website cleanup is a separate task.
 - ~~Integrate opt-in OrbitControls.~~
 - ~~Implement frame limiting.~~
 - ~~Align Three types and color spaces; fix direct/composer brightness.~~
+- ~~Compile the shaded model material for both instanced and non-instanced meshes.~~
 
 ### 6. Asset pipeline
 
