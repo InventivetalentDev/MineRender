@@ -2,26 +2,30 @@ import test, { ExecutionContext } from "ava";
 import { BufferGeometry, Mesh, MeshBasicMaterial, Object3D, Vector3 } from "three";
 import { Caching } from "../src/cache/Caching";
 import { Materials } from "../src/Materials";
-import { SkinObject } from "../src/skin/scene/SkinObject";
+import { SkinObject, SkinObjectOptions } from "../src/skin/scene/SkinObject";
+import { SkinTextures } from "../src/skin/SkinTextures";
 
 const arms = ["leftArm", "leftSleeve", "rightArm", "rightSleeve"];
 
 function fixture(t: ExecutionContext) {
     const original = Materials.getImage;
+    const originalTexture = SkinTextures.get;
     const material = new MeshBasicMaterial();
     const skins: SkinObject[] = [];
     Materials.getImage = () => material;
+    SkinTextures.get = async () => ({ material, slim: false, legacy: false });
     Caching.clear();
     t.teardown(() => {
         Materials.getImage = original;
+        SkinTextures.get = originalTexture;
         const geometries = new Set<BufferGeometry>();
         for (const skin of skins) skin.iterateAllMeshes(mesh => geometries.add(mesh.geometry));
         for (const geometry of geometries) geometry.dispose();
         material.dispose();
         Caching.clear();
     });
-    return () => {
-        const skin = new SkinObject();
+    return (options?: Partial<SkinObjectOptions>) => {
+        const skin = new SkinObject(options);
         skins.push(skin);
         return skin;
     };
@@ -32,6 +36,14 @@ function facePixels(skin: SkinObject, part: string, face: number) {
     const first = face * 4;
     return [0, 1, 2, 3].map(vertex => [uv.getX(first + vertex) * 64, (1 - uv.getY(first + vertex)) * 64]);
 }
+
+function texture(t: ExecutionContext, slim = false, legacy = false) {
+    const material = new MeshBasicMaterial();
+    t.teardown(() => material.dispose());
+    return { material, slim, legacy };
+}
+
+const armWidth = (skin: SkinObject) => skin.getMeshByName("leftArm")!.geometry.boundingBox!.getSize(new Vector3()).x;
 
 test.serial("slim selected before initialization uses three-unit arms and the slim skin texture regions", async t => {
     const create = fixture(t);
@@ -65,7 +77,7 @@ test.serial("slim selected before initialization uses three-unit arms and the sl
 test.serial("switching arm variants preserves the existing skin graph and caller state and only dirties changes", async t => {
     const skin = fixture(t)();
     await skin.init();
-    skin.setSkinTexture("fixture:skin");
+    await skin.setSkinTexture("fixture:skin");
     const left = skin.getGroupByName("leftArm")!;
     const right = skin.getGroupByName("rightArm")!;
     left.position.set(-7, 23, 1);
@@ -138,4 +150,125 @@ test.serial("switching skins reuses cached geometry without mutating or disposin
     });
     t.is(other.getMeshByName("leftArm")!.material, material);
     t.is(disposals, 0);
+});
+
+test.serial("loaded skins detect the model unless overridden and retain pre-init textures and existing parts", async t => {
+    const create = fixture(t);
+    const textures = { classic: texture(t), slim: texture(t, true), legacy: texture(t, false, true) };
+    const calls: Array<[string, boolean | undefined]> = [];
+    SkinTextures.get = async (src, legacy) => {
+        calls.push([src, legacy]);
+        const result = textures[src as keyof typeof textures];
+        return { ...result, legacy: legacy ?? result.legacy, slim: legacy ? false : result.slim };
+    };
+    const skin = create();
+    await skin.setSkinTexture("legacy");
+    await skin.init();
+    skin.iterateAllMeshes(mesh => t.is(mesh.material, textures.legacy.material));
+    t.true(skin.getMeshByName("hat")!.visible);
+    const parts = skin.children.flatMap(group => group.children);
+    skin.getGroupByName("head")!.rotation.x = 0.4;
+    skin.getMeshByName("jacket")!.visible = false;
+    await skin.setSkinTexture("slim");
+    t.is(armWidth(skin), 3);
+    await skin.setSkinTexture("classic");
+    t.is(armWidth(skin), 4);
+    skin.setSlim(false);
+    await skin.setSkinTexture("slim");
+    t.is(armWidth(skin), 4);
+    skin.setSlim(undefined);
+    t.is(armWidth(skin), 3);
+    await skin.setSkinTexture("classic");
+    t.is(armWidth(skin), 4);
+    skin.setSlim(true);
+    await skin.setSkinTexture("classic");
+    t.is(armWidth(skin), 3);
+    skin.setSlim(undefined);
+    t.is(armWidth(skin), 4);
+    await skin.setLegacy(true);
+    t.deepEqual(calls.at(-1), ["classic", true]);
+    await skin.setLegacy(undefined);
+    t.deepEqual(calls.at(-1), ["classic", undefined]);
+    t.true(skin.getMeshByName("hat")!.visible);
+    t.is(skin.getGroupByName("head")!.rotation.x, 0.4);
+    t.false(skin.getMeshByName("jacket")!.visible);
+    t.true(skin.children.flatMap(group => group.children).every((part, index) => part === parts[index]));
+    const forced = create({ slim: true, legacy: true });
+    await forced.setSkinTexture("classic");
+    await forced.init();
+    t.deepEqual(calls.at(-1), ["classic", true]);
+    t.is(armWidth(forced), 3);
+});
+
+test.serial("pending loads respect current overrides, the latest request and disposal", async t => {
+    const skin = fixture(t)();
+    await skin.init();
+    const classic = texture(t);
+    const slim = texture(t, true);
+    const legacy = texture(t, false, true);
+    const pending: Array<{ src: string; legacy?: boolean; resolve: (result: typeof classic) => void }> = [];
+    SkinTextures.get = (src, legacy) => new Promise(resolve => pending.push({ src, legacy, resolve }));
+    let changes = 0;
+    skin.addEventListener("change", () => changes++);
+    const old = skin.setSkinTexture("old");
+    const latest = skin.setSkinTexture("latest");
+    skin.setSlim(false);
+    t.is(changes, 0);
+    pending[1].resolve(slim);
+    await latest;
+    t.is(armWidth(skin), 4);
+    t.is(skin.getMeshByName("head")!.material, slim.material);
+    t.true(changes > 0);
+    const completedChanges = changes;
+    pending[0].resolve(classic);
+    await old;
+    t.is(skin.getMeshByName("head")!.material, slim.material);
+    t.is(changes, completedChanges);
+    const next = skin.setSkinTexture("next");
+    skin.setSlim(true);
+    skin.setSlim(undefined);
+    pending[2].resolve(classic);
+    await next;
+    t.is(armWidth(skin), 4);
+    const original = skin.setSkinTexture("reprocess");
+    const reprocessed = skin.setLegacy(true);
+    t.deepEqual(pending.slice(3).map(({ src, legacy }) => [src, legacy]), [["reprocess", undefined], ["reprocess", true]]);
+    pending[4].resolve(legacy);
+    await reprocessed;
+    pending[3].resolve(slim);
+    await original;
+    t.is(skin.getMeshByName("head")!.material, legacy.material);
+    t.is(armWidth(skin), 4);
+    const head = skin.getMeshByName("head")!;
+    const disposed = skin.setSkinTexture("disposed");
+    skin.dispose();
+    const disposedChanges = changes;
+    pending[5].resolve(classic);
+    await disposed;
+    t.is(skin.children.length, 0);
+    t.is(head.material, legacy.material);
+    t.is(changes, disposedChanges);
+});
+
+test.serial("failed loads reject without replacing the displayed skin and can be retried with a legacy override", async t => {
+    const skin = fixture(t)();
+    await skin.init();
+    const loaded = texture(t, true);
+    SkinTextures.get = async () => loaded;
+    await skin.setSkinTexture("good");
+    const geometry = skin.getMeshByName("leftArm")!.geometry;
+    let changes = 0;
+    skin.addEventListener("change", () => changes++);
+    const error = new Error("skin decode failed");
+    SkinTextures.get = async () => { throw error; };
+    await t.throwsAsync(skin.setSkinTexture("broken"), { is: error });
+    t.is(skin.getMeshByName("leftArm")!.geometry, geometry);
+    t.is(skin.getMeshByName("head")!.material, loaded.material);
+    t.is(changes, 0);
+    SkinTextures.get = async (src, legacy) => {
+        t.deepEqual([src, legacy], ["broken", false]);
+        return loaded;
+    };
+    await skin.setLegacy(false);
+    t.true(changes > 0);
 });

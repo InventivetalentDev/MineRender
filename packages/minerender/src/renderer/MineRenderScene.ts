@@ -150,10 +150,10 @@ export class MineRenderScene extends Scene {
         this.dirty = true;
         const obj = new SkinObject(options);
         obj.scene = this;
-        await obj.init();
         if (skin) {
-            obj.setSkinTexture(skin);
+            await obj.setSkinTexture(skin);
         }
+        await obj.init();
         parent.add(obj);
         return obj;
     }
