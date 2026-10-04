@@ -663,7 +663,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@minerender/example-vite@workspace:examples/vite"
   dependencies:
-    "@types/three": "npm:^0.125.2"
+    "@types/three": "npm:~0.158.0"
     "@vitejs/plugin-vue": "npm:^4.2.3"
     minerender: "workspace:*"
     three: "npm:^0.158.0"
@@ -1052,10 +1052,22 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/three@npm:^0.125.2":
-  version: 0.125.3
-  resolution: "@types/three@npm:0.125.3"
-  checksum: 10c0/d2b1506c04a07e0d77e40e6ac8749c942f21722e9ef375f8c557b8e03cae47ff92cc4017a50c216113d231972bef77832b2a48ec1b796fe728b020a046e16450
+"@types/stats.js@npm:*":
+  version: 0.17.4
+  resolution: "@types/stats.js@npm:0.17.4"
+  checksum: 10c0/4fe0429998519f0476f03a25b4900b4d4a1474606478657271e40a884f7936ba902ea564b1c95cfd33a8e84af46cef6e1e98bb23e86fd3b6676cd5b974987151
+  languageName: node
+  linkType: hard
+
+"@types/three@npm:~0.158.0":
+  version: 0.158.3
+  resolution: "@types/three@npm:0.158.3"
+  dependencies:
+    "@types/stats.js": "npm:*"
+    "@types/webxr": "npm:*"
+    fflate: "npm:~0.6.10"
+    meshoptimizer: "npm:~0.18.1"
+  checksum: 10c0/8e654b7a85be47cf116f7278d1ca013a7bb532c198a6b11de609d852e391813cdf40c3cef774c8d47015452300ba23e302758fc27c52404e0de470fd25150151
   languageName: node
   linkType: hard
 
@@ -1063,6 +1075,13 @@ __metadata:
   version: 3.0.3
   resolution: "@types/unist@npm:3.0.3"
   checksum: 10c0/2b1e4adcab78388e088fcc3c0ae8700f76619dbcb4741d7d201f87e2cb346bfc29a89003cfea2d76c996e1061452e14fcd737e8b25aacf949c1f2d6b2bc3dd60
+  languageName: node
+  linkType: hard
+
+"@types/webxr@npm:*":
+  version: 0.5.24
+  resolution: "@types/webxr@npm:0.5.24"
+  checksum: 10c0/ff59ffd390d06ca3f89ab2531d583ac10bc5e2ab82e5a01ecc40fbc365224a3375e7caa5b14649cf6141db21fb024940da7ad2bd8faa3cd497a6665257cb53b5
   languageName: node
   linkType: hard
 
@@ -2889,6 +2908,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"fflate@npm:~0.6.10":
+  version: 0.6.11
+  resolution: "fflate@npm:0.6.11"
+  checksum: 10c0/5bbf4a7557db6f65b25c7bb12621008c400a116ec1cc65bea78abd75c0c049d8a22fb92f0a59fbf9a7ad1a24a47d2112ce10fd817d08db0e1bf7dc82e780faa1
+  languageName: node
+  linkType: hard
+
 "figures@npm:^5.0.0":
   version: 5.0.0
   resolution: "figures@npm:5.0.0"
@@ -3927,6 +3953,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"meshoptimizer@npm:~0.18.1":
+  version: 0.18.1
+  resolution: "meshoptimizer@npm:0.18.1"
+  checksum: 10c0/8a825c58b20b65585e8d00788843929b60c66ba4297e89afaa49f7c51ab9a0f7b9130f90cc9ad1b9b48b3d1bee3beb1bc93608acba0d73e78995c3e6e5ca436b
+  languageName: node
+  linkType: hard
+
 "micromark-util-character@npm:^2.0.0":
   version: 2.1.1
   resolution: "micromark-util-character@npm:2.1.1"
@@ -4020,7 +4053,7 @@ __metadata:
     "@types/crypto-js": "npm:^4.0.1"
     "@types/node": "npm:^20.17.6"
     "@types/node-persist": "npm:^3.1.1"
-    "@types/three": "npm:^0.125.2"
+    "@types/three": "npm:~0.158.0"
     "@zip.js/zip.js": "npm:^2.7.31"
     ava: "npm:^5.3.1"
     axios: "npm:^0.21.1"

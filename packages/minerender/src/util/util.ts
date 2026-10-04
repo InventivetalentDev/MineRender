@@ -4,7 +4,7 @@
 import * as CryptoJS from "crypto-js";
 import { Vector3 } from "three";
 
-export const changeEvent = { type: 'change'};
+export const changeEvent = { type: 'change' as const };
 
 export type Maybe<T> = T | undefined;
 

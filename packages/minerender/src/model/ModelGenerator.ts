@@ -1,5 +1,5 @@
 import { Model } from "./Model";
-import { BufferGeometry } from "three/src/core/BufferGeometry";
+import type { BufferGeometry } from "three";
 import type { ImageData } from "canvas";
 import { BoxGeometry, PlaneGeometry } from "three";
 import { UVMapper } from "../UVMapper";

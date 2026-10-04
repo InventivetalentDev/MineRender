@@ -54,7 +54,7 @@ The private Yarn workspace root contains the public library and its consumers. U
 ## Architecture
 
 
-**Rendering core** (`src/renderer/`): `Renderer` owns a `WebGLRenderer` + `postprocessing` EffectComposer and a **dirty-flag render loop** — frames render only when `dirty` (or `options.render.renderAlways`). `MineRenderScene extends THREE.Scene` with asset-aware `addModel/addBlock/addSkin/addEntity`, all funneling through `addSceneObject`. `SceneObject extends Object3D` is the base for `ModelObject`, `BlockObject`, `SkinObject`, `EntityObject`, `GuiObject` (empty stub); it provides named-group/mesh addressing (`group:head`, `mesh:head` via `getGroupByName`/`getMeshByName`) and the instancing plumbing.
+**Rendering core** (`src/renderer/`): `Renderer` owns a `WebGLRenderer` and an optional `postprocessing` EffectComposer and a **dirty-flag render loop** — frames render only when `dirty` (or `options.render.renderAlways`). `MineRenderScene extends THREE.Scene` with asset-aware `addModel/addBlock/addSkin/addEntity`, all funneling through `addSceneObject`. `SceneObject extends Object3D` is the base for `ModelObject`, `BlockObject`, `SkinObject`, `EntityObject`, `GuiObject` (empty stub); it provides named-group/mesh addressing (`group:head`, `mesh:head` via `getGroupByName`/`getMeshByName`) and the instancing plumbing.
 
 **Instancing** (`src/instance/`): `InstanceManager` dedupes identical models — same `AssetKey.serialize()` — into shared fixed-capacity `InstancedMesh`es (default 50, 2000 for world blocks); callers get an `InstanceReference` (instanceable + index) that proxies transforms to `set*At(index)`. This is the core large-world performance mechanism, and its lifecycle (grow/free/count) is unfinished — see ROADMAP.
 
@@ -74,6 +74,7 @@ The private Yarn workspace root contains the public library and its consumers. U
 
 - **Dirty flag**: anything that mutates visuals must end up calling `notifyDirty()` / setting `scene.dirty`, or the frame never repaints. Built-in OrbitControls (`controls: { enabled: true }`) register automatically and update before the dirty check and frame limit. `render.fpsLimit` caps draws (default 60; nonpositive values disable the cap), retaining dirty state on skipped frames. Register external event sources, including manually created controls, via `renderer.registerEventDispatcher(...)`.
 - **Renderer ownership**: `stop()` pauses; `dispose()` is final. Dispose only owned resources; shared assets, global caches, and caller-owned controls retain their owners.
+- **Color pipeline**: image and canvas color-texture factories set `SRGBColorSpace`; the renderer uses sRGB output in both direct and composer mode. Custom model shaders apply shading in linear light and include Three's tone-mapping and output-color chunks. Keep the generic `Textures.initTextureProps` helper limited to sampling settings so it preserves caller-supplied data-texture color spaces.
 - **Face order**: `CUBE_FACES` = east, west, up, down, south, north (three.js BoxGeometry material order). UV buffers are written at `faceIndex * 4` vertices. Skins, entities, and models all rely on this ordering.
 - **Scale**: 1 block = 16 scene units (= Minecraft model space); 1 chunk = 256 units.
 - **Instance deletion = scale-to-zero**: removal writes a zero-scale matrix; slots are never reclaimed (known design debt).
@@ -89,7 +90,7 @@ The private Yarn workspace root contains the public library and its consumers. U
 - Dependency timers keep Node alive. Call `shutdown()` for final cache, queue, and Ticker cleanup.
 - Async `@Memoize` methods retain their first promise, including failures.
 - Image failures can leave cached 0×0 placeholders; asset loading can collapse errors to `undefined`.
-- `@types/three` 0.125 trails the Three 0.158 runtime. Deep Three helper imports must remain type-only.
+- Keep `@types/three` and `three` on the same minor version; import geometry/material types from bare `three`.
 - Node imports require a working native `canvas` installation; browser-only installs can skip its optional build.
 - `src/_model/`, `src/lib/OrbitControls.js`, root `mccolor.js`, and the empty root `three/` are unused legacy code.
 - Preserve V1 `master`, tags, bundles, and website URLs. Legacy website files are excluded from the V2 npm package.
