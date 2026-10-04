@@ -418,18 +418,15 @@ export class UVMapper {
                             this.setCubeFaceUvInArray(uv, faceIndex * 4, [0, 1, 8 / size, (size - 8) / size])
                             continue;
                         }
+                        // Keep the missing-texture UVs when no texture is referenced.
+                        if (!face.texture) continue;
                         if (!face.uv) {
                             face.uv = this.getFallbackUv(element, faceName);
                         }
 
-                        let faceTexture = face.texture;
-                        let texPosition;
-                        let texSize;
-                        if (faceTexture) {
-                            faceTexture = faceTexture.substr(1); // remove #
-                            texPosition = positions[faceTexture] || [0, 0];
-                            texSize = sizes[faceTexture] || [16, 16];
-                        }
+                        const faceTexture = face.texture.substr(1); // remove #
+                        const texPosition = positions[faceTexture] || [0, 0];
+                        const texSize = sizes[faceTexture] || [16, 16];
 
                         let texPosV = new Vector2(texPosition[0], texPosition[1]);
 
