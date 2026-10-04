@@ -34,7 +34,7 @@ sceneInspector.appendTo(document.getElementById('inspector'));
 
 let entityObject: EntityObject;
 
-setEntity("creeper");
+setEntity("bat");
 
 function setEntity(entity: string) {
     console.log("setting entity to", entity);
