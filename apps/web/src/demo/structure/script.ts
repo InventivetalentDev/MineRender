@@ -14,7 +14,6 @@ import {
     StructureParser,
     Ticker
 } from "minerender";
-import { OrbitControls } from "minerender";
 
 console.log("hi");
 
@@ -23,6 +22,9 @@ const renderer = new Renderer({
         near: 1,
         far: 2000,
         position: [550, 400, 550]
+    },
+    controls: {
+        enabled: true
     },
     render: {
         stats: true,
@@ -130,10 +132,3 @@ setTimeout(() => {
         })
     }).catch(err => console.error(err))
 }, 10)
-
-
-//TODO: include this in renderer constructor
-// @ts-ignore meh.
-const controls = new OrbitControls(renderer.camera, renderer.renderer.domElement);
-renderer.registerEventDispatcher(controls);
-controls.update();

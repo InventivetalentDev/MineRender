@@ -28,28 +28,29 @@ import {
     AssetKey,
     AssetLoader,
     Models,
-    OrbitControls,
     Renderer,
     ArchiveAssetSource,
     BrowserArchiveProxy,
     Caching
 } from "minerender";
 import {Vector3} from "three";
-import { onMounted, ref } from "vue";
+import { onBeforeUnmount, onMounted, ref } from "vue";
 
 const renderContainer = ref<HTMLDivElement>();
 
-const zip = ref<File>();
+let activeRenderer: Renderer | undefined;
+let pendingLoads = Promise.resolve();
 
 const onFileChange = (event: Event) => {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
-    zip.value = file;
-    recreate();
+    recreate(file);
 }
 
-const recreate = () => {
+const recreate = (file?: File) => {
+    activeRenderer?.dispose();
+
     const renderer = new Renderer({
         camera: {
             near: 1,
@@ -63,67 +64,72 @@ const recreate = () => {
         composer: {
             enabled: false
         },
+        controls: {
+            enabled: true
+        },
         debug: {
             grid: true,
             axes: true
         }
     });
+    activeRenderer = renderer;
+    const isCurrent = () => activeRenderer === renderer;
 
 // @ts-ignore
     window['renderer'] = renderer as any;
 
-
-    if (zip.value) {
-        console.log(zip.value)
-        const proxy = new BrowserArchiveProxy(zip.value);
-        console.log(proxy)
-        proxy.getEntries().then(x => console.log(x));
-        const source = new ArchiveAssetSource(proxy);
-        AssetLoader.addSource("ziptest", source);
-        Caching.clear();
-    }
-
-
-    async function createModel(type: string, name: string, instances = 1) {
-        Caching.clear()
-        await Models.clearCache();
-
-        return Models.getMerged(new AssetKey("minecraft", name, "models", type, "assets")).then(model => {
-            console.log(model)
-            return renderer.scene.addModel(model!, {
-                mergeMeshes: true,
-                instanceMeshes: true,
-                wireframe: true,
-                maxInstanceCount: instances
-            })
-
-
+    async function createModel(type: string, name: string, position: Vector3, instances = 1) {
+        const model = await Models.getMerged(new AssetKey("minecraft", name, "models", type, "assets"));
+        if (!isCurrent()) return;
+        if (!model) throw new Error(`Could not load ${type}/${name}`);
+        const object = await renderer.scene.addModel(model, {
+            mergeMeshes: true,
+            instanceMeshes: true,
+            wireframe: true,
+            maxInstanceCount: instances
         });
+        if (isCurrent()) object.setPosition(position);
     }
 
-
-    const controls = new OrbitControls(renderer.camera, renderer.renderer.domElement);
-    renderer.registerEventDispatcher(controls);
-    controls.update();
-
-    renderContainer.value?.children[0]?.remove();
-    console.log(renderContainer.value)
     renderer.appendTo(renderContainer.value!);
-
     renderer.start();
 
-    createModel("item", "diamond_sword").then(model=>{
-        model.setPosition(new Vector3(-16 * 3, 0, 0));
-    })
+    // Finish earlier requests before replacing the global asset source and clearing its caches.
+    pendingLoads = pendingLoads.then(async () => {
+        if (!isCurrent()) return;
+        const proxy = file ? new BrowserArchiveProxy(file) : undefined;
+        if (proxy) await proxy.getEntries();
+        if (!isCurrent()) return;
 
-    renderer.scene.addSkin("https://textures.minecraft.net/texture/fb5f93b1ccebf7b385fa488c6d4cfec87cf1b855f8dbe0308da44167cae170b")
+        AssetLoader.removeSource("ziptest");
+        if (proxy) AssetLoader.addSource("ziptest", new ArchiveAssetSource(proxy));
+        Caching.clear();
+        await Models.clearCache();
+        if (!isCurrent()) return;
 
-    createModel("block", "stone").then(model=>{
-        model.setPosition(new Vector3(16 * 3, 0, 0));
-    })
+        const results = await Promise.allSettled([
+            createModel("item", "diamond_sword", new Vector3(-16 * 3, 0, 0)),
+            renderer.scene.addSkin("https://textures.minecraft.net/texture/fb5f93b1ccebf7b385fa488c6d4cfec87cf1b855f8dbe0308da44167cae170b"),
+            createModel("block", "stone", new Vector3(16 * 3, 0, 0))
+        ]);
+        if (!isCurrent()) return;
+        for (const result of results) {
+            if (result.status === "rejected") console.error(result.reason);
+        }
+    }).catch(error => {
+        if (isCurrent()) console.error(error);
+    }).finally(() => {
+        if (!isCurrent()) renderer.scene.clear();
+    });
 }
 
 onMounted(() => {
     recreate()
 })
+
+onBeforeUnmount(() => {
+    const renderer = activeRenderer;
+    activeRenderer = undefined;
+    renderer?.dispose();
+});
 </script>

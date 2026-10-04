@@ -1,6 +1,5 @@
 import { AssetKey, AssetLoader, BlockObject, BlockStates, Models, Renderer, SceneInspector, MineRenderWorld, BatchedExecutor, Ticker } from "minerender";
 import { AmbientLight, AxesHelper, DirectionalLight, DirectionalLightHelper, Euler, GridHelper, HemisphereLight, HemisphereLightHelper, PointLight, PointLightHelper, sRGBEncoding, Vector3 } from "three";
-import { OrbitControls } from "minerender";
 
 
 console.log("hi")
@@ -44,6 +43,9 @@ const renderer = new Renderer({
     camera: {
         near: 1,
         far: 2000
+    },
+    controls: {
+        enabled: true
     },
     render: {
         stats: true,
@@ -515,10 +517,6 @@ renderer.camera.lookAt(new Vector3(0, 0, 0))
  */
 
 
-// @ts-ignore meh.
-const controls = new OrbitControls(renderer.camera, renderer.renderer.domElement);
-renderer.registerEventDispatcher(controls);
-controls.update();
 
 
 

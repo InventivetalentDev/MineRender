@@ -24,7 +24,7 @@ legacy website cleanup is a separate task.
 | Clean import (no side effects) | window globals, telemetry beacon | Lazy platform initialization and Ticker; `shutdown()` ends dependency timers | high |
 | Browser/Node dual-target | browser-only by design | Separate entries register platform providers; Node canvas stays optional for browsers | complete |
 | Renderer core | continuous loop, SSAA, fps limit, dispose() | Dirty-flag loop, start/stop, disposal, and resize invalidation; fpsLimit unfinished; color handling unfinished | high |
-| Camera controls | built-in OrbitControls via `options.controls` | Vendored twice, integrated nowhere; consumers must wire it + `registerEventDispatcher` manually | high |
+| Camera controls | built-in OrbitControls via `options.controls` | Opt-in renderer-owned OrbitControls, including redraw and disposal | complete |
 | Skins — classic 64×64 | full, named toggleable parts | Works (named groups/meshes, overlay toggling) — missing variant auto-detect, `makeNonTransparentOpaque` | medium |
 | Skins — slim + legacy 64×32 | auto-detected, dedicated UVs | Half-done: slim geometry ✔, slim UVs = copy of classic (`SkinTextureCoordinates.ts:690`), no 64×32, no auto-detect | high |
 | Capes (vanilla/OptiFine/LabyMod) | full, 3 layouts, capes.dev | Not rendered at all (resolvers exist in `Skins.ts`, no meshes) | medium |
@@ -56,7 +56,7 @@ legacy website cleanup is a separate task.
 ### 5. Renderer core
 
 - ~~Fix start/stop, disposal, resize invalidation, and scene listeners.~~
-- Integrate opt-in OrbitControls.
+- ~~Integrate opt-in OrbitControls.~~
 - Implement frame limiting.
 - Align Three types and color spaces; fix direct/composer brightness.
 
@@ -96,4 +96,4 @@ New world-format layer feeding the redesigned chunk storage: .mca region parsing
 Implement `GuiObject` (empty stub today): layered textured planes with UV crop, pixel positioning, z-layering, camera auto-fit. V1's `guiPositions.js` (boss bars, book, chest, crafting table atlases) and `guiHelper.js` (`inventorySlot` math + `recipe()` for crafting_shaped/shapeless JSON) port nearly verbatim; update texture paths for the newer asset layout. Wire `scene.addGui(...)`.
 
 ### 15. Polish: exports, animation API, inspector, demos, docs — medium
-Port toObj/toGLTF and toImage trim/mime. Add a per-frame callback + `autoRotate` convenience integrated with the dirty flag (replaces V1's CustomEvent contract). Fix `SceneInspector` raycast normalization (against canvas rect, not window) and `SceneStatsDisplay`'s leaked interval. Fix animated-texture tick rate + full mcmeta support. Finish the demos and V2 website, including embeds. Remove unused V1 website files from the V2 tree while preserving V1 delivery URLs. Add regression coverage for remaining model and blockstate work; keep the consumer API contract in AGENTS.md as the beta compatibility baseline.
+Port toObj/toGLTF and toImage trim/mime. Add a per-frame callback integrated with the dirty flag (replaces V1's CustomEvent contract). Fix `SceneInspector` raycast normalization (against canvas rect, not window) and `SceneStatsDisplay`'s leaked interval. Fix animated-texture tick rate + full mcmeta support. Finish the demos and V2 website, including embeds. Remove unused V1 website files from the V2 tree while preserving V1 delivery URLs. Add regression coverage for remaining model and blockstate work; keep the consumer API contract in AGENTS.md as the beta compatibility baseline.

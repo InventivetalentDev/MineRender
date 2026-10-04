@@ -25,7 +25,6 @@ import {
     sRGBEncoding,
     Vector3
 } from "three";
-import { OrbitControls } from "minerender";
 
 
 console.log("hi")
@@ -69,6 +68,9 @@ const renderer = new Renderer({
     camera: {
         near: 1,
         far: 2000
+    },
+    controls: {
+        enabled: true
     },
     render: {
         stats: true,
@@ -190,10 +192,6 @@ BlockStates.getList().then(blockList_ => {
 })
 
 
-// @ts-ignore meh.
-const controls = new OrbitControls(renderer.camera, renderer.renderer.domElement);
-renderer.registerEventDispatcher(controls);
-controls.update();
 
 
 

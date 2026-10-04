@@ -16,7 +16,7 @@ The private Yarn workspace root contains the public library and its consumers. U
 | `apps/web/` | MineRenderWeb demo/test pages, built with esbuild against the library workspace. |
 | `examples/vite/` | Vue 3 + Vite consumer, imported from `MineRender/example-vite`. Uses ESM named imports and a workspace dependency. |
 | `examples/script-tag/` | Plain HTML consumer, imported from `MineRender/example-bundle`. Loads the library's IIFE as `MineRender`. |
-| `InventivetalentDev/MineRender`  | V1 (JS, webpack 4, three 0.93, browser-only), the feature-parity reference. Preserve its existing branches, tags, bundles, and website URLs. |
+| `InventivetalentDev/MineRender` (V1 checkout: `MineRenderV1`) | `master` contains V1 (JS, webpack 4, three 0.93, browser-only), the feature-parity reference. V2 development shares this repository on `typescript` and the stacked refactor branches. Preserve V1 tags, bundles, and website URLs. |
 | `InventivetalentDev/MineRenderServer`  | V1-era headless render HTTP API (Express + headless-gl + patched node-canvas + three-png-stream under xvfb). Reference only; not imported. Its contract includes `GET /render/skin/[:texture]`, `GET /render/model/:type/:model`, the `minerender-options` header, and an MD5-keyed PNG cache. |
 | [minerender-fallback-assets](https://github.com/InventivetalentDev/minerender-fallback-assets) | GitHub repo serving the custom `minerender:` namespace assets (entityModels, blockEntityModels, defaultBlockStates) and fallback copies of vanilla assets. The JSON files inside `src/` here are **reference copies only** — runtime fetches from that repo (see Gotchas). |
 | `assets.mcasset.cloud` | Primary vanilla-asset CDN, hardcoded to MC **1.17.1** in `src/assets/Assets.ts` (`DEFAULT_ROOT`). Provides synthetic `_list.json` directory indexes that `getList()` APIs depend on. |
@@ -72,7 +72,7 @@ The private Yarn workspace root contains the public library and its consumers. U
 
 ## Load-bearing conventions
 
-- **Dirty flag**: anything that mutates visuals must end up calling `notifyDirty()` / setting `scene.dirty`, or the frame never repaints. External event sources (e.g. OrbitControls) must be registered via `renderer.registerEventDispatcher(...)`.
+- **Dirty flag**: anything that mutates visuals must end up calling `notifyDirty()` / setting `scene.dirty`, or the frame never repaints. Built-in OrbitControls (`controls: { enabled: true }`) register automatically and update before the dirty check. Register external event sources, including manually created controls, via `renderer.registerEventDispatcher(...)`.
 - **Renderer ownership**: `stop()` pauses; `dispose()` is final. Dispose only owned resources; shared assets, global caches, and caller-owned controls retain their owners.
 - **Face order**: `CUBE_FACES` = east, west, up, down, south, north (three.js BoxGeometry material order). UV buffers are written at `faceIndex * 4` vertices. Skins, entities, and models all rely on this ordering.
 - **Scale**: 1 block = 16 scene units (= Minecraft model space); 1 chunk = 256 units.
@@ -102,7 +102,7 @@ The union of what the three consumers (`examples/vite`, `apps/web`, `examples/sc
 
 Delivery formats that must all keep working: ESM named imports under a bundler, CJS require, and the `window.MineRender` IIFE bundle (script tag / unpkg). All three are built by `yarn build:lib`. Check imports under Node as well as loading the consumers in a browser.
 
-Additional public APIs: `shutdown()`, `Env`/`EnvProvider`, `BrowserEnv`/`NodeEnv` (per-entry), `Caching.end`, `Requests.end`, `Ticker.start/stop`, `Renderer.dispose`.
+Additional public APIs: `shutdown()`, `Env`/`EnvProvider`, `BrowserEnv`/`NodeEnv` (per-entry), `Caching.end`, `Requests.end`, `Ticker.start/stop`, `Renderer.dispose`, optional `controls.enabled`, and `renderer.controls` (undefined unless enabled at construction, and after disposal).
 
 ## Where to continue
 

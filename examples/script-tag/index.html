@@ -22,6 +22,9 @@
         composer: {
             enabled: false
         },
+        controls: {
+            enabled: true
+        },
         debug: {
             grid: true,
             axes: true
@@ -30,9 +33,6 @@
     renderer.appendTo(document.body);
     window.renderer = renderer;
 
-    const controls = new MineRender.OrbitControls(renderer.camera, renderer.renderer.domElement);
-    renderer.registerEventDispatcher(controls);
-    controls.update();
     renderer.start();
 
     async function createModel(type, name, instances = 1) {

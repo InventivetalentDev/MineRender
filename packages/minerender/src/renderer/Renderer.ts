@@ -7,6 +7,7 @@ import {DeepPartial, isVector3, Maybe} from "../util/util";
 import {isTripleArray, TripleArray} from "../model/Model";
 import {isOrthographicCamera, isPerspectiveCamera} from "../util/three";
 import { Disposable } from "../Disposable";
+import { OrbitControls } from "../three/OrbitControls";
 
 export class Renderer implements Disposable {
 
@@ -39,6 +40,9 @@ export class Renderer implements Disposable {
         composer: {
             enabled: true
         },
+        controls: {
+            enabled: false
+        },
         debug: {
             grid: false,
             axes: false
@@ -52,6 +56,7 @@ export class Renderer implements Disposable {
     protected _camera: Camera;
     protected _renderer: WebGLRenderer;
     protected _composer: EffectComposer;
+    protected _controls?: OrbitControls;
 
     protected _stats?: Stats;
 
@@ -88,6 +93,7 @@ export class Renderer implements Disposable {
         }
 
         this.init();
+        this._controls = this.createControls();
     }
 
     //<editor-fold desc="INIT">
@@ -181,6 +187,26 @@ export class Renderer implements Disposable {
         // composer.addPass(shaderPass1);
 
         return composer;
+    }
+
+    protected createControls(): Maybe<OrbitControls> {
+        if (!this.options.controls?.enabled) return undefined;
+
+        // OrbitControls updates the camera around the origin during construction.
+        const position = this.camera.position.clone();
+        const controls = new OrbitControls(this.camera, this.renderer.domElement);
+        this.camera.position.copy(position);
+
+        const target = this.options.camera.lookingAt;
+        if (isVector3(target)) {
+            controls.target.copy(target);
+        } else if (isTripleArray(target)) {
+            controls.target.set(target[0], target[1], target[2]);
+        }
+        controls.update();
+        controls.saveState();
+        this.registerEventDispatcher(controls);
+        return controls;
     }
 
     //</editor-fold>
@@ -353,6 +379,13 @@ export class Renderer implements Disposable {
         this.renderer.domElement.remove();
         this._element = undefined;
 
+        if (this._controls) {
+            const controls = this._controls;
+            this._controls = undefined;
+            controls.enabled = false;
+            controls.dispose();
+        }
+
         this.scene.clear();
         for (const helper of this._debugHelpers) {
             helper.geometry.dispose();
@@ -382,6 +415,12 @@ export class Renderer implements Disposable {
         if (this._stats) {
             this._stats.begin();
         }
+
+        // Damping and auto-rotation can make a previously clean scene need another frame.
+        if (this._controls?.enabled) {
+            this._controls.update();
+        }
+        if (this._disposed) return;
 
         if (this.dirty || this.options.render.renderAlways) {
             if (this.options.composer.enabled) {
@@ -436,6 +475,11 @@ export class Renderer implements Disposable {
         return this._composer;
     }
 
+    /** Renderer-owned controls, or undefined when disabled at construction or after disposal. */
+    public get controls(): Maybe<OrbitControls> {
+        return this._controls;
+    }
+
     ///
 
 
@@ -445,6 +489,7 @@ export interface RendererOptions {
     camera: CameraOptions;
     render: RenderOptions;
     composer: ComposerOptions;
+    controls?: ControlsOptions;
     debug: DebugOptions;
 }
 
@@ -476,6 +521,10 @@ export interface RenderOptions {
 }
 
 export interface ComposerOptions {
+    enabled: boolean;
+}
+
+export interface ControlsOptions {
     enabled: boolean;
 }
 
