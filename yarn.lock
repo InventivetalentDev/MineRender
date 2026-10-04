@@ -4039,7 +4039,6 @@ __metadata:
     tsup: "npm:^8.5.0"
     typedoc: "npm:^0.26.11"
     typescript: "npm:~5.6.3"
-    typescript-memoize: "npm:^1.1.1"
   peerDependencies:
     three: ^0.158.0
   dependenciesMeta:
@@ -5904,13 +5903,6 @@ __metadata:
   bin:
     typedoc: bin/typedoc
   checksum: 10c0/441104f1215af8d7589375691afc993bea1fab7c9b7b91ead22781e994f9f21a7a779a283dc42d72260171164185fad7dbcf61166b0442107d9c7decb84b2aee
-  languageName: node
-  linkType: hard
-
-"typescript-memoize@npm:^1.1.1":
-  version: 1.1.1
-  resolution: "typescript-memoize@npm:1.1.1"
-  checksum: 10c0/685f49c200fb94b461869f4945f50da2682541f745410bf548d79f41627dde23be8065854fe7e05793b0a3655c1e3583b96ee987486597620a6175010b6c42f8
   languageName: node
   linkType: hard
 

@@ -4,7 +4,6 @@ import { Textures } from "../texture/Textures";
 import { Maybe } from "../util/util";
 import { ModelMerger } from "../model/ModelMerger";
 import { AssetLoader } from "./AssetLoader";
-import { Memoize } from "typescript-memoize";
 import { DEFAULT_NAMESPACE, DEFAULT_ROOT } from "./Assets";
 import { PersistentCache } from "../cache/PersistentCache";
 import { AssetKey } from "./AssetKey";
@@ -21,9 +20,8 @@ export class Models {
         return this._persistentCache ??= PersistentCache.open("minerender-models");
     }
 
-    @Memoize()
     public static async getItemList(): Promise<string[]> {
-        return AssetLoader.get<ListAsset>(new AssetKey(
+        const key = new AssetKey(
             DEFAULT_NAMESPACE,
             "_list",
             "models",
@@ -31,7 +29,10 @@ export class Models {
             "assets",
             ".json",
             DEFAULT_ROOT
-        ), AssetParser.LIST).then(r => r?.files ?? []);
+        );
+        return Caching.listAssetCache.get(key.serialize(), () => {
+            return AssetLoader.get<ListAsset>(key, AssetParser.LIST);
+        }).then(r => r?.files ?? []);
     }
 
     public static async loadAndMerge(key: AssetKey): Promise<Maybe<Model>> {

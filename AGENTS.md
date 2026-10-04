@@ -88,7 +88,7 @@ The private Yarn workspace root contains the public library and its consumers. U
 
 - JSON model dictionaries in `src/` are reference copies. Runtime data comes from the fallback-assets repository; local edits do not change hosted assets.
 - Idle caches and request queues let Node exit. `shutdown()` clears shared caches, permanently ends request queues, and stops Ticker.
-- Async `@Memoize` methods retain their first promise, including failures.
+- Async list/dictionary caches evict missing and rejected loads. Clear in-memory caches when sources change; persistent storage must be cleared separately.
 - Image decode failures reject and evict the matching cache entry. Failed synchronous image placeholders are retried on the next lookup.
 - Keep `@types/three` and `three` on the same minor version; import geometry/material types from bare `three`.
 - Node imports require a working native `canvas` installation; browser-only installs can skip its optional build.

@@ -4,22 +4,24 @@ import { MinecraftAsset } from "../MinecraftAsset";
 import { AssetLoader } from "./AssetLoader";
 import { AssetParser } from "./source";
 import { Maybe } from "../util";
-import { Memoize } from "typescript-memoize";
+import { Caching } from "../cache/Caching";
 
 export class Entities {
 
-    @Memoize()
     public static async getBlockEntityModels(): Promise<Maybe<BlockEntityModels>> {
         const key = AssetKey.parse("models", "minerender:blockEntityModels");
         console.log(key);
-        return AssetLoader.get<BlockEntityModels>(key, AssetParser.JSON);
+        return Caching.entityModelsCache.get(key.serialize(), () => {
+            return AssetLoader.get<BlockEntityModels>(key, AssetParser.JSON);
+        });
     }
 
-    @Memoize()
     public static async getEntityModels(): Promise<Maybe<EntityModels>> {
         const key = AssetKey.parse("models", "minerender:entityModels");
         console.log(key);
-        return AssetLoader.get<EntityModels>(key, AssetParser.JSON);
+        return Caching.entityModelsCache.get(key.serialize(), () => {
+            return AssetLoader.get<EntityModels>(key, AssetParser.JSON);
+        });
     }
 
     // BlockEntity names are hardcoded

@@ -3,7 +3,6 @@ import { BlockState } from "../model/block/BlockState";
 import { Caching } from "../cache/Caching";
 import { AssetLoader } from "./AssetLoader";
 import { DEFAULT_NAMESPACE, DEFAULT_ROOT } from "./Assets";
-import { Memoize } from "typescript-memoize";
 import { BlockStatePropertyDefaults } from "../model/block/BlockStateProperties";
 import { AssetKey } from "./AssetKey";
 import { PersistentCache } from "../cache/PersistentCache";
@@ -20,9 +19,8 @@ export class BlockStates {
     }
 
     // BlockState names are hardcoded
-    @Memoize()
     public static async getList(): Promise<string[]> {
-        return AssetLoader.get<ListAsset>(new AssetKey(
+        const key = new AssetKey(
             DEFAULT_NAMESPACE,
             "_list",
             "blockstates",
@@ -30,13 +28,17 @@ export class BlockStates {
             "assets",
             ".json",
             DEFAULT_ROOT
-        ), AssetParser.LIST).then(r => r?.files ?? []);
+        );
+        return Caching.listAssetCache.get(key.serialize(), () => {
+            return AssetLoader.get<ListAsset>(key, AssetParser.LIST);
+        }).then(r => r?.files ?? []);
     }
 
-    @Memoize()
     public static async getDefaultStates(): Promise<Maybe<DefaultBlockStates>> {
         const key = AssetKey.parse("blockstates", "minerender:defaultBlockStates");
-        return AssetLoader.get<DefaultBlockStates>(key, AssetParser.JSON);
+        return Caching.defaultBlockStatesCache.get(key.serialize(), () => {
+            return AssetLoader.get<DefaultBlockStates>(key, AssetParser.JSON);
+        });
     }
 
     public static async getDefaultState(key: AssetKey): Promise<Maybe<BlockStatePropertyDefaults>> {
