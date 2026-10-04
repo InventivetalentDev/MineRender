@@ -13,6 +13,7 @@ import { prefix } from "../util/log";
 import { AssetSource } from "./source/AssetSource";
 import { AssetParser } from "./source/parser/AssetParsers";
 import { HostedAssetSource } from "./source";
+import { Caching } from "../cache/Caching";
 
 const p = prefix("AssetLoader");
 
@@ -22,6 +23,22 @@ export class AssetLoader {
     static ROOT: string = DEFAULT_ROOT;
 
     private static _SOURCES: AssetSourceReference[] = [];
+
+    public static get version(): string {
+        return this.ROOT.substring(this.ROOT.lastIndexOf("/") + 1);
+    }
+
+    public static setVersion(version: string): void {
+        this.ROOT = `https://assets.mcasset.cloud/${version}`;
+        const source = new HostedAssetSource(this.ROOT, { retryDefaults: false });
+        const index = this._SOURCES.findIndex(s => s.key === "mcassets");
+        if (index !== -1) {
+            this._SOURCES[index] = { key: "mcassets", source };
+        } else {
+            this.addSource("mcassets", source);
+        }
+        Caching.clear();
+    }
 
     public static addSource(key: string, source: AssetSource, override: boolean = true) {
         if (override) {
@@ -48,7 +65,7 @@ export class AssetLoader {
 
     static {
         this.addSource("mcassets-fallback", new HostedAssetSource('https://raw.githubusercontent.com/InventivetalentDev/minerender-fallback-assets/master', { retryDefaults: false }));
-        this.addSource("mcassets", new HostedAssetSource(DEFAULT_ROOT, { retryDefaults: false }));
+        this.addSource("mcassets", new HostedAssetSource(this.ROOT, { retryDefaults: false }));
     }
 
     public static async getAll<T extends MinecraftAsset>(key: AssetKey, parser: AssetParser | string): Promise<T[]> {

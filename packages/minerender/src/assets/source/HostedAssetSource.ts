@@ -8,7 +8,7 @@ import { ImageLoader } from "../../image";
 import { ListAsset } from "../../ListAsset";
 import { MinecraftAsset } from "../../MinecraftAsset";
 import { AssetKey } from "../AssetKey";
-import { DEFAULT_NAMESPACE, DEFAULT_ROOT } from "../Assets";
+import { DEFAULT_NAMESPACE } from "../Assets";
 import { RequestError, Requests } from "../../request";
 import { AssetLoader } from "../AssetLoader";
 import { AssetParser } from "./parser";
@@ -99,19 +99,19 @@ export class HostedAssetSource extends AssetSource {
             if (typeof namespaced !== "undefined") {
                 return namespaced;
             }
-            if ((typeof key.root !== "undefined" && key.root !== DEFAULT_ROOT) || (typeof this.root !== "undefined" && this.root !== DEFAULT_ROOT)) {
+            if ((typeof key.root !== "undefined" && key.root !== AssetLoader.ROOT) || (typeof this.root !== "undefined" && this.root !== AssetLoader.ROOT)) {
                 console.info(p, "Retrying", key, "with default root+namespace");
                 // Try both defaults
-                const namespacedRootedKey = new AssetKey(DEFAULT_NAMESPACE, key.path, key.assetType, key.type, key.rootType, key.extension, DEFAULT_ROOT);
+                const namespacedRootedKey = new AssetKey(DEFAULT_NAMESPACE, key.path, key.assetType, key.type, key.rootType, key.extension, AssetLoader.ROOT);
                 const namespacedRooted = await this.load<T>(namespacedRootedKey, parser);
                 if (typeof namespacedRooted !== "undefined") {
                     return namespacedRooted;
                 }
             }
-        } else if ((typeof key.root !== "undefined" && key.root !== DEFAULT_ROOT) || (typeof this.root !== "undefined" && this.root !== DEFAULT_ROOT)) {
+        } else if ((typeof key.root !== "undefined" && key.root !== AssetLoader.ROOT) || (typeof this.root !== "undefined" && this.root !== AssetLoader.ROOT)) {
             console.info(p, "Retrying", key, "with default root");
             // Try on default root
-            const rootKey = new AssetKey(key.namespace, key.path, key.assetType, key.type, key.rootType, key.extension, DEFAULT_ROOT);
+            const rootKey = new AssetKey(key.namespace, key.path, key.assetType, key.type, key.rootType, key.extension, AssetLoader.ROOT);
             const rooted = await this.load<T>(rootKey, parser);
             if (typeof rooted !== "undefined") {
                 return rooted;
