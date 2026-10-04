@@ -9,6 +9,7 @@ import merge from "ts-deepmerge";
 import { SceneObjectOptions } from "../../renderer/SceneObjectOptions";
 import { DeepPartial, toRadians } from "../../util/util";
 import { SkinTextures } from "../SkinTextures";
+import { CapeLayout, capeTextureSizes } from "../CapeLayout";
 
 export class SkinObject extends SceneObject {
 
@@ -128,8 +129,8 @@ export class SkinObject extends SceneObject {
         this.notifyDirty();
     }
 
-    /** Load a vanilla cape texture, or pass undefined to remove the cape. */
-    public async setCapeTexture(src?: string): Promise<void> {
+    /** Load a cape texture in the selected layout, or pass undefined to remove the cape. */
+    public async setCapeTexture(src?: string, layout: CapeLayout = "minecraft"): Promise<void> {
         const load = ++this.capeLoad;
         if (src === undefined) {
             const group = this.getGroupByName(SkinPart.CAPE);
@@ -138,16 +139,18 @@ export class SkinObject extends SceneObject {
             return;
         }
 
-        const material = await SkinTextures.getCape(src);
+        const material = await SkinTextures.getCape(src, layout);
         if (load !== this.capeLoad) return;
+        const size = capeTextureSizes[layout];
+        const geometry = this._getBoxGeometryFromDimensions(
+            classicSkinGeometries.cape, classicSkinTextureCoordinates.cape, size, size);
         const mesh = this.getMeshByName(SkinPart.CAPE);
         if (mesh) {
             mesh.material = material;
+            mesh.geometry = geometry;
         } else {
             const group = this.createAndAddGroup(SkinPart.CAPE, 0, 24, 2);
             group.rotation.set(toRadians(-6), Math.PI, 0);
-            const geometry = this._getBoxGeometryFromDimensions(
-                classicSkinGeometries.cape, classicSkinTextureCoordinates.cape, [64, 32], [64, 32]);
             const cape = this.createAndAddMesh(SkinPart.CAPE, group, geometry, material);
             cape.position.set(0, -8, -0.5);
         }

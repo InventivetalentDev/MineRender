@@ -3,6 +3,7 @@ import { BufferGeometry, DataTexture, FrontSide, MeshBasicMaterial, NearestFilte
 import { Caching } from "../src/cache/Caching";
 import { ImageLoader } from "../src/image/ImageLoader";
 import { Materials } from "../src/Materials";
+import type { CapeLayout } from "../src/skin/CapeLayout";
 import { SkinTextures } from "../src/skin/SkinTextures";
 import { SkinObject } from "../src/skin/scene/SkinObject";
 
@@ -40,38 +41,43 @@ function image(width: number, height: number): ImageData {
     return { width, height, data, colorSpace: "srgb" } as ImageData;
 }
 
-test.serial("cape textures preserve pixels and alpha, cache separately from skins, and validate scaled vanilla layouts", async t => {
+test.serial("cape textures preserve pixels and dimensions for each layout while vanilla validation stays strict", async t => {
     const { track } = fixture(t);
-    const sources = { cape: image(64, 32), scaled: image(128, 64), square: image(64, 64), fractional: image(96, 48) };
+    const sources = {
+        cape: image(64, 32), scaled: image(128, 64), square: image(64, 64), fractional: image(96, 48),
+        optifine: image(92, 44), labymod: image(355, 275)
+    };
     const original = sources.cape.data.slice();
     const error = new Error("cape decode failed");
     ImageLoader.getData = async src => {
         if (src === "broken") throw error;
         return sources[src as keyof typeof sources];
     };
-    for (const src of ["cape", "scaled"] as const) {
-        const material = track(await SkinTextures.getCape(src));
+    for (const [src, layout] of [["cape", "minecraft"], ["scaled", "minecraft"], ["optifine", "optifine"], ["labymod", "labymod"]] as const) {
+        const material = track(await SkinTextures.getCape(src, layout));
         const map = material.map as DataTexture;
         t.deepEqual([map.image.width, map.image.height], [sources[src].width, sources[src].height]);
         t.deepEqual(map.image.data, new Uint8Array(sources[src].data));
         t.not(map.image.data, sources[src].data);
         t.deepEqual([map.colorSpace, map.flipY, map.magFilter, map.minFilter], [SRGBColorSpace, true, NearestFilter, NearestFilter]);
         t.deepEqual([material.transparent, material.side, material.alphaTest], [false, FrontSide, 0]);
-        t.is(await SkinTextures.getCape(src), material);
+        t.is(await SkinTextures.getCape(src, layout), material);
     }
     const skin = track((await SkinTextures.get("cape")).material);
     t.not(await SkinTextures.getCape("cape"), skin);
     t.deepEqual(sources.cape.data, original);
     await t.throwsAsync(SkinTextures.getCape("square"), { message: /64x64/ });
     await t.throwsAsync(SkinTextures.getCape("fractional"), { message: /96x48/ });
+    await t.throwsAsync(SkinTextures.getCape("labymod"), { message: /355x275/ });
     await t.throwsAsync(SkinTextures.getCape("broken"), { is: error });
 });
 
-test.serial("a cape loaded before initialization keeps its named mesh, vanilla UVs and shoulder placement", async t => {
+test.serial("cape layouts normalize all six faces while preserving pre-init meshes and shoulder placement", async t => {
     const { create, material } = fixture(t);
     const skin = create();
     const capeMaterial = material();
-    SkinTextures.getCape = async () => capeMaterial;
+    const requestedLayouts: Array<CapeLayout | undefined> = [];
+    SkinTextures.getCape = async (src, layout) => { requestedLayouts.push(layout); return capeMaterial; };
     t.is(skin.getGroupByName("cape"), undefined);
     await skin.setCapeTexture("cape");
     const group = skin.getGroupByName("cape")!;
@@ -87,21 +93,24 @@ test.serial("a cape loaded before initialization keeps its named mesh, vanilla U
     t.true(Math.abs(group.rotation.x + Math.PI / 30) < 1e-12);
     t.deepEqual([group.rotation.y, group.rotation.z, group.rotation.order], [Math.PI, 0, "XYZ"]);
     t.deepEqual(mesh.position.toArray(), [0, -8, -0.5]);
-    const uv = mesh.geometry.getAttribute("uv");
-    for (const [face, [x1, y1, x2, y2]] of [
-        [0, 1, 1, 17], [11, 1, 12, 17], [11, 1, 1, 0],
-        [21, 0, 11, 1], [12, 1, 22, 17], [1, 1, 11, 17]
-    ].entries()) {
-        const pixels = [0, 1, 2, 3].map(vertex => [uv.getX(face * 4 + vertex) * 64, (1 - uv.getY(face * 4 + vertex)) * 32]);
-        t.deepEqual(pixels, [[x1, y1], [x2, y1], [x1, y2], [x2, y2]]);
+    for (const [layout, width, height] of [["minecraft", 64, 32], ["optifine", 46, 22], ["labymod", 22, 17]] as const) {
+        await skin.setCapeTexture("cape", layout);
+        t.is(skin.getMeshByName("cape"), mesh);
+        const expected = [
+            [0, 1, 1, 17], [11, 1, 12, 17], [11, 1, 1, 0],
+            [21, 0, 11, 1], [12, 1, 22, 17], [1, 1, 11, 17]
+        ].flatMap(([x1, y1, x2, y2]) => [x1 / width, 1 - y1 / height, x2 / width, 1 - y1 / height,
+            x1 / width, 1 - y2 / height, x2 / width, 1 - y2 / height]);
+        t.deepEqual(Array.from(mesh.geometry.getAttribute("uv").array), Array.from(new Float32Array(expected)));
     }
+    t.deepEqual(requestedLayouts, ["minecraft", "minecraft", "optifine", "labymod"]);
     const round = (point: Vector3) => point.toArray().map(value => Math.round(value * 1e6) / 1e6);
     t.deepEqual(round(mesh.localToWorld(new Vector3(0, 8, 0.5))), [0, 24, 2]);
     t.deepEqual(round(mesh.localToWorld(new Vector3(0, -8, 0.5))),
         round(new Vector3(0, 24 - 16 * Math.cos(Math.PI / 30), 2 + 16 * Math.sin(Math.PI / 30))));
 });
 
-test.serial("cape replacement preserves poses and visibility while skin changes keep its material independent", async t => {
+test.serial("layout changes reuse geometry without mutating another cape or resetting poses, visibility and skin materials", async t => {
     const { create, material } = fixture(t);
     const skin = create();
     await skin.init();
@@ -114,6 +123,10 @@ test.serial("cape replacement preserves poses and visibility while skin changes 
     const group = skin.getGroupByName("cape")!;
     const mesh = skin.getMeshByName("cape")!;
     const geometry = mesh.geometry;
+    const other = create();
+    await other.setCapeTexture("first");
+    t.is(other.getMeshByName("cape")!.geometry, geometry);
+    const originalUvs = Array.from(geometry.getAttribute("uv").array);
     group.rotation.x = -0.5;
     group.position.y = 23;
     mesh.rotation.z = 0.2;
@@ -123,11 +136,20 @@ test.serial("cape replacement preserves poses and visibility while skin changes 
     geometry.addEventListener("dispose", () => disposals++);
     let changes = 0;
     skin.addEventListener("change", () => changes++);
-    await skin.setCapeTexture("second");
+    await skin.setCapeTexture("second", "optifine");
     t.true(changes > 0);
     t.is(skin.getGroupByName("cape"), group);
     t.is(skin.getMeshByName("cape"), mesh);
+    const optifineGeometry = mesh.geometry;
+    t.not(optifineGeometry, geometry);
+    await skin.setCapeTexture("second", "labymod");
+    t.not(mesh.geometry, optifineGeometry);
+    await skin.setCapeTexture("second", "optifine");
+    t.is(mesh.geometry, optifineGeometry);
+    await skin.setCapeTexture("second");
     t.is(mesh.geometry, geometry);
+    t.is(other.getMeshByName("cape")!.geometry, geometry);
+    t.deepEqual(Array.from(geometry.getAttribute("uv").array), originalUvs);
     t.deepEqual([group.rotation.x, group.position.y, mesh.rotation.z, mesh.visible], [-0.5, 23, 0.2, false]);
     t.is(mesh.material, second);
     await skin.setSkinTexture("skin");
