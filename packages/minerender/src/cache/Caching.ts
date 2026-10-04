@@ -14,6 +14,7 @@ import type { DefaultBlockStates } from "../assets/BlockStates";
 import type { EntityModelFile } from "../entity/EntityModel";
 import type { ListAsset } from "../ListAsset";
 import { BlockState } from "../model/block/BlockState";
+import type { AssetKey } from "../assets/AssetKey";
 
 export class Caching {
 
@@ -103,6 +104,8 @@ export class Caching {
 
     static readonly entityModelCache: AsyncLoadingCache<CacheKey, EntityModelFile> = Caching.createAssetCache<EntityModelFile>();
 
+    static readonly entityTextureCache: AsyncLoadingCache<CacheKey, AssetKey> = Caching.createAssetCache<AssetKey>();
+
     private static createAssetCache<T>(): AsyncLoadingCache<CacheKey, T> {
         return Caches.builder()
             .expireAfterWrite(Time.minutes(10))
@@ -132,7 +135,8 @@ export class Caching {
             this.listAssetCache,
             this.defaultBlockStatesCache,
             this.blockTintCache,
-            this.entityModelCache
+            this.entityModelCache,
+            this.entityTextureCache
         ];
     }
 
