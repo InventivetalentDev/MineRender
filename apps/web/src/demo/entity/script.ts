@@ -1,4 +1,4 @@
-import { AssetKey, BasicAssetKey, Entities, EntityObject, Renderer, SceneInspector } from "minerender";
+import { AssetKey, Entities, EntityObject, Renderer, SceneInspector } from "minerender";
 import { Intersection, Vector3 } from "three";
 
 console.log("hi");
@@ -46,8 +46,7 @@ function setEntity(entity: string) {
         entityObject = undefined;
     }
 
-    const parsedKey = AssetKey.parse("entities", entity);
-    const key = new BasicAssetKey(parsedKey.namespace, parsedKey.getFullPath());
+    const key = AssetKey.parse("entities", entity);
     Entities.getEntity(key).then(entityModel => {
         if (!entityModel) throw new Error(`Entity model not found: ${entity}`);
         return renderer.scene.addEntity(entityModel);

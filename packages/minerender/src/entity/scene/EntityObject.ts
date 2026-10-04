@@ -1,13 +1,12 @@
 import { SceneObject } from "../../renderer/SceneObject";
 import { SceneObjectOptions } from "../../renderer/SceneObjectOptions";
 import { Caching } from "../../cache/Caching";
-import { DEFAULT_NAMESPACE } from "../../assets/Assets";
 import merge from "ts-deepmerge";
-import { Mesh, Object3D } from "three";
+import { Object3D } from "three";
 import type { Material } from "three";
 import { addWireframeToMesh } from "../../util/model";
 import { ModelTextures } from "../../assets/ModelTextures";
-import { AssetKey } from "../../assets/AssetKey";
+import { AssetKey, isAssetKey } from "../../assets/AssetKey";
 import { ExtractableImageData } from "../../ExtractableImageData";
 import { Materials } from "../../Materials";
 import { MinecraftCubeTexture } from "../../MinecraftCubeTexture";
@@ -18,7 +17,7 @@ export class EntityObject extends SceneObject {
 
     public readonly isEntityObject: true = true;
 
-    public static readonly DEFAULT_OPTIONS: EntityObjectOptions = merge({}, SceneObject.DEFAULT_OPTIONS, <EntityObjectOptions>{});
+    public static readonly DEFAULT_OPTIONS: EntityObjectOptions = merge({}, SceneObject.DEFAULT_OPTIONS, <EntityObjectOptions>{ flip: true });
     public readonly options: EntityObjectOptions;
 
     private imageData?: ExtractableImageData;
@@ -27,7 +26,7 @@ export class EntityObject extends SceneObject {
 
     constructor(readonly entity: EntityModel, options?: Partial<EntityObjectOptions>) {
         super();
-        this.options = merge({}, SceneObject.DEFAULT_OPTIONS, options ?? {});
+        this.options = merge({}, EntityObject.DEFAULT_OPTIONS, options ?? {});
         //TODO
     }
 
@@ -41,9 +40,10 @@ export class EntityObject extends SceneObject {
     }
 
     private get textureKey(): AssetKey {
+        const key = this.entity.key;
         return new AssetKey(
-            this.entity.key?.namespace ?? DEFAULT_NAMESPACE,
-            this.entity.key!.path, //TODO: texture may differ from entity name; most of them are in subdirectories for multiple variants etc.
+            key.namespace,
+            isAssetKey(key) ? key.getFullPath() : key.path,
             "textures",
             "entity",
             "assets",
@@ -60,7 +60,7 @@ export class EntityObject extends SceneObject {
 
         const modelRoot = new Object3D();
         // Keep Minecraft's model coordinates separate from caller placement and scale.
-        modelRoot.scale.set(-1, -1, 1);
+        if (this.options.flip) modelRoot.scale.set(-1, -1, 1);
         this.add(modelRoot);
         this.createPart("root", this.entity.layer.root, modelRoot, this.entity.layer.texture, Materials.MISSING_TEXTURE);
         this.meshesCreated = true;
@@ -78,16 +78,7 @@ export class EntityObject extends SceneObject {
             const [width, height, depth] = cube.size;
             const [growX, growY, growZ] = cube.grow ?? [0, 0, 0];
             const texture = new MinecraftCubeTexture(...cube.uv, ...size);
-            const uv = size[0] === 0 || size[1] === 0 ? new Array<number>(48).fill(0) : texture.toUvArray(width, height, depth);
-            // The box helper mirrors the side faces and reverses the down face's V coordinates.
-            if (!cube.mirror) uv.splice(0, 16, ...uv.slice(8, 16), ...uv.slice(0, 8));
-            for (const face of cube.mirror ? [2, 3] : [0, 1, 4, 5]) {
-                const start = face * 8;
-                [uv[start], uv[start + 2]] = [uv[start + 2], uv[start]];
-                [uv[start + 4], uv[start + 6]] = [uv[start + 6], uv[start + 4]];
-            }
-            [uv[25], uv[29]] = [uv[29], uv[25]];
-            [uv[27], uv[31]] = [uv[31], uv[27]];
+            const uv = size[0] === 0 || size[1] === 0 ? new Array<number>(48).fill(0) : texture.toUvArray(width, height, depth, cube.mirror);
             const geometry = this._getBoxGeometryForDimensionsAndUv(
                 width + growX * 2, height + growY * 2, depth + growZ * 2, uv
             ).clone();
@@ -99,12 +90,6 @@ export class EntityObject extends SceneObject {
         for (const [childName, child] of Object.entries(part.children)) {
             this.createPart(childName, child, anchor, size, material);
         }
-    }
-
-    public iterateAllMeshes(callback: (mesh: Mesh) => void) {
-        this.traverse(object => {
-            if ((object as Mesh).isMesh) callback(object as Mesh);
-        });
     }
 
     protected async applyTextures() {
@@ -135,6 +120,7 @@ export class EntityObject extends SceneObject {
 }
 
 export interface EntityObjectOptions extends SceneObjectOptions {
+    flip?: boolean;
 }
 
 export function isEntityObject(obj: any): obj is EntityObject {

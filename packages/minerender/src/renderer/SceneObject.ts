@@ -180,16 +180,9 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
     }
 
     public iterateAllMeshes(cb: (mesh: Mesh) => void) {
-        this.children.forEach(obj => {
-            if ((<Mesh>obj).isMesh) {
-                cb(obj as Mesh);
-            }
-            obj.children.forEach(obj1 => {
-                if ((<Mesh>obj1).isMesh) {
-                    cb(obj1 as Mesh);
-                }
-            })
-        })
+        this.traverse(obj => {
+            if (isMesh(obj)) cb(obj);
+        });
     }
 
     //</editor-fold>

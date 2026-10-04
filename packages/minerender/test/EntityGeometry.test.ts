@@ -3,7 +3,7 @@ import { Euler, Mesh, MeshBasicMaterial, Vector3 } from "three";
 import { BasicAssetKey } from "../src/assets/AssetKey";
 import { Caching } from "../src/cache/Caching";
 import { Materials } from "../src/Materials";
-import { EntityObject } from "../src/entity/scene/EntityObject";
+import { EntityObject, EntityObjectOptions } from "../src/entity/scene/EntityObject";
 import type { EntityModelCube, EntityModelPart } from "../src/entity/EntityModel";
 import type { DoubleArray } from "../src/model/Model";
 
@@ -25,8 +25,8 @@ function fixture(t: ExecutionContext) {
         material.dispose();
         Caching.clear();
     });
-    return (root: EntityModelPart, texture: DoubleArray = [64, 32]) => {
-        const object = new EntityObject({ key: new BasicAssetKey("minecraft", "fixture"), id: "minecraft:fixture", layer: { texture, root } });
+    return (root: EntityModelPart, texture: DoubleArray = [64, 32], options?: Partial<EntityObjectOptions>) => {
+        const object = new EntityObject({ key: new BasicAssetKey("minecraft", "fixture"), id: "minecraft:fixture", layer: { texture, root } }, options);
         object["createMeshes"]();
         objects.push(object);
         return object;
@@ -49,13 +49,14 @@ const normalized = (pixels: number[][], width = 64, height = 32) => pixels.flatM
 
 test.serial("nested parts compose local radian poses before the entity coordinate conversion and caller transforms", t => {
     const create = fixture(t);
-    const object = create(part({
+    const model = part({
         pose: { offset: [2, 3, 4], rotation: [0, 0, Math.PI / 2], scale: [2, 1, 1] },
         children: { arm: part({
             pose: { offset: [3, 1, 2], rotation: [Math.PI / 2, Math.PI / 2, 0] }, cubes: [cube],
             children: { hand: part({ pose: { offset: [1, 2, 3], rotation: [0, 0, 0] }, cubes: [cube] }) }
         }) }
-    }));
+    });
+    const object = create(model);
     const root = object.getGroupByName("root")!;
     const arm = object.getGroupByName("arm")!;
     const hand = object.getGroupByName("hand")!;
@@ -71,6 +72,10 @@ test.serial("nested parts compose local radian poses before the entity coordinat
     t.deepEqual(coordinates(hand.getWorldPosition(new Vector3())), [49, 12, 50]);
     t.deepEqual(object.scale.toArray(), [2, 3, 4]);
     t.deepEqual(root.parent!.scale.toArray(), [-1, -1, 1]);
+
+    const unflipped = create(model, [64, 32], { flip: false });
+    t.deepEqual(unflipped.getGroupByName("root")!.parent!.scale.toArray(), [1, 1, 1]);
+    t.deepEqual(coordinates(unflipped.getGroupByName("hand")!.getWorldPosition(new Vector3())), [4, 13, 5]);
 });
 
 test.serial("cube growth preserves vanilla UV dimensions and mirrored cubes swap side faces and reverse U", t => {

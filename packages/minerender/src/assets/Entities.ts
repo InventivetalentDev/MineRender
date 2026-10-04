@@ -1,4 +1,4 @@
-import { AssetKey, BasicAssetKey } from "./AssetKey";
+import { AssetKey, BasicAssetKey, isAssetKey } from "./AssetKey";
 import type { EntityModel, EntityModelFile } from "../entity/EntityModel";
 import { AssetLoader } from "./AssetLoader";
 import { AssetParser } from "./source";
@@ -25,7 +25,8 @@ export class Entities {
     }
 
     public static async getEntity(modelKey: BasicAssetKey, textureKey?: BasicAssetKey, options?: EntityModelOptions): Promise<Maybe<EntityModel>> {
-        const key = new AssetKey(modelKey.namespace, modelKey.path, undefined, undefined, "entity-models", ".json");
+        const path = isAssetKey(modelKey) ? modelKey.getFullPath() : modelKey.path;
+        const key = new AssetKey(modelKey.namespace, path, undefined, undefined, "entity-models", ".json");
         const model = await Caching.entityModelCache.get(key.serialize(), () => AssetLoader.get<EntityModelFile>(key, AssetParser.JSON));
         if (!model) return undefined;
         const layerName = options?.layer ?? "main";

@@ -1,16 +1,8 @@
-import { CanvasImage } from "./canvas/CanvasImage";
 import { UVMapper } from "./UVMapper";
 import { CUBE_FACES, CubeFace } from "./CubeFace";
-import { DoubleArray, QuadArray } from "./model/Model";
-import { ExtractableImageData } from "./ExtractableImageData";
+import type { DoubleArray, QuadArray } from "./model/Model";
 
-/**
- *          down  up
- *  east    north    west    south
- *
- *  bottom-left to top-right
- *  [bl, br, tl, tr]
- */
+/** Vanilla Minecraft cube UVs in Three.js BoxGeometry face and vertex order. */
 export class MinecraftCubeTexture {
 
     constructor(
@@ -18,7 +10,6 @@ export class MinecraftCubeTexture {
         readonly width: number, readonly height: number
     ) {
     }
-
 
     protected mapW(x: number) {
         return x / this.width;
@@ -30,61 +21,56 @@ export class MinecraftCubeTexture {
 
     getUvEast(w: number, h: number, l: number): QuadArray<DoubleArray> {
         return [
-            [this.mapW(this.u), this.mapH(this.v + l + h)],
-            [this.mapW(this.u + l), this.mapH(this.v + l + h)],
-            [this.mapW(this.u), this.mapH(this.v + l)],
-            [this.mapW(this.u + l), this.mapH(this.v + l)],
-        ]
+            [this.mapW(this.u + l + w + l), this.mapH(this.v + l + h)],
+            [this.mapW(this.u + l + w), this.mapH(this.v + l + h)],
+            [this.mapW(this.u + l + w + l), this.mapH(this.v + l)],
+            [this.mapW(this.u + l + w), this.mapH(this.v + l)],
+        ];
     }
 
     getUvWest(w: number, h: number, l: number): QuadArray<DoubleArray> {
-//TODO
         return [
-            [this.mapW(this.u + l + w), this.mapH(this.v + l + h)],
-            [this.mapW(this.u + l + w + l), this.mapH(this.v + l + h)],
-            [this.mapW(this.u + l + w), this.mapH(this.v + l)],
-            [this.mapW(this.u + l + w + l), this.mapH(this.v + l)],
-        ]
+            [this.mapW(this.u + l), this.mapH(this.v + l + h)],
+            [this.mapW(this.u), this.mapH(this.v + l + h)],
+            [this.mapW(this.u + l), this.mapH(this.v + l)],
+            [this.mapW(this.u), this.mapH(this.v + l)],
+        ];
     }
 
     getUvUp(w: number, h: number, l: number): QuadArray<DoubleArray> {
-//TODO
         return [
             [this.mapW(this.u + l + w), this.mapH(this.v + l)],
             [this.mapW(this.u + l + w + w), this.mapH(this.v + l)],
             [this.mapW(this.u + l + w), this.mapH(this.v)],
             [this.mapW(this.u + l + w + w), this.mapH(this.v)],
-        ]
+        ];
     }
 
     getUvDown(w: number, h: number, l: number): QuadArray<DoubleArray> {
-//TODO
         return [
+            [this.mapW(this.u + l), this.mapH(this.v)],
+            [this.mapW(this.u + l + w), this.mapH(this.v)],
             [this.mapW(this.u + l), this.mapH(this.v + l)],
             [this.mapW(this.u + l + w), this.mapH(this.v + l)],
-            [this.mapW(this.u + l), this.mapH(this.v)],
-            [this.mapW(this.u + l+w), this.mapH(this.v)],
-        ]
+        ];
     }
 
     getUvSouth(w: number, h: number, l: number): QuadArray<DoubleArray> {
-//TODO
         return [
-            [this.mapW(this.u + l + w + l), this.mapH(this.v + l + h)],
             [this.mapW(this.u + l + w + l + w), this.mapH(this.v + l + h)],
-            [this.mapW(this.u + l + w + l), this.mapH(this.v + l)],
+            [this.mapW(this.u + l + w + l), this.mapH(this.v + l + h)],
             [this.mapW(this.u + l + w + l + w), this.mapH(this.v + l)],
-        ]
+            [this.mapW(this.u + l + w + l), this.mapH(this.v + l)],
+        ];
     }
 
     getUvNorth(w: number, h: number, l: number): QuadArray<DoubleArray> {
-//TODO
         return [
-            [this.mapW(this.u + l), this.mapH(this.v + l + h)],
             [this.mapW(this.u + l + w), this.mapH(this.v + l + h)],
-            [this.mapW(this.u + l), this.mapH(this.v + l)],
+            [this.mapW(this.u + l), this.mapH(this.v + l + h)],
             [this.mapW(this.u + l + w), this.mapH(this.v + l)],
-        ]
+            [this.mapW(this.u + l), this.mapH(this.v + l)],
+        ];
     }
 
     getFaceUv(face: CubeFace, w: number, h: number, l: number): QuadArray<DoubleArray> {
@@ -104,13 +90,15 @@ export class MinecraftCubeTexture {
         }
     }
 
-    toUvArray(w: number, h: number, l: number): number[] {
+    toUvArray(w: number, h: number, l: number, mirror: boolean = false): number[] {
         const uv: number[] = [];
         for (let i = 0; i < CUBE_FACES.length; i++) {
-            UVMapper.setFaceUvInArray(uv, i * 4, this.getFaceUv(CUBE_FACES[i], w, h, l));
+            // Mirroring swaps east/west faces and reverses U within every face.
+            const face = mirror && i < 2 ? CUBE_FACES[1 - i] : CUBE_FACES[i];
+            const corners = this.getFaceUv(face, w, h, l);
+            UVMapper.setFaceUvInArray(uv, i * 4, mirror ? [corners[1], corners[0], corners[3], corners[2]] : corners);
         }
         return uv;
     }
-
 
 }

@@ -6,6 +6,7 @@ import { AssetSource } from "../src/assets/source/AssetSource";
 import { AssetParser } from "../src/assets/source/parser/AssetParsers";
 import { Caching } from "../src/cache/Caching";
 import { Requests } from "../src/request/Requests";
+import { EntityObject } from "../src/entity/scene/EntityObject";
 import type { EntityModelFile, EntityModelPart } from "../src/entity/EntityModel";
 import type { MinecraftAsset } from "../src/MinecraftAsset";
 import type { Maybe } from "../src/util";
@@ -66,6 +67,23 @@ test.serial("entity files preserve nested IDs and share layers while explicit te
     t.deepEqual(keys, [new AssetKey("custom", "boat/oak", undefined, undefined, "entity-models", ".json")]);
     t.is(lowerCalls, 0);
     t.deepEqual(file, original);
+});
+
+test.serial("parsed entity and texture keys retain their complete paths", async t => {
+    const file = model();
+    file.id = "custom:boat/oak";
+    const keys: AssetKey[] = [];
+    AssetLoader.addSource("test", new StubSource(key => {
+        keys.push(key);
+        return key.namespace === "custom" && key.path === "boat/oak" ? file : undefined;
+    }));
+    const key = AssetKey.parse("entities", "custom:boat/oak");
+    const entity = await Entities.getEntity(key);
+    t.deepEqual(entity, { key, layer: file.layers.main, id: file.id });
+    t.deepEqual(keys, [new AssetKey("custom", "boat/oak", undefined, undefined, "entity-models", ".json")]);
+    t.deepEqual(new EntityObject(entity!)["textureKey"], new AssetKey("custom", "boat/oak", "textures", "entity", "assets", ".png"));
+    const textured = await Entities.getEntity(key, AssetKey.parse("textures", "painted:boat/checkered"));
+    t.deepEqual(new EntityObject(textured!)["textureKey"], new AssetKey("painted", "boat/checkered", "textures", "entity", "assets", ".png"));
 });
 
 test.serial("missing layers identify the model and available layers without selecting a substitute", async t => {
