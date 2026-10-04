@@ -63,11 +63,10 @@ export class Renderer implements Disposable {
     protected _dirty: boolean = true;
 
     protected _animationLoop;
-    protected _fpsTimer;
-    protected _animationTimer?: NodeJS.Timeout = undefined;
-    protected _animationFrame?: number = undefined;
+    protected _frameInterval?: number;
     protected _resizeListener?: () => void = undefined;
 
+    private _nextFrameTime?: number;
     private _disposed: boolean = false;
     private readonly _debugHelpers: Array<GridHelper | AxesHelper> = [];
     private readonly _eventDispatchers = new Map<EventDispatcher, Set<string>>();
@@ -79,7 +78,7 @@ export class Renderer implements Disposable {
         this.options = merge({}, Renderer.DEFAULT_OPTIONS, options ?? {});
 
         this._animationLoop = this.animate.bind(this);
-        this._fpsTimer = this.options.render.fpsLimit > 0 ? (1000 / this.options.render.fpsLimit) : undefined;
+        this._frameInterval = this.options.render.fpsLimit > 0 ? (1000 / this.options.render.fpsLimit) : undefined;
 
         this._scene = this.createScene();
         this._camera = this.createCamera();
@@ -341,15 +340,7 @@ export class Renderer implements Disposable {
         if (this._disposed) return;
 
         this.renderer.setAnimationLoop(null);
-
-        //TODO: remove below
-        if (this._animationTimer)
-            clearTimeout(this._animationTimer);
-        this._animationTimer = undefined;
-
-        if (this._animationFrame)
-            cancelAnimationFrame(this._animationFrame);
-        this._animationFrame = undefined;
+        this._nextFrameTime = undefined;
     }
 
     /**
@@ -401,33 +392,33 @@ export class Renderer implements Disposable {
         this.renderer.forceContextLoss();
     }
 
-    private animate(t?: number): void {
+    private animate(t: number = performance.now()): void {
         if (this._disposed) return;
-
-        // if (this.options.render.fpsLimit === 0) {
-        //     this._animationFrame = requestAnimationFrame(this._animationLoop);
-        // } else {
-        //     this._animationTimer = setTimeout(() => {
-        //         this._animationFrame = requestAnimationFrame(this._animationLoop);
-        //     }, this._fpsTimer);
-        // }
-
-        if (this._stats) {
-            this._stats.begin();
-        }
 
         // Damping and auto-rotation can make a previously clean scene need another frame.
         if (this._controls?.enabled) {
             this._controls.update();
         }
         if (this._disposed) return;
+        if (!this.dirty && !this.options.render.renderAlways) return;
 
-        if (this.dirty || this.options.render.renderAlways) {
-            if (this.options.composer.enabled) {
-                this.composer.render();
-            } else {
-                this.renderer.render(this.scene, this.camera);
-            }
+        const interval = this._frameInterval;
+        if (interval) {
+            const next = this._nextFrameTime;
+            // Allow for rounded animation timestamps without losing a pending redraw.
+            if (next !== undefined && t + 0.1 < next) return;
+            // Keep fractional intervals, but do not catch up after idle periods or long frames.
+            this._nextFrameTime = next !== undefined && t - next < interval ? next + interval : t + interval;
+        }
+
+        if (this._stats) {
+            this._stats.begin();
+        }
+
+        if (this.options.composer.enabled) {
+            this.composer.render();
+        } else {
+            this.renderer.render(this.scene, this.camera);
         }
 
         this.dirty = false;
@@ -512,6 +503,7 @@ export interface CameraOptions {
 }
 
 export interface RenderOptions {
+    /** Maximum draw rate (60 by default); zero or a negative value disables the limit. */
     fpsLimit: number;
     stats: boolean;
     antialias: boolean;

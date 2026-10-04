@@ -72,7 +72,7 @@ The private Yarn workspace root contains the public library and its consumers. U
 
 ## Load-bearing conventions
 
-- **Dirty flag**: anything that mutates visuals must end up calling `notifyDirty()` / setting `scene.dirty`, or the frame never repaints. Built-in OrbitControls (`controls: { enabled: true }`) register automatically and update before the dirty check. Register external event sources, including manually created controls, via `renderer.registerEventDispatcher(...)`.
+- **Dirty flag**: anything that mutates visuals must end up calling `notifyDirty()` / setting `scene.dirty`, or the frame never repaints. Built-in OrbitControls (`controls: { enabled: true }`) register automatically and update before the dirty check and frame limit. `render.fpsLimit` caps draws (default 60; nonpositive values disable the cap), retaining dirty state on skipped frames. Register external event sources, including manually created controls, via `renderer.registerEventDispatcher(...)`.
 - **Renderer ownership**: `stop()` pauses; `dispose()` is final. Dispose only owned resources; shared assets, global caches, and caller-owned controls retain their owners.
 - **Face order**: `CUBE_FACES` = east, west, up, down, south, north (three.js BoxGeometry material order). UV buffers are written at `faceIndex * 4` vertices. Skins, entities, and models all rely on this ordering.
 - **Scale**: 1 block = 16 scene units (= Minecraft model space); 1 chunk = 256 units.
