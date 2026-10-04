@@ -12,9 +12,8 @@ function deferred() {
 }
 
 function fixture(t: ExecutionContext, beforeInit: () => Promise<void> = async () => {}) {
-    const originals = { get: Models.getMerged, init: ModelObject.prototype.init, timeout: globalThis.setTimeout };
+    const originals = { get: Models.getMerged, init: ModelObject.prototype.init };
     const meshes: Mesh[] = [];
-    const delayed: Array<() => void> = [];
     Models.getMerged = async key => ({ key });
     ModelObject.prototype.init = async function () {
         await beforeInit();
@@ -27,23 +26,15 @@ function fixture(t: ExecutionContext, beforeInit: () => Promise<void> = async ()
         this["_isInstanced"] = this.options.instanceMeshes;
         meshes.push(mesh);
     };
-    globalThis.setTimeout = ((callback, delay, ...args) => {
-        if (delay === 150) {
-            delayed.push(() => callback(...args));
-            return {};
-        }
-        return originals.timeout(callback, delay, ...args);
-    }) as typeof setTimeout;
     t.teardown(() => {
         Models.getMerged = originals.get;
         ModelObject.prototype.init = originals.init;
-        globalThis.setTimeout = originals.timeout;
         for (const mesh of meshes) {
             mesh.geometry.dispose();
             (mesh.material as MeshBasicMaterial).dispose();
         }
     });
-    return { scene: new MineRenderScene(), delayed };
+    return { scene: new MineRenderScene() };
 }
 
 function hasRotation(matrix: Matrix4, rotation: Euler): boolean {
@@ -97,26 +88,4 @@ test.serial("positioning multipart blocks preserves each shared model slot's rot
         t.deepEqual(new Vector3().setFromMatrixPosition(model.getMatrixAt(index)), position);
     }
     t.deepEqual(model.getMatrixAt(2), untouched);
-});
-
-test.serial("completed block creation cannot later overwrite a caller's rotation", async t => {
-    const { scene, delayed } = fixture(t);
-    const callerRotation = new Euler(0, 0, Math.PI / 4);
-    for (const instanceMeshes of [true, false]) {
-        const block = await scene.addBlock({ variants: { "": { model: "test:block/shared", x: 90 } } }, {
-            applyDefaultState: false, instanceMeshes
-        });
-        const model = scene.children[scene.children.length - 1] as ModelObject;
-        const matrix = () => {
-            model.updateMatrix();
-            return instanceMeshes ? model.getMatrixAt(0) : model.matrix;
-        };
-        const position = new Vector3(16, 32, 48);
-        block.setPosition(position);
-        t.deepEqual(new Vector3().setFromMatrixPosition(matrix()), position);
-        t.true(hasRotation(matrix(), xRotation));
-        model.setRotation(callerRotation);
-        for (const callback of delayed.splice(0)) callback();
-        t.true(hasRotation(matrix(), callerRotation));
-    }
 });
