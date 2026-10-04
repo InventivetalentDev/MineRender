@@ -73,6 +73,7 @@ The private Yarn workspace root contains the public library and its consumers. U
 ## Load-bearing conventions
 
 - **Dirty flag**: anything that mutates visuals must end up calling `notifyDirty()` / setting `scene.dirty`, or the frame never repaints. External event sources (e.g. OrbitControls) must be registered via `renderer.registerEventDispatcher(...)`.
+- **Renderer ownership**: `stop()` pauses; `dispose()` is final. Dispose only owned resources; shared assets, global caches, and caller-owned controls retain their owners.
 - **Face order**: `CUBE_FACES` = east, west, up, down, south, north (three.js BoxGeometry material order). UV buffers are written at `faceIndex * 4` vertices. Skins, entities, and models all rely on this ordering.
 - **Scale**: 1 block = 16 scene units (= Minecraft model space); 1 chunk = 256 units.
 - **Instance deletion = scale-to-zero**: removal writes a zero-scale matrix; slots are never reclaimed (known design debt).
@@ -101,7 +102,7 @@ The union of what the three consumers (`examples/vite`, `apps/web`, `examples/sc
 
 Delivery formats that must all keep working: ESM named imports under a bundler, CJS require, and the `window.MineRender` IIFE bundle (script tag / unpkg). All three are built by `yarn build:lib`. Check imports under Node as well as loading the consumers in a browser.
 
-Additional public APIs: `shutdown()`, `Env`/`EnvProvider`, `BrowserEnv`/`NodeEnv` (per-entry), `Caching.end`, `Requests.end`, `Ticker.start/stop`.
+Additional public APIs: `shutdown()`, `Env`/`EnvProvider`, `BrowserEnv`/`NodeEnv` (per-entry), `Caching.end`, `Requests.end`, `Ticker.start/stop`, `Renderer.dispose`.
 
 ## Where to continue
 

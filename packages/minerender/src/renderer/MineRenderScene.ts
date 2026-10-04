@@ -1,4 +1,4 @@
-import { Object3D, Scene } from "three";
+import { Event, Object3D, Scene } from "three";
 import {isSceneObject, SceneObject} from "./SceneObject";
 import merge from "ts-deepmerge";
 import { Model } from "../model/Model";
@@ -29,31 +29,62 @@ export class MineRenderScene extends Scene {
 
     public dirty: boolean = true;
 
+    private readonly observedObjects = new Set<Object3D>();
+    private readonly onObjectChange = (event: Event) => {
+        if (event.target?.parent === this) {
+            this.dirty = true;
+        }
+    };
+
     constructor(options?: DeepPartial<MineRenderSceneOptions>) {
         super();
         this.options = merge({}, MineRenderScene.DEFAULT_OPTIONS, options ?? {});
     }
 
-    add(...object): this {
-        this.dirty = true;
-        this.stats.objectCount += object.length;
-        for (let obj of object) {
-            if (isSceneObject(obj)) {
-                this.stats.sceneObjectCount++;
+    add(...objects: Object3D[]): this {
+        for (const object of objects) {
+            this.dirty = true;
+            try {
+                super.add(object);
+            } finally {
+                // Added handlers may remove or reparent the object before add returns.
+                if (object?.isObject3D && object !== this) {
+                    this.updateObjectRegistration(object, object.parent === this);
+                }
             }
-            // obj.addEventListener('dirty',event=>{
-            //     this.dirty = true;
-            // });
-            obj.addEventListener('change',event=>{
-                this.dirty = true;
-            });
         }
-        return super.add(...object);
+        return this;
     }
 
-    remove(...object): this {
-        this.dirty = true;
-        return super.remove(...object);
+    remove(...objects: Object3D[]): this {
+        for (const object of objects) {
+            if (!this.children.includes(object)) continue;
+            this.dirty = true;
+            this.updateObjectRegistration(object, false);
+            try {
+                super.remove(object);
+            } finally {
+                // Removed handlers may add the object back to this scene.
+                this.updateObjectRegistration(object, object.parent === this);
+            }
+        }
+        return this;
+    }
+
+    private updateObjectRegistration(object: Object3D, attached: boolean) {
+        if (this.observedObjects.has(object) === attached) return;
+        if (attached) {
+            this.observedObjects.add(object);
+            object.addEventListener('change', this.onObjectChange);
+        } else {
+            this.observedObjects.delete(object);
+            object.removeEventListener('change', this.onObjectChange);
+        }
+        const change = attached ? 1 : -1;
+        this.stats.objectCount += change;
+        if (isSceneObject(object)) {
+            this.stats.sceneObjectCount += change;
+        }
     }
 
     public async initAndAdd(...object: SceneObject[]): Promise<this> {

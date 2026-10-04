@@ -6,8 +6,9 @@ import { BloomEffect, EffectComposer,  RenderPass, SSAOEffect, } from "postproce
 import {DeepPartial, isVector3, Maybe} from "../util/util";
 import {isTripleArray, TripleArray} from "../model/Model";
 import {isOrthographicCamera, isPerspectiveCamera} from "../util/three";
+import { Disposable } from "../Disposable";
 
-export class Renderer {
+export class Renderer implements Disposable {
 
     public static readonly DEFAULT_OPTIONS: RendererOptions = merge({}, <RendererOptions>{
         camera: {
@@ -61,6 +62,13 @@ export class Renderer {
     protected _animationTimer?: NodeJS.Timeout = undefined;
     protected _animationFrame?: number = undefined;
     protected _resizeListener?: () => void = undefined;
+
+    private _disposed: boolean = false;
+    private readonly _debugHelpers: Array<GridHelper | AxesHelper> = [];
+    private readonly _eventDispatchers = new Map<EventDispatcher, Set<string>>();
+    private readonly _changeListener = () => {
+        this._dirty = true;
+    };
 
     constructor(options?: DeepPartial<RendererOptions>) {
         this.options = merge({}, Renderer.DEFAULT_OPTIONS, options ?? {});
@@ -178,6 +186,8 @@ export class Renderer {
     //</editor-fold>
 
     public init() {
+        if (this._disposed) return;
+
         if (typeof window["__THREE_DEVTOOLS__"] !== 'undefined') {
             window["__THREE_DEVTOOLS__"].dispatchEvent(new CustomEvent('observe', {detail: this.scene}));
         }
@@ -185,18 +195,22 @@ export class Renderer {
         /// DEBUG
         if (this.options.debug.grid) {
             const gridHelper = new GridHelper(128, 16);
+            this._debugHelpers.push(gridHelper);
             this.scene.add(gridHelper);
 
             const gridHelper2 = new GridHelper(128, 16);
+            this._debugHelpers.push(gridHelper2);
             gridHelper2.rotation.x = 90 * (Math.PI / 180)
             this.scene.add(gridHelper2);
 
             const gridHelper3 = new GridHelper(128, 16);
+            this._debugHelpers.push(gridHelper3);
             gridHelper3.rotation.z = 90 * (Math.PI / 180)
             this.scene.add(gridHelper3);
         }
         if (this.options.debug.axes) {
             const axesHelper = new AxesHelper(64);
+            this._debugHelpers.push(axesHelper);
             this.scene.add(axesHelper);
         }
 
@@ -216,11 +230,11 @@ export class Renderer {
             }
         }
 
-        if (this.options.render.autoResize) {
+        if (this.options.render.autoResize && !this._resizeListener) {
             this._resizeListener = () => {
                 this.resize(this.viewWidth, this.viewHeight);
             };
-            window.addEventListener('resize', this._resizeListener);//TODO: remove listener
+            window.addEventListener('resize', this._resizeListener);
         }
     }
 
@@ -229,6 +243,8 @@ export class Renderer {
     }
 
     public appendTo(element: HTMLElement): void {
+        if (this._disposed) return;
+
         this._element = element;
         this._element.appendChild(this.renderer.domElement);
         if (this.viewWidth == 0) {
@@ -241,15 +257,26 @@ export class Renderer {
     }
 
     /**
-     * Register an EventDispatcher which may update the scene or renderer in order to redraw the scene
+     * Redraws when the dispatcher emits the selected event. Registering the same pair twice has no effect.
+     * The renderer removes its listener on disposal; the caller retains ownership of the dispatcher.
      */
     public registerEventDispatcher(dispatcher: EventDispatcher, changeEvent: string = 'change') {
-        dispatcher.addEventListener(changeEvent, event => {
-            this._dirty = true;
-        })
+        if (this._disposed) return;
+
+        let events = this._eventDispatchers.get(dispatcher);
+        if (!events) {
+            events = new Set<string>();
+            this._eventDispatchers.set(dispatcher, events);
+        }
+        if (events.has(changeEvent)) return;
+
+        events.add(changeEvent);
+        dispatcher.addEventListener(changeEvent, this._changeListener);
     }
 
     public resize(width: number, height: number) {
+        if (this._disposed) return;
+
         if (isPerspectiveCamera(this.camera)) {
             this.camera.aspect = width / height;
             this.camera.updateProjectionMatrix();
@@ -263,6 +290,7 @@ export class Renderer {
 
         this.renderer.setSize(width, height);
         this.composer.setSize(width, height);
+        this._dirty = true;
     }
 
     //<editor-fold desc="RENDER">
@@ -277,12 +305,15 @@ export class Renderer {
     }
 
     public start() {
-        stop(); // just in case
-        //this.animate();
+        if (this._disposed) return;
+
+        this.stop();
         this.renderer.setAnimationLoop(this._animationLoop);
     }
 
     public stop() {
+        if (this._disposed) return;
+
         this.renderer.setAnimationLoop(null);
 
         //TODO: remove below
@@ -295,7 +326,50 @@ export class Renderer {
         this._animationFrame = undefined;
     }
 
+    /**
+     * Stops rendering and releases owned resources. Repeated calls have no effect, and a disposed
+     * renderer cannot be restarted. Scene objects are detached; shared assets and caller-owned
+     * controls must be managed by their owners.
+     */
+    public dispose(): void {
+        if (this._disposed) return;
+
+        this.stop();
+        this._disposed = true;
+
+        if (this._resizeListener) {
+            window.removeEventListener('resize', this._resizeListener);
+            this._resizeListener = undefined;
+        }
+        for (const [dispatcher, events] of this._eventDispatchers) {
+            for (const event of events) {
+                dispatcher.removeEventListener(event, this._changeListener);
+            }
+        }
+        this._eventDispatchers.clear();
+
+        this._stats?.dom.remove();
+        this._stats = undefined;
+        this.renderer.domElement.remove();
+        this._element = undefined;
+
+        this.scene.clear();
+        for (const helper of this._debugHelpers) {
+            helper.geometry.dispose();
+            const materials = Array.isArray(helper.material) ? helper.material : [helper.material];
+            for (const material of materials) {
+                material.dispose();
+            }
+        }
+        this._debugHelpers.length = 0;
+
+        this.composer.dispose();
+        this.renderer.dispose();
+        this.renderer.forceContextLoss();
+    }
+
     private animate(t?: number): void {
+        if (this._disposed) return;
 
         // if (this.options.render.fpsLimit === 0) {
         //     this._animationFrame = requestAnimationFrame(this._animationLoop);

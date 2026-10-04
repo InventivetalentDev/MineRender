@@ -23,7 +23,7 @@ legacy website cleanup is a separate task.
 | Packaging / npm hygiene | script-tag CDN | Browser/Node conditional exports, declarations, and a package files whitelist | complete |
 | Clean import (no side effects) | window globals, telemetry beacon | Lazy platform initialization and Ticker; `shutdown()` ends dependency timers | high |
 | Browser/Node dual-target | browser-only by design | Separate entries register platform providers; Node canvas stays optional for browsers | complete |
-| Renderer core | continuous loop, SSAA, fps limit, dispose() | Dirty-flag loop (better), but `stop()` calls `window.stop()` (`Renderer.ts:280`), no dispose(), fpsLimit dead, composer default-on with known brightness defect | high |
+| Renderer core | continuous loop, SSAA, fps limit, dispose() | Dirty-flag loop, start/stop, disposal, and resize invalidation; fpsLimit unfinished; color handling unfinished | high |
 | Camera controls | built-in OrbitControls via `options.controls` | Vendored twice, integrated nowhere; consumers must wire it + `registerEventDispatcher` manually | high |
 | Skins — classic 64×64 | full, named toggleable parts | Works (named groups/meshes, overlay toggling) — missing variant auto-detect, `makeNonTransparentOpaque` | medium |
 | Skins — slim + legacy 64×32 | auto-detected, dedicated UVs | Half-done: slim geometry ✔, slim UVs = copy of classic (`SkinTextureCoordinates.ts:690`), no 64×32, no auto-detect | high |
@@ -55,7 +55,7 @@ legacy website cleanup is a separate task.
 
 ### 5. Renderer core
 
-- Fix start/stop, disposal, resize invalidation, and scene listeners.
+- ~~Fix start/stop, disposal, resize invalidation, and scene listeners.~~
 - Integrate opt-in OrbitControls.
 - Implement frame limiting.
 - Align Three types and color spaces; fix direct/composer brightness.
