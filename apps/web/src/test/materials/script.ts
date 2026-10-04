@@ -1,28 +1,14 @@
-<!doctype html>
-<html lang="en">
-<meta charset="utf-8">
-<title>Canvas material regression test</title>
-<!-- Run yarn build:lib, serve the repository root, and open /packages/minerender/test/materials.html. -->
-<style>
-    body { font: 16px system-ui; margin: 24px; }
-    #renders { display: flex; gap: 16px; flex-wrap: wrap; }
-    figure { margin: 0; } img { display: block; background: #ddd; }
-</style>
-<h1>Canvas material regression test</h1>
-<p id="status" role="status">Running…</p>
-<div id="renders"></div>
-<script src="../dist/bundle.js"></script>
-<script type="module">
-import * as THREE from "../../../node_modules/three/build/three.module.js";
+import { Materials, shutdown } from "minerender";
+import * as THREE from "three";
 
-window.materialTest = (async () => {
-    const assert = (condition, message) => { if (!condition) throw new Error(message); };
+window["materialTest"] = (async () => {
+    const assert = (condition: boolean, message: string) => { if (!condition) throw new Error(message); };
     const canvas = document.createElement("canvas");
     canvas.width = canvas.height = 16;
-    const context = canvas.getContext("2d");
+    const context = canvas.getContext("2d")!;
     context.fillStyle = "#23c4cf"; context.fillRect(0, 0, 16, 16);
     context.fillStyle = "#17445c"; context.fillRect(0, 0, 8, 8); context.fillRect(8, 8, 8, 8);
-    const material = MineRender.Materials.createShadedCanvasMaterial(canvas);
+    const material = Materials.createShadedCanvasMaterial(canvas) as THREE.ShaderMaterial;
     const geometry = new THREE.BoxGeometry(1.2, 0.7, 1);
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: false });
     renderer.setSize(160, 160);
@@ -41,7 +27,7 @@ window.materialTest = (async () => {
             for (const instanced of [false, true]) {
                 const label = `${index === 0 ? "Identity" : "Rotated and scaled"} · ${instanced ? "InstancedMesh" : "Mesh"}`;
                 const mesh = instanced ? new THREE.InstancedMesh(geometry, material, 1) : new THREE.Mesh(geometry, material);
-                if (instanced) mesh.setMatrixAt(0, transform);
+                if (mesh instanceof THREE.InstancedMesh) mesh.setMatrixAt(0, transform);
                 else { mesh.matrixAutoUpdate = false; mesh.matrix.copy(transform); }
                 const scene = new THREE.Scene(); scene.add(mesh);
                 renderer.render(scene, camera);
@@ -57,23 +43,21 @@ window.materialTest = (async () => {
                 const figure = document.createElement("figure"), image = document.createElement("img");
                 image.src = renderer.domElement.toDataURL(); image.alt = label;
                 const caption = document.createElement("figcaption"); caption.textContent = label;
-                figure.append(image, caption); document.getElementById("renders").append(figure);
+                figure.append(image, caption); document.getElementById("renders")!.append(figure);
                 pair.push(pixels); results.push({ label, visible, colors: colors.size });
-                if (instanced) mesh.dispose();
+                if (mesh instanceof THREE.InstancedMesh) mesh.dispose();
             }
             const difference = pair[0].reduce((total, value, i) => total + Math.abs(value - pair[1][i]), 0) / pair[0].length;
             differences.push(difference);
             assert(difference <= 0.25, `Transform ${index}: Mesh and InstancedMesh pixels differ (${difference})`);
         }
-        document.getElementById("status").textContent = "PASS: both mesh types render matching textures and shading for both transforms.";
+        document.getElementById("status")!.textContent = "PASS: both mesh types render matching textures and shading for both transforms.";
         return { passed: true, results, differences };
     } finally {
         material.uniforms.map.value.dispose(); material.dispose(); geometry.dispose(); renderer.dispose();
-        MineRender.shutdown();
+        shutdown();
     }
 })().catch(error => {
-    document.getElementById("status").textContent = `FAIL: ${error.message}`;
+    document.getElementById("status")!.textContent = `FAIL: ${error.message}`;
     return { passed: false, error: error.message };
 });
-</script>
-</html>
