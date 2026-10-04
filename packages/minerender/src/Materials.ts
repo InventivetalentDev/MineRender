@@ -70,7 +70,11 @@ export class Materials {
 
                 if (SHADE) {
 
-                    vec3 N = vec3( modelMatrix * instanceMatrix * vec4(normal, 0.0) );
+                    #ifdef USE_INSTANCING
+                        vec3 N = vec3( modelMatrix * instanceMatrix * vec4(normal, 0.0) );
+                    #else
+                        vec3 N = vec3( modelMatrix * vec4(normal, 0.0) );
+                    #endif
 
                     float yLight = (1.0+N.y) * 0.5;
                     light = yLight * (1.0-AMBIENT) + N.x*N.x * XFAC + N.z*N.z * ZFAC + AMBIENT;
