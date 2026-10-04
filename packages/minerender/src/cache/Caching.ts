@@ -123,8 +123,8 @@ export class Caching {
     /**
      * Clears every cache and stops its expiry timer.
      *
-     * loading-cache reschedules that timer indefinitely, so a Node process will not exit until
-     * this is called - see {@link shutdown}.
+     * Expiry timers are unref'd in Node, so idle processes can exit without this cleanup.
+     * Use {@link shutdown} to also stop requests and the shared Ticker.
      */
     public static end() {
         for (const cache of this.all) {

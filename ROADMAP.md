@@ -21,7 +21,7 @@ legacy website cleanup is a separate task.
 |---|---|---|---|
 | Build & dev environment | webpack 4 per-feature IIFE bundles, works | Yarn 4 and tsup | complete |
 | Packaging / npm hygiene | script-tag CDN | Browser/Node conditional exports, declarations, and a package files whitelist | complete |
-| Clean import (no side effects) | window globals, telemetry beacon | Lazy platform initialization and Ticker; `shutdown()` ends dependency timers | high |
+| Clean import (no side effects) | window globals, telemetry beacon | Lazy platform initialization and Ticker; idle caches and queues let Node exit | complete |
 | Browser/Node dual-target | browser-only by design | Separate entries register platform providers; Node canvas stays optional for browsers | complete |
 | Renderer core | continuous loop, SSAA, fps limit, dispose() | Dirty-flag loop, start/stop, disposal, and resize invalidation; frame limiting; sRGB color handling | complete |
 | Camera controls | built-in OrbitControls via `options.controls` | Opt-in renderer-owned OrbitControls, including redraw and disposal | complete |
@@ -51,7 +51,7 @@ legacy website cleanup is a separate task.
 ### 1–4. Build and platform support
 
 - ~~Build tooling, package exports, import-time initialization, and browser/Node providers.~~
-- Update cache and queue dependencies so idle imports let Node exit.
+- ~~Update cache and queue dependencies so idle imports let Node exit.~~
 
 ### 5. Renderer core
 

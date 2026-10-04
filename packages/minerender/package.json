@@ -1,6 +1,6 @@
 {
   "name": "minerender",
-  "version": "2.1.0-alpha.6",
+  "version": "2.1.0-alpha.7",
   "description": "Interactive 3D renders of Minecraft skins, models, blocks, entities and worlds",
   "main": "./dist/node/index.js",
   "module": "./dist/browser/index.mjs",
@@ -98,14 +98,14 @@
     "canvas": "^2.6.1"
   },
   "dependencies": {
-    "@inventivetalent/loading-cache": "^0.4.3",
-    "@inventivetalent/time": "^1.0.0",
+    "@inventivetalent/loading-cache": "^1.0.0",
+    "@inventivetalent/time": "^1.0.4",
     "@zip.js/zip.js": "^2.7.31",
     "axios": "^0.21.1",
     "buffer": "^6.0.3",
     "crypto-js": "^4.0.0",
     "image-size": "^0.9.4",
-    "jobqu": "^2.0.5",
+    "jobqu": "^3.0.0",
     "localforage": "^1.9.0",
     "node-persist": "^3.1.0",
     "postprocessing": "^6.33.3",
