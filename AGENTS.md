@@ -87,7 +87,7 @@ The private Yarn workspace root contains the public library and its consumers. U
 
 ## Gotchas
 
-- JSON model dictionaries in `src/` are reference copies fetched from the fallback-assets repository. `src/entity/entityTextures.json` is bundled locally and maps texture paths to logical atlas dimensions.
+- JSON model dictionaries in `src/` are reference copies fetched from the fallback-assets repository.
 - Idle caches and request queues let Node exit. `shutdown()` clears shared caches, permanently ends request queues, and stops Ticker.
 - Requests require Fetch and `AbortSignal.any/timeout`, with bounded GET retries and timeouts through body reading. Cancellation aborts a call; shutdown rejects waiting work and lets active calls finish.
 - Async list/dictionary caches evict missing and rejected loads. Clear in-memory caches when sources change; persistent storage must be cleared separately.
