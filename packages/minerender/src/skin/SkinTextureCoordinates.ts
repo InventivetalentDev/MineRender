@@ -686,84 +686,38 @@ export const classicSkinTextureCoordinates: Readonly<SkinTextureCoordinates> = {
     ...baseSkinCoordinates
 };
 
-//TODO
-export const slimSkinTextureCoordinates: Readonly<SkinTextureCoordinates> = {...baseSkinCoordinates} /*merge(baseSkinCoordinates, <SkinTextureCoordinates>{
-    rightArm: {
-        west: {
-            x: 39
-        },
-        south: {
-            w: 3
-        },
-        north: {
-            x: 43,
-            w: 3
-        },
-        up: {
-            w: 3
-        },
-        down: {
-            x: 39,
-            w: 3
-        }
-    },
+export const slimSkinTextureCoordinates: Readonly<SkinTextureCoordinates> = {
+    ...baseSkinCoordinates,
     leftArm: {
-        west: {
-            x: 47
-        },
-        south: {
-            w: 3
-        },
-        north: {
-            x: 51,
-            w: 3
-        },
-        up: {
-            w: 3
-        },
-        down: {
-            x: 47,
-            w: 3
-        }
+        ...baseSkinCoordinates.leftArm,
+        west: { uv: [39, 52, 43, 64] },
+        north: { uv: [36, 52, 39, 64] },
+        south: { uv: [43, 52, 46, 64] },
+        up: { uv: [39, 52, 36, 48] },
+        down: { uv: [42, 48, 39, 52] }
     },
-
-    rightSleeve: {
-        west: {
-            x: 55
-        },
-        south: {
-            w: 3
-        },
-        north: {
-            x: 59,
-            w: 3
-        },
-        up: {
-            w: 3
-        },
-        down: {
-            x: 55,
-            w: 3
-        }
+    rightArm: {
+        ...baseSkinCoordinates.rightArm,
+        west: { uv: [47, 20, 51, 32] },
+        north: { uv: [44, 20, 47, 32] },
+        south: { uv: [51, 20, 54, 32] },
+        up: { uv: [47, 20, 44, 16] },
+        down: { uv: [50, 16, 47, 20] }
     },
     leftSleeve: {
-        west: {
-            x: 47
-        },
-        south: {
-            w: 3
-        },
-        north: {
-            x: 51,
-            w: 3
-        },
-        up: {
-            w: 3
-        },
-        down: {
-            x: 47,
-            w: 3
-        }
+        ...baseSkinCoordinates.leftSleeve,
+        west: { uv: [55, 52, 59, 64] },
+        north: { uv: [52, 52, 55, 64] },
+        south: { uv: [59, 52, 62, 64] },
+        up: { uv: [55, 52, 52, 48] },
+        down: { uv: [58, 48, 55, 52], rotation: 180 }
+    },
+    rightSleeve: {
+        ...baseSkinCoordinates.rightSleeve,
+        west: { uv: [47, 36, 51, 48] },
+        north: { uv: [44, 36, 47, 48] },
+        south: { uv: [51, 36, 54, 48] },
+        up: { uv: [47, 36, 44, 32] },
+        down: { uv: [50, 32, 47, 36], rotation: 180 }
     }
-});
-*/
+};
