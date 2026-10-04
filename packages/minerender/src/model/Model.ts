@@ -13,7 +13,7 @@ export const DEFAULT_ELEMENTS: ModelElement[] = []
 export interface Model extends MinecraftAsset {
     textures?: IModelTextures;
     parent?: string;
-    display?: ModelDisplay;
+    display?: Partial<Record<DisplayPosition, ModelDisplay>>;
     elements?: ModelElement[];
     hierarchy?: string[];
 }
@@ -32,7 +32,6 @@ export interface TextureAsset extends MinecraftAsset, ImageInfo {
 }
 
 export interface ModelDisplay {
-    position?: DisplayPosition;
     translation?: TripleArray;
     rotation?: TripleArray;
     scale?: TripleArray;

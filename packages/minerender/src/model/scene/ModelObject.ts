@@ -14,6 +14,8 @@ import type { BufferGeometry } from "three";
 import { BlockObject } from "../block/scene/BlockObject";
 import { prefix } from "../../util/log";
 import { CUBE_FACES } from "../../CubeFace";
+import { DisplayPosition } from "../DisplayPosition";
+import { DisplayTransforms } from "../DisplayTransforms";
 
 
 const p = prefix("ModelObject");
@@ -67,6 +69,8 @@ export class ModelObject extends SceneObject {
         if (this.meshesCreated && !force) return;
 
         const mat = Materials.MISSING_TEXTURE;
+        const displayTransform = this.options.displayPosition
+            ? DisplayTransforms.getMatrix(this.originalModel.display, this.options.displayPosition) : undefined;
 
         let allGeos: BufferGeometry[] = [];
 
@@ -104,6 +108,7 @@ export class ModelObject extends SceneObject {
 
 
                     elGeo.applyMatrix4(new Matrix4().makeTranslation(-8, -8, -8));
+                    if (displayTransform) DisplayTransforms.apply(elGeo, displayTransform);
 
                     if (this.options.mergeMeshes) {
                         allGeos.push(elGeo);
@@ -131,6 +136,7 @@ export class ModelObject extends SceneObject {
                 combinedGeo = mergeBufferGeometries(allGeos);
             } else {
                 combinedGeo = new BoxGeometry(16, 16, 16);
+                if (displayTransform) DisplayTransforms.apply(combinedGeo, displayTransform);
             }
             combinedGeo.computeBoundingBox();
             // combinedGeo.translate(-8, -8, -8);
@@ -193,6 +199,8 @@ export class ModelObject extends SceneObject {
 }
 
 export interface ModelObjectOptions extends SceneObjectOptions {
+    /** Minecraft display pose applied around the model center, before scene transforms. */
+    displayPosition?: DisplayPosition;
     /** Quarter-turn block rotation in radians to compensate when locking UVs. */
     uvLockRotation?: TripleArray;
     /** sRGB 0xRRGGBB colors by face tint index; omitted indices stay white. */

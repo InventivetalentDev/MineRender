@@ -7,6 +7,7 @@ export enum DisplayPosition {
     HEAD = "head",
     GROUND = "ground",
     FIXED = "fixed",
+    ON_SHELF = "on_shelf",
 }
 
 export const DISPLAY_POSITIONS = Object.values(DisplayPosition);

@@ -3,16 +3,21 @@ import { Models } from "../assets/Models";
 import merge from "ts-deepmerge";
 import { Assets } from "../assets/Assets";
 import { AssetKey } from "../assets/AssetKey";
+import { DisplayTransforms } from "./DisplayTransforms";
 
 export class ModelMerger {
 
     public static async mergeWithParents(model: Model): Promise<Model> {
         const models = await this.collectAllParents(model);
         let merged: Model = {};
-        for (let parentModel of models) {
-            merged = merge.withOptions({ mergeArrays: false }, merged, parentModel);
+        for (const source of [...models, model]) {
+            const inheritedDisplay = merged.display;
+            merged = merge.withOptions({ mergeArrays: false }, merged, source);
+            if (source.display) {
+                // Each supplied pose replaces the parent's whole entry, including omitted components.
+                merged.display = { ...inheritedDisplay, ...DisplayTransforms.withHandFallbacks(source.display) };
+            }
         }
-        merged = merge.withOptions({ mergeArrays: false }, merged, model);
         merged.hierarchy = models.map(m => m.parent).filter(p => `${p}`) as string[];
         merged.hierarchy.push(`${merged.parent}`);
         // delete merged.parent;
