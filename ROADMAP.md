@@ -37,7 +37,7 @@ legacy website cleanup is a separate task.
 | Legacy .schematic | full incl. AddBlocks nibbles | `SchematicParser` returns `{}`; mapping data (`res/idsToNames.json`, `legacyBlockList.json`) present but unreferenced | medium |
 | Combined multi-renderer scene | CombinedRender wrapper | Superseded by design (one scene hosts all types) — **at parity** | — |
 | Screenshots & 3D export | toImage(trim,mime), toObj/toGLTF/toPLY | Bare `toDataURL()`; no exporters | medium |
-| Asset loading & resource packs | swappable assetRoot, fallback | Ordered whole-asset source selection; decode fetched bytes; failure-evicting caches; contextual errors; pinned to 1.17.1, ZIPs browser-only | high |
+| Asset loading & resource packs | swappable assetRoot, fallback | Ordered whole-asset source selection; decode fetched bytes; failure-evicting caches; contextual errors; defaults to 1.21.11, ZIPs browser-only | high |
 | Per-frame animation API | `<type>Render` CustomEvents | No supported hook (dirty-flag loop only) | medium |
 | Embeds & website | minerender.org + iframe embeds | Workspace demos and examples; V2 website and embeds remain | low |
 | **Large-scale worlds (V2 goal)** | n/a | Prototype, effectively dead code: 64³ box, `getChunkAt` broken (Map indexed with number), object-per-block, no meshing/culling/lighting/LOD, instance slots never freed | high |
@@ -68,7 +68,9 @@ legacy website cleanup is a separate task.
 - ~~Skip nullish persistent writes and evict missing or rejected async cache loads.~~
 - ~~Bound request concurrency, retries, cancellation, timeouts, and shutdown.~~
 - ~~Propagate hosted/archive and model initialization errors with source context.~~
-- Add an asset-version selection API; switch the default to 1.21.11 after item, entity, and structure compatibility updates.
+- ~~Default to 1.21.11 with static item definitions, animal texture paths, structure directory aliases, and versioned cache keys.~~
+- Add an asset-version selection API.
+- Support composite/special item models, tint sources, and gameplay-dependent item selection.
 - ~~Fix `WrappedImage` frame math.~~
 
 ### 7. Model/blockstate correctness — high
@@ -78,7 +80,7 @@ Small, high-impact: (1) `Axis.X = "X"` → lowercase (x-rotations silently no-op
 Preferred route: migrate `SkinObject` onto the ModelPart pipeline using the completely unused `src/skin/playerModels.json` (correct default+slim trees already there), unifying with `EntityObject` — slim UVs come for free and the hand-written slim stub retires. Add cape meshes (vanilla layout first; OptiFine/LabyMod layouts portable from V1 `texturePositions.js:896-1047`) wired to the existing `Skins.ts` resolvers. Add 64×32 legacy layout + slim/legacy auto-detection (port V1's pixel-scan, `MineRender/src/skin/index.js:129-158`). Dispose replaced geometries/materials on `setSlim` rebuilds.
 
 ### 9. Entity rendering completion — high
-Recurse `ModelPart.children` (most multi-part entities currently render incomplete). Implement `mirror`. Verify the five TODO face-UV methods in `MinecraftCubeTexture.ts` and the possibly-doubled pivot translation. Replace guessed `textures/entity/<name>.png` with a proper mapping (subdirs/variants). In `res/tools`, remap intermediary names (`field_20813`) in blockEntityModels and regenerate the hosted JSON.
+Recurse `ModelPart.children` (most multi-part entities currently render incomplete). Implement `mirror`. Verify the five TODO face-UV methods in `MinecraftCubeTexture.ts` and the possibly-doubled pivot translation. Extract model, texture, and variant metadata from Minecraft to replace guessed paths and the limited bundled `entityTextures.json` mapping. In `res/tools`, remap intermediary names (`field_20813`) in blockEntityModels and regenerate the hosted JSON.
 
 ### 10. Instance lifecycle overhaul — high (prerequisite for worlds)
 Manage `InstancedMesh.count` (GPU currently always processes full capacity); add a free-list so removal reclaims slots (deletion today = zero-scale forever); grow capacity on demand instead of silent out-of-bounds writes; route whole-object transforms through per-index `InstanceReference`s (four "TODO specific instance" sites move ALL instances today); replace the `children[0]`-is-the-InstancedMesh assumption with a stored reference; extend dedup beyond `assetType === "models"` to blockstate level.

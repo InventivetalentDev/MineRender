@@ -5,7 +5,7 @@ import { BlockState } from "../model/block/BlockState";
 import { BlockStates } from "./BlockStates";
 import { AssetKey, AssetType } from "./AssetKey";
 
-export const DEFAULT_ROOT = "https://assets.mcasset.cloud/1.17.1";
+export const DEFAULT_ROOT = "https://assets.mcasset.cloud/1.21.11";
 export const DEFAULT_NAMESPACE = "minecraft";
 
 export class Assets {

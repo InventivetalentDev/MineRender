@@ -1,5 +1,5 @@
 import test from "ava";
-import { AssetKey } from "../src";
+import { AssetKey, AssetLoader, DEFAULT_ROOT } from "../src";
 
 test("AssetKey#new", t => {
     let k = new AssetKey("minecraft", "textures/block/stone.png");
@@ -35,3 +35,21 @@ test("AssetKey#custom", t => {
     console.log(k.toNamespacedString());
     t.is(k.toNamespacedString(), "minerender:blockstates/defaultBlockStates.json");
 })
+
+test.serial("cache keys include the selected root and isolate older default assets", t => {
+    const key = new AssetKey("minecraft", "stone", "models", "block");
+    const originalRoot = AssetLoader.ROOT;
+    try {
+        AssetLoader.ROOT = DEFAULT_ROOT;
+        const current = key.serialize();
+        t.true(current.startsWith(DEFAULT_ROOT + "/"));
+        t.false(current.startsWith("__root__/"));
+        t.is(current, new AssetKey("minecraft", "stone", "models", "block", "assets", ".json", DEFAULT_ROOT).serialize());
+
+        AssetLoader.ROOT = "https://assets.mcasset.cloud/1.17.1";
+        t.not(key.serialize(), current);
+        t.true(key.serialize().startsWith(AssetLoader.ROOT + "/"));
+    } finally {
+        AssetLoader.ROOT = originalRoot;
+    }
+});

@@ -3,8 +3,8 @@ import { AssetKey, AssetLoader, AssetParser, AssetSource, shutdown } from "../sr
 import type { MinecraftAsset, Maybe } from "../src";
 
 class StubSource extends AssetSource {
-    constructor(private readonly load: () => Promise<unknown>) { super(); }
-    async get<T extends MinecraftAsset>(): Promise<Maybe<T>> { return await this.load() as Maybe<T>; }
+    constructor(private readonly load: (key: AssetKey) => Promise<unknown>) { super(); }
+    async get<T extends MinecraftAsset>(key: AssetKey): Promise<Maybe<T>> { return await this.load(key) as Maybe<T>; }
 }
 
 const key = AssetKey.parse("models", "block/stone");
@@ -69,4 +69,25 @@ test.serial("source changes apply to the next lookup, not one already waiting", 
     release();
     t.is(await pending, original);
     t.is(await lookup(), replacement);
+});
+
+test.serial("structure directory aliases preserve resource-pack priority", async t => {
+    const modern = new AssetKey("minecraft", "igloo/top", "structure", undefined, "data", ".nbt");
+    const legacy = new AssetKey("minecraft", "igloo/top", "structures", undefined, "data", ".nbt");
+    const packed = { size: [7, 5, 8] };
+    const hosted = { size: [10, 4, 10] };
+    let lowerCalls = 0;
+    AssetLoader.addSource("test-low", new StubSource(async key => {
+        lowerCalls++;
+        return key.assetType === "structure" ? hosted : undefined;
+    }));
+    AssetLoader.addSource("test-high", new StubSource(async key => key.assetType === "structures" ? packed : undefined));
+
+    t.is(await AssetLoader.get(modern, AssetParser.NBT), packed);
+    t.is(await AssetLoader.get(legacy, AssetParser.NBT), packed);
+    t.is(lowerCalls, 0);
+    t.deepEqual(await AssetLoader.getFirst([modern, legacy], AssetParser.NBT), { key: legacy, asset: packed });
+
+    AssetLoader.removeSource("test-high");
+    t.is(await AssetLoader.get(legacy, AssetParser.NBT), hosted);
 });

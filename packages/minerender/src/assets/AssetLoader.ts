@@ -63,12 +63,25 @@ export class AssetLoader {
 
     /** Returns the first defined result in source-priority order, without merging assets. */
     public static async get<T extends MinecraftAsset>(key: AssetKey, parser: AssetParser | string): Promise<Maybe<T>> {
+        const keys = [key];
+        if (key.rootType === "data" && (key.assetType === "structure" || key.assetType === "structures")) {
+            keys.push(new AssetKey(key.namespace, key.path,
+                key.assetType === "structure" ? "structures" : "structure",
+                key.type, key.rootType, key.extension, key.root));
+        }
+        return (await this.getFirst<T>(keys, parser))?.asset;
+    }
+
+    /** Tries each path within a source before considering lower-priority sources. */
+    public static async getFirst<T extends MinecraftAsset>(keys: readonly AssetKey[], parser: AssetParser | string): Promise<Maybe<{ key: AssetKey; asset: T }>> {
         // Source changes affect later lookups, not the priority of an in-flight lookup.
         const sources = [...this._SOURCES];
         for (const source of sources) {
-            const result = await source.source.get<T>(key, parser);
-            if (result !== undefined) {
-                return result;
+            for (const key of keys) {
+                const result = await source.source.get<T>(key, parser);
+                if (result !== undefined) {
+                    return { key, asset: result };
+                }
             }
         }
         return undefined;

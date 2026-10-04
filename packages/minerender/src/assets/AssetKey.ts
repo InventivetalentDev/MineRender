@@ -1,5 +1,5 @@
 import { Serializable } from "../Serializable";
-import { DEFAULT_NAMESPACE, DEFAULT_ROOT } from "./Assets";
+import { DEFAULT_NAMESPACE } from "./Assets";
 import { AssetLoader } from "./AssetLoader";
 
 export type AssetType = "models" | "textures" | "blockstates" | string;
@@ -73,7 +73,7 @@ export class AssetKey extends BasicAssetKey {
 
     toString(): string {
         let a = [
-            (typeof this.root !== 'undefined' || AssetLoader.ROOT !== DEFAULT_ROOT) ? (this.root ?? AssetLoader.ROOT) : "__root__",
+            this.root ?? AssetLoader.ROOT,
             this.rootType ?? "__rootType__",
             this.assetType ?? "__assetType__",
             this.type ?? "__type__",
