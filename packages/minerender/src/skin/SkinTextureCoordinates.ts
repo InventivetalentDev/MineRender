@@ -612,17 +612,17 @@ const baseSkinCoordinates: SkinTextureCoordinates = {
         },
         up: {
             uv: [
-                4,
-                36,
                 8,
+                36,
+                4,
                 32
             ]
         },
         down: {
             uv: [
-                8,
-                32,
                 12,
+                32,
+                8,
                 36
             ],
             rotation: 180

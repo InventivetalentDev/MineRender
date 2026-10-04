@@ -2,7 +2,7 @@ import { DataTexture, DoubleSide, FrontSide, MeshBasicMaterial, SRGBColorSpace }
 import { Caching } from "../cache/Caching";
 import { serializeImageKey } from "../cache/CacheKey";
 import { MineRenderError } from "../error/MineRenderError";
-import { ImageLoader } from "../image/ImageLoader";
+import { SkinImage } from "./SkinImage";
 import { Textures } from "../texture/Textures";
 import { CapeLayout } from "./CapeLayout";
 
@@ -15,7 +15,7 @@ export interface SkinTexture {
 export class SkinTextures {
 
     public static async get(src: string, legacy?: boolean): Promise<SkinTexture> {
-        const image = await ImageLoader.getData(src);
+        const image = await SkinImage.getData(src);
         const scale = image.width / 64;
         if (!Number.isInteger(scale) || scale < 1 || (image.height !== image.width && image.height !== image.width / 2)) {
             throw new MineRenderError(`Invalid skin dimensions ${image.width}x${image.height}; expected 64x64 or 64x32, or an integer-scaled equivalent`);
@@ -28,13 +28,14 @@ export class SkinTextures {
         const key = `skin:${serializeImageKey({ src })}:${isLegacy}`;
         const material = Caching.materialCache.get(key, () => {
             const pixels = isLegacy ? this.normalizeLegacy(image, scale) : new Uint8Array(image.data);
+            this.makeBaseOpaque(pixels, image.width, scale);
             return this.createMaterial(pixels, image.width, image.width);
         }) as MeshBasicMaterial;
         return { material, slim, legacy: isLegacy };
     }
 
     public static async getCape(src: string, layout: CapeLayout = "minecraft"): Promise<MeshBasicMaterial> {
-        const image = await ImageLoader.getData(src);
+        const image = await SkinImage.getData(src);
         const scale = image.width / 64;
         if (layout === "minecraft" && (!Number.isInteger(scale) || scale < 1 || image.height !== image.width / 2)) {
             throw new MineRenderError(`Invalid cape dimensions ${image.width}x${image.height}; expected 64x32 or an integer-scaled equivalent`);
@@ -49,7 +50,7 @@ export class SkinTextures {
         texture.colorSpace = SRGBColorSpace;
         texture.flipY = true;
         texture.needsUpdate = true;
-        return new MeshBasicMaterial({ map: texture, transparent, side: transparent ? DoubleSide : FrontSide, alphaTest: transparent ? 0.5 : 0 });
+        return new MeshBasicMaterial({ map: texture, transparent, side: transparent ? DoubleSide : FrontSide, alphaTest: transparent ? 0.1 : 0 });
     }
 
     private static isSlim(image: ImageData, scale: number): boolean {
@@ -89,19 +90,22 @@ export class SkinTextures {
                 if (pixels[(y * image.width + x) * 4 + 3] < 128) clearHat = false;
             }
         }
-        for (let y = 0; y < image.width; y++) {
-            for (let x = 0; x < image.width; x++) {
-                const alpha = (y * image.width + x) * 4 + 3;
-                if ((x < 32 * scale && y < 16 * scale) ||
-                    (y >= 16 * scale && y < 32 * scale) ||
-                    (x >= 16 * scale && x < 48 * scale && y >= 48 * scale)) {
-                    pixels[alpha] = 255;
-                } else if (clearHat && x >= 32 * scale && y < 32 * scale) {
-                    pixels[alpha] = 0;
+        if (clearHat) {
+            for (let y = 0; y < 32 * scale; y++) {
+                for (let x = 32 * scale; x < image.width; x++) {
+                    pixels[(y * image.width + x) * 4 + 3] = 0;
                 }
             }
         }
         return pixels;
+    }
+
+    private static makeBaseOpaque(pixels: Uint8Array, width: number, scale: number): void {
+        for (const [x0, y0, x1, y1] of [[0, 0, 32, 16], [0, 16, 64, 32], [16, 48, 48, 64]]) {
+            for (let y = y0 * scale; y < y1 * scale; y++) {
+                for (let x = x0 * scale; x < x1 * scale; x++) pixels[(y * width + x) * 4 + 3] = 255;
+            }
+        }
     }
 
 }

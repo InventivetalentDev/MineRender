@@ -5,7 +5,6 @@ import { Model } from "../model/Model";
 import { isModelObject, ModelObject, ModelObjectOptions } from "../model/scene/ModelObject";
 import { InstanceReference } from "../instance/InstanceReference";
 import { SceneStats } from "../SceneStats";
-import { SSAOPassOUTPUT } from "three/examples/jsm/postprocessing/SSAOPass";
 import { BasicMinecraftAsset, MinecraftAsset } from "../MinecraftAsset";
 import { SceneObjectOptions } from "./SceneObjectOptions";
 import { BlockState } from "../model/block/BlockState";

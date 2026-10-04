@@ -1,7 +1,7 @@
 import test, { ExecutionContext } from "ava";
 import { DataTexture, DoubleSide, MeshBasicMaterial, NearestFilter, SRGBColorSpace } from "three";
 import { Caching } from "../src/cache/Caching";
-import { ImageLoader } from "../src/image/ImageLoader";
+import { SkinImage } from "../src/skin/SkinImage";
 import { SkinTextures, SkinTexture } from "../src/skin/SkinTextures";
 
 function image(width: number, height: number, alpha = 255): ImageData {
@@ -22,12 +22,12 @@ function pixels(skin: SkinTexture): Uint8Array {
 }
 
 function fixture(t: ExecutionContext, images: Record<string, ImageData>) {
-    const original = ImageLoader.getData;
+    const original = SkinImage.getData;
     const materials = new Set<MeshBasicMaterial>();
-    ImageLoader.getData = async src => images[src];
+    SkinImage.getData = async src => images[src];
     Caching.clear();
     t.teardown(() => {
-        ImageLoader.getData = original;
+        SkinImage.getData = original;
         for (const material of materials) {
             material.map!.dispose();
             material.dispose();
@@ -70,7 +70,7 @@ test.serial("legacy skins mirror every limb face into modern regions without mut
     const texture = skin.material.map!;
     t.deepEqual([texture.colorSpace, texture.flipY, texture.magFilter, texture.minFilter],
         [SRGBColorSpace, true, NearestFilter, NearestFilter]);
-    t.deepEqual([skin.material.transparent, skin.material.side, skin.material.alphaTest], [true, DoubleSide, 0.5]);
+    t.deepEqual([skin.material.transparent, skin.material.side, skin.material.alphaTest], [true, DoubleSide, 0.1]);
 });
 
 test.serial("legacy hat alpha uses the vanilla threshold and a square image can explicitly use its legacy top half", async t => {
@@ -90,10 +90,11 @@ test.serial("legacy hat alpha uses the vanilla threshold and a square image can 
     t.true(legacy.legacy);
     t.not(modern.material, legacy.material);
     t.deepEqual(pixels(legacy), pixels(await get("opaque")));
-    t.deepEqual(pixels(modern), new Uint8Array(square.data));
+    t.is(pixel(pixels(modern), 64, 5, 5)[3], 255);
+    t.is(pixel(pixels(modern), 64, 40, 5)[3], 128);
 });
 
-test.serial("slim detection scans both scaled marker columns before leaving modern pixels unchanged", async t => {
+test.serial("slim detection scans original pixels before modern base layers become opaque", async t => {
     const classic = image(64, 64);
     const slim = image(128, 128);
     for (const [x, y] of [[46, 52], [54, 20]]) {
@@ -102,6 +103,7 @@ test.serial("slim detection scans both scaled marker columns before leaving mode
         }
     }
     slim.data[(5 * 128 + 5) * 4 + 3] = 100;
+    slim.data[(40 * 128 + 5) * 4 + 3] = 26;
     const original = slim.data.slice();
     const partial = { ...slim, data: slim.data.slice() };
     partial.data[(63 * 2 * 128 + 46 * 2 + 1) * 4 + 3] = 1;
@@ -114,9 +116,34 @@ test.serial("slim detection scans both scaled marker columns before leaving mode
     t.false(prepared.legacy);
     t.false((await get("partial")).slim);
     t.false((await get("right")).slim);
-    t.deepEqual(pixels(prepared), new Uint8Array(original));
+    const data = pixels(prepared);
+    const expected = new Uint8Array(original);
+    for (let y = 0; y < 128; y++) {
+        for (let x = 0; x < 128; x++) {
+            const base = (x < 64 && y < 32) || (y >= 32 && y < 64) ||
+                (x >= 32 && x < 96 && y >= 96);
+            if (base) expected[(y * 128 + x) * 4 + 3] = 255;
+        }
+    }
+    t.deepEqual(data, expected);
     t.deepEqual(slim.data, original);
     t.deepEqual([prepared.material.map!.image.width, prepared.material.map!.image.height], [128, 128]);
+});
+
+test.serial("modern opacity preserves hidden RGB and overlay alpha at every base-region boundary", async t => {
+    const source = image(64, 64, 0);
+    const get = fixture(t, { skin: source });
+    const skin = await get("skin");
+    const data = pixels(skin);
+    for (const [x, y] of [[0, 0], [31, 15], [0, 16], [63, 31], [16, 48], [47, 63]]) {
+        t.deepEqual(pixel(data, 64, x, y), [x, y, 99, 255]);
+    }
+    for (const [x, y] of [[32, 0], [63, 15], [0, 32], [63, 47], [15, 48], [48, 63]]) {
+        t.deepEqual(pixel(data, 64, x, y), [x, y, 99, 0]);
+    }
+    t.true(skin.slim);
+    t.is(source.data[3], 0);
+    t.is((await get("skin")).material, skin.material);
 });
 
 test.serial("scaled legacy skins retain pixel detail and invalid or forced-modern half-height layouts reject", async t => {
