@@ -321,9 +321,6 @@ export class BlockObject extends SceneObject {
         }
         // console.log(obj.isInstanced);
         obj.setRotation(rotation);
-        setTimeout(() => {
-            obj.setRotation(rotation)
-        }, 150);//TODO
         console.log(obj)
 
         /*
@@ -454,10 +451,12 @@ export class BlockObject extends SceneObject {
     }
 
     setPosition(position: Vector3) {
-        super.setPosition(position);
+        this.position.copy(position);
+        // Each part keeps its own variant rotation when the block moves.
         for (let model of this._models) {
             model.setPosition(position);
         }
+        this.notifyDirty();
     }
 
     //TODO: should override rotation + scale methods
