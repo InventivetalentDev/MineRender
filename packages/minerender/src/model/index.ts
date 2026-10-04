@@ -7,7 +7,6 @@ export * from './Model';
 export * from './ModelElement';
 export * from './ModelGenerator';
 export * from './ModelMerger';
-export * from './ModelPart';
 export * from './block';
 export * from './multiblock';
 export * from './scene';

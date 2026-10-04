@@ -18,7 +18,7 @@ The private Yarn workspace root contains the public library and its consumers. U
 | `examples/script-tag/` | Plain HTML consumer, imported from `MineRender/example-bundle`. Loads the library's IIFE as `MineRender`. |
 | `InventivetalentDev/MineRender` (V1 checkout: `MineRenderV1`) | `master` contains V1 (JS, webpack 4, three 0.93, browser-only), the feature-parity reference. V2 development shares this repository on `typescript` and the stacked refactor branches. Preserve V1 tags, bundles, and website URLs. |
 | `InventivetalentDev/MineRenderServer`  | V1-era headless render HTTP API (Express + headless-gl + patched node-canvas + three-png-stream under xvfb). Reference only; not imported. Its contract includes `GET /render/skin/[:texture]`, `GET /render/model/:type/:model`, the `minerender-options` header, and an MD5-keyed PNG cache. |
-| [minerender-fallback-assets](https://github.com/InventivetalentDev/minerender-fallback-assets) | GitHub repo serving the custom `minerender:` namespace assets (entityModels, blockEntityModels, defaultBlockStates) and fallback copies of vanilla assets. The corresponding JSON files inside `src/` are **reference copies only** — runtime fetches from that repo (see Gotchas). |
+| [minecraft-entity-models](https://github.com/InventivetalentDev/minecraft-entity-models) | Per-model entity and block-entity geometry at `assets.mcasset.cloud/<version>/entity-models/<namespace>/<id>.json`; default blockstates and fallback vanilla assets remain in [minerender-fallback-assets](https://github.com/InventivetalentDev/minerender-fallback-assets). |
 | `assets.mcasset.cloud` | Primary vanilla-asset CDN, defaults to MC **1.21.11** in `src/assets/Assets.ts` (`DEFAULT_ROOT`). Provides synthetic `_list.json` directory indexes that `getList()` APIs depend on. |
 | `minecraft-skin-proxy.inventive.workers.dev` | Own Cloudflare worker for CORS-safe skin/cape/UUID lookups (`src/skin/Skins.ts`); also api.mineskin.org, api.capes.dev. |
 
@@ -65,7 +65,7 @@ The private Yarn workspace root contains the public library and its consumers. U
 
 **Skins** (`src/skin/`): `SkinObject` builds the player from hand-written per-part box sizes (`SkinGeometries`) and UV tables (`SkinTextureCoordinates`). Slim is half-done: geometry yes, UVs no. `playerModels.json` (unused) carries correct default+slim `ModelPart` trees — migrating SkinObject onto the entity/ModelPart path is the intended fix.
 
-**Entities** (`src/entity/`): models are dumps of vanilla (Java) `ModelPart` trees — *not* Bedrock JSON — fetched as `minerender:entityModels` / `minerender:blockEntityModels` assets; rendered via `MinecraftCubeTexture` box-UV math. Child parts are not yet recursed. `src/bedrock/` is type declarations only (no parser/renderer).
+**Entities** (`src/entity/`): `Entities.getEntity` loads a versioned `entity-models` file and selects a layer (`main` by default). Parts form a nested `Object3D` hierarchy with radian poses, inherited texture dimensions, cube growth, and mirrored box UVs. The entity root converts Minecraft coordinates with scale `(-1, -1, 1)`. Texture paths use an explicit key or the model ID; `getBlock` and `getBlockList` are deprecated aliases. `src/bedrock/` contains type declarations only.
 
 **World** (`src/world/`): early prototype — `MineRenderWorld` (hardcoded 4×4×4 chunks, non-negative coords) → cubic 16³ `Chunk`s holding sparse `BlockInfo[]` (a retained `Block` + `BlockObject` per placed block). No chunk meshing, no cullface/neighbor culling, no lighting/tint/LOD. Only loadable format is vanilla structure `.nbt` (`StructureParser` via dynamically-imported prismarine-nbt); `SchematicParser` is a stub. The demos in `apps/web/` exercise `MineRenderWorld`.
 
@@ -88,7 +88,6 @@ The private Yarn workspace root contains the public library and its consumers. U
 
 ## Gotchas
 
-- JSON model dictionaries in `src/` are reference copies fetched from the fallback-assets repository.
 - Idle caches and request queues let Node exit. `shutdown()` clears shared caches, permanently ends request queues, and stops Ticker.
 - Requests require Fetch and `AbortSignal.any/timeout`, with bounded GET retries and timeouts through body reading. Cancellation aborts a call; shutdown rejects waiting work and lets active calls finish.
 - Async list/dictionary caches evict missing and rejected loads. Clear in-memory caches when sources change; persistent storage must be cleared separately.

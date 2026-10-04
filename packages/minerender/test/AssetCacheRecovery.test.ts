@@ -1,16 +1,23 @@
 import test from "ava";
-import { AssetLoader, BlockStates, Caching, Entities, shutdown } from "../src";
+import { AssetLoader, BasicAssetKey, BlockStates, Caching, Entities, shutdown } from "../src";
+import type { EntityModelLayer } from "../src/entity/EntityModel";
 
 const originalGet = AssetLoader.get;
 test.beforeEach(() => Caching.clear());
 test.afterEach.always(() => { AssetLoader.get = originalGet; Caching.clear(); });
 test.after.always(() => shutdown());
 
+const entityKey = new BasicAssetKey("minecraft", "pig");
+const main: EntityModelLayer = {
+    texture: [64, 32],
+    root: { pose: { offset: [0, 0, 0], rotation: [0, 0, 0] }, cubes: [], children: {} }
+};
+
 const cases = [
     { name: "blockstate list", load: () => BlockStates.getList(), asset: { directories: [], files: ["stone"] }, expected: ["stone"], missing: [] },
     { name: "default blockstates", load: () => BlockStates.getDefaultStates(), asset: { "minecraft:stone": {} }, expected: { "minecraft:stone": {} }, missing: undefined },
-    { name: "entity models", load: () => Entities.getEntityModels(), asset: { "minecraft:pig": [] }, expected: { "minecraft:pig": [] }, missing: undefined },
-    { name: "block entity models", load: () => Entities.getBlockEntityModels(), asset: { "minecraft:chest": [] }, expected: { "minecraft:chest": [] }, missing: undefined }
+    { name: "entity model files", load: () => Entities.getEntity(entityKey), asset: { id: "minecraft:pig", layers: { main } }, expected: { key: entityKey, id: "minecraft:pig", layer: main }, missing: undefined },
+    { name: "entity list", load: () => Entities.getEntityList(), asset: { directories: [], files: ["pig.json"] }, expected: ["pig"], missing: [] }
 ];
 
 for (const fixture of cases) {
