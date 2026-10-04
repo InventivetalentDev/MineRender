@@ -18,6 +18,7 @@
   "minecraft:vine": { "source": "constant", "color": 4764952 },
   "minecraft:mangrove_leaves": { "source": "constant", "color": 4764952 },
   "minecraft:leaf_litter": { "source": "constant", "color": 6044722 },
+  "minecraft:water_cauldron": { "source": "constant", "color": 4159204 },
   "minecraft:redstone_wire": { "source": "redstone" },
   "minecraft:attached_melon_stem": { "source": "constant", "color": 14731036 },
   "minecraft:attached_pumpkin_stem": { "source": "constant", "color": 14731036 },

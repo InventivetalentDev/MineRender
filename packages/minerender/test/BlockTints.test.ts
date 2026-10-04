@@ -58,7 +58,7 @@ test.serial("fixed tints apply only to known vanilla blocks and used indices whi
     const cases: Array<[string, number]> = [
         ["spruce_leaves", 0x619961], ["birch_leaves", 0x80a755], ["oak_leaves", 0x48b518],
         ["mangrove_leaves", 0x48b518], ["leaf_litter", 0x5c3c32], ["lily_pad", 0x71c35c],
-        ["attached_melon_stem", 0xe0c71c], ["attached_pumpkin_stem", 0xe0c71c]
+        ["attached_melon_stem", 0xe0c71c], ["attached_pumpkin_stem", 0xe0c71c], ["water_cauldron", 0x3f76e4]
     ];
     for (const [name, color] of cases) t.deepEqual(await BlockTints.get(key(name), {}, model), { 2: color });
     const override = { 2: 0 };
