@@ -29,7 +29,7 @@ legacy website cleanup is a separate task.
 | Skins — slim + legacy 64×32 | auto-detected, dedicated UVs | Half-done: slim geometry ✔, slim UVs = copy of classic (`SkinTextureCoordinates.ts:690`), no 64×32, no auto-detect | high |
 | Capes (vanilla/OptiFine/LabyMod) | full, 3 layouts, capes.dev | Not rendered at all (resolvers exist in `Skins.ts`, no meshes) | medium |
 | Block/item model rendering | full incl. tint, display transforms | Common models render; no tint/uvlock/display/builtin-entity | high |
-| Blockstate resolution | variants + weighted random + multipart AND/OR | Default states awaited; no AND, no weighted pick, 150ms-setTimeout rotation hack | high |
+| Blockstate resolution | variants + weighted random + multipart AND/OR | Default states and model initialization awaited; multipart placement preserves rotations; no AND or weighted pick | high |
 | Animated textures | frametime honored | Frame extraction handles static images and vertical strips; timing and full mcmeta support remain | medium |
 | Entity rendering | 76 hosted models, mirror, inheritance | Richer data (107+19 ModelPart dumps) but children never recursed, mirror TODO, texture paths guessed, box-UV math unverified | high |
 | GUI / inventory / recipes | full GuiRender + Positions + recipe() | `GuiObject` is an empty stub | high |
@@ -44,7 +44,7 @@ legacy website cleanup is a separate task.
 | **Anvil .mca / world formats (V2 goal)** | n/a | Zero code | high |
 | **Node headless rendering (V2 goal)** | faked externally by MineRenderServer | No DOM-free Renderer construction, no render-to-buffer API | high |
 | Bedrock geometry (V2 ambition) | n/a | Type declarations only | low |
-| Instancing architecture | merged Geometry + instanced-mesh fork | Cleaner concept; fixed capacity w/ silent overflow, whole-object transforms move ALL instances, `children[0]` assumption, no slot reclamation, shader material breaks under instancing | high |
+| Instancing architecture | merged Geometry + instanced-mesh fork | Cleaner concept; fixed capacity w/ silent overflow, whole-object transforms move ALL instances, `children[0]` assumption, no slot reclamation, non-instanced shaders reference `instanceMatrix` | high |
 
 ## Continuation plan (ordered)
 
@@ -74,7 +74,7 @@ legacy website cleanup is a separate task.
 - ~~Fix `WrappedImage` frame math.~~
 
 ### 7. Model/blockstate correctness — high
-Small, high-impact: (1) ~~`Axis.X = "X"` → lowercase (x-rotations silently no-op)~~; (2) ~~await `BlockStates.getDefaultState`~~; (3) ~~texPosition-undefined crash~~; (4) ~~ModelMerger: child `elements` must override, not concat~~; (5) replace the 150ms setTimeout rotation hack with awaited init ordering; (6) multipart AND + `apply` arrays + weighted variants; (7) `AssetKey.parse` extension fallback + broken `isAssetKey`. Then tintindex, uvlock, display transforms. Grow the test suite around these (`mapStateToVariant`).
+Small, high-impact: (1) ~~`Axis.X = "X"` → lowercase (x-rotations silently no-op)~~; (2) ~~await `BlockStates.getDefaultState`~~; (3) ~~texPosition-undefined crash~~; (4) ~~ModelMerger: child `elements` must override, not concat~~; (5) ~~remove the 150ms rotation workaround and preserve multipart rotations during placement~~; (6) multipart AND + `apply` arrays + weighted variants; (7) `AssetKey.parse` extension fallback + broken `isAssetKey`. Then tintindex, uvlock, display transforms. Grow the test suite around these (`mapStateToVariant`).
 
 ### 8. Finish skins: slim, cape, legacy — high
 Preferred route: migrate `SkinObject` onto the ModelPart pipeline using the completely unused `src/skin/playerModels.json` (correct default+slim trees already there), unifying with `EntityObject` — slim UVs come for free and the hand-written slim stub retires. Add cape meshes (vanilla layout first; OptiFine/LabyMod layouts portable from V1 `texturePositions.js:896-1047`) wired to the existing `Skins.ts` resolvers. Add 64×32 legacy layout + slim/legacy auto-detection (port V1's pixel-scan, `MineRender/src/skin/index.js:129-158`). Dispose replaced geometries/materials on `setSlim` rebuilds.
