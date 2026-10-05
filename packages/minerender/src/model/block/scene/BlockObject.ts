@@ -245,7 +245,10 @@ export class BlockObject extends SceneObject {
             rotation.y = toRadians(clampRotationDegrees(typeof variant.x !== "undefined" ? variant.y : 360 - variant.y));
         }
 
-        const model = await Models.getMerged(AssetKey.parse("models", variant.model!));
+        // The model and its textures must come from the same asset root as the blockstate.
+        const modelKey = AssetKey.parse("models", variant.model!);
+        modelKey.root = this.blockState.key?.root;
+        const model = await Models.getMerged(modelKey);
         const options: Partial<ModelObjectOptions> = {
             ...this.options,
             tints: model ? await BlockTints.get(this.blockState.key, this.state, model, this.options.tints) : this.options.tints,
