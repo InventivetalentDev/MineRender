@@ -1,7 +1,5 @@
-// `crypto-js/core` was imported separately here, but that deep path is unresolvable under Node's
-// ESM loader (crypto-js has no exports map and the specifier carries no extension). The main
-// entry exposes `enc` just the same.
-import * as CryptoJS from "crypto-js";
+// Node ESM exposes the CommonJS crypto-js API through its default export.
+import CryptoJS from "crypto-js";
 import { Vector3 } from "three";
 
 export const changeEvent = { type: 'change' as const };
