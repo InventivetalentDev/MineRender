@@ -141,6 +141,6 @@ export const blocks: ExampleGroup = {
     lead: "Vanilla blockstates and models from the asset CDN, merged through their parent chain and drawn through shared instanced meshes.",
     examples: [{ ...single, title: "A single block" }, multipart, many],
     notes: [
-        "Preview tints use the resource pack's colormap at a fixed biome. Biome-dependent colors need world context and are part of the world work."
+        "Preview tints use the resource pack's colormap at a fixed biome."
     ]
 };

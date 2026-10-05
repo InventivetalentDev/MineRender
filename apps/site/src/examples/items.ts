@@ -187,6 +187,6 @@ export const items: ExampleGroup = {
     lead: "Item definitions, generated item models, block items, and hand-written model JSON all go through the same model pipeline.",
     examples: [{ ...generated, title: "Generated item models" }, poses, blockItem, custom],
     notes: [
-        "Item previews use the GUI display context. Composite item renderers (player heads, shields, tinted items) are not supported yet."
+        "Item previews use the GUI display context. Composite item renderers (player heads, shields) are not supported."
     ]
 };

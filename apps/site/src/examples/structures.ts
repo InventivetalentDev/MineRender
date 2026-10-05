@@ -66,7 +66,13 @@ const vanilla: Example = {
             const [sx, sy, sz] = structure.size;
             renderer.controls?.target.set(sx * 8, sy * 8, sz * 8);
             renderer.controls?.update();
-            await world.placeMultiBlock(structure, true, executor);
+            // Helpers are added while blocks stream in, so hide them repeatedly until placement ends.
+            const sweep = setInterval(() => hideDebugLines(renderer), 250);
+            try {
+                await world.placeMultiBlock(structure, true, executor);
+            } finally {
+                clearInterval(sweep);
+            }
             hideDebugLines(renderer);
         };
 
@@ -144,9 +150,6 @@ for (let x = 0; x < 10; x++) {
 export const structures: ExampleGroup = {
     id: "structures",
     title: "Structures & worlds",
-    lead: "V2's headline goal: go beyond single models to structures and, eventually, full worlds, built on instanced chunk storage.",
-    examples: [vanilla, programmatic],
-    notes: [
-        "The world subsystem is an early prototype: no face culling between neighbours, lighting, or chunk streaming yet. Anvil region (.mca) and schematic loaders are planned."
-    ]
+    lead: "Vanilla structure files and worlds built in code, placed into chunked storage that shares instanced meshes between identical blocks.",
+    examples: [vanilla, programmatic]
 };

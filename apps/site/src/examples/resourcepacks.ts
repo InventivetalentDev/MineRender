@@ -121,6 +121,6 @@ export const resourcepacks: ExampleGroup = {
     lead: "An ordered asset source registry replaces V1's single asset root: layer resource packs, CDNs, and custom namespaces.",
     examples: [upload, hosted],
     notes: [
-        "ZIP sources are browser-only today; Node consumers can add HostedAssetSources or implement the AssetSource interface."
+        "ZIP sources are browser-only. In Node, add a HostedAssetSource or implement the AssetSource interface."
     ]
 };

@@ -99,7 +99,7 @@ h1, h2, h3 {
 h1 { font-size: clamp(2.6rem, 5.6vw, 4.5rem); font-weight: 800; }
 h2 { font-size: clamp(1.9rem, 3.4vw, 2.6rem); font-weight: 700; }
 h3 { font-size: 1.25rem; font-weight: 700; font-variation-settings: "opsz" 24, "wdth" 100; letter-spacing: 0; }
-p { margin: 0 0 1em; max-width: 68ch; }
+p { margin: 0 0 1em; }
 a { color: var(--moss-deep); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
 a:hover { color: var(--moss); }
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
@@ -117,7 +117,7 @@ button { font: inherit; color: inherit; }
 @media (min-width: 720px) { .container { padding: 0 calc(var(--unit) * 2); } }
 .section { padding: calc(var(--unit) * 4) var(--unit); border-top: 1px solid var(--line); }
 @media (min-width: 720px) { .section { padding: calc(var(--unit) * 6) calc(var(--unit) * 2); } }
-.section-heading { max-width: 72ch; margin-bottom: calc(var(--unit) * 2); }
+.section-heading { max-width: 960px; margin-bottom: calc(var(--unit) * 2); }
 .lead { font-size: 1.1rem; color: var(--ink-soft); }
 .section-note { color: var(--ink-soft); font-size: 0.95rem; margin-top: calc(var(--unit) * 2); }
 .plain-list { margin: 0; padding-left: 1.2em; }
@@ -232,7 +232,7 @@ button { font: inherit; color: inherit; }
 
 /* ---------- Examples ---------- */
 .example-nav { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-.example-nav a { padding: 5px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); color: var(--ink); font-size: 0.9rem; font-weight: 500; text-decoration: none; }
+.example-nav a { white-space: nowrap; padding: 5px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); color: var(--ink); font-size: 0.9rem; font-weight: 500; text-decoration: none; }
 .example-nav a:hover { border-color: var(--ink); }
 .pool-control { display: inline-flex; align-items: center; gap: 10px; margin-top: 14px; color: var(--ink-soft); font-size: 0.875rem; }
 .pool-control select, .viewport-control select { font: inherit; color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: 3px; padding: 3px 6px; }
@@ -286,7 +286,7 @@ button { font: inherit; color: inherit; }
 .code-tab.is-selected { color: var(--code-fg); background: rgba(255, 255, 255, 0.1); }
 .showcase-code pre { margin: 0; padding: 16px 18px; overflow: auto; max-height: 560px; line-height: 1.55; }
 .showcase-code code { font-size: 0.8rem; }
-.showcase-notes { margin: 16px 0 0; padding: 0; list-style: none; color: var(--ink-soft); font-size: 0.875rem; max-width: 90ch; }
+.showcase-notes { margin: 16px 0 0; padding: 0; list-style: none; color: var(--ink-soft); font-size: 0.875rem; }
 .showcase-notes li { padding-left: 18px; position: relative; }
 .showcase-notes li::before { content: ""; position: absolute; left: 0; top: 9px; width: 8px; height: 8px; background: var(--loam); }
 
@@ -314,7 +314,7 @@ button { font: inherit; color: inherit; }
 .doc { padding: calc(var(--unit) * 1.5) 0; border-top: 1px solid var(--line); }
 .doc:first-of-type { border-top: 0; padding-top: 0; }
 .doc h3 { font-size: 1.35rem; margin-bottom: 8px; }
-.doc > p { color: var(--ink); max-width: 72ch; }
+.doc > p { color: var(--ink); }
 .doc pre { margin: 12px 0 16px; }
 .code-static { position: relative; }
 .code-static pre { margin: 0; background: var(--code-bg); color: var(--code-fg); padding: 14px 16px; border-radius: var(--radius); line-height: 1.55; overflow: auto; }
@@ -337,13 +337,6 @@ td code { white-space: normal; }
 .pair-code > div:last-child .pair-label { color: var(--moss-deep); }
 .pair-code .code-static pre { min-height: 100%; }
 
-/* ---------- Roadmap ---------- */
-.roadmap-columns { display: grid; gap: calc(var(--unit) * 2); grid-template-columns: 1fr; }
-@media (min-width: 860px) { .roadmap-columns { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-.roadmap-columns h3 { margin-bottom: 10px; padding-bottom: 8px; border-bottom: 2px solid var(--ink); }
-.roadmap-columns > div:nth-child(2) h3 { border-bottom-color: var(--moss); }
-.roadmap-columns > div:nth-child(3) h3 { border-bottom-color: var(--line); }
-.roadmap-columns .plain-list { color: var(--ink-soft); font-size: 0.95rem; }
 
 /* ---------- Footer ---------- */
 .site-footer { border-top: 1px solid var(--line); padding: calc(var(--unit) * 2) 0 calc(var(--unit) * 2.5); color: var(--ink-soft); font-size: 0.9rem; }

@@ -141,8 +141,5 @@ export const entities: ExampleGroup = {
     id: "entities",
     title: "Entities",
     lead: "Mobs and block entities from a per-version geometry dataset extracted from the game, textured with the game's box UV layout.",
-    examples: [{ ...mob, title: "Mobs" }, blockEntity, variants],
-    notes: [
-        "Each entity renders one layer today. Overlay layers (sheep wool, creeper charge, warden glow) are composited in an open pull request."
-    ]
+    examples: [{ ...mob, title: "Mobs" }, blockEntity, variants]
 };

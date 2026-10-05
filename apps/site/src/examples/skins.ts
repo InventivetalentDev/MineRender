@@ -166,8 +166,5 @@ export const skins: ExampleGroup = {
     id: "skins",
     title: "Skins",
     lead: "Player skins from a texture or a player name, with classic, slim, and legacy layouts detected automatically.",
-    examples: [{ ...textureUrl, title: "Classic and slim" }, byName, layers, posed],
-    notes: [
-        "Capes (vanilla, OptiFine, and LabyMod layouts) are implemented in open pull requests and land with the next alpha."
-    ]
+    examples: [{ ...textureUrl, title: "Classic and slim" }, byName, layers, posed]
 };

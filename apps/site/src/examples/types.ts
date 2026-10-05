@@ -33,7 +33,7 @@ export interface ExampleGroup {
     title: string;
     lead: string;
     examples: Example[];
-    /** Optional notes rendered under the showcase (limitations, roadmap pointers). */
+    /** Optional notes rendered under the showcase. */
     notes?: string[];
 }
 
