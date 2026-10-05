@@ -19,8 +19,10 @@ import { shutdown } from "minerender";
 const groups = [skins, blocks, items, entities, structures, resourcepacks];
 
 // Drop persisted assets left behind by a resource pack before any preview can read them.
-await recoverPersistentCaches().catch(error => console.warn("Could not reset asset caches", error));
+// (Not a top-level await: the production build targets ES2020.)
+recoverPersistentCaches().catch(error => console.warn("Could not reset asset caches", error)).then(boot);
 
+function boot(): void {
 // Hero stage: one representative example per content type, plus the composed scene.
 const playground = new Playground(document.getElementById("playground")!, [
     { ...composed, sectionId: "examples" },
@@ -96,3 +98,4 @@ window.addEventListener("pagehide", () => {
 
 // Handy in the console: window.minerender exposes the library, minerenderSite the page objects.
 Object.assign(window, { minerender, minerenderSite: { playground, showcases, rendererPool } });
+}
