@@ -40,11 +40,11 @@ legacy website cleanup is a separate task.
 | Asset loading & resource packs | swappable assetRoot, fallback | Ordered whole-asset source selection; decode fetched bytes; failure-evicting caches; contextual errors; defaults to 1.21.11, ZIPs browser-only | high |
 | Per-frame animation API | `<type>Render` CustomEvents | No supported hook (dirty-flag loop only) | medium |
 | Embeds & website | minerender.org + iframe embeds | Workspace demos and examples; V2 website and embeds remain | low |
-| **Large-scale worlds (V2 goal)** | n/a | Prototype, effectively dead code: 64³ box, `getChunkAt` broken (Map indexed with number), object-per-block, no meshing/culling/lighting/LOD, instance slots never freed | high |
+| **Large-scale worlds (V2 goal)** | n/a | Prototype, effectively dead code: 64³ box, `getChunkAt` broken (Map indexed with number), object-per-block, no meshing/culling/lighting/LOD | high |
 | **Anvil .mca / world formats (V2 goal)** | n/a | Zero code | high |
 | **Node headless rendering (V2 goal)** | faked externally by MineRenderServer | No DOM-free Renderer construction, no render-to-buffer API | high |
 | Bedrock geometry (V2 ambition) | n/a | Type declarations only | low |
-| Instancing architecture | merged Geometry + instanced-mesh fork | Cleaner concept; fixed capacity w/ silent overflow, whole-object transforms move ALL instances, `children[0]` assumption, no slot reclamation | high |
+| Instancing architecture | merged Geometry + instanced-mesh fork | Reusable slots, growing buffers, and explicit mesh ownership; whole-object transforms still affect all live instances | high |
 
 ## Continuation plan (ordered)
 
@@ -84,7 +84,7 @@ Small, high-impact: (1) ~~`Axis.X = "X"` → lowercase (x-rotations silently no-
 ~~Recurse `ModelPart.children` (most multi-part entities currently render incomplete).~~ ~~Implement `mirror`.~~ ~~Verify the five TODO face-UV methods in `MinecraftCubeTexture.ts` and the possibly-doubled pivot translation.~~ ~~Compose selected entity layers with separate textures and named groups (e.g. sheep body and wool).~~ Emissive, scrolling, and gameplay-dependent layer effects remain. Variant textures (bed colors, chest types, horse coats) are selected by the caller through the texture key. In `res/tools`, remap intermediary names (`field_20813`) in blockEntityModels and ~~regenerate the hosted JSON~~. Root transforms are renderer-specific in vanilla; block entities need `flip: false` and some use other axes (signs/banners scale `(0.667, -0.667, -0.667)`).
 
 ### 10. Instance lifecycle overhaul — high (prerequisite for worlds)
-~~Limit `InstancedMesh.count` to allocated slots~~; add a free-list so removal reclaims slots (deletion today = zero-scale forever); grow capacity on demand instead of silent out-of-bounds writes; route whole-object transforms through per-index `InstanceReference`s (four "TODO specific instance" sites move ALL instances today); replace the `children[0]`-is-the-InstancedMesh assumption with a stored reference; extend dedup beyond `assetType === "models"` to blockstate level.
+~~Limit `InstancedMesh.count` to allocated slots~~; ~~add a free-list so removal reclaims slots~~; ~~grow capacity on demand instead of silent out-of-bounds writes~~; route whole-object transforms through per-index `InstanceReference`s (owner transforms affect all live instances); ~~replace the `children[0]`-is-the-InstancedMesh assumption with a stored reference~~; extend dedup beyond `assetType === "models"` to blockstate level.
 
 ### 11. World subsystem redesign for scale — high (the V2 differentiator)
 Immediate fixes: `getChunkAt` uses `this._chunks[numericIndex]` on a Map — use `.get(key)` (`MineRenderWorld.ts:104`); remove the 4×4×4 bound and negative-coordinate rejection (1.18+ needs negative Y); remove hardcoded debug wireframes (`Chunk.ts:34-43, 102-107`); fix `BatchedExecutor`'s missing setInterval delay + add `stop()`; parallelize `placeMultiBlock` (the `await` inside the loop serializes everything). Then the real redesign: palette + typed-array section storage (drop object-per-block `BlockInfo`), one merged mesh per chunk section with neighbor face culling via the model `cullface` attribute (currently entirely unhandled), chunk load/unload + frustum culling, baked per-vertex AO (SSAO was abandoned at ~2fps), biome tint. Keep 1 block = 16 units.
