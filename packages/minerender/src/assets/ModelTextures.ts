@@ -56,7 +56,7 @@ export class ModelTextures {
         const keyStr = key.serialize();
 
         return Caching.textureMetaCache.get(keyStr, k => {
-            return this.PERSISTENT_META_CACHE.getOrLoad(keyStr, k1 => {
+            return this.PERSISTENT_META_CACHE.getOrLoad(AssetLoader.persistentKey(keyStr), k1 => {
                 return AssetLoader.get<MinecraftTextureMeta>(key, AssetParser.META).then(asset => {
                     if (asset)
                         asset.key = key;
