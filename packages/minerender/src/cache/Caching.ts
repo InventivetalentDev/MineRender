@@ -99,6 +99,8 @@ export class Caching {
 
     static readonly defaultBlockStatesCache: AsyncLoadingCache<CacheKey, DefaultBlockStates> = Caching.createAssetCache<DefaultBlockStates>();
 
+    static readonly blockTintCache: AsyncLoadingCache<CacheKey, number> = Caching.createAssetCache<number>();
+
     static readonly entityModelsCache: AsyncLoadingCache<CacheKey, EntityModels> = Caching.createAssetCache<EntityModels>();
 
     private static createAssetCache<T>(): AsyncLoadingCache<CacheKey, T> {
@@ -129,6 +131,7 @@ export class Caching {
             this.blockStateCache,
             this.listAssetCache,
             this.defaultBlockStatesCache,
+            this.blockTintCache,
             this.entityModelsCache
         ];
     }
