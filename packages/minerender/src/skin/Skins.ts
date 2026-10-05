@@ -15,13 +15,7 @@ export class Skins {
     }
 
     static async fromUuid(uuid: string): Promise<Maybe<string>> {
-        // return this.getProfile(uuid).then(profile => {
-        //     if (profile) {
-        //         return profile.decoded.textures.SKIN?.url;
-        //     }
-        //     return undefined;
-        // })
-        return this.getSkinProxySkinUrl(uuid);
+        return this.getMcProxySkinUrl(uuid);
     }
 
     static async fromUsername(username: string): Promise<Maybe<string>> {
@@ -55,13 +49,7 @@ export class Skins {
     }
 
     static async capeFromUuid(uuid: string): Promise<Maybe<string>> {
-        // return this.getProfile(uuid).then(profile => {
-        //     if (profile) {
-        //         return profile.decoded.textures.CAPE?.url;
-        //     }
-        //     return undefined;
-        // })
-        return this.getSkinProxyCapeUrl(uuid);
+        return this.getMcProxyCapeUrl(uuid);
     }
 
     static async capeFromUsername(username: string): Promise<Maybe<string>> {
@@ -89,9 +77,25 @@ export class Skins {
     //<editor-fold desc="Helpers">
 
     private static async usernameToUuid(username: string): Promise<Maybe<string>> {
-        return this.usernameToUuidSkinProxy(username);
+        return this.usernameToUuidMcProxy(username);
     }
 
+    private static async usernameToUuidMcProxy(username: string): Promise<Maybe<string>> {
+        return Requests.genericRequest({
+            baseURL: 'https://mcproxy.dev',
+            url: '/uuid/' + username
+        }).then(res => {
+            if (res.status === 200) {
+                return res.data["data"]["id"];
+            }
+            return undefined;
+        }).catch(err => {
+            console.warn(err);
+            return undefined;
+        })
+    }
+
+    /** @deprecated **/
     private static async usernameToUuidSkinProxy(username: string): Promise<Maybe<string>> {
         return Requests.genericRequest({
             baseURL: 'https://minecraft-skin-proxy.inventive.workers.dev',
@@ -179,12 +183,22 @@ export class Skins {
         return "https://mineskin.org/skin/player/" + uuid;
     }
 
+    /** @deprecated **/
     private static getSkinProxySkinUrl(uuid: string): string {
         return "https://minecraft-skin-proxy.inventive.workers.dev/skin/" + uuid;
     }
 
+    /** @deprecated **/
     private static getSkinProxyCapeUrl(uuid: string): string {
         return "https://minecraft-skin-proxy.inventive.workers.dev/cape/" + uuid;
+    }
+
+    private static getMcProxySkinUrl(uuid: string): string {
+        return "https://mcproxy.dev/skin/" + uuid;
+    }
+
+    private static getMcProxyCapeUrl(uuid: string): string {
+        return "https://mcproxy.dev/cape/" + uuid;
     }
 
     //</editor-fold>
