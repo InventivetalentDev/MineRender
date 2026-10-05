@@ -1,6 +1,34 @@
+import type { Renderer } from "minerender";
+import { Box3, Object3D, PerspectiveCamera, Vector3 } from "three";
 import type { ExampleContext } from "./types";
 
-export const STEVE_TEXTURE = "https://textures.minecraft.net/texture/fb5f93b1ccebf7b385fa488c6d4cfec87cf1b855f8dbe0308da44167cae170b";
+/**
+ * Points the camera at an object's bounding box from its current direction, far enough
+ * away to fit it. Entities differ a lot in size and origin, so this keeps them centred.
+ */
+export function frameObject(renderer: Renderer, object: Object3D, padding = 1.35): void {
+    const box = new Box3().setFromObject(object);
+    if (box.isEmpty()) return;
+    const center = box.getCenter(new Vector3());
+    const size = box.getSize(new Vector3());
+    const radius = Math.max(size.x, size.y, size.z) / 2;
+    const camera = renderer.camera;
+    const fov = camera instanceof PerspectiveCamera ? camera.fov : 50;
+    const distance = radius * padding / Math.tan((fov / 2) * Math.PI / 180);
+    const direction = camera.position.clone().sub(renderer.controls?.target ?? new Vector3()).normalize();
+    camera.position.copy(center).add(direction.multiplyScalar(distance));
+    camera.lookAt(center);
+    if (renderer.controls) {
+        renderer.controls.target.copy(center);
+        renderer.controls.update();
+        renderer.controls.saveState();
+    }
+    renderer.dirty = true;
+}
+
+/** Default player textures from the vanilla assets; no third-party host involved. */
+export const STEVE_TEXTURE = "https://assets.mcasset.cloud/1.21.11/assets/minecraft/textures/entity/player/wide/steve.png";
+export const ALEX_TEXTURE = "https://assets.mcasset.cloud/1.21.11/assets/minecraft/textures/entity/player/slim/alex.png";
 
 /** Common preamble shared by the ESM snippets. */
 export function esmRenderer(...imports: string[]): string {
@@ -65,6 +93,26 @@ export function textControl(context: ExampleContext, label: string, value: strin
     wrapper.append(span, input);
     context.controls.appendChild(wrapper);
     return input;
+}
+
+/** Builds a labelled <select> in the viewport's control strip. */
+export function selectControl(context: ExampleContext, label: string, options: Array<[string, string]>, value: string, onChange: (value: string) => void): HTMLSelectElement {
+    const wrapper = document.createElement("label");
+    wrapper.className = "viewport-control";
+    const span = document.createElement("span");
+    span.textContent = label;
+    const select = document.createElement("select");
+    for (const [key, text] of options) {
+        const option = document.createElement("option");
+        option.value = key;
+        option.textContent = text;
+        select.appendChild(option);
+    }
+    select.value = value;
+    select.addEventListener("change", () => onChange(select.value));
+    wrapper.append(span, select);
+    context.controls.appendChild(wrapper);
+    return select;
 }
 
 /** Builds a checkbox toggle in the viewport's control strip. */

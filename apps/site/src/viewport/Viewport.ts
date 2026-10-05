@@ -35,6 +35,15 @@ const DEFAULT_OPTIONS = {
  * Leaving the viewport or being evicted from the pool suspends it: the last frame is kept as a
  * snapshot image and the WebGL context is released.
  */
+export interface ViewportOptions {
+    /** Called whenever the viewport changes state, for custom status displays. */
+    onStatus?: (state: State, message: string) => void;
+    /** Hide the built-in overlay pill (the host renders its own status). */
+    overlay?: boolean;
+}
+
+export type ViewportState = State;
+
 export class Viewport implements Pooled {
     readonly element: HTMLElement;
     private readonly surface: HTMLElement;
@@ -51,7 +60,7 @@ export class Viewport implements Pooled {
     private visible = false;
     private readonly observer: IntersectionObserver;
 
-    constructor(container: HTMLElement) {
+    constructor(container: HTMLElement, private readonly viewportOptions: ViewportOptions = {}) {
         this.element = container;
         container.classList.add("viewport");
         container.innerHTML = `
@@ -125,7 +134,13 @@ export class Viewport implements Pooled {
 
         this.controlsHost.innerHTML = "";
         this.setState("loading", "Loading assets…");
+        // Keep GPU work proportional to the element, not to a Retina screen.
+        renderer.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
         renderer.appendTo(this.surface);
+        if (renderer.controls) {
+            renderer.controls.enableDamping = true;
+            renderer.controls.dampingFactor = 0.12;
+        }
         renderer.start();
 
         example.setup({ renderer, signal, controls: this.controlsHost }).then(cleanup => {
@@ -186,6 +201,18 @@ export class Viewport implements Pooled {
         return this.renderer;
     }
 
+    get currentState(): State {
+        return this.state;
+    }
+
+    /** Returns the camera to the example's starting view. */
+    resetView(): void {
+        const renderer = this.renderer;
+        if (!renderer) return;
+        renderer.controls?.reset();
+        renderer.dirty = true;
+    }
+
     private capture(): string | undefined {
         const renderer = this.renderer;
         if (!renderer) return undefined;
@@ -223,8 +250,9 @@ export class Viewport implements Pooled {
         this.state = state;
         this.element.dataset.state = state;
         this.overlayText.textContent = message ?? "";
-        this.overlay.classList.toggle("is-hidden", state === "active");
+        this.overlay.classList.toggle("is-hidden", state === "active" || this.viewportOptions.overlay === false);
         this.overlay.disabled = state === "loading";
+        this.viewportOptions.onStatus?.(state, message ?? "");
     }
 }
 

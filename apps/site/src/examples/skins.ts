@@ -1,8 +1,8 @@
-import { Renderer, SkinObject, Skins } from "minerender";
+import { SkinObject, Skins } from "minerender";
 import type { Example, ExampleGroup } from "./types";
-import { ESM_RENDERER, STEVE_TEXTURE, esmRenderer, scriptSnippet, textControl, toggleControl } from "./shared";
+import { ALEX_TEXTURE, ESM_RENDERER, STEVE_TEXTURE, esmRenderer, scriptSnippet, selectControl, textControl, toggleControl } from "./shared";
 
-const SKIN_RENDERER = {
+export const SKIN_RENDERER = {
     camera: {
         position: [30, 26, 55] as [number, number, number],
         lookingAt: [0, 16, 0] as [number, number, number]
@@ -16,31 +16,40 @@ async function resolveSkin(input: string): Promise<string | undefined> {
     return Skins.fromUuidOrUsername(input);
 }
 
-const textureUrl: Example = {
+export const textureUrl: Example = {
     id: "skin-texture",
-    title: "From a texture URL",
-    description: "Point the skin at any 64×64 skin texture. Drag to orbit, scroll to zoom.",
+    title: "Skin",
+    description: "Any 64×64 or legacy 64×32 skin texture. The arm model (classic or slim) is detected from the image.",
     renderer: SKIN_RENDERER,
     placeholder: "/placeholder-skin.png",
-    async setup({ renderer }) {
-        await renderer.scene.addSkin(STEVE_TEXTURE);
+    async setup(context) {
+        const { renderer } = context;
+        const skin = await renderer.scene.addSkin(STEVE_TEXTURE);
+        selectControl(context, "Texture", [[STEVE_TEXTURE, "Steve (classic)"], [ALEX_TEXTURE, "Alex (slim)"]], STEVE_TEXTURE, url => {
+            skin.setSkinTexture(url).catch(console.warn);
+        });
+        selectControl(context, "Arms", [["auto", "Detect"], ["classic", "Classic"], ["slim", "Slim"]], "auto", value => {
+            skin.setSlim(value === "auto" ? undefined : value === "slim");
+            renderer.dirty = true;
+        });
     },
     code: {
         esm: `${ESM_RENDERER}
 
-const skin = await renderer.scene.addSkin(
-    "${STEVE_TEXTURE}"
-);`,
-        script: scriptSnippet(`renderer.scene.addSkin(
-    "${STEVE_TEXTURE}"
-);`)
+// Slim or classic arms are detected from the texture
+const skin = await renderer.scene.addSkin("${ALEX_TEXTURE}");
+
+// Or decide yourself
+skin.setSlim(true);
+await skin.setSkinTexture("${STEVE_TEXTURE}");`,
+        script: scriptSnippet(`renderer.scene.addSkin("${ALEX_TEXTURE}");`)
     }
 };
 
 const byName: Example = {
     id: "skin-name",
     title: "By username or UUID",
-    description: "Skins.fromUuidOrUsername resolves a player to their current skin texture through a CORS-safe proxy.",
+    description: "Resolves a player to their current skin through a CORS-friendly proxy, then loads it.",
     renderer: SKIN_RENDERER,
     placeholder: "/placeholder-skin.png",
     async setup(context) {
@@ -60,11 +69,11 @@ const byName: Example = {
             }
             if (signal.aborted) return;
             if (url) {
-                skin.setSkinTexture(url);
+                await skin.setSkinTexture(url);
                 status.textContent = "";
                 renderer.dirty = true;
             } else {
-                status.textContent = `Could not resolve "${name}"; showing the previous skin.`;
+                status.textContent = `No skin found for "${name}". Showing the previous one.`;
             }
         };
         textControl(context, "Player", "inventivetalent", value => void apply(value));
@@ -76,10 +85,10 @@ const byName: Example = {
 
 const skin = await renderer.scene.addSkin();
 const texture = await Skins.fromUuidOrUsername("inventivetalent");
-if (texture) skin.setSkinTexture(texture);`,
+if (texture) await skin.setSkinTexture(texture);`,
         script: scriptSnippet(`renderer.scene.addSkin().then(async skin => {
     const texture = await MineRender.Skins.fromUuidOrUsername("inventivetalent");
-    if (texture) skin.setSkinTexture(texture);
+    if (texture) await skin.setSkinTexture(texture);
 });`)
     }
 };
@@ -145,7 +154,7 @@ renderer.dirty = true;`
     }
 };
 
-function pose(skin: SkinObject): void {
+export function pose(skin: SkinObject): void {
     skin.getGroupByName("head")?.rotation.set(-0.2, 0.4, 0);
     skin.getGroupByName("rightArm")?.rotation.set(-2.6, 0, -0.2);
     skin.getGroupByName("leftArm")?.rotation.set(0.5, 0, 0.1);
@@ -156,11 +165,9 @@ function pose(skin: SkinObject): void {
 export const skins: ExampleGroup = {
     id: "skins",
     title: "Skins",
-    lead: "Player skins from a texture URL, a username, or a UUID, with named parts you can hide and pose.",
-    examples: [textureUrl, byName, layers, posed],
+    lead: "Player skins from a texture or a player name, with classic, slim, and legacy layouts detected automatically.",
+    examples: [{ ...textureUrl, title: "Classic and slim" }, byName, layers, posed],
     notes: [
-        "Slim-arm (Alex) UV mapping, capes, and legacy 64×32 textures are still in progress in V2.",
+        "Capes (vanilla, OptiFine, and LabyMod layouts) are implemented in open pull requests and land with the next alpha."
     ]
 };
-
-export type { Renderer };

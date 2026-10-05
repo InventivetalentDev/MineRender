@@ -2,7 +2,7 @@ import { AssetKey, BlockObject, BlockStates } from "minerender";
 import type { Example, ExampleContext, ExampleGroup } from "./types";
 import { esmRenderer, fillList, scriptSnippet, textControl } from "./shared";
 
-const BLOCK_RENDERER = {
+export const BLOCK_RENDERER = {
     camera: {
         position: [26, 20, 30] as [number, number, number],
         lookingAt: [0, 0, 0] as [number, number, number]
@@ -21,15 +21,15 @@ function remove(block: BlockObject | undefined): void {
     block?.removeFromScene();
 }
 
-const single: Example = {
+export const single: Example = {
     id: "block-single",
-    title: "A single block",
-    description: "Blockstates resolve to their default variant; the model chain (parent → child) is merged and textured automatically.",
+    title: "Block",
+    description: "A blockstate resolves to its default variant. The model's parent chain is merged, textures are packed into an atlas, and preview tints (grass, leaves, water) are applied.",
     renderer: BLOCK_RENDERER,
     placeholder: "/placeholder-block.png",
     async setup(context) {
-        let current = await addBlock(context, "crafting_table");
-        const input = textControl(context, "Block", "crafting_table", async name => {
+        let current = await addBlock(context, "grass_block");
+        const input = textControl(context, "Block", "grass_block", async name => {
             if (!name) return;
             try {
                 const next = await addBlock(context, name);
@@ -48,9 +48,12 @@ const single: Example = {
     code: {
         esm: `${esmRenderer("AssetKey", "BlockStates")}
 
-const state = await BlockStates.get(AssetKey.parse("blockstates", "crafting_table"));
-const block = await renderer.scene.addBlock(state!);`,
-        script: scriptSnippet(`MineRender.BlockStates.get(MineRender.AssetKey.parse("blockstates", "crafting_table"))
+const state = await BlockStates.get(AssetKey.parse("blockstates", "grass_block"));
+const block = await renderer.scene.addBlock(state!);
+
+// Override or add tint colors by tint index
+await renderer.scene.addBlock(state!, { tints: { 0: 0x6fa8dc } });`,
+        script: scriptSnippet(`MineRender.BlockStates.get(MineRender.AssetKey.parse("blockstates", "grass_block"))
     .then(state => renderer.scene.addBlock(state));`)
     }
 };
@@ -136,8 +139,8 @@ export const blocks: ExampleGroup = {
     id: "blocks",
     title: "Blocks",
     lead: "Vanilla blockstates and models from the asset CDN, merged through their parent chain and drawn through shared instanced meshes.",
-    examples: [single, multipart, many],
+    examples: [{ ...single, title: "A single block" }, multipart, many],
     notes: [
-        "Biome tints (grass, leaves, water), uvlock, and display transforms are tracked in the roadmap, so tinted blocks render untinted for now."
+        "Preview tints use the resource pack's colormap at a fixed biome. Biome-dependent colors need world context and are part of the world work."
     ]
 };

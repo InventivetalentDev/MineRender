@@ -1,8 +1,8 @@
-import { AssetKey, ModelObject, Models } from "minerender";
+import { AssetKey, DisplayPosition, ModelObject, Models } from "minerender";
 import type { Example, ExampleGroup } from "./types";
-import { esmRenderer, fillList, scriptSnippet, textControl } from "./shared";
+import { esmRenderer, fillList, scriptSnippet, selectControl, textControl } from "./shared";
 
-const ITEM_RENDERER = {
+export const ITEM_RENDERER = {
     camera: {
         position: [8, 6, 34] as [number, number, number],
         lookingAt: [0, 0, 0] as [number, number, number]
@@ -13,10 +13,10 @@ function itemKey(name: string): AssetKey {
     return new AssetKey("minecraft", name, "models", "item", "assets");
 }
 
-const generated: Example = {
+export const generated: Example = {
     id: "item-generated",
-    title: "Generated item models",
-    description: "Flat item/generated models get their 16×16 texture extruded into a one-pixel-thick model, like in the game.",
+    title: "Item",
+    description: "Flat item models get their 16×16 texture extruded into a one-pixel-thick model, the same way the game does it.",
     renderer: ITEM_RENDERER,
     placeholder: "/placeholder-block.png",
     async setup(context) {
@@ -52,6 +52,60 @@ const sword = await renderer.scene.addModel(model!);`,
         script: scriptSnippet(`MineRender.Models.getMerged(
     new MineRender.AssetKey("minecraft", "diamond_sword", "models", "item", "assets")
 ).then(model => renderer.scene.addModel(model));`)
+    }
+};
+
+const POSES: Array<[string, string]> = [
+    [DisplayPosition.GUI, "Inventory (gui)"],
+    [DisplayPosition.GROUND, "Dropped (ground)"],
+    [DisplayPosition.FIXED, "Item frame (fixed)"],
+    [DisplayPosition.THIRDPERSON_RIGHTHAND, "Held (thirdperson_righthand)"],
+    [DisplayPosition.HEAD, "Worn (head)"],
+    ["none", "No pose"]
+];
+
+const poses: Example = {
+    id: "item-display",
+    title: "Display poses",
+    description: "Models carry display transforms for each context the game shows them in. Pick one to apply its rotation, translation, and scale.",
+    renderer: {
+        camera: {
+            position: [10, 8, 40] as [number, number, number],
+            lookingAt: [0, 0, 0] as [number, number, number]
+        }
+    },
+    placeholder: "/placeholder-block.png",
+    async setup(context) {
+        const { renderer, signal } = context;
+        const model = await Models.getMerged(itemKey("diamond_pickaxe"));
+        if (!model || signal.aborted) return;
+        let current: ModelObject | undefined;
+        const show = async (pose: string) => {
+            const next = await renderer.scene.addModel(model, {
+                instanceMeshes: false,
+                displayPosition: pose === "none" ? undefined : pose as DisplayPosition
+            }) as ModelObject;
+            if (signal.aborted) {
+                next.removeFromScene();
+                return;
+            }
+            current?.removeFromScene();
+            current?.disposeAndRemoveAllChildren();
+            current = next;
+            renderer.dirty = true;
+        };
+        await show(DisplayPosition.GUI);
+        selectControl(context, "Pose", POSES, DisplayPosition.GUI, pose => void show(pose).catch(console.warn));
+    },
+    code: {
+        esm: `${esmRenderer("AssetKey", "DisplayPosition", "Models")}
+
+const model = await Models.getMerged(
+    new AssetKey("minecraft", "diamond_pickaxe", "models", "item", "assets")
+);
+
+// Apply the model's own "gui" display transform
+await renderer.scene.addModel(model!, { displayPosition: DisplayPosition.GUI });`
     }
 };
 
@@ -131,7 +185,7 @@ export const items: ExampleGroup = {
     id: "items",
     title: "Items & models",
     lead: "Item definitions, generated item models, block items, and hand-written model JSON all go through the same model pipeline.",
-    examples: [generated, blockItem, custom],
+    examples: [{ ...generated, title: "Generated item models" }, poses, blockItem, custom],
     notes: [
         "Item previews use the GUI display context. Composite item renderers (player heads, shields, tinted items) are not supported yet."
     ]

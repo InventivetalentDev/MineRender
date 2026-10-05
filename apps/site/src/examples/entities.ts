@@ -1,43 +1,46 @@
 import { BasicAssetKey, Entities, EntityModel } from "minerender";
 import type { Example, ExampleContext, ExampleGroup } from "./types";
-import { esmRenderer, fillList, scriptSnippet, textControl } from "./shared";
+import { esmRenderer, fillList, frameObject, scriptSnippet, selectControl, textControl } from "./shared";
 
-const ENTITY_RENDERER = {
+export const ENTITY_RENDERER = {
     camera: {
         position: [36, 26, 44] as [number, number, number],
         lookingAt: [0, 8, 0] as [number, number, number]
     }
 };
 
-/** "pig/temperate_pig" selects the pig model and the textures/entity/pig/temperate_pig.png texture. */
+/** "cat" uses the dataset's texture; "cat/black" keeps the cat model and picks another texture. */
 async function loadEntity(name: string): Promise<EntityModel> {
-    const modelKey = new BasicAssetKey("minecraft", name.split("/")[0]);
-    const textureKey = new BasicAssetKey("minecraft", name);
+    const [modelName] = name.split("/");
+    const modelKey = new BasicAssetKey("minecraft", modelName);
+    const textureKey = name.includes("/") ? new BasicAssetKey("minecraft", name) : undefined;
     const entity = await Entities.getEntity(modelKey, textureKey);
-    if (entity?.parts) return entity;
-    const blockEntity = await Entities.getBlock(modelKey, textureKey);
-    if (!blockEntity?.parts) throw new Error(`Unknown entity "${name}"`);
-    return blockEntity;
+    if (!entity) throw new Error(`Unknown entity "${name}"`);
+    return entity;
 }
 
 async function showEntity(context: ExampleContext, name: string) {
     const model = await loadEntity(name);
     if (context.signal.aborted) return undefined;
-    return context.renderer.scene.addEntity(model, { instanceMeshes: false });
+    const entity = await context.renderer.scene.addEntity(model, { instanceMeshes: false });
+    if (!context.signal.aborted && "isObject3D" in entity) frameObject(context.renderer, entity);
+    return entity;
 }
 
-/** Entities whose texture lives at textures/entity/<path>.png in current game versions. */
 const MOBS = [
-    "creeper/creeper", "zombie/zombie", "skeleton/skeleton", "enderman/enderman", "villager/villager",
-    "pig/temperate_pig", "cow/temperate_cow", "sheep/sheep", "chicken/temperate_chicken", "spider/spider",
-    "slime/slime", "iron_golem/iron_golem", "wolf/wolf", "cat/tabby", "bee/bee", "phantom", "witch", "piglin"
+    "creeper", "zombie", "skeleton", "enderman", "villager", "pig", "cow", "sheep", "chicken", "spider",
+    "slime", "iron_golem", "wolf", "cat", "bee", "phantom", "witch", "piglin", "allay", "warden", "camel"
 ];
-const BLOCK_ENTITIES = ["chest/normal", "chest/ender", "chest/trapped", "shulker/shulker", "bell/bell_body", "conduit/base", "bed/red"];
+const BLOCK_ENTITIES = ["chest", "ender_chest", "trapped_chest", "shulker_box", "bell", "conduit", "bed_head", "decorated_pot"];
+/** Texture variants are chosen through a second key; the dataset supplies a default otherwise. */
+const VARIANTS: Array<[string, string]> = [
+    ["cat/tabby", "Tabby"], ["cat/black", "Black"], ["cat/siamese", "Siamese"], ["cat/ragdoll", "Ragdoll"], ["cat/calico", "Calico"]
+];
 
-const mob: Example = {
+export const mob: Example = {
     id: "entity-mob",
-    title: "Mobs",
-    description: "Entity models are dumps of the game's own ModelPart trees, textured with the game's box-UV layout. The part after the slash picks the texture variant.",
+    title: "Entity",
+    description: "Entity geometry comes from a per-version dataset extracted from the game, including nested parts, poses, mirrored cubes, and texture locations.",
     renderer: ENTITY_RENDERER,
     placeholder: "/placeholder-block.png",
     async setup(context) {
@@ -61,23 +64,17 @@ const mob: Example = {
     code: {
         esm: `${esmRenderer("BasicAssetKey", "Entities")}
 
-// The model name, and the texture under assets/minecraft/textures/entity/
-const model = await Entities.getEntity(
-    new BasicAssetKey("minecraft", "creeper"),
-    new BasicAssetKey("minecraft", "creeper/creeper")
-);
+const model = await Entities.getEntity(new BasicAssetKey("minecraft", "creeper"));
 const creeper = await renderer.scene.addEntity(model!);`,
-        script: scriptSnippet(`MineRender.Entities.getEntity(
-    new MineRender.BasicAssetKey("minecraft", "creeper"),
-    new MineRender.BasicAssetKey("minecraft", "creeper/creeper")
-).then(model => renderer.scene.addEntity(model));`)
+        script: scriptSnippet(`MineRender.Entities.getEntity(new MineRender.BasicAssetKey("minecraft", "creeper"))
+    .then(model => renderer.scene.addEntity(model));`)
     }
 };
 
 const blockEntity: Example = {
     id: "entity-block",
     title: "Block entities",
-    description: "Chests, shulker boxes, bells, and other block entities come from a separate model set and load the same way.",
+    description: "Chests, shulker boxes, bells, and beds are block entities. They come from the same dataset and load the same way.",
     renderer: ENTITY_RENDERER,
     placeholder: "/placeholder-block.png",
     async setup(context) {
@@ -101,20 +98,51 @@ const blockEntity: Example = {
     code: {
         esm: `${esmRenderer("BasicAssetKey", "Entities")}
 
-const model = await Entities.getBlock(
-    new BasicAssetKey("minecraft", "chest"),
-    new BasicAssetKey("minecraft", "chest/normal")
-);
+// Block entities share the dataset with mobs
+const model = await Entities.getEntity(new BasicAssetKey("minecraft", "chest"));
 const chest = await renderer.scene.addEntity(model!);`
+    }
+};
+
+const variants: Example = {
+    id: "entity-variants",
+    title: "Texture variants",
+    description: "One model, many textures. Pass a second key to choose a variant such as a cat breed, a horse coat, or a bed color.",
+    renderer: ENTITY_RENDERER,
+    placeholder: "/placeholder-block.png",
+    async setup(context) {
+        let current = await showEntity(context, VARIANTS[0][0]);
+        selectControl(context, "Cat", VARIANTS, VARIANTS[0][0], async name => {
+            try {
+                const next = await showEntity(context, name);
+                if (!next) return;
+                if (current && "removeFromScene" in current) {
+                    current.removeFromScene();
+                    current.disposeAndRemoveAllChildren();
+                }
+                current = next;
+            } catch (error) {
+                console.warn(error);
+            }
+        });
+    },
+    code: {
+        esm: `${esmRenderer("BasicAssetKey", "Entities")}
+
+const model = await Entities.getEntity(
+    new BasicAssetKey("minecraft", "cat"),          // geometry
+    new BasicAssetKey("minecraft", "cat/siamese")   // textures/entity/cat/siamese.png
+);
+await renderer.scene.addEntity(model!);`
     }
 };
 
 export const entities: ExampleGroup = {
     id: "entities",
     title: "Entities",
-    lead: "Mobs and block entities rendered from the game's ModelPart definitions, served from the minerender fallback-assets repository.",
-    examples: [mob, blockEntity],
+    lead: "Mobs and block entities from a per-version geometry dataset extracted from the game, textured with the game's box UV layout.",
+    examples: [{ ...mob, title: "Mobs" }, blockEntity, variants],
     notes: [
-        "Nested child parts, mirrored cubes, and automatic texture-variant lookup are still being completed, so some entities render partially or need an explicit texture path."
+        "Each entity renders one layer today. Overlay layers (sheep wool, creeper charge, warden glow) are composited in an open pull request."
     ]
 };
