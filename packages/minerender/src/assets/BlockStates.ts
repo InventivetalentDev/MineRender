@@ -2,7 +2,7 @@ import { Maybe } from "../util/util";
 import { BlockState } from "../model/block/BlockState";
 import { Caching } from "../cache/Caching";
 import { AssetLoader } from "./AssetLoader";
-import { DEFAULT_NAMESPACE, DEFAULT_ROOT } from "./Assets";
+import { DEFAULT_NAMESPACE } from "./Assets";
 import { BlockStatePropertyDefaults } from "../model/block/BlockStateProperties";
 import { AssetKey } from "./AssetKey";
 import { PersistentCache } from "../cache/PersistentCache";
@@ -27,7 +27,7 @@ export class BlockStates {
             undefined,
             "assets",
             ".json",
-            DEFAULT_ROOT
+            AssetLoader.ROOT
         );
         return Caching.listAssetCache.get(key.serialize(), () => {
             return AssetLoader.get<ListAsset>(key, AssetParser.LIST);
