@@ -95,7 +95,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
                 this.data.set(index, undefined);
                 return undefined;
             }
-            const template = getFluidKind(blockState.key) ? undefined : await this.sectionModels?.get(blockState, stored.properties);
+            const template = getFluidKind(blockState.key, stored.properties) ? undefined : await this.sectionModels?.get(blockState, stored.properties);
             if (template) {
                 this.sectionBlocks.set(index, { index, template, cullMask: 0 });
                 this.meshDirty = true;
