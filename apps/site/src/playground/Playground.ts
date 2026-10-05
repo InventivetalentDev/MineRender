@@ -67,6 +67,10 @@ export class Playground {
         this.status.dataset.state = state;
     }
 
+    reload(): void {
+        this.viewport.reload();
+    }
+
     dispose(): void {
         this.viewport.dispose();
     }

@@ -150,6 +150,6 @@ for (let x = 0; x < 10; x++) {
 export const structures: ExampleGroup = {
     id: "structures",
     title: "Structures & worlds",
-    lead: "Vanilla structure files and worlds built in code, placed into chunked storage that shares instanced meshes between identical blocks.",
+    lead: "Load vanilla structure files or place blocks from code. Identical blocks share one instanced mesh.",
     examples: [vanilla, programmatic]
 };

@@ -1,8 +1,7 @@
-import { ArchiveAssetSource, AssetKey, AssetLoader, BlockObject, BlockStates, BrowserArchiveProxy, Caching, Models } from "minerender";
-import type { Example, ExampleContext, ExampleGroup } from "./types";
-import { esmRenderer } from "./shared";
-
-const SOURCE_KEY = "site-resourcepack";
+import { AssetKey, BlockObject, BlockStates } from "minerender";
+import type { Example, ExampleGroup } from "./types";
+import { esmRenderer, fillList, textControl } from "./shared";
+import { installResourcePack, resourcePackName } from "../resourcePack";
 
 const BLOCK_RENDERER = {
     camera: {
@@ -11,25 +10,19 @@ const BLOCK_RENDERER = {
     }
 };
 
-async function resetSources(): Promise<void> {
-    AssetLoader.removeSource(SOURCE_KEY);
-    Caching.clear();
-    await Models.clearCache();
-    await BlockStates.clearCache();
-}
-
 const upload: Example = {
     id: "resourcepack-zip",
     title: "Load a resource pack ZIP",
-    description: "Drop a resource pack. It becomes the highest-priority asset source; anything it does not contain falls back to the vanilla CDN.",
+    description: "Pick a resource pack ZIP. It becomes the highest-priority asset source for every preview on this page; anything it does not contain falls back to the vanilla assets.",
     renderer: BLOCK_RENDERER,
     placeholder: "/placeholder-block.png",
     async setup(context) {
         const { renderer, signal } = context;
         let current: BlockObject | undefined;
+        let blockName = "grass_block";
 
-        const show = async (name: string) => {
-            const state = await BlockStates.get(AssetKey.parse("blockstates", name));
+        const show = async () => {
+            const state = await BlockStates.get(AssetKey.parse("blockstates", blockName));
             if (!state || signal.aborted) return;
             const next = await renderer.scene.addBlock(state) as BlockObject;
             if (signal.aborted) {
@@ -38,33 +31,33 @@ const upload: Example = {
             }
             current?.removeFromScene();
             current = next;
+            renderer.dirty = true;
         };
 
-        await show("grass_block");
+        await show();
 
         const picker = document.createElement("label");
         picker.className = "viewport-control viewport-control-file";
         picker.innerHTML = `<span>Resource pack</span><input type="file" accept=".zip,application/zip">`;
         const input = picker.querySelector("input")!;
-        input.addEventListener("change", async () => {
+        input.addEventListener("change", () => {
             const file = input.files?.[0];
-            if (!file) return;
-            try {
-                const proxy = new BrowserArchiveProxy(file);
-                await proxy.getEntries();
-                if (signal.aborted) return;
-                await resetSources();
-                AssetLoader.addSource(SOURCE_KEY, new ArchiveAssetSource(proxy));
-                await show("grass_block");
-            } catch (error) {
-                console.error(error);
-            }
+            // Installing the pack rebuilds every live preview, including this one.
+            if (file) installResourcePack(file).catch(console.error);
         });
         context.controls.appendChild(picker);
-
-        return () => {
-            resetSources().catch(console.warn);
-        };
+        if (resourcePackName()) {
+            const active = document.createElement("span");
+            active.className = "viewport-control viewport-status";
+            active.textContent = `Using ${resourcePackName()}`;
+            context.controls.appendChild(active);
+        }
+        const blockInput = textControl(context, "Block", blockName, name => {
+            if (!name) return;
+            blockName = name;
+            show().catch(console.warn);
+        }, []);
+        fillList(blockInput, () => BlockStates.getList(), entry => entry.replace(/\.json$/, ""));
     },
     code: {
         esm: `${esmRenderer("ArchiveAssetSource", "AssetKey", "AssetLoader", "BlockStates", "BrowserArchiveProxy", "Caching", "Models")}
@@ -83,43 +76,11 @@ await renderer.scene.addBlock(state!);`
     }
 };
 
-const LEGACY_ROOT = "https://assets.mcasset.cloud/1.16.5";
-
-const hosted: Example = {
-    id: "resourcepack-hosted",
-    title: "Asset roots & game versions",
-    description: "Every asset key can carry its own root, so a page can mix game versions. Cache keys include the root and never collide.",
-    renderer: BLOCK_RENDERER,
-    placeholder: "/placeholder-block.png",
-    async setup(context: ExampleContext) {
-        const { renderer, signal } = context;
-        const key = new AssetKey("minecraft", "furnace", "blockstates", undefined, "assets", ".json", LEGACY_ROOT);
-        const state = await BlockStates.get(key);
-        if (!state || signal.aborted) return;
-        await renderer.scene.addBlock(state);
-    },
-    code: {
-        esm: `${esmRenderer("AssetKey", "AssetLoader", "BlockStates", "HostedAssetSource")}
-
-// Default root for keys without one (1.21.11 assets)
-console.log(AssetLoader.ROOT);
-
-// Or register another host as a source; added sources are searched first
-AssetLoader.addSource("mirror", new HostedAssetSource("https://example.com/mc-assets/1.21.11"));
-
-// Or pin a single key to a different version
-const key = new AssetKey("minecraft", "furnace", "blockstates", undefined, "assets", ".json",
-    "${LEGACY_ROOT}");
-const state = await BlockStates.get(key);
-await renderer.scene.addBlock(state!);`
-    }
-};
-
 export const resourcepacks: ExampleGroup = {
     id: "resource-packs",
     title: "Resource packs & asset sources",
-    lead: "An ordered asset source registry replaces V1's single asset root: layer resource packs, CDNs, and custom namespaces.",
-    examples: [upload, hosted],
+    lead: "An ordered list of asset sources replaces V1's single asset root. Resource packs, CDNs and custom namespaces layer on top of the vanilla assets.",
+    examples: [upload],
     notes: [
         "ZIP sources are browser-only. In Node, add a HostedAssetSource or implement the AssetSource interface."
     ]

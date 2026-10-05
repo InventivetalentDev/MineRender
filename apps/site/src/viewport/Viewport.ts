@@ -205,6 +205,12 @@ export class Viewport implements Pooled {
         return this.state;
     }
 
+    /** Rebuilds the current example if it is live, for example after the asset sources changed. */
+    reload(): void {
+        if (!this.example) return;
+        if (this.state === "active" || this.state === "loading") this.setExample(this.example);
+    }
+
     /** Returns the camera to the example's starting view. */
     resetView(): void {
         const renderer = this.renderer;

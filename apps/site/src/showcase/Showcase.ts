@@ -115,6 +115,10 @@ export class Showcase {
         this.code.dataset.lang = language;
     }
 
+    reload(): void {
+        this.viewport.reload();
+    }
+
     dispose(): void {
         this.viewport.dispose();
     }

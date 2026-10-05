@@ -12,6 +12,8 @@ import { structures } from "./examples/structures";
 import { resourcepacks } from "./examples/resourcepacks";
 import { composed } from "./examples/scene";
 import { rendererPool } from "./viewport/RendererPool";
+import { bindResourcePackControls, onResourcePackChange } from "./resourcePack";
+import * as minerender from "minerender";
 import { shutdown } from "minerender";
 
 const groups = [skins, blocks, items, entities, structures, resourcepacks];
@@ -55,6 +57,16 @@ document.querySelectorAll<HTMLButtonElement>("button[data-copy]").forEach(button
 const themeToggle = document.querySelector<HTMLButtonElement>("#theme-toggle");
 if (themeToggle) setupThemeToggle(themeToggle);
 
+// One resource pack for every preview
+const packInput = document.querySelector<HTMLInputElement>("#pack-input");
+const packRemove = document.querySelector<HTMLButtonElement>("#pack-remove");
+const packStatus = document.querySelector<HTMLElement>("#pack-status");
+if (packInput && packRemove && packStatus) bindResourcePackControls(packInput, packRemove, packStatus);
+onResourcePackChange(() => {
+    playground.reload();
+    showcases.forEach(showcase => showcase.reload());
+});
+
 const poolSelect = document.querySelector<HTMLSelectElement>("#pool-size");
 if (poolSelect) {
     poolSelect.value = String(rendererPool.maxActive);
@@ -79,4 +91,5 @@ window.addEventListener("pagehide", () => {
     shutdown();
 });
 
-Object.assign(window, { minerenderSite: { playground, showcases, rendererPool } });
+// Handy in the console: window.minerender exposes the library, minerenderSite the page objects.
+Object.assign(window, { minerender, minerenderSite: { playground, showcases, rendererPool } });

@@ -180,15 +180,23 @@
                 The code next to each preview is what produced it.
             </p>
             <div class="example-nav" id="example-nav"></div>
-            <label class="pool-control">
-                Live previews at once
-                <select id="pool-size" aria-label="Maximum number of live previews">
-                    <option value="1">1</option>
-                    <option value="2">2</option>
-                    <option value="3">3</option>
-                    <option value="4">4</option>
-                </select>
-            </label>
+            <div class="example-settings">
+                <label class="pool-control">
+                    Resource pack for all previews
+                    <input id="pack-input" type="file" accept=".zip,application/zip">
+                </label>
+                <button id="pack-remove" class="link-button is-hidden" type="button">Remove pack</button>
+                <label class="pool-control">
+                    Live previews at once
+                    <select id="pool-size" aria-label="Maximum number of live previews">
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                    </select>
+                </label>
+                <span id="pack-status" class="pack-status"></span>
+            </div>
         </div>
         <!-- Example sections are inserted here by src/main.ts -->
     </section>

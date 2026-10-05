@@ -135,49 +135,80 @@ await renderer.scene.addModel(model!);`
     }
 };
 
+/** A hand-written model in the vanilla JSON format: a chair with a tilted backrest and a cushion. */
+const CHAIR_MODEL = {
+    // Any unique key works; it identifies the texture atlas built for this model.
+    key: new AssetKey("example", "chair", "models", "block", "assets"),
+    textures: {
+        planks: "minecraft:block/oak_planks",
+        cushion: "minecraft:block/red_wool"
+    },
+    elements: [
+        // seat
+        { from: [2, 7, 2], to: [14, 9, 14], faces: allFaces("#planks") },
+        // cushion
+        { from: [3, 9, 3], to: [13, 10, 13], faces: allFaces("#cushion") },
+        // backrest, tilted back around its bottom edge
+        {
+            from: [2, 9, 12], to: [14, 20, 14],
+            rotation: { origin: [8, 9, 13], axis: "x", angle: 22.5 },
+            faces: allFaces("#planks")
+        },
+        // legs
+        { from: [2, 0, 2], to: [4, 7, 4], faces: allFaces("#planks") },
+        { from: [12, 0, 2], to: [14, 7, 4], faces: allFaces("#planks") },
+        { from: [2, 0, 12], to: [4, 7, 14], faces: allFaces("#planks") },
+        { from: [12, 0, 12], to: [14, 7, 14], faces: allFaces("#planks") }
+    ]
+};
+
+function allFaces(texture: string) {
+    return Object.fromEntries(["north", "south", "east", "west", "up", "down"].map(face => [face, { texture }]));
+}
+
 const custom: Example = {
     id: "item-custom",
     title: "Custom model JSON",
-    description: "Any Java-edition model JSON works, including resource-pack style custom models. Parents and textures resolve through the asset loader.",
+    description: "Any model in the vanilla JSON format renders, not only files from the asset CDN. This chair is defined in the code on the right.",
     renderer: {
         camera: {
-            position: [26, 20, 30] as [number, number, number],
-            lookingAt: [0, 0, 0] as [number, number, number]
+            position: [28, 22, 32] as [number, number, number],
+            lookingAt: [0, 2, 0] as [number, number, number]
         }
     },
     placeholder: "/placeholder-block.png",
     async setup({ renderer, signal }) {
-        const model = await Models.getMerged(new AssetKey("minecraft", "lantern", "models", "block", "assets"));
-        if (!model || signal.aborted) return;
-        const custom = {
-            ...model,
-            elements: [
-                ...(model.elements ?? []),
-                { from: [6, 0, 6], to: [10, 2, 10], faces: { up: { texture: "#lantern" }, down: { texture: "#lantern" }, north: { texture: "#lantern" }, south: { texture: "#lantern" }, east: { texture: "#lantern" }, west: { texture: "#lantern" } } }
-            ]
-        };
-        await renderer.scene.addModel(custom as typeof model);
+        if (signal.aborted) return;
+        await renderer.scene.addModel(CHAIR_MODEL as never, { instanceMeshes: false });
     },
     code: {
-        esm: `${esmRenderer("AssetKey", "Models")}
+        esm: `${esmRenderer("AssetKey")}
 
-// Start from a vanilla model and add an element
-const lantern = await Models.getMerged(
-    new AssetKey("minecraft", "lantern", "models", "block", "assets")
-);
-const custom = {
-    ...lantern!,
+const faces = (texture: string) =>
+    Object.fromEntries(["north", "south", "east", "west", "up", "down"].map(f => [f, { texture }]));
+
+const chair = {
+    key: new AssetKey("example", "chair", "models", "block"),   // identifies the model's texture atlas
+    textures: {
+        planks: "minecraft:block/oak_planks",
+        cushion: "minecraft:block/red_wool"
+    },
     elements: [
-        ...lantern!.elements!,
-        {
-            from: [6, 0, 6], to: [10, 2, 10],
-            faces: { up: { texture: "#lantern" }, down: { texture: "#lantern" },
-                     north: { texture: "#lantern" }, south: { texture: "#lantern" },
-                     east: { texture: "#lantern" }, west: { texture: "#lantern" } }
-        }
+        { from: [2, 7, 2], to: [14, 9, 14], faces: faces("#planks") },      // seat
+        { from: [3, 9, 3], to: [13, 10, 13], faces: faces("#cushion") },    // cushion
+        {                                                                   // backrest
+            from: [2, 9, 12], to: [14, 20, 14],
+            rotation: { origin: [8, 9, 13], axis: "x", angle: 22.5 },
+            faces: faces("#planks")
+        },
+        { from: [2, 0, 2], to: [4, 7, 4], faces: faces("#planks") },        // legs
+        { from: [12, 0, 2], to: [14, 7, 4], faces: faces("#planks") },
+        { from: [2, 0, 12], to: [4, 7, 14], faces: faces("#planks") },
+        { from: [12, 0, 12], to: [14, 7, 14], faces: faces("#planks") }
     ]
 };
-await renderer.scene.addModel(custom);`
+
+await renderer.scene.addModel(chair);`
     }
 };
 

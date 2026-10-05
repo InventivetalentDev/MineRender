@@ -234,7 +234,12 @@ button { font: inherit; color: inherit; }
 .example-nav { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .example-nav a { white-space: nowrap; padding: 5px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); color: var(--ink); font-size: 0.9rem; font-weight: 500; text-decoration: none; }
 .example-nav a:hover { border-color: var(--ink); }
-.pool-control { display: inline-flex; align-items: center; gap: 10px; margin-top: 14px; color: var(--ink-soft); font-size: 0.875rem; }
+.example-settings { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 24px; margin-top: 14px; }
+.pool-control { display: inline-flex; align-items: center; gap: 10px; color: var(--ink-soft); font-size: 0.875rem; }
+.pool-control input[type="file"] { font-size: 0.8rem; max-width: 240px; }
+.link-button { background: transparent; border: 0; padding: 0; color: var(--moss-deep); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; font-size: 0.875rem; }
+.pack-status { width: 100%; color: var(--ink-soft); font-size: 0.85rem; }
+.pack-status:empty { display: none; }
 .pool-control select, .viewport-control select { font: inherit; color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: 3px; padding: 3px 6px; }
 
 .showcase { padding: calc(var(--unit) * 2.5) 0 0; }

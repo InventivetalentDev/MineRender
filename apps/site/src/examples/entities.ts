@@ -33,9 +33,18 @@ const MOBS = [
 ];
 const BLOCK_ENTITIES = ["chest", "ender_chest", "trapped_chest", "shulker_box", "bell", "conduit", "bed_head", "decorated_pot"];
 /** Texture variants are chosen through a second key; the dataset supplies a default otherwise. */
-const VARIANTS: Array<[string, string]> = [
-    ["cat/tabby", "Tabby"], ["cat/black", "Black"], ["cat/siamese", "Siamese"], ["cat/ragdoll", "Ragdoll"], ["cat/calico", "Calico"]
-];
+const VARIANTS: Record<string, string[]> = {
+    cat: ["tabby", "black", "siamese", "ragdoll", "calico", "red", "british_shorthair", "jellie", "persian", "white"],
+    horse: ["horse_brown", "horse_white", "horse_black", "horse_chestnut", "horse_creamy", "horse_darkbrown", "horse_gray"],
+    wolf: ["wolf", "wolf_ashen", "wolf_black", "wolf_chestnut", "wolf_rusty", "wolf_snowy", "wolf_spotted", "wolf_striped", "wolf_woods"],
+    axolotl: ["axolotl_lucy", "axolotl_cyan", "axolotl_gold", "axolotl_wild", "axolotl_blue"],
+    rabbit: ["brown", "white", "black", "white_splotched", "gold", "salt", "toast"],
+    frog: ["temperate_frog", "cold_frog", "warm_frog"]
+};
+
+function variantLabel(variant: string, animal: string): string {
+    return variant.replace(new RegExp(`^${animal}_?`), "").replace(/_frog$/, "").replace(/_/g, " ") || variant;
+}
 
 export const mob: Example = {
     id: "entity-mob",
@@ -107,12 +116,13 @@ const chest = await renderer.scene.addEntity(model!);`
 const variants: Example = {
     id: "entity-variants",
     title: "Texture variants",
-    description: "One model, many textures. Pass a second key to choose a variant such as a cat breed, a horse coat, or a bed color.",
+    description: "One model, many textures. Pass a second key to choose a variant such as a cat breed, a horse coat, or a wolf fur.",
     renderer: ENTITY_RENDERER,
     placeholder: "/placeholder-block.png",
     async setup(context) {
-        let current = await showEntity(context, VARIANTS[0][0]);
-        selectControl(context, "Cat", VARIANTS, VARIANTS[0][0], async name => {
+        let animal = "cat";
+        let current = await showEntity(context, `${animal}/${VARIANTS[animal][0]}`);
+        const show = async (name: string) => {
             try {
                 const next = await showEntity(context, name);
                 if (!next) return;
@@ -124,7 +134,23 @@ const variants: Example = {
             } catch (error) {
                 console.warn(error);
             }
+        };
+        const variantOptions = (name: string): Array<[string, string]> => VARIANTS[name].map(v => [v, variantLabel(v, name)]);
+        const variantSelect = selectControl(context, "Texture", variantOptions(animal), VARIANTS[animal][0], variant => void show(`${animal}/${variant}`));
+        selectControl(context, "Animal", Object.keys(VARIANTS).map(name => [name, name]), animal, name => {
+            animal = name;
+            variantSelect.innerHTML = "";
+            for (const [value, label] of variantOptions(name)) {
+                const option = document.createElement("option");
+                option.value = value;
+                option.textContent = label;
+                variantSelect.appendChild(option);
+            }
+            variantSelect.value = VARIANTS[name][0];
+            void show(`${name}/${VARIANTS[name][0]}`);
         });
+        // Put the animal picker first
+        context.controls.prepend(context.controls.lastElementChild!);
     },
     code: {
         esm: `${esmRenderer("BasicAssetKey", "Entities")}
