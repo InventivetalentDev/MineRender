@@ -16,6 +16,7 @@ import { TextureAtlas } from "../src/texture/TextureAtlas";
 import { BatchedExecutor } from "../src/util/BatchedExecutor";
 import { UVMapper } from "../src/UVMapper";
 import { MineRenderWorld } from "../src/world/MineRenderWorld";
+import { ChunkData } from "../src/world/ChunkData";
 import type { CanvasImage } from "../src/canvas/CanvasImage";
 
 function fixture(t: ExecutionContext) {
@@ -147,11 +148,18 @@ test.serial("variant rotation maps cullface directions into world space and leav
 
 test.serial("batched adjacent placements settle with consistent shared-face visibility", async t => {
     const { world, scene } = fixture(t);
-    const executor = new BatchedExecutor(1, 3);
-    t.teardown(() => executor.stop());
+    const executor = new BatchedExecutor(1, 1);
+    const original = BlockObject.prototype.setCullMask;
+    const updates = new Map<BlockObject, number>();
+    BlockObject.prototype.setCullMask = async function (mask) {
+        updates.set(this, (updates.get(this) ?? 0) + 1);
+        await original.call(this, mask);
+    };
+    t.teardown(() => { executor.stop(); BlockObject.prototype.setCullMask = original; });
     await world.placeMultiBlock({ size: [3, 1, 1], blocks: [-1, 0, 1].map(x => ({ position: [x, 0, 0], type: "test:cube" })) }, true, executor);
     t.deepEqual([-1, 0, 1].map(x => indexCount(world.getBlockAt(x, 0, 0)!.object)), [30, 24, 30]);
     t.is(scene.stats.instanceCount, 3);
+    t.deepEqual([...updates.values()], [1, 1, 1]);
     await world.setBlockAt(0, 0, 0, undefined);
     t.deepEqual([-1, 1].map(x => indexCount(world.getBlockAt(x, 0, 0)!.object)), [36, 36]);
 });
@@ -173,4 +181,74 @@ test.serial("visibility changes preserve the originally selected weighted model"
     t.is(indexCount(weighted.object), 36);
     t.is(modelOf(weighted.object).originalModel, selected);
     t.is(world.getBlockAt(0, 0, 0), weighted);
+});
+
+
+test.serial("failed bulk placement updates successful writes and neighbors of removed blocks before rejecting", async t => {
+    const { world, scene, place } = fixture(t);
+    await place([14, 0, 0]);
+    await place([15, 0, 0]);
+    const get = BlockStates.get, getAll = BlockStates.getAll;
+    const failure = new Error("block asset failed");
+    BlockStates.getAll = async () => [];
+    BlockStates.get = async key => {
+        if (key.path === "failure") throw failure;
+        return get(key);
+    };
+    const executor = new BatchedExecutor(1, 4);
+    t.teardown(() => { BlockStates.getAll = getAll; executor.stop(); });
+    await t.throwsAsync(world.placeMultiBlock({ size: [4, 1, 1], blocks: [
+        { position: [15, 0, 0], type: "air" },
+        { position: [16, 0, 0], type: "test:cube" },
+        { position: [17, 0, 0], type: "test:cube" },
+        { position: [18, 0, 0], type: "test:failure" }
+    ] }, true, executor), { is: failure });
+    t.deepEqual([14, 16, 17].map(x => indexCount(world.getBlockAt(x, 0, 0)!.object)), [36, 30, 30]);
+    t.is(world.getBlockAt(15, 0, 0), undefined);
+    t.is(world.getBlockAt(18, 0, 0), undefined);
+    t.is(scene.stats.instanceCount, 3);
+});
+
+test.serial("chunk column placement culls across sections and empty replacement restores the neighboring column", async t => {
+    const { world, scene, place } = fixture(t);
+    const neighbor = (await place([16, 15, 0]))!;
+    const lower = new ChunkData(), upper = new ChunkData();
+    lower.set(15 + 15 * 256, { type: "test:cube" });
+    upper.set(15, { type: "test:cube" });
+    await world.placeChunk({ x: 0, z: 0, sections: [{ y: 0, data: lower }, { y: 1, data: upper }] });
+    t.deepEqual([indexCount(world.getBlockAt(15, 15, 0)!.object),
+        indexCount(world.getBlockAt(15, 16, 0)!.object), indexCount(neighbor.object)], [24, 30, 30]);
+    t.is(scene.stats.instanceCount, 3);
+    await world.placeChunk({ x: 0, z: 0, sections: [] });
+    t.is(world.getBlockAt(15, 15, 0), undefined);
+    t.is(world.getBlockAt(15, 16, 0), undefined);
+    t.is(world.getBlockAt(16, 15, 0), neighbor);
+    t.is(indexCount(neighbor.object), 36);
+    t.is(scene.stats.instanceCount, 1);
+});
+
+test.serial("standalone edits finish culling while another bulk placement is waiting for an asset", async t => {
+    const { world, place, addModel } = fixture(t);
+    addModel("delayed");
+    const left = (await place([0, 0, 0]))!;
+    await place([1, 0, 0]);
+    let release!: () => void, started!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const loading = new Promise<void>(resolve => { started = resolve; });
+    const get = BlockStates.get, getAll = BlockStates.getAll;
+    BlockStates.getAll = async () => [];
+    BlockStates.get = async key => {
+        if (key.path === "delayed") { started(); await gate; }
+        return get(key);
+    };
+    t.teardown(() => { release(); BlockStates.getAll = getAll; });
+    const pending = world.placeMultiBlock({ size: [1, 1, 1], blocks: [
+        { position: [2, 0, 0], type: "test:delayed" }
+    ] });
+    await loading;
+    await world.setBlockAt(1, 0, 0, undefined);
+    t.is(indexCount(left.object), 36);
+    release();
+    await pending;
+    t.is(indexCount(world.getBlockAt(2, 0, 0)!.object), 36);
 });

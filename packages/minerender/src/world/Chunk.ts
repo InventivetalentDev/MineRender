@@ -67,7 +67,8 @@ export class Chunk {
     /**
      * Set a block at integer chunk-local coordinates from 0 to 15.
      */
-    public async setBlockInChunkAt(pos: Vector3, block?: Block,  worldPos?: Vector3): Promise<Maybe<BlockInfo>> {
+    public async setBlockInChunkAt(pos: Vector3, block?: Block, worldPos?: Vector3,
+                                   onBlocksChanged = this.onBlocksChanged): Promise<Maybe<BlockInfo>> {
         if (typeof worldPos === "undefined") {
             worldPos = this.chunkPosToWorldPos(pos);
         }
@@ -89,9 +90,9 @@ export class Chunk {
             object = await this.scene.addBlock(blockState, {
                 mergeMeshes: true,
                 instanceMeshes: true,
-                maxInstanceCount: 2000
+                maxInstanceCount: 2000,
+                initialState: stored.properties
             }) as BlockObject;
-            if (stored.properties) await object.setState(stored.properties);
             object.setPosition(MineRenderWorld.worldToScenePosition(worldPos));
 
             const info: BlockInfo = { get block() { return readBlock(); }, object };
@@ -102,18 +103,18 @@ export class Chunk {
             object?.removeFromScene();
             throw error;
         } finally {
-            await this.onBlocksChanged?.([worldPos]);
+            await onBlocksChanged?.([worldPos]);
         }
     }
 
-    public async clear(): Promise<void> {
+    public async clear(onBlocksChanged = this.onBlocksChanged): Promise<void> {
         const positions = [...this.renderedBlocks.keys()].map(index => this.chunkPosToWorldPos(
             new Vector3(index % 16, Math.floor(index / 256), Math.floor(index / 16) % 16)
         ));
         for (const info of this.renderedBlocks.values()) info.object.removeFromScene();
         this.renderedBlocks.clear();
         this.data.clear();
-        await this.onBlocksChanged?.(positions);
+        await onBlocksChanged?.(positions);
     }
 
     public async dispose(): Promise<void> {
