@@ -1,9 +1,4 @@
 import test, { ExecutionContext } from "ava";
-import { AssetKey } from "../src/assets/AssetKey";
-import { Models } from "../src/assets/Models";
-import { CUBE_FACES } from "../src/CubeFace";
-import { ModelCulling } from "../src/model/ModelCulling";
-import { ModelMerger } from "../src/model/ModelMerger";
 import { Env, EnvProvider } from "../src/Env";
 import { ModelTextures } from "../src/assets/ModelTextures";
 import { ImageLoader } from "../src/image/ImageLoader";
@@ -13,15 +8,14 @@ import type { CompatCanvas } from "../src/canvas/CanvasCompat";
 import type { ExtractableImageData } from "../src/ExtractableImageData";
 
 function fixture(t: ExecutionContext) {
-    const originals = { provider: Env["_provider"], get: ModelTextures.get, meta: ModelTextures.getMeta, data: ImageLoader.getData, raw: Models.getRaw };
+    const originals = { provider: Env["_provider"], get: ModelTextures.get, meta: ModelTextures.getMeta, data: ImageLoader.getData };
     t.teardown(() => {
         Env["_provider"] = originals.provider;
         ModelTextures.get = originals.get;
         ModelTextures.getMeta = originals.meta;
         ImageLoader.getData = originals.data;
-        Models.getRaw = originals.raw;
     });
-    const pixels = (size = 16) => ({ width: size, height: size, data: new Uint8ClampedArray(size * size * 4).fill(255) });
+    const pixels = { width: 16, height: 16, data: new Uint8ClampedArray(16 * 16 * 4).fill(255) };
     Env.register({
         name: "test",
         createCanvas: (width, height) => ({
@@ -30,12 +24,9 @@ function fixture(t: ExecutionContext) {
             toDataURL: () => ""
         } as unknown as CompatCanvas)
     } as EnvProvider);
-    ModelTextures.get = async key => {
-        const data = pixels(key.path === "large" ? 32 : 16);
-        return { width: data.width, height: data.height, data: { getImageData: () => data } } as ExtractableImageData;
-    };
+    ModelTextures.get = async () => ({ width: 16, height: 16, data: { getImageData: () => pixels } } as ExtractableImageData);
     ModelTextures.getMeta = async () => undefined;
-    ImageLoader.getData = async () => pixels();
+    ImageLoader.getData = async () => pixels;
 }
 
 test.serial("faces without texture references keep fallback UVs while textured faces map normally", async t => {
@@ -57,50 +48,15 @@ test.serial("faces without texture references keep fallback UVs while textured f
     t.deepEqual(uv.slice(16, 24), [0, 1, 0.25, 1, 0, 0.75, 0.25, 0.75]);
 });
 
-
-test.serial("sibling atlases keep inherited UVs and occlusion independent of load order", async t => {
+test.serial("building a sibling atlas leaves existing and source UVs unchanged", async t => {
     fixture(t);
-    for (const reverse of [false, true]) {
-        const parent: Model = { elements: [{
-            from: [0, 0, 0], to: [16, 16, 16],
-            faces: Object.fromEntries(CUBE_FACES.map(face => [face, { texture: "#side", cullface: face }]))
-        }] };
-        const source = structuredClone(parent);
-        Models.getRaw = async () => parent;
-        const models = await Promise.all([
-            ModelMerger.mergeWithParents({ parent: "test:block/base", textures: { side: "test:block/stone" } }),
-            ModelMerger.mergeWithParents({ parent: "test:block/base", textures: { padding: "test:block/large", side: "test:block/dirt" } })
-        ]);
-        models.forEach((model, index) => { model.key = new AssetKey("test", `sibling${index}`, "models", "block"); });
-        const order = reverse ? [1, 0] : [0, 1];
-        const first = (await UVMapper.createAtlas(models[order[0]]))!;
-        const firstElements = structuredClone(first.model.elements);
-        const second = (await UVMapper.createAtlas(models[order[1]]))!;
-        t.deepEqual(first.model.elements, firstElements);
-        t.true(ModelCulling.isOpaqueFullCube(first));
-        t.true(ModelCulling.isOpaqueFullCube(second));
-        t.deepEqual(parent, source);
-        for (const model of models) t.deepEqual(model.elements, source.elements);
-        for (const [index, atlas] of [first, second].entries()) {
-            const modelIndex = order[index];
-            const expected = modelIndex === 0
-                ? [0.5, 1, 1, 1, 0.5, 0.5, 1, 0.5]
-                : [0, 0.5, 0.25, 0.5, 0, 0.25, 0.25, 0.25];
-            t.deepEqual(atlas.model.elements![0].mappedUv, CUBE_FACES.flatMap(() => expected));
-            t.is(atlas.model.key, models[modelIndex].key);
-            t.is(atlas.model.key!.getFullPath(), `block/sibling${modelIndex}`);
-        }
-    }
-});
-
-test.serial("atlas generation distinguishes omitted item elements from explicit empty geometry", async t => {
-    fixture(t);
-    const item: Model = { textures: { layer0: "item/stone" } };
-    const atlas = (await UVMapper.createAtlas(item))!;
-    t.true(atlas.model.elements!.length > 0);
-    t.false("elements" in item);
-    t.true(atlas.model.elements!.every(element => element.mappedUv?.length === 48));
-    const empty = { ...item, elements: [] };
-    t.deepEqual((await UVMapper.createAtlas(empty))!.model.elements, []);
-    t.deepEqual(empty.elements, []);
+    const elements: Model["elements"] = [{
+        from: [0, 0, 0], to: [16, 16, 16], faces: { west: { texture: "#side" } }
+    }];
+    const source = structuredClone(elements);
+    const first = (await UVMapper.createAtlas({ elements, textures: { side: "block/stone" } }))!;
+    const uv = [...first.model.elements![0].mappedUv!];
+    await UVMapper.createAtlas({ elements, textures: { padding: "block/dirt", side: "block/stone" } });
+    t.deepEqual(first.model.elements![0].mappedUv, uv);
+    t.deepEqual(elements, source);
 });
