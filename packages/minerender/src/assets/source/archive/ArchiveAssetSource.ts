@@ -24,6 +24,11 @@ export class ArchiveAssetSource extends AssetSource implements ArchiveProxy {
         return new ArchiveAssetSource(new BrowserArchiveProxy(blob));
     }
 
+    public get cacheId(): Maybe<string> {
+        const id = this._archiveProxy.id;
+        return id === undefined ? undefined : `archive:${id}`;
+    }
+
     public async getEntries(): Promise<ArchiveEntry[]> {
         return this._archiveProxy.getEntries();
     }

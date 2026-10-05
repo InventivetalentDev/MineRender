@@ -37,7 +37,7 @@ export class Models {
 
     private static async getItemModel(key: AssetKey): Promise<Maybe<Model>> {
         const itemKey = new AssetKey(key.namespace, key.path, "items", undefined, key.rootType, ".json", key.root);
-        const model = await this.PERSISTENT_CACHE.getOrLoad(itemKey.serialize(), async () => {
+        const model = await this.PERSISTENT_CACHE.getOrLoad(AssetLoader.persistentKey(itemKey.serialize()), async () => {
             const result = await AssetLoader.getFirst<Model & { model?: ItemModelNode }>([itemKey, key], AssetParser.JSON);
             if (!result) return undefined;
             if (result.key.assetType !== "items") return { ...result.asset, key };
@@ -90,7 +90,7 @@ export class Models {
         const keyStr = key.serialize();
         //TODO: maybe add the asset source to the key
         return Caching.rawModelCache.get(keyStr, k => {
-            return this.PERSISTENT_CACHE.getOrLoad(keyStr, k1 => {
+            return this.PERSISTENT_CACHE.getOrLoad(AssetLoader.persistentKey(keyStr), k1 => {
                 return AssetLoader.get<Model>(key, AssetParser.MODEL);
             })
         }).then(asset => {

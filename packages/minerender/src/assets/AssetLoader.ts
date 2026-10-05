@@ -18,11 +18,16 @@ import { Caching } from "../cache/Caching";
 const p = prefix("AssetLoader");
 
 
+const FALLBACK_ROOT = "https://raw.githubusercontent.com/InventivetalentDev/minerender-fallback-assets/master";
+
 export class AssetLoader {
 
     static ROOT: string = DEFAULT_ROOT;
 
     private static _SOURCES: AssetSourceReference[] = [];
+
+    /** Used when a registered source cannot identify its content, so nothing persists past this session. */
+    private static readonly SESSION_SCOPE = `session:${Date.now().toString(36)}:${Math.random().toString(36).slice(2)}`;
 
     public static get version(): string {
         return this.ROOT.substring(this.ROOT.lastIndexOf("/") + 1);
@@ -38,6 +43,29 @@ export class AssetLoader {
             this.addSource("mcassets", source);
         }
         Caching.clear();
+    }
+
+    /**
+     * Scope for persistent cache keys. Empty with only the default vanilla sources, so their
+     * entries stay valid across sessions; otherwise it names every added source (resource packs,
+     * mirrors) so their results never masquerade as vanilla assets after a reload.
+     */
+    public static get persistentScope(): string {
+        const parts: string[] = [];
+        for (const { key, source } of this._SOURCES) {
+            const id = source.cacheId;
+            if (key === "mcassets" && id === `hosted:${this.ROOT}`) continue;
+            if (key === "mcassets-fallback" && id === `hosted:${FALLBACK_ROOT}`) continue;
+            if (id === undefined) return this.SESSION_SCOPE;
+            parts.push(`${key}=${id}`);
+        }
+        return parts.join("|");
+    }
+
+    /** Prefixes a persistent cache key with the current source scope. */
+    public static persistentKey(key: string): string {
+        const scope = this.persistentScope;
+        return scope ? `${scope}\n${key}` : key;
     }
 
     public static addSource(key: string, source: AssetSource, override: boolean = true) {
@@ -64,7 +92,7 @@ export class AssetLoader {
     }
 
     static {
-        this.addSource("mcassets-fallback", new HostedAssetSource('https://raw.githubusercontent.com/InventivetalentDev/minerender-fallback-assets/master', { retryDefaults: false }));
+        this.addSource("mcassets-fallback", new HostedAssetSource(FALLBACK_ROOT, { retryDefaults: false }));
         this.addSource("mcassets", new HostedAssetSource(this.ROOT, { retryDefaults: false }));
     }
 
