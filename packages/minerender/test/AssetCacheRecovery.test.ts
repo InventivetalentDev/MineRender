@@ -1,5 +1,5 @@
 import test from "ava";
-import { AssetLoader, BasicAssetKey, BlockStates, Caching, Entities, shutdown } from "../src";
+import { AssetKey, AssetLoader, BasicAssetKey, BlockStates, Caching, Entities, shutdown } from "../src";
 import type { EntityModelLayer } from "../src/entity/EntityModel";
 
 const originalGet = AssetLoader.get;
@@ -16,7 +16,7 @@ const main: EntityModelLayer = {
 const cases = [
     { name: "blockstate list", load: () => BlockStates.getList(), asset: { directories: [], files: ["stone"] }, expected: ["stone"], missing: [] },
     { name: "default blockstates", load: () => BlockStates.getDefaultStates(), asset: { "minecraft:stone": {} }, expected: { "minecraft:stone": {} }, missing: undefined },
-    { name: "entity model files", load: () => Entities.getEntity(entityKey), asset: { id: "minecraft:pig", layers: { main } }, expected: { key: entityKey, id: "minecraft:pig", layer: main }, missing: undefined },
+    { name: "entity model files", load: () => Entities.getEntity(entityKey, entityKey), asset: { id: "minecraft:pig", layers: { main } }, expected: { key: entityKey, texture: new AssetKey("minecraft", "pig", "textures", "entity", "assets", ".png"), id: "minecraft:pig", layer: main }, missing: undefined },
     { name: "entity list", load: () => Entities.getEntityList(), asset: { directories: [], files: ["pig.json"] }, expected: ["pig"], missing: [] }
 ];
 

@@ -40,6 +40,7 @@ export class EntityObject extends SceneObject {
     }
 
     private get textureKey(): AssetKey {
+        if (this.entity.texture) return this.entity.texture;
         const key = this.entity.key;
         return new AssetKey(
             key.namespace,

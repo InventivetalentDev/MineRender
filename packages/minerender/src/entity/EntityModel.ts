@@ -1,8 +1,9 @@
-import type { BasicAssetKey } from "../assets/AssetKey";
+import type { AssetKey, BasicAssetKey } from "../assets/AssetKey";
 import type { MinecraftAsset } from "../MinecraftAsset";
 
 export interface EntityModel {
     key: BasicAssetKey;
+    texture?: AssetKey;
     layer: EntityModelLayer;
     id: string;
 }
