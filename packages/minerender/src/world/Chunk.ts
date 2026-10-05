@@ -1,6 +1,6 @@
 import { Block } from "../model/block/Block";
-import { BlockObject, isBlockObject } from "../model/block/scene/BlockObject";
-import { Box3, Object3D, Vector3 } from "three";
+import { BlockObject } from "../model/block/scene/BlockObject";
+import { Vector3 } from "three";
 import { Maybe } from "../util/util";
 import { BlockInfo } from "./BlockInfo";
 import { MineRenderScene } from "../renderer/MineRenderScene";
@@ -8,7 +8,6 @@ import { BlockStates } from "../assets/BlockStates";
 import { AssetKey } from "../assets/AssetKey";
 import { MineRenderWorld } from "./MineRenderWorld";
 import { isTripleArray, TripleArray } from "../model/Model";
-import { addBox3WireframeToObject } from "../util/model";
 import { prefix } from "../util/log";
 
 const p = prefix("Chunk");
@@ -23,24 +22,11 @@ export class Chunk {
 
     private readonly _blocks: BlockInfo[] = [];
 
-    private readonly _anchor: Object3D;
-
     constructor(scene: MineRenderScene, x: number, y: number, z: number) {
         this.scene = scene;
         this.x = x;
         this.y = y;
         this.z = z;
-
-        //TODO: option to visualize chunks
-        let anchor = new Object3D();
-        this._anchor = anchor;
-        scene.add(anchor)
-        anchor.position.set((this.x * 256) + 128 - 8, (this.y * 256) + 128 - 8, (this.z * 256) + 128 - 8);
-        addBox3WireframeToObject(
-            new Box3(new Vector3(0, 0, 0), new Vector3(256, 256, 256)),
-            anchor,
-            0xffff00,
-            4);
     }
 
     public getBlockAt(x: number, y: number, z: number): Maybe<BlockInfo>;
@@ -79,7 +65,7 @@ export class Chunk {
     }
 
     /**
-     * Set block at a _chunk_ position (0-16)
+     * Set a block at integer chunk-local coordinates from 0 to 15.
      */
     public async setBlockInChunkAt(pos: Vector3, block?: Block,  worldPos?: Vector3): Promise<Maybe<BlockInfo>> {
         if (typeof worldPos === "undefined") {
@@ -90,20 +76,18 @@ export class Chunk {
         const current = this._blocks[index];
         if (typeof current !== "undefined") {
             console.debug(p, "deleting existing block at", pos, worldPos, index);
-            // current.object.setScale(new Vector3(0, 0, 0));//TODO
             current.object.removeFromScene();
             delete this._blocks[index];
         }
 
-        if (typeof block === "undefined" || typeof block.type === "undefined" || block.type === "air") return undefined; // only delete block
+        if (!block || Chunk.isAir(block)) return undefined;
 
         const blockState = await BlockStates.get(AssetKey.parse("blockstates", block.type));
         if (blockState) {
             const blockObject: BlockObject = await this.scene.addBlock(blockState, {
                 mergeMeshes: true,
                 instanceMeshes: true,
-                wireframe: true,
-                maxInstanceCount: 2000 //TODO: setting this to high kills FPS; increase on demand somehow?
+                maxInstanceCount: 2000
             }) as BlockObject;//TODO
             if (block.properties) {
                 await blockObject.setState(block.properties);
@@ -122,25 +106,24 @@ export class Chunk {
     }
 
     public async clear(): Promise<void> {
-        let promises: Promise<any>[] = [];
-        let pos = new Vector3();
-        for (let x = 0; x < 16; x++) {
-            for (let z = 0; z < 16; z++) {
-                for (let y = 0; y < 16; y++) {
-                    promises.push(this.setBlockInChunkAt(pos.set(x,y,z), undefined));
-                }
-            }
-        }
-        return Promise.all(promises).then(ignored => {
-        });
+        this._blocks.forEach(block => block.object.removeFromScene());
+        this._blocks.length = 0;
     }
 
     public async dispose(): Promise<void> {
         await this.clear();
-        this.scene.remove(this._anchor);
+    }
+
+    static isAir(block: Maybe<Block>): boolean {
+        if (typeof block === "undefined" || typeof block.type === "undefined") return true;
+        const key = AssetKey.parse("blockstates", block.type);
+        return key.namespace === "minecraft" && !key.type && ["air", "cave_air", "void_air"].includes(key.path);
     }
 
     static chunkPosToBlockIndex(pos: Vector3): number {
+        if ([pos.x, pos.y, pos.z].some(value => !Number.isInteger(value) || value < 0 || value >= 16)) {
+            throw new RangeError("Block coordinates must be integers from 0 to 15 within a chunk");
+        }
         return (pos.y * 16 * 16) + (pos.z * 16) + pos.x;
     }
 
