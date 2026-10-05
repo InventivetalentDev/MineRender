@@ -1,4 +1,4 @@
-import { BoxGeometry, BufferAttribute, Float32BufferAttribute, Vec2, Vector2, Vector4 } from "three";
+import { BoxGeometry, BufferAttribute, Euler, Float32BufferAttribute, Vec2, Vector2, Vector3, Vector4 } from "three";
 import { DoubleArray, Model, QuadArray, TextureAsset } from "./model/Model";
 import { ModelElement, ModelFaces } from "./model/ModelElement";
 import { CUBE_FACES, CubeFace } from "./CubeFace";
@@ -22,6 +22,16 @@ export const DEFAULT_UV: QuadArray = [0, 0, 16, 16];
 const X = 0;
 const Y = 1;
 const Z = 2;
+
+// Each face's right/down axes in Minecraft's top-origin UV coordinates.
+const FACE_UV_AXES: Record<CubeFace, [Vector3, Vector3]> = {
+    east: [new Vector3(0, 0, -1), new Vector3(0, -1, 0)],
+    west: [new Vector3(0, 0, 1), new Vector3(0, -1, 0)],
+    up: [new Vector3(1, 0, 0), new Vector3(0, 0, 1)],
+    down: [new Vector3(1, 0, 0), new Vector3(0, 0, -1)],
+    south: [new Vector3(1, 0, 0), new Vector3(0, -1, 0)],
+    north: [new Vector3(-1, 0, 0), new Vector3(0, -1, 0)]
+};
 
 /*
  * - Minecraft Block UVs are from the top-left to bottom-right
@@ -158,6 +168,44 @@ export class UVMapper {
 
     public static facesToUv(faces: ModelFaces, originalTextureSize: DoubleArray, actualTextureSize: DoubleArray): Float32BufferAttribute {
         return new Float32BufferAttribute(this.facesToUvArray(faces, originalTextureSize, actualTextureSize), 2);
+    }
+
+    public static lockUvs(geometry: BoxGeometry, faces: ModelFaces, atlas: TextureAtlas, rotation: Euler): void {
+        const uv = geometry.getAttribute("uv") as BufferAttribute;
+        for (let faceIndex = 0; faceIndex < CUBE_FACES.length; faceIndex++) {
+            const faceName = CUBE_FACES[faceIndex];
+            const texture = faces[faceName]?.texture?.substring(1);
+            const position = texture && atlas.positions[texture];
+            const size = texture && atlas.sizes[texture];
+            if (!position || !size) continue;
+
+            const [sourceU, sourceV] = FACE_UV_AXES[faceName];
+            const uAxis = sourceU.clone().applyEuler(rotation);
+            const vAxis = sourceV.clone().applyEuler(rotation);
+            const normal = vAxis.clone().cross(uAxis);
+            const targetFace = CUBE_FACES.find(name => {
+                const [u, v] = FACE_UV_AXES[name];
+                return v.clone().cross(u).dot(normal) > 0.5;
+            })!;
+            const [targetU, targetV] = FACE_UV_AXES[targetFace];
+            const uu = Math.round(targetU.dot(uAxis));
+            const uvCross = Math.round(targetU.dot(vAxis));
+            const vu = Math.round(targetV.dot(uAxis));
+            const vv = Math.round(targetV.dot(vAxis));
+
+            // Rotate about the full texture center, not the cropped face or atlas center.
+            for (let corner = 0; corner < 4; corner++) {
+                const index = faceIndex * 4 + corner;
+                const u = (uv.getX(index) * atlas.image.width - position[0]) / size[0] - 0.5;
+                const v = ((1 - uv.getY(index)) * atlas.image.height - position[1]) / size[1] - 0.5;
+                const lockedU = uu * u + uvCross * v + 0.5;
+                const lockedV = vu * u + vv * v + 0.5;
+                uv.setXY(index,
+                    (position[0] + lockedU * size[0]) / atlas.image.width,
+                    1 - (position[1] + lockedV * size[1]) / atlas.image.height);
+            }
+        }
+        uv.needsUpdate = true;
     }
 
     public static async getAtlas(model: Model): Promise<Maybe<TextureAtlas>> {
@@ -449,9 +497,6 @@ export class UVMapper {
                         tr.y = 1 - tr.y;
                         bl.y = 1 - bl.y;
                         br.y = 1 - br.y;
-
-                        //TODO: figure out how uv lock works
-
 
                         let uvs: QuadArray<Vector2> = [tl, tr, bl, br];
                         // console.log("uvs", uvs);

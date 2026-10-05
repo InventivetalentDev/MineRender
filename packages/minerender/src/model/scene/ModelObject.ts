@@ -1,10 +1,10 @@
 import { SceneObject } from "../../renderer/SceneObject";
-import { Model, TextureAsset } from "../Model";
+import { Model, TextureAsset, TripleArray } from "../Model";
 import { Materials } from "../../Materials";
 import { Maybe, toRadians } from "../../util/util";
 import { UVMapper } from "../../UVMapper";
 import { TextureAtlas } from "../../texture/TextureAtlas";
-import { BoxGeometry, BoxHelper, BufferAttribute, EdgesGeometry, InstancedMesh, LineBasicMaterial, LineSegments, Material, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, ShaderMaterial } from "three";
+import { BoxGeometry, BoxHelper, BufferAttribute, EdgesGeometry, Euler, InstancedMesh, LineBasicMaterial, LineSegments, Material, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, ShaderMaterial } from "three";
 import { mergeBufferGeometries } from "../../three/BufferGeometryUtils";
 import { SceneObjectOptions } from "../../renderer/SceneObjectOptions";
 import { addBox3WireframeToObject, addWireframeToMesh, addWireframeToObject, applyElementRotation } from "../../util/model";
@@ -72,6 +72,9 @@ export class ModelObject extends SceneObject {
             if (this.atlas.model.elements) {
                 this.atlas.model.elements?.forEach(el => {
                     const elGeo = this._getBoxGeometryFromElement(el).clone();
+                    if (this.options.uvLockRotation) {
+                        UVMapper.lockUvs(elGeo, el.faces, this.atlas!, new Euler(...this.options.uvLockRotation));
+                    }
 
                     // elGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(-8,-8,-8));
 
@@ -173,7 +176,8 @@ export class ModelObject extends SceneObject {
 }
 
 export interface ModelObjectOptions extends SceneObjectOptions {
-
+    /** Quarter-turn block rotation in radians to compensate when locking UVs. */
+    uvLockRotation?: TripleArray;
 }
 
 export function isModelObject(obj: any): obj is ModelObject {

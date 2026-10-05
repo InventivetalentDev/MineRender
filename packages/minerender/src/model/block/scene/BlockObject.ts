@@ -236,73 +236,26 @@ export class BlockObject extends SceneObject {
     }
 
     protected async createVariant(variant: BlockStateVariant): Promise<ModelObject | InstanceReference<ModelObject>> {
-        //TODO: uvlock
-        //TODO: default state?
-        const model = await Models.getMerged(AssetKey.parse("models", variant.model!));
-        const obj: ModelObject | InstanceReference<ModelObject> = await this.scene.addModel(model!, this.options);
-        /*
-        const obj = new ModelObject(model!, this.options);
-        await obj.init();
-         */
-        if (isInstanceReference(obj) || (<ModelObject>obj).isInstanced) {
-            this._isInstanced = true;
-            this._instanceCounter = 1;//TODO: BlockObject itself isn't technically instanced, but needs the id for the get/setMatrix calls to work properly
-            /*
-            if (isInstanceReference(obj)) {
-                this._instanceCounter = obj.index;
-            } else {
-                this._instanceCounter = (<ModelObject>obj).instanceCounter;
-            }
-            */
-        }
-
-
-        /*
-        // Re-apply instance info as a base
-        if (instanceInfo.length > 0) {
-            for (let i = 0; i < instanceInfo.length; i++) {
-                obj.setMatrixAt(i, instanceInfo[i]);
-            }
-        }
-         */
-
-        let rotation = new Euler(0, 0, 0);
+        const rotation = new Euler();
         if (typeof variant.x !== "undefined") {
-            // obj.rotation.x = toRadians(variant.x);
-            // obj.rotation.set(obj.rotation.x + toRadians(variant.x), obj.rotation.y, obj.rotation.z);
-            // for (let child of obj.children) {
-            //     // applyGenericRotation(Axis.X, variant.x, child);
-            //     child.rotation.x = toRadians(variant.x);
-            // }
-            // this.setRotationAt(0, new Euler(variant.x, 0, 0));
             rotation.x = toRadians(clampRotationDegrees(variant.x));
         }
         if (typeof variant.y !== "undefined") {
-            // obj.rotation.y = toRadians(variant.y);
-            // obj.rotation.set(obj.rotation.x, obj.rotation.y + toRadians(variant.y), obj.rotation.z);
-            // for (let child of obj.children) {
-            //     // applyGenericRotation(Axis.Y, variant.y, child);
-            //     child.rotation.y = toRadians(variant.y);
-            // }
-            // this.setRotationAt(0, new Euler(0, variant.y, 0));
-            // Y-Rotations are weird...
-            if(typeof variant.x!=="undefined"){
-                rotation.y = toRadians(clampRotationDegrees(variant.y));
-            }else{
-                rotation.y = toRadians(clampRotationDegrees(360-variant.y));
-            }
+            rotation.y = toRadians(clampRotationDegrees(typeof variant.x !== "undefined" ? variant.y : 360 - variant.y));
         }
-        // console.log(obj.isInstanced);
+
+        const model = await Models.getMerged(AssetKey.parse("models", variant.model!));
+        const options: Partial<ModelObjectOptions> = {
+            ...this.options,
+            uvLockRotation: variant.uvlock && (rotation.x !== 0 || rotation.y !== 0)
+                ? [rotation.x, rotation.y, rotation.z] : undefined
+        };
+        const obj = await this.scene.addModel(model!, options);
+        if (isInstanceReference(obj) || (<ModelObject>obj).isInstanced) {
+            this._isInstanced = true;
+            this._instanceCounter = 1;//TODO: BlockObject itself isn't technically instanced, but needs the id for the get/setMatrix calls to work properly
+        }
         obj.setRotation(rotation);
-        console.log(obj)
-
-        /*
-        this.add(obj);
-
-        if (this.options.wireframe) {
-            addWireframeToObject(this, 0xff0000, 2)
-        }
-         */
         return obj;
     }
 

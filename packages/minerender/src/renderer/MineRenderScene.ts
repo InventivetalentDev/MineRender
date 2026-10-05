@@ -2,7 +2,7 @@ import { Event, Object3D, Scene } from "three";
 import {isSceneObject, SceneObject} from "./SceneObject";
 import merge from "ts-deepmerge";
 import { Model } from "../model/Model";
-import { ModelObject, ModelObjectOptions } from "../model/scene/ModelObject";
+import { isModelObject, ModelObject, ModelObjectOptions } from "../model/scene/ModelObject";
 import { InstanceReference } from "../instance/InstanceReference";
 import { SceneStats } from "../SceneStats";
 import { SSAOPassOUTPUT } from "three/examples/jsm/postprocessing/SSAOPass";
@@ -108,7 +108,9 @@ export class MineRenderScene extends Scene {
         if (obj?.options?.instanceMeshes && asset.key &&  (<AssetKey>asset.key)?.assetType === "models"/*TODO*/) {
             console.log("instanceMeshes + key")
             // check for existing instances
-            const key = asset.key.serialize();
+            // UV-locked rotations need separate geometry, but still share their texture atlas.
+            const uvLockRotation = isModelObject(obj) ? obj.options.uvLockRotation : undefined;
+            const key = asset.key.serialize() + (uvLockRotation ? `|uvlock:${uvLockRotation.join(",")}` : "");
             return this.instanceManager.getOrCreate(key, async () => {
                 // const obj = await objectSupplier();
                 obj.scene = this;
