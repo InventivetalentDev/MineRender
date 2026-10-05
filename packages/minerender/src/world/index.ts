@@ -4,3 +4,5 @@ export * from './BlockInfo';
 export * from './Chunk';
 export * from './ChunkData';
 export * from './MineRenderWorld';
+export * from './SectionMesh';
+export * from './SectionModels';
