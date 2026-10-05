@@ -108,7 +108,9 @@ export class AnvilParser {
                 throw new MineRenderError("Anvil block_states must be a compound");
             }
             const modern = section.block_states?.type === "compound" ? section.block_states.value : undefined;
-            const palette = this.compounds(modern ? modern.palette : section.Palette, "block palette");
+            const paletteTag = modern ? modern.palette : section.Palette;
+            const palette = paletteTag?.type === "list" && paletteTag.value.type === "string"
+                ? paletteTag.value.value as string[] : this.compounds(paletteTag, "block palette");
             const data = new ChunkData();
             if (palette.length) {
                 const states = palette.map(entry => this.block(entry));
@@ -164,12 +166,17 @@ export class AnvilParser {
         return tag.value;
     }
 
-    private static block(entry: CompoundValue): Block {
-        if (entry.Name?.type !== "string" || !entry.Name.value) throw new MineRenderError("Anvil palette entry has no block name");
-        const block: Block = { type: entry.Name.value };
-        if (entry.Properties?.type === "compound") {
+    private static block(entry: CompoundValue | string): Block {
+        if (typeof entry === "string") entry = { id: { type: "string", value: entry } };
+        // Mixed NBT lists wrap scalar entries in a compound with an empty key.
+        if (Object.keys(entry).length === 1 && entry[""]?.type === "string") entry = { id: entry[""] };
+        const name = entry.id ?? entry.Name;
+        const properties = entry.properties ?? entry.Properties;
+        if (name?.type !== "string" || !name.value) throw new MineRenderError("Anvil palette entry has no block name");
+        const block: Block = { type: name.value };
+        if (properties?.type === "compound") {
             block.properties = {};
-            for (const [key, value] of Object.entries(entry.Properties.value)) {
+            for (const [key, value] of Object.entries(properties.value)) {
                 if (value?.type !== "string") throw new MineRenderError("Anvil block properties must be strings");
                 block.properties[key] = value.value;
             }

@@ -99,6 +99,31 @@ test("Anvil decodes dense and padded five-bit palettes across long boundaries wi
     }
 });
 
+test("Anvil reads vanilla string palettes and mixed palettes with wrapped defaults and lowercase state fields", async t => {
+    const palettes = [
+        {
+            palette: { type: "list" as const, value: { type: "string" as const, value: ["minecraft:air", "minecraft:stone"] } },
+            word: 1n << 4n,
+            expected: [undefined, { type: "minecraft:stone" }, undefined]
+        },
+        {
+            palette: list([
+                { "": string("minecraft:air") },
+                { id: string("minecraft:oak_log"), properties: compound({ axis: string("x") }) },
+                { "": string("minecraft:stone") }
+            ]),
+            word: (1n << 4n) | (2n << 8n),
+            expected: [undefined, { type: "minecraft:oak_log", properties: { axis: "x" } }, { type: "minecraft:stone" }]
+        }
+    ];
+    for (const { palette, word, expected } of palettes) {
+        const section = { Y: int(-1), block_states: compound({ palette, data: longs([word, ...Array<bigint>(255).fill(0n)]) }) };
+        const parsed = (await AnvilParser.parseChunk(region({ nbt: chunk([section], { version: 5023 }) }), 31, 30))!;
+        t.is(parsed.dataVersion, 5023);
+        t.deepEqual([0, 1, 2].map(index => parsed.sections[0].data.get(index)), expected);
+    }
+});
+
 test("Anvil attaches typed block-entity NBT to the correct negative-height cell and preserves entity positions", async t => {
     const blockEntity = { id: string("minecraft:chest"), x: int(-15), y: int(-63), z: int(-31), CustomName: string("fixture") };
     const entity = { id: string("minecraft:pig"), Pos: { type: "list" as const, value: { type: "double" as const, value: [-15.5, -62, -30] } } };
