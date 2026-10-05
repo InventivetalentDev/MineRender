@@ -107,10 +107,11 @@ export class MineRenderScene extends Scene {
         const obj = await objectSupplier();
         if (obj?.options?.instanceMeshes && asset.key &&  (<AssetKey>asset.key)?.assetType === "models"/*TODO*/) {
             console.log("instanceMeshes + key")
-            // UV-lock rotations and tint palettes change vertex data, but still share an atlas.
+            // Display poses, UV-lock rotations, and tint palettes change vertices but share an atlas.
             let key = asset.key.serialize();
             if (isModelObject(obj)) {
-                const { uvLockRotation, tints } = obj.options;
+                const { displayPosition, uvLockRotation, tints } = obj.options;
+                if (displayPosition) key += `|display:${displayPosition}`;
                 if (uvLockRotation) key += `|uvlock:${uvLockRotation.join(",")}`;
                 const palette = Object.entries(tints ?? {}).sort(([a], [b]) => Number(a) - Number(b));
                 if (palette.length) key += `|tints:${JSON.stringify(palette)}`;

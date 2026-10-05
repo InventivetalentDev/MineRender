@@ -62,3 +62,48 @@ test.serial("explicit empty elements clear inherited geometry and remain empty i
     t.deepEqual((await ModelMerger.mergeWithParents({ parent: "minecraft:block/empty" })).elements, []);
     t.deepEqual(parent.elements, [element(16)]);
 });
+
+test.serial("display contexts inherit as whole entries, including explicit empty and identity poses", async t => {
+    const parent: Model = { display: {
+        gui: { translation: [1, 2, 3], rotation: [30, 45, 0], scale: [2, 2, 2] },
+        ground: { translation: [0, 4, 0], scale: [0.5, 0.5, 0.5] },
+        head: { rotation: [0, 90, 0] },
+        fixed: { translation: [3, 4, 5] }
+    } };
+    const child: Model = { parent: "test:item/base", display: {
+        gui: { translation: [6, 7, 8] },
+        head: {},
+        fixed: { translation: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] }
+    } };
+    const originals = structuredClone([parent, child]);
+    parents({ "test:item/base": parent, "test:item/child": child });
+
+    const merged = await ModelMerger.mergeWithParents({ parent: "test:item/child" });
+    t.deepEqual(merged.display, { ...child.display, ground: parent.display!.ground });
+    t.deepEqual([parent, child], originals);
+});
+
+test.serial("left-hand fallback uses each raw model's right-hand pose before parent inheritance", async t => {
+    const parent: Model = { display: {
+        firstperson_righthand: { translation: [1, 2, 3] },
+        firstperson_lefthand: { translation: [4, 5, 6] },
+        thirdperson_righthand: { rotation: [0, 30, 0] }
+    } };
+    const child: Model = { parent: "test:item/base", display: {
+        firstperson_righthand: { scale: [2, 2, 2] },
+        thirdperson_lefthand: {}
+    } };
+    const originals = structuredClone([parent, child]);
+    parents({ "test:item/base": parent, "test:item/child": child });
+
+    const merged = await ModelMerger.mergeWithParents({ parent: "test:item/child" });
+    t.deepEqual(merged.display, {
+        firstperson_righthand: { scale: [2, 2, 2] },
+        firstperson_lefthand: { scale: [2, 2, 2] },
+        thirdperson_righthand: { rotation: [0, 30, 0] },
+        thirdperson_lefthand: {}
+    });
+    const inherited = await ModelMerger.mergeWithParents({ parent: "test:item/base" });
+    t.deepEqual(inherited.display!.thirdperson_lefthand, parent.display!.thirdperson_righthand);
+    t.deepEqual([parent, child], originals);
+});
