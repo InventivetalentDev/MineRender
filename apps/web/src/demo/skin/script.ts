@@ -38,7 +38,7 @@ renderer.scene.addSkin().then(skinObject_ => {
     skinObject = skinObject_;
     window["skin"] = skinObject_;
 
-    setSkin("inventivetalent");
+    setSkin("inventivetalent").catch(console.error);
 
 
     // dummy intersection
@@ -51,23 +51,14 @@ renderer.scene.addSkin().then(skinObject_ => {
     sceneInspector.selectObject(skinObject_, intersection)
 });
 
-function setSkin(skin: string) {
-    console.log("setting skin to", skin);
-    if (skin.startsWith("http")) {
-        skinObject.setSkinTexture(skin)
-    } else {
-        Skins.fromUuidOrUsername(skin).then(skin => {
-            console.log(skin);
-            if (typeof skin !== "undefined") {
-                skinObject.setSkinTexture(skin)
-            }
-        })
-    }
+async function setSkin(skin: string) {
+    const src = skin.startsWith("http") ? skin : await Skins.fromUuidOrUsername(skin);
+    if (src !== undefined) await skinObject.setSkinTexture(src);
 }
 
 window["setSkin"] = setSkin;
 
 const skinInput = document.getElementById("skin-input") as HTMLInputElement;
 skinInput.addEventListener("change", () => {
-    setSkin(skinInput.value);
+    setSkin(skinInput.value).catch(console.error);
 })
