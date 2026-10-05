@@ -1,3 +1,3 @@
 export interface AnimatorFunction {
-    (): void;
+    (): boolean | void;
 }

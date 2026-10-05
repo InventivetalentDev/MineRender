@@ -82,6 +82,7 @@ export class Ticker {
     public static remove(c?: number) {
         // note: plain `if (c)` used to drop id 0, i.e. the very first registered ticker
         if (typeof c === "number") this._tickers.delete(c);
+        if (!this._tickers.size) this.stop();
     }
 
     public static get tickers(): Map<number, TickerFunction> {

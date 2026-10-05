@@ -9,5 +9,6 @@ export * from './ModelElement';
 export * from './ModelGenerator';
 export * from './ModelMerger';
 export * from './block';
+export * from './fluid';
 export * from './multiblock';
 export * from './scene';
