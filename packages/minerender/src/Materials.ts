@@ -57,7 +57,12 @@ export class Materials {
         const vertShader =`
             uniform bool SHADE;
             
+            // Keep MSAA edge pixels from sampling outside the face's atlas region.
+            #if __VERSION__ >= 300
+            centroid out vec2 vUv;
+            #else
             varying vec2 vUv;
+            #endif
             varying vec3 vTint;
             varying float light;
             varying float lift;
@@ -114,7 +119,11 @@ export class Materials {
             uniform bool EMISSIVE;
             uniform float BRIGHTNESS;
 
+            #if __VERSION__ >= 300
+            centroid in vec2 vUv;
+            #else
             varying vec2 vUv;
+            #endif
             varying vec3 vTint;
             varying float light;
             varying float lift;
