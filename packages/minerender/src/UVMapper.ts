@@ -290,6 +290,8 @@ export class UVMapper {
         const textureMap: { [key: string]: Maybe<WrappedImage>; } = {};
         const metaMap: { [key: string]: Maybe<MinecraftTextureMeta>; } = {};
         const model = {...originalModel};
+        // Each atlas owns its UVs; inherited elements may be shared between models.
+        if (model.elements) model.elements = structuredClone(model.elements);
         const isItemModel = !("elements" in model);
 
         console.debug(p, "Creating Atlas for", model.key);
