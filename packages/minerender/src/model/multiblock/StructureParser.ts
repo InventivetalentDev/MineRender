@@ -13,7 +13,9 @@ export class StructureParser {
         if ("palette" in nbt) {
             palette = nbt.palette!;
         } else if ("palettes" in nbt) {
-            palette = nbt.palettes![paletteIndex ?? 0];
+            const selected = nbt.palettes!.value.value[paletteIndex ?? 0];
+            if (!selected) throw new MineRenderError(`Structure palette ${paletteIndex ?? 0} does not exist`);
+            palette = { type: "list", value: selected };
         } else {
             throw new MineRenderError("Structure does not have palette(s)");
         }
@@ -21,7 +23,8 @@ export class StructureParser {
         const blocks: MultiBlockBlock[] =
             nbt.blocks.value.value.map(block => {
                 const state = palette.value.value[block.state.value];
-                if (state.Name.value === "minecraft:air") return undefined;
+                if (!state) throw new MineRenderError(`Structure palette index ${block.state.value} does not exist`);
+                if (["minecraft:air", "minecraft:cave_air", "minecraft:void_air"].includes(state.Name.value)) return undefined;
 
                 const props: BlockStateProperties = {};
                 for (let k in state.Properties?.value) {
@@ -36,14 +39,20 @@ export class StructureParser {
             }).filter(m => typeof m !== "undefined") as  MultiBlockBlock[] ;
         return {
             blocks: blocks,
-            size: nbt.size.value.value
+            size: nbt.size.value.value,
+            dataVersion: nbt.DataVersion?.value,
+            entities: (nbt.entities?.value.value ?? []).map(entity => ({
+                position: entity.pos.value.value,
+                blockPosition: entity.blockPos.value.value,
+                nbt: entity.nbt
+            }))
         }
     }
 
 }
 
 export interface StructureNBT {
-    DataVersion: {
+    DataVersion?: {
         type: "int";
         value: number;
     }
@@ -55,7 +64,10 @@ export interface StructureNBT {
         }
     }
     palette?: Palette;
-    palettes?: Palette[];
+    palettes?: {
+        type: "list";
+        value: { type: "list"; value: Palette["value"][] };
+    };
     blocks: {
         type: "list";
         value: {
@@ -63,7 +75,17 @@ export interface StructureNBT {
             value: BlockEntry[];
         }
     }
-    entities: {};//TODO
+    entities?: {
+        type: "list";
+        value: {
+            type: "compound";
+            value: {
+                pos: { type: "list"; value: { type: "double"; value: TripleArray } };
+                blockPos: { type: "list"; value: { type: "int"; value: TripleArray } };
+                nbt: { type: "compound"; value: any };
+            }[];
+        };
+    };
 }
 
 interface Palette {

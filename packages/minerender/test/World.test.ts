@@ -6,6 +6,8 @@ import { BlockObject } from "../src/model/block/scene/BlockObject";
 import { TripleArray } from "../src/model/Model";
 import { ModelObject } from "../src/model/scene/ModelObject";
 import { MineRenderScene } from "../src/renderer/MineRenderScene";
+import { ChunkData } from "../src/world/ChunkData";
+import { BatchedExecutor } from "../src/util/BatchedExecutor";
 import { MineRenderWorld } from "../src/world/MineRenderWorld";
 
 const block = { type: "test:stone" };
@@ -160,4 +162,28 @@ test.serial("world placement snapshots block data without changing BlockInfo or 
     t.is(world.getBlockAt(1, 0, 0), second);
     t.deepEqual(second.object.getPosition().toArray(), [16, 0, 0]);
     t.is(scene.stats.instanceCount, 1);
+});
+
+
+test.serial("parsed chunk columns replace old sections and preserve signed positions, properties and block NBT", async t => {
+    const { world, scene } = fixture(t);
+    const preload = BlockStates.getAll;
+    BlockStates.getAll = async () => [];
+    const executor = new BatchedExecutor(1, 4);
+    t.teardown(() => { BlockStates.getAll = preload; executor.stop(); });
+    await world.setBlockAt(-32, 100, 48, block);
+    const neighbor = await world.setBlockAt(-16, 100, 48, block);
+    const data = new ChunkData();
+    const value = { ...block, properties: { axis: "x" }, nbt: { id: "test:entity" } };
+    data.set(4095, value);
+    await world.placeChunk({ x: -2, z: 3, dataVersion: 4671, sections: [{ y: -4, data }] }, executor);
+    t.is(world.getBlockAt(-32, 100, 48), undefined);
+    t.deepEqual(world.getBlockAt(-17, -49, 63)!.block, value);
+    t.deepEqual(world.getBlockAt(-17, -49, 63)!.object.getPosition().toArray(), [-272, -784, 1008]);
+    t.is(world.getBlockAt(-16, 100, 48), neighbor);
+    t.is(scene.stats.instanceCount, 2);
+    await world.placeChunk({ x: -2, z: 3, sections: [] }, executor);
+    t.is(world.getBlockAt(-17, -49, 63), undefined);
+    t.is(scene.stats.instanceCount, 1);
+    t.is(await executor.submit(() => "reusable"), "reusable");
 });

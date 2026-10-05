@@ -33,15 +33,15 @@ legacy website cleanup is a separate task.
 | Animated textures | frametime honored | Frame extraction handles static images and vertical strips; timing and full mcmeta support remain | medium |
 | Entity rendering | 76 hosted models, mirror, inheritance | Versioned dataset, nested parts, mirrored UVs, and selected layers with separate textures; renderer-specific effects remain | high |
 | GUI / inventory / recipes | full GuiRender + Positions + recipe() | `GuiObject` is an empty stub | high |
-| Structure (.nbt) loading | works via ModelConverter | Parses correctly; bounded placement batches, signed coordinates and slot cleanup supported, no entities/DataVersion | high |
-| Legacy .schematic | full incl. AddBlocks nibbles | `SchematicParser` returns `{}`; mapping data (`res/idsToNames.json`, `legacyBlockList.json`) present but unreferenced | medium |
+| Structure (.nbt) loading | works via ModelConverter | Bounded placement, signed coordinates, slot cleanup, DataVersion and entity NBT preservation; entities are not rendered | high |
+| Legacy .schematic | full incl. AddBlocks nibbles | Numeric block IDs, metadata, AddBlocks and block/entity NBT parsed; unknown ID states reject | medium |
 | Combined multi-renderer scene | CombinedRender wrapper | Superseded by design (one scene hosts all types) — **at parity** | — |
 | Screenshots & 3D export | toImage(trim,mime), toObj/toGLTF/toPLY | Bare `toDataURL()`; no exporters | medium |
 | Asset loading & resource packs | swappable assetRoot, fallback | Ordered whole-asset source selection; decode fetched bytes; failure-evicting caches; contextual errors; defaults to 1.21.11, ZIPs browser-only | high |
 | Per-frame animation API | `<type>Render` CustomEvents | No supported hook (dirty-flag loop only) | medium |
 | Embeds & website | minerender.org + iframe embeds | Workspace demos and examples; V2 website and embeds remain | low |
 | **Large-scale worlds (V2 goal)** | n/a | Paletted signed chunks with per-block render objects and opaque-neighbor face culling; no chunk meshing/lighting/LOD | high |
-| **Anvil .mca / world formats (V2 goal)** | n/a | Zero code | high |
+| **Anvil .mca / world formats (V2 goal)** | n/a | Java 1.13+ paletted regions, selected chunk loading and DataVersion; no LZ4, external chunks, or data fixing | high |
 | **Node headless rendering (V2 goal)** | faked externally by MineRenderServer | No DOM-free Renderer construction, no render-to-buffer API | high |
 | Bedrock geometry (V2 ambition) | n/a | Type declarations only | low |
 | Instancing architecture | merged Geometry + instanced-mesh fork | Reusable slots, growing buffers, and explicit mesh ownership; whole-object transforms still affect all live instances | high |
@@ -93,7 +93,7 @@ Immediate fixes: ~~fix `getChunkAt` to use `Map.get(key)`~~; ~~remove the 4×4×
 Make `Renderer` constructible without DOM: injectable canvas + GL context (headless-gl or OffscreenCanvas), `renderOnce()`/`renderToBuffer()` bypassing the animation loop, `toImage()` returning a Buffer in Node (V1's `trimCanvas` is portable). `InventivetalentDev/MineRenderServer` is the reference contract — it faked all of this against V1 and reached into `_scene`/`_camera`; V2 already exposes them publicly. Then a thin V2 server can revive `GET /render/skin/:texture` and `GET /render/model/:type/:model`.
 
 ### 13. Anvil region (.mca) + schematic loaders — high
-New world-format layer feeding the redesigned chunk storage: .mca region parsing (sector table, section palettes, DataVersion) — `NBTHelper` must stop discarding prismarine-nbt type/compression metadata; implement `SchematicParser` (legacy .schematic) using the already-present `legacyBlockList.json` / `res/idsToNames.json` mappings (V1 reference: `modelConverter.js:209-275`); Sponge `.schem` + litematica as follow-ups; structure entities + DataVersion handling.
+~~Add a world-format layer feeding chunk storage: `.mca` sector tables, section palettes and DataVersion; preserve NBT type/compression metadata; implement legacy `.schematic` ID/metadata and AddBlocks conversion; retain structure entities and DataVersion.~~ Pre-1.13 numeric Anvil chunks, LZ4 and external `.mcc` payloads, Sponge `.schem`, Litematica, entity rendering, and DataVersion-based migration remain.
 
 ### 14. GUI renderer parity — medium
 Implement `GuiObject` (empty stub today): layered textured planes with UV crop, pixel positioning, z-layering, camera auto-fit. V1's `guiPositions.js` (boss bars, book, chest, crafting table atlases) and `guiHelper.js` (`inventorySlot` math + `recipe()` for crafting_shaped/shapeless JSON) port nearly verbatim; update texture paths for the newer asset layout. Wire `scene.addGui(...)`.

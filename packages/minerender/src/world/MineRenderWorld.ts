@@ -10,6 +10,7 @@ import { BatchedExecutor } from "../util/BatchedExecutor";
 import { AssetKey } from "../assets/AssetKey";
 import { BlockStates } from "../assets/BlockStates";
 import { CUBE_FACE_OFFSETS } from "../CubeFace";
+import type { AnvilChunk } from "./AnvilParser";
 
 //TODO: maybe make this an Object3D to add children
 export class MineRenderWorld {
@@ -94,6 +95,28 @@ export class MineRenderWorld {
         }
     }
 
+
+    /** Replaces one chunk column's blocks. Entity NBT remains available on the parsed chunk. */
+    public async placeChunk(chunk: AnvilChunk, executor?: BatchedExecutor): Promise<void> {
+        const previous = [...this._chunks.entries()].filter(([, section]) => section.x === chunk.x && section.z === chunk.z);
+        for (const [key, section] of previous) {
+            this._chunks.delete(key);
+            await section.dispose();
+        }
+        for (const section of chunk.sections) {
+            const blocks: MultiBlockBlock[] = [];
+            for (let index = 0; index < 4096; index++) {
+                const block = section.data.get(index);
+                if (block) blocks.push({
+                    ...block,
+                    position: [chunk.x * 16 + index % 16,
+                        section.y * 16 + Math.floor(index / 256),
+                        chunk.z * 16 + Math.floor(index / 16) % 16]
+                });
+            }
+            await this.placeMultiBlock({ size: [16, 16, 16], blocks }, true, executor);
+        }
+    }
 
     public async clear(): Promise<void> {
         await this.culling;
