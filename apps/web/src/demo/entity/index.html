@@ -15,6 +15,10 @@
             <label for="entity-input">Entity</label><br/>
             <input type="text" id="entity-input" value="bat" list="entity-suggestions">
             <datalist id="entity-suggestions"></datalist>
+            <br/><label for="entity-layers">Layers</label><br/>
+            <select id="entity-layers" multiple size="5" aria-describedby="layer-help"></select>
+            <div id="layer-help">Hold Ctrl or Command to select multiple layers.</div>
+            <div id="entity-status" role="status"></div>
         </div>
         <div id="inspector" class="overlay bottom-right"></div>
 

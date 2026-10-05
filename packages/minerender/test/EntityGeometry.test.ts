@@ -1,10 +1,11 @@
 import test, { ExecutionContext } from "ava";
-import { Euler, Mesh, MeshBasicMaterial, Vector3 } from "three";
-import { BasicAssetKey } from "../src/assets/AssetKey";
+import { Box3, Euler, Mesh, MeshBasicMaterial, Vector3 } from "three";
+import { AssetKey, BasicAssetKey } from "../src/assets/AssetKey";
+import { ModelTextures } from "../src/assets/ModelTextures";
 import { Caching } from "../src/cache/Caching";
 import { Materials } from "../src/Materials";
 import { EntityObject, EntityObjectOptions } from "../src/entity/scene/EntityObject";
-import type { EntityModelCube, EntityModelPart } from "../src/entity/EntityModel";
+import type { EntityLayer, EntityModelCube, EntityModelPart } from "../src/entity/EntityModel";
 import type { DoubleArray } from "../src/model/Model";
 
 const cube: EntityModelCube = { origin: [1, 2, 3], size: [2, 3, 4], uv: [5, 6] };
@@ -25,8 +26,8 @@ function fixture(t: ExecutionContext) {
         material.dispose();
         Caching.clear();
     });
-    return (root: EntityModelPart, texture: DoubleArray = [64, 32], options?: Partial<EntityObjectOptions>) => {
-        const object = new EntityObject({ key: new BasicAssetKey("minecraft", "fixture"), id: "minecraft:fixture", layer: { texture, root } }, options);
+    return (root: EntityModelPart, texture: DoubleArray = [64, 32], options?: Partial<EntityObjectOptions>, layers?: Record<string, EntityLayer>) => {
+        const object = new EntityObject({ key: new BasicAssetKey("minecraft", "fixture"), id: "minecraft:fixture", layer: { texture, root }, layers }, options);
         object["createMeshes"]();
         objects.push(object);
         return object;
@@ -71,10 +72,11 @@ test.serial("nested parts compose local radian poses before the entity coordinat
     object.setPositionRotationScale(new Vector3(10, 20, 30), new Euler(0, 0, Math.PI / 2), new Vector3(2, 3, 4));
     t.deepEqual(coordinates(hand.getWorldPosition(new Vector3())), [49, 12, 50]);
     t.deepEqual(object.scale.toArray(), [2, 3, 4]);
-    t.deepEqual(root.parent!.scale.toArray(), [-1, -1, 1]);
+    t.is(root.parent, object.getLayerGroup("main"));
+    t.deepEqual(root.parent!.parent!.scale.toArray(), [-1, -1, 1]);
 
     const unflipped = create(model, [64, 32], { flip: false });
-    t.deepEqual(unflipped.getGroupByName("root")!.parent!.scale.toArray(), [1, 1, 1]);
+    t.deepEqual(unflipped.getLayerGroup("main")!.parent!.scale.toArray(), [1, 1, 1]);
     t.deepEqual(coordinates(unflipped.getGroupByName("hand")!.getWorldPosition(new Vector3())), [4, 13, 5]);
 });
 
@@ -120,4 +122,67 @@ test.serial("texture dimensions inherit within each part subtree without leaking
     t.deepEqual(uvs(object, "small"), normalized(vanillaUvs, 32, 16));
     t.deepEqual(uvs(object, "sibling"), normalized(vanillaUvs));
     t.deepEqual(uvs(object, "untextured"), new Array(48).fill(0));
+});
+
+test.serial("entity layers keep independent textures, UVs and poses under one shared coordinate conversion", async t => {
+    const create = fixture(t);
+    const root = part({ children: { head: part({
+        pose: { offset: [3, 4, 5], rotation: [0, 0, 0] }, cubes: [cube]
+    }) } });
+    const main: EntityLayer = {
+        key: new BasicAssetKey("custom", "fixture"), texture: AssetKey.parse("textures", "custom:entity/base"),
+        layer: { texture: [64, 32], root }
+    };
+    const wool: EntityLayer = {
+        ...main, texture: AssetKey.parse("textures", "custom:entity/overlay"), layer: { texture: [128, 64], root }
+    };
+    const originalGet = ModelTextures.get;
+    const originalMaterial = Materials.createBasicCanvasMaterial;
+    const canvases = [{}, {}] as HTMLCanvasElement[];
+    const materials = [new MeshBasicMaterial({ color: 0xff0000 }), new MeshBasicMaterial({ color: 0x0000ff })];
+    const requested: string[] = [];
+    ModelTextures.get = async key => {
+        requested.push(key.getFullPath());
+        return { width: 1, height: 1, data: { canvas: canvases[key === main.texture ? 0 : 1] } as CanvasRenderingContext2D };
+    };
+    Materials.createBasicCanvasMaterial = canvas => materials[canvases.indexOf(canvas)];
+    t.teardown(() => {
+        ModelTextures.get = originalGet;
+        Materials.createBasicCanvasMaterial = originalMaterial;
+        materials.forEach(material => material.dispose());
+    });
+    const layers = { main, wool };
+    const snapshot = JSON.stringify(layers);
+    const object = create(root, [64, 32], undefined, layers);
+    await object.init();
+    const base = object.getMeshByName("head", "main")!;
+    const overlay = object.getMeshByName("head", "wool")!;
+    t.not(base, overlay);
+    t.is(object.getMeshByName("head"), base);
+    t.is(object.getGroupByName("head"), object.getGroupByName("head", "main"));
+    t.is(object.getMeshByName("head", "missing"), undefined);
+    t.is(object.getLayerGroup("main")!.parent, object.getLayerGroup("wool")!.parent);
+    t.deepEqual([base.material, overlay.material], materials);
+    t.deepEqual(requested, ["entity/base", "entity/overlay"]);
+    t.deepEqual([base.renderOrder, overlay.renderOrder], [0, 1]);
+    t.deepEqual(Array.from(base.geometry.getAttribute("uv").array), normalized(vanillaUvs));
+    t.deepEqual(Array.from(overlay.geometry.getAttribute("uv").array), normalized(vanillaUvs, 128, 64));
+    object.getGroupByName("head", "wool")!.rotation.z = Math.PI / 2;
+    object.getLayerGroup("wool")!.visible = false;
+    object.setPosition(new Vector3(10, 20, 30));
+    object.updateMatrixWorld(true);
+    t.deepEqual(coordinates(new Box3().setFromObject(base).getCenter(new Vector3())), [5, 12.5, 40]);
+    t.deepEqual(coordinates(new Box3().setFromObject(overlay).getCenter(new Vector3())), [10.5, 14, 40]);
+    t.true(object.getLayerGroup("main")!.visible);
+    t.is(object.getGroupByName("head", "main")!.rotation.z, 0);
+    const other = create(root, [64, 32], undefined, layers);
+    await other.init();
+    t.is(other.getMeshByName("head", "main")!.material, base.material);
+    t.is(other.getMeshByName("head", "wool")!.material, overlay.material);
+    t.is(requested.length, 2);
+    t.is(JSON.stringify(layers), snapshot);
+    const legacy = create(root);
+    legacy.entity.key = AssetKey.parse("entities", "custom:boat/oak");
+    await legacy.init();
+    t.is(requested.at(-1), "entity/boat/oak");
 });

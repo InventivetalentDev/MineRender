@@ -26,28 +26,44 @@ export class Entities {
         return collect("");
     }
 
-    public static async getEntity(modelKey: BasicAssetKey, textureKey?: BasicAssetKey, options?: EntityModelOptions): Promise<Maybe<EntityModel>> {
+    private static async getModelFile(modelKey: BasicAssetKey): Promise<Maybe<EntityModelFile>> {
         const path = isAssetKey(modelKey) ? modelKey.getFullPath() : modelKey.path;
         const key = new AssetKey(modelKey.namespace, path, undefined, undefined, "entity-models", ".json");
-        const model = await Caching.entityModelCache.get(key.serialize(), () => AssetLoader.get<EntityModelFile>(key, AssetParser.JSON));
+        return Caching.entityModelCache.get(key.serialize(), () => AssetLoader.get<EntityModelFile>(key, AssetParser.JSON));
+    }
+
+    public static async getLayerList(modelKey: BasicAssetKey): Promise<string[]> {
+        return Object.keys((await this.getModelFile(modelKey))?.layers ?? {});
+    }
+
+    public static async getEntity(modelKey: BasicAssetKey, textureKey?: BasicAssetKey, options?: EntityModelOptions): Promise<Maybe<EntityModel>> {
+        const model = await this.getModelFile(modelKey);
         if (!model) return undefined;
-        const layerName = options?.layer ?? "main";
-        const layer = model.layers[layerName];
-        if (!layer) {
-            throw new MineRenderError(`Entity ${model.id} has no layer "${layerName}". Available layers: ${Object.keys(model.layers).join(", ")}`);
-        }
-        let texture: Maybe<AssetKey>;
-        if (textureKey) {
-            const path = isAssetKey(textureKey) ? textureKey.getFullPath() : textureKey.path;
-            texture = isAssetKey(textureKey) && textureKey.assetType === "textures" && path.startsWith("entity/")
-                ? textureKey
-                : new AssetKey(textureKey.namespace, path, "textures", "entity", "assets", ".png", isAssetKey(textureKey) ? textureKey.root : undefined);
-        } else if (layer.textureLocation !== undefined) {
-            texture = AssetKey.parse("textures", layer.textureLocation.replace(/^([^:]+:)?textures\//, "$1"));
-        } else {
-            texture = await this.resolveTexture(modelKey);
-        }
-        return { key: textureKey ?? modelKey, texture, layer, id: model.id };
+        const names = [...new Set(options?.layers ?? [options?.layer ?? "main"])];
+        if (names.length === 0) throw new MineRenderError(`Entity ${model.id} requires at least one layer`);
+        const selected = names.map(name => {
+            const layer = model.layers[name];
+            if (!layer) {
+                throw new MineRenderError(`Entity ${model.id} has no layer "${name}". Available layers: ${Object.keys(model.layers).join(", ")}`);
+            }
+            return { name, layer };
+        });
+        const layers = Object.fromEntries(await Promise.all(selected.map(async ({ name, layer }, index) => {
+            const override = options?.textures?.[name] ?? (index === 0 ? textureKey : undefined);
+            let texture: Maybe<AssetKey>;
+            if (override) {
+                const path = isAssetKey(override) ? override.getFullPath() : override.path;
+                texture = isAssetKey(override) && override.assetType === "textures" && path.startsWith("entity/")
+                    ? override
+                    : new AssetKey(override.namespace, path, "textures", "entity", "assets", ".png", isAssetKey(override) ? override.root : undefined);
+            } else if (layer.textureLocation !== undefined) {
+                texture = AssetKey.parse("textures", layer.textureLocation.replace(/^([^:]+:)?textures\//, "$1"));
+            } else {
+                texture = await this.resolveTexture(modelKey);
+            }
+            return [name, { key: override ?? modelKey, texture, layer }];
+        })));
+        return { ...layers[names[0]], id: model.id, layers };
     }
 
     public static async resolveTexture(modelKey: BasicAssetKey): Promise<Maybe<AssetKey>> {
@@ -87,6 +103,10 @@ export class Entities {
 
 export interface EntityModelOptions {
     layer?: string;
+    /** Layer names in draw order; defaults to layer or "main". */
+    layers?: string[];
+    /** Per-layer texture overrides. The positional texture key applies to the first selected layer. */
+    textures?: Record<string, BasicAssetKey>;
 }
 
 interface EntityVariant extends MinecraftAsset {
