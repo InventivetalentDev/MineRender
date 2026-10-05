@@ -9,6 +9,7 @@ import { MultiBlockBlock, MultiBlockStructure } from "../model/multiblock/MultiB
 import { BatchedExecutor } from "../util/BatchedExecutor";
 import { AssetKey } from "../assets/AssetKey";
 import { BlockStates } from "../assets/BlockStates";
+import { CUBE_FACE_OFFSETS } from "../CubeFace";
 
 //TODO: maybe make this an Object3D to add children
 export class MineRenderWorld {
@@ -16,6 +17,8 @@ export class MineRenderWorld {
     public readonly scene: MineRenderScene;
 
     private readonly _chunks: Map<string, Chunk> = new Map<string, Chunk>();
+    private readonly pendingCulling = new Map<string, Vector3>();
+    private culling?: Promise<void>;
 
     constructor(scene: MineRenderScene) {
         this.scene = scene;
@@ -93,17 +96,52 @@ export class MineRenderWorld {
 
 
     public async clear(): Promise<void> {
-        for (const chunk of this._chunks.values()) {
+        await this.culling;
+        const chunks = [...this._chunks.values()];
+        this._chunks.clear();
+        for (const chunk of chunks) {
             await chunk.dispose();
         }
-        this._chunks.clear();
+    }
+
+    private updateCulling(positions: Vector3[]): Promise<void> {
+        for (const pos of positions) {
+            this.pendingCulling.set(pos.toArray().join(","), pos.clone());
+            for (const offset of CUBE_FACE_OFFSETS) {
+                const neighbor = pos.clone().add(new Vector3(...offset));
+                this.pendingCulling.set(neighbor.toArray().join(","), neighbor);
+            }
+        }
+        // Adjacent batched placements share one drain so they cannot replace the same model concurrently.
+        return this.culling ??= Promise.resolve().then(async () => {
+            try {
+                while (this.pendingCulling.size) {
+                    const batch = [...this.pendingCulling.values()];
+                    this.pendingCulling.clear();
+                    for (const pos of batch) {
+                        const block = this.getBlockAt(pos)?.object;
+                        if (!block) continue;
+                        let mask = 0;
+                        for (const [face, offset] of CUBE_FACE_OFFSETS.entries()) {
+                            if (this.getBlockAt(pos.clone().add(new Vector3(...offset)))?.object.isOccluding) {
+                                mask |= 1 << face;
+                            }
+                        }
+                        await block.setCullMask(mask);
+                    }
+                }
+            } finally {
+                this.culling = undefined;
+            }
+        });
     }
 
     private getOrCreateChunkAt(pos: Vector3): Chunk {
         const key = this.worldPosToChunkKey(pos);
         let chunk = this._chunks.get(key);
         if (typeof chunk === "undefined") {
-            chunk = new Chunk(this.scene, Math.floor(pos.x / 16), Math.floor(pos.y / 16), Math.floor(pos.z / 16));
+            chunk = new Chunk(this.scene, Math.floor(pos.x / 16), Math.floor(pos.y / 16), Math.floor(pos.z / 16),
+                positions => this.updateCulling(positions));
             this._chunks.set(key, chunk);
         }
         return chunk;

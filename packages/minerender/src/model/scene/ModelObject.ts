@@ -16,6 +16,7 @@ import { prefix } from "../../util/log";
 import { CUBE_FACES } from "../../CubeFace";
 import { DisplayPosition } from "../DisplayPosition";
 import { DisplayTransforms } from "../DisplayTransforms";
+import { ModelCulling } from "../ModelCulling";
 
 
 const p = prefix("ModelObject");
@@ -53,6 +54,10 @@ export class ModelObject extends SceneObject {
         return this.atlas;
     }
 
+    public get isOpaqueFullCube(): boolean {
+        return !this.options.displayPosition && ModelCulling.isOpaqueFullCube(this.atlas);
+    }
+
     //TODO: support for replacing textures
 
     protected async loadTextures(): Promise<void> {
@@ -73,6 +78,15 @@ export class ModelObject extends SceneObject {
             if (this.atlas.model.elements) {
                 this.atlas.model.elements?.forEach(el => {
                     const elGeo = this._getBoxGeometryFromElement(el).clone();
+                    if (this.options.cullMask) {
+                        const indices = Array.from(elGeo.getIndex()!.array);
+                        elGeo.setIndex(indices.filter((_, index) => {
+                            const face = CUBE_FACES[Math.floor(index / 6)];
+                            const direction = CUBE_FACES.findIndex(name => name === el.faces[face]?.cullface);
+                            return direction < 0 || !(this.options.cullMask! & (1 << direction));
+                        }));
+                        elGeo.clearGroups();
+                    }
                     if (this.options.uvLockRotation) {
                         UVMapper.lockUvs(elGeo, el.faces, this.atlas!, new Euler(...this.options.uvLockRotation));
                     }
@@ -200,6 +214,8 @@ export interface ModelObjectOptions extends SceneObjectOptions {
     uvLockRotation?: TripleArray;
     /** sRGB 0xRRGGBB colors by face tint index; omitted indices stay white. */
     tints?: Record<number, number>;
+    /** Hidden neighbor directions in CUBE_FACES order, before the model's block rotation. */
+    cullMask?: number;
 }
 
 export function isModelObject(obj: any): obj is ModelObject {

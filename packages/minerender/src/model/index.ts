@@ -4,6 +4,7 @@ export * from './DisplayTransforms';
 export * from './ElementFace';
 export * from './GuiLight';
 export * from './Model';
+export * from './ModelCulling';
 export * from './ModelElement';
 export * from './ModelGenerator';
 export * from './ModelMerger';
