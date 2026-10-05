@@ -52,24 +52,42 @@ export class MineRenderWorld {
     }
 
 
-    public async placeMultiBlock(multiblock: MultiBlockStructure, useBatches: boolean = true, executor: BatchedExecutor = new BatchedExecutor()): Promise<void> {
-        // preload blockstates
-        const keys = new Set<AssetKey>(multiblock.blocks.map(block => AssetKey.parse("blockstates", block.type)));
-        await BlockStates.getAll(keys);
-
-        const place = async (block: MultiBlockBlock) => {
-            if (useBatches && typeof executor !== "undefined") {
-                await new Promise((resolve, reject) => {
-                    executor.submit(() => {
-                        this.setBlockAt(block.position, block).then(resolve).catch(reject)
-                    })
-                });
-            } else {
-                await this.setBlockAt(block.position, block);
-            }
+    public async placeMultiBlock(multiblock: MultiBlockStructure, useBatches: boolean = true, executor?: BatchedExecutor): Promise<void> {
+        const keys = new Map<string, AssetKey>();
+        for (const block of multiblock.blocks) {
+            if (Chunk.isAir(block)) continue;
+            const key = AssetKey.parse("blockstates", block.type);
+            keys.set(key.serialize(), key);
         }
-        for (let block of multiblock.blocks) {
-            await place(block);
+        await BlockStates.getAll(keys.values());
+
+        if (!useBatches) {
+            for (const block of multiblock.blocks) await this.setBlockAt(block.position, block);
+            return;
+        }
+
+        // Writes to the same position retain their input order.
+        const positions = new Map<string, MultiBlockBlock[]>();
+        for (const block of multiblock.blocks) {
+            const key = block.position.join(",");
+            const group = positions.get(key);
+            if (group) group.push(block);
+            else positions.set(key, [block]);
+        }
+        const groups = [...positions.values()];
+        const queue = executor ?? new BatchedExecutor();
+        try {
+            for (let i = 0; i < groups.length; i += queue.batch) {
+                const results = await Promise.allSettled(groups.slice(i, i + queue.batch).map(blocks =>
+                    queue.submit(async () => {
+                        for (const block of blocks) await this.setBlockAt(block.position, block);
+                    })
+                ));
+                const failure = results.find(result => result.status === "rejected");
+                if (failure?.status === "rejected") throw failure.reason;
+            }
+        } finally {
+            if (!executor) queue.stop();
         }
     }
 
