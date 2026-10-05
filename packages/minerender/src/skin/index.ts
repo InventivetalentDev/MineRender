@@ -2,5 +2,6 @@
 export * from './SkinGeometries';
 export * from './SkinPart';
 export * from './SkinTextureCoordinates';
+export * from './SkinTextures';
 export * from './Skins';
 export * from './scene';

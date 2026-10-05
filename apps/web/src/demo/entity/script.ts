@@ -1,4 +1,4 @@
-import { AssetKey, BasicAssetKey, BlockStates, Entities, EntityObject, Renderer, SceneInspector, SkinObject, Skins } from "minerender";
+import { AssetKey, Entities, EntityObject, Renderer, SceneInspector } from "minerender";
 import { Intersection, Vector3 } from "three";
 
 console.log("hi");
@@ -34,7 +34,7 @@ sceneInspector.appendTo(document.getElementById('inspector'));
 
 let entityObject: EntityObject;
 
-setEntity("pig");
+setEntity("bat");
 
 function setEntity(entity: string) {
     console.log("setting entity to", entity);
@@ -48,12 +48,7 @@ function setEntity(entity: string) {
 
     const key = AssetKey.parse("entities", entity);
     Entities.getEntity(key).then(entityModel => {
-        if (typeof entityModel !== "undefined" && typeof entityModel.parts !== "undefined") {
-            return entityModel;
-        }
-        return Entities.getBlock(key)
-    }).then(entityModel => {
-        console.log(entityModel)
+        if (!entityModel) throw new Error(`Entity model not found: ${entity}`);
         return renderer.scene.addEntity(entityModel);
     }).then(entityObject_ => {
         entityObject = entityObject_ as EntityObject;//TODO
@@ -78,13 +73,6 @@ entityInput.addEventListener("change", () => {
 })
 const entitySuggestions = document.getElementById("entity-suggestions") as HTMLDataListElement;
 Entities.getEntityList().then(list => {
-    list.forEach(l => {
-        const option = document.createElement("option");
-        option.value = l;
-        entitySuggestions.appendChild(option);
-    })
-}).catch(error => console.error(error));
-Entities.getBlockList().then(list => {
     list.forEach(l => {
         const option = document.createElement("option");
         option.value = l;

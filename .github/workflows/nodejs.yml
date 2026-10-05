@@ -2,7 +2,7 @@ name: Node CI
 
 on:
   pull_request:
-    branches: [master, main, typescript, 'refactor/**', 'fix/**']
+    branches: [master, main, typescript, 'refactor/**', 'fix/**', 'feat/**']
 
 permissions:
   contents: read

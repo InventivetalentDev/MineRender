@@ -1,25 +1,24 @@
 import { SceneObject } from "../../renderer/SceneObject";
-import { BoxGeometry } from "three";
+import { BoxGeometry, Material } from "three";
 import { SKIN_PARTS, SkinPart } from "../SkinPart";
 import { classicSkinTextureCoordinates, SkinTextureCoordinates, slimSkinTextureCoordinates } from "../SkinTextureCoordinates";
 import { classicSkinGeometries, SkinGeometries, slimSkinGeometries } from "../SkinGeometries";
 import { Axis } from "../../Axis";
 import { Materials } from "../../Materials";
-import { ModelObjectOptions } from "../../model/scene/ModelObject";
 import merge from "ts-deepmerge";
 import { SceneObjectOptions } from "../../renderer/SceneObjectOptions";
 import { DeepPartial } from "../../util/util";
+import { SkinTextures } from "../SkinTextures";
 
 export class SkinObject extends SceneObject {
 
     public readonly options: SkinObjectOptions;
 
     private slim: boolean = false;
-    private legacy: boolean = false;
-
+    private detectedSlim: boolean = false;
     private skinTextureSrc?: string;
-    private skinTextureWidth: number = 64;
-    private skinTextureHeight: number = 64;
+    private skinMaterial?: Material;
+    private skinLoad: number = 0;
 
     private capeTextureSrc?: string;
 
@@ -27,6 +26,7 @@ export class SkinObject extends SceneObject {
     constructor(options?: DeepPartial<SkinObjectOptions>) {
         super();
         this.options = merge({}, SceneObject.DEFAULT_OPTIONS, options ?? {});
+        this.slim = this.options.slim ?? false;
     }
 
     async init(): Promise<void> {
@@ -39,7 +39,7 @@ export class SkinObject extends SceneObject {
 
     protected createMeshes() {
         console.log("#createMeshes")
-        const mat = Materials.MISSING_TEXTURE;
+        const mat = this.skinMaterial ?? Materials.MISSING_TEXTURE;
 
         {
             const headGroup = this.createAndAddGroup("head", 0, 28, 0, Axis.Y, -4);
@@ -47,10 +47,8 @@ export class SkinObject extends SceneObject {
             const headGeo = this.getBoxGeometry(SkinPart.HEAD);
             const head = this.createAndAddMesh("head", headGroup, headGeo, mat, Axis.Y, 4);
 
-            if (!this.legacy) {
-                const hatGeo = this.getBoxGeometry(SkinPart.HAT);
-                const hat = this.createAndAddMesh("hat", headGroup, hatGeo, mat, Axis.Y, 4);
-            }
+            const hatGeo = this.getBoxGeometry(SkinPart.HAT);
+            const hat = this.createAndAddMesh("hat", headGroup, hatGeo, mat, Axis.Y, 4);
         }
 
         {
@@ -111,71 +109,76 @@ export class SkinObject extends SceneObject {
     }
 
 
-    public setSkinTexture(src: string): void {
+    public async setSkinTexture(src: string): Promise<void> {
         if (typeof src === "undefined") return;
-
         this.skinTextureSrc = src;
+        const load = ++this.skinLoad;
+        const texture = await SkinTextures.get(src, this.options.legacy);
+        if (load !== this.skinLoad) return;
 
-        //TODO: detect variant
-
-        //TODO
-        const mat = Materials.getImage({
-            texture: {src: src},
-            transparent: true
-        });
-        for (let part of SKIN_PARTS) {
-            let mesh = this.getMeshByName(part);
+        this.skinMaterial = texture.material;
+        this.detectedSlim = texture.slim;
+        this.updateSlim(this.options.slim ?? this.detectedSlim);
+        for (const part of SKIN_PARTS) {
+            const mesh = this.getMeshByName(part);
             if (mesh) {
-                mesh.material = mat;
+                mesh.material = texture.material;
             }
         }
+        this.notifyDirty();
     }
 
     //TODO: cape
 
-    public setSlim(slim: boolean): void {
-        console.log("#setSlim")
-        const changed = slim !== this.slim;
-        this.slim = slim;
-
-        if (changed) {
-            //TODO: update geometries and mesh positions
-            // for (let child of this.children) {
-            //     this.remove(child);
-            // }
-            this.createMeshes();
-        }
-
-        if (changed) {
-            if (this.skinTextureSrc) {
-                this.setSkinTexture(this.skinTextureSrc);
-            }
-        }
-
-        console.log("#setSlim done");
+    /** Select the arm model, or pass undefined to use texture detection. */
+    public setSlim(slim?: boolean): void {
+        this.options.slim = slim;
+        this.updateSlim(slim ?? this.detectedSlim);
     }
 
-    public setLegacy(legacy: boolean): void {
-        if (legacy !== this.legacy) {
-            //TODO: update geometries and mesh positions
+    private updateSlim(slim: boolean): void {
+        if (slim === this.slim) return;
+        this.slim = slim;
+
+        for (const part of [SkinPart.LEFT_ARM, SkinPart.LEFT_SLEEVE, SkinPart.RIGHT_ARM, SkinPart.RIGHT_SLEEVE]) {
+            const mesh = this.getMeshByName(part);
+            if (mesh) mesh.geometry = this.getBoxGeometry(part);
         }
-        this.legacy = legacy;
+
+        const offset = slim ? 0.5 : -0.5;
+        const leftArm = this.getGroupByName(SkinPart.LEFT_ARM);
+        const rightArm = this.getGroupByName(SkinPart.RIGHT_ARM);
+        if (leftArm) leftArm.position.x += offset;
+        if (rightArm) rightArm.position.x -= offset;
+        this.notifyDirty();
+    }
+
+    /** Select the texture layout, or pass undefined to detect it from image dimensions. */
+    public async setLegacy(legacy?: boolean): Promise<void> {
+        if (legacy === this.options.legacy) return;
+        this.options.legacy = legacy;
+        if (this.skinTextureSrc) await this.setSkinTexture(this.skinTextureSrc);
+    }
+
+    public dispose(): void {
+        this.skinLoad++;
+        super.dispose();
     }
 
     //TODO: layer toggles
 
 
     protected getBoxGeometry(part: SkinPart): BoxGeometry {
-        //TODO support for 64x32 dimensions
         console.log("slim", this.slim)
         const coordinates: SkinTextureCoordinates = this.slim ? slimSkinTextureCoordinates : classicSkinTextureCoordinates;
         const geometries: SkinGeometries = this.slim ? slimSkinGeometries : classicSkinGeometries;
-        return this._getBoxGeometryFromDimensions(geometries[part], coordinates[part], [64, 64], [this.skinTextureWidth, this.skinTextureHeight]);
+        return this._getBoxGeometryFromDimensions(geometries[part], coordinates[part], [64, 64], [64, 64]);
     }
 
 
 }
 
 export interface SkinObjectOptions extends SceneObjectOptions {
-
+    slim?: boolean;
+    legacy?: boolean;
 }

@@ -2,7 +2,7 @@ import { Event, Object3D, Scene } from "three";
 import {isSceneObject, SceneObject} from "./SceneObject";
 import merge from "ts-deepmerge";
 import { Model } from "../model/Model";
-import { ModelObject, ModelObjectOptions } from "../model/scene/ModelObject";
+import { isModelObject, ModelObject, ModelObjectOptions } from "../model/scene/ModelObject";
 import { InstanceReference } from "../instance/InstanceReference";
 import { SceneStats } from "../SceneStats";
 import { SSAOPassOUTPUT } from "three/examples/jsm/postprocessing/SSAOPass";
@@ -107,8 +107,15 @@ export class MineRenderScene extends Scene {
         const obj = await objectSupplier();
         if (obj?.options?.instanceMeshes && asset.key &&  (<AssetKey>asset.key)?.assetType === "models"/*TODO*/) {
             console.log("instanceMeshes + key")
-            // check for existing instances
-            const key = asset.key.serialize();
+            // Display poses, UV-lock rotations, and tint palettes change vertices but share an atlas.
+            let key = asset.key.serialize();
+            if (isModelObject(obj)) {
+                const { displayPosition, uvLockRotation, tints } = obj.options;
+                if (displayPosition) key += `|display:${displayPosition}`;
+                if (uvLockRotation) key += `|uvlock:${uvLockRotation.join(",")}`;
+                const palette = Object.entries(tints ?? {}).sort(([a], [b]) => Number(a) - Number(b));
+                if (palette.length) key += `|tints:${JSON.stringify(palette)}`;
+            }
             return this.instanceManager.getOrCreate(key, async () => {
                 // const obj = await objectSupplier();
                 obj.scene = this;
@@ -143,10 +150,10 @@ export class MineRenderScene extends Scene {
         this.dirty = true;
         const obj = new SkinObject(options);
         obj.scene = this;
-        await obj.init();
         if (skin) {
-            obj.setSkinTexture(skin);
+            await obj.setSkinTexture(skin);
         }
+        await obj.init();
         parent.add(obj);
         return obj;
     }

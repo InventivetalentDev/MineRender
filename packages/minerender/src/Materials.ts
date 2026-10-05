@@ -58,6 +58,7 @@ export class Materials {
             uniform bool SHADE;
             
             varying vec2 vUv;
+            varying vec3 vTint;
             varying float light;
             varying float lift;
 
@@ -92,6 +93,7 @@ export class Materials {
                 }
                 
                 vUv = uv;
+                vTint = color;
                
                 #ifdef USE_INSTANCING
                     gl_Position = projectionMatrix * viewMatrix * modelMatrix * instanceMatrix * vec4(position, 1.0);
@@ -113,12 +115,14 @@ export class Materials {
             uniform float BRIGHTNESS;
 
             varying vec2 vUv;
+            varying vec3 vTint;
             varying float light;
             varying float lift;
 
             void main(void)
             {
                 vec4 color = texture2D(map, vUv);
+                color.rgb *= vTint;
                 
                 if (color.a < 0.01) discard;
 
