@@ -33,12 +33,15 @@ const slotMatrix = (mesh: InstancedMesh, index: number) => { const matrix = new 
 test("released slots are reused without moving live instances and stale references cannot control replacements", t => {
     const owner = fixture(t, 4);
     const [first, middle, last] = [owner.nextInstance(), owner.nextInstance(), owner.nextInstance()];
+    t.is(owner.getInstanceReference(owner.mesh, middle.index), middle);
+    t.is(owner.getInstanceReference(owner.children[0], middle.index), undefined);
     first.setPosition(new Vector3(10, 20, 30));
     last.setPosition(new Vector3(40, 50, 60));
     owner.mesh.setColorAt(middle.index, new Color(0xff0000));
     owner.scene.dirty = false;
     middle.removeFromScene();
     middle.dispose();
+    t.is(owner.getInstanceReference(owner.mesh, middle.index), undefined);
     t.true(owner.scene.dirty);
     t.deepEqual([owner.instanceCounter, owner.scene.stats.instanceCount, owner.mesh.count], [2, 2, 3]);
     t.deepEqual(new Vector3().setFromMatrixScale(slotMatrix(owner.mesh, middle.index)).toArray(), [0, 0, 0]);
@@ -77,7 +80,7 @@ test("bulk transforms skip holes and invalidate bounds when a live instance move
     const [first, hole, last] = [owner.nextInstance(), owner.nextInstance(), owner.nextInstance()];
     hole.dispose();
     const position = new Vector3(10, 20, 30);
-    const rotation = new Euler(0, Math.PI / 2, 0);
+    const rotation = new Euler(0, 0.4, 0);
     const scale = new Vector3(2, 3, 4);
     for (const transform of [
         () => owner.setPosition(position), () => owner.setRotation(rotation), () => owner.setScale(scale),
@@ -95,6 +98,7 @@ test("bulk transforms skip holes and invalidate bounds when a live instance move
     const expected = new Matrix4().compose(position, new Quaternion().setFromEuler(rotation), scale);
     t.deepEqual(matrixValues(first.getMatrix()), matrixValues(expected));
     t.deepEqual(matrixValues(last.getMatrix()), matrixValues(expected));
+    t.true(Math.abs(first.getRotation().y - rotation.y) < 1e-6);
     owner.mesh.computeBoundingBox();
     owner.mesh.computeBoundingSphere();
     owner.scene.dirty = false;

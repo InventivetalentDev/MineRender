@@ -262,6 +262,11 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
         return reference;
     }
 
+    /** Returns the live reference for a raycast hit on this object's instance mesh. */
+    public getInstanceReference(mesh: Object3D, index: number): Maybe<InstanceReference<SceneObject>> {
+        return mesh === this.instanceMesh ? this.instanceReferences.get(index) : undefined;
+    }
+
     isInstanceActive(index: number, reference: InstanceReference<Instanceable>): boolean {
         return this.instanceReferences.get(index) === reference;
     }
@@ -362,9 +367,9 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
 
     getRotationAt(index: number, euler: Euler = new Euler()): Euler {
         if (!this.isInstanced) throw new MineRenderError("Object is not instanced");
-        const matrix = this.getMatrixAt(index)
-        euler.setFromRotationMatrix(matrix);
-        return euler;
+        const rotation = new Quaternion();
+        this.getMatrixAt(index).decompose(new Vector3(), rotation, new Vector3());
+        return euler.setFromQuaternion(rotation);
     }
 
     setScaleAt(index: number, scale: Vector3) {
