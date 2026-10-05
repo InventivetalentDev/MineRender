@@ -2,12 +2,30 @@ import { BufferGeometry, Float32BufferAttribute } from "three";
 import type { DoubleArray, TripleArray } from "../Model";
 import type { AssetKey } from "../../assets/AssetKey";
 import type { BlockStateProperties } from "../block/BlockStateProperties";
+import fluidBlocks from "./fluidBlocks.json";
 
 export type FluidKind = "water" | "lava";
 
+export interface BlockFluidState {
+    kind: FluidKind;
+    level: number;
+    renderModel: boolean;
+}
+
+const fluidRules = fluidBlocks as Record<string, { kind: FluidKind; levelProperty?: string; renderModel: boolean }>;
+
+export function getBlockFluidState(key?: AssetKey, state?: BlockStateProperties): BlockFluidState | undefined {
+    const rule = key && fluidRules[key.toNamespacedString()];
+    if (rule) return {
+        kind: rule.kind,
+        level: rule.levelProperty ? Number(state?.[rule.levelProperty] ?? 0) : 0,
+        renderModel: rule.renderModel
+    };
+    return state?.waterlogged === "true" ? { kind: "water", level: 0, renderModel: true } : undefined;
+}
+
 export function getFluidKind(key?: AssetKey, state?: BlockStateProperties): FluidKind | undefined {
-    if (key?.namespace === "minecraft" && !key.type && (key.path === "water" || key.path === "lava")) return key.path;
-    return state?.waterlogged === "true" ? "water" : undefined;
+    return getBlockFluidState(key, state)?.kind;
 }
 
 export interface FluidSample {

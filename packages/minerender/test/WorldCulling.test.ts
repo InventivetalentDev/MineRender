@@ -392,3 +392,33 @@ for (const sectionMeshing of [false, true]) {
         t.is(scene.stats.instanceCount, 0);
     });
 }
+
+test.serial("implicit water retains aquatic plants, hides bubble-column models and joins neighboring water", async t => {
+    const { world, scene, states, addModel } = fixture(t, { sectionMeshing: true });
+    const plant = addModel("plant", { height: 12, transparent: true });
+    const cases: Array<[string, Record<string, string>]> = [
+        ["kelp", {}], ["kelp_plant", {}], ["seagrass", {}],
+        ["tall_seagrass", { half: "lower" }], ["tall_seagrass", { half: "upper" }],
+        ["bubble_column", { drag_down: "false" }], ["bubble_column", { drag_down: "true" }]
+    ];
+    for (const [index, [type, properties]] of cases.entries()) {
+        states.set(`minecraft:${type}`, { key: AssetKey.parse("blockstates", type), variants: { "": { model: "test:block/plant" } } });
+        const x = index * 4, fluidIndex = type === "bubble_column" ? 0 : 1;
+        const block = (await world.setBlockAt([x, 0, 0], { type, properties: { level: "7", ...properties } }))!.object!;
+        t.deepEqual([block.fluidKind, block.fluidLevel, block["_models"].length], ["water", 0, fluidIndex + 1]);
+        if (fluidIndex) t.is(modelOf(block).originalModel, plant);
+        t.is(modelOf(block, fluidIndex).originalModel.key!.type, "fluid");
+        const water = (await world.setBlockAt([x + 1, 0, 0], { type: "water" }))!.object!;
+        t.deepEqual([indexCount(block, fluidIndex), indexCount(water)], [30, 30]);
+        await world.setBlockAt(x, 0, 0, undefined);
+        t.is(block["_models"].length, 0);
+        t.is(indexCount(water), 36);
+    }
+    for (const [index, type] of ["test:kelp", "minecraft:water_cauldron"].entries()) {
+        states.set(type, { key: AssetKey.parse("blockstates", type), variants: { "": { model: "test:block/plant" } } });
+        const block = (await world.setBlockAt([40 + index * 4, 0, 0], { type }))!.object!;
+        t.deepEqual([block.fluidKind, block["_models"].length], [undefined, 1]);
+    }
+    await world.clear();
+    t.is(scene.stats.instanceCount, 0);
+});
