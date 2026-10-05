@@ -4,16 +4,12 @@ import { ArchiveAssetSource, AssetLoader, BlockStates, BrowserArchiveProxy, Cach
  * One resource pack for the whole page. Installing it puts the ZIP ahead of the vanilla
  * assets for every example; listeners (the viewports) rebuild their scenes afterwards.
  *
- * The library persists blockstates, models and texture metadata in IndexedDB under keys that
- * do not include the source they came from. While a pack is active, its files land in that
- * cache and survive a reload without the pack, after which the page requests the pack's
- * variant files (for example "grass_block7") from the vanilla CDN. So the persistent caches
- * are cleared whenever a pack is installed or removed, and once more on the next page load
- * if the previous session ended with a pack active.
+ * The library keeps persisted blockstates and models from a pack apart from the vanilla
+ * entries, so only the in-memory caches need clearing when the pack changes. The one-time
+ * generation clear below removes entries that older builds persisted under vanilla keys.
  */
 const SOURCE_KEY = "site-resourcepack";
-const PACK_ACTIVE_FLAG = "minerender-site-pack-active";
-/** Bump to clear every visitor's persistent caches once, for example after a poisoning bug. */
+/** Bump to clear every visitor's persistent caches once. */
 const CACHE_GENERATION = "2";
 const CACHE_GENERATION_KEY = "minerender-site-cache-generation";
 const listeners = new Set<() => void>();
@@ -36,13 +32,10 @@ function writeFlag(key: string, value: string | null): void {
     }
 }
 
-/** Call once before any example loads: drops caches that may hold another session's pack. */
+/** Call once before any example loads: drops persisted entries written by older builds. */
 export async function recoverPersistentCaches(): Promise<void> {
-    const packWasActive = readFlag(PACK_ACTIVE_FLAG) === "1";
-    const staleGeneration = readFlag(CACHE_GENERATION_KEY) !== CACHE_GENERATION;
-    if (!packWasActive && !staleGeneration) return;
-    await clearCaches();
-    writeFlag(PACK_ACTIVE_FLAG, null);
+    if (readFlag(CACHE_GENERATION_KEY) === CACHE_GENERATION) return;
+    await clearPersistentCaches();
     writeFlag(CACHE_GENERATION_KEY, CACHE_GENERATION);
 }
 
@@ -55,7 +48,7 @@ export function resourcePackName(): string | undefined {
     return currentName;
 }
 
-async function clearCaches(): Promise<void> {
+async function clearPersistentCaches(): Promise<void> {
     Caching.clear();
     await Promise.all([Models.clearCache(), BlockStates.clearCache(), ModelTextures.clearCache()]);
 }
@@ -65,17 +58,16 @@ export async function installResourcePack(file: File): Promise<void> {
     await proxy.getEntries();
     AssetLoader.removeSource(SOURCE_KEY);
     AssetLoader.addSource(SOURCE_KEY, new ArchiveAssetSource(proxy));
-    await clearCaches();
+    // Persistent entries are scoped by source; only the in-memory caches hold vanilla results.
+    Caching.clear();
     currentName = file.name;
-    writeFlag(PACK_ACTIVE_FLAG, "1");
     listeners.forEach(listener => listener());
 }
 
 export async function removeResourcePack(): Promise<void> {
     if (!AssetLoader.removeSource(SOURCE_KEY)) return;
-    await clearCaches();
+    Caching.clear();
     currentName = undefined;
-    writeFlag(PACK_ACTIVE_FLAG, null);
     listeners.forEach(listener => listener());
 }
 

@@ -99,6 +99,13 @@ export class Viewport implements Pooled {
         }, { rootMargin: "96px 0px" });
         this.observer.observe(container);
 
+        // Control changes load new assets whose textures arrive after the next draw.
+        for (const type of ["change", "input"]) {
+            this.controlsHost.addEventListener(type, () => {
+                if (this.renderer && this.abort && this.state === "active") this.settle(this.renderer, this.abort.signal);
+            });
+        }
+
         this.setState("idle", "Scroll to load");
     }
 
@@ -163,12 +170,16 @@ export class Viewport implements Pooled {
      * Textures finish decoding after setup() resolves and do not mark the scene dirty yet,
      * so request a few redraws while the first frames settle.
      */
+    private settleUntil = 0;
+
     private settle(renderer: Renderer, signal: AbortSignal): void {
-        const started = performance.now();
+        const alreadyRunning = this.settleUntil > performance.now();
+        this.settleUntil = performance.now() + 6000;
+        if (alreadyRunning) return;
         const tick = () => {
-            if (signal.aborted) return;
+            if (signal.aborted || this.renderer !== renderer) return;
             renderer.dirty = true;
-            if (performance.now() - started < 6000) setTimeout(tick, 250);
+            if (performance.now() < this.settleUntil) setTimeout(tick, 250);
         };
         tick();
     }
