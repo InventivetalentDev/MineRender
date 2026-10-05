@@ -11,7 +11,7 @@ import { TextureAtlas } from "../texture/TextureAtlas";
 import { ExtractableImageData } from "../ExtractableImageData";
 import { MinecraftTextureMeta } from "../MinecraftTextureMeta";
 import type { DefaultBlockStates } from "../assets/BlockStates";
-import type { EntityModels } from "../assets/Entities";
+import type { EntityModelFile } from "../entity/EntityModel";
 import type { ListAsset } from "../ListAsset";
 import { BlockState } from "../model/block/BlockState";
 
@@ -101,7 +101,7 @@ export class Caching {
 
     static readonly blockTintCache: AsyncLoadingCache<CacheKey, number> = Caching.createAssetCache<number>();
 
-    static readonly entityModelsCache: AsyncLoadingCache<CacheKey, EntityModels> = Caching.createAssetCache<EntityModels>();
+    static readonly entityModelCache: AsyncLoadingCache<CacheKey, EntityModelFile> = Caching.createAssetCache<EntityModelFile>();
 
     private static createAssetCache<T>(): AsyncLoadingCache<CacheKey, T> {
         return Caches.builder()
@@ -132,7 +132,7 @@ export class Caching {
             this.listAssetCache,
             this.defaultBlockStatesCache,
             this.blockTintCache,
-            this.entityModelsCache
+            this.entityModelCache
         ];
     }
 

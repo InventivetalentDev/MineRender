@@ -1,27 +1,23 @@
 import { SceneObject } from "../../renderer/SceneObject";
-import { BlockState, BlockStateVariant, BlockStateVariants, MultipartCondition } from "../../model/block/BlockState";
 import { SceneObjectOptions } from "../../renderer/SceneObjectOptions";
 import { Caching } from "../../cache/Caching";
-import { Models } from "../../assets/Models";
-import { Assets, DEFAULT_NAMESPACE } from "../../assets/Assets";
 import merge from "ts-deepmerge";
-import { AxesHelper, Euler, Matrix4, Object3D, Vector3 } from "three";
-import { Maybe, toRadians } from "../../util/util";
-import { addWireframeToMesh, addWireframeToObject, applyElementRotation, applyGenericRotation, applyModelPartRotation } from "../../util/model";
+import { Object3D } from "three";
+import type { Material } from "three";
+import { addWireframeToMesh } from "../../util/model";
 import { ModelTextures } from "../../assets/ModelTextures";
-import { AssetKey } from "../../assets/AssetKey";
+import { AssetKey, isAssetKey } from "../../assets/AssetKey";
 import { ExtractableImageData } from "../../ExtractableImageData";
 import { Materials } from "../../Materials";
 import { MinecraftCubeTexture } from "../../MinecraftCubeTexture";
-import * as THREE from "three";
-import { Ticker } from "../../Ticker";
-import { EntityModel } from "../EntityModel";
+import { EntityModel, EntityModelPart } from "../EntityModel";
+import type { DoubleArray } from "../../model/Model";
 
 export class EntityObject extends SceneObject {
 
     public readonly isEntityObject: true = true;
 
-    public static readonly DEFAULT_OPTIONS: EntityObjectOptions = merge({}, SceneObject.DEFAULT_OPTIONS, <EntityObjectOptions>{});
+    public static readonly DEFAULT_OPTIONS: EntityObjectOptions = merge({}, SceneObject.DEFAULT_OPTIONS, <EntityObjectOptions>{ flip: true });
     public readonly options: EntityObjectOptions;
 
     private imageData?: ExtractableImageData;
@@ -30,7 +26,7 @@ export class EntityObject extends SceneObject {
 
     constructor(readonly entity: EntityModel, options?: Partial<EntityObjectOptions>) {
         super();
-        this.options = merge({}, SceneObject.DEFAULT_OPTIONS, options ?? {});
+        this.options = merge({}, EntityObject.DEFAULT_OPTIONS, options ?? {});
         //TODO
     }
 
@@ -44,9 +40,10 @@ export class EntityObject extends SceneObject {
     }
 
     private get textureKey(): AssetKey {
+        const key = this.entity.key;
         return new AssetKey(
-            this.entity.key?.namespace ?? DEFAULT_NAMESPACE,
-            this.entity.key!.path, //TODO: texture may differ from entity name; most of them are in subdirectories for multiple variants etc.
+            key.namespace,
+            isAssetKey(key) ? key.getFullPath() : key.path,
             "textures",
             "entity",
             "assets",
@@ -58,51 +55,41 @@ export class EntityObject extends SceneObject {
         this.imageData = await ModelTextures.get(this.textureKey);
     }
 
-    //TODO: abstract this, since extracted model data can be used for entities, blocks, players
     protected createMeshes(force: boolean = false) {
         if (this.meshesCreated && !force) return;
 
-        const mat = Materials.MISSING_TEXTURE;
-
-        //TODO: don't know which parts are actually meant to be rendered atm
-        for (let partName in this.entity.parts) {
-            const part = this.entity.parts[partName];
-            const texture = new MinecraftCubeTexture(part.textureOffsetU, part.textureOffsetV, part.textureWidth, part.textureHeight);
-            const partAnchor = new Object3D();
-            partAnchor.position.x = part.pivotX;
-            partAnchor.position.y = part.pivotY;
-            partAnchor.position.z = part.pivotZ;
-            for (let cube of part.cubes) {
-                const w = cube.maxX - cube.minX;
-                const h = cube.maxY - cube.minY;
-                const l = cube.maxZ - cube.minZ;
-                const uv = texture.toUvArray(w, h, l);
-
-                //TODO: mirror
-                // MC does it by flipping min and max X; might be easier than moving around all face UVs
-
-                const cubeGeo = this._getBoxGeometryForDimensionsAndUv(w, h, l, uv).clone();
-
-                cubeGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(w / 2, h / 2, l / 2));
-                cubeGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(cube.minX, cube.minY, cube.minZ));
-
-                applyModelPartRotation(part, cubeGeo);
-
-
-                // TODO: merge parts
-                // const mesh = this.createAndAddMesh(partName, undefined, cubeGeo, mat);
-                const mesh = this.createMesh(partName, cubeGeo, mat);
-                partAnchor.add(mesh);
-                if (this.options.wireframe) {
-                    addWireframeToMesh(cubeGeo, mesh);
-                }
-            }
-            this.add(partAnchor);
-        }
-
-        //TODO
-
+        const modelRoot = new Object3D();
+        // Keep Minecraft's model coordinates separate from caller placement and scale.
+        if (this.options.flip) modelRoot.scale.set(-1, -1, 1);
+        this.add(modelRoot);
+        this.createPart("root", this.entity.layer.root, modelRoot, this.entity.layer.texture, Materials.MISSING_TEXTURE);
         this.meshesCreated = true;
+    }
+
+    private createPart(name: string, part: EntityModelPart, parent: Object3D, textureSize: DoubleArray, material: Material) {
+        const anchor = this.createGroup(name);
+        anchor.position.fromArray(part.pose.offset);
+        anchor.rotation.set(...part.pose.rotation, "ZYX");
+        anchor.scale.fromArray(part.pose.scale ?? [1, 1, 1]);
+        parent.add(anchor);
+        const size = part.texture ?? textureSize;
+
+        for (const cube of part.cubes) {
+            const [width, height, depth] = cube.size;
+            const [growX, growY, growZ] = cube.grow ?? [0, 0, 0];
+            const texture = new MinecraftCubeTexture(...cube.uv, ...size);
+            const uv = size[0] === 0 || size[1] === 0 ? new Array<number>(48).fill(0) : texture.toUvArray(width, height, depth, cube.mirror);
+            const geometry = this._getBoxGeometryForDimensionsAndUv(
+                width + growX * 2, height + growY * 2, depth + growZ * 2, uv
+            ).clone();
+            geometry.translate(cube.origin[0] + width / 2, cube.origin[1] + height / 2, cube.origin[2] + depth / 2);
+            const mesh = this.createMesh(name, geometry, material);
+            anchor.add(mesh);
+            if (this.options.wireframe) addWireframeToMesh(geometry, mesh);
+        }
+        for (const [childName, child] of Object.entries(part.children)) {
+            this.createPart(childName, child, anchor, size, material);
+        }
     }
 
     protected async applyTextures() {
@@ -133,6 +120,7 @@ export class EntityObject extends SceneObject {
 }
 
 export interface EntityObjectOptions extends SceneObjectOptions {
+    flip?: boolean;
 }
 
 export function isEntityObject(obj: any): obj is EntityObject {

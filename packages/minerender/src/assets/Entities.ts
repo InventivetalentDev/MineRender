@@ -1,83 +1,54 @@
-import { AssetKey, BasicAssetKey } from "./AssetKey";
-import { EntityModel } from "../entity/EntityModel";
-import { MinecraftAsset } from "../MinecraftAsset";
+import { AssetKey, BasicAssetKey, isAssetKey } from "./AssetKey";
+import type { EntityModel, EntityModelFile } from "../entity/EntityModel";
 import { AssetLoader } from "./AssetLoader";
 import { AssetParser } from "./source";
 import { Maybe } from "../util";
 import { Caching } from "../cache/Caching";
+import { DEFAULT_NAMESPACE } from "./Assets";
+import type { ListAsset } from "../ListAsset";
+import { MineRenderError } from "../error/MineRenderError";
 
 export class Entities {
 
-    public static async getBlockEntityModels(): Promise<Maybe<BlockEntityModels>> {
-        const key = AssetKey.parse("models", "minerender:blockEntityModels");
-        console.log(key);
-        return Caching.entityModelsCache.get(key.serialize(), () => {
-            return AssetLoader.get<BlockEntityModels>(key, AssetParser.JSON);
-        });
-    }
-
-    public static async getEntityModels(): Promise<Maybe<EntityModels>> {
-        const key = AssetKey.parse("models", "minerender:entityModels");
-        console.log(key);
-        return Caching.entityModelsCache.get(key.serialize(), () => {
-            return AssetLoader.get<EntityModels>(key, AssetParser.JSON);
-        });
-    }
-
-    // BlockEntity names are hardcoded
-    public static async getBlockList(): Promise<string[]> {
-        const models = await this.getBlockEntityModels();
-        if (!models) {
-            return [];
-        }
-        return Object.keys(models);
-    }
-
     public static async getEntityList(): Promise<string[]> {
-        const models = await this.getEntityModels();
-        if (!models) {
-            return [];
-        }
-        return Object.keys(models);
+        const collect = async (path: string): Promise<string[]> => {
+            const prefix = path ? `${path}/` : "";
+            const key = new AssetKey(DEFAULT_NAMESPACE, `${prefix}_list`, undefined, undefined, "entity-models", ".json");
+            const list = await Caching.listAssetCache.get(key.serialize(), () => AssetLoader.get<ListAsset>(key, AssetParser.LIST));
+            if (!list) return [];
+            const files = list.files.filter(file => file.endsWith(".json") && file !== "_list.json")
+                .map(file => `${prefix}${file.slice(0, -5)}`);
+            const children = await Promise.all(list.directories.map(directory => collect(`${prefix}${directory}`)));
+            return [...files, ...children.flat()];
+        };
+        return collect("");
     }
 
-    public static async getBlock(modelKey: BasicAssetKey, textureKey?: BasicAssetKey): Promise<Maybe<EntityModel>> {
-        const models = await this.getBlockEntityModels();
-        if (!models) {
-            return undefined;
+    public static async getEntity(modelKey: BasicAssetKey, textureKey?: BasicAssetKey, options?: EntityModelOptions): Promise<Maybe<EntityModel>> {
+        const path = isAssetKey(modelKey) ? modelKey.getFullPath() : modelKey.path;
+        const key = new AssetKey(modelKey.namespace, path, undefined, undefined, "entity-models", ".json");
+        const model = await Caching.entityModelCache.get(key.serialize(), () => AssetLoader.get<EntityModelFile>(key, AssetParser.JSON));
+        if (!model) return undefined;
+        const layerName = options?.layer ?? "main";
+        const layer = model.layers[layerName];
+        if (!layer) {
+            throw new MineRenderError(`Entity ${model.id} has no layer "${layerName}". Available layers: ${Object.keys(model.layers).join(", ")}`);
         }
-        if (!textureKey) {
-            textureKey = modelKey;
-        }
-        const baseKey = modelKey.path.includes("/") ? new BasicAssetKey(modelKey.namespace, modelKey.path.split("\/")[0]) : modelKey;
-        return {
-            key: textureKey,
-            parts: models[baseKey.toNamespacedString()]
-        }
+        return { key: textureKey ?? modelKey, layer, id: model.id };
     }
 
-    public static async getEntity(modelKey: BasicAssetKey, textureKey?: BasicAssetKey): Promise<Maybe<EntityModel>> {
-        const models = await this.getEntityModels();
-        if (!models) {
-            return undefined;
-        }
-        if (!textureKey) {
-            textureKey = modelKey
-        }
-        const baseKey = modelKey.path.includes("/") ? new BasicAssetKey(modelKey.namespace, modelKey.path.split("\/")[0]) : modelKey;
-        return {
-            key: textureKey,
-            parts: models[baseKey.toNamespacedString()]
-        }
+    /** @deprecated Use getEntityList(); block entities share the entity dataset. */
+    public static getBlockList(): Promise<string[]> {
+        return this.getEntityList();
     }
 
+    /** @deprecated Use getEntity(); block entities share the entity dataset. */
+    public static getBlock(modelKey: BasicAssetKey, textureKey?: BasicAssetKey, options?: EntityModelOptions): Promise<Maybe<EntityModel>> {
+        return this.getEntity(modelKey, textureKey, options);
+    }
 
 }
 
-export class EntityModels implements MinecraftAsset {
-    [k: string]: any;
-}
-
-export class BlockEntityModels implements MinecraftAsset {
-    [k: string]: any;
+export interface EntityModelOptions {
+    layer?: string;
 }
