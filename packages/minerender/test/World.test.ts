@@ -129,3 +129,35 @@ test.serial("vanilla air removes blocks without loading assets or creating empty
     t.truthy(await world.setBlockAt(0, 0, 0, { type: "custom:air" }));
     t.deepEqual(loads, ["test:stone", "custom:air"]);
 });
+
+test.serial("world placement snapshots block data without changing BlockInfo or render object identity", async t => {
+    const { world, scene } = fixture(t);
+    const input = { type: "test:stone", properties: { facing: "north" }, nbt: { items: [{ count: 2 }], bytes: new Uint8Array([3, 4]) } };
+    const pending = world.setBlockAt(0, 0, 0, input);
+    input.properties.facing = "south";
+    input.nbt.items[0].count = 99;
+    input.nbt.bytes[0] = 99;
+    const first = (await pending)!;
+    const second = (await world.setBlockAt(1, 0, 0, {
+        type: "test:stone", properties: { facing: "north" }, nbt: { items: [{ count: 5 }], bytes: new Uint8Array([6, 7]) }
+    }))!;
+    t.is(world.getBlockAt(0, 0, 0), first);
+    t.is(world.getBlockAt(0, 0, 0)!.object, first.object);
+    t.deepEqual(first.object.state, { facing: "north" });
+    t.deepEqual(first.block, {
+        type: "test:stone", properties: { facing: "north" }, nbt: { items: [{ count: 2 }], bytes: new Uint8Array([3, 4]) }
+    });
+    const snapshot = first.block;
+    snapshot.properties!.facing = "west";
+    snapshot.nbt.items[0].count = 88;
+    snapshot.nbt.bytes[0] = 88;
+    t.deepEqual(first.block.properties, { facing: "north" });
+    t.deepEqual(first.block.nbt, { items: [{ count: 2 }], bytes: new Uint8Array([3, 4]) });
+    t.deepEqual(second.block, {
+        type: "test:stone", properties: { facing: "north" }, nbt: { items: [{ count: 5 }], bytes: new Uint8Array([6, 7]) }
+    });
+    await world.setBlockAt(0, 0, 0, undefined);
+    t.is(world.getBlockAt(1, 0, 0), second);
+    t.deepEqual(second.object.getPosition().toArray(), [16, 0, 0]);
+    t.is(scene.stats.instanceCount, 1);
+});
