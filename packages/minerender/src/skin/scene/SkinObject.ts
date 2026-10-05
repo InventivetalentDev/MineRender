@@ -41,7 +41,6 @@ export class SkinObject extends SceneObject {
     }
 
     protected createMeshes() {
-        console.log("#createMeshes")
         const mat = this.skinMaterial ?? Materials.MISSING_TEXTURE;
 
         {
@@ -110,7 +109,6 @@ export class SkinObject extends SceneObject {
             }
         }
 
-        console.log("#createMeshes done")
 
     }
 
@@ -203,7 +201,6 @@ export class SkinObject extends SceneObject {
 
 
     protected getBoxGeometry(part: SkinPart): BoxGeometry {
-        console.log("slim", this.slim)
         const coordinates: SkinTextureCoordinates = this.slim ? slimSkinTextureCoordinates : classicSkinTextureCoordinates;
         const geometries: SkinGeometries = this.slim ? slimSkinGeometries : classicSkinGeometries;
         return this._getBoxGeometryFromDimensions(geometries[part], coordinates[part], [64, 64], [64, 64]);
