@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>MineRender V2 – Interactive 3D Minecraft renders for the web and Node</title>
+    <meta name="description" content="MineRender V2 renders Minecraft skins, blocks, items, entities, structures and worlds with three.js. TypeScript, browser and Node, resource packs, instanced rendering.">
+    <meta name="theme-color" content="#4f46e5">
+    <link rel="icon" href="/favicon.ico">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="MineRender V2">
+    <meta property="og:description" content="Interactive 3D renders of Minecraft skins, blocks, items, entities, structures and worlds.">
+    <meta property="og:image" content="/og-image.png">
+    <meta name="twitter:card" content="summary">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+<a class="skip-link" href="#examples">Skip to examples</a>
+
+<nav class="site-nav">
+    <div class="container nav-inner">
+        <a class="brand" href="#top">
+            <img src="/logo.svg" alt="" width="32" height="32">
+            <span>MineRender</span>
+            <span class="badge">V2 alpha</span>
+        </a>
+        <button id="nav-toggle" class="nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false" aria-controls="nav-links">
+            <span></span><span></span><span></span>
+        </button>
+        <div id="nav-links" class="nav-links">
+            <a href="#features">Features</a>
+            <a href="#examples">Examples</a>
+            <a href="#getting-started">Get started</a>
+            <a href="#docs">Docs</a>
+            <a href="#migration">From V1</a>
+            <a href="https://github.com/InventivetalentDev/MineRender" target="_blank" rel="noopener">GitHub</a>
+            <button id="theme-toggle" class="icon-button" type="button" aria-label="Toggle colour theme" title="Toggle colour theme">
+                <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4m11.4-11.4 1.4-1.4"/></svg>
+                <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+            </button>
+        </div>
+    </div>
+</nav>
+
+<header id="top" class="hero">
+    <div class="container hero-inner">
+        <div class="hero-copy">
+            <p class="eyebrow">Version 2 · TypeScript rewrite</p>
+            <h1>Interactive 3D Minecraft renders, <span class="accent">anywhere</span>.</h1>
+            <p class="lead">
+                MineRender turns Minecraft skins, blocks, items, entities, structures and worlds into
+                interactive three.js scenes. V2 is a from-scratch TypeScript rewrite that runs in the browser and in Node,
+                with a smarter asset pipeline and instanced rendering built for large scenes.
+            </p>
+            <div class="hero-actions">
+                <a class="button primary" href="#getting-started">Get started</a>
+                <a class="button" href="#examples">See the examples</a>
+                <a class="button ghost" href="https://www.npmjs.com/package/minerender" target="_blank" rel="noopener">npm</a>
+            </div>
+            <div class="install-line">
+                <code>npm install minerender@alpha three</code>
+            </div>
+            <p class="hero-note">
+                Looking for the original? <a href="https://minerender.org" target="_blank" rel="noopener">MineRender V1</a> keeps working and stays online.
+            </p>
+        </div>
+        <div class="hero-art" aria-hidden="true">
+            <img src="/logo.svg" alt="" width="260" height="260">
+        </div>
+    </div>
+</header>
+
+<main>
+    <section id="features" class="container section">
+        <div class="section-heading">
+            <h2>What's new in V2</h2>
+            <p class="lead">Same goal as V1, rebuilt on a cleaner, faster foundation.</p>
+        </div>
+        <div class="feature-grid">
+            <article class="feature">
+                <h3>One renderer, every content type</h3>
+                <p>A single <code>Renderer</code> owns a scene that mixes skins, blocks, items, entities and worlds. No more one-renderer-per-type wrappers.</p>
+            </article>
+            <article class="feature">
+                <h3>Browser and Node</h3>
+                <p>Separate browser and Node entry points behind one API. Load and merge assets, parse structures and build scenes server-side; headless rendering is in progress.</p>
+            </article>
+            <article class="feature">
+                <h3>Renders only when needed</h3>
+                <p>A dirty-flag render loop draws a frame only when something changed, plus an FPS cap. Idle scenes cost nothing.</p>
+            </article>
+            <article class="feature">
+                <h3>Instanced by default</h3>
+                <p>Identical models share a single <code>InstancedMesh</code>. Hundreds of blocks render in one draw call, which is the basis for world-scale scenes.</p>
+            </article>
+            <article class="feature">
+                <h3>Layered asset sources</h3>
+                <p>Stack resource-pack ZIPs, CDNs and custom namespaces in priority order. Per-key asset roots let one page mix game versions.</p>
+            </article>
+            <article class="feature">
+                <h3>Current assets, cached</h3>
+                <p>Defaults to Minecraft 1.21.11 assets, including the modern item definitions, with in-memory and persistent caches keyed by version.</p>
+            </article>
+            <article class="feature">
+                <h3>Typed, tree-shakeable, side-effect free</h3>
+                <p>Full TypeScript declarations, ESM and CJS builds, and no work at import time. Also available as a classic script-tag bundle.</p>
+            </article>
+            <article class="feature">
+                <h3>Structures and worlds</h3>
+                <p>Parse vanilla <code>.nbt</code> structures in the browser and place them into a chunked world. Region files and schematics are on the roadmap.</p>
+            </article>
+        </div>
+    </section>
+
+    <section id="examples" class="container section">
+        <div class="section-heading">
+            <h2>Examples</h2>
+            <p class="lead">
+                Each section renders only the example you select, and a viewport goes to sleep as soon as it scrolls out of view.
+                That keeps the page light even with every feature on one page.
+            </p>
+            <div class="example-nav" id="example-nav"></div>
+            <label class="pool-control">
+                Live viewports at once
+                <select id="pool-size" aria-label="Maximum number of live viewports">
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                </select>
+            </label>
+        </div>
+        <!-- Showcase sections are inserted here by src/main.ts -->
+    </section>
+
+    <section id="getting-started" class="container section">
+        <div class="section-heading">
+            <h2>Getting started</h2>
+            <p class="lead">Install from npm for bundlers and Node, or drop in the script-tag bundle.</p>
+        </div>
+        <div class="docs-grid">
+            <article class="doc-card">
+                <h3>Install</h3>
+                <p>three.js is a peer dependency. V2 is published under the <code>alpha</code> dist-tag while the API settles.</p>
+                <pre><code data-lang="sh">npm install minerender@alpha three
+# or
+yarn add minerender@alpha three</code></pre>
+            </article>
+            <article class="doc-card">
+                <h3>Script tag</h3>
+                <p>The bundle inlines three.js and exposes everything as <code>window.MineRender</code>.</p>
+                <pre><code data-lang="html">&lt;script src="https://unpkg.com/minerender@alpha/dist/bundle.js"&gt;&lt;/script&gt;
+&lt;script&gt;
+    const renderer = new MineRender.Renderer({ controls: { enabled: true } });
+    renderer.appendTo(document.getElementById("render"));
+    renderer.start();
+&lt;/script&gt;</code></pre>
+            </article>
+        </div>
+        <article class="doc-card wide">
+            <h3>Your first render</h3>
+            <p>Create a renderer, attach it to an element with a size, start the loop, then add content to its scene. Every add method is async because assets load on demand.</p>
+            <pre><code data-lang="ts">import { AssetKey, BlockStates, Renderer } from "minerender";
+
+const renderer = new Renderer({
+    camera: { position: [40, 30, 50], lookingAt: [0, 0, 0] },
+    controls: { enabled: true }      // built-in OrbitControls
+});
+renderer.appendTo(document.getElementById("render")!);
+renderer.start();
+
+// A player skin
+await renderer.scene.addSkin("https://textures.minecraft.net/texture/…");
+
+// A block, from its blockstate
+const state = await BlockStates.get(AssetKey.parse("blockstates", "grass_block"));
+const block = await renderer.scene.addBlock(state!);
+block.setPosition(block.getPosition().set(32, 0, 0));   // 1 block = 16 units
+
+// Later
+renderer.dispose();</code></pre>
+        </article>
+    </section>
+
+    <section id="docs" class="container section">
+        <div class="section-heading">
+            <h2>Usage</h2>
+            <p class="lead">The concepts you need for most integrations. The full API reference is generated from the TypeScript sources.</p>
+        </div>
+
+        <article class="doc-card wide" id="renderer-options">
+            <h3>Renderer options</h3>
+            <p>All options are optional and deep-merged over these defaults.</p>
+            <div class="table-wrap">
+            <table>
+                <thead><tr><th>Option</th><th>Default</th><th>Description</th></tr></thead>
+                <tbody>
+                <tr><td><code>camera.type</code></td><td><code>"perspective"</code></td><td>Or <code>"orthographic"</code>.</td></tr>
+                <tr><td><code>camera.position</code></td><td><code>[50, 50, 50]</code></td><td>Initial camera position as a <code>Vector3</code> or <code>[x, y, z]</code>.</td></tr>
+                <tr><td><code>camera.lookingAt</code></td><td><code>[0, 0, 0]</code></td><td>Camera target, also the orbit centre when controls are enabled.</td></tr>
+                <tr><td><code>camera.near</code> / <code>far</code></td><td><code>1</code> / <code>5000</code></td><td>Clipping planes in scene units.</td></tr>
+                <tr><td><code>camera.perspective.fov</code></td><td><code>50</code></td><td>Field of view in degrees.</td></tr>
+                <tr><td><code>render.fpsLimit</code></td><td><code>60</code></td><td>Maximum frames per second. Zero or negative disables the cap.</td></tr>
+                <tr><td><code>render.antialias</code></td><td><code>true</code></td><td>WebGL antialiasing.</td></tr>
+                <tr><td><code>render.shade</code></td><td><code>true</code></td><td>Apply Minecraft-style per-face shading to models.</td></tr>
+                <tr><td><code>render.autoResize</code></td><td><code>true</code></td><td>Resize the canvas with the window.</td></tr>
+                <tr><td><code>render.renderAlways</code></td><td><code>false</code></td><td>Render every frame instead of only when the scene is dirty.</td></tr>
+                <tr><td><code>render.stats</code></td><td><code>false</code></td><td>Show a stats.js overlay.</td></tr>
+                <tr><td><code>composer.enabled</code></td><td><code>true</code></td><td>Route output through a post-processing EffectComposer. Disable for the fastest path.</td></tr>
+                <tr><td><code>controls.enabled</code></td><td><code>false</code></td><td>Create renderer-owned OrbitControls; available as <code>renderer.controls</code>.</td></tr>
+                <tr><td><code>debug.grid</code> / <code>debug.axes</code></td><td><code>false</code></td><td>Add grid and axes helpers.</td></tr>
+                </tbody>
+            </table>
+            </div>
+        </article>
+
+        <div class="docs-grid">
+            <article class="doc-card">
+                <h3>Scene API</h3>
+                <p><code>renderer.scene</code> is a three.js <code>Scene</code> with asset-aware add methods.</p>
+                <pre><code data-lang="ts">scene.addSkin(textureUrl?, options?)   // SkinObject
+scene.addBlock(blockState, options?)   // BlockObject
+scene.addModel(model, options?)        // ModelObject | InstanceReference
+scene.addEntity(entityModel, options?) // EntityObject | InstanceReference
+scene.stats                            // object and instance counts</code></pre>
+                <p>Scene objects extend <code>Object3D</code> and expose <code>setPosition</code>, <code>setRotation</code>, <code>setScale</code>, <code>getGroupByName</code>, <code>getMeshByName</code>, <code>toggleGroupVisibility</code>, <code>removeFromScene</code> and <code>disposeAndRemoveAllChildren</code>.</p>
+            </article>
+            <article class="doc-card">
+                <h3>Object options</h3>
+                <p>Every add method accepts the same base options.</p>
+                <pre><code data-lang="ts">{
+    mergeMeshes: true,       // one geometry per model
+    instanceMeshes: true,    // share an InstancedMesh per model
+    maxInstanceCount: 50,    // slots per instanced model
+    wireframe: false         // debug outlines
+}</code></pre>
+                <p>With <code>instanceMeshes</code> on, repeated models return an <code>InstanceReference</code> that only carries transforms. Pass <code>instanceMeshes: false</code> to get a standalone object you can remove individually.</p>
+            </article>
+            <article class="doc-card">
+                <h3>The dirty flag</h3>
+                <p>Frames are drawn only when something changed. Built-in controls and the scene's own add methods mark the scene dirty for you; anything you change by hand needs a nudge.</p>
+                <pre><code data-lang="ts">skin.getGroupByName("head")!.rotation.y = 0.5;
+renderer.dirty = true;
+
+// External event sources can request redraws too
+renderer.registerEventDispatcher(myControls, "change");</code></pre>
+            </article>
+            <article class="doc-card">
+                <h3>Assets and caching</h3>
+                <p>Assets are addressed by <code>AssetKey</code> and loaded through an ordered list of sources. The default source is the vanilla CDN at <code>AssetLoader.ROOT</code>.</p>
+                <pre><code data-lang="ts">import { AssetKey, AssetLoader, Caching, HostedAssetSource } from "minerender";
+
+AssetLoader.addSource("pack", new HostedAssetSource("https://cdn.example/pack"));
+
+AssetKey.parse("blockstates", "minecraft:oak_log");
+new AssetKey("minecraft", "diamond_sword", "models", "item", "assets");
+
+Caching.clear();          // in-memory caches
+await Models.clearCache();</code></pre>
+            </article>
+            <article class="doc-card">
+                <h3>Lifecycle</h3>
+                <p><code>stop()</code> pauses the loop and <code>start()</code> resumes it. <code>dispose()</code> is final: it releases the WebGL context, controls and owned helpers.</p>
+                <pre><code data-lang="ts">renderer.stop();
+renderer.start();
+renderer.dispose();
+
+// Node, or before unloading a page: end caches, queues and timers
+import { shutdown } from "minerender";
+shutdown();</code></pre>
+            </article>
+            <article class="doc-card">
+                <h3>Screenshots</h3>
+                <p>Grab the current frame as a data URL. Render first so the drawing buffer is fresh.</p>
+                <pre><code data-lang="ts">renderer.renderer.render(renderer.scene, renderer.camera);
+const dataUrl = renderer.toImage();</code></pre>
+            </article>
+        </div>
+
+        <article class="doc-card wide" id="node">
+            <h3>Node.js</h3>
+            <p>
+                The <code>node</code> export condition installs a Node environment provider backed by <code>node-canvas</code> and <code>node-persist</code>.
+                Asset loading, model merging, atlas generation and structure parsing all work server-side today. Headless WebGL rendering is the next milestone on the <a href="https://github.com/InventivetalentDev/MineRender/blob/main/ROADMAP.md" target="_blank" rel="noopener">roadmap</a>.
+            </p>
+            <pre><code data-lang="ts">import { AssetKey, AssetLoader, AssetParser, Models, StructureParser, shutdown } from "minerender";
+
+const sword = await Models.getMerged(new AssetKey("minecraft", "diamond_sword", "models", "item", "assets"));
+console.log(sword?.elements?.length, "elements");
+
+const nbt = await AssetLoader.get(new AssetKey("minecraft", "igloo/top", "structure", undefined, "data", ".nbt"), AssetParser.NBT);
+const structure = await StructureParser.parse(nbt!);
+console.log(structure.size, structure.blocks.length, "blocks");
+
+shutdown(); // let the process exit</code></pre>
+        </article>
+
+        <article class="doc-card wide" id="performance">
+            <h3>Performance notes</h3>
+            <ul class="checklist">
+                <li><strong>Use one renderer per visible area.</strong> Browsers limit WebGL contexts; this page keeps at most two alive and swaps the rest for snapshots.</li>
+                <li><strong>Dispose what scrolls away.</strong> <code>renderer.dispose()</code> frees the context; recreate on demand. Assets stay cached, so the second load is quick.</li>
+                <li><strong>Leave instancing on</strong> for repeated models. Set <code>maxInstanceCount</code> above the number of copies you expect.</li>
+                <li><strong>Disable the composer</strong> (<code>composer: { enabled: false }</code>) when you do not need post-processing.</li>
+                <li><strong>Lower <code>fpsLimit</code></strong> on busy pages; the dirty flag already skips idle frames.</li>
+            </ul>
+        </article>
+    </section>
+
+    <section id="migration" class="container section">
+        <div class="section-heading">
+            <h2>Coming from V1</h2>
+            <p class="lead">V1 shipped one renderer class per content type. V2 has one renderer and a scene you add things to.</p>
+        </div>
+        <div class="table-wrap">
+        <table>
+            <thead><tr><th>V1</th><th>V2</th></tr></thead>
+            <tbody>
+            <tr><td><code>new SkinRender(options, element).render(skin)</code></td><td><code>renderer.appendTo(element); await renderer.scene.addSkin(url)</code></td></tr>
+            <tr><td><code>new ModelRender(options, element).render([{ blockstate: "stone" }])</code></td><td><code>await renderer.scene.addBlock(await BlockStates.get(AssetKey.parse("blockstates", "stone")))</code></td></tr>
+            <tr><td><code>new ModelRender(...).render([{ model: "diamond_sword" }])</code></td><td><code>await renderer.scene.addModel(await Models.getMerged(new AssetKey("minecraft", "diamond_sword", "models", "item")))</code></td></tr>
+            <tr><td><code>new EntityRender(options, element).render(...)</code></td><td><code>await renderer.scene.addEntity(await Entities.getEntity(AssetKey.parse("entities", "pig")))</code></td></tr>
+            <tr><td><code>CombinedRender</code></td><td>Not needed; one scene hosts every type.</td></tr>
+            <tr><td><code>options.assetRoot</code></td><td><code>AssetLoader.ROOT</code>, <code>AssetLoader.addSource(...)</code>, or a per-key root.</td></tr>
+            <tr><td><code>options.controls / camera / showAxes</code></td><td><code>controls.enabled</code>, <code>camera.position</code>, <code>debug.axes</code>.</td></tr>
+            <tr><td><code>render.toImage()</code></td><td><code>renderer.toImage()</code></td></tr>
+            <tr><td><code>render.clearScene()</code>, <code>render.dispose()</code></td><td><code>object.removeFromScene()</code>, <code>renderer.dispose()</code></td></tr>
+            <tr><td>Per-frame <code>skinRender</code> CustomEvents</td><td>Mutate and set <code>renderer.dirty = true</code>; a per-frame hook is planned.</td></tr>
+            <tr><td><code>GuiRender</code>, recipes, capes, slim detection</td><td>In progress; see the roadmap.</td></tr>
+            </tbody>
+        </table>
+        </div>
+    </section>
+</main>
+
+<footer class="site-footer">
+    <div class="container footer-inner">
+        <div>
+            <strong>MineRender</strong> · MIT licensed · by <a href="https://inventivetalent.org" target="_blank" rel="noopener">inventivetalent</a>
+        </div>
+        <div class="footer-links">
+            <a href="https://github.com/InventivetalentDev/MineRender" target="_blank" rel="noopener">GitHub</a>
+            <a href="https://www.npmjs.com/package/minerender" target="_blank" rel="noopener">npm</a>
+            <a href="https://github.com/InventivetalentDev/MineRender/blob/main/ROADMAP.md" target="_blank" rel="noopener">Roadmap</a>
+            <a href="https://minerender.org" target="_blank" rel="noopener">V1 website</a>
+        </div>
+        <p class="footer-note">Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft.</p>
+    </div>
+</footer>
+
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>
