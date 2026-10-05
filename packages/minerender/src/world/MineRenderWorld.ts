@@ -49,14 +49,31 @@ export class MineRenderWorld {
         if (isTripleArray(posOrX)) {
             return this.setBlockAt(new Vector3(posOrX[0], posOrX[1], posOrX[2]), yOrBlock as Block);
         }
-        this.validatePosBounds(posOrX);
-        const value = yOrBlock as Maybe<Block>;
-        const chunk = Chunk.isAir(value) ? this.getChunkAt(posOrX) : this.getOrCreateChunkAt(posOrX);
-        return chunk?.setBlockAt(posOrX, value);
+        return this.placeBlock(posOrX, yOrBlock as Maybe<Block>);
+    }
+
+    private async placeBlock(pos: Vector3, value: Maybe<Block>, onBlocksChanged?: (positions: Vector3[]) => Promise<void>): Promise<Maybe<BlockInfo>> {
+        this.validatePosBounds(pos);
+        const chunk = Chunk.isAir(value) ? this.getChunkAt(pos) : this.getOrCreateChunkAt(pos);
+        return chunk?.setBlockInChunkAt(chunk.worldPosToChunkPos(pos), value, pos, onBlocksChanged);
     }
 
 
     public async placeMultiBlock(multiblock: MultiBlockStructure, useBatches: boolean = true, executor?: BatchedExecutor): Promise<void> {
+        const changes = new Map<string, Vector3>();
+        try {
+            await this.placeBlocks(multiblock, useBatches, executor, changes);
+        } finally {
+            await this.updateCulling([...changes.values()]);
+        }
+    }
+
+    private async placeBlocks(multiblock: MultiBlockStructure, useBatches: boolean, executor: BatchedExecutor | undefined,
+                              changes: Map<string, Vector3>): Promise<void> {
+        const collect = async (positions: Vector3[]) => {
+            for (const pos of positions) changes.set(pos.toArray().join(","), pos);
+        };
+        const place = (block: MultiBlockBlock) => this.placeBlock(new Vector3(...block.position), block, collect);
         const keys = new Map<string, AssetKey>();
         for (const block of multiblock.blocks) {
             if (Chunk.isAir(block)) continue;
@@ -66,7 +83,7 @@ export class MineRenderWorld {
         await BlockStates.getAll(keys.values());
 
         if (!useBatches) {
-            for (const block of multiblock.blocks) await this.setBlockAt(block.position, block);
+            for (const block of multiblock.blocks) await place(block);
             return;
         }
 
@@ -84,7 +101,7 @@ export class MineRenderWorld {
             for (let i = 0; i < groups.length; i += queue.batch) {
                 const results = await Promise.allSettled(groups.slice(i, i + queue.batch).map(blocks =>
                     queue.submit(async () => {
-                        for (const block of blocks) await this.setBlockAt(block.position, block);
+                        for (const block of blocks) await place(block);
                     })
                 ));
                 const failure = results.find(result => result.status === "rejected");
@@ -98,23 +115,30 @@ export class MineRenderWorld {
 
     /** Replaces one chunk column's blocks. Entity NBT remains available on the parsed chunk. */
     public async placeChunk(chunk: AnvilChunk, executor?: BatchedExecutor): Promise<void> {
-        const previous = [...this._chunks.entries()].filter(([, section]) => section.x === chunk.x && section.z === chunk.z);
-        for (const [key, section] of previous) {
-            this._chunks.delete(key);
-            await section.dispose();
-        }
-        for (const section of chunk.sections) {
-            const blocks: MultiBlockBlock[] = [];
-            for (let index = 0; index < 4096; index++) {
-                const block = section.data.get(index);
-                if (block) blocks.push({
-                    ...block,
-                    position: [chunk.x * 16 + index % 16,
-                        section.y * 16 + Math.floor(index / 256),
-                        chunk.z * 16 + Math.floor(index / 16) % 16]
+        const changes = new Map<string, Vector3>();
+        try {
+            const previous = [...this._chunks.entries()].filter(([, section]) => section.x === chunk.x && section.z === chunk.z);
+            for (const [key, section] of previous) {
+                this._chunks.delete(key);
+                await section.clear(async positions => {
+                    for (const pos of positions) changes.set(pos.toArray().join(","), pos);
                 });
             }
-            await this.placeMultiBlock({ size: [16, 16, 16], blocks }, true, executor);
+            for (const section of chunk.sections) {
+                const blocks: MultiBlockBlock[] = [];
+                for (let index = 0; index < 4096; index++) {
+                    const block = section.data.get(index);
+                    if (block) blocks.push({
+                        ...block,
+                        position: [chunk.x * 16 + index % 16,
+                            section.y * 16 + Math.floor(index / 256),
+                            chunk.z * 16 + Math.floor(index / 16) % 16]
+                    });
+                }
+                await this.placeBlocks({ size: [16, 16, 16], blocks }, true, executor, changes);
+            }
+        } finally {
+            await this.updateCulling([...changes.values()]);
         }
     }
 

@@ -64,10 +64,10 @@ export class BlockObject extends SceneObject {
                 for (let k in defaultState) {
                     state[k] = defaultState[k].default;
                 }
-                await this.setState(state);
+                this._setState(state);
             } else { // fallback to guessing from blockState definition
                 if (this.blockState.variants) {
-                    await this.setState(Object.keys(this.blockState.variants)[0]);
+                    this._setState(Object.keys(this.blockState.variants)[0]);
                 } else if (this.blockState.multipart) {
                     // Guess preview values only from a flat condition; logical groups need a known state.
                     const condition = this.blockState.multipart.map(part => part.when)
@@ -75,12 +75,12 @@ export class BlockObject extends SceneObject {
                             when !== undefined && Object.values(when).every(value => typeof value === "string"));
                     const state = Object.fromEntries(Object.entries(condition ?? {})
                         .map(([key, value]) => [key, value.split("|")[0]]));
-                    await this.setState(state);
+                    this._setState(state);
                 }
             }
-        } else {
-            await this.recreateModels();
         }
+        if (this.options.initialState !== undefined) this._setState(this.options.initialState);
+        await this.recreateModels();
         //TODO
     }
 
@@ -445,6 +445,8 @@ export class BlockObject extends SceneObject {
 
 export interface BlockObjectOptions extends ModelObjectOptions {
     applyDefaultState: boolean;
+    /** Properties applied before model creation, overriding defaults when applyDefaultState is enabled. */
+    initialState?: BlockStateProperties;
 }
 
 export function isBlockObject(obj: any): obj is BlockObject {

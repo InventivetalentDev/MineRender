@@ -2,13 +2,56 @@ import test from "ava";
 import { BlockObject } from "../src/model/block/scene/BlockObject";
 import type { BlockStateVariant } from "../src/model/block/BlockState";
 import type { BlockStateProperties } from "../src/model/block/BlockStateProperties";
+import { AssetKey } from "../src/assets/AssetKey";
+import { BlockStates } from "../src/assets/BlockStates";
 
 class SelectionBlock extends BlockObject {
     selected: BlockStateVariant[] = [];
+    rebuilds = 0;
 
     select(state: BlockStateProperties) { return this.mapStateToVariant(state); }
-    async recreateModels() { this.selected = await this.select(this.state); }
+    async recreateModels() { this.rebuilds++; this.selected = await this.select(this.state); }
 }
+
+test.serial("initial properties override defaults before models are built once", async t => {
+    const original = BlockStates.getDefaultState;
+    t.teardown(() => { BlockStates.getDefaultState = original; });
+    let defaultLoads = 0;
+    BlockStates.getDefaultState = async () => {
+        defaultLoads++;
+        return {
+            axis: { default: "y", type: "enum", valueType: "string", values: ["x", "y"] },
+            waterlogged: { default: "false", type: "boolean", valueType: "boolean", values: ["false", "true"] }
+        };
+    };
+    const base = { model: "test:block/base" };
+    const horizontal = { model: "test:block/horizontal" };
+    const vertical = { model: "test:block/vertical" };
+    const state = { key: AssetKey.parse("blockstates", "test:log"), multipart: [
+        { apply: base },
+        { when: { axis: "x", waterlogged: "false" }, apply: horizontal },
+        { when: { axis: "y", waterlogged: "false" }, apply: vertical }
+    ] };
+    const saved = new SelectionBlock(state, { initialState: { axis: "x" } });
+    await saved.init();
+    t.deepEqual(saved.selected, [base, horizontal]);
+    t.deepEqual(saved.state, { axis: "x", waterlogged: "false" });
+    t.is(saved.rebuilds, 1);
+    const empty = new SelectionBlock(state, { initialState: {} });
+    await empty.init();
+    t.deepEqual(empty.selected, [base, vertical]);
+    t.is(empty.rebuilds, 1);
+    const defaults = new SelectionBlock(state);
+    await defaults.init();
+    t.deepEqual(defaults.selected, [base, vertical]);
+    t.is(defaults.rebuilds, 1);
+    t.is(defaultLoads, 3);
+    const noDefaults = new SelectionBlock(state, { applyDefaultState: false, initialState: {} });
+    await noDefaults.init();
+    t.deepEqual(noDefaults.selected, [base]);
+    t.is(noDefaults.rebuilds, 1);
+    t.is(defaultLoads, 3);
+});
 
 test.serial("multipart OR groups require every property within a matching branch", async t => {
     const variant = { model: "test:block/corner" };
