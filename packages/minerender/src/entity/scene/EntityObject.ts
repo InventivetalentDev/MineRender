@@ -122,10 +122,15 @@ export class EntityObject extends SceneObject {
             const keyStr = `entity:${ assetKeyStr }`;
             let mat = Caching.materialCache.getIfPresent(keyStr);
             if (!mat) {
+                const cachedAsset = Caching.textureAssetCache.getIfPresent(assetKeyStr);
                 const imageData = await this.loadTextures(layer);
                 if (!imageData) return;
                 const canvas = (imageData.data as CanvasRenderingContext2D).canvas;
-                mat = Caching.materialCache.get(keyStr, () => Materials.createBasicCanvasMaterial(canvas));
+                const createMaterial = () => Materials.createBasicCanvasMaterial(canvas);
+                // A cache clear during decoding must not restore an older source's material.
+                mat = cachedAsset && Caching.textureAssetCache.getIfPresent(assetKeyStr) === cachedAsset
+                    ? Caching.materialCache.get(keyStr, createMaterial)
+                    : createMaterial();
             }
             this.getLayerGroup(name)?.traverse(object => {
                 if (isMesh(object)) object.material = mat!;

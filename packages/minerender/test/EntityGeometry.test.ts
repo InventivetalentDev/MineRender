@@ -152,6 +152,11 @@ test.serial("entity layers keep independent textures, UVs and poses under one sh
         materials.forEach(material => material.dispose());
     });
     const layers = { main, wool };
+    for (const texture of [main.texture!, wool.texture!]) {
+        await Caching.textureAssetCache.get(texture.serialize(), async () => ({
+            width: 1, height: 1, type: "png", data: Buffer.from([1])
+        }));
+    }
     const snapshot = JSON.stringify(layers);
     const object = create(root, [64, 32], undefined, layers);
     await object.init();
