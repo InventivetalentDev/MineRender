@@ -17,7 +17,6 @@ export class SkinObject extends SceneObject {
     private slim: boolean = false;
     private legacy: boolean = false;
 
-    private skinTextureSrc?: string;
     private skinTextureWidth: number = 64;
     private skinTextureHeight: number = 64;
 
@@ -114,8 +113,6 @@ export class SkinObject extends SceneObject {
     public setSkinTexture(src: string): void {
         if (typeof src === "undefined") return;
 
-        this.skinTextureSrc = src;
-
         //TODO: detect variant
 
         //TODO
@@ -134,25 +131,20 @@ export class SkinObject extends SceneObject {
     //TODO: cape
 
     public setSlim(slim: boolean): void {
-        console.log("#setSlim")
-        const changed = slim !== this.slim;
+        if (slim === this.slim) return;
         this.slim = slim;
 
-        if (changed) {
-            //TODO: update geometries and mesh positions
-            // for (let child of this.children) {
-            //     this.remove(child);
-            // }
-            this.createMeshes();
+        for (const part of [SkinPart.LEFT_ARM, SkinPart.LEFT_SLEEVE, SkinPart.RIGHT_ARM, SkinPart.RIGHT_SLEEVE]) {
+            const mesh = this.getMeshByName(part);
+            if (mesh) mesh.geometry = this.getBoxGeometry(part);
         }
 
-        if (changed) {
-            if (this.skinTextureSrc) {
-                this.setSkinTexture(this.skinTextureSrc);
-            }
-        }
-
-        console.log("#setSlim done");
+        const offset = slim ? 0.5 : -0.5;
+        const leftArm = this.getGroupByName(SkinPart.LEFT_ARM);
+        const rightArm = this.getGroupByName(SkinPart.RIGHT_ARM);
+        if (leftArm) leftArm.position.x += offset;
+        if (rightArm) rightArm.position.x -= offset;
+        this.notifyDirty();
     }
 
     public setLegacy(legacy: boolean): void {
