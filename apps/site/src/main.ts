@@ -12,11 +12,14 @@ import { structures } from "./examples/structures";
 import { resourcepacks } from "./examples/resourcepacks";
 import { composed } from "./examples/scene";
 import { rendererPool } from "./viewport/RendererPool";
-import { bindResourcePackControls, onResourcePackChange } from "./resourcePack";
+import { bindResourcePackControls, onResourcePackChange, recoverPersistentCaches } from "./resourcePack";
 import * as minerender from "minerender";
 import { shutdown } from "minerender";
 
 const groups = [skins, blocks, items, entities, structures, resourcepacks];
+
+// Drop persisted assets left behind by a resource pack before any preview can read them.
+await recoverPersistentCaches().catch(error => console.warn("Could not reset asset caches", error));
 
 // Hero stage: one representative example per content type, plus the composed scene.
 const playground = new Playground(document.getElementById("playground")!, [
