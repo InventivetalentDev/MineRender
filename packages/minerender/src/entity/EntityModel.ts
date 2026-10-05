@@ -15,6 +15,7 @@ export interface EntityModelFile extends MinecraftAsset {
 
 export interface EntityModelLayer {
     texture: [number, number];
+    textureLocation?: string;
     root: EntityModelPart;
 }
 

@@ -102,6 +102,30 @@ test.serial("parsed entity and texture keys retain their complete paths", async 
     t.is(new EntityObject(explicit!)["textureKey"], rootedTexture);
 });
 
+test.serial("selected layer texture locations skip probing and explicit textures take precedence", async t => {
+    const file = model();
+    file.layers.main.textureLocation = "minecraft:textures/entity/cow/temperate_cow.png";
+    file.layers.saddle.textureLocation = "painted:textures/entity/cow/saddle.png";
+    const keys: AssetKey[] = [];
+    AssetLoader.addSource("test", new StubSource((key, parser) => {
+        t.is(parser, AssetParser.JSON);
+        keys.push(key);
+        return file;
+    }));
+    const key = new BasicAssetKey("minecraft", "cow");
+    const main = await Entities.getEntity(key);
+    const saddle = await Entities.getEntity(key, undefined, { layer: "saddle" });
+    t.deepEqual(main!.texture, new AssetKey("minecraft", "cow/temperate_cow", "textures", "entity", "assets", ".png"));
+    t.deepEqual(saddle!.texture, new AssetKey("painted", "cow/saddle", "textures", "entity", "assets", ".png"));
+    t.is(saddle!.layer, file.layers.saddle);
+
+    const texture = new AssetKey("custom", "cow/checkered", "textures", "entity", "assets", ".png");
+    const explicit = await Entities.getEntity(key, texture, { layer: "saddle" });
+    t.is(explicit!.texture, texture);
+    t.deepEqual(keys, [new AssetKey("minecraft", "cow", undefined, undefined, "entity-models", ".json")]);
+    t.is(decodedImages, 0);
+});
+
 test.serial("missing layers identify the model and available layers without selecting a substitute", async t => {
     const file = model();
     delete file.layers.main;
@@ -164,7 +188,7 @@ test.serial("version changes fetch entity files and resolved textures from the s
 });
 
 
-test.serial("direct and nested entity textures stop at the first match and reuse the cached resolution", async t => {
+test.serial("layers without texture locations use direct or nested textures and reuse the cached resolution", async t => {
     for (const [name, path, expectedCalls] of [
         ["cow", "cow", ["minecraft:entity/cow"]],
         ["pig", "pig/pig", ["minecraft:entity/pig", "minecraft:entity/pig/pig"]]
