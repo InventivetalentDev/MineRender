@@ -10,6 +10,15 @@ export function section(parent: HTMLElement, title: string, open = false): HTMLD
     return body;
 }
 
+export function group(parent: HTMLElement, title: string): HTMLFieldSetElement {
+    const fieldset = document.createElement("fieldset");
+    const legend = document.createElement("legend");
+    legend.textContent = title;
+    fieldset.append(legend);
+    parent.append(fieldset);
+    return fieldset;
+}
+
 export function field<T extends HTMLElement>(parent: HTMLElement, title: string, input: T): T {
     const label = document.createElement("label");
     label.className = "control-field";
@@ -59,6 +68,20 @@ export function note(parent: HTMLElement, text: string): HTMLParagraphElement {
     element.textContent = text;
     parent.append(element);
     return element;
+}
+
+/** Attach a datalist of asset IDs (without `.json`) to a text input. */
+export function suggestions(control: HTMLInputElement, values: string[]): void {
+    const id = `${control.id || "asset"}-suggestions`;
+    document.getElementById(id)?.remove();
+    const list = document.createElement("datalist");
+    list.id = id;
+    for (const value of values) {
+        if (!value.endsWith(".json") || value === "_list.json") continue;
+        list.append(new Option(value.slice(0, -5)));
+    }
+    control.setAttribute("list", id);
+    control.after(list);
 }
 
 export function download(data: string | ArrayBuffer | object, name: string, type = "application/json"): void {

@@ -4,7 +4,7 @@ import { Playground } from "../../playground/Playground";
 import { asGuiLayers, defaults, layersFor, validateLayers, type EditableLayer, type GuiState } from "./config";
 
 const app = new Playground<GuiState>({
-    title: "GUI playground",
+    title: "GUI layers",
     defaults,
     renderer: {
         camera: { type: "orthographic", position: [0, 0, 100] },
@@ -12,9 +12,9 @@ const app = new Playground<GuiState>({
         composer: { enabled: false }
     },
     presets: {
-        chest: { label: "Chest", state: { ...defaults } },
-        shaped: { label: "Shaped recipe", state: { ...defaults, mode: "shaped" } },
-        shapeless: { label: "Shapeless recipe", state: { ...defaults, mode: "shapeless", ingredients: ["blue_dye", "red_dye", "", "", "", "", "", "", ""], result: "purple_dye" } }
+        chest: { label: "Chest", state: {} },
+        shaped: { label: "Shaped recipe", state: { mode: "shaped" } },
+        shapeless: { label: "Shapeless recipe", state: { mode: "shapeless", ingredients: ["blue_dye", "red_dye", "", "", "", "", "", "", ""], result: "purple_dye" } }
     },
     code: state => `const gui = await renderer.scene.addGui(${JSON.stringify(layersFor(state), null, 2)});\n`,
     load: async (ctx, state) => {
@@ -27,7 +27,6 @@ const app = new Playground<GuiState>({
         return {
             object: gui,
             activate: () => syncControls(layers),
-            restore: () => syncControls(layers),
             fit: () => {
                 const camera = ctx.renderer.camera;
                 const size = gui.bounds.getSize(new Vector2());
@@ -56,34 +55,32 @@ const app = new Playground<GuiState>({
 
 app.controls.innerHTML = `
     <label>Layout<select id="gui-mode"><option value="chest">Chest</option><option value="shaped">Shaped recipe</option><option value="shapeless">Shapeless recipe</option><option value="custom">Custom layers</option></select></label>
-    <label>GUI scale<select id="gui-scale"><option value="fit">Fit</option><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option></select></label>
-    <p>GUI scale uses CSS pixels with the orthographic camera. Stack counts and text are not drawn.</p>
-    <fieldset id="chest-editor"><legend>Inventory slot</legend>
+    <label>Scale<select id="gui-scale"><option value="fit">Fit</option><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option></select></label>
+    <fieldset id="chest-editor"><legend>Chest slot</legend>
         <label>Slot (0–53)<input id="slot-index" type="number" min="0" max="53" value="0"></label>
-        <label>Item ID (empty clears slot)<input id="slot-item" placeholder="minecraft:apple"></label>
-        <button id="slot-apply" type="button">Apply slot</button>
+        <label>Item ID (empty clears the slot)<input id="slot-item" placeholder="minecraft:apple"></label>
+        <button id="slot-apply" type="button">Apply</button>
     </fieldset>
-    <fieldset id="recipe-editor"><legend>Recipe ingredients</legend>
-        <p>Enter concrete item IDs. Leave unused cells empty. Shapeless recipes ignore the cell positions.</p>
+    <fieldset id="recipe-editor"><legend>Recipe</legend>
         <div id="recipe-cells" class="playground-grid"></div>
-        <label>Result item<input id="recipe-result"></label>
-        <button id="recipe-apply" type="button">Apply recipe</button>
+        <label>Result<input id="recipe-result"></label>
+        <button id="recipe-apply" type="button">Apply</button>
     </fieldset>
-    <details open><summary>Ordered layers</summary>
-        <p>Later layers draw above earlier layers. Editing a layer switches to Custom layers.</p>
-        <label>Selected layer<select id="layer-list" size="5"></select></label>
-        <div class="playground-actions"><button id="layer-up" type="button">Move earlier</button><button id="layer-down" type="button">Move later</button><button id="layer-remove" type="button">Remove</button></div>
-        <label>Layer type<select id="layer-kind"><option value="item">Item</option><option value="texture">Texture</option></select></label>
+    <details open><summary>Layers</summary>
+        <p class="control-note">Later layers draw on top. Editing a layer switches the layout to Custom layers.</p>
+        <select id="layer-list" size="6" aria-label="Layers"></select>
+        <div class="playground-actions"><button id="layer-up" type="button">Move up</button><button id="layer-down" type="button">Move down</button><button id="layer-remove" type="button">Remove</button></div>
+        <label>Type<select id="layer-kind"><option value="item">Item</option><option value="texture">Texture</option></select></label>
         <label>Name<input id="layer-name"></label>
         <label>Asset ID<input id="layer-asset" placeholder="minecraft:item/diamond"></label>
-        <label>Position: x, y<input id="layer-position" placeholder="0, 0"></label>
-        <label>Size: width, height (empty uses default)<input id="layer-size" placeholder="16, 16"></label>
-        <label id="crop-label">Crop: x, y, width, height<input id="layer-crop" placeholder="0, 0, 176, 222"></label>
-        <label id="tint-label">Tints JSON (RGB integers)<input id="layer-tints" placeholder='{"0": 9551193}'></label>
-        <div class="playground-actions"><button id="layer-apply" type="button">Apply layer</button><button id="layer-add" type="button">Add layer</button></div>
+        <label>Position (x, y)<input id="layer-position" placeholder="0, 0"></label>
+        <label>Size (width, height)<input id="layer-size" placeholder="16, 16"></label>
+        <label id="crop-label">Crop (x, y, width, height)<input id="layer-crop" placeholder="0, 0, 176, 222"></label>
+        <label id="tint-label">Tints JSON<input id="layer-tints" placeholder='{"0": 9551193}'></label>
+        <div class="playground-actions"><button id="layer-apply" type="button">Apply to layer</button><button id="layer-add" type="button">Add as new layer</button></div>
     </details>
     <details><summary>Layer JSON</summary>
-        <label>GUI layers<textarea id="layers-json" rows="12" spellcheck="false"></textarea></label>
+        <textarea id="layers-json" rows="12" spellcheck="false" aria-label="Layer JSON"></textarea>
         <div class="playground-actions"><button id="json-import" type="button">Apply JSON</button><button id="json-export" type="button">Download JSON</button></div>
         <label>Import JSON file<input id="json-file" type="file" accept=".json,application/json"></label>
     </details>`;
@@ -93,7 +90,6 @@ const select = (id: string) => document.getElementById(id) as HTMLSelectElement;
 const json = document.getElementById("layers-json") as HTMLTextAreaElement;
 let displayedLayers: EditableLayer[] = [];
 let selectedLayer = 0;
-let fileImportGeneration = 0;
 const recipeInputs: HTMLInputElement[] = [];
 for (let i = 0; i < 9; i++) {
     const label = document.createElement("label");
@@ -201,14 +197,10 @@ for (const [id, offset] of [["layer-up", -1], ["layer-down", 1]] as const) {
 }
 document.getElementById("json-import")!.addEventListener("click", () => guard(() => editLayers(validateLayers(JSON.parse(json.value)))));
 input("json-file").addEventListener("change", () => guard(async () => {
-    const generation = ++fileImportGeneration;
-    const settings = app.state;
     const file = input("json-file").files?.[0];
+    input("json-file").value = "";
     if (!file) return;
-    if (file.size > 1024 * 1024) throw new Error("Choose a GUI JSON file smaller than 1 MiB.");
-    const text = await file.text();
-    if (generation !== fileImportGeneration || app.state !== settings) return;
-    await editLayers(validateLayers(JSON.parse(text)));
+    await editLayers(validateLayers(JSON.parse(await file.text())));
 }));
 document.getElementById("json-export")!.addEventListener("click", () => {
     const url = URL.createObjectURL(new Blob([JSON.stringify(displayedLayers, null, 2)], { type: "application/json" }));

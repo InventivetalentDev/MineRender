@@ -2,7 +2,9 @@ import { CapeLayout, SkinObject, Skins } from "minerender";
 import { Playground } from "../../playground/Playground";
 
 interface SkinState {
+    /** Player name, UUID, or PNG URL. */
     skin: string;
+    /** Name of a locally selected PNG; the file itself is not saved. */
     skinFile: string;
     cape: string;
     capeFile: string;
@@ -20,40 +22,35 @@ const labels: Record<string, string> = {
     head: "Head", body: "Body", leftArm: "Left arm", rightArm: "Right arm", leftLeg: "Left leg", rightLeg: "Right leg", cape: "Cape",
     hat: "Hat", jacket: "Jacket", leftSleeve: "Left sleeve", rightSleeve: "Right sleeve", leftTrousers: "Left trousers", rightTrousers: "Right trousers"
 };
+/** Rotations in degrees per part. */
 const poses: Record<string, Record<string, [number, number, number]>> = {
     neutral: {},
     wave: { rightArm: [0, 0, -150], head: [0, -15, 0] },
-    stride: { rightArm: [-30, 0, 0], leftArm: [30, 0, 0], rightLeg: [30, 0, 0], leftLeg: [-30, 0, 0] },
-    flying: { rightArm: [0, 0, -90], leftArm: [0, 0, 90], head: [-15, 0, 0] }
+    walk: { rightArm: [-30, 0, 0], leftArm: [30, 0, 0], rightLeg: [30, 0, 0], leftLeg: [-30, 0, 0] },
+    arms: { rightArm: [0, 0, -90], leftArm: [0, 0, 90], head: [-15, 0, 0] }
 };
-let skinFile: { name: string, url: string } | undefined;
-let capeFile: { name: string, url: string } | undefined;
-let activeSkinFile: typeof skinFile;
-let activeCapeFile: typeof capeFile;
+
+type LocalFile = { name: string, url: string };
+const localFiles: { skin?: LocalFile, cape?: LocalFile } = {};
 let activeSkin: SkinObject | undefined;
 let activeCurrent: (() => boolean) | undefined;
-const fileURLs = new Set<string>();
 
 const app = new Playground<SkinState>({
-    title: "Skin playground",
+    title: "Player skins",
     defaults: {
         skin: "inventivetalent", skinFile: "", cape: "", capeFile: "", model: "auto", layout: "auto",
         capeLayout: "minecraft", pose: "neutral", hiddenParts: [], hiddenOverlays: []
     },
     renderer: { camera: { near: 1, far: 2000, position: [50, 35, 50] } },
     presets: {
-        player: { label: "Player", state: { skin: "inventivetalent", skinFile: "", pose: "neutral", model: "auto", layout: "auto" } },
-        wave: { label: "Wave", state: { pose: "wave" } },
-        stride: { label: "Walking pose", state: { pose: "stride" } }
+        wave: { label: "Waving", state: { pose: "wave" } },
+        walk: { label: "Walking", state: { pose: "walk" } },
+        base: { label: "Base layer only", state: { hiddenOverlays: [...overlays] } }
     },
     async load(ctx, state) {
         validateState(state);
-        const loadedSkinFile = state.skinFile ? skinFile : undefined;
-        const loadedCapeFile = state.capeFile ? capeFile : undefined;
-        ctx.onCleanup(releaseUnusedFiles);
-        const source = await resolveTexture(state.skin, state.skinFile, loadedSkinFile);
-        if (!ctx.isCurrent()) return;
-        if (!source) throw new Error("Enter a player name, UUID, or skin URL, or choose a PNG.");
+        const skinSource = await resolveTexture(state.skin, state.skinFile, localFiles.skin);
+        if (!skinSource) throw new Error("Enter a player name, UUID, or skin URL, or choose a PNG.");
         const object = new SkinObject({
             slim: state.model === "auto" ? undefined : state.model === "slim",
             legacy: state.layout === "auto" ? undefined : state.layout === "legacy"
@@ -61,30 +58,22 @@ const app = new Playground<SkinState>({
         object.scene = ctx.renderer.scene;
         ctx.onCleanup(() => object.dispose());
         await object.init();
-        await object.setSkinTexture(source);
+        await object.setSkinTexture(skinSource);
         if (!ctx.isCurrent()) return;
-        const cape = await resolveTexture(state.cape, state.capeFile, loadedCapeFile, state.capeLayout);
-        if (state.cape && !cape) throw new Error("No cape found for this player and cape layout.");
-        await object.setCapeTexture(cape, state.capeLayout);
+        const capeSource = await resolveTexture(state.cape, state.capeFile, localFiles.cape, state.capeLayout);
+        if (state.cape && !capeSource) throw new Error("No cape found for this player and cape layout.");
+        await object.setCapeTexture(capeSource, state.capeLayout);
         applyPose(object, state.pose);
         for (const part of parts) object.toggleGroupVisibility(part, !state.hiddenParts.includes(part));
         for (const part of overlays) object.toggleMeshVisibility(part, !state.hiddenOverlays.includes(part));
         ctx.renderer.scene.add(object);
-        const restore = () => {
-            activeSkin = object;
-            activeCurrent = ctx.isCurrent;
-            activeSkinFile = skinFile = loadedSkinFile;
-            activeCapeFile = capeFile = loadedCapeFile;
-            window["skin"] = object;
-            syncControls(app.state);
-        };
         return {
             object,
-            activate: restore,
-            restore() {
-                restore();
-                input("skin-file").value = input("cape-file").value = "";
-                releaseUnusedFiles();
+            activate() {
+                activeSkin = object;
+                activeCurrent = ctx.isCurrent;
+                window["skin"] = object;
+                syncControls(app.state);
             }
         };
     },
@@ -93,37 +82,19 @@ const app = new Playground<SkinState>({
             ...(state.model !== "auto" ? { slim: state.model === "slim" } : {}),
             ...(state.layout !== "auto" ? { legacy: state.layout === "legacy" } : {})
         };
-        const source = (value: string, filename: string, cape = false) => filename
-            ? `await selectPNG(${JSON.stringify(filename)})`
+        const source = (value: string, filename: string, cape = false) => filename ? `/* ${filename} */ localPngUrl`
             : /^https?:\/\//i.test(value) ? JSON.stringify(value)
                 : cape ? `await MineRender.Skins.capeFromCapesDev(${JSON.stringify(value)}, ${JSON.stringify(state.capeLayout)})`
                     : `await MineRender.Skins.fromUuidOrUsername(${JSON.stringify(value)})`;
-        const filePicker = state.skinFile || state.capeFile ? `const localURLs = [];
-function selectPNG(filename) {
-    const label = document.createElement("label");
-    label.textContent = "Select " + filename;
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = "image/png";
-    label.append(input);
-    document.body.append(label);
-    return new Promise(resolve => input.addEventListener("change", () => {
-        if (!input.files[0]) return;
-        const url = URL.createObjectURL(input.files[0]);
-        localURLs.push(url);
-        resolve(url);
-        label.remove();
-    }, { once: true }));
-}
-` : "";
-        return `${filePicker}const skinSource = ${source(state.skin, state.skinFile)};
-if (!skinSource) throw new Error("Skin not found");
-const skin = await renderer.scene.addSkin(skinSource, ${JSON.stringify(options)});
-${state.cape || state.capeFile ? `await skin.setCapeTexture(${source(state.cape, state.capeFile, true)}, ${JSON.stringify(state.capeLayout)});\n` : ""}const rotations = ${JSON.stringify(poses[state.pose] ?? {})};
-for (const [name, degrees] of Object.entries(rotations)) skin.getGroupByName(name)?.rotation.set(...degrees.map(value => value * Math.PI / 180));
-for (const name of ${JSON.stringify(state.hiddenParts)}) skin.toggleGroupVisibility(name, false);
-for (const name of ${JSON.stringify(state.hiddenOverlays)}) skin.toggleMeshVisibility(name, false);
-skin.notifyDirty();${state.skinFile || state.capeFile ? "\nlocalURLs.forEach(url => URL.revokeObjectURL(url));" : ""}`;
+        let code = `const skin = await renderer.scene.addSkin(${source(state.skin, state.skinFile)}, ${JSON.stringify(options)});\n`;
+        if (state.cape || state.capeFile) code += `await skin.setCapeTexture(${source(state.cape, state.capeFile, true)}, ${JSON.stringify(state.capeLayout)});\n`;
+        for (const [name, degrees] of Object.entries(poses[state.pose] ?? {})) {
+            code += `skin.getGroupByName(${JSON.stringify(name)}).rotation.set(${degrees.map(value => value ? `${value} * Math.PI / 180` : "0").join(", ")});\n`;
+        }
+        for (const name of state.hiddenParts) code += `skin.toggleGroupVisibility(${JSON.stringify(name)}, false);\n`;
+        for (const name of state.hiddenOverlays) code += `skin.toggleMeshVisibility(${JSON.stringify(name)}, false);\n`;
+        if (state.pose !== "neutral" || state.hiddenParts.length || state.hiddenOverlays.length) code += "skin.notifyDirty();\n";
+        return code;
     }
 });
 
@@ -131,55 +102,41 @@ app.controls.innerHTML = `
     <fieldset><legend>Skin</legend>
         <label for="skin-input">Player name, UUID, or PNG URL</label>
         <input id="skin-input" type="text" autocomplete="off">
-        <label for="skin-file">Local skin PNG</label><input id="skin-file" type="file" accept="image/png,.png">
-        <div id="skin-file-name"></div>
-        <label for="skin-model">Arm model</label>
-        <select id="skin-model"><option value="auto">Auto detect</option><option value="classic">Classic</option><option value="slim">Slim</option></select>
+        <label for="skin-file">Local PNG</label><input id="skin-file" type="file" accept="image/png,.png">
+        <label for="skin-model">Arms</label>
+        <select id="skin-model"><option value="auto">Detect</option><option value="classic">Classic</option><option value="slim">Slim</option></select>
         <label for="skin-layout">Texture layout</label>
-        <select id="skin-layout"><option value="auto">Auto detect</option><option value="modern">Modern (square)</option><option value="legacy">Legacy (64 × 32)</option></select>
+        <select id="skin-layout"><option value="auto">Detect</option><option value="modern">64 × 64</option><option value="legacy">64 × 32</option></select>
     </fieldset>
     <fieldset><legend>Cape</legend>
-        <label for="cape-input">Player name, UUID, or PNG URL</label><input id="cape-input" type="text" autocomplete="off" placeholder="No cape">
-        <label for="cape-file">Local cape PNG</label><input id="cape-file" type="file" accept="image/png,.png">
-        <div id="cape-file-name"></div>
-        <label for="cape-type">Cape layout</label>
+        <label for="cape-input">Player name, UUID, or PNG URL</label><input id="cape-input" type="text" autocomplete="off" placeholder="None">
+        <label for="cape-file">Local PNG</label><input id="cape-file" type="file" accept="image/png,.png">
+        <label for="cape-type">Layout</label>
         <select id="cape-type"><option value="minecraft">Minecraft</option><option value="optifine">OptiFine</option><option value="labymod">LabyMod</option></select>
-        <button id="cape-clear" type="button">Clear cape</button>
+        <button id="cape-clear" type="button">Remove cape</button>
     </fieldset>
     <fieldset><legend>Pose</legend>
-        <label for="skin-pose">Pose preset</label>
-        <select id="skin-pose"><option value="neutral">Neutral</option><option value="wave">Wave</option><option value="stride">Walking pose</option><option value="flying">Arms out</option></select>
-        <button id="skin-reset-pose" type="button">Reset pose</button>
-        <p>Left and right refer to the player. Use the inspector to adjust individual parts.</p>
+        <select id="skin-pose" aria-label="Pose"><option value="neutral">Neutral</option><option value="wave">Wave</option><option value="walk">Walk</option><option value="arms">Arms out</option></select>
+        <p class="control-note">Left and right are the player's own. Use the inspector for individual parts.</p>
     </fieldset>
-    <details open><summary>Visible parts</summary><div id="skin-parts"></div></details>
-    <details><summary>Visible overlays</summary><div id="skin-overlays"></div></details>
-    <p>Local PNGs stay in this browser. Shared configurations require you to select them again.</p>
+    <fieldset><legend>Visible parts</legend><div id="skin-parts"></div></fieldset>
+    <fieldset><legend>Visible overlays</legend><div id="skin-overlays"></div></fieldset>
 `;
 
 function input(id: string): HTMLInputElement { return document.getElementById(id) as HTMLInputElement; }
 function select(id: string): HTMLSelectElement { return document.getElementById(id) as HTMLSelectElement; }
-function update(patch: Partial<SkinState>) { void app.update(patch).catch(error => app.report(String(error), true)); }
-
-function releaseUnusedFiles() {
-    const retained = [skinFile?.url, capeFile?.url, activeSkinFile?.url, activeCapeFile?.url];
-    for (const url of fileURLs) {
-        if (retained.includes(url)) continue;
-        URL.revokeObjectURL(url);
-        fileURLs.delete(url);
-    }
-}
+function update(patch: Partial<SkinState>) { void app.update(patch); }
 
 function validateState(state: SkinState) {
     if (![state.skin, state.skinFile, state.cape, state.capeFile].every(value => typeof value === "string")
         || !["auto", "classic", "slim"].includes(state.model) || !["auto", "modern", "legacy"].includes(state.layout)
         || !["minecraft", "optifine", "labymod"].includes(state.capeLayout) || !Object.prototype.hasOwnProperty.call(poses, state.pose)
         || ![state.hiddenParts, state.hiddenOverlays].every(values => Array.isArray(values) && values.every(value => typeof value === "string"))) {
-        throw new Error("Invalid skin configuration. Check the skin, model, layout, pose, and visible parts.");
+        throw new Error("Invalid skin configuration.");
     }
 }
 
-async function resolveTexture(value: string, filename: string, file?: { name: string, url: string }, layout?: CapeLayout): Promise<string | undefined> {
+async function resolveTexture(value: string, filename: string, file?: LocalFile, capeLayout?: CapeLayout): Promise<string | undefined> {
     if (filename) {
         if (!file || file.name !== filename) throw new Error(`Select the local PNG again: ${filename}`);
         return file.url;
@@ -187,7 +144,7 @@ async function resolveTexture(value: string, filename: string, file?: { name: st
     value = value.trim();
     if (!value) return undefined;
     if (/^https?:\/\//i.test(value)) return value;
-    return layout ? Skins.capeFromCapesDev(value, layout) : Skins.fromUuidOrUsername(value);
+    return capeLayout ? Skins.capeFromCapesDev(value, capeLayout) : Skins.fromUuidOrUsername(value);
 }
 
 function applyPose(object: SkinObject, pose: string) {
@@ -208,7 +165,6 @@ function visibilityControls(names: string[], container: string, key: "hiddenPart
         const label = document.createElement("label");
         const checkbox = document.createElement("input");
         checkbox.type = "checkbox";
-        checkbox.disabled = true;
         checkbox.dataset.part = name;
         checkbox.checked = true;
         checkbox.addEventListener("change", () => {
@@ -225,14 +181,16 @@ function visibilityControls(names: string[], container: string, key: "hiddenPart
 }
 
 function syncControls(state: SkinState) {
-    input("skin-input").value = state.skin;
-    input("cape-input").value = state.cape;
+    for (const kind of ["skin", "cape"] as const) {
+        const file = state[`${kind}File`];
+        input(`${kind}-input`).value = file ? "" : state[kind];
+        input(`${kind}-input`).placeholder = file ? `Local file: ${file}` : kind === "cape" ? "None" : "";
+        input(`${kind}-file`).value = "";
+    }
     select("skin-model").value = state.model;
     select("skin-layout").value = state.layout;
     select("cape-type").value = state.capeLayout;
     select("skin-pose").value = state.pose;
-    document.getElementById("skin-file-name")!.textContent = state.skinFile ? `Selected: ${state.skinFile}` : "";
-    document.getElementById("cape-file-name")!.textContent = state.capeFile ? `Selected: ${state.capeFile}` : "";
     for (const [container, hidden] of [["skin-parts", state.hiddenParts], ["skin-overlays", state.hiddenOverlays]] as const) {
         document.getElementById(container)!.querySelectorAll<HTMLInputElement>("input").forEach(checkbox => {
             checkbox.checked = !hidden.includes(checkbox.dataset.part!);
@@ -241,22 +199,14 @@ function syncControls(state: SkinState) {
     }
 }
 
-input("skin-input").addEventListener("change", () => {
-    input("skin-file").value = "";
-    update({ skin: input("skin-input").value.trim(), skinFile: "" });
-});
-input("cape-input").addEventListener("change", () => {
-    input("cape-file").value = "";
-    update({ cape: input("cape-input").value.trim(), capeFile: "" });
-});
+input("skin-input").addEventListener("change", () => update({ skin: input("skin-input").value.trim(), skinFile: "" }));
+input("cape-input").addEventListener("change", () => update({ cape: input("cape-input").value.trim(), capeFile: "" }));
 for (const kind of ["skin", "cape"] as const) {
     input(`${kind}-file`).addEventListener("change", () => {
         const file = input(`${kind}-file`).files?.[0];
         if (!file) return;
-        const local = { name: file.name, url: URL.createObjectURL(file) };
-        fileURLs.add(local.url);
-        if (kind === "skin") skinFile = local;
-        else capeFile = local;
+        if (localFiles[kind]) URL.revokeObjectURL(localFiles[kind]!.url);
+        localFiles[kind] = { name: file.name, url: URL.createObjectURL(file) };
         update({ [`${kind}File`]: file.name });
     });
 }
@@ -269,15 +219,10 @@ select("skin-pose").addEventListener("change", () => {
     app.record({ pose });
     if (activeSkin) applyPose(activeSkin, pose);
 });
-document.getElementById("skin-reset-pose")!.addEventListener("click", () => update({ pose: "neutral" }));
-document.getElementById("cape-clear")!.addEventListener("click", () => {
-    input("cape-file").value = "";
-    update({ cape: "", capeFile: "" });
-});
+document.getElementById("cape-clear")!.addEventListener("click", () => update({ cape: "", capeFile: "" }));
 visibilityControls(parts, "skin-parts", "hiddenParts");
 visibilityControls(overlays, "skin-overlays", "hiddenOverlays");
-try { validateState(app.state); syncControls(app.state); } catch { /* The loader reports invalid shared configurations. */ }
-window.addEventListener("pagehide", event => { if (!event.persisted) fileURLs.forEach(url => URL.revokeObjectURL(url)); });
+try { validateState(app.state); syncControls(app.state); } catch { /* reported by the first load */ }
 window["setSkin"] = (skin: string) => app.update({ skin, skinFile: "" });
 window["setCape"] = (cape: string, capeLayout: CapeLayout = app.state.capeLayout) => app.update({ cape, capeFile: "", capeLayout });
 void app.start();

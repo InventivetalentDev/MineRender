@@ -6,10 +6,12 @@ import { Playground } from "../../playground/Playground";
 
 interface EntityState {
     entity: string;
+    /** `auto` draws `main` plus the dataset passes enabled by `when`; `manual` draws exactly `layers`. */
     selection: "auto" | "manual";
     layers: string[];
     when: string[];
     tints: Record<string, string>;
+    /** Texture asset IDs per draw, keyed like `EntityModel.layers`. */
     textures: Record<string, string>;
     flip: "dataset" | "flip" | "raw";
     wireframe: boolean;
@@ -32,33 +34,27 @@ let resetPose: () => void = () => {};
 let playback: ReturnType<typeof createPlayback> | undefined;
 
 const app = new Playground<EntityState>({
-    title: "Entity playground",
+    title: "Entities",
     defaults,
     renderer: { camera: { near: 1, far: 2000, position: [50, 35, 50] } },
     presets: {
-        bat: { label: "Bat keyframes", state: { ...defaults, animation: "$first", playing: true } },
-        charged: { label: "Charged creeper", state: { ...defaults, entity: "creeper", when: ["powered"] } },
-        sheep: { label: "Colored sheep wool", state: { ...defaults, entity: "sheep", when: ["not_sheared", "dyed"], tints: { wool_color: "#f9801d" } } },
-        breeze: { label: "Breeze wind", state: { ...defaults, entity: "breeze" } }
+        bat: { label: "Bat (flying animation)", state: { animation: "flying", playing: true } },
+        charged: { label: "Charged creeper", state: { entity: "creeper", when: ["powered"] } },
+        sheep: { label: "Orange sheep", state: { entity: "sheep", when: ["not_sheared", "dyed"], tints: { wool_color: "#f9801d" } } },
+        breeze: { label: "Breeze (wind layer)", state: { entity: "breeze" } }
     },
     async load(ctx, state) {
         validateState(state);
         const key = AssetKey.parse("entities", state.entity.trim());
-        const [layers, passes, animations, suggestions] = await Promise.all([
-            Entities.getLayerList(key), Entities.getPassList(key), Entities.getAnimations(key),
-            Entities.getEntityList().catch(error => {
-                console.error("Could not load entity suggestions", error);
-                return [];
-            })
+        const [layers, passes, animations, names] = await Promise.all([
+            Entities.getLayerList(key), Entities.getPassList(key), Entities.getAnimations(key), Entities.getEntityList().catch(() => [])
         ]);
         if (!ctx.isCurrent()) return;
-        if (!layers.length) throw new Error(`No model layers found for ${state.entity}.`);
-        if (state.selection === "manual" && !state.layers.length) throw new Error("Select at least one geometry layer.");
+        if (!layers.length) throw new Error(`Entity model not found: ${state.entity}`);
+        if (state.selection === "manual" && !state.layers.length) throw new Error("Select at least one layer.");
         const textures: Record<string, AssetKey> = {};
         for (const [draw, path] of Object.entries(state.textures)) {
-            if (!path.trim()) continue;
-            if (/^https?:/i.test(path)) throw new Error("Use an asset ID for entity textures, such as minecraft:entity/creeper/creeper.");
-            textures[draw] = AssetKey.parse("textures", path.trim().replace(/^([^:]+:)?textures\//, "$1"));
+            if (path.trim()) textures[draw] = AssetKey.parse("textures", path.trim().replace(/^([^:]+:)?textures\//, "$1"));
         }
         const model = await Entities.getEntity(key, undefined, {
             ...(state.selection === "manual" ? { layers: state.layers } : { when: state.when }), textures
@@ -88,7 +84,7 @@ const app = new Playground<EntityState>({
         }));
         for (const part of parts) part.object.visible = !state.hiddenParts.includes(part.key);
         ctx.renderer.scene.add(object);
-        const restore = () => {
+        const sync = () => {
             activeEntity = object;
             activeCurrent = ctx.isCurrent;
             activeParts = parts;
@@ -101,60 +97,42 @@ const app = new Playground<EntityState>({
                     part.rotation.copy(rotation);
                     part.scale.copy(scale);
                 }
-                object.position.set(0, 0, 0);
-                object.rotation.set(0, 0, 0);
-                object.scale.set(1, 1, 1);
                 object.notifyDirty();
             };
             buildControls(app.state, layers, passes, model, animations ?? {});
-            document.getElementById("entity-suggestions")!.replaceChildren(...suggestions.map(name => choice(name, name)));
-            select("entity-animation").value = app.state.animation;
+            document.getElementById("entity-suggestions")!.replaceChildren(...names.map(name => new Option(name)));
             controller?.refresh();
         };
         return {
             object,
             activate() {
                 controller = createPlayback(object, animations ?? {}, ctx.renderer, ctx.isCurrent);
-                const requested = state.animation === "$first" ? Object.keys(animations ?? {})[0] ?? "" : state.animation;
-                const animation = Object.prototype.hasOwnProperty.call(animations ?? {}, requested) ? requested : "";
-                app.record({ animation });
-                restore();
+                app.record({ animation: Object.prototype.hasOwnProperty.call(animations ?? {}, state.animation) ? state.animation : "" });
+                sync();
                 controller.apply(state.playing);
             },
-            restore
+            restore: sync
         };
     },
     code(state) {
-        const modelOptions = {
-            ...(state.selection === "manual" ? { layers: state.layers } : { when: state.when })
-        };
-        const options = { tints: state.tints, wireframe: state.wireframe, ...(state.flip !== "dataset" ? { flip: state.flip === "flip" } : {}) };
-        return `const key = MineRender.AssetKey.parse("entities", ${JSON.stringify(state.entity)});
-const textureIDs = ${JSON.stringify(state.textures, null, 2)};
-const textures = Object.fromEntries(Object.entries(textureIDs).filter(([, id]) => id).map(([name, id]) => [name, MineRender.AssetKey.parse("textures", id)]));
-const model = await MineRender.Entities.getEntity(key, undefined, { ...${JSON.stringify(modelOptions)}, textures });
-if (!model) throw new Error("Entity model not found");
-const entity = await renderer.scene.addEntity(model, ${JSON.stringify(options)});
-const hiddenParts = ${JSON.stringify(state.hiddenParts)};
-function applyPartVisibility(object, path = "") {
-    if (object.name.startsWith("group:")) path += "/" + object.name.slice(6);
-    if (hiddenParts.includes(path)) object.visible = false;
-    for (const child of object.children) applyPartVisibility(child, path);
-}
-applyPartVisibility(entity);
-entity.notifyDirty();
-${state.animation ? `const animations = await MineRender.Entities.getAnimations(key);
-const animation = Object.prototype.hasOwnProperty.call(animations ?? {}, ${JSON.stringify(state.animation)}) ? animations[${JSON.stringify(state.animation)}] : undefined;
-if (animation) {
-    entity.playAnimation(animation, ${JSON.stringify({ loop: state.loop, speed: state.speed, time: state.time })});
-    ${state.playing ? `const stop = renderer.onFrame(({ delta }) => {
-        entity.advanceAnimation(delta);
-        if (${!state.loop} && entity.animationTime >= animation.length) {
-            entity.setAnimationTime(animation.length);
-            stop();
+        const selection = state.selection === "manual" ? { layers: state.layers } : state.when.length ? { when: state.when } : {};
+        const textures = Object.entries(state.textures).filter(([, id]) => id.trim());
+        const options: Record<string, unknown> = {};
+        if (Object.keys(state.tints).length) options.tints = state.tints;
+        if (state.wireframe) options.wireframe = true;
+        if (state.flip !== "dataset") options.flip = state.flip === "flip";
+        let code = `const key = MineRender.AssetKey.parse("entities", ${JSON.stringify(state.entity)});\n`;
+        if (textures.length) code += `const textures = {\n${textures.map(([name, id]) => `    ${JSON.stringify(name)}: MineRender.AssetKey.parse("textures", ${JSON.stringify(id)})`).join(",\n")}\n};\n`;
+        const entries = [...Object.entries(selection).map(([name, value]) => `${name}: ${JSON.stringify(value)}`), ...(textures.length ? ["textures"] : [])];
+        code += `const model = await MineRender.Entities.getEntity(key, undefined, { ${entries.join(", ")} });\n`;
+        code += `const entity = await renderer.scene.addEntity(model${Object.keys(options).length ? `, ${JSON.stringify(options)}` : ""});\n`;
+        for (const part of state.hiddenParts) code += `entity.getGroupByName(${JSON.stringify(part.split("/").pop())}).visible = false;\n`;
+        if (state.animation) {
+            code += `const animations = await MineRender.Entities.getAnimations(key);\n`;
+            code += `entity.playAnimation(animations[${JSON.stringify(state.animation)}], ${JSON.stringify({ loop: state.loop, speed: state.speed, time: state.time })});\n`;
+            if (state.playing) code += `renderer.onFrame(({ delta }) => entity.advanceAnimation(delta));\n`;
         }
-    });` : ""}
-}` : ""}`;
+        return code;
     }
 });
 
@@ -162,24 +140,23 @@ app.controls.innerHTML = `
     <fieldset><legend>Entity</legend>
         <label for="entity-input">Entity ID</label><input id="entity-input" type="text" list="entity-suggestions">
         <datalist id="entity-suggestions"></datalist>
-        <label for="entity-selection">Geometry selection</label>
-        <select id="entity-selection"><option value="auto">Automatic dataset passes</option><option value="manual">Manual layers</option></select>
-        <p id="entity-layer-help">Automatic selection draws the main model and its enabled dataset passes. Manual selection draws only the checked layers.</p>
-        <fieldset id="entity-layers"><legend>Geometry layers</legend><div></div></fieldset>
-        <fieldset id="entity-states"><legend>Dataset states and colors</legend><div></div></fieldset>
-        <label for="entity-flip">Model coordinates</label>
-        <select id="entity-flip"><option value="dataset">Dataset transform</option><option value="flip">Plain entity flip</option><option value="raw">Raw model space</option></select>
+        <label for="entity-selection">Geometry</label>
+        <select id="entity-selection"><option value="auto">Dataset passes</option><option value="manual">Manual layers</option></select>
+        <fieldset id="entity-layers"><legend>Layers</legend><div></div></fieldset>
+        <fieldset id="entity-states"><legend>States and colors</legend><div></div></fieldset>
+        <label for="entity-flip">Coordinates</label>
+        <select id="entity-flip"><option value="dataset">Dataset transform</option><option value="flip">Plain flip</option><option value="raw">Raw model space</option></select>
         <label><input id="entity-wireframe" type="checkbox"> Wireframe</label>
     </fieldset>
     <details><summary>Texture overrides</summary>
-        <p>Enter texture asset IDs, for example minecraft:entity/creeper/creeper. Empty fields use the dataset texture. Each row controls one draw.</p>
+        <p class="control-note">Texture asset IDs per draw, for example minecraft:entity/creeper/creeper. Empty uses the dataset texture.</p>
         <div id="entity-textures"></div>
     </details>
-    <fieldset><legend>Keyframe animation</legend>
-        <label for="entity-animation">Animation</label><select id="entity-animation"><option value="">None</option></select>
-        <p id="entity-animation-help">Load an entity to list its keyframe animations.</p>
-        <button id="entity-play" type="button">Play</button><button id="entity-pause" type="button">Pause</button><button id="entity-stop" type="button">Stop</button>
-        <label for="entity-time">Time (seconds)</label><input id="entity-time" type="range" min="0" max="1" step="0.01" value="0"><output id="entity-time-value">0.00 s</output>
+    <fieldset><legend>Animation</legend>
+        <select id="entity-animation" aria-label="Animation"><option value="">None</option></select>
+        <p id="entity-animation-help" class="control-note"></p>
+        <div class="row"><button id="entity-play" type="button">Play</button><button id="entity-pause" type="button">Pause</button><button id="entity-stop" type="button">Stop</button></div>
+        <label for="entity-time">Time</label><input id="entity-time" type="range" min="0" max="1" step="0.01" value="0"><output id="entity-time-value">0.00 s</output>
         <label for="entity-speed">Speed</label><input id="entity-speed" type="number" min="0.05" max="5" step="0.05" value="1">
         <label><input id="entity-loop" type="checkbox" checked> Loop</label>
     </fieldset>
@@ -189,7 +166,8 @@ app.controls.innerHTML = `
 
 function input(id: string): HTMLInputElement { return document.getElementById(id) as HTMLInputElement; }
 function select(id: string): HTMLSelectElement { return document.getElementById(id) as HTMLSelectElement; }
-function update(patch: Partial<EntityState>) { void app.update(patch).catch(error => app.report(String(error), true)); }
+function update(patch: Partial<EntityState>) { void app.update(patch); }
+/** Save a live edit, or reload when no preview is active. Returns whether the edit can be applied directly. */
 function record(patch: Partial<EntityState>): boolean {
     if (!activeCurrent?.()) { update(patch); return false; }
     app.record(patch);
@@ -203,7 +181,7 @@ function validateState(state: EntityState) {
         || ![state.layers, state.when, state.hiddenParts].every(values => Array.isArray(values) && values.every(value => typeof value === "string"))
         || !dictionary(state.textures) || !dictionary(state.tints) || typeof state.animation !== "string"
         || !Number.isFinite(state.time) || state.time < 0 || !Number.isFinite(state.speed) || state.speed < 0.05 || state.speed > 5) {
-        throw new Error("Invalid entity configuration. Check layers, textures, states, and animation settings.");
+        throw new Error("Invalid entity configuration.");
     }
 }
 function checkbox(name: string, checked: boolean, change: (checked: boolean) => void): HTMLLabelElement {
@@ -214,12 +192,6 @@ function checkbox(name: string, checked: boolean, change: (checked: boolean) => 
     control.addEventListener("change", () => change(control.checked));
     label.append(control, ` ${name}`);
     return label;
-}
-function choice(value: string, text: string): HTMLOptionElement {
-    const option = document.createElement("option");
-    option.value = value;
-    option.textContent = text;
-    return option;
 }
 
 function getParts(entity: EntityObject): { key: string, object: Object3D }[] {
@@ -272,7 +244,7 @@ function buildControls(state: EntityState, layers: string[], passes: EntityModel
         const texture = document.createElement("input");
         texture.type = "text";
         texture.value = state.textures[name] ?? "";
-        texture.placeholder = layer.texture?.toNamespacedString() ?? "Dataset texture";
+        texture.placeholder = layer.texture?.toNamespacedString() ?? "";
         texture.addEventListener("change", () => update({ textures: { ...app.state.textures, [name]: texture.value.trim() } }));
         label.append(`${name} (${layer.render ?? layer.layer.render ?? "cutout"})`, texture);
         return label;
@@ -285,10 +257,9 @@ function buildControls(state: EntityState, layers: string[], passes: EntityModel
         activeEntity?.notifyDirty();
     })));
     const names = Object.keys(animations);
-    select("entity-animation").replaceChildren(choice("", "None"), ...names.map(name => choice(name, name)));
-    document.getElementById("entity-animation-help")!.textContent = names.length
-        ? "Keyframes move named parts. Walking and head tracking from gameplay are separate."
-        : "This entity has no keyframe animations in the selected Minecraft version.";
+    select("entity-animation").replaceChildren(new Option("None", ""), ...names.map(name => new Option(name)));
+    select("entity-animation").value = state.animation;
+    document.getElementById("entity-animation-help")!.textContent = names.length ? "" : "No keyframe animations for this entity in the selected version.";
     input("entity-speed").value = String(state.speed);
     input("entity-loop").checked = state.loop;
 }
@@ -296,12 +267,14 @@ function buildControls(state: EntityState, layers: string[], passes: EntityModel
 function createPlayback(object: EntityObject, animations: Record<string, EntityAnimation>, renderer: Renderer, isCurrent: () => boolean) {
     let unsubscribe: (() => void) | undefined;
     const selectedAnimation = () => Object.prototype.hasOwnProperty.call(animations, app.state.animation) ? animations[app.state.animation] : undefined;
+    const elapsed = () => {
+        const animation = object.animation;
+        return animation && app.state.loop && animation.length > 0 ? object.animationTime % animation.length : object.animationTime;
+    };
     function pauseFrames() { unsubscribe?.(); unsubscribe = undefined; }
     function updateTime() {
-        const animation = object.animation;
-        const elapsed = animation && app.state.loop && animation.length > 0 ? object.animationTime % animation.length : object.animationTime;
-        input("entity-time").value = String(elapsed);
-        document.getElementById("entity-time-value")!.textContent = `${elapsed.toFixed(2)} s`;
+        input("entity-time").value = String(elapsed());
+        document.getElementById("entity-time-value")!.textContent = `${elapsed().toFixed(2)} s`;
     }
     function controls() {
         const animation = selectedAnimation();
@@ -335,8 +308,7 @@ function createPlayback(object: EntityObject, animations: Record<string, EntityA
                     app.record({ playing: false });
                     controls();
                 }
-                const time = app.state.loop && animation.length > 0 ? object.animationTime % animation.length : object.animationTime;
-                app.record({ time });
+                app.record({ time: elapsed() });
                 updateTime();
             });
         }
@@ -359,8 +331,7 @@ select("entity-selection").addEventListener("change", () => update({ selection: 
 select("entity-flip").addEventListener("change", () => update({ flip: select("entity-flip").value as EntityState["flip"] }));
 input("entity-wireframe").addEventListener("change", () => update({ wireframe: input("entity-wireframe").checked }));
 select("entity-animation").addEventListener("change", () => {
-    if (!record({ animation: select("entity-animation").value, time: 0, playing: true })) return;
-    playback?.apply(true);
+    if (record({ animation: select("entity-animation").value, time: 0, playing: true })) playback?.apply(true);
 });
 document.getElementById("entity-play")!.addEventListener("click", () => {
     if (!record({ playing: true })) return;
@@ -375,12 +346,15 @@ input("entity-time").addEventListener("input", () => {
 });
 input("entity-speed").addEventListener("change", () => {
     const speed = Math.max(0.05, Math.min(5, Number(input("entity-speed").value) || 1));
-    if (!record({ speed })) return;
-    playback?.apply(app.state.playing);
-    input("entity-speed").value = String(app.state.speed);
+    input("entity-speed").value = String(speed);
+    if (record({ speed })) playback?.apply(app.state.playing);
 });
 input("entity-loop").addEventListener("change", () => { if (record({ loop: input("entity-loop").checked })) playback?.apply(app.state.playing); });
-document.getElementById("entity-reset-pose")!.addEventListener("click", () => { if (record({ playing: false, time: 0 })) resetPose(); });
+document.getElementById("entity-reset-pose")!.addEventListener("click", () => {
+    if (!record({ animation: "", playing: false, time: 0 })) return;
+    resetPose();
+    playback?.apply(false);
+});
 window["setEntity"] = (entity: string, layers?: string[], when: string[] = [], tints: Record<string, string> = {}) => app.update({
     ...defaults, entity, selection: layers ? "manual" : "auto", layers: layers ?? ["main"], when, tints
 });
