@@ -44,8 +44,12 @@ const app = new Playground<EntityState>({
     async load(ctx, state) {
         validateState(state);
         const key = AssetKey.parse("entities", state.entity.trim());
-        const [layers, passes, animations] = await Promise.all([
-            Entities.getLayerList(key), Entities.getPassList(key), Entities.getAnimations(key)
+        const [layers, passes, animations, suggestions] = await Promise.all([
+            Entities.getLayerList(key), Entities.getPassList(key), Entities.getAnimations(key),
+            Entities.getEntityList().catch(error => {
+                console.error("Could not load entity suggestions", error);
+                return [];
+            })
         ]);
         if (!ctx.isCurrent()) return;
         if (!layers.length) throw new Error(`No model layers found for ${state.entity}.`);
@@ -103,6 +107,7 @@ const app = new Playground<EntityState>({
                 object.notifyDirty();
             };
             buildControls(app.state, layers, passes, model, animations ?? {});
+            document.getElementById("entity-suggestions")!.replaceChildren(...suggestions.map(name => choice(name, name)));
             select("entity-animation").value = app.state.animation;
             controller?.refresh();
         };
@@ -380,6 +385,4 @@ window["setEntity"] = (entity: string, layers?: string[], when: string[] = [], t
     ...defaults, entity, selection: layers ? "manual" : "auto", layers: layers ?? ["main"], when, tints
 });
 window["playAnimation"] = (animation = "") => { if (record({ animation, time: 0, playing: !!animation })) playback?.apply(!!animation); };
-void app.start().then(() => Entities.getEntityList()).then(list => {
-    document.getElementById("entity-suggestions")!.replaceChildren(...list.map(name => choice(name, name)));
-}).catch(error => console.error("Could not load entity suggestions", error));
+void app.start();
