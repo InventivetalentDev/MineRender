@@ -31,6 +31,7 @@ export class Renderer implements Disposable {
         },
         render: {
             fpsLimit: 60,
+            pixelRatio: 1,
             stats: false,
             antialias: true,
             shade: true,
@@ -76,6 +77,10 @@ export class Renderer implements Disposable {
 
     constructor(options?: DeepPartial<RendererOptions>) {
         this.options = merge({}, Renderer.DEFAULT_OPTIONS, options ?? {});
+        const pixelRatio = this.options.render.pixelRatio ?? 1;
+        if (!Number.isFinite(pixelRatio) || pixelRatio <= 0) {
+            throw new RangeError("render.pixelRatio must be a finite positive number");
+        }
 
         this._animationLoop = this.animate.bind(this);
         this._frameInterval = this.options.render.fpsLimit > 0 ? (1000 / this.options.render.fpsLimit) : undefined;
@@ -140,7 +145,7 @@ export class Renderer implements Disposable {
 
         renderer.outputColorSpace = SRGBColorSpace;
 
-        // renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setPixelRatio(this.options.render.pixelRatio ?? 1);
         renderer.setSize(this.viewWidth, this.viewHeight);
 
         return renderer;
@@ -503,6 +508,8 @@ export interface CameraOptions {
 export interface RenderOptions {
     /** Maximum draw rate (60 by default); zero or a negative value disables the limit. */
     fpsLimit: number;
+    /** Drawing-buffer pixels per CSS pixel (default 1); also scales toImage() output. */
+    pixelRatio?: number;
     stats: boolean;
     antialias: boolean;
     shade: boolean;
