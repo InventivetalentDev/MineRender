@@ -14,7 +14,7 @@
                 z-index: 100;
                 position: absolute;
                 top: 50px;
-                right: 0;
+                left: 0;
                 background-color: hsla(0, 0%, 59%, 0.5);
                 width: 80px;
                 height: 100px;
@@ -23,6 +23,11 @@
                 text-shadow: 0 0 4px black;
                 font-size: 12px;
             }
+
+            #input { max-width: min(360px, calc(100vw - 10px)); }
+            #input input, #input select { max-width: 100%; }
+            #input label { display: block; margin-top: 5px; }
+            #load-status { max-width: 340px; overflow-wrap: anywhere; }
 
         </style>
     </head>
@@ -37,9 +42,16 @@
             <span>TPS <span id="1sTps" title="1sTps">20</span>/<span id="5sTps" title="5sTps">20</span></span><br/>
         </div>
         <div id="input" class="overlay top-right">
-            <label for="structure-input">Structure</label><br/>
-            <input type="text" id="structure-input" value="end_city/base_floor" list="structure-suggestions">
+            <label for="structure-input">Built-in structure</label>
+            <input type="text" id="structure-input" value="end_city/ship" list="structure-suggestions">
             <datalist id="structure-suggestions"></datalist>
+            <label for="file-input">Local file (.nbt, .schematic, .mca)</label>
+            <input type="file" id="file-input" accept=".nbt,.schematic,.mca">
+            <div id="chunk-picker" hidden>
+                <label for="chunk-input">Chunk in region (local X, Z)</label>
+                <select id="chunk-input" disabled></select>
+            </div>
+            <p id="load-status" role="status" aria-live="polite"></p>
         </div>
         <div id="inspector" class="overlay bottom-right"></div>
 
