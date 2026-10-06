@@ -32,7 +32,7 @@ legacy website cleanup is a separate task.
 | Blockstate resolution | variants + weighted random + multipart AND/OR | Default states and model initialization awaited; multipart AND/OR and weighted alternatives supported; placement preserves rotations | high |
 | Animated textures | frametime honored | Frame grids, sequences, durations, and stationary-camera redraw; interpolation remains | medium |
 | Entity rendering | 76 hosted models, mirror, inheritance | Versioned dataset, nested parts, mirrored UVs, and selected layers with separate textures; renderer-specific effects remain | high |
-| GUI / inventory / recipes | full GuiRender + Positions + recipe() | `GuiObject` is an empty stub | high |
+| GUI / inventory / recipes | full GuiRender + Positions + recipe() | Cropped texture layers, pixel positioning, slot helper, and chest demo; recipe layouts remain | high |
 | Structure (.nbt) loading | works via ModelConverter | Bounded placement, signed coordinates, slot cleanup, DataVersion and entity NBT preservation; entities are not rendered | high |
 | Legacy .schematic | full incl. AddBlocks nibbles | Numeric block IDs, metadata, AddBlocks and block/entity NBT parsed; unknown ID states reject | medium |
 | Combined multi-renderer scene | CombinedRender wrapper | Superseded by design (one scene hosts all types) — **at parity** | — |
@@ -96,7 +96,7 @@ Make `Renderer` constructible without DOM: injectable canvas + GL context (headl
 ~~Add a world-format layer feeding chunk storage: `.mca` sector tables, section palettes and DataVersion; preserve NBT type/compression metadata; implement legacy `.schematic` ID/metadata and AddBlocks conversion; retain structure entities and DataVersion.~~ Pre-1.13 numeric Anvil chunks, LZ4 and external `.mcc` payloads, Sponge `.schem`, Litematica, entity rendering, and DataVersion-based migration remain.
 
 ### 14. GUI renderer parity — medium
-Implement `GuiObject` (empty stub today): layered textured planes with UV crop, pixel positioning, z-layering, camera auto-fit. V1's `guiPositions.js` (boss bars, book, chest, crafting table atlases) and `guiHelper.js` (`inventorySlot` math + `recipe()` for crafting_shaped/shapeless JSON) port nearly verbatim; update texture paths for the newer asset layout. Wire `scene.addGui(...)`.
+~~Implement `GuiObject`: layered textured planes with UV crop, pixel positioning, and ordered layers.~~ ~~Wire `scene.addGui(...)`, `inventorySlot`, and a chest demo with camera fitting.~~ Add modern GUI sprite scaling (stretch, tile, nine-slice), item models in the GUI display pose, and shaped/shapeless recipe layouts. Update V1's boss bar, book, and crafting layouts for the newer texture paths and recipe format.
 
 ### 15. Polish: exports, animation API, inspector, demos, docs — medium
 Port toObj/toGLTF and toImage trim/mime. Add a per-frame callback integrated with the dirty flag (replaces V1's CustomEvent contract). ~~Fix `SceneInspector` raycast normalization (against canvas rect, not window)~~. Fix `SceneStatsDisplay`'s leaked interval. ~~Fix animated-texture timing, frame grids/sequences, and stationary-camera redraw for all scenes sharing an atlas, respecting `fpsLimit`; stop unused atlas tickers.~~ Texture interpolation remains. Finish the demos and V2 website, including embeds. Remove unused V1 website files from the V2 tree while preserving V1 delivery URLs. Add regression coverage for remaining model and blockstate work; keep the consumer API contract in AGENTS.md as the beta compatibility baseline.

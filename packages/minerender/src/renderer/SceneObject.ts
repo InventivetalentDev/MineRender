@@ -14,7 +14,7 @@ import { Disposable, isDisposable } from "../Disposable";
 import { SceneObjectOptions } from "./SceneObjectOptions";
 import merge from "ts-deepmerge";
 import { Instanceable } from "../instance/Instanceable";
-import { isMineRenderScene, MineRenderScene } from "./MineRenderScene";
+import type { MineRenderScene } from "./MineRenderScene";
 import { Transformable } from "../Transformable";
 import generateUUID = MathUtils.generateUUID;
 import { prefix } from "../util/log";
@@ -63,6 +63,10 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
     }
 
     public notifyDirty() {
+        this.traverseAncestors(parent => {
+            const scene = parent as MineRenderScene;
+            if (scene.isMineRenderScene) scene.dirty = true;
+        });
         this.dispatchEvent(changeEvent);
     }
 
@@ -469,6 +473,7 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
             } else {
                 object.visible = !object.visible;
             }
+            this.notifyDirty();
             return object.visible;
         }
         this.notifyDirty();
@@ -505,8 +510,8 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
     }
 
     public removeFromScene() {
-        this._scene?.remove(this);
         this.notifyDirty();
+        this.removeFromParent();
     }
 
     //</editor-fold>
