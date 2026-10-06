@@ -1,5 +1,6 @@
 import { AssetKey, BasicAssetKey, isAssetKey } from "./AssetKey";
 import type { EntityLayer, EntityModel, EntityModelFile, EntityModelPass } from "../entity/EntityModel";
+import type { EntityAnimation, EntityAnimationFile } from "../entity/EntityAnimation";
 import { AssetLoader } from "./AssetLoader";
 import { AssetParser } from "./source";
 import { Maybe } from "../util";
@@ -80,6 +81,16 @@ export class Entities {
             return [name, { key: override ?? modelKey, texture, layer, ...(render && { render }), ...(pass.tint && { tint: pass.tint }) }];
         })));
         return { ...layers[names[0]], id: model.id, layers, ...(model.transform && { transform: model.transform }) };
+    }
+
+    /**
+     * Vanilla's keyframe animations of a model by name, or undefined when the model or the selected version has none.
+     */
+    public static async getAnimations(modelKey: BasicAssetKey): Promise<Maybe<Record<string, EntityAnimation>>> {
+        const path = isAssetKey(modelKey) ? modelKey.getFullPath() : modelKey.path;
+        const key = new AssetKey(modelKey.namespace, path, undefined, undefined, "entity-models/animations", ".json");
+        const file = await Caching.entityAnimationCache.get(key.serialize(), () => AssetLoader.get<EntityAnimationFile>(key, AssetParser.JSON));
+        return file?.animations;
     }
 
     public static async resolveTexture(modelKey: BasicAssetKey): Promise<Maybe<AssetKey>> {

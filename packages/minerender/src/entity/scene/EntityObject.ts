@@ -15,6 +15,8 @@ import { EntityLayer, EntityModel, EntityModelPart } from "../EntityModel";
 import type { DoubleArray } from "../../model/Model";
 import type { Maybe } from "../../util/util";
 import { isMesh } from "../../util/three";
+import type { EntityAnimation } from "../EntityAnimation";
+import { EntityAnimationOptions, EntityAnimationPlayer } from "./EntityAnimationPlayer";
 
 export class EntityObject extends SceneObject {
 
@@ -29,6 +31,7 @@ export class EntityObject extends SceneObject {
     private scrollTicker: Maybe<number>;
     /** Entity age in ticks, as vanilla's `ageInTicks`; drives the scrolling render modes. */
     public age: number = 0;
+    private readonly animationPlayer = new EntityAnimationPlayer();
 
     constructor(readonly entity: EntityModel, options?: Partial<EntityObjectOptions>) {
         super();
@@ -46,6 +49,8 @@ export class EntityObject extends SceneObject {
 
     public disposeAndRemoveAllChildren() {
         this.clearScrollMaterials();
+        // The animated part groups are removed with the children.
+        this.animationPlayer.clear();
         super.disposeAndRemoveAllChildren();
     }
 
@@ -66,6 +71,47 @@ export class EntityObject extends SceneObject {
         }
         this.notifyDirty();
     }
+
+    //<editor-fold desc="ANIMATION">
+
+    /** The animation started by {@link playAnimation}, until {@link stopAnimation} or disposal. */
+    public get animation(): Maybe<EntityAnimation> {
+        return this.animationPlayer.animation;
+    }
+
+    /** Seconds since the animation started, before looping. */
+    public get animationTime(): number {
+        return this.animationPlayer.time;
+    }
+
+    /**
+     * Poses the object from a keyframe animation of {@link Entities.getAnimations}, replacing the current one.
+     * Parts of every layer are matched by name and their current pose is the default the offsets add to.
+     * The object owns no clock: call {@link advanceAnimation} per frame, or {@link setAnimationTime}.
+     */
+    public playAnimation(animation: EntityAnimation, options?: EntityAnimationOptions): void {
+        this.createMeshes();
+        const layers = Object.keys(this.entityLayers).map(name => this.getLayerGroup(name)).filter(layer => !!layer) as Object3D[];
+        this.animationPlayer.play(layers, animation, options);
+        this.notifyDirty();
+    }
+
+    /** Stops the animation and restores the default pose. */
+    public stopAnimation(): void {
+        if (this.animationPlayer.stop()) this.notifyDirty();
+    }
+
+    /** Poses the object at an explicit time in seconds. Has no effect without an animation. */
+    public setAnimationTime(seconds: number): void {
+        if (this.animationPlayer.setTime(seconds)) this.notifyDirty();
+    }
+
+    /** Advances the animation by a frame delta in seconds, scaled by its speed. Has no effect without an animation. */
+    public advanceAnimation(deltaSeconds: number): void {
+        if (this.animationPlayer.advance(deltaSeconds)) this.notifyDirty();
+    }
+
+    //</editor-fold>
 
     public getLayerGroup(name: string): Maybe<Object3D> {
         return super.getGroupByName(`layer:${name}`);
