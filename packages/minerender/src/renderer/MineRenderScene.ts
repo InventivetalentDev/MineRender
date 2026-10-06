@@ -155,7 +155,7 @@ export class MineRenderScene extends Scene {
     }
 
     public async addEntity(entity: EntityModel, options?: Partial<EntityObjectOptions>, parent: Object3D = this): Promise<EntityObject | InstanceReference<EntityObject>> {
-        return this.addSceneObject<EntityModel, EntityObject, BlockObjectOptions>(entity, () => new EntityObject(entity, options), options, parent);
+        return this.addSceneObject<EntityModel, EntityObject, EntityObjectOptions>(entity, () => new EntityObject(entity, options), options, parent);
     }
 
     public async addGui(layers: readonly GuiLayer[], options?: Partial<GuiObjectOptions>, parent: Object3D = this): Promise<GuiObject> {
