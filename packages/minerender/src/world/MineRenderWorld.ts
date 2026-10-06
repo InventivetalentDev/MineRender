@@ -1,9 +1,8 @@
 import { MineRenderScene } from "../renderer/MineRenderScene";
 import { Block } from "../model/block/Block";
-import { BlockObject } from "../model/block/scene/BlockObject";
 import { Vector3 } from "three";
 import { isTripleArray, TripleArray } from "../model/Model";
-import { isVector3, Maybe } from "../util/util";
+import { Maybe } from "../util/util";
 import { Chunk } from "./Chunk";
 import { BlockInfo } from "./BlockInfo";
 import { MultiBlockBlock, MultiBlockStructure } from "../model/multiblock/MultiBlockStructure";
@@ -16,10 +15,7 @@ export class MineRenderWorld {
 
     public readonly scene: MineRenderScene;
 
-    private _size: number = 4; //TODO: expandable
-    private _blockSize: number = this._size * 16;
-
-    private readonly _chunks: Map<string,Chunk> = new Map<string, Chunk>();
+    private readonly _chunks: Map<string, Chunk> = new Map<string, Chunk>();
 
     constructor(scene: MineRenderScene) {
         this.scene = scene;
@@ -35,17 +31,13 @@ export class MineRenderWorld {
         if (isTripleArray(posOrX)) {
             return this.getBlockAt(new Vector3(posOrX[0], posOrX[1], posOrX[2]))
         }
-        const chunk = this.getChunkAt(posOrX);
-        if (typeof chunk === "undefined") {
-            return undefined;
-        }
         this.validatePosBounds(posOrX);
-        return chunk.getBlockAt(posOrX);
+        return this.getChunkAt(posOrX)?.getBlockAt(posOrX);
     }
 
-    public async setBlockAt(x: number, y: number, z: number, block: Block): Promise<Maybe<BlockInfo>>;
-    public async setBlockAt(pos: Vector3, block: Block): Promise<Maybe<BlockInfo>>;
-    public async setBlockAt(pos: TripleArray, block: Block): Promise<Maybe<BlockInfo>>;
+    public async setBlockAt(x: number, y: number, z: number, block: Maybe<Block>): Promise<Maybe<BlockInfo>>;
+    public async setBlockAt(pos: Vector3, block: Maybe<Block>): Promise<Maybe<BlockInfo>>;
+    public async setBlockAt(pos: TripleArray, block: Maybe<Block>): Promise<Maybe<BlockInfo>>;
     public async setBlockAt(posOrX: number | Vector3 | TripleArray, yOrBlock?: number | Block, z?: number, block?: Block): Promise<Maybe<BlockInfo>> {
         if (typeof posOrX == "number") {
             return this.setBlockAt(new Vector3(posOrX, yOrBlock as number, z), block as Block);
@@ -54,8 +46,9 @@ export class MineRenderWorld {
             return this.setBlockAt(new Vector3(posOrX[0], posOrX[1], posOrX[2]), yOrBlock as Block);
         }
         this.validatePosBounds(posOrX);
-        const chunk = this.getOrCreateChunkAt(posOrX);
-        return chunk.setBlockAt(posOrX, yOrBlock as Block);
+        const value = yOrBlock as Maybe<Block>;
+        const chunk = Chunk.isAir(value) ? this.getChunkAt(posOrX) : this.getOrCreateChunkAt(posOrX);
+        return chunk?.setBlockAt(posOrX, value);
     }
 
 
@@ -82,11 +75,8 @@ export class MineRenderWorld {
 
 
     public async clear(): Promise<void> {
-        console.log("CHUNKS",this._chunks)
-
-        for (let chunk of this._chunks.values()) {
-            console.log("dispose chunk",chunk)
-            await chunk?.dispose();
+        for (const chunk of this._chunks.values()) {
+            await chunk.dispose();
         }
         this._chunks.clear();
     }
@@ -102,8 +92,7 @@ export class MineRenderWorld {
     }
 
     public getChunkAt(pos: Vector3): Maybe<Chunk> {
-        const index = this.worldPosToChunkIndex(pos);
-        return this._chunks[index];
+        return this._chunks.get(this.worldPosToChunkKey(pos));
     }
 
 
@@ -123,13 +112,6 @@ export class MineRenderWorld {
         );
     }
 
-    worldPosToChunkIndex(pos: Vector3): number {
-        const chunkX = Math.floor(pos.x / 16);
-        const chunkY = Math.floor(pos.y / 16);
-        const chunkZ = Math.floor(pos.z / 16);
-        return (chunkZ * this._size * this._size) + (chunkY * this._size) + chunkX;
-    }
-
     worldPosToChunkKey(pos: Vector3): string {
         const chunkX = Math.floor(pos.x / 16);
         const chunkY = Math.floor(pos.y / 16);
@@ -138,12 +120,9 @@ export class MineRenderWorld {
     }
 
     validatePosBounds(pos: Vector3): void {
-        if (pos.x < 0) throw new Error("x<0");
-        if (pos.y < 0) throw new Error("y<0");
-        if (pos.z < 0) throw new Error("z<0");
-        if (pos.x > this._blockSize) throw new Error("x>" + this._blockSize);
-        if (pos.y > this._blockSize) throw new Error("y>" + this._blockSize);
-        if (pos.z > this._blockSize) throw new Error("z>" + this._blockSize);
+        if (![pos.x, pos.y, pos.z].every(Number.isInteger)) {
+            throw new RangeError("Block coordinates must be integers");
+        }
     }
 
 }

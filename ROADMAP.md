@@ -33,14 +33,14 @@ legacy website cleanup is a separate task.
 | Animated textures | frametime honored | Frame extraction handles static images and vertical strips; timing and full mcmeta support remain | medium |
 | Entity rendering | 76 hosted models, mirror, inheritance | Versioned dataset, nested parts, mirrored UVs, and selected layers with separate textures; renderer-specific effects remain | high |
 | GUI / inventory / recipes | full GuiRender + Positions + recipe() | `GuiObject` is an empty stub | high |
-| Structure (.nbt) loading | works via ModelConverter | Parses correctly; placement serialized, debug wireframes hardcoded on, no entities/DataVersion | high |
+| Structure (.nbt) loading | works via ModelConverter | Parses correctly; placement serialized, signed coordinates and slot cleanup supported, no entities/DataVersion | high |
 | Legacy .schematic | full incl. AddBlocks nibbles | `SchematicParser` returns `{}`; mapping data (`res/idsToNames.json`, `legacyBlockList.json`) present but unreferenced | medium |
 | Combined multi-renderer scene | CombinedRender wrapper | Superseded by design (one scene hosts all types) — **at parity** | — |
 | Screenshots & 3D export | toImage(trim,mime), toObj/toGLTF/toPLY | Bare `toDataURL()`; no exporters | medium |
 | Asset loading & resource packs | swappable assetRoot, fallback | Ordered whole-asset source selection; decode fetched bytes; failure-evicting caches; contextual errors; defaults to 1.21.11, ZIPs browser-only | high |
 | Per-frame animation API | `<type>Render` CustomEvents | No supported hook (dirty-flag loop only) | medium |
 | Embeds & website | minerender.org + iframe embeds | Workspace demos and examples; V2 website and embeds remain | low |
-| **Large-scale worlds (V2 goal)** | n/a | Prototype, effectively dead code: 64³ box, `getChunkAt` broken (Map indexed with number), object-per-block, no meshing/culling/lighting/LOD | high |
+| **Large-scale worlds (V2 goal)** | n/a | Sparse signed chunks with object-per-block storage; no meshing/culling/lighting/LOD | high |
 | **Anvil .mca / world formats (V2 goal)** | n/a | Zero code | high |
 | **Node headless rendering (V2 goal)** | faked externally by MineRenderServer | No DOM-free Renderer construction, no render-to-buffer API | high |
 | Bedrock geometry (V2 ambition) | n/a | Type declarations only | low |
@@ -87,7 +87,7 @@ Small, high-impact: (1) ~~`Axis.X = "X"` → lowercase (x-rotations silently no-
 ~~Limit `InstancedMesh.count` to allocated slots~~; ~~add a free-list so removal reclaims slots~~; ~~grow capacity on demand instead of silent out-of-bounds writes~~; route whole-object transforms through per-index `InstanceReference`s (owner transforms affect all live instances); ~~replace the `children[0]`-is-the-InstancedMesh assumption with a stored reference~~; extend dedup beyond `assetType === "models"` to blockstate level.
 
 ### 11. World subsystem redesign for scale — high (the V2 differentiator)
-Immediate fixes: `getChunkAt` uses `this._chunks[numericIndex]` on a Map — use `.get(key)` (`MineRenderWorld.ts:104`); remove the 4×4×4 bound and negative-coordinate rejection (1.18+ needs negative Y); remove hardcoded debug wireframes (`Chunk.ts:34-43, 102-107`); fix `BatchedExecutor`'s missing setInterval delay + add `stop()`; parallelize `placeMultiBlock` (the `await` inside the loop serializes everything). Then the real redesign: palette + typed-array section storage (drop object-per-block `BlockInfo`), one merged mesh per chunk section with neighbor face culling via the model `cullface` attribute (currently entirely unhandled), chunk load/unload + frustum culling, baked per-vertex AO (SSAO was abandoned at ~2fps), biome tint. Keep 1 block = 16 units.
+Immediate fixes: ~~fix `getChunkAt` to use `Map.get(key)`~~; ~~remove the 4×4×4 bound and negative-coordinate rejection~~; ~~remove hardcoded debug wireframes~~; fix `BatchedExecutor`'s missing setInterval delay + add `stop()`; parallelize `placeMultiBlock` (the `await` inside the loop serializes everything). Then the real redesign: palette + typed-array section storage (drop object-per-block `BlockInfo`), one merged mesh per chunk section with neighbor face culling via the model `cullface` attribute (currently entirely unhandled), chunk load/unload + frustum culling, baked per-vertex AO (SSAO was abandoned at ~2fps), biome tint. Keep 1 block = 16 units.
 
 ### 12. Node headless rendering entry point — high
 Make `Renderer` constructible without DOM: injectable canvas + GL context (headless-gl or OffscreenCanvas), `renderOnce()`/`renderToBuffer()` bypassing the animation loop, `toImage()` returning a Buffer in Node (V1's `trimCanvas` is portable). `InventivetalentDev/MineRenderServer` is the reference contract — it faked all of this against V1 and reached into `_scene`/`_camera`; V2 already exposes them publicly. Then a thin V2 server can revive `GET /render/skin/:texture` and `GET /render/model/:type/:model`.
