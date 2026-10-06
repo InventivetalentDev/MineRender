@@ -2,7 +2,7 @@
 
 A TypeScript library for rendering Minecraft skins, models, blocks, entities, and worlds.
 This monorepo contains the `minerender` package, demo pages, and examples.
-V2 is in alpha; see [ROADMAP.md](./ROADMAP.md) for progress and remaining work,
+V2 is in beta; see [ROADMAP.md](./ROADMAP.md) for progress and remaining work,
 including headless Node rendering.
 
 ## Develop locally

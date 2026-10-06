@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Item | MineRender</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@100;400;500;600&display=swap" rel="stylesheet">
+
+        <link rel="stylesheet" href="../../demo_shared.css">
+    </head>
+    <body>
+        <div id="input" class="overlay top-right">
+            <label for="item-input">Item</label><br/>
+            <input type="text" id="item-input" value="iron_sword" list="item-suggestions">
+            <datalist id="item-suggestions"></datalist>
+            <br/><label for="item-display">Display</label><br/>
+            <select id="item-display"></select>
+            <div id="item-status" role="status"></div>
+        </div>
+        <div id="inspector" class="overlay bottom-right"></div>
+
+
+
+        <script type="module" src="script.bundle.js"></script>
+    </body>
+</html>

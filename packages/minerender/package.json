@@ -79,7 +79,8 @@
     "test:package": "ava --config ava.package.config.js",
     "doc": "typedoc --out docs src",
     "prepublishOnly": "yarn run build",
-    "publish:alpha": "yarn build && yarn version prerelease --immediate && yarn npm publish --tag alpha"
+    "publish:alpha": "yarn build && yarn version prerelease --immediate && yarn npm publish --tag alpha",
+    "publish:beta": "yarn build && yarn version prerelease --immediate && yarn npm publish --tag beta"
   },
   "engines": {
     "node": ">=22.0.0"

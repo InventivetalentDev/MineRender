@@ -444,7 +444,12 @@ export class UVMapper {
                 for (let layerName of ModelGenerator.ITEM_LAYERS) {
                     const textureImage = textureMap[layerName];
                     if (textureImage) {
-                        model.elements.push(...ModelGenerator.generateItemModel(textureImage.data, layerName))
+                        // Outline the frame that was drawn into the atlas, not the whole animation strip.
+                        const [width, height] = sizes[layerName];
+                        const frame = frames[layerName]?.[0].index ?? 0;
+                        const columns = textureImage.width / width;
+                        model.elements.push(...ModelGenerator.generateItemModel(textureImage.getSectionData(
+                            (frame % columns) * width, Math.floor(frame / columns) * height, width, height), layerName))
                     }
                 }
                 console.debug(p, "Item model elements", model.elements)

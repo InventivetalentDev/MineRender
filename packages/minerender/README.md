@@ -1,12 +1,12 @@
 # MineRender V2
 
 A TypeScript library for interactive Minecraft skins, models, blocks, entities, and worlds.
-V2 is in alpha. See the [roadmap](https://github.com/InventivetalentDev/MineRender/blob/main/ROADMAP.md) for feature parity and remaining work.
+V2 is in beta. See the [roadmap](https://github.com/InventivetalentDev/MineRender/blob/main/ROADMAP.md) for feature parity and remaining work.
 
-Install the alpha package with its three.js peer:
+Install the beta package with its three.js peer:
 
 ```sh
-yarn add minerender@alpha three@^0.158.0
+yarn add minerender@beta three@^0.158.0
 ```
 
 In a browser application:
