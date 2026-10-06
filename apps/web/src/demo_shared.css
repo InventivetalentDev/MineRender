@@ -90,8 +90,8 @@ body.playground {
 .playground h1 { margin: 12px 0; font-size: 22px; line-height: 1.2; }
 .playground h2, .playground h3 { font-size: 16px; margin: 16px 0 8px; }
 .playground a { color: #9bdca4; }
-.playground-status { padding: 8px 10px; background: #252e39; border-radius: 4px; overflow-wrap: anywhere; min-height: 38px; }
-.playground-status.error { border-left: 3px solid #ffa18d; color: #ffd7cf; }
+.playground-status { position: sticky; top: 0; z-index: 2; margin: 0 -16px 12px; padding: 10px 16px; background: #252e39; border-bottom: 1px solid #39424e; overflow-wrap: anywhere; min-height: 40px; }
+.playground-status.error { background: #3a2520; border-left: 3px solid #ffa18d; color: #ffd7cf; }
 .playground details { border-top: 1px solid #39424e; margin-top: 12px; }
 .playground summary { cursor: pointer; padding: 12px 0; font-weight: 650; }
 .control-section { padding-bottom: 10px; }
