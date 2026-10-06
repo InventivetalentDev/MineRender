@@ -398,12 +398,13 @@ export class UVMapper {
                     positions[textureKey] = [x, y];
                     const [width, height] = sizes[textureKey];
                     const sequence = frames[textureKey];
-                    const drawFrame = (index: number) => {
+                    const getFrameData = (index: number) => {
                         const columns = texture!.width / width;
-                        image.putData(texture!.getSectionData((index % columns) * width,
-                            Math.floor(index / columns) * height, width, height), x, y);
+                        return texture!.getSectionData((index % columns) * width,
+                            Math.floor(index / columns) * height, width, height);
                     };
-                    drawFrame(sequence?.[0].index ?? 0);
+                    const firstFrame = getFrameData(sequence?.[0].index ?? 0);
+                    image.putData(firstFrame, x, y);
 
                     if (texture.hasTransparency) {
                         hasTransparency = true;
@@ -413,14 +414,31 @@ export class UVMapper {
                         hasAnimation = true;
                         let t = 0;
                         let f = 0;
+                        const interpolated = metaMap[textureKey]?.animation?.interpolate
+                            ? image.context.createImageData(width, height) : undefined;
+                        let currentFrame = firstFrame;
+                        let nextFrame = interpolated ? getFrameData(sequence[1].index) : firstFrame;
 
                         animatorFunctions[textureKey] = () => {
-                            if (++t < sequence[f].time) return false;
-                            t = 0;
-                            const previous = sequence[f].index;
-                            f = (f + 1) % sequence.length;
-                            if (sequence[f].index === previous) return false;
-                            drawFrame(sequence[f].index);
+                            if (++t >= sequence[f].time) {
+                                t = 0;
+                                const previous = sequence[f].index;
+                                f = (f + 1) % sequence.length;
+                                if (interpolated) {
+                                    currentFrame = nextFrame;
+                                    nextFrame = getFrameData(sequence[(f + 1) % sequence.length].index);
+                                }
+                                if (sequence[f].index === previous) return false;
+                                image.putData(interpolated ? currentFrame : getFrameData(sequence[f].index), x, y);
+                                return true;
+                            }
+                            if (!interpolated || sequence[f].index === sequence[(f + 1) % sequence.length].index) return false;
+                            // Vanilla encodes the atlas shader's interpolation progress in thousandths.
+                            const progress = Math.floor(Math.fround(Math.fround(t / sequence[f].time) * 1000)) / 1000;
+                            for (let i = 0; i < interpolated.data.length; i++) {
+                                interpolated.data[i] = currentFrame.data[i] + (nextFrame.data[i] - currentFrame.data[i]) * progress;
+                            }
+                            image.putData(interpolated, x, y);
                             return true;
                         };
                     }
