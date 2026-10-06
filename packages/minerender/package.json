@@ -83,7 +83,7 @@
     "publish:beta": "yarn build && yarn version prerelease --immediate && yarn npm publish --tag beta"
   },
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=22.12.0"
   },
   "author": "Haylee Schäfer",
   "license": "MIT",

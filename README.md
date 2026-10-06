@@ -7,7 +7,7 @@ including headless Node rendering.
 
 ## Develop locally
 
-Use Node.js 22+ and Yarn 4.5.3 through Corepack. Run these commands from the repository root:
+Use Node.js 22.12+ and Yarn 4.5.3 through Corepack. Run these commands from the repository root:
 
 ```sh
 corepack enable

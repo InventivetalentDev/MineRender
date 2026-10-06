@@ -25,7 +25,7 @@ The private Yarn workspace root contains the public library and its consumers. U
 
 ## Build, test, publish
 
-- **Runtime: Node.js 22+**, or a browser with WebGL 2, native Fetch, and AbortController. Node builds target Node 22.
+- **Runtime: Node.js 22.12+**, or a browser with WebGL 2, native Fetch, and AbortController. Node builds target Node 22.
 - **Package manager: yarn 4 (`packageManager: yarn@4.5.3`, corepack), `nodeLinker: node-modules`.** Do not use npm here.
 - Install dependencies on the OS that runs the build; esbuild, Rollup, and `canvas` use platform-specific binaries.
 - Root commands delegate to the workspaces:
