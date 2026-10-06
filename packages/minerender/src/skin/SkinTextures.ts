@@ -4,6 +4,7 @@ import { serializeImageKey } from "../cache/CacheKey";
 import { MineRenderError } from "../error/MineRenderError";
 import { ImageLoader } from "../image/ImageLoader";
 import { Textures } from "../texture/Textures";
+import { CapeLayout } from "./CapeLayout";
 
 export interface SkinTexture {
     material: MeshBasicMaterial;
@@ -32,10 +33,10 @@ export class SkinTextures {
         return { material, slim, legacy: isLegacy };
     }
 
-    public static async getCape(src: string): Promise<MeshBasicMaterial> {
+    public static async getCape(src: string, layout: CapeLayout = "minecraft"): Promise<MeshBasicMaterial> {
         const image = await ImageLoader.getData(src);
         const scale = image.width / 64;
-        if (!Number.isInteger(scale) || scale < 1 || image.height !== image.width / 2) {
+        if (layout === "minecraft" && (!Number.isInteger(scale) || scale < 1 || image.height !== image.width / 2)) {
             throw new MineRenderError(`Invalid cape dimensions ${image.width}x${image.height}; expected 64x32 or an integer-scaled equivalent`);
         }
         return Caching.materialCache.get(`cape:${serializeImageKey({ src })}`, () => {
