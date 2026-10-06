@@ -2,7 +2,7 @@ import { SceneObject } from "../../renderer/SceneObject";
 import { SceneObjectOptions } from "../../renderer/SceneObjectOptions";
 import { Caching } from "../../cache/Caching";
 import merge from "ts-deepmerge";
-import { Object3D } from "three";
+import { Euler, Matrix4, Object3D } from "three";
 import type { Material, Mesh } from "three";
 import { addWireframeToMesh } from "../../util/model";
 import { ModelTextures } from "../../assets/ModelTextures";
@@ -27,7 +27,6 @@ export class EntityObject extends SceneObject {
     constructor(readonly entity: EntityModel, options?: Partial<EntityObjectOptions>) {
         super();
         this.options = merge({}, EntityObject.DEFAULT_OPTIONS, options ?? {});
-        this.options.flip ??= !entity.yUp;
     }
 
     async init(): Promise<void> {
@@ -79,7 +78,20 @@ export class EntityObject extends SceneObject {
 
         const modelRoot = new Object3D();
         // Keep Minecraft's model coordinates separate from caller placement and scale.
-        if (this.options.flip) modelRoot.scale.set(-1, -1, 1);
+        const transform = this.options.flip === undefined ? this.entity.transform : undefined;
+        if (transform) {
+            for (const op of transform) {
+                const matrix = new Matrix4();
+                if ("scale" in op) matrix.makeScale(...op.scale);
+                else if ("translate" in op) matrix.makeTranslation(...op.translate);
+                else matrix.makeRotationFromEuler(new Euler(...op.rotate, "ZYX"));
+                modelRoot.matrix.multiply(matrix);
+            }
+            // The composed matrix may not decompose into position, rotation and scale.
+            modelRoot.matrixAutoUpdate = false;
+        } else if (this.options.flip ?? true) {
+            modelRoot.scale.set(-1, -1, 1);
+        }
         this.add(modelRoot);
         Object.entries(this.entityLayers).forEach(([name, layer], index) => {
             const group = this.createGroup(`layer:${name}`);
@@ -149,7 +161,10 @@ export class EntityObject extends SceneObject {
 }
 
 export interface EntityObjectOptions extends SceneObjectOptions {
-    /** Apply vanilla's entity flip, scale (-1, -1, 1). Defaults to true unless the model is marked `yUp`. */
+    /**
+     * `true` applies only vanilla's entity flip, scale (-1, -1, 1); `false` keeps raw model space.
+     * By default the model's dataset transform is used, or the flip for models without one.
+     */
     flip?: boolean;
 }
 

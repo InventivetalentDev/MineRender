@@ -9,17 +9,25 @@ export interface EntityLayer {
 
 export interface EntityModel extends EntityLayer {
     id: string;
-    /** The model is authored Y-up; vanilla draws it without the entity flip. */
-    yUp?: boolean;
+    /** Root transform from the dataset; see {@link EntityTransformOp}. */
+    transform?: EntityTransformOp[];
     /** Selected layers; the top-level fields describe the first selection. */
     layers?: Record<string, EntityLayer>;
 }
 
 export interface EntityModelFile extends MinecraftAsset {
     id: string;
-    yUp?: boolean;
+    transform?: EntityTransformOp[];
     layers: Record<string, EntityModelLayer>;
 }
+
+/**
+ * One operation vanilla's renderer applies before drawing a model, in call order:
+ * each one is applied on top of the previous, so the last reaches the vertices first.
+ * Translations use model units and rotations use radians, like part poses.
+ */
+export type EntityTransformOp =
+    { scale: [number, number, number] } | { translate: [number, number, number] } | { rotate: [number, number, number] };
 
 export interface EntityModelLayer {
     texture: [number, number];
