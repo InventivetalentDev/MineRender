@@ -84,33 +84,39 @@ const app = new Playground<EntityState>({
         }));
         for (const part of parts) part.object.visible = !state.hiddenParts.includes(part.key);
         ctx.renderer.scene.add(object);
+        const restore = () => {
+            activeEntity = object;
+            activeCurrent = ctx.isCurrent;
+            activeParts = parts;
+            window["entity"] = object;
+            playback = controller;
+            resetPose = () => {
+                controller?.stop();
+                for (const { part, position, rotation, scale } of poses) {
+                    part.position.copy(position);
+                    part.rotation.copy(rotation);
+                    part.scale.copy(scale);
+                }
+                object.position.set(0, 0, 0);
+                object.rotation.set(0, 0, 0);
+                object.scale.set(1, 1, 1);
+                object.notifyDirty();
+            };
+            buildControls(app.state, layers, passes, model, animations ?? {});
+            select("entity-animation").value = app.state.animation;
+            controller?.refresh();
+        };
         return {
             object,
             activate() {
-                activeEntity = object;
-                activeCurrent = ctx.isCurrent;
-                activeParts = parts;
-                window["entity"] = object;
-                buildControls(state, layers, passes, model, animations ?? {});
                 controller = createPlayback(object, animations ?? {}, ctx.renderer, ctx.isCurrent);
-                playback = controller;
-                resetPose = () => {
-                    controller!.stop();
-                    for (const { part, position, rotation, scale } of poses) {
-                        part.position.copy(position);
-                        part.rotation.copy(rotation);
-                        part.scale.copy(scale);
-                    }
-                    object.position.set(0, 0, 0);
-                    object.rotation.set(0, 0, 0);
-                    object.scale.set(1, 1, 1);
-                    object.notifyDirty();
-                };
-                const animation = state.animation === "$first" ? Object.keys(animations ?? {})[0] ?? "" : state.animation;
+                const requested = state.animation === "$first" ? Object.keys(animations ?? {})[0] ?? "" : state.animation;
+                const animation = Object.prototype.hasOwnProperty.call(animations ?? {}, requested) ? requested : "";
                 app.record({ animation });
-                select("entity-animation").value = animation;
+                restore();
                 controller.apply(state.playing);
-            }
+            },
+            restore
         };
     },
     code(state) {
@@ -133,7 +139,7 @@ function applyPartVisibility(object, path = "") {
 applyPartVisibility(entity);
 entity.notifyDirty();
 ${state.animation ? `const animations = await MineRender.Entities.getAnimations(key);
-const animation = animations?.[${JSON.stringify(state.animation)}];
+const animation = Object.prototype.hasOwnProperty.call(animations ?? {}, ${JSON.stringify(state.animation)}) ? animations[${JSON.stringify(state.animation)}] : undefined;
 if (animation) {
     entity.playAnimation(animation, ${JSON.stringify({ loop: state.loop, speed: state.speed, time: state.time })});
     ${state.playing ? `const stop = renderer.onFrame(({ delta }) => {
@@ -284,6 +290,7 @@ function buildControls(state: EntityState, layers: string[], passes: EntityModel
 
 function createPlayback(object: EntityObject, animations: Record<string, EntityAnimation>, renderer: Renderer, isCurrent: () => boolean) {
     let unsubscribe: (() => void) | undefined;
+    const selectedAnimation = () => Object.prototype.hasOwnProperty.call(animations, app.state.animation) ? animations[app.state.animation] : undefined;
     function pauseFrames() { unsubscribe?.(); unsubscribe = undefined; }
     function updateTime() {
         const animation = object.animation;
@@ -292,7 +299,7 @@ function createPlayback(object: EntityObject, animations: Record<string, EntityA
         document.getElementById("entity-time-value")!.textContent = `${elapsed.toFixed(2)} s`;
     }
     function controls() {
-        const animation = animations[app.state.animation];
+        const animation = selectedAnimation();
         input("entity-time").max = String(animation?.length ?? 1);
         input("entity-time").disabled = !animation;
         for (const id of ["entity-play", "entity-pause", "entity-stop"]) (document.getElementById(id) as HTMLButtonElement).disabled = !animation;
@@ -300,10 +307,11 @@ function createPlayback(object: EntityObject, animations: Record<string, EntityA
     }
     function apply(playing: boolean) {
         pauseFrames();
-        const animation = animations[app.state.animation];
+        const animation = selectedAnimation();
         if (!animation) {
             object.stopAnimation();
-            app.record({ playing: false, time: 0 });
+            app.record({ animation: "", playing: false, time: 0 });
+            select("entity-animation").value = "";
             controls();
             updateTime();
             return;
@@ -332,6 +340,7 @@ function createPlayback(object: EntityObject, animations: Record<string, EntityA
     }
     return {
         apply,
+        refresh() { controls(); updateTime(); },
         pause() { pauseFrames(); app.record({ playing: false }); controls(); },
         stop() { pauseFrames(); object.stopAnimation(); app.record({ playing: false, time: 0 }); controls(); updateTime(); },
         seek(time: number) { app.record({ time, playing: false }); apply(false); },

@@ -28,6 +28,8 @@ const poses: Record<string, Record<string, [number, number, number]>> = {
 };
 let skinFile: { name: string, url: string } | undefined;
 let capeFile: { name: string, url: string } | undefined;
+let activeSkinFile: typeof skinFile;
+let activeCapeFile: typeof capeFile;
 let activeSkin: SkinObject | undefined;
 let activeCurrent: (() => boolean) | undefined;
 const fileURLs = new Set<string>();
@@ -46,7 +48,10 @@ const app = new Playground<SkinState>({
     },
     async load(ctx, state) {
         validateState(state);
-        const source = await resolveTexture(state.skin, state.skinFile, skinFile);
+        const loadedSkinFile = state.skinFile ? skinFile : undefined;
+        const loadedCapeFile = state.capeFile ? capeFile : undefined;
+        ctx.onCleanup(releaseUnusedFiles);
+        const source = await resolveTexture(state.skin, state.skinFile, loadedSkinFile);
         if (!ctx.isCurrent()) return;
         if (!source) throw new Error("Enter a player name, UUID, or skin URL, or choose a PNG.");
         const object = new SkinObject({
@@ -58,25 +63,28 @@ const app = new Playground<SkinState>({
         await object.init();
         await object.setSkinTexture(source);
         if (!ctx.isCurrent()) return;
-        const cape = await resolveTexture(state.cape, state.capeFile, capeFile, state.capeLayout);
+        const cape = await resolveTexture(state.cape, state.capeFile, loadedCapeFile, state.capeLayout);
         if (state.cape && !cape) throw new Error("No cape found for this player and cape layout.");
         await object.setCapeTexture(cape, state.capeLayout);
         applyPose(object, state.pose);
         for (const part of parts) object.toggleGroupVisibility(part, !state.hiddenParts.includes(part));
         for (const part of overlays) object.toggleMeshVisibility(part, !state.hiddenOverlays.includes(part));
         ctx.renderer.scene.add(object);
+        const restore = () => {
+            activeSkin = object;
+            activeCurrent = ctx.isCurrent;
+            activeSkinFile = skinFile = loadedSkinFile;
+            activeCapeFile = capeFile = loadedCapeFile;
+            window["skin"] = object;
+            syncControls(app.state);
+        };
         return {
             object,
-            activate() {
-                activeSkin = object;
-                activeCurrent = ctx.isCurrent;
-                window["skin"] = object;
-                syncControls(state);
-                for (const url of fileURLs) {
-                    if (url === skinFile?.url || url === capeFile?.url) continue;
-                    URL.revokeObjectURL(url);
-                    fileURLs.delete(url);
-                }
+            activate: restore,
+            restore() {
+                restore();
+                input("skin-file").value = input("cape-file").value = "";
+                releaseUnusedFiles();
             }
         };
     },
@@ -152,6 +160,15 @@ app.controls.innerHTML = `
 function input(id: string): HTMLInputElement { return document.getElementById(id) as HTMLInputElement; }
 function select(id: string): HTMLSelectElement { return document.getElementById(id) as HTMLSelectElement; }
 function update(patch: Partial<SkinState>) { void app.update(patch).catch(error => app.report(String(error), true)); }
+
+function releaseUnusedFiles() {
+    const retained = [skinFile?.url, capeFile?.url, activeSkinFile?.url, activeCapeFile?.url];
+    for (const url of fileURLs) {
+        if (retained.includes(url)) continue;
+        URL.revokeObjectURL(url);
+        fileURLs.delete(url);
+    }
+}
 
 function validateState(state: SkinState) {
     if (![state.skin, state.skinFile, state.cape, state.capeFile].every(value => typeof value === "string")
