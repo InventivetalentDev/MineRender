@@ -92,7 +92,7 @@ test.serial("cape layouts normalize all six faces while preserving pre-init mesh
     t.true(group.matrixWorld.elements.every((value, index) => Math.abs(value - beforeInit.elements[index]) < 1e-12));
     t.false(group.visible);
     group.position.x = 0;
-    group.rotation.set(-Math.PI / 30, Math.PI, 0);
+    group.rotation.set(Math.PI / 30, 0, 0);
     group.visible = true;
     t.is(skin.getGroupByName("cape"), group);
     t.is(skin.getMeshByName("cape"), mesh);
@@ -101,9 +101,9 @@ test.serial("cape layouts normalize all six faces while preserving pre-init mesh
     t.is(mesh.parent, group);
     t.is(mesh.material, capeMaterial);
     t.deepEqual(mesh.geometry.boundingBox!.getSize(new Vector3()).toArray(), [10, 16, 1]);
-    t.deepEqual(group.position.toArray(), [0, 0, 2]);
-    t.true(Math.abs(group.rotation.x + Math.PI / 30) < 1e-12);
-    t.deepEqual([group.rotation.y, group.rotation.z, group.rotation.order], [Math.PI, 0, "XYZ"]);
+    t.deepEqual(group.position.toArray(), [0, 0, -2]);
+    t.true(Math.abs(group.rotation.x - Math.PI / 30) < 1e-12);
+    t.deepEqual([group.rotation.y, group.rotation.z, group.rotation.order], [0, 0, "XYZ"]);
     t.deepEqual(mesh.position.toArray(), [0, -8, -0.5]);
     for (const [layout, width, height] of [["minecraft", 64, 32], ["optifine", 46, 22], ["labymod", 22, 17]] as const) {
         await skin.setCapeTexture("cape", layout);
@@ -116,12 +116,12 @@ test.serial("cape layouts normalize all six faces while preserving pre-init mesh
         t.deepEqual(Array.from(mesh.geometry.getAttribute("uv").array), Array.from(new Float32Array(expected)));
     }
     t.deepEqual(requestedLayouts, ["minecraft", "minecraft", "optifine", "labymod"]);
-    const round = (point: Vector3) => point.toArray().map(value => Math.round(value * 1e6) / 1e6);
-    t.deepEqual(round(mesh.localToWorld(new Vector3(0, 8, 0.5))), [0, 24, 2]);
+    const round = (point: Vector3) => point.toArray().map(value => Math.round(value * 1e6) / 1e6 || 0);
+    t.deepEqual(round(mesh.localToWorld(new Vector3(0, 8, 0.5))), [0, 24, -2]);
     t.deepEqual(round(mesh.localToWorld(new Vector3(0, -8, 0.5))),
-        round(new Vector3(0, 24 - 16 * Math.cos(Math.PI / 30), 2 + 16 * Math.sin(Math.PI / 30))));
+        round(new Vector3(0, 24 - 16 * Math.cos(Math.PI / 30), -2 - 16 * Math.sin(Math.PI / 30))));
     skin.getGroupByName("body")!.rotation.x = Math.PI / 2;
-    t.deepEqual(round(mesh.localToWorld(new Vector3(0, 8, 0.5))), [0, 22, 0]);
+    t.deepEqual(round(mesh.localToWorld(new Vector3(0, 8, 0.5))), [0, 26, 0]);
 });
 
 test.serial("layout changes reuse geometry without mutating another cape or resetting poses, visibility and skin materials", async t => {

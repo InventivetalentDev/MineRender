@@ -52,22 +52,22 @@ test.serial("slim selected before initialization uses three-unit arms and the sl
     t.is(skin.children.length, 0);
     await skin.init();
     t.is(skin.children.length, 6);
-    t.is(skin.getGroupByName("leftArm")!.position.x, -5);
-    t.is(skin.getGroupByName("rightArm")!.position.x, 5);
+    t.is(skin.getGroupByName("leftArm")!.position.x, 5);
+    t.is(skin.getGroupByName("rightArm")!.position.x, -5);
     for (const part of arms) {
         const size = skin.getMeshByName(part)!.geometry.boundingBox!.getSize(new Vector3());
         t.deepEqual(size.toArray().map(value => Math.round(value * 1000) / 1000),
             part.endsWith("Sleeve") ? [3.5, 12.5, 4.5] : [3, 12, 4]);
     }
     for (const [part, face, rectangle] of [
-        ["leftArm", 5, [36, 52, 39, 64]],
-        ["rightArm", 5, [44, 20, 47, 32]],
-        ["leftSleeve", 5, [52, 52, 55, 64]],
-        ["rightSleeve", 5, [44, 36, 47, 48]],
-        ["leftArm", 1, [39, 52, 43, 64]],
-        ["rightArm", 4, [51, 20, 54, 32]],
-        ["leftSleeve", 2, [55, 52, 52, 48]],
-        ["rightSleeve", 3, [50, 32, 47, 36]]
+        ["leftArm", 4, [36, 52, 39, 64]],
+        ["rightArm", 4, [44, 20, 47, 32]],
+        ["leftSleeve", 4, [52, 52, 55, 64]],
+        ["rightSleeve", 4, [44, 36, 47, 48]],
+        ["leftArm", 0, [39, 52, 43, 64]],
+        ["rightArm", 5, [51, 20, 54, 32]],
+        ["leftSleeve", 2, [52, 48, 55, 52]],
+        ["rightSleeve", 3, [47, 36, 50, 32]]
     ] as Array<[string, number, number[]]>) {
         const [x1, y1, x2, y2] = rectangle;
         t.deepEqual(facePixels(skin, part, face), [[x1, y1], [x2, y1], [x1, y2], [x2, y2]]);
@@ -87,26 +87,54 @@ test.serial("skin bounds, posed joints and trouser end faces match the vanilla p
         hat: [[-4.5, 23.5, -4.5], [4.5, 32.5, 4.5]],
         body: [[-4, 12, -2], [4, 24, 2]],
         jacket: [[-4.25, 11.75, -2.25], [4.25, 24.25, 2.25]],
-        leftArm: [[-8, 12, -2], [-4, 24, 2]],
-        rightArm: [[4, 12, -2], [8, 24, 2]],
-        leftSleeve: [[-8.25, 11.75, -2.25], [-3.75, 24.25, 2.25]],
-        rightSleeve: [[3.75, 11.75, -2.25], [8.25, 24.25, 2.25]],
-        leftLeg: [[-3.9, 0, -2], [0.1, 12, 2]],
-        rightLeg: [[-0.1, 0, -2], [3.9, 12, 2]],
-        leftTrousers: [[-4.15, -0.25, -2.25], [0.35, 12.25, 2.25]],
-        rightTrousers: [[-0.35, -0.25, -2.25], [4.15, 12.25, 2.25]]
+        leftArm: [[4, 12, -2], [8, 24, 2]],
+        rightArm: [[-8, 12, -2], [-4, 24, 2]],
+        leftSleeve: [[3.75, 11.75, -2.25], [8.25, 24.25, 2.25]],
+        rightSleeve: [[-8.25, 11.75, -2.25], [-3.75, 24.25, 2.25]],
+        leftLeg: [[-0.1, 0, -2], [3.9, 12, 2]],
+        rightLeg: [[-3.9, 0, -2], [0.1, 12, 2]],
+        leftTrousers: [[-0.35, -0.25, -2.25], [4.15, 12.25, 2.25]],
+        rightTrousers: [[-4.15, -0.25, -2.25], [0.35, 12.25, 2.25]]
     };
     for (const [part, box] of Object.entries(expected)) t.deepEqual(bounds(part), box, part);
-    t.deepEqual(facePixels(skin, "rightTrousers", 2), [[8, 36], [4, 36], [8, 32], [4, 32]]);
-    t.deepEqual(facePixels(skin, "rightTrousers", 3), [[12, 32], [8, 32], [12, 36], [8, 36]]);
+    t.deepEqual(facePixels(skin, "rightTrousers", 2), [[4, 32], [8, 32], [4, 36], [8, 36]]);
+    t.deepEqual(facePixels(skin, "rightTrousers", 3), [[8, 36], [12, 36], [8, 32], [12, 32]]);
     for (const part of ["body", "leftArm", "rightArm", "leftLeg"]) skin.getGroupByName(part)!.rotation.z = Math.PI / 2;
     t.deepEqual(bounds("body"), [[0, 20, -2], [12, 28, 2]]);
-    t.deepEqual(bounds("leftArm"), [[-7, 19, -2], [5, 23, 2]]);
-    t.deepEqual(bounds("rightArm"), [[3, 21, -2], [15, 25, 2]]);
-    t.deepEqual(bounds("leftLeg"), [[-1.9, 10, -2], [10.1, 14, 2]]);
+    t.deepEqual(bounds("leftArm"), [[3, 21, -2], [15, 25, 2]]);
+    t.deepEqual(bounds("rightArm"), [[-7, 19, -2], [5, 23, 2]]);
+    t.deepEqual(bounds("leftLeg"), [[1.9, 10, -2], [13.9, 14, 2]]);
     skin.setSlim(true);
-    t.deepEqual(bounds("leftArm"), [[-7, 20, -2], [5, 23, 2]]);
-    t.deepEqual(bounds("rightArm"), [[3, 21, -2], [15, 24, 2]]);
+    t.deepEqual(bounds("leftArm"), [[3, 21, -2], [15, 24, 2]]);
+    t.deepEqual(bounds("rightArm"), [[-7, 20, -2], [5, 23, 2]]);
+});
+
+test.serial("the player faces +Z with its right side on -X and raises limbs forward with a negative X rotation", async t => {
+    const skin = fixture(t)();
+    await skin.init();
+    for (const [part, face, rectangle] of [
+        ["head", 4, [8, 8, 16, 16]],
+        ["head", 5, [24, 8, 32, 16]],
+        ["head", 0, [16, 8, 24, 16]],
+        ["head", 1, [0, 8, 8, 16]],
+        ["head", 2, [8, 0, 16, 8]],
+        ["hat", 4, [40, 8, 48, 16]],
+        ["body", 4, [20, 20, 28, 32]],
+        ["jacket", 4, [20, 36, 28, 48]],
+        ["rightArm", 4, [44, 20, 48, 32]],
+        ["leftArm", 4, [36, 52, 40, 64]],
+        ["rightLeg", 4, [4, 20, 8, 32]],
+        ["leftLeg", 4, [20, 52, 24, 64]]
+    ] as Array<[string, number, number[]]>) {
+        const [x1, y1, x2, y2] = rectangle;
+        t.deepEqual(facePixels(skin, part, face), [[x1, y1], [x2, y1], [x1, y2], [x2, y2]], `${part} ${face}`);
+    }
+    for (const part of ["rightArm", "rightLeg"]) t.true(skin.getGroupByName(part)!.position.x < 0, part);
+    for (const part of ["leftArm", "leftLeg"]) t.true(skin.getGroupByName(part)!.position.x > 0, part);
+    skin.getGroupByName("rightArm")!.rotation.x = -Math.PI / 2;
+    skin.updateMatrixWorld(true);
+    const arm = new Box3().setFromObject(skin.getMeshByName("rightArm")!);
+    t.deepEqual([arm.min.z, arm.max.z].map(Math.round), [-2, 10]);
 });
 
 test.serial("switching arm variants preserves the existing skin graph and caller state and only dirties changes", async t => {
@@ -144,8 +172,8 @@ test.serial("switching arm variants preserves the existing skin graph and caller
         nodes.forEach((node, index) => {
             const saved = state[index];
             const position = saved.position.slice();
-            if (slim && ["mesh:leftArm", "mesh:leftSleeve"].includes(node.name)) position[0] += 0.5;
-            if (slim && ["mesh:rightArm", "mesh:rightSleeve"].includes(node.name)) position[0] -= 0.5;
+            if (slim && ["mesh:leftArm", "mesh:leftSleeve"].includes(node.name)) position[0] -= 0.5;
+            if (slim && ["mesh:rightArm", "mesh:rightSleeve"].includes(node.name)) position[0] += 0.5;
             t.deepEqual([node.parent, node.position.toArray(), node.rotation.toArray(), node.scale.toArray(), node.visible, (node as Mesh).material],
                 [saved.parent, position, saved.rotation, saved.scale, saved.visible, saved.material]);
             if (!arms.includes(node.name.replace("mesh:", ""))) t.is((node as Mesh).geometry, saved.geometry);
