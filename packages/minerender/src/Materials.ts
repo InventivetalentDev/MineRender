@@ -1,5 +1,5 @@
 import { MaterialKey, serializeMaterialKey } from "./cache/CacheKey";
-import { Color, DoubleSide, FrontSide, Material, MeshBasicMaterial, MeshLambertMaterial, MeshPhongMaterial, MeshStandardMaterial, ShaderMaterial } from "three";
+import { Color, DoubleSide, FrontSide, Material, MeshBasicMaterial, MeshLambertMaterial, MeshPhongMaterial, MeshStandardMaterial, ShaderChunk, ShaderMaterial } from "three";
 import { Textures } from "./texture/Textures";
 import { TextureLoader } from "./texture/TextureLoader";
 import { Caching } from "./cache/Caching";
@@ -45,6 +45,31 @@ export class Materials {
             alphaTest: 0.5,
 
         })
+    }
+
+    public static createGuiCanvasMaterial(canvas: HTMLCanvasElement): MeshBasicMaterial {
+        const material = new MeshBasicMaterial({
+            map: Textures.createCanvasTexture(canvas),
+            transparent: true,
+            depthWrite: false,
+            side: DoubleSide,
+            toneMapped: false
+        });
+        material.onBeforeCompile = shader => {
+            // Keep MSAA edge pixels inside the layer's cropped texture region.
+            for (const [stage, direction] of [["vertex", "out"], ["fragment", "in"]] as const) {
+                const chunk = `uv_pars_${stage}` as const;
+                shader[`${stage}Shader`] = shader[`${stage}Shader`].replace(`#include <${chunk}>`,
+                    ShaderChunk[chunk].replace("varying vec2 vMapUv;", `
+                        #if __VERSION__ >= 300
+                        centroid ${direction} vec2 vMapUv;
+                        #else
+                        varying vec2 vMapUv;
+                        #endif
+                    `));
+            }
+        };
+        return material;
     }
 
     public static createShadedCanvasMaterial(canvas: HTMLCanvasElement, transparent: boolean = false, shade:boolean=false):Material {
