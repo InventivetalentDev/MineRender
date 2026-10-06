@@ -106,6 +106,12 @@ export class EntityObject extends SceneObject {
                 width + growX * 2, height + growY * 2, depth + growZ * 2, uv
             ).clone();
             geometry.translate(cube.origin[0] + width / 2, cube.origin[1] + height / 2, cube.origin[2] + depth / 2);
+            // Vanilla draws entities without backface culling, e.g. chicken legs are only painted on faces seen from inside.
+            // Zero-thickness cubes keep one face per side, as their coplanar faces would z-fight.
+            if (Math.min(width + growX * 2, height + growY * 2, depth + growZ * 2) > 0) {
+                const index = Array.from(geometry.getIndex()!.array);
+                geometry.setIndex(index.concat(index.slice().reverse()));
+            }
             const mesh = this.createMesh(name, geometry, material);
             mesh.renderOrder = renderOrder;
             anchor.add(mesh);

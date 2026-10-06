@@ -1,5 +1,5 @@
 import test, { ExecutionContext } from "ava";
-import { Box3, Euler, Mesh, MeshBasicMaterial, Vector3 } from "three";
+import { Box3, Euler, Mesh, MeshBasicMaterial, Raycaster, Vector3 } from "three";
 import { AssetKey, BasicAssetKey } from "../src/assets/AssetKey";
 import { ModelTextures } from "../src/assets/ModelTextures";
 import { Caching } from "../src/cache/Caching";
@@ -122,6 +122,20 @@ test.serial("texture dimensions inherit within each part subtree without leaking
     t.deepEqual(uvs(object, "small"), normalized(vanillaUvs, 32, 16));
     t.deepEqual(uvs(object, "sibling"), normalized(vanillaUvs));
     t.deepEqual(uvs(object, "untextured"), new Array(48).fill(0));
+});
+
+test.serial("cubes show their faces from inside without culling while flat cubes keep one face per side", t => {
+    const create = fixture(t);
+    // A chicken leg is only painted on its back and bottom faces, which the viewer sees from inside the cube.
+    const object = create(part({ children: {
+        leg: part({ cubes: [{ origin: [-1, 0, -3], size: [3, 5, 3], uv: [26, 0] }] }),
+        wing: part({ cubes: [{ origin: [10, 0, 0], size: [2, 7, 0], uv: [12, 7] }] })
+    } }), [64, 32], { flip: false });
+    object.updateMatrixWorld(true);
+    const hits = (name: string, x: number) => new Raycaster(new Vector3(x, 1, -10), new Vector3(0, 0, 1))
+        .intersectObject(object.getMeshByName(name)!).map(hit => Math.round(hit.point.z) + 0);
+    t.deepEqual(hits("leg", 0), [-3, 0]);
+    t.deepEqual(hits("wing", 10.5), [0]);
 });
 
 test.serial("entity layers keep independent textures, UVs and poses under one shared coordinate conversion", async t => {
