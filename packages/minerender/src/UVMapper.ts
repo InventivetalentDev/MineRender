@@ -290,6 +290,11 @@ export class UVMapper {
         const textureMap: { [key: string]: Maybe<WrappedImage>; } = {};
         const metaMap: { [key: string]: Maybe<MinecraftTextureMeta>; } = {};
         const model = {...originalModel};
+        // Merged models share element objects with their cached parents (cube, cube_all, ...), so the
+        // baked UVs below must go onto this atlas's own copies, not onto objects other atlases read.
+        if (originalModel.elements) {
+            model.elements = originalModel.elements.map(element => ({ ...element }));
+        }
         const isItemModel = !("elements" in model);
 
         console.debug(p, "Creating Atlas for", model.key);
