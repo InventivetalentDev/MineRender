@@ -1,4 +1,4 @@
-import { GuiHelper, type GuiLayer, type GuiObject, Renderer } from "minerender";
+import { GuiHelper, type GuiLayer, type GuiObject, type GuiRecipe, Renderer } from "minerender";
 import { OrthographicCamera, Vector2 } from "three";
 
 const renderer = new Renderer({
@@ -20,6 +20,7 @@ window["renderer"] = renderer;
 
 let gui: GuiObject | undefined;
 const status = document.getElementById("gui-status")!;
+const exampleInput = document.getElementById("gui-example") as HTMLSelectElement;
 const items = [
     { name: "apple", slot: 0 },
     { name: "diamond", slot: 1 },
@@ -28,7 +29,7 @@ const items = [
     { name: "oak_stairs", slot: 4 },
     { name: "leather_helmet", slot: 5, tints: { 0: 0xc060d0 } }
 ];
-const layers: GuiLayer[] = [
+const chestLayers: GuiLayer[] = [
     { name: "chest", texture: "minecraft:gui/container/generic_54", crop: [0, 0, 176, 222] },
     ...items.map(({ name, slot, tints }): GuiLayer => ({
         name,
@@ -37,6 +38,20 @@ const layers: GuiLayer[] = [
         tints
     }))
 ];
+const shapedRecipe: GuiRecipe = {
+    type: "minecraft:crafting_shaped",
+    key: {
+        "#": "minecraft:stick",
+        X: "#minecraft:diamond_tool_materials"
+    },
+    pattern: ["XXX", " # ", " # "],
+    result: { count: 1, id: "minecraft:diamond_pickaxe" }
+};
+const shapelessRecipe: GuiRecipe = {
+    type: "minecraft:crafting_shapeless",
+    ingredients: ["minecraft:blue_dye", "minecraft:red_dye"],
+    result: { count: 2, id: "minecraft:purple_dye" }
+};
 
 function fitGui() {
     renderer.resize(window.innerWidth, window.innerHeight);
@@ -52,12 +67,34 @@ function fitGui() {
 }
 
 window.addEventListener("resize", fitGui);
-renderer.scene.addGui(layers).then(object => {
-    gui = object;
-    window["gui"] = gui;
-    fitGui();
-    status.textContent = "";
-}).catch(error => {
-    status.textContent = error instanceof Error ? error.message : "Could not load GUI layers.";
-    console.error(error);
+
+async function setExample(example: string) {
+    exampleInput.disabled = true;
+    status.textContent = "Loading GUI layers…";
+    try {
+        const layers = example === "shaped"
+            ? GuiHelper.recipe(shapedRecipe, {
+                resolveIngredient: () => "minecraft:diamond"
+            })
+            : example === "shapeless" ? GuiHelper.recipe(shapelessRecipe) : chestLayers;
+        const replacement = await renderer.scene.addGui(layers);
+        if (gui) {
+            gui.removeFromScene();
+            gui.dispose();
+        }
+        gui = replacement;
+        window["gui"] = gui;
+        fitGui();
+        status.textContent = "";
+    } catch (error) {
+        status.textContent = error instanceof Error ? error.message : "Could not load GUI layers.";
+        throw error;
+    } finally {
+        exampleInput.disabled = false;
+    }
+}
+
+exampleInput.addEventListener("change", () => {
+    setExample(exampleInput.value).catch(console.error);
 });
+setExample(exampleInput.value).catch(console.error);
