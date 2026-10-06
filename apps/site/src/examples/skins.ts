@@ -26,7 +26,7 @@ export const textureUrl: Example = {
         const { renderer } = context;
         const skin = await renderer.scene.addSkin(STEVE_TEXTURE);
         selectControl(context, "Texture", [[STEVE_TEXTURE, "Steve (classic)"], [ALEX_TEXTURE, "Alex (slim)"]], STEVE_TEXTURE, url => {
-            skin.setSkinTexture(url).catch(console.warn);
+            context.track(skin.setSkinTexture(url)).catch(console.warn);
         });
         selectControl(context, "Arms", [["auto", "Detect"], ["classic", "Classic"], ["slim", "Slim"]], "auto", value => {
             skin.setSlim(value === "auto" ? undefined : value === "slim");
@@ -59,7 +59,6 @@ const byName: Example = {
         const status = statusControl(context);
         const apply = async (name: string) => {
             if (!name) return;
-            status.textContent = `Looking up ${name}…`;
             let url: string | undefined;
             try {
                 url = await resolveSkin(name);
@@ -75,7 +74,7 @@ const byName: Example = {
                 status.textContent = `No skin found for "${name}". Showing the previous one.`;
             }
         };
-        textControl(context, "Player", "inventivetalent", value => void apply(value));
+        textControl(context, "Player", "inventivetalent", value => void context.track(apply(value), `Looking up ${value}…`));
         await apply("inventivetalent");
     },
     code: {
@@ -173,7 +172,6 @@ const cape: Example = {
         let player = "jeb_";
         let layout: CapeLayout = "minecraft";
         const apply = async () => {
-            status.textContent = `Looking up ${player}…`;
             let src: string | undefined;
             try {
                 src = /^https?:\/\//.test(player) ? player : await Skins.capeFromCapesDev(player, layout);
@@ -197,11 +195,11 @@ const cape: Example = {
         textControl(context, "Player", player, value => {
             if (!value) return;
             player = value;
-            void apply();
+            void context.track(apply(), `Looking up ${player}…`);
         });
         selectControl(context, "Layout", CAPE_LAYOUTS, layout, value => {
             layout = value as CapeLayout;
-            void apply();
+            void context.track(apply(), `Looking up ${player}…`);
         });
         context.controls.appendChild(status);
         await apply();

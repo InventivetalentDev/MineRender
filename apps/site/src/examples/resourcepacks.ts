@@ -43,7 +43,7 @@ const upload: Example = {
         input.addEventListener("change", () => {
             const file = input.files?.[0];
             // Installing the pack rebuilds every live preview, including this one.
-            if (file) installResourcePack(file).catch(console.error);
+            if (file) context.track(installResourcePack(file), "Installing resource pack…").catch(console.error);
         });
         context.controls.appendChild(picker);
         if (resourcePackName()) {
@@ -55,7 +55,7 @@ const upload: Example = {
         const blockInput = textControl(context, "Block", blockName, name => {
             if (!name) return;
             blockName = name;
-            show().catch(console.warn);
+            context.track(show()).catch(console.warn);
         }, []);
         fillList(blockInput, () => BlockStates.getList(), entry => entry.replace(/\.json$/, ""));
     },
@@ -123,11 +123,11 @@ const versions: Example = {
         await show();
         selectControl(context, "Older version", VERSIONS.map(v => [v, v]), version, value => {
             version = value;
-            show().catch(console.warn);
+            context.track(show()).catch(console.warn);
         });
         selectControl(context, "Block", COMPARE_BLOCKS.map(b => [b, b]), block, value => {
             block = value;
-            show().catch(console.warn);
+            context.track(show()).catch(console.warn);
         });
     },
     code: {

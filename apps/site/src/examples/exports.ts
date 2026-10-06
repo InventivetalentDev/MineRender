@@ -85,8 +85,7 @@ const model3d: Example = {
         const { renderer } = context;
         await buildScene(context);
         const status = statusControl(context);
-        const run = async (label: string, work: () => Promise<void>) => {
-            status.textContent = `Exporting ${label}…`;
+        const run = (label: string, work: () => Promise<void>) => context.track((async () => {
             try {
                 await work();
                 status.textContent = `Saved ${label}.`;
@@ -94,7 +93,7 @@ const model3d: Example = {
                 console.warn(error);
                 status.textContent = error instanceof Error ? error.message : `Could not export ${label}.`;
             }
-        };
+        })(), `Exporting ${label}…`);
         buttonControl(context, "GLB", () => void run("GLB", async () => {
             const glb = await SceneExporter.toGLTF(renderer.scene, { binary: true });
             download("minerender.glb", glb as ArrayBuffer, "model/gltf-binary");

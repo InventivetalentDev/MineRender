@@ -29,8 +29,7 @@ export const single: Example = {
     placeholder: "/placeholder-block.png",
     async setup(context) {
         let current = await addBlock(context, "grass_block");
-        const input = textControl(context, "Block", "grass_block", async name => {
-            if (!name) return;
+        const show = async (name: string) => {
             try {
                 const next = await addBlock(context, name);
                 if (context.signal.aborted) {
@@ -42,6 +41,9 @@ export const single: Example = {
             } catch (error) {
                 console.warn(error);
             }
+        };
+        const input = textControl(context, "Block", "grass_block", name => {
+            if (name) void context.track(show(name));
         }, []);
         fillList(input, () => BlockStates.getList(), entry => entry.replace(/\.json$/, ""));
     },
@@ -173,11 +175,11 @@ const blockEntities: Example = {
 
         selectControl(context, "Block", Object.entries(BLOCK_ENTITIES).map(([id, { label }]) => [id, label]), preview, value => {
             preview = value;
-            show().catch(console.warn);
+            context.track(show()).catch(console.warn);
         });
         selectControl(context, "Facing", FACINGS.map(f => [f, f]), facing, value => {
             facing = value as Facing;
-            show().catch(console.warn);
+            context.track(show()).catch(console.warn);
         });
         await show();
     },
@@ -293,7 +295,7 @@ export const fluids: Example = {
             renderer.dirty = true;
         };
         selectControl(context, "Block", FLUIDS.map(([, , label], index) => [String(index), label]), "0", value => {
-            show(Number(value)).catch(console.warn);
+            context.track(show(Number(value))).catch(console.warn);
         });
         await show(0);
     },

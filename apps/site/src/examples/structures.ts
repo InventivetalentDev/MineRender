@@ -79,9 +79,8 @@ const vanilla: Example = {
             const current = ++token;
             await world.clear();
             if (signal.aborted || current !== token) return;
-            status.textContent = "Placing blocks…";
             frameBlocks(renderer, structureBounds(structure));
-            await world.placeMultiBlock(structure, true, new BatchedExecutor(1, 32));
+            await context.track(world.placeMultiBlock(structure, true, new BatchedExecutor(1, 32)), "Placing blocks…");
             if (current === token) {
                 const stats = renderer.scene.stats;
                 status.textContent = `${structure.blocks.length} blocks, ${stats.objectCount} objects`;
@@ -89,8 +88,7 @@ const vanilla: Example = {
             renderer.dirty = true;
         };
         const show = async (name: string) => {
-            status.textContent = "Loading structure…";
-            structure = await loadStructure(name);
+            structure = await context.track(loadStructure(name), "Loading structure…");
             if (signal.aborted) return;
             await place();
         };
@@ -148,11 +146,10 @@ const ownFile: Example = {
 
         const run = async (label: string, work: () => Promise<Box3>) => {
             const current = ++token;
-            status.textContent = `Loading ${label}…`;
             try {
                 await world.clear();
                 if (signal.aborted || current !== token) return;
-                const bounds = await work();
+                const bounds = await context.track(work(), `Loading ${label}…`);
                 if (current !== token) return;
                 frameBlocks(renderer, bounds);
                 status.textContent = label;

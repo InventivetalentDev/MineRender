@@ -50,6 +50,7 @@ export class Viewport implements Pooled {
     private readonly snapshot: HTMLImageElement;
     private readonly overlay: HTMLButtonElement;
     private readonly overlayText: HTMLElement;
+    private readonly loadingText: HTMLElement;
     private readonly controlsHost: HTMLElement;
 
     private renderer?: Renderer;
@@ -58,6 +59,8 @@ export class Viewport implements Pooled {
     private example?: Example;
     private state: State = "idle";
     private visible = false;
+    /** Control-triggered loads in flight, shown with the loading indicator. */
+    private pending = 0;
     private readonly observer: IntersectionObserver;
 
     constructor(container: HTMLElement, private readonly viewportOptions: ViewportOptions = {}) {
@@ -67,6 +70,12 @@ export class Viewport implements Pooled {
             <div class="viewport-surface"></div>
             <img class="viewport-snapshot" alt="" draggable="false">
             <div class="viewport-controls"></div>
+            <div class="viewport-loading" role="status" aria-live="polite">
+                <span class="viewport-loading-badge">
+                    <span class="viewport-loading-bar" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+                    <span class="viewport-loading-text"></span>
+                </span>
+            </div>
             <button class="viewport-overlay" type="button">
                 <span class="viewport-overlay-text"></span>
             </button>
@@ -75,6 +84,7 @@ export class Viewport implements Pooled {
         this.snapshot = container.querySelector(".viewport-snapshot")!;
         this.overlay = container.querySelector(".viewport-overlay")!;
         this.overlayText = container.querySelector(".viewport-overlay-text")!;
+        this.loadingText = container.querySelector(".viewport-loading-text")!;
         this.controlsHost = container.querySelector(".viewport-controls")!;
 
         this.overlay.addEventListener("click", () => {
@@ -152,7 +162,8 @@ export class Viewport implements Pooled {
         }
         renderer.start();
 
-        example.setup({ renderer, signal, controls: this.controlsHost }).then(cleanup => {
+        const track = <T>(work: Promise<T>, label?: string) => this.track(work, label, signal);
+        example.setup({ renderer, signal, controls: this.controlsHost, track }).then(cleanup => {
             if (signal.aborted) {
                 cleanup?.();
                 return;
@@ -166,6 +177,31 @@ export class Viewport implements Pooled {
             console.error(`Example "${example.id}" failed`, error);
             this.setState("error", "Failed to load this example. Click to retry.");
         });
+    }
+
+    /** Shows the loading indicator until the work settles, then requests a few redraws. */
+    private track<T>(work: Promise<T>, label: string | undefined, signal: AbortSignal): Promise<T> {
+        this.pending++;
+        this.updateLoading(label);
+        const done = () => {
+            // teardown() already reset the counter for an aborted viewport
+            if (signal.aborted) return;
+            this.pending = Math.max(0, this.pending - 1);
+            this.updateLoading();
+            if (this.renderer && this.state === "active") this.settle(this.renderer, signal);
+        };
+        work.then(done, done);
+        return work;
+    }
+
+    private updateLoading(label?: string): void {
+        const busy = this.state === "loading" || this.pending > 0;
+        if (label) this.loadingText.textContent = label;
+        else if (this.state === "loading") this.loadingText.textContent = "Loading assets…";
+        else if (busy && !this.loadingText.textContent) this.loadingText.textContent = "Loading…";
+        this.element.classList.toggle("is-busy", busy);
+        this.element.setAttribute("aria-busy", String(busy));
+        if (!busy) this.loadingText.textContent = "";
     }
 
     /**
@@ -253,6 +289,7 @@ export class Viewport implements Pooled {
             console.warn(error);
         }
         this.cleanup = undefined;
+        this.pending = 0;
         rendererPool.release(this);
         this.renderer?.dispose();
         this.renderer = undefined;
@@ -263,9 +300,9 @@ export class Viewport implements Pooled {
     private setState(state: State, message?: string): void {
         this.state = state;
         this.element.dataset.state = state;
-        this.overlayText.textContent = message ?? "";
-        this.overlay.classList.toggle("is-hidden", state === "active" || this.viewportOptions.overlay === false);
-        this.overlay.disabled = state === "loading";
+        this.overlayText.textContent = state === "loading" ? "" : message ?? "";
+        this.overlay.classList.toggle("is-hidden", state === "active" || state === "loading" || this.viewportOptions.overlay === false);
+        this.updateLoading();
         this.viewportOptions.onStatus?.(state, message ?? "");
     }
 }

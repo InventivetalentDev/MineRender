@@ -38,7 +38,7 @@ export const generated: Example = {
         };
         await show("diamond_sword");
         const input = textControl(context, "Item", "diamond_sword", name => {
-            if (name) show(name).catch(console.warn);
+            if (name) context.track(show(name)).catch(console.warn);
         }, []);
         fillList(input, () => Models.getItemList(), entry => entry.replace(/\.json$/, ""));
     },
@@ -95,7 +95,7 @@ const poses: Example = {
             renderer.dirty = true;
         };
         await show(DisplayPosition.GUI);
-        selectControl(context, "Pose", POSES, DisplayPosition.GUI, pose => void show(pose).catch(console.warn));
+        selectControl(context, "Pose", POSES, DisplayPosition.GUI, pose => void context.track(show(pose)).catch(console.warn));
     },
     code: {
         esm: `${esmRenderer("AssetKey", "DisplayPosition", "Models")}

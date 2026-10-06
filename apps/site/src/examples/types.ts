@@ -6,6 +6,8 @@ export interface ExampleContext {
     signal: AbortSignal;
     /** Mount point for optional per-example controls (inputs, toggles). */
     controls: HTMLElement;
+    /** Shows the viewport's loading indicator until the work settles. Returns the same promise. */
+    track<T>(work: Promise<T>, label?: string): Promise<T>;
 }
 
 export type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] };

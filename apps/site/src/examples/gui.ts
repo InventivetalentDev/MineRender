@@ -71,7 +71,7 @@ const chest: Example = {
             fitGui(context, next);
         };
         selectControl(context, "Contents", Object.keys(CONTENTS).map(name => [name, name]), "Tools", name => {
-            show(name).catch(console.warn);
+            context.track(show(name)).catch(console.warn);
         });
         await show("Tools");
     },
@@ -194,7 +194,7 @@ const recipe: Example = {
             fitGui(context, next);
         };
         selectControl(context, "Recipe", Object.entries(RECIPES).map(([id, { label }]) => [id, label]), "pickaxe", id => {
-            show(id).catch(console.warn);
+            context.track(show(id)).catch(console.warn);
         });
         await show("pickaxe");
     },

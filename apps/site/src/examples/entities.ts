@@ -61,8 +61,7 @@ export const mob: Example = {
     placeholder: "/placeholder-block.png",
     async setup(context) {
         let current = await showEntity(context, MOBS[0]);
-        const input = textControl(context, "Entity", MOBS[0], async name => {
-            if (!name) return;
+        const show = async (name: string) => {
             try {
                 const next = await showEntity(context, name);
                 if (!next) return;
@@ -71,6 +70,9 @@ export const mob: Example = {
             } catch (error) {
                 console.warn(error);
             }
+        };
+        const input = textControl(context, "Entity", MOBS[0], name => {
+            if (name) void context.track(show(name));
         }, MOBS);
         fillList(input, () => Entities.getEntityList());
     },
@@ -92,8 +94,7 @@ const blockEntity: Example = {
     placeholder: "/placeholder-block.png",
     async setup(context) {
         let current = await showEntity(context, BLOCK_ENTITIES[0]);
-        const input = textControl(context, "Block entity", BLOCK_ENTITIES[0], async name => {
-            if (!name) return;
+        const show = async (name: string) => {
             try {
                 const next = await showEntity(context, name);
                 if (!next) return;
@@ -102,6 +103,9 @@ const blockEntity: Example = {
             } catch (error) {
                 console.warn(error);
             }
+        };
+        const input = textControl(context, "Block entity", BLOCK_ENTITIES[0], name => {
+            if (name) void context.track(show(name));
         }, BLOCK_ENTITIES);
         fillList(input, () => Entities.getBlockList());
     },
@@ -134,7 +138,7 @@ const variants: Example = {
             }
         };
         const variantOptions = (name: string): Array<[string, string]> => VARIANTS[name].map(v => [v, variantLabel(v, name)]);
-        const variantSelect = selectControl(context, "Texture", variantOptions(animal), VARIANTS[animal][0], variant => void show(`${animal}/${variant}`));
+        const variantSelect = selectControl(context, "Texture", variantOptions(animal), VARIANTS[animal][0], variant => void context.track(show(`${animal}/${variant}`)));
         selectControl(context, "Animal", Object.keys(VARIANTS).map(name => [name, name]), animal, name => {
             animal = name;
             variantSelect.innerHTML = "";
@@ -145,7 +149,7 @@ const variants: Example = {
                 variantSelect.appendChild(option);
             }
             variantSelect.value = VARIANTS[name][0];
-            void show(`${name}/${VARIANTS[name][0]}`);
+            void context.track(show(`${name}/${VARIANTS[name][0]}`));
         });
         // Put the animal picker first
         context.controls.prepend(context.controls.lastElementChild!);
@@ -204,15 +208,15 @@ const states: Example = {
             if (!entry) return;
             [name, state, , tint] = entry;
             tintSelect.disabled = !tint;
-            show().catch(console.warn);
+            context.track(show()).catch(console.warn);
         });
         toggleControl(context, "State", enabled, value => {
             enabled = value;
-            show().catch(console.warn);
+            context.track(show()).catch(console.warn);
         });
         const tintSelect = selectControl(context, "Tint", TINTS, color, value => {
             color = value;
-            show().catch(console.warn);
+            context.track(show()).catch(console.warn);
         });
         tintSelect.disabled = !tint;
         await show();
@@ -299,7 +303,7 @@ const animated: Example = {
             const entry = ANIMATED.find(([entity]) => entity === value);
             if (!entry) return;
             [name, animationName] = entry;
-            show().catch(console.warn);
+            context.track(show()).catch(console.warn);
         });
         const animationSelect = selectControl(context, "Animation", [[animationName, animationName]], animationName, value => {
             animationName = value;
