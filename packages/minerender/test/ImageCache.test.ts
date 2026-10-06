@@ -67,8 +67,15 @@ test.serial("an entity decode finishing after a cache clear does not restore the
     };
     Materials.createBasicCanvasMaterial = () => material;
     try {
-        const entity = new EntityObject({ key, parts: {} });
-        const pending = (entity as any).applyTextures();
+        await Caching.textureAssetCache.get(key.serialize(), async () => info);
+        const entity = new EntityObject({
+            key, texture: key, id: "test:cow",
+            layer: {
+                texture: [1, 1],
+                root: { pose: { offset: [0, 0, 0], rotation: [0, 0, 0] }, cubes: [], children: {} }
+            }
+        });
+        const pending = entity["applyTextures"]();
         await decoding.promise;
         Caching.clear();
         decoded.resolve({ width: 1, height: 1, data: { canvas: {} } as CanvasRenderingContext2D });
