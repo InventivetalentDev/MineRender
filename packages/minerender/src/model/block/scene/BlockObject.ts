@@ -83,18 +83,22 @@ export class BlockObject extends SceneObject {
     }
 
     dispose() {
+        this.clearModels();
         super.dispose();
     }
 
     removeFromScene() {
-        for (let model of this._models) {
-            if (isModelObject(model)) {
-                model.removeFromScene();
-            } else if (isInstanceReference(model)) {
-                model.setScale(new Vector3(0, 0, 0));
-            }
-        }
+        this.clearModels();
         super.removeFromScene();
+    }
+
+    private clearModels() {
+        for (const model of this._models.splice(0)) {
+            model.removeFromScene();
+            if (!isInstanceReference(model)) model.dispose();
+        }
+        this._isInstanced = false;
+        this._instanceCounter = 0;
     }
 
     public get state(): { [key: string]: string; } {
@@ -152,28 +156,11 @@ export class BlockObject extends SceneObject {
     public async recreateModels(): Promise<void> {
         //TODO: change this to create models once, and then modify rotations when updating the state
 
-        // Copy current instance info
-        const instanceInfo: Matrix4[] = [];
-        if (this.isInstanced) {
-            for (let i = 0; i < this.instanceCounter; i++) {
-                instanceInfo[i] = this.getMatrixAt(i);
-            }
-        }
-
         // Remove all children
         // this.disposeAndRemoveAllChildren(); //TODO: just removes all children of all instances atm...
 
         // TODO: try to reuse models instead of just removing them and creating new ones
-        for (let model of this._models) {
-            if (isInstanceReference(model)) {
-                model.setScale(new Vector3(0, 0, 0));//TODO
-            } else {
-                model.dispose();
-            }
-        }
-        while (this._models.length > 0) {
-            this._models.shift();
-        }
+        this.clearModels();
 
 
         //TODO: might want to preload all possible states & cache their data
@@ -203,13 +190,6 @@ export class BlockObject extends SceneObject {
 
          */
 
-        // console.log(instanceInfo);
-        // // Re-apply instances
-        // if (instanceInfo.length>0) {
-        //     for (let i = 0; i < instanceInfo.length; i++) {
-        //         this.setMatrixAt(i, instanceInfo[i]);
-        //     }
-        // }
     }
 
     protected getSingleVariant(variants: BlockStateVariant | BlockStateVariant[]): BlockStateVariant {
@@ -261,6 +241,7 @@ export class BlockObject extends SceneObject {
             this._instanceCounter = 1;//TODO: BlockObject itself isn't technically instanced, but needs the id for the get/setMatrix calls to work properly
         }
         obj.setRotation(rotation);
+        obj.setPosition(this.position);
         return obj;
     }
 

@@ -49,11 +49,6 @@ export class ModelObject extends SceneObject {
         this.applyTextures();
     }
 
-    dispose() {
-        super.dispose();
-        this.atlas?.dispose();
-    }
-
     public get textureAtlas(): Maybe<TextureAtlas> {
         return this.atlas;
     }
