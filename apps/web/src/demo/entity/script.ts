@@ -38,6 +38,28 @@ const entityInput = document.getElementById("entity-input") as HTMLInputElement;
 const entityLayers = document.getElementById("entity-layers") as HTMLSelectElement;
 const entityStates = document.getElementById("entity-states") as HTMLFieldSetElement;
 const entityStatus = document.getElementById("entity-status")!;
+const entityAnimationRow = document.getElementById("entity-animation-row")!;
+const entityAnimation = document.getElementById("entity-animation") as HTMLSelectElement;
+
+let animations: Awaited<ReturnType<typeof Entities.getAnimations>>;
+let stopFrames: (() => void) | undefined;
+
+/** Plays one of the selected entity's animations by name; an empty or unknown name stops and restores the pose. */
+function playAnimation(name: string = "") {
+    const animation = animations?.[name];
+    entityAnimation.value = animation ? name : "";
+    stopFrames?.();
+    stopFrames = undefined;
+    if (!entityObject) return;
+    if (!animation) return entityObject.stopAnimation();
+    const object = entityObject;
+    object.playAnimation(animation);
+    // The object owns no clock; the subscription lasts only while this animation plays.
+    stopFrames = renderer.onFrame(({ delta }) => object.advanceAnimation(delta));
+}
+
+window["playAnimation"] = playAnimation;
+entityAnimation.addEventListener("change", () => playAnimation(entityAnimation.value));
 
 /**
  * Without `layers`, draws main and the dataset passes enabled by the `when` labels;
@@ -93,7 +115,17 @@ async function setEntity(entity: string, layers?: string[], when: string[] = [],
             return label;
         }));
 
+        const replacementAnimations = await Entities.getAnimations(key);
         const replacement = await renderer.scene.addEntity(entityModel, { tints }) as EntityObject;
+        playAnimation();
+        animations = replacementAnimations;
+        entityAnimationRow.hidden = !animations;
+        entityAnimation.replaceChildren(...["", ...Object.keys(animations ?? {})].map(name => {
+            const option = document.createElement("option");
+            option.value = name;
+            option.textContent = name || "(none)";
+            return option;
+        }));
         if (entityObject) {
             entityObject.removeFromScene();
             entityObject.disposeAndRemoveAllChildren();
