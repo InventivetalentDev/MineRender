@@ -359,7 +359,6 @@ export class BlockObject extends SceneObject {
             child.getMatrix(matrix);
         }
         /*
-        console.log(this.children)
         const child = this.children[0];
         if (child && isModelObject(child)) {
             if (!child.isInstanced) throw new MineRenderError("Object is not instanced");
@@ -382,7 +381,6 @@ export class BlockObject extends SceneObject {
             }
         }
         /*
-      console.log(this.children)
       for (let child of this.children) {
           if (isModelObject(child)) {
               if (!child.isInstanced) throw new MineRenderError("Object is not instanced");
