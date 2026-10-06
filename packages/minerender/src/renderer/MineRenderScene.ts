@@ -5,7 +5,6 @@ import { Model } from "../model/Model";
 import { isModelObject, ModelObject, ModelObjectOptions } from "../model/scene/ModelObject";
 import { InstanceReference } from "../instance/InstanceReference";
 import { SceneStats } from "../SceneStats";
-import { SSAOPassOUTPUT } from "three/examples/jsm/postprocessing/SSAOPass";
 import { BasicMinecraftAsset, MinecraftAsset } from "../MinecraftAsset";
 import { SceneObjectOptions } from "./SceneObjectOptions";
 import { BlockState } from "../model/block/BlockState";
@@ -107,14 +106,15 @@ export class MineRenderScene extends Scene {
         const obj = await objectSupplier();
         if (obj?.options?.instanceMeshes && asset.key &&  (<AssetKey>asset.key)?.assetType === "models"/*TODO*/) {
             console.log("instanceMeshes + key")
-            // Display poses, UV-lock rotations, and tint palettes change vertices but share an atlas.
+            // Geometry options need separate instance pools while sharing the texture atlas.
             let key = asset.key.serialize();
             if (isModelObject(obj)) {
-                const { displayPosition, uvLockRotation, tints } = obj.options;
+                const { displayPosition, uvLockRotation, tints, cullMask } = obj.options;
                 if (displayPosition) key += `|display:${displayPosition}`;
                 if (uvLockRotation) key += `|uvlock:${uvLockRotation.join(",")}`;
                 const palette = Object.entries(tints ?? {}).sort(([a], [b]) => Number(a) - Number(b));
                 if (palette.length) key += `|tints:${JSON.stringify(palette)}`;
+                if (cullMask) key += `|cull:${cullMask}`;
             }
             return this.instanceManager.getOrCreate(key, async () => {
                 // const obj = await objectSupplier();

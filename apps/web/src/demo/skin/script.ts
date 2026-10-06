@@ -1,4 +1,4 @@
-import { Renderer, SceneInspector, SkinObject, Skins } from "minerender";
+import { CapeLayout, Renderer, SceneInspector, SkinObject, Skins } from "minerender";
 import { Intersection, Vector3 } from "three";
 
 console.log("hi");
@@ -58,7 +58,35 @@ async function setSkin(skin: string) {
 
 window["setSkin"] = setSkin;
 
+const capeInput = document.getElementById("cape-input") as HTMLInputElement;
+const capeType = document.getElementById("cape-type") as HTMLSelectElement;
+const capeStatus = document.getElementById("cape-status")!;
+
+async function setCape(cape: string, layout: CapeLayout = capeType.value as CapeLayout) {
+    capeInput.disabled = capeType.disabled = true;
+    capeStatus.textContent = cape ? "Loading cape…" : "";
+    try {
+        const src = !cape ? undefined : cape.startsWith("http") ? cape : await Skins.capeFromCapesDev(cape, layout);
+        await skinObject.setCapeTexture(src, layout);
+        capeStatus.textContent = cape && src === undefined ? "No cape found." : "";
+    } catch (error) {
+        capeStatus.textContent = "Could not load cape.";
+        throw error;
+    } finally {
+        capeInput.disabled = capeType.disabled = false;
+    }
+}
+
+window["setCape"] = setCape;
+
 const skinInput = document.getElementById("skin-input") as HTMLInputElement;
 skinInput.addEventListener("change", () => {
     setSkin(skinInput.value).catch(console.error);
-})
+});
+
+capeInput.addEventListener("change", () => {
+    setCape(capeInput.value).catch(console.error);
+});
+capeType.addEventListener("change", () => {
+    setCape(capeInput.value).catch(console.error);
+});

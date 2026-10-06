@@ -9,7 +9,6 @@ import { AssetSource } from "../src/assets/source/AssetSource";
 import { AssetParser } from "../src/assets/source/parser/AssetParsers";
 import { Caching } from "../src/cache/Caching";
 import { Requests } from "../src/request/Requests";
-import { EntityObject } from "../src/entity/scene/EntityObject";
 import type { EntityModelFile, EntityModelPart } from "../src/entity/EntityModel";
 import type { MinecraftAsset } from "../src/MinecraftAsset";
 import type { Maybe } from "../src/util";
@@ -71,7 +70,8 @@ test.serial("entity files preserve nested IDs and share layers while explicit te
     const first = await Entities.getEntity(key, key);
     const texture = new BasicAssetKey("painted", "boat/checkered");
     const saddle = await Entities.getEntity(key, texture, { layer: "saddle" });
-    t.deepEqual(first, { key, texture: new AssetKey("custom", "boat/oak", "textures", "entity", "assets", ".png"), layer: file.layers.main, id: file.id });
+    const primary = { key, texture: new AssetKey("custom", "boat/oak", "textures", "entity", "assets", ".png"), layer: file.layers.main };
+    t.deepEqual(first, { ...primary, id: file.id, layers: { main: primary } });
     t.is(first!.key, key);
     t.is(saddle!.key, texture);
     t.is(saddle!.layer, file.layers.saddle);
@@ -91,15 +91,14 @@ test.serial("parsed entity and texture keys retain their complete paths", async 
     }));
     const key = AssetKey.parse("entities", "custom:boat/oak");
     const entity = await Entities.getEntity(key, key);
-    t.deepEqual(entity, { key, texture: new AssetKey("custom", "boat/oak", "textures", "entity", "assets", ".png"), layer: file.layers.main, id: file.id });
+    const primary = { key, texture: new AssetKey("custom", "boat/oak", "textures", "entity", "assets", ".png"), layer: file.layers.main };
+    t.deepEqual(entity, { ...primary, id: file.id, layers: { main: primary } });
     t.deepEqual(keys, [new AssetKey("custom", "boat/oak", undefined, undefined, "entity-models", ".json")]);
-    t.deepEqual(new EntityObject(entity!)["textureKey"], new AssetKey("custom", "boat/oak", "textures", "entity", "assets", ".png"));
     const textured = await Entities.getEntity(key, AssetKey.parse("textures", "painted:boat/checkered"));
-    t.deepEqual(new EntityObject(textured!)["textureKey"], new AssetKey("painted", "boat/checkered", "textures", "entity", "assets", ".png"));
+    t.deepEqual(textured!.texture, new AssetKey("painted", "boat/checkered", "textures", "entity", "assets", ".png"));
     const rootedTexture = new AssetKey("painted", "boat/checkered", "textures", "entity", "assets", ".png", "https://pack.example/custom");
     const explicit = await Entities.getEntity(key, rootedTexture);
     t.is(explicit!.texture, rootedTexture);
-    t.is(new EntityObject(explicit!)["textureKey"], rootedTexture);
 });
 
 test.serial("selected layer texture locations skip probing and explicit textures take precedence", async t => {
@@ -123,6 +122,71 @@ test.serial("selected layer texture locations skip probing and explicit textures
     const explicit = await Entities.getEntity(key, texture, { layer: "saddle" });
     t.is(explicit!.texture, texture);
     t.deepEqual(keys, [new AssetKey("minecraft", "cow", undefined, undefined, "entity-models", ".json")]);
+    t.is(decodedImages, 0);
+});
+
+test.serial("selected layers retain their order and dataset textures while named overrides take precedence", async t => {
+    const file = model();
+    file.layers.main.textureLocation = "minecraft:textures/entity/cow/temperate_cow.png";
+    file.layers.saddle.textureLocation = "painted:textures/entity/cow/saddle.png";
+    const original = structuredClone(file);
+    let requests = 0;
+    AssetLoader.addSource("test", new StubSource((key, parser) => {
+        t.is(key.rootType, "entity-models");
+        t.is(parser, AssetParser.JSON);
+        requests++;
+        return file;
+    }));
+    const key = new BasicAssetKey("minecraft", "cow");
+    const layers = ["saddle", "main", "saddle"];
+    const selected = (await Entities.getEntity(key, undefined, { layer: "ignored", layers }))!;
+    t.deepEqual(Object.keys(selected.layers!), ["saddle", "main"]);
+    t.deepEqual(layers, ["saddle", "main", "saddle"]);
+    t.is(selected.layer, file.layers.saddle);
+    t.is(selected.key, selected.layers!.saddle.key);
+    t.is(selected.texture, selected.layers!.saddle.texture);
+    t.deepEqual(selected.layers!.saddle.texture, AssetKey.parse("textures", "painted:entity/cow/saddle"));
+    t.deepEqual(selected.layers!.main.texture, AssetKey.parse("textures", "minecraft:entity/cow/temperate_cow"));
+
+    const positional = new AssetKey("custom", "cow/positional", "textures", "entity", "assets", ".png");
+    const named = new AssetKey("custom", "cow/named", "textures", "entity", "assets", ".png");
+    const overridden = (await Entities.getEntity(key, positional, { layers, textures: { main: named } }))!;
+    t.is(overridden.layers!.saddle.texture, positional);
+    t.is(overridden.layers!.saddle.key, positional);
+    t.is(overridden.layers!.main.texture, named);
+    const namedPrimary = (await Entities.getEntity(key, positional, { layers, textures: { saddle: named } }))!;
+    t.is(namedPrimary.key, named);
+    t.is(namedPrimary.texture, named);
+    t.deepEqual(namedPrimary.layers!.main.texture, selected.layers!.main.texture);
+    t.deepEqual(file, original);
+    t.is(requests, 1);
+    t.is(decodedImages, 0);
+});
+
+test.serial("layer discovery shares the entity file cache without loading textures and invalid selections reject", async t => {
+    const file = model();
+    const requests: string[] = [];
+    AssetLoader.addSource("test", new StubSource((key, parser) => {
+        t.is(key.rootType, "entity-models");
+        t.is(parser, AssetParser.JSON);
+        requests.push(key.path);
+        return key.path === "cow" ? file : undefined;
+    }));
+    const key = new BasicAssetKey("minecraft", "cow");
+    t.deepEqual(await Entities.getLayerList(key), ["main", "saddle"]);
+    const entity = (await Entities.getEntity(key, key))!;
+    t.deepEqual(Object.keys(entity.layers!), ["main"]);
+    t.is(entity.layer, file.layers.main);
+    t.is(entity.layer, entity.layers!.main.layer);
+    t.deepEqual(await Entities.getLayerList(key), ["main", "saddle"]);
+    await t.throwsAsync(Entities.getEntity(key, key, { layers: [] }), {
+        message: "Entity minecraft:cow requires at least one layer"
+    });
+    await t.throwsAsync(Entities.getEntity(key, key, { layers: ["main", "armor"] }), {
+        message: 'Entity minecraft:cow has no layer "armor". Available layers: main, saddle'
+    });
+    t.deepEqual(await Entities.getLayerList(new BasicAssetKey("minecraft", "missing")), []);
+    t.deepEqual(requests, ["cow", "missing"]);
     t.is(decodedImages, 0);
 });
 
@@ -239,7 +303,6 @@ test.serial("variant textures prefer temperate, otherwise the first file, and su
         await Entities.getEntity(key);
         t.deepEqual(entity.texture, AssetKey.parse("textures", entry.texture));
         t.deepEqual(calls, [`minecraft:entity/${entry.name}`, `minecraft:entity/${entry.name}/${entry.name}`, "_list", entry.selected]);
-        t.is(new EntityObject(entity)["textureKey"], entity.texture);
         t.truthy(await ModelTextures.get(entity.texture!));
         t.is(calls.at(-1), entry.texture);
     }

@@ -1,37 +1,29 @@
-import Timeout = NodeJS.Timeout;
+import { JobQueue } from "jobqu";
 
 export class BatchedExecutor {
 
     public readonly interval: number;
     public readonly batch: number;
 
-    private readonly queue: Task[];
-    private readonly task: Timeout;
+    private readonly queue: JobQueue<Task, unknown>;
 
     constructor(interval: number = 1, batch: number = 30) {
+        if (!Number.isFinite(interval) || interval < 0) throw new RangeError("Batch interval must be finite and nonnegative");
+        if (!Number.isInteger(batch) || batch < 1) throw new RangeError("Batch size must be a positive integer");
         this.interval = interval;
         this.batch = batch;
-
-        this.queue = [];
-        this.task = setInterval(() => this.run());
+        this.queue = new JobQueue(async task => task(), { interval, maxPerRun: batch, maxActive: batch });
     }
 
-    public submit(task: Task): void {
-        this.queue.push(task);
+    public submit<T>(task: Task<T>): Promise<T> {
+        // Each submission needs its own key because JobQueue deduplicates keys.
+        return this.queue.add(() => task()) as Promise<T>;
     }
 
-    private run() {
-        for (let i = 0; i < this.batch; i++) {
-            this.runNext();
-        }
+    public stop(): void {
+        this.queue.end();
     }
-
-    private runNext() {
-        let next = this.queue.shift();
-        if (next) next();
-    }
-
 
 }
 
-type Task = () => any | Promise<any>
+type Task<T = unknown> = () => T | Promise<T>;

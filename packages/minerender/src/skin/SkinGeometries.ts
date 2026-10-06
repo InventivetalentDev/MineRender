@@ -5,16 +5,16 @@ import merge from "ts-deepmerge";
 export type SkinGeometries = Record<SkinPart, TripleArray>;
 
 const box8inner: TripleArray = [8, 8, 8];
-const box8outer: TripleArray = [8.504, 8.504, 8.504];
+const box8outer: TripleArray = [9, 9, 9];
 
 const box8_12_4inner: TripleArray = [8, 12, 4];
-const box8_12_4outer: TripleArray = [8.504, 12.504, 4.504];
+const box8_12_4outer: TripleArray = [8.5, 12.5, 4.5];
 
 const box4_12_4inner: TripleArray = [4, 12, 4];
-const box4_12_4outer: TripleArray = [4.504, 12.504, 4.504];
+const box4_12_4outer: TripleArray = [4.5, 12.5, 4.5];
 
 const box3_12_4inner: TripleArray = [3, 12, 4];
-const box3_12_4outer: TripleArray = [3.504, 12.504, 4.504];
+const box3_12_4outer: TripleArray = [3.5, 12.5, 4.5];
 
 const box4_12_3inner: TripleArray = [4, 12, 3];
 const box4_12_3outer: TripleArray = [4.504, 12.504, 3.504];

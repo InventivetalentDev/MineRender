@@ -29,5 +29,6 @@ jobs:
         run: |
           yarn typecheck
           yarn test
+          yarn test:package
       - name: Pack the public library
         run: yarn workspace minerender pack --out /tmp/minerender.tgz

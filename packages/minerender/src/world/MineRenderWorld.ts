@@ -1,25 +1,24 @@
 import { MineRenderScene } from "../renderer/MineRenderScene";
 import { Block } from "../model/block/Block";
-import { BlockObject } from "../model/block/scene/BlockObject";
 import { Vector3 } from "three";
 import { isTripleArray, TripleArray } from "../model/Model";
-import { isVector3, Maybe } from "../util/util";
+import { Maybe } from "../util/util";
 import { Chunk } from "./Chunk";
 import { BlockInfo } from "./BlockInfo";
 import { MultiBlockBlock, MultiBlockStructure } from "../model/multiblock/MultiBlockStructure";
 import { BatchedExecutor } from "../util/BatchedExecutor";
 import { AssetKey } from "../assets/AssetKey";
 import { BlockStates } from "../assets/BlockStates";
+import { CUBE_FACE_OFFSETS } from "../CubeFace";
 
 //TODO: maybe make this an Object3D to add children
 export class MineRenderWorld {
 
     public readonly scene: MineRenderScene;
 
-    private _size: number = 4; //TODO: expandable
-    private _blockSize: number = this._size * 16;
-
-    private readonly _chunks: Map<string,Chunk> = new Map<string, Chunk>();
+    private readonly _chunks: Map<string, Chunk> = new Map<string, Chunk>();
+    private readonly pendingCulling = new Map<string, Vector3>();
+    private culling?: Promise<void>;
 
     constructor(scene: MineRenderScene) {
         this.scene = scene;
@@ -35,17 +34,13 @@ export class MineRenderWorld {
         if (isTripleArray(posOrX)) {
             return this.getBlockAt(new Vector3(posOrX[0], posOrX[1], posOrX[2]))
         }
-        const chunk = this.getChunkAt(posOrX);
-        if (typeof chunk === "undefined") {
-            return undefined;
-        }
         this.validatePosBounds(posOrX);
-        return chunk.getBlockAt(posOrX);
+        return this.getChunkAt(posOrX)?.getBlockAt(posOrX);
     }
 
-    public async setBlockAt(x: number, y: number, z: number, block: Block): Promise<Maybe<BlockInfo>>;
-    public async setBlockAt(pos: Vector3, block: Block): Promise<Maybe<BlockInfo>>;
-    public async setBlockAt(pos: TripleArray, block: Block): Promise<Maybe<BlockInfo>>;
+    public async setBlockAt(x: number, y: number, z: number, block: Maybe<Block>): Promise<Maybe<BlockInfo>>;
+    public async setBlockAt(pos: Vector3, block: Maybe<Block>): Promise<Maybe<BlockInfo>>;
+    public async setBlockAt(pos: TripleArray, block: Maybe<Block>): Promise<Maybe<BlockInfo>>;
     public async setBlockAt(posOrX: number | Vector3 | TripleArray, yOrBlock?: number | Block, z?: number, block?: Block): Promise<Maybe<BlockInfo>> {
         if (typeof posOrX == "number") {
             return this.setBlockAt(new Vector3(posOrX, yOrBlock as number, z), block as Block);
@@ -54,56 +49,106 @@ export class MineRenderWorld {
             return this.setBlockAt(new Vector3(posOrX[0], posOrX[1], posOrX[2]), yOrBlock as Block);
         }
         this.validatePosBounds(posOrX);
-        const chunk = this.getOrCreateChunkAt(posOrX);
-        return chunk.setBlockAt(posOrX, yOrBlock as Block);
+        const value = yOrBlock as Maybe<Block>;
+        const chunk = Chunk.isAir(value) ? this.getChunkAt(posOrX) : this.getOrCreateChunkAt(posOrX);
+        return chunk?.setBlockAt(posOrX, value);
     }
 
 
-    public async placeMultiBlock(multiblock: MultiBlockStructure, useBatches: boolean = true, executor: BatchedExecutor = new BatchedExecutor()): Promise<void> {
-        // preload blockstates
-        const keys = new Set<AssetKey>(multiblock.blocks.map(block => AssetKey.parse("blockstates", block.type)));
-        await BlockStates.getAll(keys);
-
-        const place = async (block: MultiBlockBlock) => {
-            if (useBatches && typeof executor !== "undefined") {
-                await new Promise((resolve, reject) => {
-                    executor.submit(() => {
-                        this.setBlockAt(block.position, block).then(resolve).catch(reject)
-                    })
-                });
-            } else {
-                await this.setBlockAt(block.position, block);
-            }
+    public async placeMultiBlock(multiblock: MultiBlockStructure, useBatches: boolean = true, executor?: BatchedExecutor): Promise<void> {
+        const keys = new Map<string, AssetKey>();
+        for (const block of multiblock.blocks) {
+            if (Chunk.isAir(block)) continue;
+            const key = AssetKey.parse("blockstates", block.type);
+            keys.set(key.serialize(), key);
         }
-        for (let block of multiblock.blocks) {
-            await place(block);
+        await BlockStates.getAll(keys.values());
+
+        if (!useBatches) {
+            for (const block of multiblock.blocks) await this.setBlockAt(block.position, block);
+            return;
+        }
+
+        // Writes to the same position retain their input order.
+        const positions = new Map<string, MultiBlockBlock[]>();
+        for (const block of multiblock.blocks) {
+            const key = block.position.join(",");
+            const group = positions.get(key);
+            if (group) group.push(block);
+            else positions.set(key, [block]);
+        }
+        const groups = [...positions.values()];
+        const queue = executor ?? new BatchedExecutor();
+        try {
+            for (let i = 0; i < groups.length; i += queue.batch) {
+                const results = await Promise.allSettled(groups.slice(i, i + queue.batch).map(blocks =>
+                    queue.submit(async () => {
+                        for (const block of blocks) await this.setBlockAt(block.position, block);
+                    })
+                ));
+                const failure = results.find(result => result.status === "rejected");
+                if (failure?.status === "rejected") throw failure.reason;
+            }
+        } finally {
+            if (!executor) queue.stop();
         }
     }
 
 
     public async clear(): Promise<void> {
-        console.log("CHUNKS",this._chunks)
-
-        for (let chunk of this._chunks.values()) {
-            console.log("dispose chunk",chunk)
-            await chunk?.dispose();
-        }
+        await this.culling;
+        const chunks = [...this._chunks.values()];
         this._chunks.clear();
+        for (const chunk of chunks) {
+            await chunk.dispose();
+        }
+    }
+
+    private updateCulling(positions: Vector3[]): Promise<void> {
+        for (const pos of positions) {
+            this.pendingCulling.set(pos.toArray().join(","), pos.clone());
+            for (const offset of CUBE_FACE_OFFSETS) {
+                const neighbor = pos.clone().add(new Vector3(...offset));
+                this.pendingCulling.set(neighbor.toArray().join(","), neighbor);
+            }
+        }
+        // Adjacent batched placements share one drain so they cannot replace the same model concurrently.
+        return this.culling ??= Promise.resolve().then(async () => {
+            try {
+                while (this.pendingCulling.size) {
+                    const batch = [...this.pendingCulling.values()];
+                    this.pendingCulling.clear();
+                    for (const pos of batch) {
+                        const block = this.getBlockAt(pos)?.object;
+                        if (!block) continue;
+                        let mask = 0;
+                        for (const [face, offset] of CUBE_FACE_OFFSETS.entries()) {
+                            if (this.getBlockAt(pos.clone().add(new Vector3(...offset)))?.object.isOccluding) {
+                                mask |= 1 << face;
+                            }
+                        }
+                        await block.setCullMask(mask);
+                    }
+                }
+            } finally {
+                this.culling = undefined;
+            }
+        });
     }
 
     private getOrCreateChunkAt(pos: Vector3): Chunk {
         const key = this.worldPosToChunkKey(pos);
         let chunk = this._chunks.get(key);
         if (typeof chunk === "undefined") {
-            chunk = new Chunk(this.scene, Math.floor(pos.x / 16), Math.floor(pos.y / 16), Math.floor(pos.z / 16));
+            chunk = new Chunk(this.scene, Math.floor(pos.x / 16), Math.floor(pos.y / 16), Math.floor(pos.z / 16),
+                positions => this.updateCulling(positions));
             this._chunks.set(key, chunk);
         }
         return chunk;
     }
 
     public getChunkAt(pos: Vector3): Maybe<Chunk> {
-        const index = this.worldPosToChunkIndex(pos);
-        return this._chunks[index];
+        return this._chunks.get(this.worldPosToChunkKey(pos));
     }
 
 
@@ -123,13 +168,6 @@ export class MineRenderWorld {
         );
     }
 
-    worldPosToChunkIndex(pos: Vector3): number {
-        const chunkX = Math.floor(pos.x / 16);
-        const chunkY = Math.floor(pos.y / 16);
-        const chunkZ = Math.floor(pos.z / 16);
-        return (chunkZ * this._size * this._size) + (chunkY * this._size) + chunkX;
-    }
-
     worldPosToChunkKey(pos: Vector3): string {
         const chunkX = Math.floor(pos.x / 16);
         const chunkY = Math.floor(pos.y / 16);
@@ -138,12 +176,9 @@ export class MineRenderWorld {
     }
 
     validatePosBounds(pos: Vector3): void {
-        if (pos.x < 0) throw new Error("x<0");
-        if (pos.y < 0) throw new Error("y<0");
-        if (pos.z < 0) throw new Error("z<0");
-        if (pos.x > this._blockSize) throw new Error("x>" + this._blockSize);
-        if (pos.y > this._blockSize) throw new Error("y>" + this._blockSize);
-        if (pos.z > this._blockSize) throw new Error("z>" + this._blockSize);
+        if (![pos.x, pos.y, pos.z].every(Number.isInteger)) {
+            throw new RangeError("Block coordinates must be integers");
+        }
     }
 
 }

@@ -14,6 +14,7 @@
     "build:watch": "yarn workspace minerender build:watch",
     "typecheck": "yarn workspace minerender typecheck && yarn workspace @minerender/example-vite typecheck",
     "test": "yarn workspace minerender test",
+    "test:package": "yarn workspace minerender test:package",
     "exports": "yarn workspace minerender exports",
     "doc": "yarn workspace minerender doc",
     "clean": "yarn workspace minerender clean",
