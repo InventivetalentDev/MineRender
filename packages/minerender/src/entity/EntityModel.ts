@@ -9,12 +9,15 @@ export interface EntityLayer {
 
 export interface EntityModel extends EntityLayer {
     id: string;
+    /** The model is authored Y-up; vanilla draws it without the entity flip. */
+    yUp?: boolean;
     /** Selected layers; the top-level fields describe the first selection. */
     layers?: Record<string, EntityLayer>;
 }
 
 export interface EntityModelFile extends MinecraftAsset {
     id: string;
+    yUp?: boolean;
     layers: Record<string, EntityModelLayer>;
 }
 

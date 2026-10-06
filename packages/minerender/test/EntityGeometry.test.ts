@@ -80,6 +80,19 @@ test.serial("nested parts compose local radian poses before the entity coordinat
     t.deepEqual(coordinates(unflipped.getGroupByName("hand")!.getWorldPosition(new Vector3())), [4, 13, 5]);
 });
 
+test.serial("models marked Y-up are not flipped unless the caller asks for it", t => {
+    fixture(t);
+    const rootScale = (options?: Partial<EntityObjectOptions>) => {
+        const object = new EntityObject({ key: new BasicAssetKey("minecraft", "chest"), id: "minecraft:chest", yUp: true, layer: { texture: [64, 64], root: part({ cubes: [cube] }) } }, options);
+        object["createMeshes"]();
+        t.teardown(() => object.iterateAllMeshes(mesh => mesh.geometry.dispose()));
+        return object.getLayerGroup("main")!.parent!.scale.toArray();
+    };
+    t.deepEqual(rootScale(), [1, 1, 1]);
+    t.deepEqual(rootScale({ flip: undefined }), [1, 1, 1]);
+    t.deepEqual(rootScale({ flip: true }), [-1, -1, 1]);
+});
+
 test.serial("cube growth preserves vanilla UV dimensions and mirrored cubes swap side faces and reverse U", t => {
     const create = fixture(t);
     const object = create(part({ children: {

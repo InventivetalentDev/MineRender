@@ -19,7 +19,7 @@ export class EntityObject extends SceneObject {
 
     public readonly isEntityObject: true = true;
 
-    public static readonly DEFAULT_OPTIONS: EntityObjectOptions = merge({}, SceneObject.DEFAULT_OPTIONS, <EntityObjectOptions>{ flip: true });
+    public static readonly DEFAULT_OPTIONS: EntityObjectOptions = merge({}, SceneObject.DEFAULT_OPTIONS);
     public readonly options: EntityObjectOptions;
 
     private meshesCreated: boolean = false;
@@ -27,7 +27,7 @@ export class EntityObject extends SceneObject {
     constructor(readonly entity: EntityModel, options?: Partial<EntityObjectOptions>) {
         super();
         this.options = merge({}, EntityObject.DEFAULT_OPTIONS, options ?? {});
-        //TODO
+        this.options.flip ??= !entity.yUp;
     }
 
     async init(): Promise<void> {
@@ -149,6 +149,7 @@ export class EntityObject extends SceneObject {
 }
 
 export interface EntityObjectOptions extends SceneObjectOptions {
+    /** Apply vanilla's entity flip, scale (-1, -1, 1). Defaults to true unless the model is marked `yUp`. */
     flip?: boolean;
 }
 

@@ -101,6 +101,12 @@ test.serial("parsed entity and texture keys retain their complete paths", async 
     t.is(explicit!.texture, rootedTexture);
 });
 
+test.serial("the dataset's Y-up marker is passed on with the entity", async t => {
+    const file = { ...model(), id: "minecraft:chest", yUp: true };
+    AssetLoader.addSource("test", new StubSource(key => key.path === "chest" ? file : undefined));
+    t.true((await Entities.getEntity(new BasicAssetKey("minecraft", "chest"), new BasicAssetKey("minecraft", "chest")))!.yUp);
+});
+
 test.serial("selected layer texture locations skip probing and explicit textures take precedence", async t => {
     const file = model();
     file.layers.main.textureLocation = "minecraft:textures/entity/cow/temperate_cow.png";
