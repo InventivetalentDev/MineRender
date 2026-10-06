@@ -14,7 +14,7 @@ import { AssetKey } from "../../../assets/AssetKey";
 import { BlockTints } from "../BlockTints";
 import { ModelCulling } from "../../ModelCulling";
 import { BlockStateResolver } from "../BlockStateResolver";
-import { FluidKind, FluidSampler, getFluidKind } from "../../fluid/FluidGeometry";
+import { FluidKind, FluidSampler, getBlockFluidState, getFluidKind } from "../../fluid/FluidGeometry";
 
 export class BlockObject extends SceneObject {
 
@@ -152,7 +152,7 @@ export class BlockObject extends SceneObject {
     }
 
     public get fluidLevel(): number {
-        return getFluidKind(this.blockState.key) ? Number(this.state.level ?? 0) : 0;
+        return getBlockFluidState(this.blockState.key, this.state)?.level ?? 0;
     }
 
     /** Refreshes fluid surfaces from relative neighbors; standalone previews use air around the block. */
@@ -205,7 +205,7 @@ export class BlockObject extends SceneObject {
         // TODO: try to reuse models instead of just removing them and creating new ones
         this.clearModels();
 
-        if (getFluidKind(this.blockState.key)) {
+        if (getBlockFluidState(this.blockState.key, this.state)?.renderModel === false) {
             await this.updateFluid(this._fluidSampler);
             return;
         }
