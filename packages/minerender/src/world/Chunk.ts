@@ -11,6 +11,7 @@ import { MineRenderWorld } from "./MineRenderWorld";
 import { isTripleArray, TripleArray } from "../model/Model";
 import { SectionModels } from "./SectionModels";
 import { SectionMesh, SectionMeshEntry } from "./SectionMesh";
+import { getFluidKind } from "../model/fluid/FluidGeometry";
 
 export class Chunk<SectionMeshing extends boolean = false> {
 
@@ -94,7 +95,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
                 this.data.set(index, undefined);
                 return undefined;
             }
-            const template = await this.sectionModels?.get(blockState, stored.properties);
+            const template = getFluidKind(blockState.key) ? undefined : await this.sectionModels?.get(blockState, stored.properties);
             if (template) {
                 this.sectionBlocks.set(index, { index, template, cullMask: 0 });
                 this.meshDirty = true;

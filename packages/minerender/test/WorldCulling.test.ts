@@ -36,7 +36,13 @@ function fixture<SectionMeshing extends boolean = false>(t: ExecutionContext, op
     BlockStates.get = async key => states.get(key.toNamespacedString());
     BlockStates.getDefaultState = async () => undefined;
     Models.getMerged = async key => models.get(key.toNamespacedString());
-    UVMapper.getAtlas = async model => atlases.get(model);
+    UVMapper.getAtlas = async model => {
+        if (model.key?.type === "fluid" && !atlases.has(model)) {
+            atlases.set(model, new TextureAtlas(model, { width: 32, height: 16, canvas: {} } as CanvasImage,
+                { still: [16, 16], flow: [16, 16] }, { still: [0, 0], flow: [16, 0] }, false, {}, model.key.path === "water"));
+        }
+        return atlases.get(model);
+    };
     Materials.getImage = Materials.createShadedCanvasMaterial = () => material;
     const addModel = (name: string, options: { height?: number; transparent?: boolean; animated?: boolean; cullable?: CubeFace[] } = {}) => {
         const model: Model = {
@@ -54,6 +60,9 @@ function fixture<SectionMeshing extends boolean = false>(t: ExecutionContext, op
         return model;
     };
     addModel("cube");
+    for (const fluid of ["water", "lava"]) {
+        states.set(`minecraft:${fluid}`, { key: AssetKey.parse("blockstates", fluid), variants: { "": { model: `block/${fluid}` } } });
+    }
     t.teardown(async () => {
         await world.clear();
         scene.traverse(object => { if ((object as Mesh).isMesh) (object as Mesh).geometry.dispose(); });
@@ -311,3 +320,38 @@ test.serial("section meshing retains render objects for partial, transparent, an
     t.is(scene.stats.instanceCount, 4);
     t.is(world.getBlockAt(2, 0, 0)!.object?.isBlockObject, true);
 });
+
+for (const sectionMeshing of [false, true]) {
+    test.serial(`fluid surfaces refresh across section borders, diagonals and heights (sectionMeshing=${sectionMeshing})`, async t => {
+        const { world, scene, place } = fixture(t, { sectionMeshing });
+        const water = async (position: TripleArray, level = "0") => (await world.setBlockAt(position, { type: "water", properties: { level } }))!.object!;
+        const left = await water([-17, -1, -1]), right = await water([-16, -1, -1], "4");
+        const matching = await water([15, -1, 10]);
+        await water([16, -1, 10], "4");
+        const original = modelOf(left), baseline = geometryOf(left).getAttribute("position");
+        t.is(original, modelOf(matching));
+        t.deepEqual([indexCount(left), indexCount(right)], [30, 30]);
+        t.is(baseline.getY(2), geometryOf(right).getAttribute("position").getY(1));
+        t.false(left.isOccluding);
+        await water([-16, -1, 0]);
+        const diagonalHeight = geometryOf(left).getAttribute("position").getY(2);
+        t.true(diagonalHeight > baseline.getY(2));
+        t.is(diagonalHeight, geometryOf(right).getAttribute("position").getY(1));
+        t.is(modelOf(matching), original);
+        await water([-16, 0, 0]);
+        t.true(Math.abs(geometryOf(left).getAttribute("position").getY(2) - 7.984) < 1e-6);
+        await world.setBlockAt(-16, 0, 0, undefined);
+        t.is(geometryOf(left).getAttribute("position").getY(2), diagonalHeight);
+        await world.setBlockAt(-16, -1, 0, undefined);
+        t.is(modelOf(left), original);
+        await place([-17, -1, -2]);
+        t.is(indexCount(left), 24);
+        await world.setBlockAt(-17, -1, -2, undefined);
+        t.is(modelOf(left), original);
+        t.deepEqual(left.getPosition().toArray(), [-272, -16, -16]);
+        t.is(scene.stats.instanceCount, 4);
+        await world.setBlockAt(-16, -1, -1, undefined);
+        t.is(indexCount(left), 36);
+        t.is(world.getBlockAt(-17, -1, -1)!.object, left);
+    });
+}

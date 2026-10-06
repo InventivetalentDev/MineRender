@@ -2,12 +2,12 @@ import type { ImageData } from "canvas";
 import { CanvasImage } from "../canvas/CanvasImage";
 import { DoubleArray, Model } from "../model/Model";
 import { AnimatorFunction } from "../AnimatorFunction";
-import Timeout = NodeJS.Timeout;
 import { Disposable } from "../Disposable";
 import { Ticker } from "../Ticker";
 
 export class TextureAtlas implements Disposable {
     ticker?: number;
+    private readonly subscribers = new Set<() => void>();
 
     constructor(
         readonly model: Model,
@@ -20,6 +20,28 @@ export class TextureAtlas implements Disposable {
     ) {
     }
 
+    /** Calls subscribers when an animation frame changes; unused atlases do not tick. */
+    subscribe(callback: () => void): () => void {
+        if (!this.hasAnimation) return () => {};
+        this.subscribers.add(callback);
+        if (this.ticker === undefined) {
+            this.ticker = Ticker.add(() => {
+                let changed = false;
+                for (const animate of Object.values(this.animatorFunctions)) {
+                    if (animate() !== false) changed = true;
+                }
+                if (changed) for (const subscriber of this.subscribers) subscriber();
+            });
+        }
+        return () => {
+            this.subscribers.delete(callback);
+            if (!this.subscribers.size) {
+                Ticker.remove(this.ticker);
+                this.ticker = undefined;
+            }
+        };
+    }
+
     getData(texture: string): ImageData {
         const pos = this.positions[texture];
         const size = this.sizes[texture];
@@ -29,5 +51,7 @@ export class TextureAtlas implements Disposable {
     dispose() {
         this.image.dispose();
         Ticker.remove(this.ticker);
+        this.ticker = undefined;
+        this.subscribers.clear();
     }
 }

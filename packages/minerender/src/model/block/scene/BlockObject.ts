@@ -14,6 +14,7 @@ import { AssetKey } from "../../../assets/AssetKey";
 import { BlockTints } from "../BlockTints";
 import { ModelCulling } from "../../ModelCulling";
 import { BlockStateResolver } from "../BlockStateResolver";
+import { FluidKind, FluidSampler, getFluidKind } from "../../fluid/FluidGeometry";
 
 export class BlockObject extends SceneObject {
 
@@ -35,6 +36,8 @@ export class BlockObject extends SceneObject {
     private _variants: BlockStateVariant[] = [];
     private _models: (ModelObject | InstanceReference<ModelObject>)[] = [];
     private _cullMask = 0;
+    private _fluidKey?: string;
+    private _fluidSampler?: FluidSampler;
 
     constructor(readonly blockState: BlockState, options?: Partial<BlockObjectOptions>) {
         super(options);
@@ -63,6 +66,7 @@ export class BlockObject extends SceneObject {
 
     private clearModels() {
         this.removeModels(this._models.splice(0));
+        this._fluidKey = undefined;
         this._isInstanced = false;
         this._instanceCounter = 0;
     }
@@ -100,6 +104,7 @@ export class BlockObject extends SceneObject {
     }
 
     public async setCullMask(worldMask: number): Promise<void> {
+        if (this.fluidKind) return;
         worldMask &= 63;
         const replacements: (ModelObject | InstanceReference<ModelObject>)[] = [];
         try {
@@ -137,6 +142,34 @@ export class BlockObject extends SceneObject {
         return this._state;
     }
 
+    public get fluidKind(): FluidKind | undefined {
+        return getFluidKind(this.blockState.key);
+    }
+
+    /** Refreshes fluid surfaces from relative neighbors; standalone previews use air around the block. */
+    public async updateFluid(sample?: FluidSampler): Promise<void> {
+        const kind = this.fluidKind;
+        if (!kind) return;
+        const { FluidModelObject, sampleFluid } = await import("../../fluid/FluidModelObject");
+        this._fluidSampler = sample;
+        const surface = sampleFluid(kind, (x, y, z) => x === 0 && y === 0 && z === 0
+            ? { fluid: kind, level: Number(this.state.level ?? 0) } : sample?.(x, y, z) ?? {});
+        if (this._fluidKey === surface.key) return;
+        const key = new AssetKey("minecraft", `${kind}/${surface.key}`, "models", "fluid", "assets", ".json", this.blockState.key!.root);
+        const replacement = await this.scene.addSceneObject({ key },
+            () => new FluidModelObject(kind, surface.sample, this.blockState.key!, this.options));
+        const previous = this._models;
+        const matrix = previous.length ? this.getModelMatrix(previous[0]) : new Matrix4().makeTranslation(...this.position.toArray());
+        if (isInstanceReference(replacement)) replacement.setMatrix(matrix);
+        else matrix.decompose(replacement.position, replacement.quaternion, replacement.scale);
+        this._models = [replacement];
+        this._fluidKey = surface.key;
+        this._isInstanced = isInstanceReference(replacement);
+        this._instanceCounter = this._isInstanced ? 1 : 0;
+        this.removeModels(previous);
+        this.notifyDirty();
+    }
+
     nextInstance(): InstanceReference<SceneObject> {
 
         const ref = super.nextInstance();
@@ -160,6 +193,11 @@ export class BlockObject extends SceneObject {
 
         // TODO: try to reuse models instead of just removing them and creating new ones
         this.clearModels();
+
+        if (this.fluidKind) {
+            await this.updateFluid(this._fluidSampler);
+            return;
+        }
 
 
         //TODO: might want to preload all possible states & cache their data

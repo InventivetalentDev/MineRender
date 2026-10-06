@@ -162,6 +162,17 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                 const neighbor = pos.clone().add(new Vector3(...offset));
                 this.pendingCulling.set(neighbor.toArray().join(","), neighbor);
             }
+            // Fluid corner heights and flow also depend on diagonal neighbors and their vertical neighbors.
+            for (let y = -1; y <= 1; y++) {
+                for (let z = -1; z <= 1; z++) {
+                    for (let x = -1; x <= 1; x++) {
+                        const neighbor = pos.clone().add(new Vector3(x, y, z));
+                        if (this.getBlockAt(neighbor)?.object?.fluidKind) {
+                            this.pendingCulling.set(neighbor.toArray().join(","), neighbor);
+                        }
+                    }
+                }
+            }
         }
         // Adjacent batched placements share one drain so they cannot replace the same model concurrently.
         return this.culling ??= Promise.resolve().then(async () => {
@@ -174,7 +185,18 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                         const chunk = this.getChunkAt(pos);
                         if (!chunk) continue;
                         changed.add(chunk);
-                        if (!chunk.getBlockAt(pos)) continue;
+                        const block = chunk.getBlockAt(pos);
+                        if (!block) continue;
+                        if (block.object?.fluidKind) {
+                            await block.object.updateFluid((x, y, z) => {
+                                const neighbor = pos.clone().add(new Vector3(x, y, z));
+                                const section = this.getChunkAt(neighbor);
+                                const object = section?.getBlockAt(neighbor)?.object;
+                                return { fluid: object?.fluidKind, level: Number(object?.state.level ?? 0),
+                                    solid: section?.isOccludingAt(neighbor) ?? false };
+                            });
+                            continue;
+                        }
                         let mask = 0;
                         for (const [face, offset] of CUBE_FACE_OFFSETS.entries()) {
                             const neighbor = pos.clone().add(new Vector3(...offset));
