@@ -164,6 +164,10 @@ export class HostedAssetSource extends AssetSource {
         return this._root;
     }
 
+    public get cacheId(): string {
+        return `hosted:${this._root}`;
+    }
+
     public get options(): HostedAssetSourceOptions {
         return this._options;
     }

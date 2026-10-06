@@ -58,7 +58,7 @@ export class BlockStates {
         }
         const keyStr = key.serialize();
         return Caching.blockStateCache.get(keyStr, k => {
-            return this.PERSISTENT_CACHE.getOrLoad(keyStr, k1 => {
+            return this.PERSISTENT_CACHE.getOrLoad(AssetLoader.persistentKey(keyStr), k1 => {
                 return AssetLoader.get<BlockState>(key, AssetParser.BLOCKSTATE);
             })
         }).then(asset => {

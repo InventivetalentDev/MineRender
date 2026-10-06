@@ -10,6 +10,15 @@ export abstract class AssetSource {
 
     public abstract get<T extends MinecraftAsset>(key: AssetKey, parser: AssetParser | string): Promise<Maybe<T>>;
 
+    /**
+     * Identifies this source's content across sessions for persistent caching. Sources that
+     * cannot tell whether their content changed (an unnamed archive, for example) return
+     * undefined, which keeps their results out of long-lived caches.
+     */
+    public get cacheId(): Maybe<string> {
+        return undefined;
+    }
+
 }
 
 /** A source failed to load or parse an asset; cause retains the original failure. */
