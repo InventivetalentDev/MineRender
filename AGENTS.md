@@ -71,6 +71,8 @@ The private Yarn workspace root contains the public library and its consumers. U
 
 **GUIs** (`src/gui/`): `scene.addGui` creates ordered texture layers with source-pixel crops, top-left positions, and optional output sizes. One GUI pixel is one scene unit; positive GUI y maps to negative scene y. `GuiObject.bounds` uses GUI coordinates for caller-controlled camera fitting. Named meshes share unlit materials but own their plane geometry. `GuiHelper.inventorySlot` positions item sprites; the chest demo fits an orthographic camera to the bounds.
 
+**Exports** (`src/export/`): `Renderer.toImage(trim, mime, quality)` captures a fresh frame, including while stopped; trimming retains nonzero alpha and uses drawing-buffer pixels. `toObj`, `toPLY`, and `toGLTF` export visible static meshes with their instance placements; `SceneExporter` accepts an `Object3D` directly. OBJ/PLY omit texture images. Browser-only glTF/GLB retains atlas textures and vertex tints but does not bake custom shader lighting.
+
 **Animation**: mcmeta frame grids, sequences, and durations use shared atlas subscriptions driven by `src/Ticker.ts`. Changed frames update every consuming texture and scene; removing the last consumer stops the atlas ticker. Interpolation and skeletal/pose animation remain unsupported.
 
 ## Load-bearing conventions
