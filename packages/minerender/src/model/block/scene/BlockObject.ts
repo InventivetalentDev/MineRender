@@ -5,7 +5,7 @@ import { isModelObject, ModelObject, ModelObjectOptions } from "../../scene/Mode
 import { Caching } from "../../../cache/Caching";
 import { Models } from "../../../assets/Models";
 import merge from "ts-deepmerge";
-import { Euler, Matrix4, Vector3 } from "three";
+import { Euler, Matrix4, Quaternion, Vector3 } from "three";
 import { clampRotationDegrees, Maybe, toRadians } from "../../../util/util";
 import { MineRenderError } from "../../../error/MineRenderError";
 import { BlockStateProperties, BlockStatePropertyDefaults } from "../BlockStateProperties";
@@ -14,6 +14,7 @@ import { InstanceReference, isInstanceReference } from "../../../instance/Instan
 import { AssetKey } from "../../../assets/AssetKey";
 import { prefix } from "../../../util/log";
 import { BlockTints } from "../BlockTints";
+import { ModelCulling } from "../../ModelCulling";
 
 const p = prefix("BlockObject");
 
@@ -47,6 +48,7 @@ export class BlockObject extends SceneObject {
 
     private _variants: BlockStateVariant[] = [];
     private _models: (ModelObject | InstanceReference<ModelObject>)[] = [];
+    private _cullMask = 0;
 
     constructor(readonly blockState: BlockState, options?: Partial<BlockObjectOptions>) {
         super(options);
@@ -93,12 +95,75 @@ export class BlockObject extends SceneObject {
     }
 
     private clearModels() {
-        for (const model of this._models.splice(0)) {
+        this.removeModels(this._models.splice(0));
+        this._isInstanced = false;
+        this._instanceCounter = 0;
+    }
+
+    private removeModels(models: (ModelObject | InstanceReference<ModelObject>)[]) {
+        for (const model of models) {
             model.removeFromScene();
             if (!isInstanceReference(model)) model.dispose();
         }
-        this._isInstanced = false;
-        this._instanceCounter = 0;
+    }
+
+    public get isOccluding(): boolean {
+        return this._models.some(model => {
+            const object = isInstanceReference(model) ? model.instanceable : model;
+            return object.isOpaqueFullCube && this.getModelCullMask(model, 63) === 63;
+        });
+    }
+
+    private getModelMatrix(model: ModelObject | InstanceReference<ModelObject>): Matrix4 {
+        if (isInstanceReference(model)) return model.getMatrix();
+        if (model.matrixAutoUpdate) model.updateMatrix();
+        return model.matrix.clone();
+    }
+
+    private getModelCullMask(model: ModelObject | InstanceReference<ModelObject>, worldMask: number): number {
+        const object = isInstanceReference(model) ? model.instanceable : model;
+        if (object.options.displayPosition) return 0;
+        const position = new Vector3();
+        const rotation = new Quaternion();
+        const scale = new Vector3();
+        this.getModelMatrix(model).decompose(position, rotation, scale);
+        if (position.distanceToSquared(this.position) > 1e-10
+            || scale.distanceToSquared(new Vector3(1, 1, 1)) > 1e-10) return 0;
+        return ModelCulling.toLocalMask(worldMask, new Euler().setFromQuaternion(rotation));
+    }
+
+    public async setCullMask(worldMask: number): Promise<void> {
+        worldMask &= 63;
+        const replacements: (ModelObject | InstanceReference<ModelObject>)[] = [];
+        try {
+            for (const model of this._models) {
+                const object = isInstanceReference(model) ? model.instanceable : model;
+                const cullMask = this.getModelCullMask(model, worldMask);
+                if (cullMask === (object.options.cullMask ?? 0)) {
+                    replacements.push(model);
+                    continue;
+                }
+                const matrix = this.getModelMatrix(model);
+                const replacement = await this.scene.addModel(object.originalModel, { ...object.options, cullMask });
+                replacements.push(replacement);
+                if (isInstanceReference(replacement)) {
+                    replacement.setMatrix(matrix);
+                } else {
+                    replacement.matrix.copy(matrix);
+                    matrix.decompose(replacement.position, replacement.quaternion, replacement.scale);
+                    replacement.matrixAutoUpdate = object.matrixAutoUpdate;
+                    replacement.visible = object.visible;
+                }
+            }
+        } catch (error) {
+            this.removeModels(replacements.filter(model => !this._models.includes(model)));
+            throw error;
+        }
+        const previous = this._models;
+        this._models = replacements;
+        this._cullMask = worldMask;
+        this.removeModels(previous.filter(model => !replacements.includes(model)));
+        this.notifyDirty();
     }
 
     public get state(): { [key: string]: string; } {
@@ -233,7 +298,8 @@ export class BlockObject extends SceneObject {
             ...this.options,
             tints: model ? await BlockTints.get(this.blockState.key, this.state, model, this.options.tints) : this.options.tints,
             uvLockRotation: variant.uvlock && (rotation.x !== 0 || rotation.y !== 0)
-                ? [rotation.x, rotation.y, rotation.z] : undefined
+                ? [rotation.x, rotation.y, rotation.z] : undefined,
+            cullMask: this.options.displayPosition ? 0 : ModelCulling.toLocalMask(this._cullMask, rotation)
         };
         const obj = await this.scene.addModel(model!, options);
         if (isInstanceReference(obj) || (<ModelObject>obj).isInstanced) {

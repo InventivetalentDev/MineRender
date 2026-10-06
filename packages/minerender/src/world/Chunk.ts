@@ -21,7 +21,8 @@ export class Chunk {
     private readonly data = new ChunkData();
     private readonly renderedBlocks = new Map<number, BlockInfo>();
 
-    constructor(scene: MineRenderScene, x: number, y: number, z: number) {
+    constructor(scene: MineRenderScene, x: number, y: number, z: number,
+                private readonly onBlocksChanged?: (positions: Vector3[]) => Promise<void>) {
         this.scene = scene;
         this.x = x;
         this.y = y;
@@ -76,11 +77,10 @@ export class Chunk {
         const readBlock = this.data.snapshot(index);
         this.renderedBlocks.get(index)?.object.removeFromScene();
         this.renderedBlocks.delete(index);
-        if (!readBlock) return undefined;
-
-        const stored = readBlock();
         let object: BlockObject | undefined;
         try {
+            if (!readBlock) return undefined;
+            const stored = readBlock();
             const blockState = await BlockStates.get(AssetKey.parse("blockstates", stored.type));
             if (!blockState) {
                 this.data.set(index, undefined);
@@ -101,13 +101,19 @@ export class Chunk {
             this.data.set(index, undefined);
             object?.removeFromScene();
             throw error;
+        } finally {
+            await this.onBlocksChanged?.([worldPos]);
         }
     }
 
     public async clear(): Promise<void> {
+        const positions = [...this.renderedBlocks.keys()].map(index => this.chunkPosToWorldPos(
+            new Vector3(index % 16, Math.floor(index / 256), Math.floor(index / 16) % 16)
+        ));
         for (const info of this.renderedBlocks.values()) info.object.removeFromScene();
         this.renderedBlocks.clear();
         this.data.clear();
+        await this.onBlocksChanged?.(positions);
     }
 
     public async dispose(): Promise<void> {
