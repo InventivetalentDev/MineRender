@@ -14,6 +14,15 @@
         <div id="input" class="overlay top-right">
             <label for="skin-input">Skin (Name/UUID/URL)</label><br/>
             <input type="text" id="skin-input" value="inventivetalent">
+            <br/><label for="cape-input">Cape (Name/UUID/URL)</label><br/>
+            <input type="text" id="cape-input" placeholder="Leave empty for no cape">
+            <br/><label for="cape-type">Cape type</label>
+            <select id="cape-type">
+                <option value="minecraft">Minecraft</option>
+                <option value="optifine">OptiFine</option>
+                <option value="labymod">LabyMod</option>
+            </select>
+            <div id="cape-status" role="status"></div>
         </div>
         <div id="inspector" class="overlay bottom-right"></div>
 

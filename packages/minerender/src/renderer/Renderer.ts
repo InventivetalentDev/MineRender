@@ -8,6 +8,9 @@ import {isTripleArray, TripleArray} from "../model/Model";
 import {isOrthographicCamera, isPerspectiveCamera} from "../util/three";
 import { Disposable } from "../Disposable";
 import { OrbitControls } from "../three/OrbitControls";
+import { SceneExporter, SceneGLTFExportOptions } from "../export/SceneExporter";
+import type { PLYExporterOptions } from "three/examples/jsm/exporters/PLYExporter.js";
+import { trimCanvas } from "../canvas/trimCanvas";
 
 export class Renderer implements Disposable {
 
@@ -31,6 +34,7 @@ export class Renderer implements Disposable {
         },
         render: {
             fpsLimit: 60,
+            pixelRatio: 1,
             stats: false,
             antialias: true,
             shade: true,
@@ -76,6 +80,10 @@ export class Renderer implements Disposable {
 
     constructor(options?: DeepPartial<RendererOptions>) {
         this.options = merge({}, Renderer.DEFAULT_OPTIONS, options ?? {});
+        const pixelRatio = this.options.render.pixelRatio ?? 1;
+        if (!Number.isFinite(pixelRatio) || pixelRatio <= 0) {
+            throw new RangeError("render.pixelRatio must be a finite positive number");
+        }
 
         this._animationLoop = this.animate.bind(this);
         this._frameInterval = this.options.render.fpsLimit > 0 ? (1000 / this.options.render.fpsLimit) : undefined;
@@ -140,7 +148,7 @@ export class Renderer implements Disposable {
 
         renderer.outputColorSpace = SRGBColorSpace;
 
-        // renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setPixelRatio(this.options.render.pixelRatio ?? 1);
         renderer.setSize(this.viewWidth, this.viewHeight);
 
         return renderer;
@@ -409,6 +417,10 @@ export class Renderer implements Disposable {
             this._nextFrameTime = next !== undefined && t - next < interval ? next + interval : t + interval;
         }
 
+        this.drawFrame();
+    }
+
+    private drawFrame(): void {
         if (this._stats) {
             this._stats.begin();
         }
@@ -429,9 +441,33 @@ export class Renderer implements Disposable {
 
     //</editor-fold>
 
-    public toImage(): string {
-        //TODO: mime type, trim transparent pixels
-        return this.renderer.domElement.toDataURL();
+    /**
+     * Renders a fresh frame and returns an image data URL, including while the animation loop is stopped.
+     * Trimming removes transparent borders; an empty image becomes one transparent pixel.
+     * MIME type support and lossy quality (0–1) follow the canvas encoder.
+     */
+    public toImage(trim: boolean = false, mime: string = "image/png", quality?: number): string {
+        if (this._disposed) throw new Error("Cannot export an image from a disposed renderer");
+        if (this._controls?.enabled) {
+            this._controls.update();
+        }
+
+        // Read the drawing buffer in the same task as the draw, before WebGL can clear it.
+        this.drawFrame();
+        const canvas = trim ? trimCanvas(this.renderer.domElement) : this.renderer.domElement;
+        return (canvas as HTMLCanvasElement).toDataURL(mime, quality);
+    }
+
+    public toObj(): string {
+        return SceneExporter.toObj(this.scene);
+    }
+
+    public toPLY(options?: PLYExporterOptions): string | ArrayBuffer {
+        return SceneExporter.toPLY(this.scene, options);
+    }
+
+    public toGLTF(options?: SceneGLTFExportOptions): Promise<Record<string, any> | ArrayBuffer> {
+        return SceneExporter.toGLTF(this.scene, options);
     }
 
     ///
@@ -503,6 +539,8 @@ export interface CameraOptions {
 export interface RenderOptions {
     /** Maximum draw rate (60 by default); zero or a negative value disables the limit. */
     fpsLimit: number;
+    /** Drawing-buffer pixels per CSS pixel (default 1); also scales toImage() output. */
+    pixelRatio?: number;
     stats: boolean;
     antialias: boolean;
     shade: boolean;

@@ -1,4 +1,4 @@
-import { BoxGeometry, Color, EdgesGeometry, Euler, InstancedMesh, LineBasicMaterial, LineSegments, MathUtils, Matrix4, Mesh, Object3D, Quaternion, Scene, Vector3 } from "three";
+import { BoxGeometry, Color, EdgesGeometry, Euler, InstancedBufferAttribute, InstancedMesh, LineBasicMaterial, LineSegments, MathUtils, Matrix4, Mesh, Object3D, Quaternion, Scene, Vector3 } from "three";
 import { ModelElement, ModelFaces } from "../model/ModelElement";
 import { Geometries } from "../Geometries";
 import { UVMapper } from "../UVMapper";
@@ -9,12 +9,12 @@ import { SkinPart } from "../skin/SkinPart";
 import { changeEvent, Maybe } from "../util/util";
 import { InstanceReference } from "../instance/InstanceReference";
 import { MineRenderError } from "../error/MineRenderError";
-import { isInstancedMesh, isMesh } from "../util/three";
+import { isMesh } from "../util/three";
 import { Disposable, isDisposable } from "../Disposable";
 import { SceneObjectOptions } from "./SceneObjectOptions";
 import merge from "ts-deepmerge";
 import { Instanceable } from "../instance/Instanceable";
-import { isMineRenderScene, MineRenderScene } from "./MineRenderScene";
+import type { MineRenderScene } from "./MineRenderScene";
 import { Transformable } from "../Transformable";
 import generateUUID = MathUtils.generateUUID;
 import { prefix } from "../util/log";
@@ -39,6 +39,9 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
 
     protected _isInstanced: boolean = false;
     _instanceCounter: number = 0;
+    protected instanceMesh?: InstancedMesh;
+    private readonly instanceReferences = new Map<number, InstanceReference<SceneObject>>();
+    private readonly freeInstanceIndices: number[] = [];
 
     constructor(options?: Partial<SceneObjectOptions>) {
         super();
@@ -60,6 +63,10 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
     }
 
     public notifyDirty() {
+        this.traverseAncestors(parent => {
+            const scene = parent as MineRenderScene;
+            if (scene.isMineRenderScene) scene.dirty = true;
+        });
         this.dispatchEvent(changeEvent);
     }
 
@@ -157,6 +164,8 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
     protected createInstancedMesh(name: Maybe<string>, geometry: BufferGeometry, material: Material | Material[], count: number): InstancedMesh {
         const mesh = new InstancedMesh(geometry, material, count);
         mesh.count = 0;
+        this.instanceMesh = mesh;
+        this._isInstanced = true;
         if (name) {
             mesh.name = `mesh:${name}`;
         }
@@ -240,23 +249,66 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
     }
 
     nextInstance(): InstanceReference<SceneObject> {
-        if (!this.isInstanced) throw new MineRenderError("Object is not instanced");
-        const i = this._instanceCounter++;
-        this.setMatrixAt(i, new Matrix4());
-        const mesh = this.children[0];
-        if (mesh && isInstancedMesh(mesh)) {
-            // Unused slots contain identity matrices and must not be drawn.
-            mesh.count = Math.min(this._instanceCounter, mesh.instanceMatrix.count);
+        const mesh = this.instanceMesh;
+        if (!mesh) throw new MineRenderError("Object is not instanced");
+        const index = this.freeInstanceIndices.pop() ?? mesh.count;
+        if (index >= mesh.instanceMatrix.count) this.growInstances(index + 1);
+        const reference = this.constructInstanceReference(index);
+        this.instanceReferences.set(index, reference);
+        this._instanceCounter = this.instanceReferences.size;
+        mesh.count = Math.max(mesh.count, index + 1);
+        if (mesh.instanceColor) {
+            mesh.setColorAt(index, new Color(0xffffff));
+            mesh.instanceColor.needsUpdate = true;
         }
-        console.debug(p, "nextInstance " + i);
-        if (i === this.options.maxInstanceCount) {
-            console.warn(p, "Max instance count reached for " + this);
+        if (this._scene) this._scene.stats.instanceCount++;
+        this.setMatrixAt(index, new Matrix4());
+        return reference;
+    }
+
+    /** Returns the live reference for a raycast hit on this object's instance mesh. */
+    public getInstanceReference(mesh: Object3D, index: number): Maybe<InstanceReference<SceneObject>> {
+        return mesh === this.instanceMesh ? this.instanceReferences.get(index) : undefined;
+    }
+
+    isInstanceActive(index: number, reference: InstanceReference<Instanceable>): boolean {
+        return this.instanceReferences.get(index) === reference;
+    }
+
+    removeInstanceAt(index: number): void {
+        if (!this.instanceReferences.has(index)) return;
+        const mesh = this.instanceMesh!;
+        this.setMatrixAt(index, new Matrix4().makeScale(0, 0, 0));
+        this.instanceReferences.delete(index);
+        this.freeInstanceIndices.push(index);
+        this._instanceCounter = this.instanceReferences.size;
+        while (mesh.count > 0 && !this.instanceReferences.has(mesh.count - 1)) mesh.count--;
+        if (this._scene) this._scene.stats.instanceCount--;
+    }
+
+    private growInstances(required: number): void {
+        const mesh = this.instanceMesh!;
+        const capacity = Math.max(required, mesh.instanceMatrix.count * 2);
+        const grow = (attribute: InstancedBufferAttribute, fill: number) => {
+            const array = new Float32Array(capacity * attribute.itemSize).fill(fill);
+            array.set(attribute.array);
+            return new InstancedBufferAttribute(array, attribute.itemSize, attribute.normalized, attribute.meshPerAttribute)
+                .setUsage(attribute.usage);
+        };
+        const matrix = grow(mesh.instanceMatrix, 0);
+        const color = mesh.instanceColor ? grow(mesh.instanceColor, 1) : null;
+        // Release uploaded instance buffers before replacing their attributes.
+        mesh.dispose();
+        mesh.instanceMatrix = matrix;
+        mesh.instanceColor = color;
+    }
+
+    protected *activeInstanceIndices(): Iterable<number> {
+        if (this.instanceMesh) {
+            yield* this.instanceReferences.keys();
+        } else {
+            for (let i = 0; i < this.instanceCounter; i++) yield i;
         }
-        if (this.scene) {
-            this.scene.stats.instanceCount++;
-        }
-        this.notifyDirty();
-        return this.constructInstanceReference(i);
     }
 
     //</editor-fold>
@@ -264,21 +316,18 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
     //<editor-fold desc="TRANSFORMATION">
 
     getMatrixAt(index: number, matrix: Matrix4 = new Matrix4()): Matrix4 {
-        if (!this.isInstanced) throw new MineRenderError("Object is not instanced");
-        const child = this.children[0];
-        if (child && isInstancedMesh(child)) {//TODO: figure out why child isn't set
-            child.getMatrixAt(index, matrix);
-        }
+        if (!this.instanceReferences.has(index)) throw new MineRenderError("Instance is not active");
+        this.instanceMesh!.getMatrixAt(index, matrix);
         return matrix;
     }
 
     setMatrixAt(index: number, matrix: Matrix4) {
-        if (!this.isInstanced) throw new MineRenderError("Object is not instanced");
-        const child = this.children[0];
-        if (child && isInstancedMesh(child)) {//TODO: figure out why child isn't set
-            child.setMatrixAt(index, matrix);
-            child.instanceMatrix.needsUpdate = true;
-        }
+        if (!this.instanceReferences.has(index)) throw new MineRenderError("Instance is not active");
+        const mesh = this.instanceMesh!;
+        mesh.setMatrixAt(index, matrix);
+        mesh.instanceMatrix.needsUpdate = true;
+        mesh.boundingBox = null;
+        mesh.boundingSphere = null;
         this.notifyDirty();
     }
 
@@ -322,9 +371,9 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
 
     getRotationAt(index: number, euler: Euler = new Euler()): Euler {
         if (!this.isInstanced) throw new MineRenderError("Object is not instanced");
-        const matrix = this.getMatrixAt(index)
-        euler.setFromRotationMatrix(matrix);
-        return euler;
+        const rotation = new Quaternion();
+        this.getMatrixAt(index).decompose(new Vector3(), rotation, new Vector3());
+        return euler.setFromQuaternion(rotation);
     }
 
     setScaleAt(index: number, scale: Vector3) {
@@ -341,8 +390,7 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
 
     setPositionRotationScale(position?: Vector3, rotation?: Euler, scale?: Vector3): void {
         if (this.isInstanced) {
-            //TODO: specific instance
-            for (let i = 0; i < this.instanceCounter; i++) {
+            for (const i of this.activeInstanceIndices()) {
                 this.setPositionRotationScaleAt(i, position, rotation, scale);
             }
         } else {
@@ -361,8 +409,7 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
 
     setPosition(position: Vector3) {
         if (this.isInstanced) {
-            //TODO: specific instance
-            for (let i = 0; i < this.instanceCounter; i++) {
+            for (const i of this.activeInstanceIndices()) {
                 this.setPositionRotationScaleAt(i, position);
             }
         } else {
@@ -373,7 +420,7 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
 
     getPosition(): Vector3 {
         if (this.isInstanced) {
-            return this.getPositionAt(0);
+            return this.getPositionAt(this.instanceReferences.keys().next().value ?? 0);
         } else {
             return this.position;
         }
@@ -381,8 +428,7 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
 
     setRotation(rotation: Euler) {
         if (this.isInstanced) {
-            //TODO: specific instance
-            for (let i = 0; i < this.instanceCounter; i++) {
+            for (const i of this.activeInstanceIndices()) {
                 this.setPositionRotationScaleAt(i, undefined, rotation);
             }
         } else {
@@ -393,7 +439,7 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
 
     getRotation(): Euler {
         if (this.isInstanced) {
-            return this.getRotationAt(0);
+            return this.getRotationAt(this.instanceReferences.keys().next().value ?? 0);
         } else {
             return this.rotation;
         }
@@ -401,8 +447,7 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
 
     setScale(scale: Vector3) {
         if (this.isInstanced) {
-            //TODO: specific instance
-            for (let i = 0; i < this.instanceCounter; i++) {
+            for (const i of this.activeInstanceIndices()) {
                 this.setPositionRotationScaleAt(i, undefined, undefined, scale);
             }
         } else {
@@ -413,7 +458,7 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
 
     getScale(): Vector3 {
         if (this.isInstanced) {
-            return this.getScaleAt(0);
+            return this.getScaleAt(this.instanceReferences.keys().next().value ?? 0);
         } else {
             return this.scale;
         }
@@ -428,6 +473,7 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
             } else {
                 object.visible = !object.visible;
             }
+            this.notifyDirty();
             return object.visible;
         }
         this.notifyDirty();
@@ -442,6 +488,17 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
     }
 
     public disposeAndRemoveAllChildren() {
+        if (this.instanceMesh) {
+            if (this._scene) this._scene.stats.instanceCount -= this.instanceReferences.size;
+            this.instanceReferences.clear();
+            this.freeInstanceIndices.length = 0;
+            this._instanceCounter = 0;
+            this.instanceMesh.count = 0;
+            this.instanceMesh.dispose();
+            this.instanceMesh.removeFromParent();
+            this.instanceMesh = undefined;
+            this._isInstanced = false;
+        }
         while (this.children.length > 0) {
             let c = this.children[0];
             if (isDisposable(c)) {
@@ -453,8 +510,8 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
     }
 
     public removeFromScene() {
-        this._scene?.remove(this);
         this.notifyDirty();
+        this.removeFromParent();
     }
 
     //</editor-fold>

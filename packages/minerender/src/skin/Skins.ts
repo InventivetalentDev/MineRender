@@ -61,14 +61,10 @@ export class Skins {
         })
     }
 
-    static async capeFromCapesDev(uuid: string, capeType: string = "minecraft"): Promise<Maybe<string>> {
-        return this.getCapesDev(uuid, capeType).then(cape => {
-            if (cape) {
-                //TODO: support for animated
-                return cape?.stillImageUrl;
-            }
-            return undefined;
-        })
+    /** Returns a full static cape texture for a username or UUID. */
+    static async capeFromCapesDev(player: string, capeType: string = "minecraft"): Promise<Maybe<string>> {
+        const cape = await this.getCapesDev(player, capeType);
+        return cape?.exists ? cape.imageUrls?.still?.full : undefined;
     }
 
     //</editor-fold>
@@ -152,17 +148,14 @@ export class Skins {
         })
     }
 
-    private static async getCapesDev(uuid: string, type: string = 'all'): Promise<Maybe<any>> {
+    private static async getCapesDev(player: string, type: string = 'all'): Promise<Maybe<any>> {
         return Requests.genericRequest({
             baseURL: 'https://api.capes.dev',
-            url: '/load/' + uuid + '/' + type
+            url: '/load/' + encodeURIComponent(player) + '/' + encodeURIComponent(type)
         }).then(res => {
             if (res.status === 200) {
                 return res.data;
             }
-            return undefined;
-        }).catch(err => {
-            console.warn(err);
             return undefined;
         })
     }

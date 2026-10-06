@@ -1,32 +1,20 @@
 import { SceneObject } from "../../../renderer/SceneObject";
-import { BlockState, BlockStateVariant, BlockStateVariants, MultipartCondition } from "../BlockState";
+import { BlockState, BlockStateVariant } from "../BlockState";
 import { SceneObjectOptions } from "../../../renderer/SceneObjectOptions";
 import { isModelObject, ModelObject, ModelObjectOptions } from "../../scene/ModelObject";
 import { Caching } from "../../../cache/Caching";
 import { Models } from "../../../assets/Models";
 import merge from "ts-deepmerge";
-import { Euler, Matrix4, Vector3 } from "three";
-import { clampRotationDegrees, Maybe, toRadians } from "../../../util/util";
+import { Euler, Matrix4, Quaternion, Vector3 } from "three";
+import { Maybe } from "../../../util/util";
 import { MineRenderError } from "../../../error/MineRenderError";
 import { BlockStateProperties, BlockStatePropertyDefaults } from "../BlockStateProperties";
-import { BlockStates } from "../../../assets/BlockStates";
 import { InstanceReference, isInstanceReference } from "../../../instance/InstanceReference";
 import { AssetKey } from "../../../assets/AssetKey";
-import { prefix } from "../../../util/log";
 import { BlockTints } from "../BlockTints";
-
-const p = prefix("BlockObject");
-
-function matchesCondition(condition: MultipartCondition, state: BlockStateProperties): boolean {
-    return Object.entries(condition).every(([key, value]) => {
-        if (Array.isArray(value)) {
-            if (key === "OR") return value.some(child => matchesCondition(child, state));
-            if (key === "AND") return value.every(child => matchesCondition(child, state));
-            return false;
-        }
-        return typeof value === "string" && state[key] !== undefined && value.split("|").includes(`${state[key]}`);
-    });
-}
+import { ModelCulling } from "../../ModelCulling";
+import { BlockStateResolver } from "../BlockStateResolver";
+import { FluidKind, FluidSampler, getBlockFluidState, getFluidKind } from "../../fluid/FluidGeometry";
 
 export class BlockObject extends SceneObject {
 
@@ -47,6 +35,10 @@ export class BlockObject extends SceneObject {
 
     private _variants: BlockStateVariant[] = [];
     private _models: (ModelObject | InstanceReference<ModelObject>)[] = [];
+    private _cullMask = 0;
+    private _fluidKey?: string;
+    private _fluidSampler?: FluidSampler;
+    private _fluidModel?: ModelObject | InstanceReference<ModelObject>;
 
     constructor(readonly blockState: BlockState, options?: Partial<BlockObjectOptions>) {
         super(options);
@@ -56,49 +48,137 @@ export class BlockObject extends SceneObject {
 
     async init(): Promise<void> {
         if (this.options.applyDefaultState) {
-            const defaultState = this.blockState.key ? await BlockStates.getDefaultState(this.blockState.key) : undefined;
-            if (defaultState && Object.keys(defaultState).length > 0) { // use defined state
-                const state = {};
-                for (let k in defaultState) {
-                    state[k] = defaultState[k].default;
-                }
-                await this.setState(state);
-            } else { // fallback to guessing from blockState definition
-                if (this.blockState.variants) {
-                    await this.setState(Object.keys(this.blockState.variants)[0]);
-                } else if (this.blockState.multipart) {
-                    // Guess preview values only from a flat condition; logical groups need a known state.
-                    const condition = this.blockState.multipart.map(part => part.when)
-                        .find((when): when is Record<string, string> =>
-                            when !== undefined && Object.values(when).every(value => typeof value === "string"));
-                    const state = Object.fromEntries(Object.entries(condition ?? {})
-                        .map(([key, value]) => [key, value.split("|")[0]]));
-                    await this.setState(state);
-                }
-            }
-        } else {
-            await this.recreateModels();
+            this._setState(await BlockStateResolver.defaults(this.blockState));
         }
+        if (this.options.initialState !== undefined) this._setState(this.options.initialState);
+        await this.recreateModels();
         //TODO
     }
 
     dispose() {
+        this.clearModels();
         super.dispose();
     }
 
     removeFromScene() {
-        for (let model of this._models) {
-            if (isModelObject(model)) {
-                model.removeFromScene();
-            } else if (isInstanceReference(model)) {
-                model.setScale(new Vector3(0, 0, 0));
-            }
-        }
+        this.clearModels();
         super.removeFromScene();
+    }
+
+    private clearModels() {
+        this.removeModels(this._models.splice(0));
+        this._fluidKey = undefined;
+        this._fluidModel = undefined;
+        this._isInstanced = false;
+        this._instanceCounter = 0;
+    }
+
+    private removeModels(models: (ModelObject | InstanceReference<ModelObject>)[]) {
+        for (const model of models) {
+            model.removeFromScene();
+            if (!isInstanceReference(model)) model.dispose();
+        }
+    }
+
+    public get isOccluding(): boolean {
+        return this._models.some(model => {
+            const object = isInstanceReference(model) ? model.instanceable : model;
+            return object.isOpaqueFullCube && this.getModelCullMask(model, 63) === 63;
+        });
+    }
+
+    private getModelMatrix(model: ModelObject | InstanceReference<ModelObject>): Matrix4 {
+        if (isInstanceReference(model)) return model.getMatrix();
+        if (model.matrixAutoUpdate) model.updateMatrix();
+        return model.matrix.clone();
+    }
+
+    private getModelCullMask(model: ModelObject | InstanceReference<ModelObject>, worldMask: number): number {
+        const object = isInstanceReference(model) ? model.instanceable : model;
+        if (object.options.displayPosition) return 0;
+        const position = new Vector3();
+        const rotation = new Quaternion();
+        const scale = new Vector3();
+        this.getModelMatrix(model).decompose(position, rotation, scale);
+        if (position.distanceToSquared(this.position) > 1e-10
+            || scale.distanceToSquared(new Vector3(1, 1, 1)) > 1e-10) return 0;
+        return ModelCulling.toLocalMask(worldMask, new Euler().setFromQuaternion(rotation));
+    }
+
+    public async setCullMask(worldMask: number): Promise<void> {
+        worldMask &= 63;
+        const replacements: (ModelObject | InstanceReference<ModelObject>)[] = [];
+        try {
+            for (const model of this._models) {
+                if (model === this._fluidModel) {
+                    replacements.push(model);
+                    continue;
+                }
+                const object = isInstanceReference(model) ? model.instanceable : model;
+                const cullMask = this.getModelCullMask(model, worldMask);
+                if (cullMask === (object.options.cullMask ?? 0)) {
+                    replacements.push(model);
+                    continue;
+                }
+                const matrix = this.getModelMatrix(model);
+                const replacement = await this.scene.addModel(object.originalModel, { ...object.options, cullMask });
+                replacements.push(replacement);
+                if (isInstanceReference(replacement)) {
+                    replacement.setMatrix(matrix);
+                } else {
+                    replacement.matrix.copy(matrix);
+                    matrix.decompose(replacement.position, replacement.quaternion, replacement.scale);
+                    replacement.matrixAutoUpdate = object.matrixAutoUpdate;
+                    replacement.visible = object.visible;
+                }
+            }
+        } catch (error) {
+            this.removeModels(replacements.filter(model => !this._models.includes(model)));
+            throw error;
+        }
+        const previous = this._models;
+        this._models = replacements;
+        this._cullMask = worldMask;
+        this.removeModels(previous.filter(model => !replacements.includes(model)));
+        this.notifyDirty();
     }
 
     public get state(): { [key: string]: string; } {
         return this._state;
+    }
+
+    public get fluidKind(): FluidKind | undefined {
+        return getFluidKind(this.blockState.key, this.state);
+    }
+
+    public get fluidLevel(): number {
+        return getBlockFluidState(this.blockState.key, this.state)?.level ?? 0;
+    }
+
+    /** Refreshes fluid surfaces from relative neighbors; standalone previews use air around the block. */
+    public async updateFluid(sample?: FluidSampler): Promise<void> {
+        const kind = this.fluidKind;
+        if (!kind) return;
+        const { FluidModelObject, sampleFluid } = await import("../../fluid/FluidModelObject");
+        this._fluidSampler = sample;
+        const surface = sampleFluid(kind, (x, y, z) => x === 0 && y === 0 && z === 0
+            ? { fluid: kind, level: this.fluidLevel } : sample?.(x, y, z) ?? {});
+        if (this._fluidKey === surface.key) return;
+        const key = new AssetKey("minecraft", `${kind}/${surface.key}`, "models", "fluid", "assets", ".json", this.blockState.key?.root);
+        const replacement = await this.scene.addSceneObject({ key },
+            () => new FluidModelObject(kind, surface.sample, this.blockState.key, this.options));
+        const previous = this._fluidModel;
+        const matrix = previous ? this.getModelMatrix(previous) : new Matrix4().makeTranslation(...this.position.toArray());
+        if (isInstanceReference(replacement)) replacement.setMatrix(matrix);
+        else matrix.decompose(replacement.position, replacement.quaternion, replacement.scale);
+        this._models = this._models.filter(model => model !== previous);
+        this._models.push(replacement);
+        this._fluidModel = replacement;
+        this._fluidKey = surface.key;
+        this._isInstanced ||= isInstanceReference(replacement);
+        this._instanceCounter = this._isInstanced ? 1 : 0;
+        if (previous) this.removeModels([previous]);
+        this.notifyDirty();
     }
 
     nextInstance(): InstanceReference<SceneObject> {
@@ -113,66 +193,21 @@ export class BlockObject extends SceneObject {
     }
 
     protected async mapStateToVariant(state: BlockStateProperties): Promise<BlockStateVariant[]> {
-        const out: BlockStateVariant[] = [];
-        if (this.blockState.variants) {
-            if (Object.keys(this.blockState.variants).length === 1 && "" in this.blockState.variants) { // default variant
-                out.push(this.getSingleVariant(this.blockState.variants[""]));
-            } else {
-                for (let variantKey in this.blockState.variants) {
-                    const split = variantKey.split(",");
-                    let matches = true;
-                    for (let s of split) {
-                        const [k, v] = s.split("=");
-                        if (`${ state[k] }` !== `${ v }`) {
-                            matches = false;
-                            break;
-                        }
-                    }
-                    if (matches) {
-                        const variants = this.blockState.variants[variantKey];
-                        out.push(this.getSingleVariant(variants));
-                    }
-                }
-            }
-        } else if (this.blockState.multipart) {
-            for (let part of this.blockState.multipart) {
-                if (!part.apply) {
-                    console.debug(p, "Missing apply for blockState part",  part);
-                    continue;
-                }
-                if (!part.when || matchesCondition(part.when, state)) {
-                    out.push(this.getSingleVariant(part.apply));
-                }
-            }
-        }
-
-        return out;
+        return BlockStateResolver.select(this.blockState, state, variants => this.getSingleVariant(variants));
     }
 
     public async recreateModels(): Promise<void> {
         //TODO: change this to create models once, and then modify rotations when updating the state
 
-        // Copy current instance info
-        const instanceInfo: Matrix4[] = [];
-        if (this.isInstanced) {
-            for (let i = 0; i < this.instanceCounter; i++) {
-                instanceInfo[i] = this.getMatrixAt(i);
-            }
-        }
-
         // Remove all children
         // this.disposeAndRemoveAllChildren(); //TODO: just removes all children of all instances atm...
 
         // TODO: try to reuse models instead of just removing them and creating new ones
-        for (let model of this._models) {
-            if (isInstanceReference(model)) {
-                model.setScale(new Vector3(0, 0, 0));//TODO
-            } else {
-                model.dispose();
-            }
-        }
-        while (this._models.length > 0) {
-            this._models.shift();
+        this.clearModels();
+
+        if (getBlockFluidState(this.blockState.key, this.state)?.renderModel === false) {
+            await this.updateFluid(this._fluidSampler);
+            return;
         }
 
 
@@ -198,36 +233,16 @@ export class BlockObject extends SceneObject {
         for (let blockStateVariant of variantsToCreate) {
             this._models.push(await this.createVariant(blockStateVariant));
         }
+        await this.updateFluid(this._fluidSampler);
         /*
     }
 
          */
 
-        // console.log(instanceInfo);
-        // // Re-apply instances
-        // if (instanceInfo.length>0) {
-        //     for (let i = 0; i < instanceInfo.length; i++) {
-        //         this.setMatrixAt(i, instanceInfo[i]);
-        //     }
-        // }
     }
 
     protected getSingleVariant(variants: BlockStateVariant | BlockStateVariant[]): BlockStateVariant {
-        if (!Array.isArray(variants)) return variants;
-        if (!variants.length) throw new MineRenderError("Blockstate variant arrays must not be empty");
-        const total = variants.reduce((sum, variant) => {
-            const weight = variant.weight ?? 1;
-            if (!Number.isInteger(weight) || weight < 1) {
-                throw new MineRenderError(`Invalid blockstate variant weight: ${weight}`);
-            }
-            return sum + weight;
-        }, 0);
-        let choice = Math.random() * total;
-        for (const variant of variants) {
-            choice -= variant.weight ?? 1;
-            if (choice < 0) return variant;
-        }
-        return variants[variants.length - 1];
+        return BlockStateResolver.choose(variants);
     }
 
     // @deprecated
@@ -237,13 +252,7 @@ export class BlockObject extends SceneObject {
     }
 
     protected async createVariant(variant: BlockStateVariant): Promise<ModelObject | InstanceReference<ModelObject>> {
-        const rotation = new Euler();
-        if (typeof variant.x !== "undefined") {
-            rotation.x = toRadians(clampRotationDegrees(variant.x));
-        }
-        if (typeof variant.y !== "undefined") {
-            rotation.y = toRadians(clampRotationDegrees(typeof variant.x !== "undefined" ? variant.y : 360 - variant.y));
-        }
+        const rotation = BlockStateResolver.rotation(variant);
 
         // The model and its textures must come from the same asset root as the blockstate.
         const modelKey = AssetKey.parse("models", variant.model!);
@@ -253,7 +262,8 @@ export class BlockObject extends SceneObject {
             ...this.options,
             tints: model ? await BlockTints.get(this.blockState.key, this.state, model, this.options.tints) : this.options.tints,
             uvLockRotation: variant.uvlock && (rotation.x !== 0 || rotation.y !== 0)
-                ? [rotation.x, rotation.y, rotation.z] : undefined
+                ? [rotation.x, rotation.y, rotation.z] : undefined,
+            cullMask: this.options.displayPosition ? 0 : ModelCulling.toLocalMask(this._cullMask, rotation)
         };
         const obj = await this.scene.addModel(model!, options);
         if (isInstanceReference(obj) || (<ModelObject>obj).isInstanced) {
@@ -261,6 +271,7 @@ export class BlockObject extends SceneObject {
             this._instanceCounter = 1;//TODO: BlockObject itself isn't technically instanced, but needs the id for the get/setMatrix calls to work properly
         }
         obj.setRotation(rotation);
+        obj.setPosition(this.position);
         return obj;
     }
 
@@ -348,7 +359,6 @@ export class BlockObject extends SceneObject {
             child.getMatrix(matrix);
         }
         /*
-        console.log(this.children)
         const child = this.children[0];
         if (child && isModelObject(child)) {
             if (!child.isInstanced) throw new MineRenderError("Object is not instanced");
@@ -371,7 +381,6 @@ export class BlockObject extends SceneObject {
             }
         }
         /*
-      console.log(this.children)
       for (let child of this.children) {
           if (isModelObject(child)) {
               if (!child.isInstanced) throw new MineRenderError("Object is not instanced");
@@ -398,6 +407,8 @@ export class BlockObject extends SceneObject {
 
 export interface BlockObjectOptions extends ModelObjectOptions {
     applyDefaultState: boolean;
+    /** Properties applied before model creation, overriding defaults when applyDefaultState is enabled. */
+    initialState?: BlockStateProperties;
 }
 
 export function isBlockObject(obj: any): obj is BlockObject {

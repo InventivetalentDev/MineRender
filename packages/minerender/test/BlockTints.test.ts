@@ -160,7 +160,8 @@ test.serial("changing block state updates automatic colors without recoloring an
     const powered = scene.children[1] as ModelObject;
     t.is(color(powered), 0xff3200);
     t.is(color(unpowered), 0x4c0000);
-    t.deepEqual(unpowered.getScaleAt(0).toArray(), [0, 0, 0]);
+    t.throws(() => unpowered.getScaleAt(0), { message: "Instance is not active" });
+    t.is(unpowered.instanceCounter, 1);
     t.deepEqual(unpowered.getScaleAt(1).toArray(), [1, 1, 1]);
     t.is(powered.textureAtlas, unpowered.textureAtlas);
 });

@@ -8,14 +8,15 @@ import { BoxGeometry, BoxHelper, BufferAttribute, Color, EdgesGeometry, Euler, I
 import { mergeBufferGeometries } from "../../three/BufferGeometryUtils";
 import { SceneObjectOptions } from "../../renderer/SceneObjectOptions";
 import { addBox3WireframeToObject, addWireframeToMesh, addWireframeToObject, applyElementRotation } from "../../util/model";
-import { Ticker } from "../../Ticker";
 import merge from "ts-deepmerge";
-import type { BufferGeometry } from "three";
+import type { BufferGeometry, Texture } from "three";
 import { BlockObject } from "../block/scene/BlockObject";
 import { prefix } from "../../util/log";
 import { CUBE_FACES } from "../../CubeFace";
 import { DisplayPosition } from "../DisplayPosition";
 import { DisplayTransforms } from "../DisplayTransforms";
+import { ModelCulling } from "../ModelCulling";
+import type { MineRenderScene } from "../../renderer/MineRenderScene";
 
 
 const p = prefix("ModelObject");
@@ -28,7 +29,10 @@ export class ModelObject extends SceneObject {
     public static readonly DEFAULT_OPTIONS: ModelObjectOptions = merge({}, SceneObject.DEFAULT_OPTIONS, <ModelObjectOptions>{});
     public readonly options: ModelObjectOptions;
 
-    private atlas?: TextureAtlas;
+    protected atlas?: TextureAtlas;
+    private atlasMaterial?: Material;
+    private atlasTexture?: Texture;
+    private unsubscribeAtlas?: () => void;
 
     public blockParent: Maybe<BlockObject>;
 
@@ -38,7 +42,8 @@ export class ModelObject extends SceneObject {
         super(options);
         this.options = merge({}, ModelObject.DEFAULT_OPTIONS, options ?? {});
         if (this.options.tints) this.options.tints = { ...this.options.tints };
-        console.log("ModelObject options", this.options);
+        this.addEventListener("added", () => this.updateAnimationSubscription());
+        this.addEventListener("removed", () => this.updateAnimationSubscription());
     }
 
     async init(): Promise<void> {
@@ -49,13 +54,12 @@ export class ModelObject extends SceneObject {
         this.applyTextures();
     }
 
-    dispose() {
-        super.dispose();
-        this.atlas?.dispose();
-    }
-
     public get textureAtlas(): Maybe<TextureAtlas> {
         return this.atlas;
+    }
+
+    public get isOpaqueFullCube(): boolean {
+        return !this.options.displayPosition && ModelCulling.isOpaqueFullCube(this.atlas);
     }
 
     //TODO: support for replacing textures
@@ -78,6 +82,15 @@ export class ModelObject extends SceneObject {
             if (this.atlas.model.elements) {
                 this.atlas.model.elements?.forEach(el => {
                     const elGeo = this._getBoxGeometryFromElement(el).clone();
+                    if (this.options.cullMask) {
+                        const indices = Array.from(elGeo.getIndex()!.array);
+                        elGeo.setIndex(indices.filter((_, index) => {
+                            const face = CUBE_FACES[Math.floor(index / 6)];
+                            const direction = CUBE_FACES.findIndex(name => name === el.faces[face]?.cullface);
+                            return direction < 0 || !(this.options.cullMask! & (1 << direction));
+                        }));
+                        elGeo.clearGroups();
+                    }
                     if (this.options.uvLockRotation) {
                         UVMapper.lockUvs(elGeo, el.faces, this.atlas!, new Euler(...this.options.uvLockRotation));
                     }
@@ -165,36 +178,57 @@ export class ModelObject extends SceneObject {
 
 
     protected applyTextures() {
-        // if (this.atlas!.model.textures) {
-        //     for (let textureKey in this.atlas!.model.textures) {
-        //         let asset = this.textureMap[textureKey];
-        //         if (asset) {
-        //TODO: transparency
         if (this.atlas) {
-            let mat = Materials.createShadedCanvasMaterial(this.atlas.image!.canvas! as HTMLCanvasElement, this.atlas.hasTransparency, false/*TODO: get this from render options*/);
+            const mat = Materials.createShadedCanvasMaterial(this.atlas.image.canvas as HTMLCanvasElement, this.atlas.hasTransparency, false);
+            this.atlasMaterial = mat;
+            this.atlasTexture = (mat as ShaderMaterial).uniforms?.map?.value ?? (mat as MeshBasicMaterial).map;
             this.iterateAllMeshes(mesh => {
                 if (mesh.geometry.hasAttribute("color")) mat.vertexColors = true;
                 mesh.material = mat;
             });
-
-            //TODO: move this somewhere else
-            //TODO: this seems to be ticking way too fast atm
-            if (this.atlas.hasAnimation) {
-                if (typeof this.atlas.ticker === "undefined") { //TODO: fix missing texture update for reused atlas
-                    this.atlas.ticker = Ticker.add(() => {
-                        for (let key in this.atlas!.animatorFunctions) {
-                            this.atlas!.animatorFunctions[key]();
-                        }
-                        Materials.needsUpdate(mat);
-                    });
-                }
-            }
+            this.updateAnimationSubscription();
         }
-        //         }
-        //     }
-        // }
     }
 
+    private updateAnimationSubscription(): void {
+        const active = !!this.parent && (!this.isInstanced || this.instanceCounter > 0);
+        if (active && this.atlas?.hasAnimation && this.atlasTexture) {
+            if (!this.unsubscribeAtlas) {
+                this.atlasTexture.needsUpdate = true;
+                this.unsubscribeAtlas = this.atlas.subscribe(() => {
+                    this.atlasTexture!.needsUpdate = true;
+                    this.traverseAncestors(parent => {
+                        if ((parent as MineRenderScene).isMineRenderScene) (parent as MineRenderScene).dirty = true;
+                    });
+                    this.notifyDirty();
+                });
+            }
+        } else {
+            this.unsubscribeAtlas?.();
+            this.unsubscribeAtlas = undefined;
+        }
+    }
+
+    nextInstance() {
+        const reference = super.nextInstance();
+        this.updateAnimationSubscription();
+        return reference;
+    }
+
+    removeInstanceAt(index: number): void {
+        super.removeInstanceAt(index);
+        this.updateAnimationSubscription();
+    }
+
+    public disposeAndRemoveAllChildren(): void {
+        this.unsubscribeAtlas?.();
+        this.unsubscribeAtlas = undefined;
+        this.atlasTexture?.dispose();
+        this.atlasMaterial?.dispose();
+        this.atlasTexture = undefined;
+        this.atlasMaterial = undefined;
+        super.disposeAndRemoveAllChildren();
+    }
 
 }
 
@@ -205,6 +239,8 @@ export interface ModelObjectOptions extends SceneObjectOptions {
     uvLockRotation?: TripleArray;
     /** sRGB 0xRRGGBB colors by face tint index; omitted indices stay white. */
     tints?: Record<number, number>;
+    /** Hidden neighbor directions in CUBE_FACES order, before the model's block rotation. */
+    cullMask?: number;
 }
 
 export function isModelObject(obj: any): obj is ModelObject {

@@ -171,12 +171,12 @@ world.setBlockAt(0, 0, 0, {
                 for (let y = 0; y < 20; y++) {
                     if (Math.random() < 0.2) {
                         executor.submit(() => {
-                            world.setBlockAt(x, y, z, {
+                            return world.setBlockAt(x, y, z, {
                                 type: "stone"
                             }).then(info => {
                                 console.log(info)
                             })
-                        })
+                        }).catch(console.error)
                     }
                 }
             }

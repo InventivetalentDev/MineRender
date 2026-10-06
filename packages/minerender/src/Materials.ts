@@ -1,5 +1,5 @@
 import { MaterialKey, serializeMaterialKey } from "./cache/CacheKey";
-import { Color, DoubleSide, FrontSide, Material, MeshBasicMaterial, MeshLambertMaterial, MeshPhongMaterial, MeshStandardMaterial, ShaderMaterial } from "three";
+import { Color, DoubleSide, FrontSide, Material, MeshBasicMaterial, MeshLambertMaterial, MeshPhongMaterial, MeshStandardMaterial, ShaderChunk, ShaderMaterial } from "three";
 import { Textures } from "./texture/Textures";
 import { TextureLoader } from "./texture/TextureLoader";
 import { Caching } from "./cache/Caching";
@@ -47,6 +47,31 @@ export class Materials {
         })
     }
 
+    public static createGuiCanvasMaterial(canvas: HTMLCanvasElement): MeshBasicMaterial {
+        const material = new MeshBasicMaterial({
+            map: Textures.createCanvasTexture(canvas),
+            transparent: true,
+            depthWrite: false,
+            side: DoubleSide,
+            toneMapped: false
+        });
+        material.onBeforeCompile = shader => {
+            // Keep MSAA edge pixels inside the layer's cropped texture region.
+            for (const [stage, direction] of [["vertex", "out"], ["fragment", "in"]] as const) {
+                const chunk = `uv_pars_${stage}` as const;
+                shader[`${stage}Shader`] = shader[`${stage}Shader`].replace(`#include <${chunk}>`,
+                    ShaderChunk[chunk].replace("varying vec2 vMapUv;", `
+                        #if __VERSION__ >= 300
+                        centroid ${direction} vec2 vMapUv;
+                        #else
+                        varying vec2 vMapUv;
+                        #endif
+                    `));
+            }
+        };
+        return material;
+    }
+
     public static createShadedCanvasMaterial(canvas: HTMLCanvasElement, transparent: boolean = false, shade:boolean=false):Material {
         //TODO
         //  this might help https://github.com/JannisX11/blockbench/blob/1701f764641376414d29100c4f6c7cd74997fad8/js/preview/canvas.js#L62
@@ -57,7 +82,12 @@ export class Materials {
         const vertShader =`
             uniform bool SHADE;
             
+            // Keep MSAA edge pixels from sampling outside the face's atlas region.
+            #if __VERSION__ >= 300
+            centroid out vec2 vUv;
+            #else
             varying vec2 vUv;
+            #endif
             varying vec3 vTint;
             varying float light;
             varying float lift;
@@ -114,7 +144,11 @@ export class Materials {
             uniform bool EMISSIVE;
             uniform float BRIGHTNESS;
 
+            #if __VERSION__ >= 300
+            centroid in vec2 vUv;
+            #else
             varying vec2 vUv;
+            #endif
             varying vec3 vTint;
             varying float light;
             varying float lift;

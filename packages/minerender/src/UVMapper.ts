@@ -290,6 +290,11 @@ export class UVMapper {
         const textureMap: { [key: string]: Maybe<WrappedImage>; } = {};
         const metaMap: { [key: string]: Maybe<MinecraftTextureMeta>; } = {};
         const model = {...originalModel};
+        // Merged models share element objects with their cached parents (cube, cube_all, ...), so the
+        // baked UVs below must go onto this atlas's own copies, not onto objects other atlases read.
+        if (originalModel.elements) {
+            model.elements = originalModel.elements.map(element => ({ ...element }));
+        }
         const isItemModel = !("elements" in model);
 
         console.debug(p, "Creating Atlas for", model.key);
@@ -326,20 +331,34 @@ export class UVMapper {
             this.fillMissingTextureKeys(model.textures, metaMap);
 
             const sizes: { [texture: string]: DoubleArray; } = {};
+            const frames: { [texture: string]: { index: number; time: number }[] } = {};
 
             // Find largest texture dimensions
             let maxWidth = 0;
-            let maxHeight = 0;
             for (let textureKey of uniqueTextureNames) {
                 let texture = textureMap[textureKey];
                 if (!texture) continue;
-                sizes[textureKey] = [texture.frameWidth, texture.frameHeight];
-                if (texture.frameWidth > maxWidth) {
-                    maxWidth = texture.width;
+                const animation = metaMap[textureKey]?.animation;
+                let width = texture.width, height = texture.height;
+                if (animation) {
+                    const square = Math.min(width, height);
+                    width = animation.width ?? (animation.height === undefined ? square : width);
+                    height = animation.height ?? (animation.width === undefined ? square : height);
+                    if (!Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0
+                        || texture.width % width || texture.height % height) {
+                        throw new RangeError(`Invalid animation frame dimensions for ${textureKey}`);
+                    }
+                    const count = (texture.width / width) * (texture.height / height);
+                    const time = animation.frametime ?? 1;
+                    frames[textureKey] = (animation.frames ?? Array.from({ length: count }, (_, index) => index))
+                        .map(frame => typeof frame === "number" ? { index: frame, time } : { index: frame.index, time: frame.time ?? time });
+                    if (!frames[textureKey].length || frames[textureKey].some(frame => !Number.isInteger(frame.index)
+                        || frame.index < 0 || frame.index >= count || !Number.isInteger(frame.time) || frame.time < 1)) {
+                        throw new RangeError(`Invalid animation frames for ${textureKey}`);
+                    }
                 }
-                if (texture.frameHeight > maxHeight) {
-                    maxHeight = texture.frameHeight;
-                }
+                sizes[textureKey] = [width, height];
+                maxWidth = Math.max(maxWidth, width, height);
             }
             this.fillMissingTextureKeys(model.textures, sizes);
 
@@ -376,46 +395,33 @@ export class UVMapper {
                 let x = tx * maxWidth;
                 let y = ty * maxWidth;
                 if (texture) {
-                    console.log(texture);
                     positions[textureKey] = [x, y];
-                    image.putData(texture.data, x, y, 0, 0, maxWidth, maxWidth);
-                    // console.log(image.toDataURL())
-                    //TODO: only first frame for animated textures
+                    const [width, height] = sizes[textureKey];
+                    const sequence = frames[textureKey];
+                    const drawFrame = (index: number) => {
+                        const columns = texture!.width / width;
+                        image.putData(texture!.getSectionData((index % columns) * width,
+                            Math.floor(index / columns) * height, width, height), x, y);
+                    };
+                    drawFrame(sequence?.[0].index ?? 0);
 
                     if (texture.hasTransparency) {
                         hasTransparency = true;
                     }
 
-                    console.log("texture", textureKey, "animated", texture.animated)
-
-                    if (texture.animated) {
+                    if (sequence && sequence.some(frame => frame.index !== sequence[0].index)) {
                         hasAnimation = true;
-                        const meta = metaMap[textureKey];
-                        const frameTime = meta?.animation?.frametime ?? 1;
-                        console.log(meta);
-                        console.log(frameTime);
-
                         let t = 0;
                         let f = 0;
 
                         animatorFunctions[textureKey] = () => {
-                            // console.log("animating", textureKey)
-                            //TODO: use mcmeta for frame count, delays, etc
-                            //TODO: interpolate?
-                            if (t++ >= frameTime) {
-                                t = 0;
-
-                                const frames = meta?.animation?.frames;
-                                const frame = frames ? frames[f] as number : f; //TODO: frame.time support
-
-                                image.putData(texture!.getFrameSectionData(frame), x, y, 0, 0, maxWidth, maxWidth);
-
-                                f++;
-                                if (f >= (frames ? frames.length : texture!.frameCount)) {
-                                    f = 0;
-                                }
-                            }
-
+                            if (++t < sequence[f].time) return false;
+                            t = 0;
+                            const previous = sequence[f].index;
+                            f = (f + 1) % sequence.length;
+                            if (sequence[f].index === previous) return false;
+                            drawFrame(sequence[f].index);
+                            return true;
                         };
                     }
                 }
@@ -438,7 +444,12 @@ export class UVMapper {
                 for (let layerName of ModelGenerator.ITEM_LAYERS) {
                     const textureImage = textureMap[layerName];
                     if (textureImage) {
-                        model.elements.push(...ModelGenerator.generateItemModel(textureImage.data, layerName))
+                        // Outline the frame that was drawn into the atlas, not the whole animation strip.
+                        const [width, height] = sizes[layerName];
+                        const frame = frames[layerName]?.[0].index ?? 0;
+                        const columns = textureImage.width / width;
+                        model.elements.push(...ModelGenerator.generateItemModel(textureImage.getSectionData(
+                            (frame % columns) * width, Math.floor(frame / columns) * height, width, height), layerName))
                     }
                 }
                 console.debug(p, "Item model elements", model.elements)

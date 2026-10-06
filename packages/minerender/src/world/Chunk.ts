@@ -1,19 +1,19 @@
 import { Block } from "../model/block/Block";
-import { BlockObject, isBlockObject } from "../model/block/scene/BlockObject";
-import { Box3, Object3D, Vector3 } from "three";
+import { BlockObject } from "../model/block/scene/BlockObject";
+import { Vector3 } from "three";
 import { Maybe } from "../util/util";
 import { BlockInfo } from "./BlockInfo";
+import { ChunkData } from "./ChunkData";
 import { MineRenderScene } from "../renderer/MineRenderScene";
 import { BlockStates } from "../assets/BlockStates";
 import { AssetKey } from "../assets/AssetKey";
 import { MineRenderWorld } from "./MineRenderWorld";
 import { isTripleArray, TripleArray } from "../model/Model";
-import { addBox3WireframeToObject } from "../util/model";
-import { prefix } from "../util/log";
+import { SectionModels } from "./SectionModels";
+import { SectionMesh, SectionMeshEntry } from "./SectionMesh";
+import { getFluidKind } from "../model/fluid/FluidGeometry";
 
-const p = prefix("Chunk");
-
-export class Chunk {
+export class Chunk<SectionMeshing extends boolean = false> {
 
     public readonly scene: MineRenderScene; //TODO: should probably be the world
 
@@ -21,32 +21,25 @@ export class Chunk {
     public readonly y: number;
     public readonly z: number;
 
-    private readonly _blocks: BlockInfo[] = [];
+    private readonly data = new ChunkData();
+    private readonly renderedBlocks = new Map<number, BlockInfo<SectionMeshing>>();
+    private readonly sectionBlocks = new Map<number, SectionMeshEntry>();
+    private sectionMesh?: SectionMesh;
+    private meshDirty = false;
 
-    private readonly _anchor: Object3D;
-
-    constructor(scene: MineRenderScene, x: number, y: number, z: number) {
+    constructor(scene: MineRenderScene, x: number, y: number, z: number,
+                private readonly onBlocksChanged?: (positions: Vector3[]) => Promise<void>,
+                private readonly sectionModels?: SectionModels) {
         this.scene = scene;
         this.x = x;
         this.y = y;
         this.z = z;
-
-        //TODO: option to visualize chunks
-        let anchor = new Object3D();
-        this._anchor = anchor;
-        scene.add(anchor)
-        anchor.position.set((this.x * 256) + 128 - 8, (this.y * 256) + 128 - 8, (this.z * 256) + 128 - 8);
-        addBox3WireframeToObject(
-            new Box3(new Vector3(0, 0, 0), new Vector3(256, 256, 256)),
-            anchor,
-            0xffff00,
-            4);
     }
 
-    public getBlockAt(x: number, y: number, z: number): Maybe<BlockInfo>;
-    public getBlockAt(pos: Vector3): Maybe<BlockInfo>;
-    public getBlockAt(pos: TripleArray): Maybe<BlockInfo>;
-    public getBlockAt(posOrX: number | Vector3 | TripleArray, y?: number, z?: number): Maybe<BlockInfo> {
+    public getBlockAt(x: number, y: number, z: number): Maybe<BlockInfo<SectionMeshing>>;
+    public getBlockAt(pos: Vector3): Maybe<BlockInfo<SectionMeshing>>;
+    public getBlockAt(pos: TripleArray): Maybe<BlockInfo<SectionMeshing>>;
+    public getBlockAt(posOrX: number | Vector3 | TripleArray, y?: number, z?: number): Maybe<BlockInfo<SectionMeshing>> {
         if (typeof posOrX == "number") {
             return this.getBlockAt(new Vector3(posOrX, y, z));
         }
@@ -55,16 +48,16 @@ export class Chunk {
         }
         const pos: Vector3 = this.worldPosToChunkPos(posOrX);
         const index = Chunk.chunkPosToBlockIndex(pos);
-        return this._blocks[index];
+        return this.renderedBlocks.get(index);
     }
 
     /**
      * Set block at a _world_ position
      */
-    public async setBlockAt(x: number, y: number, z: number, block: Maybe<Block>): Promise<Maybe<BlockInfo>>;
-    public async setBlockAt(pos: Vector3, block: Maybe<Block>): Promise<Maybe<BlockInfo>>;
-    public async setBlockAt(pos: TripleArray, block: Maybe<Block>): Promise<Maybe<BlockInfo>>;
-    public async setBlockAt(posOrX: number | Vector3 | TripleArray, yOrBlock?: number | Block, z?: number, block?: Block): Promise<Maybe<BlockInfo>> {
+    public async setBlockAt(x: number, y: number, z: number, block: Maybe<Block>): Promise<Maybe<BlockInfo<SectionMeshing>>>;
+    public async setBlockAt(pos: Vector3, block: Maybe<Block>): Promise<Maybe<BlockInfo<SectionMeshing>>>;
+    public async setBlockAt(pos: TripleArray, block: Maybe<Block>): Promise<Maybe<BlockInfo<SectionMeshing>>>;
+    public async setBlockAt(posOrX: number | Vector3 | TripleArray, yOrBlock?: number | Block, z?: number, block?: Block): Promise<Maybe<BlockInfo<SectionMeshing>>> {
         if (typeof posOrX == "number") {
             return this.setBlockAt(new Vector3(posOrX, yOrBlock as number, z), block as Block);
         }
@@ -79,68 +72,113 @@ export class Chunk {
     }
 
     /**
-     * Set block at a _chunk_ position (0-16)
+     * Set a block at integer chunk-local coordinates from 0 to 15.
      */
-    public async setBlockInChunkAt(pos: Vector3, block?: Block,  worldPos?: Vector3): Promise<Maybe<BlockInfo>> {
+    public async setBlockInChunkAt(pos: Vector3, block?: Block, worldPos?: Vector3,
+                                   onBlocksChanged = this.onBlocksChanged): Promise<Maybe<BlockInfo<SectionMeshing>>> {
         if (typeof worldPos === "undefined") {
             worldPos = this.chunkPosToWorldPos(pos);
         }
 
         const index = Chunk.chunkPosToBlockIndex(pos);
-        const current = this._blocks[index];
-        if (typeof current !== "undefined") {
-            console.debug(p, "deleting existing block at", pos, worldPos, index);
-            // current.object.setScale(new Vector3(0, 0, 0));//TODO
-            current.object.removeFromScene();
-            delete this._blocks[index];
-        }
-
-        if (typeof block === "undefined" || typeof block.type === "undefined" || block.type === "air") return undefined; // only delete block
-
-        const blockState = await BlockStates.get(AssetKey.parse("blockstates", block.type));
-        if (blockState) {
-            const blockObject: BlockObject = await this.scene.addBlock(blockState, {
-                mergeMeshes: true,
-                instanceMeshes: true,
-                wireframe: true,
-                maxInstanceCount: 2000 //TODO: setting this to high kills FPS; increase on demand somehow?
-            }) as BlockObject;//TODO
-            if (block.properties) {
-                await blockObject.setState(block.properties);
+        this.data.set(index, block);
+        const readBlock = this.data.snapshot(index);
+        this.renderedBlocks.get(index)?.object?.removeFromScene();
+        if (this.sectionBlocks.delete(index)) this.meshDirty = true;
+        this.renderedBlocks.delete(index);
+        let object: BlockObject | undefined;
+        try {
+            if (!readBlock) return undefined;
+            const stored = readBlock();
+            const blockState = await BlockStates.get(AssetKey.parse("blockstates", stored.type));
+            if (!blockState) {
+                this.data.set(index, undefined);
+                return undefined;
+            }
+            const template = getFluidKind(blockState.key, stored.properties) ? undefined : await this.sectionModels?.get(blockState, stored.properties);
+            if (template) {
+                this.sectionBlocks.set(index, { index, template, cullMask: 0 });
+                this.meshDirty = true;
+            } else {
+                object = await this.scene.addBlock(blockState, {
+                    mergeMeshes: true,
+                    instanceMeshes: true,
+                    maxInstanceCount: 2000,
+                    initialState: stored.properties
+                }) as BlockObject;
+                object.setPosition(MineRenderWorld.worldToScenePosition(worldPos));
             }
 
-            const scenePos = MineRenderWorld.worldToScenePosition(worldPos);
-            blockObject.setPosition(scenePos);
-
-            this._blocks[index] = {
-                block: block,
-                object: blockObject as BlockObject
-            }
-            return this._blocks[index];
+            const info = { get block() { return readBlock(); }, object } as BlockInfo<SectionMeshing>;
+            this.renderedBlocks.set(index, info);
+            return info;
+        } catch (error) {
+            this.data.set(index, undefined);
+            object?.removeFromScene();
+            throw error;
+        } finally {
+            await onBlocksChanged?.([worldPos]);
         }
-        return undefined;
     }
 
-    public async clear(): Promise<void> {
-        let promises: Promise<any>[] = [];
-        let pos = new Vector3();
-        for (let x = 0; x < 16; x++) {
-            for (let z = 0; z < 16; z++) {
-                for (let y = 0; y < 16; y++) {
-                    promises.push(this.setBlockInChunkAt(pos.set(x,y,z), undefined));
-                }
+    public isOccludingAt(pos: Vector3): boolean {
+        const index = Chunk.chunkPosToBlockIndex(this.worldPosToChunkPos(pos));
+        return this.sectionBlocks.has(index) || (this.renderedBlocks.get(index)?.object?.isOccluding ?? false);
+    }
+
+    public async setCullMaskAt(pos: Vector3, mask: number): Promise<void> {
+        const index = Chunk.chunkPosToBlockIndex(this.worldPosToChunkPos(pos));
+        const entry = this.sectionBlocks.get(index);
+        if (entry) {
+            if (entry.cullMask !== mask) {
+                entry.cullMask = mask;
+                this.meshDirty = true;
             }
+        } else {
+            await this.renderedBlocks.get(index)?.object?.setCullMask(mask);
         }
-        return Promise.all(promises).then(ignored => {
-        });
+    }
+
+    public rebuildSectionMesh(): void {
+        if (!this.meshDirty) return;
+        const next = this.sectionBlocks.size
+            ? SectionMesh.build([...this.sectionBlocks.values()], this.sectionModels!.maxAtlasSize) : undefined;
+        this.sectionMesh?.dispose();
+        this.sectionMesh = next;
+        if (next) {
+            next.position.set(this.x * 256, this.y * 256, this.z * 256);
+            this.scene.add(next);
+        }
+        this.scene.dirty = true;
+        this.meshDirty = false;
+    }
+
+    public async clear(onBlocksChanged = this.onBlocksChanged): Promise<void> {
+        const positions = [...this.renderedBlocks.keys()].map(index => this.chunkPosToWorldPos(
+            new Vector3(index % 16, Math.floor(index / 256), Math.floor(index / 16) % 16)
+        ));
+        for (const info of this.renderedBlocks.values()) info.object?.removeFromScene();
+        this.sectionBlocks.clear();
+        this.sectionMesh?.dispose();
+        this.sectionMesh = undefined;
+        this.meshDirty = false;
+        this.renderedBlocks.clear();
+        this.data.clear();
+        await onBlocksChanged?.(positions);
     }
 
     public async dispose(): Promise<void> {
         await this.clear();
-        this.scene.remove(this._anchor);
+    }
+
+    static isAir(block: Maybe<Block>): boolean {
+        return ChunkData.isAir(block);
     }
 
     static chunkPosToBlockIndex(pos: Vector3): number {
+        if ([pos.x, pos.y, pos.z].some(value => !Number.isInteger(value) || value < 0 || value >= 16)) {
+            throw new RangeError("Block coordinates must be integers from 0 to 15 within a chunk");
+        }
         return (pos.y * 16 * 16) + (pos.z * 16) + pos.x;
     }
 

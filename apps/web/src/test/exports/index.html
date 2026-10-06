@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Exports | MineRender</title>
+        <link rel="stylesheet" href="../../demo_shared.css">
+    </head>
+    <body>
+        <div class="overlay top-left">
+            <h1>Export blocks</h1>
+            <p>Drag to orbit, scroll to zoom, then download the image or scene.</p>
+            <fieldset id="exports" disabled>
+                <legend>Download</legend>
+                <button type="button" data-export="png">PNG</button>
+                <button type="button" data-export="trim">Cropped PNG</button>
+                <button type="button" data-export="jpeg">JPEG</button>
+                <button type="button" data-export="obj">OBJ</button>
+                <button type="button" data-export="ply">PLY</button>
+                <button type="button" data-export="gltf">glTF</button>
+                <button type="button" data-export="glb">GLB</button>
+            </fieldset>
+            <p id="export-status" role="status">Loading blocks…</p>
+        </div>
+
+        <script type="module" src="script.bundle.js"></script>
+    </body>
+</html>

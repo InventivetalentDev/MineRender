@@ -1,6 +1,6 @@
 {
   "name": "minerender",
-  "version": "2.1.0-alpha.28",
+  "version": "2.1.0-beta.0",
   "description": "Interactive 3D renders of Minecraft skins, models, blocks, entities and worlds",
   "main": "./dist/node/index.js",
   "module": "./dist/browser/index.mjs",
@@ -76,9 +76,11 @@
     "exports": "bash ./scripts/make-exports.sh",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "ava",
+    "test:package": "ava --config ava.package.config.js",
     "doc": "typedoc --out docs src",
     "prepublishOnly": "yarn run build",
-    "publish:alpha": "yarn build && yarn version prerelease --immediate && yarn npm publish --tag alpha"
+    "publish:alpha": "yarn build && yarn version prerelease --immediate && yarn npm publish --tag alpha",
+    "publish:beta": "yarn build && yarn version prerelease --immediate && yarn npm publish --tag beta"
   },
   "engines": {
     "node": ">=22.0.0"
@@ -103,6 +105,7 @@
     "@zip.js/zip.js": "^2.7.31",
     "buffer": "^6.0.3",
     "crypto-js": "^4.0.0",
+    "fast-png": "^8.0.0",
     "image-size": "^0.9.4",
     "jobqu": "^3.1.0",
     "localforage": "^1.9.0",

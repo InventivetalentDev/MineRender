@@ -1,0 +1,9 @@
+{
+  "minecraft:water": { "kind": "water", "levelProperty": "level", "renderModel": false },
+  "minecraft:lava": { "kind": "lava", "levelProperty": "level", "renderModel": false },
+  "minecraft:kelp": { "kind": "water", "renderModel": true },
+  "minecraft:kelp_plant": { "kind": "water", "renderModel": true },
+  "minecraft:seagrass": { "kind": "water", "renderModel": true },
+  "minecraft:tall_seagrass": { "kind": "water", "renderModel": true },
+  "minecraft:bubble_column": { "kind": "water", "renderModel": false }
+}

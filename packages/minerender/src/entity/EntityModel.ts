@@ -1,11 +1,16 @@
 import type { AssetKey, BasicAssetKey } from "../assets/AssetKey";
 import type { MinecraftAsset } from "../MinecraftAsset";
 
-export interface EntityModel {
+export interface EntityLayer {
     key: BasicAssetKey;
     texture?: AssetKey;
     layer: EntityModelLayer;
+}
+
+export interface EntityModel extends EntityLayer {
     id: string;
+    /** Selected layers; the top-level fields describe the first selection. */
+    layers?: Record<string, EntityLayer>;
 }
 
 export interface EntityModelFile extends MinecraftAsset {

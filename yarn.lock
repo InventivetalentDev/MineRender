@@ -3534,6 +3534,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"fast-png@npm:^8.0.0":
+  version: 8.0.0
+  resolution: "fast-png@npm:8.0.0"
+  dependencies:
+    fflate: "npm:^0.8.2"
+    iobuffer: "npm:^6.0.1"
+  checksum: 10c0/badc2f20acd5a45749260daf2519f9ae157a6a2f51cdd780da007d10be6a775f486406fd546dc18de766bc708ed809a4fba17e5ed9ef4aea3a73dcc281a747a9
+  languageName: node
+  linkType: hard
+
 "fastq@npm:^1.6.0":
   version: 1.19.1
   resolution: "fastq@npm:1.19.1"
@@ -3552,6 +3562,13 @@ __metadata:
     picomatch:
       optional: true
   checksum: 10c0/6ccc33be16945ee7bc841e1b4178c0b4cf18d3804894cb482aa514651c962a162f96da7ffc6ebfaf0df311689fb70091b04dd6caffe28d56b9ebdc0e7ccadfdd
+  languageName: node
+  linkType: hard
+
+"fflate@npm:^0.8.2":
+  version: 0.8.3
+  resolution: "fflate@npm:0.8.3"
+  checksum: 10c0/eab181ca37f5348ae76d4b6f840e0026e30220e33153289ac942222d8b9638237d486507dbcc09878d724095bd354993a2ee48bbee99c8f2c6440d4448719aa7
   languageName: node
   linkType: hard
 
@@ -4065,6 +4082,13 @@ __metadata:
   version: 2.0.4
   resolution: "inherits@npm:2.0.4"
   checksum: 10c0/4e531f648b29039fb7426fb94075e6545faa1eb9fe83c29f0b6d9e7263aceb4289d2d4557db0d428188eeb449cc7c5e77b0a0b2c4e248ff2a65933a0dee49ef2
+  languageName: node
+  linkType: hard
+
+"iobuffer@npm:^6.0.1":
+  version: 6.0.1
+  resolution: "iobuffer@npm:6.0.1"
+  checksum: 10c0/d843535d643f2eee1a5f35faba15ea8e343f466b81bda6d3d9e1e9a7517d20a7f1cb2c4f3603cb9c3b61912c85e13d3894f84f8ea11fb6630a3c8190e0f19b4a
   languageName: node
   linkType: hard
 
@@ -4696,6 +4720,7 @@ __metadata:
     esbuild: "npm:^0.19.5"
     esbuild-plugin-polyfill-node: "npm:^0.3.0"
     esbuild-runner: "npm:^2.2.2"
+    fast-png: "npm:^8.0.0"
     image-size: "npm:^0.9.4"
     jobqu: "npm:^3.1.0"
     localforage: "npm:^1.9.0"

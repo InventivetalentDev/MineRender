@@ -16,7 +16,8 @@ const shared: Options = {
     // esModuleInterop unwraps that for a CJS build, but Node's ESM loader hands the wrapper back
     // untouched, so `import merge from "ts-deepmerge"` resolves to an object and every merge call
     // throws. Inlining it lets esbuild apply the interop at build time instead. It is ~1 KB.
-    noExternal: ["ts-deepmerge"]
+    // Three's exporters are ESM-only; inline them so the CJS entry stays require-compatible.
+    noExternal: ["ts-deepmerge", /^three\/examples\/jsm\//]
 };
 
 const browserDefines = {

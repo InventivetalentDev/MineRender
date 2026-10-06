@@ -18,3 +18,6 @@ export enum CubeFaceIndex {
 
 export const CUBE_FACES = Object.values(CubeFace);
 
+export const CUBE_FACE_OFFSETS = [
+    [1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]
+] as const;

@@ -5,7 +5,6 @@ import { Model } from "../model/Model";
 import { isModelObject, ModelObject, ModelObjectOptions } from "../model/scene/ModelObject";
 import { InstanceReference } from "../instance/InstanceReference";
 import { SceneStats } from "../SceneStats";
-import { SSAOPassOUTPUT } from "three/examples/jsm/postprocessing/SSAOPass";
 import { BasicMinecraftAsset, MinecraftAsset } from "../MinecraftAsset";
 import { SceneObjectOptions } from "./SceneObjectOptions";
 import { BlockState } from "../model/block/BlockState";
@@ -16,6 +15,8 @@ import { SkinObject, SkinObjectOptions } from "../skin/scene/SkinObject";
 import { EntityObject, EntityObjectOptions } from "../entity/scene/EntityObject";
 import { EntityModel } from "../entity/EntityModel";
 import { AssetKey, isAssetKey } from "../assets/AssetKey";
+import { GuiLayer } from "../gui/GuiLayer";
+import { GuiObject, GuiObjectOptions } from "../gui/scene/GuiObject";
 
 export class MineRenderScene extends Scene {
 
@@ -96,25 +97,21 @@ export class MineRenderScene extends Scene {
     }
 
     async addSceneObject<A extends BasicMinecraftAsset, T extends SceneObject, O extends SceneObjectOptions>(asset: A, objectSupplier: () => T | Promise<T>, _options?: Partial<O>, parent: Object3D = this): Promise<T | InstanceReference<T>> {
-        console.log("addSceneObject", asset)
-        console.log("parent", parent)
-        console.log(_options);
         this.dirty = true;
-        // console.log(this.instanceManager)
         //TODO: we need a way to call objectSupplier in the instance supplier below
         // but we also need to get the options that have been merged with the defaults properly
         // so maybe to the option merging _somewhere_ else, not in the object constructor
         const obj = await objectSupplier();
         if (obj?.options?.instanceMeshes && asset.key &&  (<AssetKey>asset.key)?.assetType === "models"/*TODO*/) {
-            console.log("instanceMeshes + key")
-            // Display poses, UV-lock rotations, and tint palettes change vertices but share an atlas.
+            // Geometry options need separate instance pools while sharing the texture atlas.
             let key = asset.key.serialize();
             if (isModelObject(obj)) {
-                const { displayPosition, uvLockRotation, tints } = obj.options;
+                const { displayPosition, uvLockRotation, tints, cullMask } = obj.options;
                 if (displayPosition) key += `|display:${displayPosition}`;
                 if (uvLockRotation) key += `|uvlock:${uvLockRotation.join(",")}`;
                 const palette = Object.entries(tints ?? {}).sort(([a], [b]) => Number(a) - Number(b));
                 if (palette.length) key += `|tints:${JSON.stringify(palette)}`;
+                if (cullMask) key += `|cull:${cullMask}`;
             }
             return this.instanceManager.getOrCreate(key, async () => {
                 // const obj = await objectSupplier();
@@ -126,7 +123,6 @@ export class MineRenderScene extends Scene {
             });
         } else {
             // const obj = await objectSupplier();
-            console.log("!instanceMeshes | !key")
             obj.scene = this;
             // await this.initAndAdd(obj);
             await obj.init();
@@ -160,6 +156,15 @@ export class MineRenderScene extends Scene {
 
     public async addEntity(entity: EntityModel, options?: Partial<EntityObjectOptions>, parent: Object3D = this): Promise<EntityObject | InstanceReference<EntityObject>> {
         return this.addSceneObject<EntityModel, EntityObject, BlockObjectOptions>(entity, () => new EntityObject(entity, options), options, parent);
+    }
+
+    public async addGui(layers: readonly GuiLayer[], options?: Partial<GuiObjectOptions>, parent: Object3D = this): Promise<GuiObject> {
+        const obj = new GuiObject(layers, options);
+        obj.scene = this;
+        await obj.init();
+        parent.add(obj);
+        this.dirty = true;
+        return obj;
     }
 
 }
