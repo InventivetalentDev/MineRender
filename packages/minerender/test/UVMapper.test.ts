@@ -1,4 +1,4 @@
-import test, { ExecutionContext } from "ava";
+import test from "ava";
 import { Env, EnvProvider } from "../src/Env";
 import { ModelTextures } from "../src/assets/ModelTextures";
 import { ImageLoader } from "../src/image/ImageLoader";
@@ -7,7 +7,9 @@ import type { Model } from "../src/model/Model";
 import type { CompatCanvas } from "../src/canvas/CanvasCompat";
 import type { ExtractableImageData } from "../src/ExtractableImageData";
 
-function fixture(t: ExecutionContext) {
+import type { ExecutionContext } from "ava";
+
+function stubTextures(t: ExecutionContext): void {
     const originals = { provider: Env["_provider"], get: ModelTextures.get, meta: ModelTextures.getMeta, data: ImageLoader.getData };
     t.teardown(() => {
         Env["_provider"] = originals.provider;
@@ -30,7 +32,7 @@ function fixture(t: ExecutionContext) {
 }
 
 test.serial("faces without texture references keep fallback UVs while textured faces map normally", async t => {
-    fixture(t);
+    stubTextures(t);
     const model: Model = {
         textures: { side: "block/stone" },
         elements: [{
@@ -48,15 +50,23 @@ test.serial("faces without texture references keep fallback UVs while textured f
     t.deepEqual(uv.slice(16, 24), [0, 1, 0.25, 1, 0, 0.75, 0.25, 0.75]);
 });
 
-test.serial("building a sibling atlas leaves existing and source UVs unchanged", async t => {
-    fixture(t);
-    const elements: Model["elements"] = [{
-        from: [0, 0, 0], to: [16, 16, 16], faces: { west: { texture: "#side" } }
+test.serial("atlases bake UVs onto their own element copies, not onto elements shared through a parent", async t => {
+    stubTextures(t);
+    // Both merged models reference the same element objects, as models inheriting block/cube do.
+    const shared = [{
+        from: [0, 0, 0] as [number, number, number], to: [16, 16, 16] as [number, number, number],
+        faces: { up: { texture: "#top" }, north: { texture: "#side" } }
     }];
-    const source = structuredClone(elements);
-    const first = (await UVMapper.createAtlas({ elements, textures: { side: "block/stone" } }))!;
-    const uv = [...first.model.elements![0].mappedUv!];
-    await UVMapper.createAtlas({ elements, textures: { padding: "block/dirt", side: "block/stone" } });
-    t.deepEqual(first.model.elements![0].mappedUv, uv);
-    t.deepEqual(elements, source);
+    const single: Model = { textures: { top: "block/planks", side: "#top" }, elements: shared };
+    const several: Model = { textures: { top: "block/furnace_top", side: "block/furnace_side", extra: "block/furnace_front" }, elements: shared };
+
+    const first = (await UVMapper.createAtlas(single))!;
+    const firstUv = [...first.model.elements![0].mappedUv!];
+    const second = (await UVMapper.createAtlas(several))!;
+
+    t.not(first.model.elements![0], shared[0]);
+    t.not(second.model.elements![0], shared[0]);
+    t.is(shared[0].mappedUv, undefined);
+    t.deepEqual(first.model.elements![0].mappedUv, firstUv);
+    t.notDeepEqual(second.model.elements![0].mappedUv, firstUv);
 });
