@@ -7,7 +7,7 @@ import { Axis } from "../../Axis";
 import { Materials } from "../../Materials";
 import merge from "ts-deepmerge";
 import { SceneObjectOptions } from "../../renderer/SceneObjectOptions";
-import { DeepPartial } from "../../util/util";
+import { DeepPartial, toRadians } from "../../util/util";
 import { SkinTextures } from "../SkinTextures";
 
 export class SkinObject extends SceneObject {
@@ -20,7 +20,7 @@ export class SkinObject extends SceneObject {
     private skinMaterial?: Material;
     private skinLoad: number = 0;
 
-    private capeTextureSrc?: string;
+    private capeLoad: number = 0;
 
 
     constructor(options?: DeepPartial<SkinObjectOptions>) {
@@ -105,7 +105,6 @@ export class SkinObject extends SceneObject {
 
         console.log("#createMeshes done")
 
-        //TODO: cape
     }
 
 
@@ -120,6 +119,7 @@ export class SkinObject extends SceneObject {
         this.detectedSlim = texture.slim;
         this.updateSlim(this.options.slim ?? this.detectedSlim);
         for (const part of SKIN_PARTS) {
+            if (part === SkinPart.CAPE) continue;
             const mesh = this.getMeshByName(part);
             if (mesh) {
                 mesh.material = texture.material;
@@ -128,7 +128,31 @@ export class SkinObject extends SceneObject {
         this.notifyDirty();
     }
 
-    //TODO: cape
+    /** Load a vanilla cape texture, or pass undefined to remove the cape. */
+    public async setCapeTexture(src?: string): Promise<void> {
+        const load = ++this.capeLoad;
+        if (src === undefined) {
+            const group = this.getGroupByName(SkinPart.CAPE);
+            if (group) this.remove(group);
+            this.notifyDirty();
+            return;
+        }
+
+        const material = await SkinTextures.getCape(src);
+        if (load !== this.capeLoad) return;
+        const mesh = this.getMeshByName(SkinPart.CAPE);
+        if (mesh) {
+            mesh.material = material;
+        } else {
+            const group = this.createAndAddGroup(SkinPart.CAPE, 0, 24, 2);
+            group.rotation.set(toRadians(-6), Math.PI, 0);
+            const geometry = this._getBoxGeometryFromDimensions(
+                classicSkinGeometries.cape, classicSkinTextureCoordinates.cape, [64, 32], [64, 32]);
+            const cape = this.createAndAddMesh(SkinPart.CAPE, group, geometry, material);
+            cape.position.set(0, -8, -0.5);
+        }
+        this.notifyDirty();
+    }
 
     /** Select the arm model, or pass undefined to use texture detection. */
     public setSlim(slim?: boolean): void {
@@ -162,6 +186,7 @@ export class SkinObject extends SceneObject {
 
     public dispose(): void {
         this.skinLoad++;
+        this.capeLoad++;
         super.dispose();
     }
 
