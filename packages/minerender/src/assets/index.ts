@@ -2,6 +2,7 @@
 export * from './AssetKey';
 export * from './AssetLoader';
 export * from './Assets';
+export * from './BlockEntities';
 export * from './BlockStates';
 export * from './Entities';
 export * from './ModelTextures';

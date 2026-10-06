@@ -10,11 +10,14 @@ import { Maybe } from "../../../util/util";
 import { MineRenderError } from "../../../error/MineRenderError";
 import { BlockStateProperties, BlockStatePropertyDefaults } from "../BlockStateProperties";
 import { InstanceReference, isInstanceReference } from "../../../instance/InstanceReference";
-import { AssetKey } from "../../../assets/AssetKey";
+import { AssetKey, BasicAssetKey } from "../../../assets/AssetKey";
 import { BlockTints } from "../BlockTints";
 import { ModelCulling } from "../../ModelCulling";
 import { BlockStateResolver } from "../BlockStateResolver";
 import { FluidKind, FluidSampler, getBlockFluidState, getFluidKind } from "../../fluid/FluidGeometry";
+import { BlockEntities, ResolvedBlockEntity } from "../../../assets/BlockEntities";
+import { Entities } from "../../../assets/Entities";
+import type { EntityObject } from "../../../entity/scene/EntityObject";
 
 export class BlockObject extends SceneObject {
 
@@ -39,6 +42,9 @@ export class BlockObject extends SceneObject {
     private _fluidKey?: string;
     private _fluidSampler?: FluidSampler;
     private _fluidModel?: ModelObject | InstanceReference<ModelObject>;
+    private _entities: EntityObject[] = [];
+    private _entityPlacement = new Matrix4();
+    private _entityGeneration = 0;
 
     constructor(readonly blockState: BlockState, options?: Partial<BlockObjectOptions>) {
         super(options);
@@ -67,6 +73,8 @@ export class BlockObject extends SceneObject {
 
     private clearModels() {
         this.removeModels(this._models.splice(0));
+        this._entityGeneration++;
+        this.removeEntities(this._entities.splice(0));
         this._fluidKey = undefined;
         this._fluidModel = undefined;
         this._isInstanced = false;
@@ -77,6 +85,64 @@ export class BlockObject extends SceneObject {
         for (const model of models) {
             model.removeFromScene();
             if (!isInstanceReference(model)) model.dispose();
+        }
+    }
+
+    private removeEntities(entities: EntityObject[]) {
+        for (const entity of entities) {
+            entity.removeFromScene();
+            entity.dispose();
+        }
+    }
+
+    /** Entity models drawn for this block instead of its block model; they are scene children, unlike the block. */
+    public get blockEntities(): readonly EntityObject[] {
+        return this._entities;
+    }
+
+    /**
+     * Draws the block through the dataset's block-entity index. Returns false, leaving nothing behind,
+     * when the block is not listed or one of its models cannot be loaded.
+     */
+    private async createBlockEntities(): Promise<boolean> {
+        const key = this.blockState.key;
+        if (!key || this.options.displayPosition) return false;
+        const generation = this._entityGeneration;
+        const created: EntityObject[] = [];
+        let resolved: Maybe<ResolvedBlockEntity>;
+        try {
+            resolved = BlockEntities.resolve(await BlockEntities.getIndex(key.root), key.toNamespacedString(), this.state);
+            if (!resolved) return false;
+            for (const part of resolved.parts) {
+                const [namespace, path] = part.model.includes(":") ? part.model.split(":") : [key.namespace, part.model];
+                const texture = part.textureLocation === undefined ? undefined
+                    : AssetKey.parse("textures", part.textureLocation.replace(/^([^:]+:)?textures\//, "$1"));
+                if (texture) texture.root = key.root;
+                const entity = await Entities.getEntity(new BasicAssetKey(namespace, path), texture, { layer: part.layer });
+                if (!entity) throw new MineRenderError(`Missing entity model ${part.model}`);
+                created.push(await this.scene.addEntity(entity, { wireframe: this.options.wireframe }) as EntityObject);
+            }
+        } catch (error) {
+            console.warn(`Could not draw block entity ${key.toNamespacedString()}, using its block model`, error);
+            this.removeEntities(created);
+            return false;
+        }
+        // The block was cleared while the models loaded.
+        if (generation !== this._entityGeneration) {
+            this.removeEntities(created);
+            return true;
+        }
+        BlockEntities.matrix(resolved, this._entityPlacement);
+        this._entities = created;
+        this.placeEntities();
+        return true;
+    }
+
+    private placeEntities() {
+        // Block models are centred on the block position; entity transforms use the block's 0..16 space.
+        const matrix = new Matrix4().makeTranslation(this.position.x - 8, this.position.y - 8, this.position.z - 8).multiply(this._entityPlacement);
+        for (const entity of this._entities) {
+            matrix.decompose(entity.position, entity.quaternion, entity.scale);
         }
     }
 
@@ -228,9 +294,12 @@ export class BlockObject extends SceneObject {
             this._isInstanced = true;
         } else {
          */
+        const hasEntities = await this.createBlockEntities();
         const variantsToCreate = await this.mapStateToVariant(this.state);
         this._variants = variantsToCreate;
         for (let blockStateVariant of variantsToCreate) {
+            // A block entity replaces only block models without geometry (a chest); a bell keeps its frame.
+            if (hasEntities && !await this.hasGeometry(blockStateVariant)) continue;
             this._models.push(await this.createVariant(blockStateVariant));
         }
         await this.updateFluid(this._fluidSampler);
@@ -239,6 +308,12 @@ export class BlockObject extends SceneObject {
 
          */
 
+    }
+
+    private async hasGeometry(variant: BlockStateVariant): Promise<boolean> {
+        const modelKey = AssetKey.parse("models", variant.model!);
+        modelKey.root = this.blockState.key?.root;
+        return !!(await Models.getMerged(modelKey))?.elements?.length;
     }
 
     protected getSingleVariant(variants: BlockStateVariant | BlockStateVariant[]): BlockStateVariant {
@@ -396,6 +471,7 @@ export class BlockObject extends SceneObject {
         for (let model of this._models) {
             model.setPosition(position);
         }
+        this.placeEntities();
         this.notifyDirty();
     }
 
