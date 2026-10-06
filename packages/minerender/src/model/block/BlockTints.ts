@@ -1,7 +1,5 @@
 import { AssetKey } from "../../assets/AssetKey";
-import { ModelTextures } from "../../assets/ModelTextures";
-import { Caching } from "../../cache/Caching";
-import { MineRenderError } from "../../error/MineRenderError";
+import { Colormaps } from "../../texture/Colormaps";
 import type { Model } from "../Model";
 import type { BlockStateProperties } from "./BlockStateProperties";
 import blockTints from "./blockTints.json";
@@ -36,7 +34,7 @@ export class BlockTints {
                 color = rule.color;
                 break;
             case "grass":
-                color = await this.grassColor(key);
+                color = await Colormaps.grassColor(key);
                 break;
             case "redstone": {
                 const power = Number(state.power ?? 0) / 15;
@@ -53,20 +51,6 @@ export class BlockTints {
             }
         }
         return { ...Object.fromEntries([...indices].map(index => [index, color])), ...tints };
-    }
-
-    private static async grassColor(origin: AssetKey): Promise<number> {
-        const key = AssetKey.parse("textures", "minecraft:colormap/grass", origin);
-        return (await Caching.blockTintCache.get(key.serialize(), async () => {
-            const image = await ModelTextures.get(key);
-            if (!image) throw new MineRenderError(`Missing grass colormap: ${key.toNamespacedString()}`);
-            if (image.width !== 256 || image.height !== 256) {
-                throw new MineRenderError("Grass colormaps must be 256 × 256 pixels");
-            }
-            // Vanilla's preview climate (temperature 0.5, downfall 1) samples this pixel.
-            const [red, green, blue] = image.data.getImageData(127, 127, 1, 1).data;
-            return (red << 16) | (green << 8) | blue;
-        }))!;
     }
 
 }

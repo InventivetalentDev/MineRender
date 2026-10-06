@@ -72,7 +72,7 @@ legacy website cleanup is a separate task.
 - ~~Propagate hosted/archive and model initialization errors with source context.~~
 - ~~Default to 1.21.11 with static item definitions, animal texture paths, structure directory aliases, and versioned cache keys.~~
 - ~~Add an asset-version selection API.~~
-- ~~Support chest, bed, and mob-head special item models.~~ Other special renderers, composite models, tint sources, and gameplay-dependent item selection remain.
+- ~~Support chest, bed, and mob-head special item models.~~ ~~Resolve static/default item tint sources.~~ Other special renderers, composite models, component-driven tint colors, and gameplay-dependent item selection remain.
 - ~~Fix `WrappedImage` frame math.~~
 
 ### 7. Model/blockstate correctness — high

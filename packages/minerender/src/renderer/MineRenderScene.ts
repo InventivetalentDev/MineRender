@@ -17,6 +17,7 @@ import { EntityModel } from "../entity/EntityModel";
 import { AssetKey, isAssetKey } from "../assets/AssetKey";
 import { GuiLayer } from "../gui/GuiLayer";
 import { GuiObject, GuiObjectOptions } from "../gui/scene/GuiObject";
+import { ItemTints } from "../model/ItemTints";
 
 export class MineRenderScene extends Scene {
 
@@ -135,6 +136,7 @@ export class MineRenderScene extends Scene {
     }
 
     public async addModel(model: Model, options?: Partial<ModelObjectOptions>, parent: Object3D = this): Promise<ModelObject | InstanceReference<ModelObject>> {
+        options = { ...options, tints: await ItemTints.get(model, options?.tints) };
         return this.addSceneObject<Model, ModelObject, ModelObjectOptions>(model, () => new ModelObject(model, options), options, parent);
     }
 

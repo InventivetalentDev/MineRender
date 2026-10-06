@@ -1,6 +1,6 @@
 import test from "ava";
 import { AssetKey, AssetLoader, AssetSource, Caching, Models, PersistentCache, shutdown } from "../src";
-import type { ItemModel, MinecraftAsset, Maybe, SpecialItemRenderer } from "../src";
+import type { ItemModel, ItemTintSource, MinecraftAsset, Maybe, SpecialItemRenderer } from "../src";
 
 class MemoryCache extends PersistentCache<Map<string, string>> {
     constructor() { super(new Map()); }
@@ -90,20 +90,36 @@ test.serial("item references load raw models and preserve the requested root thr
     t.is(cached?.key?.serialize(), key.serialize());
 });
 
-test.serial("item aliases retain the referenced model's namespace for inherited textures", async t => {
-    AssetLoader.addSource("test-items", new FixtureSource({
-        "items/grass": { model: reference("minecraft:block/grass_block") },
+test.serial("item aliases retain texture origins and per-item tints without changing shared raw models", async t => {
+    const tints: ItemTintSource[] = [
+        { type: "minecraft:grass", temperature: 0.5, downfall: 1 },
+        { type: "minecraft:constant", value: 0 },
+        { type: "minecraft:dye", default: [0.5, 0.25, 1] }
+    ];
+    const source = new FixtureSource({
+        "items/grass": { model: { type: "minecraft:condition", on_false: { ...reference("minecraft:block/grass_block"), tints } } },
+        "items/plain_grass": { model: reference("minecraft:block/grass_block") },
         "models/block/grass_block": { parent: "minecraft:block/grass_base" },
         "models/block/grass_base": { textures: { bottom: "block/dirt" } }
-    }));
-    const key = new AssetKey("custom", "grass", "models", "item");
+    });
+    AssetLoader.addSource("test-items", source);
+    const key = new AssetKey("custom", "grass", "models", "item", "assets", ".json", "https://pack.example/custom");
+    const plainKey = new AssetKey("custom", "plain_grass", "models", "item", "assets", ".json", key.root);
+    const definitionKey = new AssetKey(key.namespace, key.path, "items", undefined, key.rootType, ".json", key.root);
+    await Models["_persistentCache"]!.put(AssetLoader.persistentKey(definitionKey.serialize()), { key, textures: { bottom: "stale" } });
     for (let attempt = 0; attempt < 2; attempt++) {
-        const model = (await Models.getMerged(key))!;
+        const model = (await Models.getMerged(key))! as ItemModel;
+        t.deepEqual(model.tints, tints);
         t.is(model.key?.toNamespacedString(), "minecraft:block/grass_block");
         const textureKey = AssetKey.parse("textures", model.textures!.bottom, model.key);
         t.is(textureKey.toNamespacedString(), "minecraft:block/dirt");
+        t.is(textureKey.root, key.root);
+        t.is(((await Models.getMerged(plainKey))! as ItemModel).tints, undefined);
+        t.is(((await Models.getRaw(model.key!))! as ItemModel).tints, undefined);
         Caching.clear();
     }
+    t.is(source.calls.filter(key => key.assetType === "items").length, 2);
+    t.true(source.calls.every(call => call.root === key.root));
 });
 
 test.serial("static item previews resolve idle, GUI, fallback, and zero-threshold branches", async t => {

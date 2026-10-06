@@ -20,6 +20,7 @@ import type { MineRenderScene } from "../../renderer/MineRenderScene";
 import { SpecialItems } from "../SpecialItems";
 import { EntityObject } from "../../entity/scene/EntityObject";
 import { GuiLight } from "../GuiLight";
+import { ItemTints } from "../ItemTints";
 
 
 const p = prefix("ModelObject");
@@ -52,6 +53,7 @@ export class ModelObject extends SceneObject {
     }
 
     async init(): Promise<void> {
+        this.options.tints = await ItemTints.get(this.originalModel, this.options.tints);
         const special = (this.originalModel as ItemModel).special;
         if (special) {
             const parts = await SpecialItems.getParts(special, this.originalModel.key?.root);
