@@ -21,6 +21,7 @@
     "dev:web": "yarn build:lib && yarn workspace @minerender/web dev",
     "dev:vite": "yarn build:lib && yarn workspace @minerender/example-vite dev",
     "dev:script-tag": "yarn build:lib && yarn workspace @minerender/example-script-tag dev",
-    "publish:alpha": "yarn workspace minerender publish:alpha"
+    "publish:alpha": "yarn workspace minerender publish:alpha",
+    "publish:beta": "yarn workspace minerender publish:beta"
   }
 }
