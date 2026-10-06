@@ -151,9 +151,12 @@ body.playground-index { overflow: auto; height: auto; min-height: 100%; backgrou
 .playground-index main { max-width: 1080px; margin: 0 auto; padding: 48px 24px; }
 .playground-index h1 { font-size: clamp(28px, 4vw, 40px); line-height: 1.1; margin: 12px 0 24px; }
 .playground-index p { max-width: 760px; color: #bdc8d2; }
-.playground-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin: 32px 0; }
-.playground-cards a { display: block; padding: 20px; border: 1px solid #43505d; border-radius: 8px; background: #1e2730; color: inherit; text-decoration: none; }
-.playground-cards a:hover, .playground-cards a:focus-visible { border-color: #9bdca4; background: #26352d; }
-.playground-cards strong { display: block; font-size: 18px; margin-bottom: 8px; }
-.playground-cards span { color: #bdc8d2; font-size: 14px; }
+.playground-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin: 32px 0; }
+.playground-cards article { padding: 18px 20px; border: 1px solid #43505d; border-radius: 8px; background: #1e2730; }
+.playground-cards article > a { display: block; font-size: 18px; font-weight: 700; margin-bottom: 6px; text-decoration: none; }
+.playground-cards article > a:hover, .playground-cards article > a:focus-visible { text-decoration: underline; }
+.playground-cards span { display: block; color: #bdc8d2; font-size: 14px; }
+.playground-cards nav { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.playground-cards nav a { font-size: 13px; padding: 3px 9px; border: 1px solid #43505d; border-radius: 999px; color: #ecf1f5; text-decoration: none; }
+.playground-cards nav a:hover, .playground-cards nav a:focus-visible { border-color: #9bdca4; background: #26352d; }
 .playground-index a { color: #9bdca4; }
