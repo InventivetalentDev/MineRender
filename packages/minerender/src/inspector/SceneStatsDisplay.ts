@@ -1,11 +1,12 @@
-import { MineRenderScene } from "../renderer/MineRenderScene";
-import { Renderer } from "../renderer/Renderer";
+import type { Disposable } from "../Disposable";
+import type { Renderer } from "../renderer/Renderer";
 
-export class SceneStatsDisplay {
+export class SceneStatsDisplay implements Disposable {
 
     readonly statsContainer: HTMLDivElement;
 
     private readonly lines: StatLine[] = [];
+    private interval?: ReturnType<typeof setInterval>;
 
     constructor(readonly renderer: Renderer) {
         this.statsContainer = document.createElement("div");
@@ -16,7 +17,7 @@ export class SceneStatsDisplay {
     protected init() {
         this.statsContainer.classList.add("minerender-stats");
 
-        setInterval(() => {
+        this.interval = setInterval(() => {
             for (let line of this.lines) {
                 line.update();
             }
@@ -25,6 +26,14 @@ export class SceneStatsDisplay {
 
     appendTo(el: HTMLElement) {
         el.append(this.statsContainer);
+    }
+
+    dispose(): void {
+        clearInterval(this.interval);
+        this.interval = undefined;
+        this.lines.length = 0;
+        this.statsContainer.replaceChildren();
+        this.statsContainer.remove();
     }
 
     add(line?: StatLine) {
