@@ -60,30 +60,32 @@ async function load(ctx: DemoContext, state: BlockSettings): Promise<DemoContent
     const visuals = ctx.renderer.scene.children.filter(isSceneObject);
     const bounds = new Box3();
     for (const visual of visuals) bounds.union(new Box3().setFromObject(visual));
+    const restore = () => {
+        input.value = state.block;
+        syncModelControls();
+        propertyFields.replaceChildren();
+        for (const [name, values] of Object.entries(choices)) {
+            const current = `${block.state[name] ?? ""}`;
+            const options = Object.fromEntries([...new Set([current, ...values])].map(value => [value, value || "Unset"]));
+            select(propertyFields, name, options, current, value => {
+                void app.update({ properties: { ...block.state, [name]: value } });
+            });
+        }
+        propertyInfo.textContent = Object.keys(choices).length ? "Changes apply before the block's model loads." : "This block has no configurable state properties.";
+        const visual = visuals[0];
+        if (visual) {
+            let instance;
+            visual.traverse(child => instance ??= visual.getInstanceReference(child, 0));
+            app.inspector?.selectObject(visual, undefined, instance);
+        }
+        Object.assign(window, { block });
+        suggestions(input, list);
+    };
     return {
         object: visuals[0],
         bounds,
-        activate() {
-            input.value = state.block;
-            syncModelControls();
-            propertyFields.replaceChildren();
-            for (const [name, values] of Object.entries(choices)) {
-                const current = `${block.state[name] ?? ""}`;
-                const options = Object.fromEntries([...new Set([current, ...values])].map(value => [value, value || "Unset"]));
-                select(propertyFields, name, options, current, value => {
-                    void app.update({ properties: { ...block.state, [name]: value } });
-                });
-            }
-            propertyInfo.textContent = Object.keys(choices).length ? "Changes apply before the block's model loads." : "This block has no configurable state properties.";
-            const visual = visuals[0];
-            if (visual) {
-                let instance;
-                visual.traverse(child => instance ??= visual.getInstanceReference(child, 0));
-                app.inspector?.selectObject(visual, undefined, instance);
-            }
-            Object.assign(window, { block });
-            suggestions(input, list);
-        }
+        activate: restore,
+        restore
     };
 }
 

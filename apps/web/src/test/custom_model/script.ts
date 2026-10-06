@@ -111,19 +111,23 @@ async function load(ctx: DemoContext, state: CustomSettings): Promise<DemoConten
     const model = await ModelMerger.mergeWithParents(definition);
     const object = await loadModel(ctx, model, { ...modelOptions(state), displayPosition: state.display || undefined });
     const visual = isInstanceReference(object) ? object.instanceable : object;
+    const restore = () => {
+        json.value = app.state.json;
+        namespace.value = app.state.namespace;
+        display.value = app.state.display;
+        fileInfo.textContent = app.state.filename ? `Imported ${app.state.filename}. The JSON is included in copied configurations.` : "";
+        syncModelControls();
+        selectModel(app, object);
+        Object.assign(window, { model: object });
+    };
     return {
         object: visual,
         bounds: new Box3().setFromObject(visual),
         activate() {
             app.record({ json: state.json, namespace: state.namespace, filename: state.filename, modelID: "" });
-            json.value = state.json;
-            namespace.value = state.namespace;
-            display.value = state.display;
-            fileInfo.textContent = state.filename ? `Imported ${state.filename}. The JSON is included in copied configurations.` : "";
-            syncModelControls();
-            selectModel(app, object!);
-            Object.assign(window, { model: object });
-        }
+            restore();
+        },
+        restore
     };
 }
 

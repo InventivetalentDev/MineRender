@@ -57,18 +57,20 @@ async function load(ctx: DemoContext, state: ItemSettings): Promise<DemoContent>
     if (!model) throw new Error(`Model not found: ${state.item}`);
     const object = await loadModel(ctx, model, { ...modelOptions(state), displayPosition: state.display || undefined });
     const visual = isInstanceReference(object) ? object.instanceable : object;
+    const restore = () => {
+        source.value = state.source;
+        input.value = state.item;
+        display.value = state.display;
+        syncModelControls();
+        selectModel(app, object!);
+        Object.assign(window, { item: object });
+        suggestions(input, list);
+    };
     return {
         object: visual,
         bounds: new Box3().setFromObject(visual),
-        activate() {
-            source.value = state.source;
-            input.value = state.item;
-            display.value = state.display;
-            syncModelControls();
-            selectModel(app, object!);
-            Object.assign(window, { item: object });
-            suggestions(input, list);
-        }
+        activate: restore,
+        restore
     };
 }
 
