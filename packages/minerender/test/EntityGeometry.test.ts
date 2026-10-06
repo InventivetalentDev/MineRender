@@ -1,8 +1,9 @@
 import test, { ExecutionContext } from "ava";
-import { Box3, Euler, Mesh, MeshBasicMaterial, Raycaster, Vector3 } from "three";
+import { Box3, Euler, LineSegments, Mesh, MeshBasicMaterial, Raycaster, Vector3 } from "three";
 import { AssetKey, BasicAssetKey } from "../src/assets/AssetKey";
 import { ModelTextures } from "../src/assets/ModelTextures";
 import { Caching } from "../src/cache/Caching";
+import { Geometries } from "../src/Geometries";
 import { Materials } from "../src/Materials";
 import { EntityObject, EntityObjectOptions } from "../src/entity/scene/EntityObject";
 import type { EntityLayer, EntityModelCube, EntityModelPart, EntityTransformOp } from "../src/entity/EntityModel";
@@ -22,7 +23,7 @@ function fixture(t: ExecutionContext) {
     Caching.clear();
     t.teardown(() => {
         Materials.getImage = original;
-        for (const object of objects) object.iterateAllMeshes(mesh => mesh.geometry.dispose());
+        for (const object of objects) object.dispose();
         material.dispose();
         Caching.clear();
     });
@@ -85,7 +86,7 @@ test.serial("the dataset transform replaces the flip unless the caller sets it",
     const corner = (transform: EntityTransformOp[] | undefined, options?: Partial<EntityObjectOptions>) => {
         const object = new EntityObject({ key: new BasicAssetKey("minecraft", "fixture"), id: "minecraft:fixture", transform, layer: { texture: [64, 32], root: part({ cubes: [cube] }) } }, options);
         object["createMeshes"]();
-        t.teardown(() => object.iterateAllMeshes(mesh => mesh.geometry.dispose()));
+        t.teardown(() => object.dispose());
         object.updateMatrixWorld(true);
         // The cube spans [1, 2, 3]..[3, 5, 7] in model space.
         return coordinates(new Vector3(1, 2, 3).applyMatrix4(object.getLayerGroup("main")!.matrixWorld));
@@ -141,6 +142,32 @@ test.serial("texture dimensions inherit within each part subtree without leaking
     t.deepEqual(uvs(object, "small"), normalized(vanillaUvs, 32, 16));
     t.deepEqual(uvs(object, "sibling"), normalized(vanillaUvs));
     t.deepEqual(uvs(object, "untextured"), new Array(48).fill(0));
+});
+
+test.serial("entity disposal releases nested cube and wireframe geometry without disposing shared resources", t => {
+    const create = fixture(t);
+    const object = create(part({ cubes: [cube], children: { child: part({ cubes: [cube] }) } }), [64, 32], { wireframe: true });
+    const meshes: Mesh[] = [];
+    object.iterateAllMeshes(mesh => meshes.push(mesh));
+    const helpers = meshes.flatMap(mesh => mesh.children as LineSegments[]);
+    const geometries = [...meshes, ...helpers].map(mesh => mesh.geometry);
+    const materials = helpers.flatMap(helper => helper.material);
+    t.is(geometries.length, 6);
+    t.is(materials.length, 4);
+    const owned = [...geometries, ...materials];
+    const disposals = owned.map(() => 0);
+    owned.forEach((resource, index) => resource.addEventListener("dispose", () => disposals[index]++));
+    const cached = Geometries.getBox({ width: 2, height: 3, depth: 4, uv: normalized(vanillaUvs) });
+    t.true(meshes.every(mesh => mesh.geometry !== cached));
+    let sharedDisposals = 0;
+    cached.addEventListener("dispose", () => sharedDisposals++);
+    (meshes[0].material as MeshBasicMaterial).addEventListener("dispose", () => sharedDisposals++);
+
+    object.disposeAndRemoveAllChildren();
+    object.dispose();
+    t.deepEqual(disposals, owned.map(() => 1));
+    t.is(sharedDisposals, 0);
+    t.is(object.children.length, 0);
 });
 
 test.serial("cubes show their faces from inside without culling while flat cubes keep one face per side", t => {
