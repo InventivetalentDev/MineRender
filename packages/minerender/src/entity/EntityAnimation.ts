@@ -1,7 +1,7 @@
 import type { MinecraftAsset } from "../MinecraftAsset";
 import type { TripleArray } from "../model/Model";
 
-/** `entity-models/animations/<namespace>/<model id>.json`: vanilla's keyframe animations of one model. */
+/** `entity-models/animations/<namespace>/<model id>.json`: native and sampled vanilla animation clips. */
 export interface EntityAnimationFile extends MinecraftAsset {
     id: string;
     animations: Record<string, EntityAnimation>;
@@ -11,6 +11,8 @@ export interface EntityAnimation {
     /** Seconds. */
     length: number;
     loop: boolean;
+    /** Geometry layer targeted by this clip; defaults to `main`. */
+    layer?: string;
     /** Part name anywhere in a layer; `root` is the layer's root part. */
     bones: Record<string, EntityAnimationBone>;
 }
@@ -48,11 +50,11 @@ function catmullRom(delta: number, p0: number, p1: number, p2: number, p3: numbe
  */
 export function sampleEntityKeyframes(keyframes: readonly EntityAnimationKeyframe[], time: number): TripleArray {
     if (keyframes.length === 0) return [0, 0, 0];
-    // Index of the last keyframe before `time`.
+    // Index of the first keyframe after `time`; a jump takes effect at its exact timestamp.
     let low = 0, high = keyframes.length;
     while (low < high) {
         const middle = (low + high) >>> 1;
-        if (time <= keyframes[middle].time) high = middle;
+        if (time < keyframes[middle].time) high = middle;
         else low = middle + 1;
     }
     const a = Math.max(0, low - 1);

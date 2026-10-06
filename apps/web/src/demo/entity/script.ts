@@ -40,26 +40,93 @@ const entityStates = document.getElementById("entity-states") as HTMLFieldSetEle
 const entityStatus = document.getElementById("entity-status")!;
 const entityAnimationRow = document.getElementById("entity-animation-row")!;
 const entityAnimation = document.getElementById("entity-animation") as HTMLSelectElement;
+const animationPlay = document.getElementById("animation-play") as HTMLButtonElement;
+const animationReplay = document.getElementById("animation-replay") as HTMLButtonElement;
+const animationStop = document.getElementById("animation-stop") as HTMLButtonElement;
+const animationTime = document.getElementById("animation-time") as HTMLInputElement;
+const animationTimeValue = document.getElementById("animation-time-value") as HTMLOutputElement;
 
 let animations: Awaited<ReturnType<typeof Entities.getAnimations>>;
 let stopFrames: (() => void) | undefined;
+let selectedAnimations: string[] = [];
 
-/** Plays one of the selected entity's animations by name; an empty or unknown name stops and restores the pose. */
-function playAnimation(name: string = "") {
-    const animation = animations?.[name];
-    entityAnimation.value = animation ? name : "";
-    stopFrames?.();
-    stopFrames = undefined;
-    if (!entityObject) return;
-    if (!animation) return entityObject.stopAnimation();
-    const object = entityObject;
-    object.playAnimation(animation);
-    // The object owns no clock; the subscription lasts only while this animation plays.
-    stopFrames = renderer.onFrame(({ delta }) => object.advanceAnimation(delta));
+function updateAnimationControls() {
+    const clips = selectedAnimations.map(name => animations![name]);
+    const duration = Math.max(0, ...clips.map(clip => clip.length));
+    const time = entityObject?.animationTime ?? 0;
+    const displayedTime = clips.some(clip => clip.loop) && duration > 0 ? time % duration : Math.min(time, duration);
+    animationPlay.disabled = animationReplay.disabled = animationStop.disabled = !clips.length;
+    animationPlay.textContent = stopFrames ? "Pause" : "Play";
+    animationTime.disabled = duration === 0;
+    animationTime.max = String(duration);
+    animationTime.value = String(displayedTime);
+    animationTimeValue.value = `${displayedTime.toFixed(2)} s`;
 }
 
-window["playAnimation"] = playAnimation;
-entityAnimation.addEventListener("change", () => playAnimation(entityAnimation.value));
+function pauseAnimation() {
+    stopFrames?.();
+    stopFrames = undefined;
+    updateAnimationControls();
+}
+
+function resumeAnimation() {
+    if (!entityObject || !selectedAnimations.length || stopFrames) return;
+    const object = entityObject;
+    const clips = selectedAnimations.map(name => animations![name]);
+    const duration = Math.max(...clips.map(clip => clip.length));
+    const looping = clips.some(clip => clip.loop);
+    if (!looping && object.animationTime >= duration) object.setAnimationTime(0);
+    stopFrames = renderer.onFrame(({ delta }) => {
+        object.advanceAnimation(delta);
+        if (!looping && object.animationTime >= duration) {
+            object.setAnimationTime(duration);
+            pauseAnimation();
+        } else {
+            updateAnimationControls();
+        }
+    });
+    updateAnimationControls();
+}
+
+/** Plays named clips together, keeping the last selected clip for each drawn layer. */
+function playAnimations(names: string[] = []) {
+    pauseAnimation();
+    const byLayer = new Map<string, string>();
+    for (const name of names) {
+        const option = Array.from(entityAnimation.options).find(option => option.value === name);
+        if (animations?.[name] && option && !option.disabled) byLayer.set(animations[name].layer ?? "main", name);
+    }
+    selectedAnimations = [...byLayer.values()];
+    for (const option of entityAnimation.options) option.selected = selectedAnimations.includes(option.value);
+    if (!entityObject) return;
+    if (selectedAnimations.length) {
+        entityObject.playAnimations(selectedAnimations.map(name => animations![name]));
+        resumeAnimation();
+    } else {
+        entityObject.stopAnimation();
+        updateAnimationControls();
+    }
+}
+
+window["playAnimation"] = (name: string = "") => playAnimations(name ? [name] : []);
+window["playAnimations"] = playAnimations;
+entityAnimation.addEventListener("change", () => {
+    const names = Array.from(entityAnimation.selectedOptions, option => option.value);
+    playAnimations([...names.filter(name => selectedAnimations.includes(name)), ...names.filter(name => !selectedAnimations.includes(name))]);
+});
+animationPlay.addEventListener("click", () => stopFrames ? pauseAnimation() : resumeAnimation());
+animationReplay.addEventListener("click", () => {
+    pauseAnimation();
+    entityObject?.setAnimationTime(0);
+    resumeAnimation();
+});
+animationStop.addEventListener("click", () => playAnimations());
+animationTime.addEventListener("input", () => {
+    const time = Number(animationTime.value);
+    pauseAnimation();
+    entityObject?.setAnimationTime(time);
+    updateAnimationControls();
+});
 
 /**
  * Without `layers`, draws main and the dataset passes enabled by the `when` labels;
@@ -117,13 +184,16 @@ async function setEntity(entity: string, layers?: string[], when: string[] = [],
 
         const replacementAnimations = await Entities.getAnimations(key);
         const replacement = await renderer.scene.addEntity(entityModel, { tints }) as EntityObject;
-        playAnimation();
+        playAnimations();
         animations = replacementAnimations;
-        entityAnimationRow.hidden = !animations;
-        entityAnimation.replaceChildren(...["", ...Object.keys(animations ?? {})].map(name => {
+        entityAnimationRow.hidden = !Object.keys(animations ?? {}).length;
+        entityAnimation.replaceChildren(...Object.entries(animations ?? {}).map(([name, animation]) => {
             const option = document.createElement("option");
+            const layer = animation.layer ?? "main";
             option.value = name;
-            option.textContent = name || "(none)";
+            option.textContent = `${name} (${layer})`;
+            option.disabled = !drawn.includes(layer);
+            if (option.disabled) option.title = `Select the ${layer} layer to enable this clip.`;
             return option;
         }));
         if (entityObject) {

@@ -39,7 +39,7 @@ legacy website cleanup is a separate task.
 | Screenshots & 3D export | toImage(trim,mime), toObj/toGLTF/toPLY | Fresh captures with trim/MIME/quality; static OBJ/PLY and textured browser glTF/GLB snapshots | complete |
 | Asset loading & resource packs | swappable assetRoot, fallback | Ordered whole-asset source selection; decode fetched bytes; failure-evicting caches; contextual errors; defaults to 1.21.11, ZIPs browser-only | high |
 | Per-frame animation API | `<type>Render` CustomEvents | `onFrame` subscriptions with time/delta, FPS limiting, pause/resume, and disposal | complete |
-| Entity keyframe animations | none | Vanilla animation definitions from the dataset, sampled like vanilla and played on `EntityObject` with caller-driven time; procedural `setupAnim` motion and blending remain | partial |
+| Entity keyframe animations | none | Native and sampled procedural clips with synchronized, layer-specific playback and caller-driven time; runtime state selection, blending, visibility, and animated renderer transforms remain | partial |
 | Embeds & website | minerender.org + iframe embeds | Workspace demos and examples; V2 website and embeds remain | low |
 | **Large-scale worlds (V2 goal)** | n/a | Paletted signed chunks, opt-in static opaque section meshes, and opaque-neighbor face culling; no lighting/LOD | high |
 | **Anvil .mca / world formats (V2 goal)** | n/a | Java 1.13+ paletted regions, selected chunk loading and DataVersion; no LZ4, external chunks, or data fixing | high |
