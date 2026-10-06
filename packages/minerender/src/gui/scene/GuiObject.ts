@@ -1,4 +1,4 @@
-import { Box2, Box3, BufferGeometry, Mesh, MeshBasicMaterial, PlaneGeometry, ShaderMaterial, Vector2 } from "three";
+import { Box2, Box3, BufferGeometry, Matrix4, Mesh, MeshBasicMaterial, PlaneGeometry, ShaderMaterial, Vector2 } from "three";
 import { AssetKey } from "../../assets/AssetKey";
 import { ModelTextures } from "../../assets/ModelTextures";
 import { Models } from "../../assets/Models";
@@ -36,13 +36,13 @@ export class GuiObject extends SceneObject {
                     const item = await this.createItem(layer, index);
                     item.position.set(x + width / 2, -y - height / 2, 0);
                     item.scale.set(width / 16, height / 16, width / 16);
-                    item.updateMatrix();
+                    item.updateWorldMatrix(true, true);
+                    const inverse = this.matrixWorld.clone().invert();
                     const bounds = new Box3();
                     item.iterateAllMeshes(mesh => {
                         mesh.geometry.computeBoundingBox();
-                        bounds.union(mesh.geometry.boundingBox!);
+                        bounds.union(mesh.geometry.boundingBox!.clone().applyMatrix4(new Matrix4().multiplyMatrices(inverse, mesh.matrixWorld)));
                     });
-                    bounds.applyMatrix4(item.matrix);
                     item.position.z = depth - bounds.min.z;
                     depth += bounds.max.z - bounds.min.z + 0.01;
                     this.bounds.expandByPoint(new Vector2(x, y));
@@ -93,7 +93,7 @@ export class GuiObject extends SceneObject {
         this.add(item);
         await item.init();
         item.iterateAllMeshes(mesh => {
-            this.geometries.add(mesh.geometry);
+            if (!(model as ItemModel).special) this.geometries.add(mesh.geometry);
             mesh.name = `mesh:${layer.name ?? index}`;
             mesh.renderOrder = index;
             for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {

@@ -1,6 +1,6 @@
 import test from "ava";
 import { AssetKey, AssetLoader, AssetSource, Caching, Models, PersistentCache, shutdown } from "../src";
-import type { MinecraftAsset, Maybe } from "../src";
+import type { ItemModel, MinecraftAsset, Maybe, SpecialItemRenderer } from "../src";
 
 class MemoryCache extends PersistentCache<Map<string, string>> {
     constructor() { super(new Map()); }
@@ -123,6 +123,39 @@ test.serial("static item previews resolve idle, GUI, fallback, and zero-threshol
     }
 });
 
+test.serial("special items retain their renderer and inherit the base pose through cache hits", async t => {
+    const renderers: SpecialItemRenderer[] = [
+        { type: "minecraft:chest", texture: "pack:normal", openness: 0.5 },
+        { type: "minecraft:bed", texture: "minecraft:red" },
+        { type: "minecraft:head", kind: "dragon", texture: "pack:dragon", animation: 0.25 }
+    ];
+    const display = { gui: { rotation: [30, 45, 0], scale: [0.625, 0.625, 0.625] } };
+    const source = new FixtureSource({
+        ...Object.fromEntries(renderers.map((model, index) => [`items/special_${index}`, { model: {
+            type: "minecraft:condition", on_false: { type: "minecraft:special", base: "pack:item/base", model }
+        } }])),
+        "models/item/base": { parent: "pack:item/template", textures: { particle: "block/custom" } },
+        "models/item/template": { parent: "minecraft:builtin/entity", display, gui_light: "front" }
+    });
+    AssetLoader.addSource("test-items", source);
+    for (let index = 0; index < renderers.length; index++) {
+        const key = itemKey(`special_${index}`);
+        key.root = "https://assets.example/1.21.11";
+        for (let attempt = 0; attempt < 2; attempt++) {
+            const model = (await Models.getMerged(key))! as ItemModel;
+            t.deepEqual(model.special, renderers[index]);
+            t.deepEqual(model.display?.gui, display.gui);
+            t.is(model.gui_light, "front");
+            t.is(model.key?.toNamespacedString(), "pack:item/base");
+            t.is(model.key?.root, key.root);
+            Caching.clear();
+        }
+    }
+    t.is(source.calls.filter(key => key.assetType === "items").length, renderers.length);
+    t.false(source.calls.some(key => key.getFullPath() === "builtin/entity"));
+    t.true(source.calls.every(key => key.root === "https://assets.example/1.21.11"));
+});
+
 test.serial("unsupported or broken definitions reject instead of using lower-priority assets", async t => {
     const source = new FixtureSource({ "models/item/invalid": { textures: { layer0: "wrong" } } });
     AssetLoader.addSource("test-items", source);
@@ -133,6 +166,10 @@ test.serial("unsupported or broken definitions reject instead of using lower-pri
     t.is(source.calls.length, 0);
     AssetLoader.addSource("test-pack", new FixtureSource({ "items/missing": { model: reference("item/missing_reference") } }));
     await t.throwsAsync(Models.getMerged(itemKey("missing")), { message: /references missing model item\/missing_reference/ });
+    AssetLoader.addSource("test-pack", new FixtureSource({ "items/invalid": { model: {
+        type: "minecraft:special", base: "item/base", model: { type: "minecraft:shield" }
+    } } }));
+    await t.throwsAsync(Models.getMerged(itemKey("invalid")), { message: /Unsupported special item renderer minecraft:shield/ });
 });
 
 test.serial("item lists use modern definitions and retain legacy source fallback", async t => {

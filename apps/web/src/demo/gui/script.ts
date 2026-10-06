@@ -27,10 +27,13 @@ const items = [
     { name: "stone", slot: 2 },
     { name: "grass_block", slot: 3, tints: { 0: 0x91bd59 } },
     { name: "oak_stairs", slot: 4 },
-    { name: "leather_helmet", slot: 5, tints: { 0: 0xc060d0 } }
+    { name: "leather_helmet", slot: 5, tints: { 0: 0xc060d0 } },
+    { name: "chest", slot: 6 },
+    { name: "red_bed", slot: 7 },
+    { name: "creeper_head", slot: 8 }
 ];
 const chestLayers: GuiLayer[] = [
-    { name: "chest", texture: "minecraft:gui/container/generic_54", crop: [0, 0, 176, 222] },
+    { name: "container", texture: "minecraft:gui/container/generic_54", crop: [0, 0, 176, 222] },
     ...items.map(({ name, slot, tints }): GuiLayer => ({
         name,
         item: `minecraft:item/${name}`,

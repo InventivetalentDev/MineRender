@@ -118,17 +118,17 @@ test.serial("selected layer texture locations skip probing and explicit textures
         keys.push(key);
         return file;
     }));
-    const key = new BasicAssetKey("minecraft", "cow");
+    const key = new AssetKey("minecraft", "cow", undefined, undefined, "entity-models", ".json", "https://pack.example/custom");
     const main = await Entities.getEntity(key);
     const saddle = await Entities.getEntity(key, undefined, { layer: "saddle" });
-    t.deepEqual(main!.texture, new AssetKey("minecraft", "cow/temperate_cow", "textures", "entity", "assets", ".png"));
-    t.deepEqual(saddle!.texture, new AssetKey("painted", "cow/saddle", "textures", "entity", "assets", ".png"));
+    t.deepEqual(main!.texture, new AssetKey("minecraft", "cow/temperate_cow", "textures", "entity", "assets", ".png", key.root));
+    t.deepEqual(saddle!.texture, new AssetKey("painted", "cow/saddle", "textures", "entity", "assets", ".png", key.root));
     t.is(saddle!.layer, file.layers.saddle);
 
     const texture = new AssetKey("custom", "cow/checkered", "textures", "entity", "assets", ".png");
     const explicit = await Entities.getEntity(key, texture, { layer: "saddle" });
     t.is(explicit!.texture, texture);
-    t.deepEqual(keys, [new AssetKey("minecraft", "cow", undefined, undefined, "entity-models", ".json")]);
+    t.deepEqual(keys, [key]);
     t.is(decodedImages, 0);
 });
 
@@ -249,12 +249,17 @@ test.serial("version changes fetch entity files and resolved textures from the s
     const second = await Entities.getEntity(key);
     t.not(second!.layer, first!.layer);
     t.not(second!.texture!.serialize(), firstTexture);
-    t.is(decodedImages, 2);
+    const explicitRoot = new AssetKey("minecraft", "cow", undefined, undefined, "entity-models", ".json", "https://pack.example/custom");
+    const custom = await Entities.getEntity(explicitRoot);
+    t.is(custom!.texture!.root, explicitRoot.root);
+    t.is(decodedImages, 3);
     t.deepEqual(urls, [
         "https://assets.mcasset.cloud/1.21.11/entity-models/minecraft/cow.json",
         "https://assets.mcasset.cloud/1.21.11/assets/minecraft/textures/entity/cow.png",
         "https://assets.mcasset.cloud/1.20.1/entity-models/minecraft/cow.json",
-        "https://assets.mcasset.cloud/1.20.1/assets/minecraft/textures/entity/cow.png"
+        "https://assets.mcasset.cloud/1.20.1/assets/minecraft/textures/entity/cow.png",
+        "https://pack.example/custom/entity-models/minecraft/cow.json",
+        "https://pack.example/custom/assets/minecraft/textures/entity/cow.png"
     ]);
 });
 
@@ -267,14 +272,15 @@ test.serial("layers without texture locations use direct or nested textures and 
         const calls: string[] = [];
         const file = model();
         const before = decodedImages;
-        const texture = new AssetKey("minecraft", path, "textures", "entity", "assets", ".png");
+        const texture = new AssetKey("minecraft", path, "textures", "entity", "assets", ".png", "https://pack.example/custom");
         AssetLoader.addSource("test", new StubSource((key, parser) => {
+            t.is(key.root, texture.root);
             if (key.rootType === "entity-models") return file;
             t.is(parser, AssetParser.IMAGE);
             calls.push(key.toNamespacedString());
             return key.toNamespacedString() === texture.toNamespacedString() ? image() : undefined;
         }));
-        const key = new BasicAssetKey("minecraft", name);
+        const key = new AssetKey("minecraft", name, undefined, undefined, "entity-models", ".json", texture.root);
         const first = await Entities.getEntity(key);
         const second = await Entities.getEntity(key);
         t.deepEqual(first!.texture, texture);
@@ -294,7 +300,9 @@ test.serial("variant textures prefer temperate, otherwise the first file, and su
     for (const entry of cases) {
         Caching.clear();
         const calls: string[] = [];
+        const root = "https://pack.example/custom";
         AssetLoader.addSource("test", new StubSource((key, parser) => {
+            t.is(key.root, root);
             if (key.rootType === "entity-models") return model();
             if (parser === AssetParser.IMAGE) {
                 calls.push(key.toNamespacedString());
@@ -305,10 +313,10 @@ test.serial("variant textures prefer temperate, otherwise the first file, and su
             calls.push(key.path);
             return parser === AssetParser.LIST ? { files: entry.files, directories: [] } : entry.variant;
         }));
-        const key = new BasicAssetKey("minecraft", entry.name);
+        const key = new AssetKey("minecraft", entry.name, undefined, undefined, "entity-models", ".json", root);
         const entity = (await Entities.getEntity(key))!;
         await Entities.getEntity(key);
-        t.deepEqual(entity.texture, AssetKey.parse("textures", entry.texture));
+        t.deepEqual(entity.texture, Object.assign(AssetKey.parse("textures", entry.texture), { root }));
         t.deepEqual(calls, [`minecraft:entity/${entry.name}`, `minecraft:entity/${entry.name}/${entry.name}`, "_list", entry.selected]);
         t.truthy(await ModelTextures.get(entity.texture!));
         t.is(calls.at(-1), entry.texture);

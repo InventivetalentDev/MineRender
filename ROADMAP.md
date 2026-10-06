@@ -28,7 +28,7 @@ legacy website cleanup is a separate task.
 | Skins — classic 64×64 | full, named toggleable parts | Vanilla dimensions, UVs, pivots, base opacity, and translucent overlays; model detection and named parts | complete |
 | Skins — slim + legacy 64×32 | auto-detected, dedicated UVs | Classic/slim UVs and detection; legacy skins normalized with mirrored limbs and transparency rules | complete |
 | Capes (vanilla/OptiFine/LabyMod) | full, 3 layouts, capes.dev | All three static layouts and capes.dev lookup; animated capes remain | medium |
-| Block/item model rendering | full incl. tint, display transforms | UV locking, explicit per-index tints, automatic block preview colors, and opt-in display poses; no builtin-entity | high |
+| Block/item model rendering | full incl. tint, display transforms | UV locking, explicit per-index tints, automatic block preview colors, display poses, and chest/bed/mob-head item previews | high |
 | Blockstate resolution | variants + weighted random + multipart AND/OR | Default states and model initialization awaited; multipart AND/OR and weighted alternatives supported; placement preserves rotations | high |
 | Animated textures | frametime honored | Frame grids, sequences, durations, and stationary-camera redraw; interpolation remains | medium |
 | Entity rendering | 76 hosted models, mirror, inheritance | Versioned dataset, nested parts, mirrored UVs, and selected layers with separate textures; renderer-specific effects remain | high |
@@ -72,7 +72,7 @@ legacy website cleanup is a separate task.
 - ~~Propagate hosted/archive and model initialization errors with source context.~~
 - ~~Default to 1.21.11 with static item definitions, animal texture paths, structure directory aliases, and versioned cache keys.~~
 - ~~Add an asset-version selection API.~~
-- Support composite/special item models, tint sources, and gameplay-dependent item selection.
+- ~~Support chest, bed, and mob-head special item models.~~ Other special renderers, composite models, tint sources, and gameplay-dependent item selection remain.
 - ~~Fix `WrappedImage` frame math.~~
 
 ### 7. Model/blockstate correctness — high
