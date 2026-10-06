@@ -1,15 +1,16 @@
 import { Renderer } from "../renderer/Renderer";
-import { InstancedMesh, Intersection, Mesh, Object3D, Raycaster, Vector2 } from "three";
+import { Intersection, Mesh, Object3D, Raycaster, Vector2 } from "three";
 import { isSceneObject, SceneObject } from "../renderer/SceneObject";
 import { Maybe, toDegrees, toRadians } from "../util/util";
 import { isTransformable, Transformable } from "../Transformable";
 import { prefix } from "../util/log";
 import { isMesh } from "../util/three";
 import { TextureAtlas } from "../texture";
+import { InstanceReference } from "../instance/InstanceReference";
 
 const p = prefix("SceneInspector");
 
-const help = "<span>Ctrl+Click to Select<br/></span><br/>";
+const help = "<span>Ctrl/Cmd+Click to Select<br/></span><br/>";
 
 export class SceneInspector {
 
@@ -20,6 +21,8 @@ export class SceneInspector {
     private readonly mouse: Vector2 = new Vector2();
 
     private selectedObject?: Object3D;
+    private pointer?: PointerEvent;
+    private readonly listeners = new AbortController();
 
     constructor(readonly renderer: Renderer) {
         this.objectInfoContainer = document.createElement("div");
@@ -36,14 +39,45 @@ export class SceneInspector {
 
         this.objectInfoContainer.innerHTML = help;
 
-        document.addEventListener("click", this.onClick.bind(this), {
-            passive: true
-        })
+        const canvas = this.renderer.renderer.domElement;
+        const options = { signal: this.listeners.signal };
+        canvas.addEventListener("pointerdown", event => {
+            this.pointer = event.button === 0 && (event.ctrlKey || event.metaKey) ? event : undefined;
+        }, options);
+        canvas.addEventListener("pointermove", event => {
+            if (this.pointer?.pointerId === event.pointerId
+                && Math.hypot(event.clientX - this.pointer.clientX, event.clientY - this.pointer.clientY) > 5) {
+                this.pointer = undefined;
+            }
+        }, options);
+        canvas.addEventListener("pointerup", event => {
+            const start = this.pointer;
+            this.pointer = undefined;
+            if (start?.pointerId === event.pointerId
+                && Math.hypot(event.clientX - start.clientX, event.clientY - start.clientY) <= 5) {
+                this.onClick(event);
+            }
+        }, options);
+        canvas.addEventListener("pointercancel", () => { this.pointer = undefined; }, options);
+        canvas.addEventListener("pointerleave", () => { this.pointer = undefined; }, options);
+        canvas.addEventListener("contextmenu", event => {
+            // macOS Ctrl+click opens a context menu instead of firing click.
+            if (this.pointer?.ctrlKey) event.preventDefault();
+        }, options);
+    }
+
+    public dispose(): void {
+        this.listeners.abort();
+        this.pointer = undefined;
+        this.selectedObject = undefined;
+        this.objectInfoContainer.remove();
+        this.objectControlsContainer.remove();
     }
 
     findMeshChildren(from: Object3D, out: Mesh[] = []) {
+        if (!from.visible) return out;
         for (let c of from.children) {
-            if (isMesh(c)) {
+            if (c.visible && isMesh(c)) {
                 out.push(c);
             }
             this.findMeshChildren(c, out);
@@ -51,22 +85,17 @@ export class SceneInspector {
         return out;
     }
 
-    onClick(event) {
-        if ((<HTMLElement>event.target)?.nodeName !== "CANVAS") return;
-        if (!event.ctrlKey) return;
-
-        setTimeout(() => {
-            this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-            this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-            this.raycaster.setFromCamera(this.mouse, this.renderer.camera);
-            let start = Date.now();
-            let targets = this.findMeshChildren(this.renderer.scene);
-            const intersects = this.raycaster.intersectObjects(targets, false);
-            console.debug("Raycast took " + (Date.now() - start) + "ms for " + targets.length + " possible targets with " + intersects.length + " results");
-            if (intersects.length > 0) {
-                this.handleRaycasterObjects(intersects)
-            }
-        });
+    onClick(event: MouseEvent) {
+        const canvas = this.renderer.renderer.domElement;
+        if (event.target !== canvas || event.button !== 0 || !(event.ctrlKey || event.metaKey)) return;
+        const rect = canvas.getBoundingClientRect();
+        const x = event.clientX - rect.left, y = event.clientY - rect.top;
+        if (rect.width <= 0 || rect.height <= 0 || x < 0 || y < 0 || x >= rect.width || y >= rect.height) return;
+        this.mouse.set(x / rect.width * 2 - 1, 1 - y / rect.height * 2);
+        this.renderer.camera.updateWorldMatrix(true, false);
+        this.renderer.scene.updateMatrixWorld(true);
+        this.raycaster.setFromCamera(this.mouse, this.renderer.camera);
+        this.handleRaycasterObjects(this.raycaster.intersectObjects(this.findMeshChildren(this.renderer.scene), false));
     }
 
     appendTo(el: HTMLElement) {
@@ -75,37 +104,31 @@ export class SceneInspector {
     }
 
     protected handleRaycasterObjects(intersections: Intersection[]) {
-        console.debug(intersections);
-        const firstIntersection = intersections[0];
-        if (firstIntersection && firstIntersection.object) {
-            const firstObject = firstIntersection.object;
-
-            let targetIntersection: Maybe<Intersection> = undefined;
-            let targetObject: Maybe<Object3D> = undefined;
-            const firstSceneObjectIntersection = intersections.find(i => i.object && i.object.parent && isSceneObject(i.object.parent));
-            if (firstSceneObjectIntersection && firstSceneObjectIntersection.object) {
-                targetIntersection = firstSceneObjectIntersection;
-                targetObject = firstSceneObjectIntersection.object;
-            } else {
-                // fallback to first intersect
-                targetIntersection = firstIntersection;
-                targetObject = firstObject;
-            }
-
-            if (!targetIntersection || !targetObject) return;
-
-            this.selectObject(targetObject, targetIntersection);
-        }
+        const hit = intersections[0];
+        if (!hit) return;
+        const instance = this.getIntersectionInstance(hit);
+        this.selectObject(instance?.instanceable ?? hit.object, hit, instance);
     }
 
-    public selectObject(targetObject: Object3D, targetIntersection?: Intersection) {
+    private getIntersectionInstance(hit?: Intersection): Maybe<InstanceReference<SceneObject>> {
+        if (hit?.instanceId === undefined) return undefined;
+        for (let parent = hit.object.parent; parent; parent = parent.parent) {
+            if (isSceneObject(parent)) {
+                const instance = parent.getInstanceReference(hit.object, hit.instanceId);
+                if (instance) return instance;
+            }
+        }
+        return undefined;
+    }
+
+    public selectObject(targetObject: Object3D, targetIntersection?: Intersection,
+                        instance = this.getIntersectionInstance(targetIntersection)) {
         this.selectedObject = targetObject;
         console.log(p, "selected", targetObject);
-
-        this.redraw(targetObject, targetIntersection);
+        this.redraw(targetObject, targetIntersection, instance);
     }
 
-    protected redraw(targetObject: Object3D, targetIntersection?: Intersection) {
+    protected redraw(targetObject: Object3D, targetIntersection?: Intersection, instance?: InstanceReference<SceneObject>) {
         this.objectInfoContainer.innerHTML = help;
         if (targetIntersection) {
             this.addInfoLine("Distance", "D", targetIntersection.distance);
@@ -120,8 +143,8 @@ export class SceneInspector {
             }
         }
 
-        if ('atlas' in targetObject) {
-            const atlas =  targetObject['atlas'] as TextureAtlas;
+        const atlas = 'atlas' in targetObject ? targetObject['atlas'] as Maybe<TextureAtlas> : undefined;
+        if (atlas?.image.canvas) {
             // const img = document.createElement("img");
             const img = atlas.image.canvas as HTMLCanvasElement;
             // img.src = atlas.image.dataUrl;
@@ -133,53 +156,36 @@ export class SceneInspector {
         }
 
         this.objectControlsContainer.innerHTML = '';
-        this.addControls(targetObject, targetIntersection);
+        this.addControls(targetObject, targetIntersection, instance);
     }
 
-    protected addControls(object: Object3D, intersection?: Intersection) {
+    protected addControls(object: Object3D, intersection?: Intersection, instance?: InstanceReference<SceneObject>) {
         const container = document.createElement("div");
 
         container.append(this.separator("Select Parent/Child"));
 
         if (object.parent) {
             container.append(this.buttonControl("Select Parent " + object.parent.constructor.name + " " + object.parent.name, "P", () => {
-                this.selectObject(object.parent!, intersection);
+                this.selectObject(object.parent!, intersection, instance);
             }));
         }
         if (object.children.length > 0) {
             let i = 1;
             for (let child of object.children) {
                 container.append(this.buttonControl("Select Child " + child.constructor.name + " " + child.name, "C" + (i++), () => {
-                    this.selectObject(child, intersection);
+                    this.selectObject(child, intersection, instance);
                 }));
             }
         }
         container.append(this.separator());
 
-        container.append(this.toggleControl("Visibility", "V", object.visible, v => object.visible = v));
-
-        // let transformTarget = object.parent!;
-        // container.append(this.selectControl("Transform Target","T",["parent","mesh"],v=>{
-        //     switch (v) {
-        //         case "parent":
-        //             transformTarget = object.parent!;
-        //             break;
-        //         case "mesh":
-        //             transformTarget = object;
-        //             break;
-        //     }
-        // }))
-
-
-        // if(object.parent) {
-        //     container.append(this.separator("Parent"))
-        //     this.addObjectControls(object.parent, intersection, container);
-        //     container.append(this.separator());
-        // }
-
+        const selectedInstance = instance && (object === instance.instanceable || object === intersection?.object) ? instance : undefined;
+        if (!selectedInstance) {
+            container.append(this.toggleControl("Visibility", "V", object.visible, v => object.visible = v));
+        }
 
         container.append(this.separator("Mesh"))
-        this.addObjectControls(object, intersection, container);
+        this.addObjectControls(object, intersection, container, selectedInstance);
         container.append(this.separator());
 
 
@@ -199,88 +205,30 @@ export class SceneInspector {
     }
 
 
-    protected addObjectControls(target: Object3D, intersection: Maybe<Intersection>, container: HTMLElement) {
+    protected addObjectControls(target: Object3D, intersection: Maybe<Intersection>, container: HTMLElement, instance?: InstanceReference<SceneObject>) {
 
         const posRange = 16 * 16;
         const rotRange = 360;
         const scaleRange = 4;
 
-        if (typeof intersection !== "undefined" && typeof intersection.instanceId !== "undefined" && isSceneObject(target) && (<SceneObject>target).isInstanced) {
-            const scObj: SceneObject = target as SceneObject;
-
-            container.append(this.separator("Position"))
-
-            let pos = scObj.getPositionAt(intersection.instanceId);
-            container.append(this.rangeControl("X Position", "X", -posRange + pos.x, posRange + pos.x, pos.x, 1, v => {
-                pos = scObj.getPositionAt(intersection.instanceId!);
-                pos.x = v;
-                scObj.setPositionAt(intersection.instanceId!, pos);
-            }));
-            container.append(this.rangeControl("Y Position", "Y", -posRange + pos.y, posRange + pos.y, pos.y, 1, v => {
-                pos = scObj.getPositionAt(intersection.instanceId!);
-                pos.y = v;
-                scObj.setPositionAt(intersection.instanceId!, pos);
-            }));
-            container.append(this.rangeControl("Z Position", "Z", -posRange + pos.z, posRange + pos.z, pos.z, 1, v => {
-                pos = scObj.getPositionAt(intersection.instanceId!);
-                pos.z = v;
-                scObj.setPositionAt(intersection.instanceId!, pos);
-            }));
-
-            container.append(this.separator("Rotation"))
-
-            let rot = scObj.getRotationAt(intersection.instanceId);
-            container.append(this.rangeControl("X Rotation", "X", 0, rotRange, Math.round(toDegrees(rot.x)), 1, v => {
-                rot = scObj.getRotationAt(intersection.instanceId!);
-                rot.x = toRadians(v);
-                scObj.setRotationAt(intersection.instanceId!, rot);
-            }));
-            container.append(this.rangeControl("Y Rotation", "Y", 0, rotRange, Math.round(toDegrees(rot.y)), 1, v => {
-                rot = scObj.getRotationAt(intersection.instanceId!);
-                rot.y = toRadians(v);
-                scObj.setRotationAt(intersection.instanceId!, rot);
-            }));
-            container.append(this.rangeControl("Z Rotation", "Z", 0, rotRange, Math.round(toDegrees(rot.z)), 1, v => {
-                rot = scObj.getRotationAt(intersection.instanceId!);
-                rot.z = toRadians(v);
-                scObj.setRotationAt(intersection.instanceId!, rot);
-            }));
-
-            container.append(this.separator("Scale"))
-
-            let scl = scObj.getScale();
-            container.append(this.rangeControl("X Scale", "X", 0, scaleRange, scl.x, 0.1, v => {
-                scl = scObj.getScaleAt(intersection.instanceId!);
-                scl.x = v;
-                scObj.setScaleAt(intersection.instanceId!, scl);
-            }));
-            container.append(this.rangeControl("Y Scale", "Y", 0, scaleRange, scl.y, 0.1, v => {
-                scl = scObj.getScaleAt(intersection.instanceId!);
-                scl.y = v;
-                scObj.setScaleAt(intersection.instanceId!, scl);
-            }));
-            container.append(this.rangeControl("Z Scale", "Z", 0, scaleRange, scl.z, 0.1, v => {
-                scl = scObj.getScaleAt(intersection.instanceId!);
-                scl.z = v;
-                scObj.setScaleAt(intersection.instanceId!, scl);
-            }));
-        } else if (isTransformable(target)) {
-            const parent: Transformable = target;
+        const transform = instance ?? (isTransformable(target) ? target : undefined);
+        if (transform) {
+            const parent: Transformable = transform;
 
             container.append(this.separator("Position"))
 
             let pos = parent.getPosition();
-            container.append(this.rangeControl("X Position", "X", -posRange, posRange, pos.x, 1, v => {
+            container.append(this.rangeControl("X Position", "X", pos.x - posRange, pos.x + posRange, pos.x, 1, v => {
                 pos = parent.getPosition();
                 pos.x = v;
                 parent.setPosition(pos)
             }));
-            container.append(this.rangeControl("Y Position", "Y", -posRange, posRange, pos.y, 1, v => {
+            container.append(this.rangeControl("Y Position", "Y", pos.y - posRange, pos.y + posRange, pos.y, 1, v => {
                 pos = parent.getPosition();
                 pos.y = v;
                 parent.setPosition(pos)
             }));
-            container.append(this.rangeControl("Z Position", "Z", -posRange, posRange, pos.z, 1, v => {
+            container.append(this.rangeControl("Z Position", "Z", pos.z - posRange, pos.z + posRange, pos.z, 1, v => {
                 pos = parent.getPosition();
                 pos.z = v;
                 parent.setPosition(pos)
@@ -383,6 +331,7 @@ export class SceneInspector {
         toggle.checked = val; //TODO: instance
         toggle.addEventListener("change", e => {
             change(toggle.checked);
+            this.renderer.scene.dirty = true;
         });
         label.append(toggle);
         label.append(document.createElement("br"));
@@ -396,7 +345,6 @@ export class SceneInspector {
         label.setAttribute("title", name);
         labelText.style.width = "18%";
         labelText.style.display = "inline-block";
-        labelText.innerText = `${ id } (${ val })`;
 
         const range = document.createElement("input");
         range.setAttribute("type", "range");
@@ -405,8 +353,10 @@ export class SceneInspector {
         range.min = `${ min }`;
         range.step = `${ step }`;
         range.value = `${ val }`;
+        labelText.innerText = `${ id } (${ range.value })`;
         const onChange = () => {
             change(parseFloat(range.value));
+            this.renderer.scene.dirty = true;
             labelText.innerText = `${ id } (${ range.value })`
         };
         // range.addEventListener("change", onChange);
