@@ -63,7 +63,7 @@ export class Entities {
             }
             return [name, { key: override ?? modelKey, texture, layer }];
         })));
-        return { ...layers[names[0]], id: model.id, layers };
+        return { ...layers[names[0]], id: model.id, layers, ...(model.transform && { transform: model.transform }) };
     }
 
     public static async resolveTexture(modelKey: BasicAssetKey): Promise<Maybe<AssetKey>> {

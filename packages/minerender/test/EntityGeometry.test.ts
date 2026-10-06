@@ -5,7 +5,7 @@ import { ModelTextures } from "../src/assets/ModelTextures";
 import { Caching } from "../src/cache/Caching";
 import { Materials } from "../src/Materials";
 import { EntityObject, EntityObjectOptions } from "../src/entity/scene/EntityObject";
-import type { EntityLayer, EntityModelCube, EntityModelPart } from "../src/entity/EntityModel";
+import type { EntityLayer, EntityModelCube, EntityModelPart, EntityTransformOp } from "../src/entity/EntityModel";
 import type { DoubleArray } from "../src/model/Model";
 
 const cube: EntityModelCube = { origin: [1, 2, 3], size: [2, 3, 4], uv: [5, 6] };
@@ -78,6 +78,25 @@ test.serial("nested parts compose local radian poses before the entity coordinat
     const unflipped = create(model, [64, 32], { flip: false });
     t.deepEqual(unflipped.getLayerGroup("main")!.parent!.scale.toArray(), [1, 1, 1]);
     t.deepEqual(coordinates(unflipped.getGroupByName("hand")!.getWorldPosition(new Vector3())), [4, 13, 5]);
+});
+
+test.serial("the dataset transform replaces the flip unless the caller sets it", t => {
+    fixture(t);
+    const corner = (transform: EntityTransformOp[] | undefined, options?: Partial<EntityObjectOptions>) => {
+        const object = new EntityObject({ key: new BasicAssetKey("minecraft", "fixture"), id: "minecraft:fixture", transform, layer: { texture: [64, 32], root: part({ cubes: [cube] }) } }, options);
+        object["createMeshes"]();
+        t.teardown(() => object.iterateAllMeshes(mesh => mesh.geometry.dispose()));
+        object.updateMatrixWorld(true);
+        // The cube spans [1, 2, 3]..[3, 5, 7] in model space.
+        return coordinates(new Vector3(1, 2, 3).applyMatrix4(object.getLayerGroup("main")!.matrixWorld));
+    };
+    // Vanilla's living transform: face +Z, flip, then lift the model by 1.501 blocks.
+    const living: EntityTransformOp[] = [{ rotate: [0, Math.PI, 0] }, { scale: [-1, -1, 1] }, { translate: [0, -24.016, 0] }];
+    t.deepEqual(corner(living), [1, 22.016, -3]);
+    t.deepEqual(corner([]), [1, 2, 3]);
+    t.deepEqual(corner(undefined), [-1, -2, 3]);
+    t.deepEqual(corner(living, { flip: true }), [-1, -2, 3]);
+    t.deepEqual(corner(living, { flip: false }), [1, 2, 3]);
 });
 
 test.serial("cube growth preserves vanilla UV dimensions and mirrored cubes swap side faces and reverse U", t => {
