@@ -5,6 +5,7 @@ export * from './Assets';
 export * from './BlockEntities';
 export * from './BlockStates';
 export * from './Entities';
+export * from './Fonts';
 export * from './ModelTextures';
 export * from './Models';
 export * from './source';

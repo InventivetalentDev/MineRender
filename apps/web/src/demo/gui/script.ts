@@ -1,4 +1,4 @@
-import { GuiHelper, type GuiLayer, type GuiObject, type GuiRecipe, Renderer } from "minerender";
+import { GuiHelper, type GuiLayer, type GuiObject, type GuiRecipe, type GuiText, Renderer } from "minerender";
 import { OrthographicCamera, Vector2 } from "three";
 
 const renderer = new Renderer({
@@ -65,6 +65,16 @@ const shapelessRecipe: GuiRecipe = {
     ingredients: ["minecraft:blue_dye", "minecraft:red_dye"],
     result: { count: 2, id: "minecraft:purple_dye" }
 };
+const tooltipLines: GuiText[] = [
+    [{ text: "Diamond Pickaxe", color: 0x55ffff }],
+    [{ text: "Efficiency V", color: 0xaaaaaa }],
+    [{ text: "Unbreaking III", color: 0xaaaaaa }],
+    [{ text: "A trusted companion for adventures deep below the surface.", color: 0xaa00aa, italic: true }],
+    "",
+    [{ text: "When in Main Hand:", color: 0xaaaaaa }],
+    [{ text: " 5 Attack Damage", color: 0x00aa00 }],
+    [{ text: " 1.2 Attack Speed", color: 0x00aa00 }]
+];
 
 function fitGui() {
     renderer.resize(window.innerWidth, window.innerHeight);
@@ -87,7 +97,9 @@ async function setExample(example: string) {
     spriteForm.hidden = example !== "scaling";
     status.textContent = "Loading GUI layers…";
     try {
-        const layers: GuiLayer[] = example === "scaling"
+        const layers: GuiLayer[] = example === "tooltip"
+            ? await GuiHelper.tooltip(tooltipLines, { maxWidth: 180 })
+            : example === "scaling"
             ? [{
                 name: "sprite",
                 texture: `minecraft:gui/sprites/${spriteInput.value}`,
