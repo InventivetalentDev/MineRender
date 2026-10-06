@@ -20,7 +20,7 @@ import type { ItemModel, TextureAsset } from "../src/model/Model";
 
 function fixture(t: ExecutionContext) {
     const originals = { merged: Models.getMerged, atlas: UVMapper.getAtlas, image: Materials.getImage,
-        texture: ModelTextures.get, shaded: Materials.createShadedCanvasMaterial };
+        texture: ModelTextures.get, meta: ModelTextures.getMeta, shaded: Materials.createShadedCanvasMaterial };
     const scene = new MineRenderScene(), placeholder = new MeshBasicMaterial();
     const requests: AssetKey[] = [];
     let imageDisposals = 0;
@@ -37,6 +37,7 @@ function fixture(t: ExecutionContext) {
     const atlas = new TextureAtlas(model, image, { side: [16, 16] }, { side: [0, 0] }, true, { side: () => true }, false);
     const sideAtlas = new TextureAtlas(side, image, atlas.sizes, atlas.positions, false, {}, false);
     Caching.clear();
+    ModelTextures.getMeta = async () => undefined;
     Models.getMerged = async key => { requests.push(key); return key.path === "missing" ? undefined : key.path === "side" ? side : model; };
     UVMapper.getAtlas = async value => value === side ? sideAtlas : atlas;
     Materials.getImage = () => placeholder;
@@ -48,6 +49,7 @@ function fixture(t: ExecutionContext) {
         for (const object of [...scene.children]) { (object as GuiObject).dispose(); object.removeFromParent(); }
         Models.getMerged = originals.merged; UVMapper.getAtlas = originals.atlas;
         Materials.getImage = originals.image; ModelTextures.get = originals.texture;
+        ModelTextures.getMeta = originals.meta;
         Materials.createShadedCanvasMaterial = originals.shaded;
         atlas.dispose(); sideAtlas.dispose(); placeholder.dispose(); Caching.clear();
     });

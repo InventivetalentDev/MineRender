@@ -1,4 +1,4 @@
-import { Box2, Box3, BufferGeometry, Matrix4, Mesh, MeshBasicMaterial, PlaneGeometry, ShaderMaterial, Vector2 } from "three";
+import { Box2, Box3, BufferGeometry, Matrix4, Mesh, MeshBasicMaterial, ShaderMaterial, Vector2 } from "three";
 import { AssetKey } from "../../assets/AssetKey";
 import { ModelTextures } from "../../assets/ModelTextures";
 import { Models } from "../../assets/Models";
@@ -11,6 +11,7 @@ import { ModelObject } from "../../model/scene/ModelObject";
 import { DisplayPosition } from "../../model/DisplayPosition";
 import { GuiLight } from "../../model/GuiLight";
 import type { ItemModel } from "../../model/Model";
+import { createGuiTextureGeometry } from "../GuiTextureGeometry";
 
 export class GuiObject extends SceneObject {
 
@@ -54,15 +55,11 @@ export class GuiObject extends SceneObject {
                 const key = typeof layer.texture === "string" ? AssetKey.parse("textures", layer.texture) : layer.texture;
                 const material = await this.loadMaterial(key);
                 const image = material.map!.image as HTMLCanvasElement;
-                const [cropX, cropY, cropWidth, cropHeight] = layer.crop ?? [0, 0, image.width, image.height];
-                const [width, height] = layer.size ?? [cropWidth, cropHeight];
-                const geometry = new PlaneGeometry(width, height);
+                const scaling = layer.crop ? undefined : (await ModelTextures.getMeta(key))?.gui?.scaling;
+                const [width, height] = layer.size ?? (layer.crop ? layer.crop.slice(2)
+                    : scaling && scaling.type !== "stretch" ? [scaling.width, scaling.height] : [image.width, image.height]);
+                const geometry = createGuiTextureGeometry(width, height, image.width, image.height, layer.crop, scaling);
                 this.geometries.add(geometry);
-                const uv = geometry.getAttribute("uv");
-                for (let i = 0; i < uv.count; i++) {
-                    uv.setXY(i, (cropX + uv.getX(i) * cropWidth) / image.width,
-                        1 - (cropY + (1 - uv.getY(i)) * cropHeight) / image.height);
-                }
                 const mesh = new Mesh(geometry, material);
                 mesh.name = `mesh:${layer.name ?? index}`;
                 mesh.position.set(x + width / 2, -y - height / 2, depth);

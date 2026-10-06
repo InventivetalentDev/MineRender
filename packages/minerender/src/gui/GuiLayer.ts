@@ -7,13 +7,13 @@ interface GuiLayerLayout {
     name?: string;
     /** Top-left position; x grows right and y grows down. Defaults to [0, 0]. */
     position?: [number, number];
-    /** Output width and height; defaults to the texture crop size or [16, 16] for items. */
+    /** Output size; defaults to crop, sprite metadata, or image dimensions, and [16, 16] for items. */
     size?: [number, number];
 }
 
 export interface GuiTextureLayer extends GuiLayerLayout {
     texture: AssetKey | string;
-    /** Source-image pixels: [x, y, width, height], measured from the top left. */
+    /** Source-image pixels: [x, y, width, height], measured from the top left. Crops ignore sprite scaling. */
     crop?: [number, number, number, number];
 }
 
