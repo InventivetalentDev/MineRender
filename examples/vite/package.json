@@ -11,11 +11,11 @@
   },
   "dependencies": {
     "minerender": "workspace:*",
-    "three": "^0.158.0",
+    "three": "^0.186.1",
     "vue": "^3.3.4"
   },
   "devDependencies": {
-    "@types/three": "~0.158.0",
+    "@types/three": "~0.186.0",
     "@vitejs/plugin-vue": "^4.2.3",
     "typescript": "~5.6.3",
     "vite": "^4.4.5",

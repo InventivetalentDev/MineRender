@@ -1,4 +1,4 @@
-import { BoxGeometry, BufferAttribute, Euler, Float32BufferAttribute, Vec2, Vector2, Vector3, Vector4 } from "three";
+import { BoxGeometry, BufferAttribute, Euler, Float32BufferAttribute, Vector2, Vector3, Vector4 } from "three";
 import { DoubleArray, Model, QuadArray, TextureAsset } from "./model/Model";
 import { ModelElement, ModelFaces } from "./model/ModelElement";
 import { CUBE_FACES, CubeFace } from "./CubeFace";

@@ -9,7 +9,7 @@ import { Axis } from "../Axis";
 import { toRadians } from "./util";
 import { AxesHelper, Box3, BoxGeometry, EdgesGeometry, LineBasicMaterial, LineSegments, Matrix4, Mesh, Object3D, Quaternion, Vector3, Vector4 } from "three";
 
-function rotateAboutPoint(obj: THREE.Object3D, point: THREE.Vector3, axis: THREE.Vector3, theta: number) {
+function rotateAboutPoint(obj: Object3D, point: Vector3, axis: Vector3, theta: number) {
     obj.position.sub(point); // remove the offset
     obj.position.applyAxisAngle(axis, theta); // rotate the POSITION
     obj.position.add(point); // re-add the offset

@@ -131,6 +131,7 @@ export class SectionMesh extends Group {
             texture?.dispose();
         }
         this.removeFromParent();
+        super.dispose();
     }
 
 }

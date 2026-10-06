@@ -1,4 +1,4 @@
-import { BoxGeometry, Color, EdgesGeometry, Euler, InstancedBufferAttribute, InstancedMesh, LineBasicMaterial, LineSegments, MathUtils, Matrix4, Mesh, Object3D, Quaternion, Scene, Vector3 } from "three";
+import { BoxGeometry, Color, EdgesGeometry, Euler, InstancedBufferAttribute, InstancedMesh, LineBasicMaterial, LineSegments, Matrix4, Mesh, Object3D, Quaternion, Scene, Vector3 } from "three";
 import { ModelElement, ModelFaces } from "../model/ModelElement";
 import { Geometries } from "../Geometries";
 import { UVMapper } from "../UVMapper";
@@ -16,7 +16,6 @@ import merge from "ts-deepmerge";
 import { Instanceable } from "../instance/Instanceable";
 import type { MineRenderScene } from "./MineRenderScene";
 import { Transformable } from "../Transformable";
-import generateUUID = MathUtils.generateUUID;
 import { prefix } from "../util/log";
 
 const p = prefix("SceneObject");
@@ -516,6 +515,7 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
     public dispose() {
         this.disposeAndRemoveAllChildren();
         this.notifyDirty();
+        super.dispose();
     }
 
     public disposeAndRemoveAllChildren() {

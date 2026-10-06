@@ -1,4 +1,4 @@
-import { BufferGeometry, ClampToEdgeWrapping, Color, DataTexture, Float32BufferAttribute, InstancedMesh, Material, Matrix4, Mesh, MeshBasicMaterial, NearestFilter, Object3D, RGBAFormat, Scene, ShaderMaterial, Source, Texture, UnsignedByteType } from "three";
+import { BufferGeometry, ClampToEdgeWrapping, Color, DataTexture, Float32BufferAttribute, InstancedMesh, Material, Matrix4, Mesh, MeshBasicMaterial, NearestFilter, Object3D, RGBAFormat, Scene, ShaderMaterial, TextureSource, Texture, UnsignedByteType } from "three";
 import { OBJExporter } from "three/examples/jsm/exporters/OBJExporter.js";
 import { PLYExporter } from "three/examples/jsm/exporters/PLYExporter.js";
 import type { PLYExporterOptions } from "three/examples/jsm/exporters/PLYExporter.js";
@@ -256,9 +256,9 @@ function selectAlphaMode(material: MeshBasicMaterial, geometry: BufferGeometry):
     if (holes && material.alphaTest === 0) material.alphaTest = 1 / 255;
 }
 
-function copyDataTexture(source: Texture): Texture {
+function copyDataTexture(source: DataTexture): Texture {
     const image = source.image;
-    if (source.format !== RGBAFormat || source.type !== UnsignedByteType) {
+    if (!image.data || source.format !== RGBAFormat || source.type !== UnsignedByteType) {
         throw new MineRenderError("glTF export requires RGBA unsigned-byte data textures");
     }
     const canvas = createCanvas(image.width, image.height);
@@ -270,6 +270,6 @@ function copyDataTexture(source: Texture): Texture {
     const copySource = Object.create(source);
     copySource.userData = {};
     // GLTFExporter flips canvas images with drawImage; its DataTexture path ignores flipY.
-    copySource.source = new Source(canvas);
+    copySource.source = new TextureSource(canvas);
     return new Texture().copy(copySource);
 }
