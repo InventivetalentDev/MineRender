@@ -1,0 +1,15 @@
+{
+    "$schema": "node_modules/wrangler/config-schema.json",
+    "name": "minerender-site",
+    "compatibility_date": "2026-10-01",
+    "assets": {
+        // `yarn build` writes the static site here.
+        "directory": "./dist",
+        // Single page; unknown paths get the plain 404 instead of index.html.
+        "not_found_handling": "none",
+        "html_handling": "auto-trailing-slash"
+    },
+    "observability": {
+        "enabled": true
+    }
+}
