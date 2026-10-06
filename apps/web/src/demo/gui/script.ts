@@ -27,6 +27,7 @@ const app = new Playground<GuiState>({
         return {
             object: gui,
             activate: () => syncControls(layers),
+            restore: () => syncControls(layers),
             fit: () => {
                 const camera = ctx.renderer.camera;
                 const size = gui.bounds.getSize(new Vector2());
@@ -159,14 +160,14 @@ function editLayers(layers: EditableLayer[]) {
     return app.update({ mode: "custom", layers: validateLayers(layers) });
 }
 
-select("gui-mode").addEventListener("change", () => guard(async () => {
-    await app.update({ mode: select("gui-mode").value as GuiState["mode"], layers: displayedLayers });
-    app.fit();
-}));
-select("gui-scale").addEventListener("change", () => guard(async () => {
-    await app.update({ scale: select("gui-scale").value as GuiState["scale"] });
-    app.fit();
-}));
+async function updateAndFit(patch: Partial<GuiState>) {
+    const previousRenderer = app.renderer;
+    await app.update(patch);
+    if (app.renderer !== previousRenderer) app.fit();
+}
+
+select("gui-mode").addEventListener("change", () => guard(() => updateAndFit({ mode: select("gui-mode").value as GuiState["mode"], layers: displayedLayers })));
+select("gui-scale").addEventListener("change", () => guard(() => updateAndFit({ scale: select("gui-scale").value as GuiState["scale"] })));
 input("slot-index").addEventListener("input", () => input("slot-item").value = app.state.slots[Number(input("slot-index").value)] ?? "");
 document.getElementById("slot-apply")!.addEventListener("click", () => guard(() => {
     const slot = Number(input("slot-index").value);

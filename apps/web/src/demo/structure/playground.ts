@@ -44,6 +44,7 @@ export function startWorldPlayground(title: string, shape?: Workload["shape"]) {
         code: worldCode,
         load: async (ctx, state) => {
             const start = performance.now();
+            const sourceFile = state.source === "file" ? localFile : undefined;
             const maxAtlasSize = integer(state.maxAtlasSize, "Atlas size", 16, 4096);
             if (maxAtlasSize & (maxAtlasSize - 1)) throw new Error("Choose an atlas size that is a power of two.");
             if (!/^[a-z0-9_.-]+$/.test(state.namespace)) throw new Error("Use a valid asset namespace.");
@@ -64,16 +65,16 @@ export function startWorldPlayground(title: string, shape?: Workload["shape"]) {
                 structure = await StructureParser.parse(asset);
                 label = `${state.namespace}:${state.name}`;
             } else if (state.source === "file") {
-                if (!localFile || localFile.name !== state.fileName) throw new Error(`Reselect ${state.fileName || "the local structure file"}. File contents are not included in shared links.`);
-                const extension = localFile.name.split(".").pop()?.toLowerCase();
-                label = localFile.name;
+                if (!sourceFile || sourceFile.name !== state.fileName) throw new Error(`Reselect ${state.fileName || "the local structure file"}. File contents are not included in shared links.`);
+                const extension = sourceFile.name.split(".").pop()?.toLowerCase();
+                label = sourceFile.name;
                 if (extension === "mca") {
-                    chunks = AnvilParser.getChunkList(localFile.bytes);
+                    chunks = AnvilParser.getChunkList(sourceFile.bytes);
                     if (!chunks.length) throw new Error("This region contains no chunks.");
                     selectedChunk ||= `${chunks[0].x},${chunks[0].z}`;
                     const [x, z] = selectedChunk.split(",").map(Number);
                     if (!chunks.some(chunk => chunk.x === x && chunk.z === z)) throw new Error("Choose a chunk present in this region.");
-                    const chunk = await AnvilParser.parseChunk(localFile.bytes, x, z);
+                    const chunk = await AnvilParser.parseChunk(sourceFile.bytes, x, z);
                     if (!chunk) throw new Error("The selected chunk is empty.");
                     for (const section of chunk.sections) {
                         for (let index = 0; index < 4096; index++) {
@@ -87,7 +88,7 @@ export function startWorldPlayground(title: string, shape?: Workload["shape"]) {
                     await world.placeChunk(chunk);
                 } else {
                     if (extension !== "nbt" && extension !== "schematic") throw new Error("Choose an .nbt, .schematic, or .mca file.");
-                    const nbt = await NBTHelper.fromBuffer(localFile.bytes);
+                    const nbt = await NBTHelper.fromBuffer(sourceFile.bytes);
                     structure = extension === "schematic" ? await SchematicParser.parse(nbt) : await StructureParser.parse(nbt);
                 }
             } else if (state.source === "preset") {
@@ -115,14 +116,19 @@ export function startWorldPlayground(title: string, shape?: Workload["shape"]) {
                 if (!remove) includeBlock(bounds, edit.position);
             }
             const elapsed = performance.now() - start;
+            const info = `${label}: ${count.toLocaleString()} blocks · ${(elapsed / 1000).toFixed(2)} s to load${dataVersion === undefined ? "" : ` · DataVersion ${dataVersion}`}`;
+            const restore = () => {
+                if (sourceFile) localFile = sourceFile;
+                activeWorld = world;
+                window["world"] = world;
+                syncControls(chunks, selectedChunk);
+                document.getElementById("world-result")!.textContent = info;
+            };
             return {
                 bounds,
+                restore,
                 activate: () => {
-                    activeWorld = world;
-                    window["world"] = world;
-                    syncControls(chunks, selectedChunk);
-                    const info = `${label}: ${count.toLocaleString()} blocks · ${(elapsed / 1000).toFixed(2)} s to load${dataVersion === undefined ? "" : ` · DataVersion ${dataVersion}`}`;
-                    document.getElementById("world-result")!.textContent = info;
+                    restore();
                     void refreshSuggestions(ctx, state.namespace);
                 }
             };
@@ -175,6 +181,11 @@ export function startWorldPlayground(title: string, shape?: Workload["shape"]) {
     const select = (id: string) => document.getElementById(id) as HTMLSelectElement;
     function guard(task: () => void | Promise<void>) {
         void Promise.resolve().then(task).catch(error => app.report(error instanceof Error ? error.message : String(error), true));
+    }
+    async function updateAndFit(patch: Partial<WorldState>) {
+        const previousRenderer = app.renderer;
+        await app.update(patch);
+        if (app.renderer !== previousRenderer) app.fit();
     }
     function syncShape() {
         document.getElementById("cube-dimensions")!.hidden = select("work-shape").value !== "cube";
@@ -240,8 +251,7 @@ export function startWorldPlayground(title: string, shape?: Workload["shape"]) {
         return app.update({ edits: [...edits, edit] });
     }
     document.getElementById("structure-load")!.addEventListener("click", () => guard(async () => {
-        await app.update({ source: "builtin", namespace: input("structure-namespace").value.trim(), name: input("structure-name").value.trim(), edits: [] });
-        app.fit();
+        await updateAndFit({ source: "builtin", namespace: input("structure-namespace").value.trim(), name: input("structure-name").value.trim(), edits: [] });
     }));
     input("structure-file").addEventListener("change", () => guard(async () => {
         const file = input("structure-file").files?.[0];
@@ -251,12 +261,10 @@ export function startWorldPlayground(title: string, shape?: Workload["shape"]) {
         const bytes = new Uint8Array(await file.arrayBuffer());
         if (generation !== fileGeneration || app.state !== settings) return;
         localFile = { name: file.name, bytes };
-        await app.update({ source: "file", fileName: file.name, chunk: "", edits: [] });
-        app.fit();
+        await updateAndFit({ source: "file", fileName: file.name, chunk: "", edits: [] });
     }));
     select("chunk-input").addEventListener("change", () => guard(async () => {
-        await app.update({ chunk: select("chunk-input").value, edits: [] });
-        app.fit();
+        await updateAndFit({ chunk: select("chunk-input").value, edits: [] });
     }));
     input("section-meshing").addEventListener("change", () => guard(() => app.update({ sectionMeshing: input("section-meshing").checked })));
     select("atlas-size").addEventListener("change", () => guard(() => app.update({ maxAtlasSize: Number(select("atlas-size").value) })));
@@ -267,8 +275,7 @@ export function startWorldPlayground(title: string, shape?: Workload["shape"]) {
         const workload = { ...app.state.workload, shape: select("work-shape").value as Workload["shape"], blocks: input("work-blocks").value };
         for (const key of ["count", "width", "height", "depth", "radius", "spacing", "seed"] as const) workload[key] = Number(input(`work-${key}`).value);
         makeWorkload(workload);
-        await app.update({ source: "workload", workload, edits: [] });
-        app.fit();
+        await updateAndFit({ source: "workload", workload, edits: [] });
     }));
     document.getElementById("edit-read")!.addEventListener("click", () => guard(() => {
         const block = activeWorld?.getBlockAt(position())?.block;
