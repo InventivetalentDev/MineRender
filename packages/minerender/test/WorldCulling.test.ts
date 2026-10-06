@@ -5,6 +5,7 @@ import { BlockStates } from "../src/assets/BlockStates";
 import { Models } from "../src/assets/Models";
 import { Caching } from "../src/cache/Caching";
 import { CUBE_FACES, CubeFace } from "../src/CubeFace";
+import { Env, EnvProvider } from "../src/Env";
 import { isInstanceReference } from "../src/instance/InstanceReference";
 import { Materials } from "../src/Materials";
 import { BlockState } from "../src/model/block/BlockState";
@@ -13,15 +14,21 @@ import { Model, TripleArray } from "../src/model/Model";
 import { ModelObject } from "../src/model/scene/ModelObject";
 import { MineRenderScene } from "../src/renderer/MineRenderScene";
 import { TextureAtlas } from "../src/texture/TextureAtlas";
+import { Ticker } from "../src/Ticker";
 import { BatchedExecutor } from "../src/util/BatchedExecutor";
 import { UVMapper } from "../src/UVMapper";
-import { MineRenderWorld } from "../src/world/MineRenderWorld";
+import { MineRenderWorld, MineRenderWorldOptions } from "../src/world/MineRenderWorld";
 import { ChunkData } from "../src/world/ChunkData";
+import { SectionMesh } from "../src/world/SectionMesh";
 import type { CanvasImage } from "../src/canvas/CanvasImage";
+import type { CompatCanvas } from "../src/canvas/CanvasCompat";
 
-function fixture(t: ExecutionContext) {
-    const originals = { state: BlockStates.get, defaults: BlockStates.getDefaultState, model: Models.getMerged, atlas: UVMapper.getAtlas, image: Materials.getImage, material: Materials.createShadedCanvasMaterial };
-    const scene = new MineRenderScene(), world = new MineRenderWorld(scene);
+function fixture<SectionMeshing extends boolean = false>(t: ExecutionContext, options: MineRenderWorldOptions<SectionMeshing> = {}) {
+    const originals = { state: BlockStates.get, defaults: BlockStates.getDefaultState, model: Models.getMerged, atlas: UVMapper.getAtlas, image: Materials.getImage, material: Materials.createShadedCanvasMaterial, provider: Env["_provider"] };
+    const scene = new MineRenderScene(), world = new MineRenderWorld<SectionMeshing>(scene, options);
+    Env.register({ name: "test", createCanvas: (width, height) => ({
+        width, height, getContext: () => ({ drawImage() {} })
+    } as unknown as CompatCanvas) } as EnvProvider);
     const material = new MeshBasicMaterial();
     const models = new Map<string, Model>(), atlases = new Map<Model, TextureAtlas>();
     const states = new Map<string, BlockState>();
@@ -31,7 +38,7 @@ function fixture(t: ExecutionContext) {
     Models.getMerged = async key => models.get(key.toNamespacedString());
     UVMapper.getAtlas = async model => atlases.get(model);
     Materials.getImage = Materials.createShadedCanvasMaterial = () => material;
-    const addModel = (name: string, options: { height?: number; transparent?: boolean; cullable?: CubeFace[] } = {}) => {
+    const addModel = (name: string, options: { height?: number; transparent?: boolean; animated?: boolean; cullable?: CubeFace[] } = {}) => {
         const model: Model = {
             key: new AssetKey("test", name, "models", "block"), textures: { side: "block/stone" },
             elements: [{ from: [0, 0, 0], to: [16, options.height ?? 16, 16],
@@ -42,7 +49,7 @@ function fixture(t: ExecutionContext) {
         };
         models.set(model.key!.toNamespacedString(), model);
         atlases.set(model, new TextureAtlas(model, { width: 16, height: 16, canvas: {} } as CanvasImage,
-            { side: [16, 16] }, { side: [0, 0] }, false, {}, options.transparent ?? false));
+            { side: [16, 16] }, { side: [0, 0] }, options.animated ?? false, {}, options.transparent ?? false));
         states.set(`test:${name}`, { variants: { "": { model: `test:block/${name}` } } });
         return model;
     };
@@ -58,6 +65,9 @@ function fixture(t: ExecutionContext) {
         UVMapper.getAtlas = originals.atlas;
         Materials.getImage = originals.image;
         Materials.createShadedCanvasMaterial = originals.material;
+        Env["_provider"] = originals.provider;
+        for (const atlas of atlases.values()) Ticker.remove(atlas.ticker);
+        if (!Ticker.tickers.size) Ticker.stop();
         Caching.clear();
     });
     const place = (position: TripleArray, type = "cube") => world.setBlockAt(position, { type: `test:${type}` });
@@ -251,4 +261,53 @@ test.serial("standalone edits finish culling while another bulk placement is wai
     release();
     await pending;
     t.is(indexCount(world.getBlockAt(2, 0, 0)!.object), 36);
+});
+
+test.serial("section meshes restore border faces without changing block snapshots or weighted selections", async t => {
+    const { world, scene, states, place, addModel } = fixture(t, { sectionMeshing: true });
+    addModel("unculled", { cullable: [] });
+    states.set("test:weighted", { variants: { "": [{ model: "test:block/cube" }, { model: "test:block/unculled" }] } });
+    const random = Math.random;
+    t.teardown(() => { Math.random = random; });
+    Math.random = () => 0;
+    const value = { type: "test:weighted", properties: { axis: "x" }, nbt: { items: [1] } };
+    const left = (await world.setBlockAt([-17, -1, -1], value))!;
+    t.is(left.object, undefined);
+    left.block.properties!.axis = "z";
+    left.block.nbt.items[0] = 9;
+    t.deepEqual(left.block, value);
+    const count = (x: number) => {
+        const group = scene.children.find(child => child instanceof SectionMesh && child.position.x === x) as SectionMesh | undefined;
+        return group?.children.reduce((sum, child) => sum + (child as Mesh).geometry.getIndex()!.count, 0) ?? 0;
+    };
+    Math.random = () => 0.99;
+    const right = (await place([-16, -1, -1]))!;
+    t.is(right.object, undefined);
+    t.deepEqual([count(-512), count(-256)], [30, 30]);
+    t.is(scene.stats.instanceCount, 0);
+    await world.getChunkAt(new Vector3(-16, -1, -1))!.clear();
+    t.deepEqual([count(-512), count(-256)], [36, 0]);
+    t.is(world.getBlockAt(-17, -1, -1), left);
+    await world.clear();
+    t.is(scene.children.length, 0);
+});
+
+test.serial("section meshing retains render objects for partial, transparent, animated and multipart blocks", async t => {
+    const { world, scene, states, place, addModel } = fixture(t, { sectionMeshing: true });
+    addModel("partial", { height: 8 });
+    addModel("transparent", { transparent: true });
+    addModel("animated", { animated: true });
+    states.set("test:multipart", { multipart: [
+        { apply: { model: "test:block/cube" } }, { apply: { model: "test:block/cube", x: 90 } }
+    ] });
+    for (const [index, type] of ["partial", "transparent", "animated", "multipart"].entries()) {
+        const info = (await place([index * 2, 0, 0], type))!;
+        t.true(info.object?.isBlockObject);
+    }
+    t.is((await place([8, 0, 0]))!.object, undefined);
+    t.is(scene.stats.instanceCount, 5);
+    t.is(scene.children.filter(child => child instanceof SectionMesh).length, 1);
+    t.is((await place([0, 0, 0]))!.object, undefined);
+    t.is(scene.stats.instanceCount, 4);
+    t.is(world.getBlockAt(2, 0, 0)!.object?.isBlockObject, true);
 });

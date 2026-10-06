@@ -1,33 +1,19 @@
 import { SceneObject } from "../../../renderer/SceneObject";
-import { BlockState, BlockStateVariant, BlockStateVariants, MultipartCondition } from "../BlockState";
+import { BlockState, BlockStateVariant } from "../BlockState";
 import { SceneObjectOptions } from "../../../renderer/SceneObjectOptions";
 import { isModelObject, ModelObject, ModelObjectOptions } from "../../scene/ModelObject";
 import { Caching } from "../../../cache/Caching";
 import { Models } from "../../../assets/Models";
 import merge from "ts-deepmerge";
 import { Euler, Matrix4, Quaternion, Vector3 } from "three";
-import { clampRotationDegrees, Maybe, toRadians } from "../../../util/util";
+import { Maybe } from "../../../util/util";
 import { MineRenderError } from "../../../error/MineRenderError";
 import { BlockStateProperties, BlockStatePropertyDefaults } from "../BlockStateProperties";
-import { BlockStates } from "../../../assets/BlockStates";
 import { InstanceReference, isInstanceReference } from "../../../instance/InstanceReference";
 import { AssetKey } from "../../../assets/AssetKey";
-import { prefix } from "../../../util/log";
 import { BlockTints } from "../BlockTints";
 import { ModelCulling } from "../../ModelCulling";
-
-const p = prefix("BlockObject");
-
-function matchesCondition(condition: MultipartCondition, state: BlockStateProperties): boolean {
-    return Object.entries(condition).every(([key, value]) => {
-        if (Array.isArray(value)) {
-            if (key === "OR") return value.some(child => matchesCondition(child, state));
-            if (key === "AND") return value.every(child => matchesCondition(child, state));
-            return false;
-        }
-        return typeof value === "string" && state[key] !== undefined && value.split("|").includes(`${state[key]}`);
-    });
-}
+import { BlockStateResolver } from "../BlockStateResolver";
 
 export class BlockObject extends SceneObject {
 
@@ -58,26 +44,7 @@ export class BlockObject extends SceneObject {
 
     async init(): Promise<void> {
         if (this.options.applyDefaultState) {
-            const defaultState = this.blockState.key ? await BlockStates.getDefaultState(this.blockState.key) : undefined;
-            if (defaultState && Object.keys(defaultState).length > 0) { // use defined state
-                const state = {};
-                for (let k in defaultState) {
-                    state[k] = defaultState[k].default;
-                }
-                this._setState(state);
-            } else { // fallback to guessing from blockState definition
-                if (this.blockState.variants) {
-                    this._setState(Object.keys(this.blockState.variants)[0]);
-                } else if (this.blockState.multipart) {
-                    // Guess preview values only from a flat condition; logical groups need a known state.
-                    const condition = this.blockState.multipart.map(part => part.when)
-                        .find((when): when is Record<string, string> =>
-                            when !== undefined && Object.values(when).every(value => typeof value === "string"));
-                    const state = Object.fromEntries(Object.entries(condition ?? {})
-                        .map(([key, value]) => [key, value.split("|")[0]]));
-                    this._setState(state);
-                }
-            }
+            this._setState(await BlockStateResolver.defaults(this.blockState));
         }
         if (this.options.initialState !== undefined) this._setState(this.options.initialState);
         await this.recreateModels();
@@ -182,40 +149,7 @@ export class BlockObject extends SceneObject {
     }
 
     protected async mapStateToVariant(state: BlockStateProperties): Promise<BlockStateVariant[]> {
-        const out: BlockStateVariant[] = [];
-        if (this.blockState.variants) {
-            if (Object.keys(this.blockState.variants).length === 1 && "" in this.blockState.variants) { // default variant
-                out.push(this.getSingleVariant(this.blockState.variants[""]));
-            } else {
-                for (let variantKey in this.blockState.variants) {
-                    const split = variantKey.split(",");
-                    let matches = true;
-                    for (let s of split) {
-                        const [k, v] = s.split("=");
-                        if (`${ state[k] }` !== `${ v }`) {
-                            matches = false;
-                            break;
-                        }
-                    }
-                    if (matches) {
-                        const variants = this.blockState.variants[variantKey];
-                        out.push(this.getSingleVariant(variants));
-                    }
-                }
-            }
-        } else if (this.blockState.multipart) {
-            for (let part of this.blockState.multipart) {
-                if (!part.apply) {
-                    console.debug(p, "Missing apply for blockState part",  part);
-                    continue;
-                }
-                if (!part.when || matchesCondition(part.when, state)) {
-                    out.push(this.getSingleVariant(part.apply));
-                }
-            }
-        }
-
-        return out;
+        return BlockStateResolver.select(this.blockState, state, variants => this.getSingleVariant(variants));
     }
 
     public async recreateModels(): Promise<void> {
@@ -258,21 +192,7 @@ export class BlockObject extends SceneObject {
     }
 
     protected getSingleVariant(variants: BlockStateVariant | BlockStateVariant[]): BlockStateVariant {
-        if (!Array.isArray(variants)) return variants;
-        if (!variants.length) throw new MineRenderError("Blockstate variant arrays must not be empty");
-        const total = variants.reduce((sum, variant) => {
-            const weight = variant.weight ?? 1;
-            if (!Number.isInteger(weight) || weight < 1) {
-                throw new MineRenderError(`Invalid blockstate variant weight: ${weight}`);
-            }
-            return sum + weight;
-        }, 0);
-        let choice = Math.random() * total;
-        for (const variant of variants) {
-            choice -= variant.weight ?? 1;
-            if (choice < 0) return variant;
-        }
-        return variants[variants.length - 1];
+        return BlockStateResolver.choose(variants);
     }
 
     // @deprecated
@@ -282,13 +202,7 @@ export class BlockObject extends SceneObject {
     }
 
     protected async createVariant(variant: BlockStateVariant): Promise<ModelObject | InstanceReference<ModelObject>> {
-        const rotation = new Euler();
-        if (typeof variant.x !== "undefined") {
-            rotation.x = toRadians(clampRotationDegrees(variant.x));
-        }
-        if (typeof variant.y !== "undefined") {
-            rotation.y = toRadians(clampRotationDegrees(typeof variant.x !== "undefined" ? variant.y : 360 - variant.y));
-        }
+        const rotation = BlockStateResolver.rotation(variant);
 
         // The model and its textures must come from the same asset root as the blockstate.
         const modelKey = AssetKey.parse("models", variant.model!);

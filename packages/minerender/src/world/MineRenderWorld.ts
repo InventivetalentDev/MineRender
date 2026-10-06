@@ -11,24 +11,27 @@ import { AssetKey } from "../assets/AssetKey";
 import { BlockStates } from "../assets/BlockStates";
 import { CUBE_FACE_OFFSETS } from "../CubeFace";
 import type { AnvilChunk } from "./AnvilParser";
+import { SectionModels } from "./SectionModels";
 
 //TODO: maybe make this an Object3D to add children
-export class MineRenderWorld {
+export class MineRenderWorld<SectionMeshing extends boolean = false> {
 
     public readonly scene: MineRenderScene;
 
-    private readonly _chunks: Map<string, Chunk> = new Map<string, Chunk>();
+    private readonly _chunks: Map<string, Chunk<SectionMeshing>> = new Map();
+    private readonly sectionModels?: SectionModels;
     private readonly pendingCulling = new Map<string, Vector3>();
     private culling?: Promise<void>;
 
-    constructor(scene: MineRenderScene) {
+    constructor(scene: MineRenderScene, options: MineRenderWorldOptions<SectionMeshing> = {}) {
         this.scene = scene;
+        if (options.sectionMeshing) this.sectionModels = new SectionModels(options.maxAtlasSize);
     }
 
-    public getBlockAt(x: number, y: number, z: number): Maybe<BlockInfo>;
-    public getBlockAt(pos: Vector3): Maybe<BlockInfo>;
-    public getBlockAt(pos: TripleArray): Maybe<BlockInfo>;
-    public getBlockAt(posOrX: number | Vector3 | TripleArray, y?: number, z?: number): Maybe<BlockInfo> {
+    public getBlockAt(x: number, y: number, z: number): Maybe<BlockInfo<SectionMeshing>>;
+    public getBlockAt(pos: Vector3): Maybe<BlockInfo<SectionMeshing>>;
+    public getBlockAt(pos: TripleArray): Maybe<BlockInfo<SectionMeshing>>;
+    public getBlockAt(posOrX: number | Vector3 | TripleArray, y?: number, z?: number): Maybe<BlockInfo<SectionMeshing>> {
         if (typeof posOrX == "number") {
             return this.getBlockAt(new Vector3(posOrX, y, z));
         }
@@ -39,10 +42,10 @@ export class MineRenderWorld {
         return this.getChunkAt(posOrX)?.getBlockAt(posOrX);
     }
 
-    public async setBlockAt(x: number, y: number, z: number, block: Maybe<Block>): Promise<Maybe<BlockInfo>>;
-    public async setBlockAt(pos: Vector3, block: Maybe<Block>): Promise<Maybe<BlockInfo>>;
-    public async setBlockAt(pos: TripleArray, block: Maybe<Block>): Promise<Maybe<BlockInfo>>;
-    public async setBlockAt(posOrX: number | Vector3 | TripleArray, yOrBlock?: number | Block, z?: number, block?: Block): Promise<Maybe<BlockInfo>> {
+    public async setBlockAt(x: number, y: number, z: number, block: Maybe<Block>): Promise<Maybe<BlockInfo<SectionMeshing>>>;
+    public async setBlockAt(pos: Vector3, block: Maybe<Block>): Promise<Maybe<BlockInfo<SectionMeshing>>>;
+    public async setBlockAt(pos: TripleArray, block: Maybe<Block>): Promise<Maybe<BlockInfo<SectionMeshing>>>;
+    public async setBlockAt(posOrX: number | Vector3 | TripleArray, yOrBlock?: number | Block, z?: number, block?: Block): Promise<Maybe<BlockInfo<SectionMeshing>>> {
         if (typeof posOrX == "number") {
             return this.setBlockAt(new Vector3(posOrX, yOrBlock as number, z), block as Block);
         }
@@ -52,7 +55,7 @@ export class MineRenderWorld {
         return this.placeBlock(posOrX, yOrBlock as Maybe<Block>);
     }
 
-    private async placeBlock(pos: Vector3, value: Maybe<Block>, onBlocksChanged?: (positions: Vector3[]) => Promise<void>): Promise<Maybe<BlockInfo>> {
+    private async placeBlock(pos: Vector3, value: Maybe<Block>, onBlocksChanged?: (positions: Vector3[]) => Promise<void>): Promise<Maybe<BlockInfo<SectionMeshing>>> {
         this.validatePosBounds(pos);
         const chunk = Chunk.isAir(value) ? this.getChunkAt(pos) : this.getOrCreateChunkAt(pos);
         return chunk?.setBlockInChunkAt(chunk.worldPosToChunkPos(pos), value, pos, onBlocksChanged);
@@ -149,6 +152,7 @@ export class MineRenderWorld {
         for (const chunk of chunks) {
             await chunk.dispose();
         }
+        this.sectionModels?.clear();
     }
 
     private updateCulling(positions: Vector3[]): Promise<void> {
@@ -165,17 +169,22 @@ export class MineRenderWorld {
                 while (this.pendingCulling.size) {
                     const batch = [...this.pendingCulling.values()];
                     this.pendingCulling.clear();
+                    const changed = new Set<Chunk<SectionMeshing>>();
                     for (const pos of batch) {
-                        const block = this.getBlockAt(pos)?.object;
-                        if (!block) continue;
+                        const chunk = this.getChunkAt(pos);
+                        if (!chunk) continue;
+                        changed.add(chunk);
+                        if (!chunk.getBlockAt(pos)) continue;
                         let mask = 0;
                         for (const [face, offset] of CUBE_FACE_OFFSETS.entries()) {
-                            if (this.getBlockAt(pos.clone().add(new Vector3(...offset)))?.object.isOccluding) {
+                            const neighbor = pos.clone().add(new Vector3(...offset));
+                            if (this.getChunkAt(neighbor)?.isOccludingAt(neighbor)) {
                                 mask |= 1 << face;
                             }
                         }
-                        await block.setCullMask(mask);
+                        await chunk.setCullMaskAt(pos, mask);
                     }
+                    for (const chunk of changed) chunk.rebuildSectionMesh();
                 }
             } finally {
                 this.culling = undefined;
@@ -183,18 +192,18 @@ export class MineRenderWorld {
         });
     }
 
-    private getOrCreateChunkAt(pos: Vector3): Chunk {
+    private getOrCreateChunkAt(pos: Vector3): Chunk<SectionMeshing> {
         const key = this.worldPosToChunkKey(pos);
         let chunk = this._chunks.get(key);
         if (typeof chunk === "undefined") {
-            chunk = new Chunk(this.scene, Math.floor(pos.x / 16), Math.floor(pos.y / 16), Math.floor(pos.z / 16),
-                positions => this.updateCulling(positions));
+            chunk = new Chunk<SectionMeshing>(this.scene, Math.floor(pos.x / 16), Math.floor(pos.y / 16), Math.floor(pos.z / 16),
+                positions => this.updateCulling(positions), this.sectionModels);
             this._chunks.set(key, chunk);
         }
         return chunk;
     }
 
-    public getChunkAt(pos: Vector3): Maybe<Chunk> {
+    public getChunkAt(pos: Vector3): Maybe<Chunk<SectionMeshing>> {
         return this._chunks.get(this.worldPosToChunkKey(pos));
     }
 
@@ -228,4 +237,12 @@ export class MineRenderWorld {
         }
     }
 
+}
+
+
+export interface MineRenderWorldOptions<SectionMeshing extends boolean = boolean> {
+    /** Merge static opaque cubes into section meshes. Merged blocks have no individual object. */
+    sectionMeshing?: SectionMeshing;
+    /** Maximum width and height of each section atlas page, in pixels. */
+    maxAtlasSize?: number;
 }

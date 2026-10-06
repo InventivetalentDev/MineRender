@@ -54,7 +54,7 @@ const sceneInspector = new SceneInspector(renderer);
 sceneInspector.appendTo(document.getElementById('inspector'));
 
 
-const world = new MineRenderWorld(renderer.scene);
+let world: MineRenderWorld<boolean> = new MineRenderWorld(renderer.scene);
 window["world"] = world;
 
 setInterval(() => {
@@ -80,9 +80,11 @@ setInterval(() => {
 const structureInput = document.getElementById("structure-input") as HTMLInputElement;
 const fileInput = document.getElementById("file-input") as HTMLInputElement;
 const chunkInput = document.getElementById("chunk-input") as HTMLSelectElement;
+const sectionMeshingInput = document.getElementById("section-meshing") as HTMLInputElement;
 const chunkPicker = document.getElementById("chunk-picker")!;
 const status = document.getElementById("load-status")!;
 let region: { name: string; bytes: Uint8Array } | undefined;
+let current: { label: string; count: number; dataVersion?: number; render: () => Promise<void> } | undefined;
 
 function includeBlock(bounds: Box3, x: number, y: number, z: number) {
     const position = new Vector3(x, y, z).multiplyScalar(16);
@@ -113,7 +115,7 @@ function loaded(label: string, count: number, dataVersion?: number) {
 }
 
 async function load(label: string, task: () => Promise<void>) {
-    structureInput.disabled = fileInput.disabled = chunkInput.disabled = true;
+    structureInput.disabled = fileInput.disabled = chunkInput.disabled = sectionMeshingInput.disabled = true;
     if (renderer.controls) renderer.controls.enabled = false;
     status.textContent = `Loading ${label}…`;
     try {
@@ -121,7 +123,7 @@ async function load(label: string, task: () => Promise<void>) {
     } catch (error) {
         status.textContent = `Could not load ${label}: ${error instanceof Error ? error.message : String(error)}`;
     } finally {
-        structureInput.disabled = fileInput.disabled = false;
+        structureInput.disabled = fileInput.disabled = sectionMeshingInput.disabled = false;
         chunkInput.disabled = !region;
         if (renderer.controls) renderer.controls.enabled = true;
     }
@@ -135,6 +137,7 @@ async function showStructure(structure: MultiBlockStructure, label: string) {
     frame(bounds);
     region = undefined;
     chunkPicker.hidden = true;
+    current = { label, count: structure.blocks.length, dataVersion: structure.dataVersion, render: () => world.placeMultiBlock(structure) };
     loaded(label, structure.blocks.length, structure.dataVersion);
 }
 
@@ -154,7 +157,9 @@ async function showChunk() {
     await world.clear();
     await world.placeChunk(chunk);
     frame(bounds);
-    loaded(`${region!.name}, chunk ${chunk.x}, ${chunk.z}`, count, chunk.dataVersion);
+    const label = `${region!.name}, chunk ${chunk.x}, ${chunk.z}`;
+    current = { label, count, dataVersion: chunk.dataVersion, render: () => world.placeChunk(chunk) };
+    loaded(label, count, chunk.dataVersion);
 }
 
 async function setStructure(structureName: string) {
@@ -191,6 +196,19 @@ fileInput.addEventListener("change", () => {
     });
 });
 chunkInput.addEventListener("change", () => { void load(region!.name, showChunk); });
+sectionMeshingInput.addEventListener("change", () => {
+    void load(current?.label ?? "structure", async () => {
+        await world.clear();
+        world = new MineRenderWorld(renderer.scene, { sectionMeshing: sectionMeshingInput.checked });
+        window["world"] = world;
+        if (current) {
+            await current.render();
+            loaded(current.label, current.count, current.dataVersion);
+        } else {
+            status.textContent = "Choose a structure or file.";
+        }
+    });
+});
 void setStructure(structureInput.value);
 
 const structureSuggestions = document.getElementById("structure-suggestions") as HTMLDataListElement;
