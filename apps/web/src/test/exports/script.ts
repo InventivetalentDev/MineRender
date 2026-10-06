@@ -1,5 +1,5 @@
 import { AssetKey, Models, Renderer } from "minerender";
-import { Vector3 } from "three";
+import { Euler, Vector3 } from "three";
 
 const renderer = new Renderer({
     camera: {
@@ -21,6 +21,7 @@ renderer.start();
 window["renderer"] = renderer;
 
 const controls = document.getElementById("exports") as HTMLFieldSetElement;
+const animation = document.getElementById("animate-stone") as HTMLInputElement;
 const status = document.getElementById("export-status")!;
 
 function download(content: string | ArrayBuffer | object, filename: string, mime?: string) {
@@ -73,9 +74,21 @@ async function loadBlocks() {
     for (const x of [-24, 24]) {
         const block = await renderer.scene.addModel(stone, { instanceMeshes: true, mergeMeshes: true });
         block.setPosition(new Vector3(x, 0, 0));
+        if (x === -24) {
+            let angle = 0;
+            let unsubscribe: (() => void) | undefined;
+            animation.addEventListener("change", () => {
+                unsubscribe?.();
+                unsubscribe = animation.checked ? renderer.onFrame(({ delta }) => {
+                    angle += delta;
+                    block.setRotation(new Euler(0, angle, 0));
+                }) : undefined;
+            });
+        }
     }
     await renderer.scene.addModel(grass, { instanceMeshes: true, mergeMeshes: true, tints: { 0: 0x91bd59 } });
     controls.disabled = false;
+    animation.disabled = false;
     status.textContent = "Ready to export.";
 }
 

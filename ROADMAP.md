@@ -38,7 +38,7 @@ legacy website cleanup is a separate task.
 | Combined multi-renderer scene | CombinedRender wrapper | Superseded by design (one scene hosts all types) — **at parity** | — |
 | Screenshots & 3D export | toImage(trim,mime), toObj/toGLTF/toPLY | Fresh captures with trim/MIME/quality; static OBJ/PLY and textured browser glTF/GLB snapshots | complete |
 | Asset loading & resource packs | swappable assetRoot, fallback | Ordered whole-asset source selection; decode fetched bytes; failure-evicting caches; contextual errors; defaults to 1.21.11, ZIPs browser-only | high |
-| Per-frame animation API | `<type>Render` CustomEvents | No supported hook (dirty-flag loop only) | medium |
+| Per-frame animation API | `<type>Render` CustomEvents | `onFrame` subscriptions with time/delta, FPS limiting, pause/resume, and disposal | complete |
 | Embeds & website | minerender.org + iframe embeds | Workspace demos and examples; V2 website and embeds remain | low |
 | **Large-scale worlds (V2 goal)** | n/a | Paletted signed chunks, opt-in static opaque section meshes, and opaque-neighbor face culling; no lighting/LOD | high |
 | **Anvil .mca / world formats (V2 goal)** | n/a | Java 1.13+ paletted regions, selected chunk loading and DataVersion; no LZ4, external chunks, or data fixing | high |
@@ -70,7 +70,7 @@ legacy website cleanup is a separate task.
 - ~~Bound request concurrency, retries, cancellation, timeouts, and shutdown.~~
 - ~~Propagate hosted/archive and model initialization errors with source context.~~
 - ~~Default to 1.21.11 with static item definitions, animal texture paths, structure directory aliases, and versioned cache keys.~~
-- Add an asset-version selection API.
+- ~~Add an asset-version selection API.~~
 - Support composite/special item models, tint sources, and gameplay-dependent item selection.
 - ~~Fix `WrappedImage` frame math.~~
 
@@ -99,4 +99,4 @@ Make `Renderer` constructible without DOM: injectable canvas + GL context (headl
 ~~Implement `GuiObject`: layered textured planes with UV crop, pixel positioning, and ordered layers.~~ ~~Wire `scene.addGui(...)`, `inventorySlot`, and a chest demo with camera fitting.~~ Add modern GUI sprite scaling (stretch, tile, nine-slice), item models in the GUI display pose, and shaped/shapeless recipe layouts. Update V1's boss bar, book, and crafting layouts for the newer texture paths and recipe format.
 
 ### 15. Polish: exports, animation API, inspector, demos, docs — medium
-~~Port toObj/toGLTF and toImage trim/mime.~~ Add a per-frame callback integrated with the dirty flag (replaces V1's CustomEvent contract). ~~Fix `SceneInspector` raycast normalization (against canvas rect, not window)~~. Fix `SceneStatsDisplay`'s leaked interval. ~~Fix animated-texture timing, frame grids/sequences, and stationary-camera redraw for all scenes sharing an atlas, respecting `fpsLimit`; stop unused atlas tickers.~~ Texture interpolation remains. Finish the demos and V2 website, including embeds. Remove unused V1 website files from the V2 tree while preserving V1 delivery URLs. Add regression coverage for remaining model and blockstate work; keep the consumer API contract in AGENTS.md as the beta compatibility baseline.
+~~Port toObj/toGLTF and toImage trim/mime.~~ ~~Add a per-frame callback integrated with the dirty flag (replaces V1's CustomEvent contract).~~ ~~Fix `SceneInspector` raycast normalization (against canvas rect, not window)~~. ~~Fix `SceneStatsDisplay`'s leaked interval.~~ ~~Fix animated-texture timing, frame grids/sequences, and stationary-camera redraw for all scenes sharing an atlas, respecting `fpsLimit`; stop unused atlas tickers.~~ Texture interpolation remains. Finish the demos and V2 website, including embeds. Remove unused V1 website files from the V2 tree while preserving V1 delivery URLs. Add regression coverage for remaining model and blockstate work; keep the consumer API contract in AGENTS.md as the beta compatibility baseline.

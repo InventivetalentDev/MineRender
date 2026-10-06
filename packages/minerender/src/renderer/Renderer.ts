@@ -71,7 +71,10 @@ export class Renderer implements Disposable {
     protected _resizeListener?: () => void = undefined;
 
     private _nextFrameTime?: number;
+    private _running: boolean = false;
+    private _inAnimationLoop: boolean = false;
     private _disposed: boolean = false;
+    private readonly _frameCallbacks = new Map<FrameCallback, { previous?: number }>();
     private readonly _debugHelpers: Array<GridHelper | AxesHelper> = [];
     private readonly _eventDispatchers = new Map<EventDispatcher<any>, Set<string>>();
     private readonly _changeListener = () => {
@@ -85,7 +88,14 @@ export class Renderer implements Disposable {
             throw new RangeError("render.pixelRatio must be a finite positive number");
         }
 
-        this._animationLoop = this.animate.bind(this);
+        this._animationLoop = (time: number) => {
+            this._inAnimationLoop = true;
+            try {
+                this.animate(time);
+            } finally {
+                this._inAnimationLoop = false;
+            }
+        };
         this._frameInterval = this.options.render.fpsLimit > 0 ? (1000 / this.options.render.fpsLimit) : undefined;
 
         this._scene = this.createScene();
@@ -335,18 +345,43 @@ export class Renderer implements Disposable {
         this.scene.dirty = dirty;
     }
 
+    /**
+     * Calls a synchronous animation update before each FPS-limited draw while started.
+     * Subscriptions keep the scene drawing without manual dirty flags. Returns an unsubscribe function.
+     * Registering the same callback twice has no effect. Image exports do not invoke callbacks.
+     */
+    public onFrame(callback: FrameCallback): () => void {
+        if (this._disposed) return () => {};
+        const subscription = this._frameCallbacks.get(callback) ?? {};
+        this._frameCallbacks.set(callback, subscription);
+        return () => {
+            if (this._frameCallbacks.get(callback) === subscription) this._frameCallbacks.delete(callback);
+        };
+    }
+
     public start() {
         if (this._disposed) return;
 
         this.stop();
-        this.renderer.setAnimationLoop(this._animationLoop);
+        this._running = true;
+        if (!this._inAnimationLoop) this.renderer.setAnimationLoop(this._animationLoop);
     }
 
     public stop() {
         if (this._disposed) return;
 
-        this.renderer.setAnimationLoop(null);
+        this._running = false;
+        if (this._inAnimationLoop) {
+            // Three schedules its next frame after the callback; apply loop changes after that scheduling.
+            queueMicrotask(() => {
+                this.renderer.setAnimationLoop(null);
+                if (this._running) this.renderer.setAnimationLoop(this._animationLoop);
+            });
+        } else {
+            this.renderer.setAnimationLoop(null);
+        }
         this._nextFrameTime = undefined;
+        for (const subscription of this._frameCallbacks.values()) subscription.previous = undefined;
     }
 
     /**
@@ -359,6 +394,7 @@ export class Renderer implements Disposable {
 
         this.stop();
         this._disposed = true;
+        this._frameCallbacks.clear();
 
         if (this._resizeListener) {
             window.removeEventListener('resize', this._resizeListener);
@@ -399,14 +435,14 @@ export class Renderer implements Disposable {
     }
 
     private animate(t: number = performance.now()): void {
-        if (this._disposed) return;
+        if (!this._running) return;
 
         // Damping and auto-rotation can make a previously clean scene need another frame.
         if (this._controls?.enabled) {
             this._controls.update();
         }
-        if (this._disposed) return;
-        if (!this.dirty && !this.options.render.renderAlways) return;
+        if (!this._running) return;
+        if (!this.dirty && !this.options.render.renderAlways && !this._frameCallbacks.size) return;
 
         const interval = this._frameInterval;
         if (interval) {
@@ -417,6 +453,13 @@ export class Renderer implements Disposable {
             this._nextFrameTime = next !== undefined && t - next < interval ? next + interval : t + interval;
         }
 
+        for (const [callback, subscription] of [...this._frameCallbacks]) {
+            if (this._frameCallbacks.get(callback) !== subscription) continue;
+            const previous = subscription.previous;
+            subscription.previous = t;
+            callback({ time: t / 1000, delta: previous === undefined ? 0 : (t - previous) / 1000 });
+            if (!this._running) return;
+        }
         this.drawFrame();
     }
 
@@ -509,6 +552,15 @@ export class Renderer implements Disposable {
 
 
 }
+
+export interface RendererFrame {
+    /** Animation-loop timestamp in seconds, relative to the browser's performance time origin. */
+    readonly time: number;
+    /** Seconds since this callback's previous update; zero on its first update after subscribing or starting. */
+    readonly delta: number;
+}
+
+export type FrameCallback = (frame: RendererFrame) => void;
 
 export interface RendererOptions {
     camera: CameraOptions;
