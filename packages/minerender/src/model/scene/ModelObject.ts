@@ -44,7 +44,6 @@ export class ModelObject extends SceneObject {
         if (this.options.tints) this.options.tints = { ...this.options.tints };
         this.addEventListener("added", () => this.updateAnimationSubscription());
         this.addEventListener("removed", () => this.updateAnimationSubscription());
-        console.log("ModelObject options", this.options);
     }
 
     async init(): Promise<void> {
