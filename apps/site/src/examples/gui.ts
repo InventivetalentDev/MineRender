@@ -99,7 +99,7 @@ renderer.dirty = true;`
 const hotbar: Example = {
     id: "gui-hotbar",
     title: "Any texture region",
-    description: "Layers can crop any part of any texture, so HUD elements and custom screens compose the same way.",
+    description: "Layers can crop any part of any texture, which covers HUD elements and custom screens.",
     renderer: GUI_RENDERER,
     placeholder: "/placeholder-block.png",
     async setup(context) {

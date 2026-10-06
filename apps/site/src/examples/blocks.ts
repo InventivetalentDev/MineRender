@@ -151,7 +151,7 @@ const FLUIDS: Array<[string, Record<string, string>, string]> = [
 export const fluids: Example = {
     id: "block-fluids",
     title: "Water, lava and animated textures",
-    description: "Water and lava use their saved level for sloped surfaces and flow textures. Waterlogged blocks and underwater plants include the water. mcmeta frame sequences animate on their own.",
+    description: "Water and lava use their saved level for sloped surfaces and flow textures. Waterlogged blocks and underwater plants include the water. mcmeta frame sequences animate.",
     renderer: BLOCK_RENDERER,
     placeholder: "/placeholder-block.png",
     async setup(context) {

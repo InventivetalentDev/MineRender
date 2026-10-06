@@ -232,6 +232,6 @@ export function pose(skin: SkinObject): void {
 export const skins: ExampleGroup = {
     id: "skins",
     title: "Skins",
-    lead: "Player skins from a texture or a player name, with classic, slim, and legacy layouts detected automatically, plus capes.",
+    lead: "Player skins from a texture or a player name, with classic, slim, and legacy layouts detected from the texture, plus capes.",
     examples: [{ ...textureUrl, title: "Classic and slim" }, byName, cape, layers, posed]
 };

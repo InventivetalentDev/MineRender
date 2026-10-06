@@ -172,7 +172,7 @@ const LAYERED: Array<[string, string, string]> = [
 const layers: Example = {
     id: "entity-layers",
     title: "Model layers",
-    description: "Dataset models carry extra layers such as wool, saddles, or armor. Select the layers to draw and toggle them afterwards.",
+    description: "Dataset models carry extra layers such as wool, saddles, or armor. Select the layers to draw, then toggle them.",
     renderer: ENTITY_RENDERER,
     placeholder: "/placeholder-block.png",
     async setup(context) {

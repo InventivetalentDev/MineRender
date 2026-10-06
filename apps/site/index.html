@@ -173,7 +173,7 @@
                 <span class="feature-icon" data-icon="water"></span>
                 <div>
                     <h3>Fluids and animated textures</h3>
-                    <p>Water and lava render with levels, slopes and flow. Waterlogged blocks include their water. mcmeta frame sequences animate without extra code.</p>
+                    <p>Water and lava render with levels, slopes and flow. Waterlogged blocks include their water. mcmeta frame sequences animate.</p>
                     <a href="#blocks">See water and lava</a>
                 </div>
             </li>
@@ -197,7 +197,7 @@
                 <span class="feature-icon" data-icon="export"></span>
                 <div>
                     <h3>Images and 3D exports</h3>
-                    <p>Capture any frame as PNG or JPEG, trimmed if you like, or export the scene as glTF with textures, OBJ or PLY.</p>
+                    <p>Capture any frame as PNG or JPEG, optionally trimmed, or export the scene as glTF with textures, OBJ or PLY.</p>
                     <a href="#export">See exports</a>
                 </div>
             </li>
@@ -356,7 +356,7 @@ scene.stats                             // object and instance counts</code></pr
     // entities
     flip: true                // vanilla models point down the Y axis
 }</code></pre>
-                <p>With <code>instanceMeshes</code> on, repeated models return an <code>InstanceReference</code> that only carries transforms. Its <code>dispose()</code> frees the slot for reuse. Pass <code>instanceMeshes: false</code> to get a standalone object you can pose and remove on its own.</p>
+                <p>With <code>instanceMeshes</code> on, repeated models return an <code>InstanceReference</code> that only carries transforms. Its <code>dispose()</code> frees the slot for reuse. Pass <code>instanceMeshes: false</code> for a standalone object.</p>
                 <p>Entity models can select several dataset layers at once, each with its own texture.</p>
                 <pre><code data-lang="ts">const model = await Entities.getEntity(new BasicAssetKey("minecraft", "sheep"), undefined, {
     layers: ["main", "wool"],
@@ -373,7 +373,7 @@ sheep.getLayerGroup("wool")!.visible = false;</code></pre>
 
             <article id="dirty-flag" class="doc">
                 <h3>Redraws</h3>
-                <p>Frames are drawn only when something changed. The built-in controls and the scene's add methods mark the scene dirty for you. Anything you change by hand needs a nudge.</p>
+                <p>Frames are drawn only when something changed. The built-in controls and the scene's add methods mark the scene dirty. Set <code>renderer.dirty</code> after other changes.</p>
                 <pre><code data-lang="ts">skin.getGroupByName("head")!.rotation.y = 0.5;
 renderer.dirty = true;
 
@@ -424,12 +424,12 @@ const chunk = await AnvilParser.parseChunk(regionBytes, chunks[0].x, chunks[0].z
 await world.placeChunk(chunk!);
 
 await world.clear();</code></pre>
-                <p>Placement is batched through a <code>BatchedExecutor</code> so the page stays responsive. Lighting, biome colors and level-of-detail are not part of the world yet.</p>
+                <p>Placement is batched through a <code>BatchedExecutor</code> so the page stays responsive. The world has no lighting, biome colors or level of detail.</p>
             </article>
 
             <article id="export" class="doc">
                 <h3>Exporting</h3>
-                <p><code>toImage</code> renders a fresh frame and returns a data URL, even while the loop is stopped. <code>SceneExporter</code> writes the visible meshes with their instance placements.</p>
+                <p><code>toImage</code> renders a fresh frame and returns a data URL. <code>SceneExporter</code> writes the visible meshes with their instance placements.</p>
                 <pre><code data-lang="ts">import { SceneExporter } from "minerender";
 
 const png = renderer.toImage();                          // full canvas

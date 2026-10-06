@@ -40,7 +40,7 @@ const EXPORT_RENDERER = {
 const screenshot: Example = {
     id: "export-image",
     title: "Screenshot",
-    description: "toImage renders a fresh frame and returns a data URL, even while the loop is stopped. Trimming removes the transparent border.",
+    description: "toImage renders a fresh frame and returns a data URL. Trimming removes the transparent border.",
     renderer: EXPORT_RENDERER,
     placeholder: "/placeholder-block.png",
     async setup(context) {
