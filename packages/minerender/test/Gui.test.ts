@@ -135,3 +135,86 @@ test("inventory slots map indices and column-row coordinates to pixel positions"
     t.deepEqual(GuiHelper.inventorySlot([2, 3], [7, 11], [20, 24]), [47, 83]);
     t.deepEqual(GuiHelper.inventorySlot(7, [7, 11], [20, 24], 4), [67, 35]);
 });
+
+test("shaped recipes trim outer spaces, preserve gaps, and center single dimensions", t => {
+    const recipe = Object.freeze({
+        type: "minecraft:crafting_shaped",
+        pattern: Object.freeze(["   ", "  I", " I "]),
+        key: Object.freeze({ I: "minecraft:iron_ingot" }),
+        result: Object.freeze({ id: "minecraft:shears", count: 1 })
+    } as const);
+    const original = JSON.stringify(recipe);
+    const layers = GuiHelper.recipe(recipe);
+    t.deepEqual(layers.map(layer => "item" in layer
+        ? { ...layer, item: (layer.item as AssetKey).toNamespacedString() } : layer), [
+        { name: "background", texture: "minecraft:gui/container/crafting_table", crop: [0, 0, 176, 166] },
+        { name: "ingredient-1", item: "minecraft:item/iron_ingot", position: [48, 17] },
+        { name: "ingredient-3", item: "minecraft:item/iron_ingot", position: [30, 35] },
+        { name: "result", item: "minecraft:item/shears", position: [124, 35] }
+    ]);
+    t.is(JSON.stringify(recipe), original);
+    const spaced = GuiHelper.recipe({
+        type: "crafting_shaped", pattern: [" A ", "   ", " A "],
+        key: { A: "stick" }, result: { id: "test:tools/staff" }
+    });
+    t.deepEqual(spaced.slice(1, -1).map(({ name, position }) => ({ name, position })), [
+        { name: "ingredient-1", position: [48, 17] },
+        { name: "ingredient-7", position: [48, 53] }
+    ]);
+    t.is((spaced[spaced.length - 1] as { item: AssetKey }).item.toNamespacedString(), "test:item/tools/staff");
+    const single = GuiHelper.recipe({ ...recipe, pattern: ["I"] });
+    t.like(single[1], { name: "ingredient-4", position: [48, 35] });
+});
+
+test("shapeless recipes resolve tags and alternatives without changing legacy item keys", t => {
+    const alternatives = Object.freeze([{ item: "minecraft:stick" }, { item: "minecraft:bamboo" }] as const);
+    const ingredients = Object.freeze([
+        { item: "test:tools/hammer" }, { tag: "minecraft:planks" }, "#minecraft:logs", alternatives
+    ] as const);
+    const recipe = Object.freeze({
+        type: "crafting_shapeless", ingredients, result: { item: "test:assembled/tool", count: 2 }
+    } as const);
+    const original = JSON.stringify(recipe);
+    const selected = new AssetKey("pack", "handles/bamboo", "models", "item", "assets", ".json", "test-root");
+    const resolved: unknown[] = [];
+    const layers = GuiHelper.recipe(recipe, { resolveIngredient: ingredient => {
+        resolved.push(ingredient);
+        return ingredient === alternatives ? selected
+            : ingredient === ingredients[1] ? "test:woods/plank" : "oak_log";
+    } });
+    t.deepEqual(resolved, [ingredients[1], ingredients[2], alternatives]);
+    t.is(resolved[0], ingredients[1]);
+    t.is(resolved[2], alternatives);
+    t.deepEqual(layers.slice(1).map(layer => ({
+        ...layer, item: (layer as { item: AssetKey }).item.toNamespacedString()
+    })), [
+        { name: "ingredient-0", item: "test:item/tools/hammer", position: [30, 17] },
+        { name: "ingredient-1", item: "test:item/woods/plank", position: [48, 17] },
+        { name: "ingredient-2", item: "minecraft:item/oak_log", position: [66, 17] },
+        { name: "ingredient-3", item: "pack:item/handles/bamboo", position: [30, 35] },
+        { name: "result", item: "test:item/assembled/tool", position: [124, 35] }
+    ]);
+    t.is((layers[4] as { item: AssetKey }).item, selected);
+    t.is(JSON.stringify(recipe), original);
+});
+
+test("recipes reject invalid crafting layouts and ingredients without concrete selections", t => {
+    const shaped = { type: "crafting_shaped", key: { A: "stone" }, result: { id: "stone" } } as const;
+    for (const pattern of [[], [""], ["AAAA"], ["A", "A", "A", "A"], ["A", "AA"], ["   "], ["B"]]) {
+        t.throws(() => GuiHelper.recipe({ ...shaped, pattern }));
+    }
+    const shapeless = { type: "minecraft:crafting_shapeless", result: { id: "stone" } } as const;
+    for (const ingredients of [[], Array(10).fill("stone")]) {
+        t.throws(() => GuiHelper.recipe({ ...shapeless, ingredients }));
+    }
+    for (const ingredient of ["#minecraft:logs", { tag: "minecraft:logs" }, ["oak_log", "birch_log"]]) {
+        const recipe = { ...shapeless, ingredients: [ingredient] };
+        t.throws(() => GuiHelper.recipe(recipe), { message: /Select a concrete item/ });
+        t.throws(() => GuiHelper.recipe(recipe, { resolveIngredient: () => "#minecraft:logs" }), {
+            message: /Select a concrete item/
+        });
+    }
+    t.throws(() => GuiHelper.recipe({ ...shapeless, type: "minecraft:smelting", ingredients: ["stone"] } as any), {
+        message: /Unsupported crafting recipe type/
+    });
+});

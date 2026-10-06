@@ -38,6 +38,7 @@ class ImageRenderer extends Renderer {
 
     constructor(composer = false) {
         super({ render: { fpsLimit: 30, pixelRatio: 2 }, composer: { enabled: composer } });
+        this.start();
     }
 
     protected createScene(): MineRenderScene { return { dirty: false } as MineRenderScene; }
@@ -72,6 +73,8 @@ test("image export draws before readback while clean, frame-limited, or stopped"
         const renderer = new ImageRenderer(composer);
         renderer["_controls"] = { enabled: true, update: () => renderer.events.push("controls") } as unknown as OrbitControls;
         renderer.tick(0);
+        let callbacks = 0;
+        renderer.onFrame(() => { callbacks++; });
         const deadline = renderer["_nextFrameTime"];
         renderer.events.length = 0;
         const image = JSON.parse(renderer.toImage(false, "image/jpeg", 0.7));
@@ -89,6 +92,7 @@ test("image export draws before readback while clean, frame-limited, or stopped"
         renderer.events.length = 0;
         t.is(JSON.parse(renderer.toImage()).mime, "image/png");
         t.deepEqual(renderer.events, ["controls", composer ? "composer" : "direct", "read"]);
+        t.is(callbacks, 0);
         renderer["_disposed"] = true;
         t.throws(() => renderer.toImage(), { message: "Cannot export an image from a disposed renderer" });
     }

@@ -1,5 +1,6 @@
 import { AssetKey, BasicAssetKey, isAssetKey } from "./AssetKey";
-import type { EntityModel, EntityModelFile } from "../entity/EntityModel";
+import type { EntityLayer, EntityModel, EntityModelFile, EntityModelPass } from "../entity/EntityModel";
+import type { EntityAnimation, EntityAnimationFile } from "../entity/EntityAnimation";
 import { AssetLoader } from "./AssetLoader";
 import { AssetParser } from "./source";
 import { Maybe } from "../util";
@@ -36,34 +37,60 @@ export class Entities {
         return Object.keys((await this.getModelFile(modelKey))?.layers ?? {});
     }
 
+    /** The dataset's extra draws on top of `main`; their `when` labels are the states `EntityModelOptions.when` can enable. */
+    public static async getPassList(modelKey: BasicAssetKey): Promise<EntityModelPass[]> {
+        return (await this.getModelFile(modelKey))?.passes ?? [];
+    }
+
     public static async getEntity(modelKey: BasicAssetKey, textureKey?: BasicAssetKey, options?: EntityModelOptions): Promise<Maybe<EntityModel>> {
         const model = await this.getModelFile(modelKey);
         if (!model) return undefined;
-        const names = [...new Set(options?.layers ?? [options?.layer ?? "main"])];
-        if (names.length === 0) throw new MineRenderError(`Entity ${model.id} requires at least one layer`);
-        const selected = names.map(name => {
-            const layer = model.layers[name];
+        // Without an explicit selection, draw what vanilla draws: main, then the passes enabled for the requested state.
+        const passes = options?.layers || options?.layer !== undefined ? [] :
+            (model.passes ?? []).filter(pass => pass.when === undefined || options?.when?.includes(pass.when));
+        const draws: EntityModelPass[] = [...new Set(options?.layers ?? [options?.layer ?? "main"])].map(layer => ({ layer }));
+        if (draws.length === 0) throw new MineRenderError(`Entity ${model.id} requires at least one layer`);
+        draws.push(...passes);
+        const names: string[] = [];
+        const selected = draws.map(pass => {
+            const layer = model.layers[pass.layer];
             if (!layer) {
-                throw new MineRenderError(`Entity ${model.id} has no layer "${name}". Available layers: ${Object.keys(model.layers).join(", ")}`);
+                throw new MineRenderError(`Entity ${model.id} has no layer "${pass.layer}". Available layers: ${Object.keys(model.layers).join(", ")}`);
             }
-            return { name, layer };
+            // A pass may draw geometry that is already selected with another texture.
+            let name = pass.layer;
+            for (let n = 2; names.includes(name); n++) name = `${pass.layer}#${n}`;
+            names.push(name);
+            return { name, layer, pass };
         });
-        const layers = Object.fromEntries(await Promise.all(selected.map(async ({ name, layer }, index) => {
+        const layers: Record<string, EntityLayer> = Object.fromEntries(await Promise.all(selected.map(async ({ name, layer, pass }, index) => {
             const override = options?.textures?.[name] ?? (index === 0 ? textureKey : undefined);
+            const textureLocation = pass.textureLocation ?? layer.textureLocation;
             let texture: Maybe<AssetKey>;
             if (override) {
                 const path = isAssetKey(override) ? override.getFullPath() : override.path;
                 texture = isAssetKey(override) && override.assetType === "textures" && path.startsWith("entity/")
                     ? override
                     : new AssetKey(override.namespace, path, "textures", "entity", "assets", ".png", isAssetKey(override) ? override.root : undefined);
-            } else if (layer.textureLocation !== undefined) {
-                texture = AssetKey.parse("textures", layer.textureLocation.replace(/^([^:]+:)?textures\//, "$1"));
+            } else if (textureLocation !== undefined) {
+                texture = AssetKey.parse("textures", textureLocation.replace(/^([^:]+:)?textures\//, "$1"));
             } else {
                 texture = await this.resolveTexture(modelKey);
             }
-            return [name, { key: override ?? modelKey, texture, layer }];
+            const render = pass.render ?? layer.render;
+            return [name, { key: override ?? modelKey, texture, layer, ...(render && { render }), ...(pass.tint && { tint: pass.tint }) }];
         })));
-        return { ...layers[names[0]], id: model.id, layers };
+        return { ...layers[names[0]], id: model.id, layers, ...(model.transform && { transform: model.transform }) };
+    }
+
+    /**
+     * Vanilla's keyframe animations of a model by name, or undefined when the model or the selected version has none.
+     */
+    public static async getAnimations(modelKey: BasicAssetKey): Promise<Maybe<Record<string, EntityAnimation>>> {
+        const path = isAssetKey(modelKey) ? modelKey.getFullPath() : modelKey.path;
+        const key = new AssetKey(modelKey.namespace, path, undefined, undefined, "entity-models/animations", ".json");
+        const file = await Caching.entityAnimationCache.get(key.serialize(), () => AssetLoader.get<EntityAnimationFile>(key, AssetParser.JSON));
+        return file?.animations;
     }
 
     public static async resolveTexture(modelKey: BasicAssetKey): Promise<Maybe<AssetKey>> {
@@ -103,9 +130,14 @@ export class Entities {
 
 export interface EntityModelOptions {
     layer?: string;
-    /** Layer names in draw order; defaults to layer or "main". */
+    /** Layer names in draw order; an explicit selection draws exactly these layers and no dataset passes. */
     layers?: string[];
-    /** Per-layer texture overrides. The positional texture key applies to the first selected layer. */
+    /**
+     * Entity states that enable the dataset's conditional passes, e.g. `["powered"]` for a charged creeper.
+     * Without `layer`/`layers`, `main` and every unconditional pass are always drawn.
+     */
+    when?: string[];
+    /** Per-layer texture overrides, keyed like `EntityModel.layers`. The positional texture key applies to the first selected layer. */
     textures?: Record<string, BasicAssetKey>;
 }
 

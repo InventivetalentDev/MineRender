@@ -2,8 +2,9 @@ import { SceneObject } from "../../renderer/SceneObject";
 import { SceneObjectOptions } from "../../renderer/SceneObjectOptions";
 import { Caching } from "../../cache/Caching";
 import merge from "ts-deepmerge";
-import { Object3D } from "three";
-import type { Material, Mesh } from "three";
+import { Color, Euler, Matrix4, Object3D } from "three";
+import type { ColorRepresentation, Material, Mesh, MeshBasicMaterial } from "three";
+import { Ticker } from "../../Ticker";
 import { addWireframeToMesh } from "../../util/model";
 import { ModelTextures } from "../../assets/ModelTextures";
 import { AssetKey, isAssetKey } from "../../assets/AssetKey";
@@ -14,20 +15,27 @@ import { EntityLayer, EntityModel, EntityModelPart } from "../EntityModel";
 import type { DoubleArray } from "../../model/Model";
 import type { Maybe } from "../../util/util";
 import { isMesh } from "../../util/three";
+import type { EntityAnimation } from "../EntityAnimation";
+import { EntityAnimationOptions, EntityAnimationPlayer } from "./EntityAnimationPlayer";
 
 export class EntityObject extends SceneObject {
 
     public readonly isEntityObject: true = true;
 
-    public static readonly DEFAULT_OPTIONS: EntityObjectOptions = merge({}, SceneObject.DEFAULT_OPTIONS, <EntityObjectOptions>{ flip: true });
+    public static readonly DEFAULT_OPTIONS: EntityObjectOptions = merge({}, SceneObject.DEFAULT_OPTIONS);
     public readonly options: EntityObjectOptions;
 
     private meshesCreated: boolean = false;
+    /** Scrolling materials are owned: their texture offset follows this entity's age. */
+    private readonly scrollMaterials: { material: Material, offset: { set(x: number, y: number): unknown }, speed: [number, number] }[] = [];
+    private scrollTicker: Maybe<number>;
+    /** Entity age in ticks, as vanilla's `ageInTicks`; drives the scrolling render modes. */
+    public age: number = 0;
+    private readonly animationPlayer = new EntityAnimationPlayer();
 
     constructor(readonly entity: EntityModel, options?: Partial<EntityObjectOptions>) {
         super();
         this.options = merge({}, EntityObject.DEFAULT_OPTIONS, options ?? {});
-        //TODO
     }
 
     async init(): Promise<void> {
@@ -38,6 +46,72 @@ export class EntityObject extends SceneObject {
     dispose() {
         super.dispose();
     }
+
+    public disposeAndRemoveAllChildren() {
+        this.clearScrollMaterials();
+        // The animated part groups are removed with the children.
+        this.animationPlayer.clear();
+        super.disposeAndRemoveAllChildren();
+    }
+
+    private clearScrollMaterials() {
+        Ticker.remove(this.scrollTicker);
+        this.scrollTicker = undefined;
+        for (const { material } of this.scrollMaterials.splice(0)) {
+            (material as { map?: { dispose(): void } }).map?.dispose();
+            material.dispose();
+        }
+    }
+
+    /** Applies the entity age to the scrolling materials; the ticker calls this 20 times per second. */
+    private updateScroll() {
+        for (const { offset, speed } of this.scrollMaterials) {
+            // Texture V points up here and down in vanilla.
+            offset.set((this.age * speed[0]) % 1, 0 - (this.age * speed[1]) % 1);
+        }
+        this.notifyDirty();
+    }
+
+    //<editor-fold desc="ANIMATION">
+
+    /** The animation started by {@link playAnimation}, until {@link stopAnimation} or disposal. */
+    public get animation(): Maybe<EntityAnimation> {
+        return this.animationPlayer.animation;
+    }
+
+    /** Seconds since the animation started, before looping. */
+    public get animationTime(): number {
+        return this.animationPlayer.time;
+    }
+
+    /**
+     * Poses the object from a keyframe animation of {@link Entities.getAnimations}, replacing the current one.
+     * Parts of every layer are matched by name and their current pose is the default the offsets add to.
+     * The object owns no clock: call {@link advanceAnimation} per frame, or {@link setAnimationTime}.
+     */
+    public playAnimation(animation: EntityAnimation, options?: EntityAnimationOptions): void {
+        this.createMeshes();
+        const layers = Object.keys(this.entityLayers).map(name => this.getLayerGroup(name)).filter(layer => !!layer) as Object3D[];
+        this.animationPlayer.play(layers, animation, options);
+        this.notifyDirty();
+    }
+
+    /** Stops the animation and restores the default pose. */
+    public stopAnimation(): void {
+        if (this.animationPlayer.stop()) this.notifyDirty();
+    }
+
+    /** Poses the object at an explicit time in seconds. Has no effect without an animation. */
+    public setAnimationTime(seconds: number): void {
+        if (this.animationPlayer.setTime(seconds)) this.notifyDirty();
+    }
+
+    /** Advances the animation by a frame delta in seconds, scaled by its speed. Has no effect without an animation. */
+    public advanceAnimation(deltaSeconds: number): void {
+        if (this.animationPlayer.advance(deltaSeconds)) this.notifyDirty();
+    }
+
+    //</editor-fold>
 
     public getLayerGroup(name: string): Maybe<Object3D> {
         return super.getGroupByName(`layer:${name}`);
@@ -79,17 +153,31 @@ export class EntityObject extends SceneObject {
 
         const modelRoot = new Object3D();
         // Keep Minecraft's model coordinates separate from caller placement and scale.
-        if (this.options.flip) modelRoot.scale.set(-1, -1, 1);
+        const transform = this.options.flip === undefined ? this.entity.transform : undefined;
+        if (transform) {
+            for (const op of transform) {
+                const matrix = new Matrix4();
+                if ("scale" in op) matrix.makeScale(...op.scale);
+                else if ("translate" in op) matrix.makeTranslation(...op.translate);
+                else matrix.makeRotationFromEuler(new Euler(...op.rotate, "ZYX"));
+                modelRoot.matrix.multiply(matrix);
+            }
+            // The composed matrix may not decompose into position, rotation and scale.
+            modelRoot.matrixAutoUpdate = false;
+        } else if (this.options.flip ?? true) {
+            modelRoot.scale.set(-1, -1, 1);
+        }
         this.add(modelRoot);
         Object.entries(this.entityLayers).forEach(([name, layer], index) => {
             const group = this.createGroup(`layer:${name}`);
             modelRoot.add(group);
-            this.createPart("root", layer.layer.root, group, layer.layer.texture, Materials.MISSING_TEXTURE, index);
+            const inward = !Materials.entityModeCulls(layer.render ?? layer.layer.render);
+            this.createPart("root", layer.layer.root, group, layer.layer.texture, Materials.MISSING_TEXTURE, index, inward);
         });
         this.meshesCreated = true;
     }
 
-    private createPart(name: string, part: EntityModelPart, parent: Object3D, textureSize: DoubleArray, material: Material, renderOrder: number) {
+    private createPart(name: string, part: EntityModelPart, parent: Object3D, textureSize: DoubleArray, material: Material, renderOrder: number, inward: boolean = true) {
         const anchor = this.createGroup(name);
         anchor.position.fromArray(part.pose.offset);
         anchor.rotation.set(...part.pose.rotation, "ZYX");
@@ -106,9 +194,9 @@ export class EntityObject extends SceneObject {
                 width + growX * 2, height + growY * 2, depth + growZ * 2, uv
             ).clone();
             geometry.translate(cube.origin[0] + width / 2, cube.origin[1] + height / 2, cube.origin[2] + depth / 2);
-            // Vanilla draws entities without backface culling, e.g. chicken legs are only painted on faces seen from inside.
+            // Vanilla draws most entity render types without backface culling, e.g. chicken legs are only painted on faces seen from inside.
             // Zero-thickness cubes keep one face per side, as their coplanar faces would z-fight.
-            if (Math.min(width + growX * 2, height + growY * 2, depth + growZ * 2) > 0) {
+            if (inward && Math.min(width + growX * 2, height + growY * 2, depth + growZ * 2) > 0) {
                 const index = Array.from(geometry.getIndex()!.array);
                 geometry.setIndex(index.concat(index.slice().reverse()));
             }
@@ -118,30 +206,48 @@ export class EntityObject extends SceneObject {
             if (this.options.wireframe) addWireframeToMesh(geometry, mesh);
         }
         for (const [childName, child] of Object.entries(part.children)) {
-            this.createPart(childName, child, anchor, size, material, renderOrder);
+            this.createPart(childName, child, anchor, size, material, renderOrder, inward);
         }
     }
 
     protected async applyTextures() {
+        this.clearScrollMaterials();
         await Promise.all(Object.entries(this.entityLayers).map(async ([name, layer]) => {
+            const mode = layer.render ?? layer.layer.render ?? "cutout";
+            const tint = layer.tint === undefined ? undefined : this.options.tints?.[layer.tint];
+            const scroll = Materials.entityModeScroll(mode);
             const assetKeyStr = this.getTextureKey(layer).serialize();
-            const keyStr = `entity:${ assetKeyStr }`;
-            let mat = Caching.materialCache.getIfPresent(keyStr);
+            const keyStr = `entity:${ mode }:${ tint === undefined ? "" : new Color(tint).getHexString() }:${ assetKeyStr }`;
+            let mat = scroll ? undefined : Caching.materialCache.getIfPresent(keyStr);
             if (!mat) {
                 const cachedAsset = Caching.textureAssetCache.getIfPresent(assetKeyStr);
                 const imageData = await this.loadTextures(layer);
                 if (!imageData) return;
                 const canvas = (imageData.data as CanvasRenderingContext2D).canvas;
-                const createMaterial = () => Materials.createBasicCanvasMaterial(canvas);
+                const createMaterial = () => Materials.createEntityCanvasMaterial(canvas, mode, tint);
                 // A cache clear during decoding must not restore an older source's material.
-                mat = cachedAsset && Caching.textureAssetCache.getIfPresent(assetKeyStr) === cachedAsset
+                // Scrolling materials stay out of the cache, as their texture offset belongs to this entity.
+                mat = !scroll && cachedAsset && Caching.textureAssetCache.getIfPresent(assetKeyStr) === cachedAsset
                     ? Caching.materialCache.get(keyStr, createMaterial)
                     : createMaterial();
+                if (scroll) {
+                    this.scrollMaterials.push({ material: mat!, offset: (mat as MeshBasicMaterial).map!.offset, speed: scroll });
+                }
             }
             this.getLayerGroup(name)?.traverse(object => {
                 if (isMesh(object)) object.material = mat!;
             });
         }));
+        if (!this.children.length) {
+            // Disposed while the textures were loading: nothing is left to scroll.
+            this.clearScrollMaterials();
+        } else if (this.scrollMaterials.length) {
+            this.updateScroll();
+            this.scrollTicker = Ticker.add(() => {
+                this.age++;
+                this.updateScroll();
+            });
+        }
         this.notifyDirty();
     }
 
@@ -149,7 +255,13 @@ export class EntityObject extends SceneObject {
 }
 
 export interface EntityObjectOptions extends SceneObjectOptions {
+    /**
+     * `true` applies only vanilla's entity flip, scale (-1, -1, 1); `false` keeps raw model space.
+     * By default the model's dataset transform is used, or the flip for models without one.
+     */
     flip?: boolean;
+    /** Colours for the dataset's tint labels, e.g. `{ wool_color: 0xf9801d }`; a pass whose label is absent stays untinted. */
+    tints?: Record<string, ColorRepresentation>;
 }
 
 export function isEntityObject(obj: any): obj is EntityObject {

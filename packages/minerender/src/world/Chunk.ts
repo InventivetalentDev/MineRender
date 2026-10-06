@@ -10,6 +10,7 @@ import { AssetKey } from "../assets/AssetKey";
 import { MineRenderWorld } from "./MineRenderWorld";
 import { isTripleArray, TripleArray } from "../model/Model";
 import { SectionModels } from "./SectionModels";
+import { BlockEntities } from "../assets/BlockEntities";
 import { SectionMesh, SectionMeshEntry } from "./SectionMesh";
 import { getFluidKind } from "../model/fluid/FluidGeometry";
 
@@ -95,7 +96,10 @@ export class Chunk<SectionMeshing extends boolean = false> {
                 this.data.set(index, undefined);
                 return undefined;
             }
-            const template = getFluidKind(blockState.key, stored.properties) ? undefined : await this.sectionModels?.get(blockState, stored.properties);
+            // Fluids and block entities are drawn per block, not through the section mesh.
+            const perBlock = !this.sectionModels || getFluidKind(blockState.key, stored.properties)
+                || (blockState.key && BlockEntities.entry(await BlockEntities.getIndex(blockState.key.root), blockState.key.toNamespacedString()));
+            const template = perBlock ? undefined : await this.sectionModels!.get(blockState, stored.properties);
             if (template) {
                 this.sectionBlocks.set(index, { index, template, cullMask: 0 });
                 this.meshDirty = true;
