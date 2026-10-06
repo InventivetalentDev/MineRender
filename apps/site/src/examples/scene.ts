@@ -1,6 +1,6 @@
 import { AssetKey, BasicAssetKey, BlockStates, DisplayPosition, Entities, Models } from "minerender";
 import type { Example } from "./types";
-import { STEVE_TEXTURE, esmRenderer } from "./shared";
+import { STEVE_TEXTURE, esmRenderer, standOn } from "./shared";
 import { pose } from "./skins";
 
 /**
@@ -58,6 +58,7 @@ export const composed: Example = {
         if ("position" in creeper) {
             creeper.position.set(20, 0, -8);
             creeper.rotation.y = -0.8;
+            standOn(creeper);
         }
 
         const sword = await Models.getMerged(new AssetKey("minecraft", "diamond_sword", "models", "item", "assets"));

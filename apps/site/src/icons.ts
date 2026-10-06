@@ -102,6 +102,56 @@ const ICONS: Record<string, string[]> = {
         "..k..k..",
         "........"
     ],
+    cape: [
+        "........",
+        ".dddddd.",
+        ".dwwwwd.",
+        ".dwddwd.",
+        ".dwwwwd.",
+        ".dddddd.",
+        ".dd..dd.",
+        "........"
+    ],
+    water: [
+        "........",
+        "...kk...",
+        "..k..k..",
+        ".k....k.",
+        ".k....k.",
+        ".kggggk.",
+        "..kggk..",
+        "........"
+    ],
+    gui: [
+        "kkkkkkkk",
+        "k......k",
+        "k.ss.ss.",
+        "k.ss.ss.",
+        "k......k",
+        "k.ss.ss.",
+        "k.ss.ss.",
+        "kkkkkkkk"
+    ],
+    export: [
+        "...k....",
+        "..kkk...",
+        ".k.k.k..",
+        "...k....",
+        "...k....",
+        ".kkkkkk.",
+        ".k....k.",
+        ".kkkkkk."
+    ],
+    entity: [
+        "........",
+        ".gggggg.",
+        ".gkkgkkg",
+        ".gkkgkkg",
+        ".gggkggg",
+        ".ggkkkgg",
+        ".ggkgkgg",
+        ".gggggg."
+    ],
     tint: [
         "........",
         ".lllggg.",

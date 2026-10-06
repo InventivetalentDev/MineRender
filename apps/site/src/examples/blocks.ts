@@ -1,6 +1,6 @@
 import { AssetKey, BlockObject, BlockStates } from "minerender";
 import type { Example, ExampleContext, ExampleGroup } from "./types";
-import { esmRenderer, fillList, scriptSnippet, textControl } from "./shared";
+import { esmRenderer, fillList, scriptSnippet, selectControl, textControl } from "./shared";
 
 export const BLOCK_RENDERER = {
     camera: {
@@ -135,11 +135,72 @@ renderer.dirty = true;`
     }
 };
 
+/** Fluids and blocks with animated textures: [blockstate, properties, label]. */
+const FLUIDS: Array<[string, Record<string, string>, string]> = [
+    ["water", {}, "Water source"],
+    ["water", { level: "4" }, "Flowing water"],
+    ["lava", {}, "Lava source"],
+    ["lava", { level: "6" }, "Flowing lava"],
+    ["seagrass", {}, "Seagrass (in water)"],
+    ["oak_fence", { waterlogged: "true", north: "true", south: "true" }, "Waterlogged fence"],
+    ["bubble_column", {}, "Bubble column"],
+    ["magma_block", {}, "Magma block"],
+    ["sea_lantern", {}, "Sea lantern"]
+];
+
+export const fluids: Example = {
+    id: "block-fluids",
+    title: "Water, lava and animated textures",
+    description: "Water and lava use their saved level for sloped surfaces and flow textures. Waterlogged blocks and underwater plants include the water. mcmeta frame sequences animate on their own.",
+    renderer: BLOCK_RENDERER,
+    placeholder: "/placeholder-block.png",
+    async setup(context) {
+        const { renderer, signal } = context;
+        let current: BlockObject | undefined;
+        const show = async (index: number) => {
+            const [name, properties] = FLUIDS[index];
+            const next = await addBlock(context, name);
+            if (!next) return;
+            if (Object.keys(properties).length) await next.setState(properties);
+            if (signal.aborted) {
+                remove(next);
+                return;
+            }
+            remove(current);
+            current = next;
+            renderer.dirty = true;
+        };
+        selectControl(context, "Block", FLUIDS.map(([, , label], index) => [String(index), label]), "0", value => {
+            show(Number(value)).catch(console.warn);
+        });
+        await show(0);
+    },
+    code: {
+        esm: `${esmRenderer("AssetKey", "BlockStates")}
+
+// A source block; standalone previews assume air around it
+const water = await BlockStates.get(AssetKey.parse("blockstates", "water"));
+const source = await renderer.scene.addBlock(water!);
+
+// Flowing water slopes according to its level (1–7)
+const flowing = await renderer.scene.addBlock(water!);
+await flowing.setState({ level: "4" });
+flowing.setPosition(flowing.getPosition().set(24, 0, 0));
+
+// Waterlogged blocks include the water alongside their model
+const fence = await BlockStates.get(AssetKey.parse("blockstates", "oak_fence"));
+const logged = await renderer.scene.addBlock(fence!);
+await logged.setState({ waterlogged: "true", north: "true", south: "true" });
+logged.setPosition(logged.getPosition().set(-24, 0, 0));
+renderer.dirty = true;`
+    }
+};
+
 export const blocks: ExampleGroup = {
     id: "blocks",
     title: "Blocks",
-    lead: "Vanilla blockstates and models from the asset CDN, merged through their parent chain and drawn through shared instanced meshes.",
-    examples: [{ ...single, title: "A single block" }, multipart, many],
+    lead: "Vanilla blockstates and models from the asset CDN, merged through their parent chain and drawn through shared instanced meshes. Water and lava render with levels and flow.",
+    examples: [{ ...single, title: "A single block" }, multipart, fluids, many],
     notes: [
         "Preview tints use the resource pack's colormap at a fixed biome."
     ]

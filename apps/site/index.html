@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>MineRender V2 – Minecraft skins, blocks, items, entities and worlds in three.js</title>
-    <meta name="description" content="MineRender renders Minecraft skins, blocks, items, entities, structures and worlds in the browser and in Node. Version 2 is a TypeScript rewrite with live examples and a migration guide from V1.">
+    <meta name="description" content="MineRender renders Minecraft skins, capes, blocks, items, entities, GUIs, structures and worlds in the browser and in Node. Version 2 is a TypeScript rewrite with live examples and a migration guide from V1.">
     <meta name="theme-color" content="#3f7d33">
     <link rel="icon" href="/favicon.ico">
     <meta property="og:type" content="website">
@@ -24,7 +24,7 @@
         <a class="brand" href="#top">
             <img src="/logo.svg" alt="" width="28" height="28">
             <span>MineRender</span>
-            <span class="brand-version">v2 alpha</span>
+            <span class="brand-version">v2 beta</span>
         </a>
         <button id="nav-toggle" class="nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false" aria-controls="nav-links">
             <span></span><span></span><span></span>
@@ -48,13 +48,13 @@
         <div class="hero-copy">
             <h1>Render Minecraft in the browser.</h1>
             <p class="lead">
-                MineRender turns skins, blocks, items, entities, structures and worlds into interactive three.js scenes.
-                Version 2 is a TypeScript rewrite that also runs in Node, loads assets from any source, and draws repeated
-                models in a single call.
+                MineRender turns skins, blocks, items, entities, GUIs, structures and worlds into interactive three.js scenes.
+                Version 2 is a TypeScript rewrite that also runs in Node, loads assets from any source, draws repeated
+                models in a single call, and exports images and 3D models.
             </p>
             <div class="install-line">
-                <code>npm install minerender@alpha three</code>
-                <button class="copy-button" type="button" data-copy="npm install minerender@alpha three">Copy</button>
+                <code>npm install minerender@beta three</code>
+                <button class="copy-button" type="button" data-copy="npm install minerender@beta three">Copy</button>
             </div>
             <div class="hero-actions">
                 <a class="button primary" href="#getting-started">Get started</a>
@@ -154,11 +154,51 @@
                 </div>
             </li>
             <li class="feature">
-                <span class="feature-icon" data-icon="world"></span>
+                <span class="feature-icon" data-icon="entity"></span>
                 <div>
                     <h3>Entities from a versioned dataset</h3>
-                    <p>Mob and block-entity geometry is extracted from each game version, with nested parts, mirrored cubes and texture locations included.</p>
+                    <p>Mob and block-entity geometry is extracted from each game version, with nested parts, mirrored cubes, texture variants and optional layers such as saddles and wool.</p>
                     <a href="#entities">See entities</a>
+                </div>
+            </li>
+            <li class="feature">
+                <span class="feature-icon" data-icon="cape"></span>
+                <div>
+                    <h3>Capes in three layouts</h3>
+                    <p>Vanilla, OptiFine and LabyMod cape textures attach to any skin, and capes.dev lookups resolve a player's cape by name or UUID.</p>
+                    <a href="#skins">See capes</a>
+                </div>
+            </li>
+            <li class="feature">
+                <span class="feature-icon" data-icon="water"></span>
+                <div>
+                    <h3>Fluids and animated textures</h3>
+                    <p>Water and lava render with levels, slopes and flow. Waterlogged blocks include their water. mcmeta frame sequences animate without extra code.</p>
+                    <a href="#blocks">See water and lava</a>
+                </div>
+            </li>
+            <li class="feature">
+                <span class="feature-icon" data-icon="world"></span>
+                <div>
+                    <h3>Worlds, not just structures</h3>
+                    <p>Chunks with signed coordinates, face culling against opaque neighbors, and optional section meshing that merges static blocks into one mesh per 16³ section. Loads structure, schematic and Anvil region files.</p>
+                    <a href="#structures">See structures and worlds</a>
+                </div>
+            </li>
+            <li class="feature">
+                <span class="feature-icon" data-icon="gui"></span>
+                <div>
+                    <h3>GUIs from texture layers</h3>
+                    <p>Inventory screens and HUD elements are built from cropped texture layers with a slot helper for item positions.</p>
+                    <a href="#guis">See GUIs</a>
+                </div>
+            </li>
+            <li class="feature">
+                <span class="feature-icon" data-icon="export"></span>
+                <div>
+                    <h3>Images and 3D exports</h3>
+                    <p>Capture any frame as PNG or JPEG, trimmed if you like, or export the scene as glTF with textures, OBJ or PLY.</p>
+                    <a href="#export">See exports</a>
                 </div>
             </li>
             <li class="feature">
@@ -210,6 +250,8 @@
             <a href="#scene-api">Scene and objects</a>
             <a href="#dirty-flag">Redraws</a>
             <a href="#assets">Assets and versions</a>
+            <a href="#worlds">Worlds and files</a>
+            <a href="#export">Exporting</a>
             <a href="#lifecycle">Lifecycle</a>
             <a href="#node">Node</a>
             <a href="#performance">Performance</a>
@@ -222,12 +264,12 @@
 
             <article id="getting-started" class="doc">
                 <h3>Install</h3>
-                <p>three.js is a peer dependency. V2 is published under the <code>alpha</code> tag while the API settles.</p>
-                <pre><code data-lang="sh">npm install minerender@alpha three
+                <p>three.js is a peer dependency. V2 is published under the <code>beta</code> tag.</p>
+                <pre><code data-lang="sh">npm install minerender@beta three
 # or
-yarn add minerender@alpha three</code></pre>
+yarn add minerender@beta three</code></pre>
                 <p>Without a build step, load the bundle. It includes three.js and exposes everything as <code>window.MineRender</code>.</p>
-                <pre><code data-lang="html">&lt;script src="https://unpkg.com/minerender@alpha/dist/bundle.js"&gt;&lt;/script&gt;
+                <pre><code data-lang="html">&lt;script src="https://unpkg.com/minerender@beta/dist/bundle.js"&gt;&lt;/script&gt;
 &lt;script&gt;
     const renderer = new MineRender.Renderer({ controls: { enabled: true } });
     renderer.appendTo(document.getElementById("render"));
@@ -273,6 +315,7 @@ renderer.dispose();</code></pre>
                     <tr><td><code>camera.perspective.fov</code></td><td><code>50</code></td><td>Field of view in degrees.</td></tr>
                     <tr><td><code>render.fpsLimit</code></td><td><code>60</code></td><td>Maximum frames per second. Zero or negative removes the cap.</td></tr>
                     <tr><td><code>render.antialias</code></td><td><code>true</code></td><td>WebGL antialiasing.</td></tr>
+                    <tr><td><code>render.pixelRatio</code></td><td><code>1</code></td><td>Drawing-buffer pixels per CSS pixel. Also scales <code>toImage()</code> output.</td></tr>
                     <tr><td><code>render.shade</code></td><td><code>true</code></td><td>Minecraft-style per-face shading on models.</td></tr>
                     <tr><td><code>render.autoResize</code></td><td><code>true</code></td><td>Resize the canvas when the window resizes.</td></tr>
                     <tr><td><code>render.renderAlways</code></td><td><code>false</code></td><td>Render every frame instead of only when the scene is dirty.</td></tr>
@@ -292,8 +335,9 @@ renderer.dispose();</code></pre>
 scene.addBlock(blockState, options?)    // BlockObject
 scene.addModel(model, options?)         // ModelObject | InstanceReference
 scene.addEntity(entityModel, options?)  // EntityObject | InstanceReference
+scene.addGui(layers, options?)          // GuiObject
 scene.stats                             // object and instance counts</code></pre>
-                <p>Scene objects extend <code>Object3D</code>. Beyond the usual three.js properties they offer <code>setPosition</code>, <code>setRotation</code>, <code>setScale</code>, <code>getGroupByName</code>, <code>getMeshByName</code>, <code>toggleGroupVisibility</code>, <code>removeFromScene</code> and <code>disposeAndRemoveAllChildren</code>.</p>
+                <p>Scene objects extend <code>Object3D</code>. Beyond the usual three.js properties they offer <code>setPosition</code>, <code>setRotation</code>, <code>setScale</code>, <code>getGroupByName</code>, <code>getMeshByName</code>, <code>toggleGroupVisibility</code>, <code>removeFromScene</code> and <code>dispose</code>. Skins add <code>setSkinTexture</code>, <code>setSlim</code> and <code>setCapeTexture</code>; blocks add <code>setState</code>; entities add <code>getLayerGroup</code>.</p>
                 <p>Every add method accepts the same base options, plus type-specific ones.</p>
                 <pre><code data-lang="ts">{
     mergeMeshes: true,        // one geometry per model
@@ -312,7 +356,19 @@ scene.stats                             // object and instance counts</code></pr
     // entities
     flip: true                // vanilla models point down the Y axis
 }</code></pre>
-                <p>With <code>instanceMeshes</code> on, repeated models return an <code>InstanceReference</code> that only carries transforms. Pass <code>instanceMeshes: false</code> to get a standalone object you can remove on its own.</p>
+                <p>With <code>instanceMeshes</code> on, repeated models return an <code>InstanceReference</code> that only carries transforms. Its <code>dispose()</code> frees the slot for reuse. Pass <code>instanceMeshes: false</code> to get a standalone object you can pose and remove on its own.</p>
+                <p>Entity models can select several dataset layers at once, each with its own texture.</p>
+                <pre><code data-lang="ts">const model = await Entities.getEntity(new BasicAssetKey("minecraft", "sheep"), undefined, {
+    layers: ["main", "wool"],
+    textures: { wool: new BasicAssetKey("minecraft", "sheep/sheep_wool") }
+});
+const sheep = await scene.addEntity(model!);
+sheep.getLayerGroup("wool")!.visible = false;</code></pre>
+                <p>GUIs take ordered texture layers in GUI pixels, with y growing down. <code>gui.bounds</code> reports the drawn area for fitting an orthographic camera, and <code>GuiHelper.inventorySlot</code> turns a slot index into a position.</p>
+                <pre><code data-lang="ts">const gui = await scene.addGui([
+    { texture: "minecraft:gui/container/generic_54", crop: [0, 0, 176, 222] },
+    { texture: "minecraft:item/apple", position: GuiHelper.inventorySlot(0, [8, 18]), size: [16, 16] }
+]);</code></pre>
             </article>
 
             <article id="dirty-flag" class="doc">
@@ -346,6 +402,45 @@ await Models.clearCache();</code></pre>
                 <p>Resource-pack ZIPs work in the browser through <code>BrowserArchiveProxy</code> and <code>ArchiveAssetSource</code>; see <a href="#resource-packs">the example</a>. Persistent caches (IndexedDB in browsers, a directory in Node) are keyed by asset root, so versions never collide.</p>
             </article>
 
+            <article id="worlds" class="doc">
+                <h3>Worlds and files</h3>
+                <p><code>MineRenderWorld</code> stores blocks in 16³ chunks with signed coordinates and keeps faces against opaque neighbors from being drawn. With <code>sectionMeshing</code>, static opaque cubes are merged into one mesh and atlas per section; everything else stays an individual object.</p>
+                <pre><code data-lang="ts">import { AnvilParser, MineRenderWorld, NBTHelper, SchematicParser, StructureParser } from "minerender";
+
+const world = new MineRenderWorld(renderer.scene, { sectionMeshing: true });
+
+// Blocks from code
+await world.setBlockAt(0, 0, 0, { type: "minecraft:stone" });
+await world.setBlockAt(0, 1, 0, { type: "minecraft:oak_fence", state: { north: "true" } });
+
+// Vanilla structure files and legacy schematics
+const nbt = await NBTHelper.fromBuffer(bytes);
+await world.placeMultiBlock(await StructureParser.parse(nbt));
+await world.placeMultiBlock(await SchematicParser.parse(nbt));
+
+// Java region files (1.13+): list the stored chunks, then place one at its world position
+const chunks = AnvilParser.getChunkList(regionBytes);
+const chunk = await AnvilParser.parseChunk(regionBytes, chunks[0].x, chunks[0].z);
+await world.placeChunk(chunk!);
+
+await world.clear();</code></pre>
+                <p>Placement is batched through a <code>BatchedExecutor</code> so the page stays responsive. Lighting, biome colors and level-of-detail are not part of the world yet.</p>
+            </article>
+
+            <article id="export" class="doc">
+                <h3>Exporting</h3>
+                <p><code>toImage</code> renders a fresh frame and returns a data URL, even while the loop is stopped. <code>SceneExporter</code> writes the visible meshes with their instance placements.</p>
+                <pre><code data-lang="ts">import { SceneExporter } from "minerender";
+
+const png = renderer.toImage();                          // full canvas
+const jpeg = renderer.toImage(true, "image/jpeg", 0.9);   // trimmed to the drawn pixels
+
+const glb = await SceneExporter.toGLTF(renderer.scene, { binary: true });   // textures and tints kept
+const obj = SceneExporter.toObj(renderer.scene);                           // geometry only
+const ply = SceneExporter.toPLY(skin);                                     // any Object3D as the root</code></pre>
+                <p>glTF export needs a browser. Custom shading is not baked into the exported materials.</p>
+            </article>
+
             <article id="lifecycle" class="doc">
                 <h3>Lifecycle</h3>
                 <p><code>stop()</code> pauses the loop and <code>start()</code> resumes it. <code>dispose()</code> is final: it releases the WebGL context, the controls and owned helpers. Shared assets stay cached.</p>
@@ -356,9 +451,6 @@ renderer.dispose();
 // In Node, or before unloading a page: end caches, queues and timers
 import { shutdown } from "minerender";
 shutdown();</code></pre>
-                <p>To grab the current frame, render once and read the canvas.</p>
-                <pre><code data-lang="ts">renderer.renderer.render(renderer.scene, renderer.camera);
-const dataUrl = renderer.toImage();</code></pre>
             </article>
 
             <article id="node" class="doc">
@@ -385,7 +477,8 @@ shutdown(); // let the process exit</code></pre>
                     <li><strong>One renderer per visible area.</strong> Browsers limit WebGL contexts. This page keeps at most two alive and swaps the rest for snapshots.</li>
                     <li><strong>Dispose what scrolls away</strong> and recreate it on demand. Assets stay cached, so the second load is quick.</li>
                     <li><strong>Leave instancing on</strong> for repeated models, and set <code>maxInstanceCount</code> above the number of copies you expect.</li>
-                    <li><strong>Disable the composer</strong> when you do not need post-processing.</li>
+                    <li><strong>Turn on <code>sectionMeshing</code></strong> for worlds and large structures. Static blocks become one mesh per section.</li>
+                    <li><strong>Disable the composer</strong> when you do not need post-processing, and keep <code>pixelRatio</code> at 1 unless you need sharper output.</li>
                     <li><strong>Lower <code>fpsLimit</code></strong> on busy pages. The dirty flag already skips idle frames.</li>
                 </ul>
             </article>
@@ -409,11 +502,14 @@ shutdown(); // let the process exit</code></pre>
             <tr><td><code>render.render(...)</code> with callbacks</td><td><code>await scene.addX(...)</code> returns the object</td></tr>
             <tr><td><code>options.assetRoot</code></td><td><code>AssetLoader.setVersion()</code>, <code>AssetLoader.addSource()</code>, or a per-key root</td></tr>
             <tr><td><code>options.controls</code>, <code>camera</code>, <code>showAxes</code>, <code>showGrid</code></td><td><code>controls.enabled</code>, <code>camera.position</code>, <code>debug.axes</code>, <code>debug.grid</code></td></tr>
-            <tr><td><code>render.toImage()</code></td><td><code>renderer.toImage()</code> after a render</td></tr>
+            <tr><td><code>render.toImage(trim, mime)</code></td><td><code>renderer.toImage(trim, mime, quality)</code></td></tr>
+            <tr><td><code>render.toObj()</code>, <code>toGLTF()</code>, <code>toPLY()</code></td><td><code>SceneExporter.toObj(renderer.scene)</code>, <code>toGLTF</code>, <code>toPLY</code></td></tr>
             <tr><td><code>render.clearScene()</code>, <code>render.dispose()</code></td><td><code>object.removeFromScene()</code>, <code>renderer.dispose()</code></td></tr>
             <tr><td>Per-frame <code>skinRender</code> CustomEvents</td><td>Mutate objects, then set <code>renderer.dirty = true</code>.</td></tr>
             <tr><td><code>skinRender.playerModel.getObjectByName("head")</code></td><td><code>skin.getGroupByName("head")</code>, <code>skin.getMeshByName("hat")</code></td></tr>
-            <tr><td><code>GuiRender</code>, <code>recipe()</code>, capes, OBJ/glTF export</td><td>Not available in V2.</td></tr>
+            <tr><td><code>skinRender.render({ cape, capeType })</code></td><td><code>skin.setCapeTexture(url, "minecraft" | "optifine" | "labymod")</code></td></tr>
+            <tr><td><code>GuiRender</code>, <code>Positions</code></td><td><code>scene.addGui(layers)</code>, <code>GuiHelper.inventorySlot()</code></td></tr>
+            <tr><td><code>recipe()</code></td><td>Not available in V2.</td></tr>
             </tbody>
         </table>
         </div>
@@ -505,7 +601,7 @@ AssetLoader.addSource("my-pack", new ArchiveAssetSource(archive));</code></pre>
                 </div>
             </article>
         </div>
-        <p class="section-note">V1 stays online for GUI and inventory rendering, recipes, capes and 3D export.</p>
+        <p class="section-note">V1 stays online for recipe rendering and the per-frame render events.</p>
     </section>
 
 </main>

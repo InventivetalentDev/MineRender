@@ -1,6 +1,6 @@
-import { BasicAssetKey, Entities, EntityModel } from "minerender";
+import { BasicAssetKey, Entities, EntityModel, EntityObject, InstanceReference } from "minerender";
 import type { Example, ExampleContext, ExampleGroup } from "./types";
-import { esmRenderer, fillList, frameObject, scriptSnippet, selectControl, textControl } from "./shared";
+import { esmRenderer, fillList, frameObject, scriptSnippet, selectControl, textControl, toggleControl } from "./shared";
 
 export const ENTITY_RENDERER = {
     camera: {
@@ -17,6 +17,13 @@ async function loadEntity(name: string): Promise<EntityModel> {
     const entity = await Entities.getEntity(modelKey, textureKey);
     if (!entity) throw new Error(`Unknown entity "${name}"`);
     return entity;
+}
+
+function removeEntity(entity: EntityObject | InstanceReference<EntityObject> | undefined): void {
+    if (!entity) return;
+    entity.removeFromScene();
+    // Releases the object's geometry, or the instance slot for reuse
+    entity.dispose();
 }
 
 async function showEntity(context: ExampleContext, name: string) {
@@ -59,10 +66,7 @@ export const mob: Example = {
             try {
                 const next = await showEntity(context, name);
                 if (!next) return;
-                if (current && "removeFromScene" in current) {
-                    current.removeFromScene();
-                    current.disposeAndRemoveAllChildren();
-                }
+                removeEntity(current);
                 current = next;
             } catch (error) {
                 console.warn(error);
@@ -93,10 +97,7 @@ const blockEntity: Example = {
             try {
                 const next = await showEntity(context, name);
                 if (!next) return;
-                if (current && "removeFromScene" in current) {
-                    current.removeFromScene();
-                    current.disposeAndRemoveAllChildren();
-                }
+                removeEntity(current);
                 current = next;
             } catch (error) {
                 console.warn(error);
@@ -126,10 +127,7 @@ const variants: Example = {
             try {
                 const next = await showEntity(context, name);
                 if (!next) return;
-                if (current && "removeFromScene" in current) {
-                    current.removeFromScene();
-                    current.disposeAndRemoveAllChildren();
-                }
+                removeEntity(current);
                 current = next;
             } catch (error) {
                 console.warn(error);
@@ -163,9 +161,78 @@ await renderer.scene.addEntity(model!);`
     }
 };
 
+/** Entities with optional layers in the dataset, and the layer that is off by default. */
+const LAYERED: Array<[string, string, string]> = [
+    ["sheep", "wool", "Wool"],
+    ["pig", "saddle", "Saddle"],
+    ["horse", "saddle", "Saddle"],
+    ["creeper", "armor", "Charged"]
+];
+
+const layers: Example = {
+    id: "entity-layers",
+    title: "Model layers",
+    description: "Dataset models carry extra layers such as wool, saddles, or armor. Select the layers to draw and toggle them afterwards.",
+    renderer: ENTITY_RENDERER,
+    placeholder: "/placeholder-block.png",
+    async setup(context) {
+        const { renderer, signal } = context;
+        let [name, layer] = LAYERED[0];
+        let current: EntityObject | undefined;
+        let enabled = true;
+
+        const show = async () => {
+            const model = await Entities.getEntity(new BasicAssetKey("minecraft", name), undefined, { layers: ["main", layer] });
+            if (!model || signal.aborted) return;
+            const next = await renderer.scene.addEntity(model, { instanceMeshes: false }) as EntityObject;
+            if (signal.aborted) {
+                removeEntity(next);
+                return;
+            }
+            removeEntity(current);
+            current = next;
+            applyLayer();
+            frameObject(renderer, current);
+        };
+        const applyLayer = () => {
+            const group = current?.getLayerGroup(layer);
+            if (group) group.visible = enabled;
+            renderer.dirty = true;
+        };
+
+        selectControl(context, "Entity", LAYERED.map(([entity, , label]) => [entity, `${entity} (${label.toLowerCase()})`]), name, value => {
+            const entry = LAYERED.find(([entity]) => entity === value);
+            if (!entry) return;
+            [name, layer] = entry;
+            show().catch(console.warn);
+        });
+        toggleControl(context, "Extra layer", true, visible => {
+            enabled = visible;
+            applyLayer();
+        });
+        await show();
+    },
+    code: {
+        esm: `${esmRenderer("BasicAssetKey", "Entities")}
+
+// Layers are drawn in the given order; "main" alone is the default
+const model = await Entities.getEntity(new BasicAssetKey("minecraft", "sheep"), undefined, {
+    layers: ["main", "wool"]
+});
+const sheep = await renderer.scene.addEntity(model!);
+
+// Each layer is a group you can hide or pose
+sheep.getLayerGroup("wool")!.visible = false;
+renderer.dirty = true;
+
+// Available layer names per model
+await Entities.getLayerList(new BasicAssetKey("minecraft", "sheep")); // ["main", "wool", "wool_undercoat"]`
+    }
+};
+
 export const entities: ExampleGroup = {
     id: "entities",
     title: "Entities",
-    lead: "Mobs and block entities from a per-version geometry dataset extracted from the game, textured with the game's box UV layout.",
-    examples: [{ ...mob, title: "Mobs" }, blockEntity, variants]
+    lead: "Mobs and block entities from a per-version geometry dataset extracted from the game, with texture variants and optional model layers.",
+    examples: [{ ...mob, title: "Mobs" }, blockEntity, variants, layers]
 };

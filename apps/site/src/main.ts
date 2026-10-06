@@ -10,13 +10,15 @@ import { items, generated } from "./examples/items";
 import { entities, mob } from "./examples/entities";
 import { structures } from "./examples/structures";
 import { resourcepacks } from "./examples/resourcepacks";
+import { guis } from "./examples/gui";
+import { exports } from "./examples/exports";
 import { composed } from "./examples/scene";
 import { rendererPool } from "./viewport/RendererPool";
 import { bindResourcePackControls, onResourcePackChange, recoverPersistentCaches } from "./resourcePack";
 import * as minerender from "minerender";
 import { shutdown } from "minerender";
 
-const groups = [skins, blocks, items, entities, structures, resourcepacks];
+const groups = [skins, blocks, items, entities, structures, guis, exports, resourcepacks];
 
 // Drop persisted assets left behind by a resource pack before any preview can read them.
 // (Not a top-level await: the production build targets ES2020.)

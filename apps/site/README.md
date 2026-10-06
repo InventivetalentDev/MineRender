@@ -18,7 +18,7 @@ The site is static and deploys as a Cloudflare Worker with assets only (`wrangle
 ## Layout
 
 - `index.html` holds the static copy: hero, "what changed" list, usage docs, and the V1 migration guide. Keep the copy plain; it describes what the library does, not how great it is.
-- `src/examples/*.ts` define the live examples. Each `Example` has a `setup()` that builds the scene and a `code` block shown next to the viewport; keep the two equivalent. `scene.ts` is the composed hero scene.
+- `src/examples/*.ts` define the live examples, one file per group (skins, blocks, items, entities, structures, gui, exports, resourcepacks). Each `Example` has a `setup()` that builds the scene and a `code` block shown next to the viewport; keep the two equivalent. `scene.ts` is the composed hero scene.
 - `src/playground/Playground.ts` is the hero stage: tabs over one viewport with a status line and a reset button.
 - `src/viewport/` keeps the page cheap: `Viewport` creates a renderer only while on screen, and `RendererPool` caps the number of live renderers (two by default, evicting the one farthest from the screen centre). Evicted viewports keep a snapshot of their last frame.
 - `src/showcase/Showcase.ts` renders one example group: chips to pick an example, a single viewport, and the code panel.

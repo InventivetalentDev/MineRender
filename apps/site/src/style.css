@@ -279,6 +279,8 @@ button { font: inherit; color: inherit; }
 .viewport-control input[type="text"] { font: inherit; font-family: var(--font-mono); font-size: 0.8rem; color: var(--ink); background: transparent; border: 0; outline: none; min-width: 150px; }
 .viewport-control input[type="file"] { font-size: 0.75rem; max-width: 220px; }
 .viewport-control-toggle { cursor: pointer; }
+.viewport-control-button { cursor: pointer; font: inherit; font-size: 0.8rem; color: var(--ink); }
+.viewport-control-button:hover { border-color: var(--ink); }
 .viewport-control input[type="checkbox"] { accent-color: var(--moss); margin: 0; }
 .viewport-status:empty { display: none; }
 

@@ -125,7 +125,11 @@ export class Viewport implements Pooled {
         if (this.state === "active" || this.state === "loading") return;
 
         const example = this.example;
-        const options = mergeOptions(DEFAULT_OPTIONS, example.renderer ?? {});
+        const options = mergeOptions(DEFAULT_OPTIONS, {
+            // Keep GPU work proportional to the element, not to a Retina screen.
+            render: { pixelRatio: Math.min(window.devicePixelRatio || 1, 1.5) },
+            ...example.renderer
+        });
         let renderer: Renderer;
         try {
             renderer = new Renderer(options);
@@ -141,8 +145,6 @@ export class Viewport implements Pooled {
 
         this.controlsHost.innerHTML = "";
         this.setState("loading", "Loading assets…");
-        // Keep GPU work proportional to the element, not to a Retina screen.
-        renderer.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
         renderer.appendTo(this.surface);
         if (renderer.controls) {
             renderer.controls.enableDamping = true;
@@ -234,12 +236,7 @@ export class Viewport implements Pooled {
         const renderer = this.renderer;
         if (!renderer) return undefined;
         try {
-            // toDataURL only sees the drawing buffer within the same task as the draw call.
-            if (renderer.options.composer.enabled && renderer.composer) {
-                renderer.composer.render();
-            } else {
-                renderer.renderer.render(renderer.scene, renderer.camera);
-            }
+            // toImage renders a fresh frame before reading the canvas.
             return renderer.toImage();
         } catch (error) {
             console.warn("Could not capture viewport snapshot", error);

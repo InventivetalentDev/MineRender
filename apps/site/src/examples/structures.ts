@@ -1,19 +1,7 @@
-import { AssetKey, AssetLoader, AssetParser, BatchedExecutor, MineRenderWorld, NBTAsset, Renderer, StructureParser } from "minerender";
+import { AnvilParser, AssetKey, AssetLoader, AssetParser, BatchedExecutor, MineRenderWorld, MultiBlockStructure, NBTAsset, NBTHelper, Renderer, SchematicParser, StructureParser } from "minerender";
 import type { Example, ExampleGroup } from "./types";
-import { esmRenderer, textControl } from "./shared";
-
-/**
- * The world prototype still adds chunk bounds and block wireframes unconditionally
- * (ROADMAP item 11). Hide those line helpers so the showcase shows the blocks only.
- */
-function hideDebugLines(renderer: Renderer): void {
-    renderer.scene.traverse(object => {
-        if ((object as { isLineSegments?: boolean }).isLineSegments || (object as { isLine?: boolean }).isLine) {
-            object.visible = false;
-        }
-    });
-    renderer.dirty = true;
-}
+import { esmRenderer, fileControl, statusControl, textControl, toggleControl } from "./shared";
+import { Box3, PerspectiveCamera, Vector3 } from "three";
 
 const STRUCTURES = [
     "village/plains/houses/plains_small_house_1",
@@ -39,10 +27,37 @@ async function loadStructure(name: string) {
     return StructureParser.parse(asset);
 }
 
+/** Points the camera at a block-coordinate bounding box, from the current direction. */
+function frameBlocks(renderer: Renderer, bounds: Box3): void {
+    if (bounds.isEmpty()) return;
+    const center = bounds.getCenter(new Vector3());
+    const radius = bounds.getSize(new Vector3()).length() / 2;
+    const camera = renderer.camera as PerspectiveCamera;
+    const vertical = camera.fov * Math.PI / 360;
+    const horizontal = Math.atan(Math.tan(vertical) * camera.aspect);
+    const distance = radius / Math.sin(Math.min(vertical, horizontal)) * 1.15;
+    const direction = camera.position.clone().sub(renderer.controls?.target ?? new Vector3()).normalize();
+    camera.position.copy(center).addScaledVector(direction, distance);
+    camera.far = Math.max(camera.far, distance + radius * 4);
+    camera.lookAt(center);
+    camera.updateProjectionMatrix();
+    if (renderer.controls) {
+        renderer.controls.target.copy(center);
+        renderer.controls.update();
+        renderer.controls.saveState();
+    }
+    renderer.dirty = true;
+}
+
+function structureBounds(structure: MultiBlockStructure): Box3 {
+    const [sx, sy, sz] = structure.size;
+    return new Box3(new Vector3(-8, -8, -8), new Vector3(sx * 16 - 8, sy * 16 - 8, sz * 16 - 8));
+}
+
 const vanilla: Example = {
     id: "structure-vanilla",
     title: "Vanilla structure files",
-    description: "Structure .nbt files are parsed in the browser and placed block by block into a world. Block placement is batched so the page stays responsive.",
+    description: "Structure .nbt files are parsed in the browser and placed into a world in batches. Section meshing merges static opaque cubes into one mesh per 16³ section, with neighbor faces culled.",
     renderer: {
         camera: {
             position: [230, 170, 230] as [number, number, number],
@@ -53,33 +68,47 @@ const vanilla: Example = {
     placeholder: "/placeholder-block.png",
     async setup(context) {
         const { renderer, signal } = context;
-        const world = new MineRenderWorld(renderer.scene);
-        let executor: BatchedExecutor | undefined;
+        let sectionMeshing = true;
+        let world = new MineRenderWorld(renderer.scene, { sectionMeshing });
+        let structure: MultiBlockStructure | undefined;
         let token = 0;
+        const status = statusControl(context);
 
-        const show = async (name: string) => {
+        const place = async () => {
+            if (!structure) return;
             const current = ++token;
-            const structure = await loadStructure(name);
-            if (signal.aborted || current !== token) return;
             await world.clear();
-            executor = new BatchedExecutor(1, 32);
-            const [sx, sy, sz] = structure.size;
-            renderer.controls?.target.set(sx * 8, sy * 8, sz * 8);
-            renderer.controls?.update();
-            // Helpers are added while blocks stream in, so hide them repeatedly until placement ends.
-            const sweep = setInterval(() => hideDebugLines(renderer), 250);
-            try {
-                await world.placeMultiBlock(structure, true, executor);
-            } finally {
-                clearInterval(sweep);
+            if (signal.aborted || current !== token) return;
+            status.textContent = "Placing blocks…";
+            frameBlocks(renderer, structureBounds(structure));
+            await world.placeMultiBlock(structure, true, new BatchedExecutor(1, 32));
+            if (current === token) {
+                const stats = renderer.scene.stats;
+                status.textContent = `${structure.blocks.length} blocks, ${stats.objectCount} objects`;
             }
-            hideDebugLines(renderer);
+            renderer.dirty = true;
+        };
+        const show = async (name: string) => {
+            status.textContent = "Loading structure…";
+            structure = await loadStructure(name);
+            if (signal.aborted) return;
+            await place();
         };
 
-        await show(STRUCTURES[0]);
         textControl(context, "Structure", STRUCTURES[0], name => {
-            if (name) show(name).catch(console.warn);
+            if (name) show(name).catch(error => {
+                console.warn(error);
+                status.textContent = `Could not load "${name}".`;
+            });
         }, STRUCTURES);
+        toggleControl(context, "Section meshing", sectionMeshing, enabled => {
+            sectionMeshing = enabled;
+            world.clear().then(() => {
+                world = new MineRenderWorld(renderer.scene, { sectionMeshing });
+                return place();
+            }).catch(console.warn);
+        });
+        await show(STRUCTURES[0]);
 
         return () => {
             token++;
@@ -93,15 +122,111 @@ const key = new AssetKey("minecraft", "village/plains/houses/plains_small_house_
 const nbt = await AssetLoader.get(key, AssetParser.NBT);
 const structure = await StructureParser.parse(nbt!);
 
-const world = new MineRenderWorld(renderer.scene);
+// Section meshing merges static opaque cubes per 16³ section and culls hidden faces
+const world = new MineRenderWorld(renderer.scene, { sectionMeshing: true });
 await world.placeMultiBlock(structure);`
+    }
+};
+
+const ownFile: Example = {
+    id: "structure-file",
+    title: "Your own files",
+    description: "Drop in a structure .nbt, a legacy .schematic, or a Java region .mca file. Regions load one chunk column at a time.",
+    renderer: {
+        camera: {
+            position: [230, 170, 230] as [number, number, number],
+            lookingAt: [72, 40, 72] as [number, number, number],
+            far: 10000
+        }
+    },
+    placeholder: "/placeholder-block.png",
+    async setup(context) {
+        const { renderer, signal } = context;
+        const world = new MineRenderWorld(renderer.scene, { sectionMeshing: true });
+        const status = statusControl(context);
+        let token = 0;
+
+        const run = async (label: string, work: () => Promise<Box3>) => {
+            const current = ++token;
+            status.textContent = `Loading ${label}…`;
+            try {
+                await world.clear();
+                if (signal.aborted || current !== token) return;
+                const bounds = await work();
+                if (current !== token) return;
+                frameBlocks(renderer, bounds);
+                status.textContent = label;
+            } catch (error) {
+                console.warn(error);
+                status.textContent = error instanceof Error ? error.message : `Could not load ${label}.`;
+            }
+        };
+
+        const showFile = async (file: File) => {
+            const bytes = new Uint8Array(await file.arrayBuffer());
+            const extension = file.name.split(".").pop()?.toLowerCase();
+            if (extension === "mca") {
+                const chunks = AnvilParser.getChunkList(bytes);
+                if (!chunks.length) throw new Error("This region contains no chunks.");
+                // Show the first stored chunk column
+                const chunk = await AnvilParser.parseChunk(bytes, chunks[0].x, chunks[0].z);
+                if (!chunk) throw new Error("The first chunk is empty.");
+                await world.placeChunk(chunk);
+                const bounds = new Box3();
+                for (const section of chunk.sections) {
+                    for (let index = 0; index < 4096; index++) {
+                        if (!section.data.get(index)) continue;
+                        const position = new Vector3(chunk.x * 16 + (index & 15), section.y * 16 + (index >> 8), chunk.z * 16 + ((index >> 4) & 15)).multiplyScalar(16);
+                        bounds.expandByPoint(position.clone().addScalar(-8));
+                        bounds.expandByPoint(position.addScalar(8));
+                    }
+                }
+                return bounds;
+            }
+            if (extension !== "nbt" && extension !== "schematic") throw new Error("Choose an .nbt, .schematic, or .mca file.");
+            const nbt = await NBTHelper.fromBuffer(bytes);
+            const structure = extension === "schematic" ? await SchematicParser.parse(nbt) : await StructureParser.parse(nbt);
+            await world.placeMultiBlock(structure, true, new BatchedExecutor(1, 32));
+            return structureBounds(structure);
+        };
+
+        fileControl(context, "File", ".nbt,.schematic,.mca", file => void run(file.name, () => showFile(file)));
+        await run("igloo/top", async () => {
+            const structure = await loadStructure("igloo/top");
+            await world.placeMultiBlock(structure, true, new BatchedExecutor(1, 32));
+            return structureBounds(structure);
+        });
+
+        return () => {
+            token++;
+            world.clear().catch(() => undefined);
+        };
+    },
+    code: {
+        esm: `${esmRenderer("AnvilParser", "MineRenderWorld", "NBTHelper", "SchematicParser", "StructureParser")}
+
+const world = new MineRenderWorld(renderer.scene, { sectionMeshing: true });
+const bytes = new Uint8Array(await file.arrayBuffer());
+
+if (file.name.endsWith(".mca")) {
+    // Java region files: pick a chunk column (region-local 0–31) and place it at its world position
+    const [first] = AnvilParser.getChunkList(bytes);
+    const chunk = await AnvilParser.parseChunk(bytes, first.x, first.z);
+    await world.placeChunk(chunk!);
+} else {
+    const nbt = await NBTHelper.fromBuffer(bytes);
+    const structure = file.name.endsWith(".schematic")
+        ? await SchematicParser.parse(nbt)     // legacy numeric block IDs
+        : await StructureParser.parse(nbt);    // vanilla structure block format
+    await world.placeMultiBlock(structure);
+}`
     }
 };
 
 const programmatic: Example = {
     id: "structure-world",
     title: "Build a world in code",
-    description: "MineRenderWorld places Block descriptors on a 16³ chunk grid. Identical blocks share instanced meshes, so large builds stay cheap to draw.",
+    description: "MineRenderWorld places Block descriptors on a 16³ chunk grid with signed coordinates. Faces against opaque neighbors are culled, and identical blocks share instanced meshes.",
     renderer: {
         camera: {
             position: [230, 170, 230] as [number, number, number],
@@ -125,7 +250,7 @@ const programmatic: Example = {
         }
         await Promise.all(pending);
         if (signal.aborted) return;
-        hideDebugLines(renderer);
+        renderer.dirty = true;
         return () => {
             world.clear().catch(() => undefined);
         };
@@ -150,6 +275,6 @@ for (let x = 0; x < 10; x++) {
 export const structures: ExampleGroup = {
     id: "structures",
     title: "Structures & worlds",
-    lead: "Load vanilla structure files or place blocks from code. Identical blocks share one instanced mesh.",
-    examples: [vanilla, programmatic]
+    lead: "Load structure, schematic, and region files or place blocks from code. Sections can be merged into single meshes.",
+    examples: [vanilla, ownFile, programmatic]
 };

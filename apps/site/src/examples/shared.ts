@@ -6,12 +6,12 @@ import type { ExampleContext } from "./types";
  * Points the camera at an object's bounding box from its current direction, far enough
  * away to fit it. Entities differ a lot in size and origin, so this keeps them centred.
  */
-export function frameObject(renderer: Renderer, object: Object3D, padding = 1.35): void {
+export function frameObject(renderer: Renderer, object: Object3D, padding = 1.3): void {
     const box = new Box3().setFromObject(object);
     if (box.isEmpty()) return;
     const center = box.getCenter(new Vector3());
-    const size = box.getSize(new Vector3());
-    const radius = Math.max(size.x, size.y, size.z) / 2;
+    // Bounding-sphere radius, so long bodies seen end-on still fit
+    const radius = box.getSize(new Vector3()).length() / 2;
     const camera = renderer.camera;
     const fov = camera instanceof PerspectiveCamera ? camera.fov : 50;
     const distance = radius * padding / Math.tan((fov / 2) * Math.PI / 180);
@@ -24,6 +24,12 @@ export function frameObject(renderer: Renderer, object: Object3D, padding = 1.35
         renderer.controls.saveState();
     }
     renderer.dirty = true;
+}
+
+/** Moves an object up so its bounding box starts at the given floor height. Entities extend downwards from their origin. */
+export function standOn(object: Object3D, floor = 0): void {
+    const box = new Box3().setFromObject(object);
+    if (!box.isEmpty()) object.position.y += floor - box.min.y;
 }
 
 /** Default player textures from the vanilla assets; no third-party host involved. */
@@ -47,7 +53,7 @@ renderer.start();`;
 export const ESM_RENDERER = esmRenderer();
 
 export const SCRIPT_RENDERER = `<div id="render" style="width: 400px; height: 400px"></div>
-<script src="https://unpkg.com/minerender@alpha/dist/bundle.js"></script>
+<script src="https://unpkg.com/minerender@beta/dist/bundle.js"></script>
 <script>
     const renderer = new MineRender.Renderer({
         camera: { position: [40, 30, 50], lookingAt: [0, 0, 0] },
@@ -130,11 +136,14 @@ export function toggleControl(context: ExampleContext, label: string, checked: b
     return input;
 }
 
-/** Fills a datalist asynchronously without blocking the example. */
+/**
+ * Fills a datalist once the input is first focused. Listing assets takes many requests that
+ * would otherwise queue ahead of the example's own loads.
+ */
 export function fillList(input: HTMLInputElement, loader: () => Promise<string[]>, map: (entry: string) => string = e => e): void {
     const id = input.getAttribute("list");
     if (!id) return;
-    loader().then(entries => {
+    input.addEventListener("focus", () => loader().then(entries => {
         const datalist = document.getElementById(id);
         if (!datalist) return;
         for (const entry of entries) {
@@ -142,5 +151,53 @@ export function fillList(input: HTMLInputElement, loader: () => Promise<string[]
             option.value = map(entry);
             datalist.appendChild(option);
         }
-    }).catch(error => console.warn("Could not load suggestions", error));
+    }).catch(error => console.warn("Could not load suggestions", error)), { once: true });
+}
+
+/** Builds a button in the viewport's control strip. */
+export function buttonControl(context: ExampleContext, label: string, onClick: () => void): HTMLButtonElement {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "viewport-control viewport-control-button";
+    button.textContent = label;
+    button.addEventListener("click", onClick);
+    context.controls.appendChild(button);
+    return button;
+}
+
+/** Builds a labelled file input in the viewport's control strip. */
+export function fileControl(context: ExampleContext, label: string, accept: string, onChange: (file: File) => void): HTMLInputElement {
+    const wrapper = document.createElement("label");
+    wrapper.className = "viewport-control";
+    const span = document.createElement("span");
+    span.textContent = label;
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = accept;
+    input.addEventListener("change", () => {
+        const file = input.files?.[0];
+        if (file) onChange(file);
+    });
+    wrapper.append(span, input);
+    context.controls.appendChild(wrapper);
+    return input;
+}
+
+/** Shows a short status line in the viewport's control strip. */
+export function statusControl(context: ExampleContext): HTMLElement {
+    const status = document.createElement("span");
+    status.className = "viewport-control viewport-status";
+    context.controls.appendChild(status);
+    return status;
+}
+
+/** Offers a string or binary result as a file download. */
+export function download(name: string, data: string | ArrayBuffer | Blob, type = "application/octet-stream"): void {
+    const blob = data instanceof Blob ? data : new Blob([data], { type });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = name;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
