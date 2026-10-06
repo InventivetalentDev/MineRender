@@ -20,16 +20,21 @@ window["renderer"] = renderer;
 
 let gui: GuiObject | undefined;
 const status = document.getElementById("gui-status")!;
-const items: Array<[string, number]> = [
-    ["apple", 0], ["diamond", 13], ["bone", 35], ["ender_pearl", 53]
+const items = [
+    { name: "apple", slot: 0 },
+    { name: "diamond", slot: 1 },
+    { name: "stone", slot: 2 },
+    { name: "grass_block", slot: 3, tints: { 0: 0x91bd59 } },
+    { name: "oak_stairs", slot: 4 },
+    { name: "leather_helmet", slot: 5, tints: { 0: 0xc060d0 } }
 ];
 const layers: GuiLayer[] = [
     { name: "chest", texture: "minecraft:gui/container/generic_54", crop: [0, 0, 176, 222] },
-    ...items.map(([name, slot]): GuiLayer => ({
+    ...items.map(({ name, slot, tints }): GuiLayer => ({
         name,
-        texture: `minecraft:item/${name}`,
+        item: `minecraft:item/${name}`,
         position: GuiHelper.inventorySlot(slot, [8, 18]),
-        size: [16, 16]
+        tints
     }))
 ];
 
@@ -53,6 +58,6 @@ renderer.scene.addGui(layers).then(object => {
     fitGui();
     status.textContent = "";
 }).catch(error => {
-    status.textContent = error instanceof Error ? error.message : "Could not load GUI textures.";
+    status.textContent = error instanceof Error ? error.message : "Could not load GUI layers.";
     console.error(error);
 });
