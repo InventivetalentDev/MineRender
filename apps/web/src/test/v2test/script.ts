@@ -185,12 +185,12 @@ world.setBlockAt(0, 0, 0, {
                 for (let y = 0; y < 20; y++) {
                     if (Math.random() < 0.2) {
                         executor.submit(() => {
-                            world.setBlockAt(x, y, z, {
+                            return world.setBlockAt(x, y, z, {
                                 type: "stone"
                             }).then(info => {
                                 console.log(info)
                             })
-                        })
+                        }).catch(console.error)
                     }
                 }
             }
@@ -279,12 +279,12 @@ BlockStates.getList().then(blockList_ => {
                     // createBlockState(blockName, 1, xc * 16, 16, yc * 16)
 
                     executor.submit(() => {
-                        world.setBlockAt(xc, 0, yc, {
+                        return world.setBlockAt(xc, 0, yc, {
                             type: blockName
                         }).then(info => {
                             console.log(info)
                         })
-                    })
+                    }).catch(console.error)
                 }, c * 5)
             })(x, y, blockName);
 
