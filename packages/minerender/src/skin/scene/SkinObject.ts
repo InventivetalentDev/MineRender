@@ -11,6 +11,7 @@ import { DeepPartial, toRadians } from "../../util/util";
 import { SkinTextures } from "../SkinTextures";
 import { CapeLayout, capeTextureSizes } from "../CapeLayout";
 
+/** A player model facing +Z. Left and right parts are the player's own: left is +X, right is -X. */
 export class SkinObject extends SceneObject {
 
     public readonly options: SkinObjectOptions;
@@ -65,32 +66,32 @@ export class SkinObject extends SceneObject {
 
         {
             {
-                const leftArmGroup = this.createAndAddGroup("leftArm", -5, 22, 0);
+                const leftArmGroup = this.createAndAddGroup("leftArm", 5, 22, 0);
 
                 const leftArmGeo = this.getBoxGeometry(SkinPart.LEFT_ARM);
                 const leftArm = this.createAndAddMesh("leftArm", leftArmGroup, leftArmGeo, mat, Axis.Y, -4);
-                leftArm.position.x = this.slim ? -0.5 : -1;
+                leftArm.position.x = this.slim ? 0.5 : 1;
 
                 const leftSleeveGeo = this.getBoxGeometry(SkinPart.LEFT_SLEEVE);
                 const leftSleeve = this.createAndAddMesh("leftSleeve", leftArmGroup, leftSleeveGeo, mat, Axis.Y, -4);
-                leftSleeve.position.x = this.slim ? -0.5 : -1;
+                leftSleeve.position.x = this.slim ? 0.5 : 1;
             }
             {
-                const rightArmGroup = this.createAndAddGroup("rightArm", 5, 22, 0);
+                const rightArmGroup = this.createAndAddGroup("rightArm", -5, 22, 0);
 
                 const rightArmGeo = this.getBoxGeometry(SkinPart.RIGHT_ARM);
                 const rightArm = this.createAndAddMesh("rightArm", rightArmGroup, rightArmGeo, mat, Axis.Y, -4);
-                rightArm.position.x = this.slim ? 0.5 : 1;
+                rightArm.position.x = this.slim ? -0.5 : -1;
 
                 const rightSleeveGeo = this.getBoxGeometry(SkinPart.RIGHT_SLEEVE);
                 const rightSleeve = this.createAndAddMesh("rightSleeve", rightArmGroup, rightSleeveGeo, mat, Axis.Y, -4);
-                rightSleeve.position.x = this.slim ? 0.5 : 1;
+                rightSleeve.position.x = this.slim ? -0.5 : -1;
             }
         }
 
         {
             {
-                const leftLegGroup = this.createAndAddGroup("leftLeg", -1.9, 12, 0);
+                const leftLegGroup = this.createAndAddGroup("leftLeg", 1.9, 12, 0);
 
                 const leftLegGeo = this.getBoxGeometry(SkinPart.LEFT_LEG);
                 const leftLeg = this.createAndAddMesh("leftLeg", leftLegGroup, leftLegGeo, mat, Axis.Y, -6);
@@ -99,7 +100,7 @@ export class SkinObject extends SceneObject {
                 const leftTrousers = this.createAndAddMesh("leftTrousers", leftLegGroup, leftTrousersGeo, mat, Axis.Y, -6);
             }
             {
-                const rightLegGroup = this.createAndAddGroup("rightLeg", 1.9, 12, 0);
+                const rightLegGroup = this.createAndAddGroup("rightLeg", -1.9, 12, 0);
 
                 const rightLegGeo = this.getBoxGeometry(SkinPart.RIGHT_LEG);
                 const rightLeg = this.createAndAddMesh("rightLeg", rightLegGroup, rightLegGeo, mat, Axis.Y, -6);
@@ -154,9 +155,10 @@ export class SkinObject extends SceneObject {
             mesh.geometry = geometry;
         } else {
             const body = this.getGroupByName(SkinPart.BODY);
-            const group = this.createGroup(SkinPart.CAPE, 0, body ? 0 : 24, 2);
+            const group = this.createGroup(SkinPart.CAPE);
+            group.position.set(0, body ? 0 : 24, -2);
             (body ?? this).add(group);
-            group.rotation.set(toRadians(-6), Math.PI, 0);
+            group.rotation.x = toRadians(6);
             const cape = this.createAndAddMesh(SkinPart.CAPE, group, geometry, material);
             cape.position.set(0, -8, -0.5);
         }
@@ -173,7 +175,7 @@ export class SkinObject extends SceneObject {
         if (slim === this.slim) return;
         this.slim = slim;
 
-        const offset = slim ? 0.5 : -0.5;
+        const offset = slim ? -0.5 : 0.5;
         for (const part of [SkinPart.LEFT_ARM, SkinPart.LEFT_SLEEVE, SkinPart.RIGHT_ARM, SkinPart.RIGHT_SLEEVE]) {
             const mesh = this.getMeshByName(part);
             if (mesh) {
