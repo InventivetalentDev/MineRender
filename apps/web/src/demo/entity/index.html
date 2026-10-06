@@ -3,41 +3,10 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>Entity | MineRender</title>
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@100;400;500;600&display=swap" rel="stylesheet">
-
+        <title>Entity playground | MineRender</title>
         <link rel="stylesheet" href="../../demo_shared.css">
     </head>
     <body>
-        <div id="input" class="overlay top-right">
-            <label for="entity-input">Entity</label><br/>
-            <input type="text" id="entity-input" value="bat" list="entity-suggestions">
-            <datalist id="entity-suggestions"></datalist>
-            <br/><label for="entity-layers">Layers</label><br/>
-            <select id="entity-layers" multiple size="5" aria-describedby="layer-help"></select>
-            <div id="layer-help">Hold Ctrl or Command to select multiple layers.</div>
-            <fieldset id="entity-states" hidden>
-                <legend>States</legend>
-            </fieldset>
-            <div id="entity-animation-row" hidden>
-                <label for="entity-animation">Animations</label><br/>
-                <select id="entity-animation" multiple size="5" aria-describedby="animation-help"></select>
-                <div id="animation-help">Select one clip per layer.<br/>Hold Ctrl or Command to select multiple clips.</div>
-                <button id="animation-play" type="button" disabled>Play</button>
-                <button id="animation-replay" type="button" disabled>Replay</button>
-                <button id="animation-stop" type="button" disabled>Reset pose</button>
-                <br/><label for="animation-time">Time (seconds)</label><br/>
-                <input id="animation-time" type="range" min="0" max="0" step="0.01" value="0" disabled>
-                <output id="animation-time-value" for="animation-time">0.00 s</output>
-            </div>
-            <div id="entity-status" role="status"></div>
-        </div>
-        <div id="inspector" class="overlay bottom-left"></div>
-
-
-
         <script type="module" src="script.bundle.js"></script>
     </body>
 </html>
