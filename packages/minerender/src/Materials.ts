@@ -1,9 +1,10 @@
 import { MaterialKey, serializeMaterialKey } from "./cache/CacheKey";
-import { Color, DoubleSide, FrontSide, Material, MeshBasicMaterial, MeshLambertMaterial, MeshPhongMaterial, MeshStandardMaterial, ShaderChunk, ShaderMaterial } from "three";
+import { Color, ColorRepresentation, CustomBlending, DoubleSide, OneFactor, RepeatWrapping, FrontSide, Material, MeshBasicMaterial, MeshLambertMaterial, MeshPhongMaterial, MeshStandardMaterial, ShaderChunk, ShaderMaterial, ZeroFactor } from "three";
 import { Textures } from "./texture/Textures";
 import { TextureLoader } from "./texture/TextureLoader";
 import { Caching } from "./cache/Caching";
 import { AssetKey } from "./assets/AssetKey";
+import type { EntityRenderMode } from "./entity/EntityModel";
 
 export class Materials {
 
@@ -45,6 +46,76 @@ export class Materials {
             alphaTest: 0.5,
 
         })
+    }
+
+    /** Whether vanilla's render type for the mode culls back faces. */
+    public static entityModeCulls(mode: EntityRenderMode = "cutout"): boolean {
+        return mode === "cutout_cull" || mode === "solid" || mode === "eyes" || mode === "water_mask";
+    }
+
+    /** UV offset per tick of entity age for the scrolling modes, as vanilla's texture matrix applies it. */
+    public static entityModeScroll(mode: EntityRenderMode = "cutout"): [number, number] | undefined {
+        if (mode === "energy_swirl") return [0.01, 0.01];
+        if (mode === "breeze_wind") return [0.02, 0];
+        return undefined;
+    }
+
+    /**
+     * Entity material for one of vanilla's render types. Entities are unlit here, so the lit and full-bright modes
+     * differ only in blending and depth state. Culling is not a material property: {@link entityModeCulls} decides
+     * whether the geometry gets inward faces.
+     */
+    public static createEntityCanvasMaterial(canvas: HTMLCanvasElement, mode: EntityRenderMode = "cutout", tint?: ColorRepresentation): MeshBasicMaterial {
+        const material = Materials.createBasicCanvasMaterial(canvas) as MeshBasicMaterial;
+        switch (mode) {
+            case "cutout":
+            case "cutout_cull":
+                break;
+            case "cutout_z_offset":
+                material.polygonOffset = true;
+                material.polygonOffsetFactor = -1;
+                material.polygonOffsetUnits = -10;
+                break;
+            case "solid":
+                material.alphaTest = 0;
+                break;
+            case "translucent":
+            case "breeze_wind":
+                material.transparent = true;
+                material.alphaTest = 0.1;
+                break;
+            case "translucent_emissive":
+                material.transparent = true;
+                material.alphaTest = 0.1;
+                material.depthWrite = false;
+                break;
+            case "eyes":
+                material.transparent = true;
+                material.alphaTest = 0;
+                material.depthWrite = false;
+                break;
+            case "energy_swirl":
+                material.transparent = true;
+                material.alphaTest = 0.1;
+                material.blending = CustomBlending;
+                material.blendSrc = OneFactor;
+                material.blendDst = OneFactor;
+                // Leave destination alpha alone: on a transparent canvas the glow adds to the page instead of covering it.
+                material.blendSrcAlpha = ZeroFactor;
+                material.blendDstAlpha = OneFactor;
+                // Vanilla submits the swirl with half-grey vertex colour.
+                material.color.set(0x808080);
+                break;
+            case "water_mask":
+                material.alphaTest = 0;
+                material.colorWrite = false;
+                break;
+        }
+        if (Materials.entityModeScroll(mode)) {
+            material.map!.wrapS = material.map!.wrapT = RepeatWrapping;
+        }
+        if (tint !== undefined) material.color.multiply(new Color(tint));
+        return material;
     }
 
     public static createGuiCanvasMaterial(canvas: HTMLCanvasElement): MeshBasicMaterial {

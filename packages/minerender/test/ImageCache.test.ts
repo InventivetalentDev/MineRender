@@ -80,7 +80,7 @@ test.serial("an entity decode finishing after a cache clear does not restore the
         Caching.clear();
         decoded.resolve({ width: 1, height: 1, data: { canvas: {} } as CanvasRenderingContext2D });
         await pending;
-        t.is(Caching.materialCache.getIfPresent(`entity:${key.serialize()}`), undefined);
+        t.is(Caching.materialCache.getIfPresent(`entity:cutout::${key.serialize()}`), undefined);
     } finally {
         ModelTextures.get = originalGet;
         Materials.createBasicCanvasMaterial = originalCreate;
