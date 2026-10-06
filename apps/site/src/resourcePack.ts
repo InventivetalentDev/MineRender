@@ -10,7 +10,7 @@ import { ArchiveAssetSource, AssetLoader, BlockStates, BrowserArchiveProxy, Cach
  */
 const SOURCE_KEY = "site-resourcepack";
 /** Bump to clear every visitor's persistent caches once. */
-const CACHE_GENERATION = "2";
+const CACHE_GENERATION = "3";
 const CACHE_GENERATION_KEY = "minerender-site-cache-generation";
 const listeners = new Set<() => void>();
 let currentName: string | undefined;

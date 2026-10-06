@@ -84,6 +84,128 @@ renderer.dirty = true;`
     }
 };
 
+type Facing = "north" | "east" | "south" | "west";
+const FACINGS: Facing[] = ["south", "west", "north", "east"];
+const FACING_VECTOR: Record<Facing, [number, number]> = { south: [0, 1], west: [-1, 0], north: [0, -1], east: [1, 0] };
+/** 16 steps of 22.5°. A placed skull looks back at the player, so rotation 0 faces north; a sign's front faces south. */
+const SKULL_ROTATION: Record<Facing, string> = { north: "0", east: "4", south: "8", west: "12" };
+const SIGN_ROTATION: Record<Facing, string> = { south: "0", west: "4", north: "8", east: "12" };
+
+/** One block entity preview: blocks relative to the facing direction, with their properties. */
+interface BlockEntityPreview {
+    label: string;
+    blocks(facing: Facing): Array<{ name: string; properties: Record<string, string>; offset?: [number, number] }>;
+}
+/** The player's left when looking at a block that faces `facing`. */
+function leftOf(facing: Facing): [number, number] {
+    const [x, z] = FACING_VECTOR[facing];
+    return [-z, x];
+}
+const BLOCK_ENTITIES: Record<string, BlockEntityPreview> = {
+    chest: { label: "Chest", blocks: facing => [{ name: "chest", properties: { facing } }] },
+    double_chest: {
+        label: "Double chest",
+        blocks: facing => [
+            { name: "chest", properties: { facing, type: "right" } },
+            { name: "chest", properties: { facing, type: "left" }, offset: leftOf(facing) }
+        ]
+    },
+    ender_chest: { label: "Ender chest", blocks: facing => [{ name: "ender_chest", properties: { facing } }] },
+    bed: {
+        label: "Bed",
+        blocks: facing => {
+            const [x, z] = FACING_VECTOR[facing];
+            return [
+                { name: "red_bed", properties: { facing, part: "head" } },
+                { name: "red_bed", properties: { facing, part: "foot" }, offset: [-x, -z] }
+            ];
+        }
+    },
+    skull: { label: "Skeleton skull", blocks: facing => [{ name: "skeleton_skull", properties: { rotation: SKULL_ROTATION[facing] } }] },
+    creeper_head: { label: "Creeper head", blocks: facing => [{ name: "creeper_head", properties: { rotation: SKULL_ROTATION[facing] } }] },
+    sign: { label: "Sign", blocks: facing => [{ name: "oak_sign", properties: { rotation: SIGN_ROTATION[facing] } }] },
+    shulker_box: { label: "Shulker box", blocks: () => [{ name: "purple_shulker_box", properties: {} }] },
+    decorated_pot: { label: "Decorated pot", blocks: facing => [{ name: "decorated_pot", properties: { facing } }] },
+    bell: { label: "Bell", blocks: facing => [{ name: "bell", properties: { facing } }] }
+};
+
+const blockEntities: Example = {
+    id: "block-entities",
+    title: "Chests, beds and skulls",
+    description: "Blocks drawn by a block-entity renderer in the game have empty block models. The entity dataset maps them to entity models and rotations, so addBlock draws them from their blockstate properties.",
+    renderer: {
+        camera: {
+            position: [34, 26, 40] as [number, number, number],
+            lookingAt: [0, 4, 0] as [number, number, number]
+        }
+    },
+    placeholder: "/placeholder-block.png",
+    async setup(context) {
+        const { renderer, signal } = context;
+        let preview = "chest";
+        let facing: Facing = "south";
+        let current: BlockObject[] = [];
+        let token = 0;
+
+        const show = async () => {
+            const run = ++token;
+            const entries = BLOCK_ENTITIES[preview].blocks(facing);
+            const next: BlockObject[] = [];
+            for (const entry of entries) {
+                const block = await addBlock(context, entry.name);
+                if (!block) break;
+                next.push(block);
+                if (Object.keys(entry.properties).length) await block.setState(entry.properties);
+                // Center a pair of blocks on the origin
+                const [x, z] = entry.offset ?? [0, 0];
+                const spread = entries.length > 1 ? 8 : 0;
+                const [sx, sz] = entries[1]?.offset ?? [0, 0];
+                block.setPosition(block.getPosition().set(x * 16 - sx * spread, 0, z * 16 - sz * spread));
+            }
+            if (signal.aborted || run !== token) {
+                next.forEach(remove);
+                return;
+            }
+            current.forEach(remove);
+            current = next;
+            renderer.dirty = true;
+        };
+
+        selectControl(context, "Block", Object.entries(BLOCK_ENTITIES).map(([id, { label }]) => [id, label]), preview, value => {
+            preview = value;
+            show().catch(console.warn);
+        });
+        selectControl(context, "Facing", FACINGS.map(f => [f, f]), facing, value => {
+            facing = value as Facing;
+            show().catch(console.warn);
+        });
+        await show();
+    },
+    code: {
+        esm: `${esmRenderer("AssetKey", "BlockStates")}
+
+// A chest's block model has no geometry; its entity model and lid rotation come from the dataset
+const chest = await BlockStates.get(AssetKey.parse("blockstates", "chest"));
+const single = await renderer.scene.addBlock(chest!);
+await single.setState({ facing: "east" });
+
+// Double chests, beds, skulls, signs, banners and shulker boxes work the same way
+const bed = await BlockStates.get(AssetKey.parse("blockstates", "red_bed"));
+const head = await renderer.scene.addBlock(bed!);
+await head.setState({ facing: "south", part: "head" });
+head.setPosition(head.getPosition().set(32, 0, 0));
+
+const skull = await BlockStates.get(AssetKey.parse("blockstates", "skeleton_skull"));
+const placed = await renderer.scene.addBlock(skull!);
+await placed.setState({ rotation: "4" });     // 16 steps of 22.5°; 0 faces north
+placed.setPosition(placed.getPosition().set(-32, 0, 0));
+renderer.dirty = true;
+
+// The entity objects a block owns, for posing or hiding parts
+single.blockEntities;`
+    }
+};
+
 const many: Example = {
     id: "block-instanced",
     title: "Hundreds of blocks, one draw call",
@@ -199,8 +321,8 @@ renderer.dirty = true;`
 export const blocks: ExampleGroup = {
     id: "blocks",
     title: "Blocks",
-    lead: "Vanilla blockstates and models from the asset CDN, merged through their parent chain and drawn through shared instanced meshes. Water and lava render with levels and flow.",
-    examples: [{ ...single, title: "A single block" }, multipart, fluids, many],
+    lead: "Vanilla blockstates and models from the asset CDN, merged through their parent chain and drawn through shared instanced meshes. Chests, beds and skulls get their entity models; water and lava render with levels and flow.",
+    examples: [{ ...single, title: "A single block" }, multipart, blockEntities, fluids, many],
     notes: [
         "Preview tints use the resource pack's colormap at a fixed biome."
     ]

@@ -109,8 +109,8 @@
                 <span class="feature-icon" data-icon="dirty"></span>
                 <div>
                     <h3>Frames only when something changed</h3>
-                    <p>A dirty-flag render loop skips idle frames entirely, with an optional FPS cap. A static scene costs nothing after its first frame.</p>
-                    <a href="#dirty-flag">How the dirty flag works</a>
+                    <p>A dirty-flag render loop skips idle frames entirely, with an optional FPS cap. Frame callbacks drive animation with time and delta while the loop runs.</p>
+                    <a href="#dirty-flag">Redraws and animation</a>
                 </div>
             </li>
             <li class="feature">
@@ -157,7 +157,7 @@
                 <span class="feature-icon" data-icon="entity"></span>
                 <div>
                     <h3>Entities from a versioned dataset</h3>
-                    <p>Mob and block-entity geometry is extracted from each game version, with nested parts, mirrored cubes, texture variants and optional layers such as saddles and wool.</p>
+                    <p>Mob and block-entity geometry is extracted from each game version, with nested parts, texture variants, the render passes vanilla adds (charged creepers, spider eyes, dyed wool) and the keyframe animations of newer mobs.</p>
                     <a href="#entities">See entities</a>
                 </div>
             </li>
@@ -188,8 +188,8 @@
             <li class="feature">
                 <span class="feature-icon" data-icon="gui"></span>
                 <div>
-                    <h3>GUIs from texture layers</h3>
-                    <p>Inventory screens and HUD elements are built from cropped texture layers with a slot helper for item positions.</p>
+                    <h3>GUIs with items and recipes</h3>
+                    <p>Inventory screens and HUD elements are built from cropped texture layers and item models in their GUI pose. Recipe JSON turns into crafting-table layers.</p>
                     <a href="#guis">See GUIs</a>
                 </div>
             </li>
@@ -248,7 +248,7 @@
             <a href="#first-render">First render</a>
             <a href="#renderer-options">Renderer options</a>
             <a href="#scene-api">Scene and objects</a>
-            <a href="#dirty-flag">Redraws</a>
+            <a href="#dirty-flag">Redraws and animation</a>
             <a href="#assets">Assets and versions</a>
             <a href="#worlds">Worlds and files</a>
             <a href="#export">Exporting</a>
@@ -354,31 +354,50 @@ scene.stats                             // object and instance counts</code></pr
     legacy: undefined,        // 64×32 layout; undefined to detect
 
     // entities
-    flip: true                // vanilla models point down the Y axis
+    tints: { wool_color: 0xf9801d },   // colors for the dataset's tint labels
+    flip: undefined           // true forces vanilla's plain flip, false keeps raw model space
 }</code></pre>
                 <p>With <code>instanceMeshes</code> on, repeated models return an <code>InstanceReference</code> that only carries transforms. Its <code>dispose()</code> frees the slot for reuse. Pass <code>instanceMeshes: false</code> for a standalone object.</p>
-                <p>Entity models can select several dataset layers at once, each with its own texture.</p>
-                <pre><code data-lang="ts">const model = await Entities.getEntity(new BasicAssetKey("minecraft", "sheep"), undefined, {
-    layers: ["main", "wool"],
-    textures: { wool: new BasicAssetKey("minecraft", "sheep/sheep_wool") }
-});
-const sheep = await scene.addEntity(model!);
-sheep.getLayerGroup("wool")!.visible = false;</code></pre>
-                <p>GUIs take ordered texture layers in GUI pixels, with y growing down. <code>gui.bounds</code> reports the drawn area for fitting an orthographic camera, and <code>GuiHelper.inventorySlot</code> turns a slot index into a position.</p>
+                <p>Blocks whose model has no geometry in the game (chests, beds, skulls, signs, banners, shulker boxes) are drawn through the entity models the dataset maps them to, rotated by their blockstate properties. <code>block.blockEntities</code> holds those objects.</p>
+                <p>Entity models draw <code>main</code> plus the passes the dataset lists for them. Passes with a condition are enabled through <code>when</code>; tint labels take colors through <code>tints</code>. An explicit <code>layers</code> list draws exactly those geometry layers instead.</p>
+                <pre><code data-lang="ts">const key = new BasicAssetKey("minecraft", "sheep");
+await Entities.getPassList(key);   // [{ layer: "wool", when: "not_sheared", tint: "wool_color" }, ...]
+
+const model = await Entities.getEntity(key, undefined, { when: ["not_sheared"] });
+const sheep = await scene.addEntity(model!, { tints: { wool_color: 0xf9801d } });
+sheep.getLayerGroup("wool")!.visible = false;   // every layer is a group</code></pre>
+                <p>Mobs with keyframe animations (warden, frog, camel, breeze, armadillo, sniffer, bat and others) expose them through <code>Entities.getAnimations</code>. The entity owns no clock, so advance it from a frame callback.</p>
+                <pre><code data-lang="ts">const animations = await Entities.getAnimations(key);   // undefined without any
+warden.playAnimation(animations!.roar, { loop: true, speed: 1 });
+const stop = renderer.onFrame(({ delta }) => warden.advanceAnimation(delta));
+warden.setAnimationTime(1.5);   // or pose at an explicit time
+warden.stopAnimation();         // restores the default pose</code></pre>
+                <p>GUIs take ordered layers in GUI pixels, with y growing down: texture crops, or item models in their GUI display pose. <code>gui.bounds</code> reports the drawn area for fitting an orthographic camera, <code>GuiHelper.inventorySlot</code> turns a slot index into a position, and <code>GuiHelper.recipe</code> lays out a crafting recipe.</p>
                 <pre><code data-lang="ts">const gui = await scene.addGui([
     { texture: "minecraft:gui/container/generic_54", crop: [0, 0, 176, 222] },
-    { texture: "minecraft:item/apple", position: GuiHelper.inventorySlot(0, [8, 18]), size: [16, 16] }
-]);</code></pre>
+    { item: "minecraft:item/apple", position: GuiHelper.inventorySlot(0, [8, 18]) },
+    { item: "minecraft:item/grass_block", position: GuiHelper.inventorySlot(1, [8, 18]), tints: { 0: 0x91bd59 } }
+]);
+
+const table = await scene.addGui(GuiHelper.recipe(recipeJson, {
+    resolveIngredient: () => "minecraft:diamond"   // concrete item for tags and alternatives
+}));</code></pre>
             </article>
 
             <article id="dirty-flag" class="doc">
-                <h3>Redraws</h3>
+                <h3>Redraws and animation</h3>
                 <p>Frames are drawn only when something changed. The built-in controls and the scene's add methods mark the scene dirty. Set <code>renderer.dirty</code> after other changes.</p>
                 <pre><code data-lang="ts">skin.getGroupByName("head")!.rotation.y = 0.5;
 renderer.dirty = true;
 
 // Other event sources can request redraws too
 renderer.registerEventDispatcher(myControls, "change");</code></pre>
+                <p>For continuous motion, subscribe to frames. Callbacks run before each draw while the loop is started, respect <code>fpsLimit</code>, pause with <code>stop()</code> and keep the scene drawing without dirty flags. Both values are seconds.</p>
+                <pre><code data-lang="ts">const head = skin.getGroupByName("head")!;
+const unsubscribe = renderer.onFrame(({ time, delta }) => {
+    head.rotation.y = Math.sin(time) * 0.5;
+});
+unsubscribe();   // when done; dispose() clears all callbacks</code></pre>
             </article>
 
             <article id="assets" class="doc">
@@ -505,11 +524,11 @@ shutdown(); // let the process exit</code></pre>
             <tr><td><code>render.toImage(trim, mime)</code></td><td><code>renderer.toImage(trim, mime, quality)</code></td></tr>
             <tr><td><code>render.toObj()</code>, <code>toGLTF()</code>, <code>toPLY()</code></td><td><code>SceneExporter.toObj(renderer.scene)</code>, <code>toGLTF</code>, <code>toPLY</code></td></tr>
             <tr><td><code>render.clearScene()</code>, <code>render.dispose()</code></td><td><code>object.removeFromScene()</code>, <code>renderer.dispose()</code></td></tr>
-            <tr><td>Per-frame <code>skinRender</code> CustomEvents</td><td>Mutate objects, then set <code>renderer.dirty = true</code>.</td></tr>
+            <tr><td>Per-frame <code>skinRender</code> CustomEvents</td><td><code>renderer.onFrame(({ time, delta }) =&gt; ...)</code></td></tr>
             <tr><td><code>skinRender.playerModel.getObjectByName("head")</code></td><td><code>skin.getGroupByName("head")</code>, <code>skin.getMeshByName("hat")</code></td></tr>
             <tr><td><code>skinRender.render({ cape, capeType })</code></td><td><code>skin.setCapeTexture(url, "minecraft" | "optifine" | "labymod")</code></td></tr>
             <tr><td><code>GuiRender</code>, <code>Positions</code></td><td><code>scene.addGui(layers)</code>, <code>GuiHelper.inventorySlot()</code></td></tr>
-            <tr><td><code>recipe()</code></td><td>Not available in V2.</td></tr>
+            <tr><td><code>recipe(recipeJson)</code></td><td><code>scene.addGui(GuiHelper.recipe(recipeJson))</code></td></tr>
             </tbody>
         </table>
         </div>
@@ -572,12 +591,9 @@ sword.setPosition(sword.getPosition().set(32, 0, 0));</code></pre>
                     <div>
                         <span class="pair-label">V2</span>
                         <pre><code data-lang="ts">const head = skin.getGroupByName("head")!;
-function tick() {
-    head.rotation.y += 0.01;
-    renderer.dirty = true;        // request a frame
-    requestAnimationFrame(tick);
-}
-tick();</code></pre>
+renderer.onFrame(({ delta }) => {
+    head.rotation.y += delta;     // radians per second
+});</code></pre>
                     </div>
                 </div>
             </article>

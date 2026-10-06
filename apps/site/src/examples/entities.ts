@@ -56,7 +56,7 @@ function variantLabel(variant: string, animal: string): string {
 export const mob: Example = {
     id: "entity-mob",
     title: "Entity",
-    description: "Entity geometry comes from a per-version dataset extracted from the game, including nested parts, poses, mirrored cubes, and texture locations.",
+    description: "Entity geometry comes from a per-version dataset extracted from the game, including nested parts, poses, mirrored cubes, and texture locations. Extra draws such as spider eyes or the slime's outer shell are included.",
     renderer: ENTITY_RENDERER,
     placeholder: "/placeholder-block.png",
     async setup(context) {
@@ -161,78 +161,179 @@ await renderer.scene.addEntity(model!);`
     }
 };
 
-/** Entities with optional layers in the dataset, and the layer that is off by default. */
-const LAYERED: Array<[string, string, string]> = [
-    ["sheep", "wool", "Wool"],
-    ["pig", "saddle", "Saddle"],
-    ["horse", "saddle", "Saddle"],
-    ["creeper", "armor", "Charged"]
+/** Entities with a conditional dataset pass: [entity, state label, control label, tint label]. */
+const STATES: Array<[string, string, string, string?]> = [
+    ["creeper", "powered", "Charged"],
+    ["sheep", "not_sheared", "Wool", "wool_color"],
+    ["wolf", "tamed", "Collar", "collar_color"],
+    ["cat", "tamed", "Collar", "collar_color"]
+];
+const TINTS: Array<[string, string]> = [
+    ["ffffff", "White"], ["f9801d", "Orange"], ["3ab3da", "Light blue"], ["f38baa", "Pink"], ["80c71f", "Lime"], ["b02e26", "Red"]
 ];
 
-const layers: Example = {
-    id: "entity-layers",
-    title: "Model layers",
-    description: "Dataset models carry extra layers such as wool, saddles, or armor. Select the layers to draw, then toggle them.",
+const states: Example = {
+    id: "entity-states",
+    title: "States, passes and tints",
+    description: "The dataset lists the extra draws vanilla adds to a model: a charged creeper's armor, a sheep's wool, spider eyes. Unconditional passes are drawn by default; states enable the others, and tint labels take colors.",
     renderer: ENTITY_RENDERER,
     placeholder: "/placeholder-block.png",
     async setup(context) {
         const { renderer, signal } = context;
-        let [name, layer] = LAYERED[0];
+        let [name, state, , tint] = STATES[0];
         let current: EntityObject | undefined;
         let enabled = true;
+        let color = TINTS[1][0];
 
         const show = async () => {
-            const model = await Entities.getEntity(new BasicAssetKey("minecraft", name), undefined, { layers: ["main", layer] });
+            const model = await Entities.getEntity(new BasicAssetKey("minecraft", name), undefined, { when: enabled ? [state] : [] });
             if (!model || signal.aborted) return;
-            const next = await renderer.scene.addEntity(model, { instanceMeshes: false }) as EntityObject;
+            const tints = tint ? { [tint]: parseInt(color, 16) } : undefined;
+            const next = await renderer.scene.addEntity(model, { instanceMeshes: false, tints }) as EntityObject;
             if (signal.aborted) {
                 removeEntity(next);
                 return;
             }
             removeEntity(current);
             current = next;
-            applyLayer();
             frameObject(renderer, current);
         };
-        const applyLayer = () => {
-            const group = current?.getLayerGroup(layer);
-            if (group) group.visible = enabled;
-            renderer.dirty = true;
-        };
 
-        selectControl(context, "Entity", LAYERED.map(([entity, , label]) => [entity, `${entity} (${label.toLowerCase()})`]), name, value => {
-            const entry = LAYERED.find(([entity]) => entity === value);
+        selectControl(context, "Entity", STATES.map(([entity, , label]) => [entity, `${entity} (${label.toLowerCase()})`]), name, value => {
+            const entry = STATES.find(([entity]) => entity === value);
             if (!entry) return;
-            [name, layer] = entry;
+            [name, state, , tint] = entry;
+            tintSelect.disabled = !tint;
             show().catch(console.warn);
         });
-        toggleControl(context, "Extra layer", true, visible => {
-            enabled = visible;
-            applyLayer();
+        toggleControl(context, "State", enabled, value => {
+            enabled = value;
+            show().catch(console.warn);
         });
+        const tintSelect = selectControl(context, "Tint", TINTS, color, value => {
+            color = value;
+            show().catch(console.warn);
+        });
+        tintSelect.disabled = !tint;
         await show();
     },
     code: {
         esm: `${esmRenderer("BasicAssetKey", "Entities")}
 
-// Layers are drawn in the given order; "main" alone is the default
-const model = await Entities.getEntity(new BasicAssetKey("minecraft", "sheep"), undefined, {
-    layers: ["main", "wool"]
+// Which states a model has: Entities.getPassList(key) lists its passes and their "when" labels
+const creeper = await Entities.getEntity(new BasicAssetKey("minecraft", "creeper"), undefined, {
+    when: ["powered"]       // draw the charged creeper's armor pass
 });
-const sheep = await renderer.scene.addEntity(model!);
+await renderer.scene.addEntity(creeper!);
 
-// Each layer is a group you can hide or pose
-sheep.getLayerGroup("wool")!.visible = false;
-renderer.dirty = true;
+// Tint labels color a pass; the sheep's wool uses "wool_color"
+const sheep = await Entities.getEntity(new BasicAssetKey("minecraft", "sheep"), undefined, { when: ["not_sheared"] });
+await renderer.scene.addEntity(sheep!, { tints: { wool_color: 0xf9801d } });
 
-// Available layer names per model
-await Entities.getLayerList(new BasicAssetKey("minecraft", "sheep")); // ["main", "wool", "wool_undercoat"]`
+// Or pick geometry layers directly, without any passes
+const pig = await Entities.getEntity(new BasicAssetKey("minecraft", "pig"), undefined, { layers: ["main", "saddle"] });
+const saddled = await renderer.scene.addEntity(pig!);
+saddled.getLayerGroup("saddle")!.visible = false;   // each layer is a group`
+    }
+};
+
+/** Mobs with keyframe animations in the dataset, and the animation shown first. */
+const ANIMATED: Array<[string, string]> = [
+    ["warden", "roar"], ["frog", "croak"], ["camel", "walk"], ["bat", "flying"], ["breeze", "idle"], ["armadillo", "roll_up"], ["sniffer", "sniffer_happy"]
+];
+
+const animated: Example = {
+    id: "entity-animation",
+    title: "Keyframe animations",
+    description: "Mobs animated with vanilla's keyframe system carry those animations in the dataset. Play one on the entity and advance it from the renderer's frame callback.",
+    renderer: ENTITY_RENDERER,
+    placeholder: "/placeholder-block.png",
+    async setup(context) {
+        const { renderer, signal } = context;
+        let [name, animationName] = ANIMATED[0];
+        let current: EntityObject | undefined;
+        let animations: Awaited<ReturnType<typeof Entities.getAnimations>>;
+        let stopFrames: (() => void) | undefined;
+
+        const play = () => {
+            stopFrames?.();
+            stopFrames = undefined;
+            const animation = animations?.[animationName];
+            if (!current || !animation) {
+                current?.stopAnimation();
+                renderer.dirty = true;
+                return;
+            }
+            const entity = current;
+            entity.playAnimation(animation, { loop: true });
+            // Entities own no clock: the frame callback advances the animation and keeps the scene drawing
+            stopFrames = renderer.onFrame(({ delta }) => entity.advanceAnimation(delta));
+        };
+        const show = async () => {
+            const key = new BasicAssetKey("minecraft", name);
+            const [model, nextAnimations] = await Promise.all([Entities.getEntity(key), Entities.getAnimations(key)]);
+            if (!model || signal.aborted) return;
+            const next = await renderer.scene.addEntity(model, { instanceMeshes: false }) as EntityObject;
+            if (signal.aborted) {
+                removeEntity(next);
+                return;
+            }
+            stopFrames?.();
+            removeEntity(current);
+            current = next;
+            animations = nextAnimations;
+            const names = Object.keys(animations ?? {});
+            if (!names.includes(animationName)) animationName = names[0] ?? "";
+            animationSelect.innerHTML = "";
+            for (const option of names) {
+                const element = document.createElement("option");
+                element.value = element.textContent = option;
+                animationSelect.appendChild(element);
+            }
+            animationSelect.value = animationName;
+            frameObject(renderer, current);
+            play();
+        };
+
+        selectControl(context, "Entity", ANIMATED.map(([entity]) => [entity, entity]), name, value => {
+            const entry = ANIMATED.find(([entity]) => entity === value);
+            if (!entry) return;
+            [name, animationName] = entry;
+            show().catch(console.warn);
+        });
+        const animationSelect = selectControl(context, "Animation", [[animationName, animationName]], animationName, value => {
+            animationName = value;
+            play();
+        });
+        await show();
+
+        return () => {
+            stopFrames?.();
+        };
+    },
+    code: {
+        esm: `${esmRenderer("BasicAssetKey", "Entities")}
+
+const key = new BasicAssetKey("minecraft", "warden");
+const model = await Entities.getEntity(key);
+const warden = await renderer.scene.addEntity(model!);
+
+// undefined for mobs without keyframe animations
+const animations = await Entities.getAnimations(key);
+warden.playAnimation(animations!.roar, { loop: true });
+
+// The entity owns no clock; advance it once per frame
+const stop = renderer.onFrame(({ delta }) => warden.advanceAnimation(delta));
+
+// Later: stop the frame callback and restore the default pose
+stop();
+warden.stopAnimation();`
     }
 };
 
 export const entities: ExampleGroup = {
     id: "entities",
     title: "Entities",
-    lead: "Mobs and block entities from a per-version geometry dataset extracted from the game, with texture variants and optional model layers.",
-    examples: [{ ...mob, title: "Mobs" }, blockEntity, variants, layers]
+    lead: "Mobs and block entities from a per-version geometry dataset extracted from the game, with texture variants, render passes, and keyframe animations.",
+    examples: [{ ...mob, title: "Mobs" }, blockEntity, variants, states, animated]
 };
