@@ -23,6 +23,10 @@ interface WorldState {
     edits: Edit[];
 }
 
+const presetInfo: Record<string, string> = {
+    culling: "A 4×3×3 stone block straddling the chunk border at X=16, next to glass and a slab. Faces between touching blocks are culled even across the border, so the triangle count below stays low. Remove the block at 16,1,1 under Edit a block to look inside.",
+    fluids: "Water levels 0–7 and lava levels 0–6 on a stone floor, plus a waterlogged slab, seagrass, a bubble column, and kelp."
+};
 const defaults: WorldState = {
     source: "builtin", name: "end_city/ship", namespace: "minecraft", fileName: "", chunk: "", preset: "culling",
     sectionMeshing: false, maxAtlasSize: 2048, workload: { ...defaultWorkload }, edits: []
@@ -38,7 +42,7 @@ const app = new Playground<WorldState>({
     renderer: { camera: { near: 1, far: 10000, position: [550, 400, 550] }, composer: { enabled: false } },
     presets: {
         ship: { label: "End city ship", state: {} },
-        culling: { label: "Culling across a chunk boundary", state: { source: "preset", preset: "culling" } },
+        culling: { label: "Face culling across a chunk border", state: { source: "preset", preset: "culling" } },
         fluids: { label: "Fluids and waterlogged blocks", state: { source: "preset", preset: "fluids" } },
         cube: { label: "1,000 random stone blocks (cube)", state: { source: "workload" } },
         sphere: { label: "1,000 random blocks (sphere)", state: { source: "workload", workload: { ...defaultWorkload, shape: "sphere", blocks: "stone,glass,oak_planks" } } }
@@ -95,7 +99,7 @@ const app = new Playground<WorldState>({
             }
         } else if (state.source === "preset") {
             structure = makePreset(state.preset);
-            label = state.preset === "culling" ? "Culling across X=16" : "Fluids and waterlogged blocks";
+            label = state.preset === "culling" ? "Chunk border culling" : "Fluids";
         } else if (state.source === "workload") {
             structure = makeWorkload(state.workload);
             label = `${state.workload.shape} · seed ${state.workload.seed}`;
@@ -126,6 +130,7 @@ const app = new Playground<WorldState>({
                 window["world"] = world;
                 syncControls(chunks, selectedChunk);
                 document.getElementById("world-result")!.textContent = info;
+                document.getElementById("world-note")!.textContent = state.source === "preset" ? presetInfo[state.preset] ?? "" : "";
                 void refreshSuggestions(ctx, state.namespace);
             }
         };
@@ -134,6 +139,7 @@ const app = new Playground<WorldState>({
 
 app.controls.innerHTML = `
     <p id="world-result" class="control-note"></p>
+    <p id="world-note" class="control-note"></p>
     <details open><summary>Structure</summary>
         <label>Namespace<input id="structure-namespace" value="minecraft"></label>
         <label>Built-in structure<input id="structure-name" value="end_city/ship" list="structure-suggestions"></label>
