@@ -11,13 +11,32 @@ interface CustomSettings extends ModelSettings {
     display: DisplayPosition | "";
 }
 
-const cube = JSON.stringify({ parent: "minecraft:block/cube_all", textures: { all: "minecraft:block/diamond_block" } }, null, 2);
-const generated = JSON.stringify({ parent: "minecraft:item/generated", textures: { layer0: "minecraft:item/diamond_sword" } }, null, 2);
-const tinted = JSON.stringify({
+/** JSON with numeric arrays kept on one line. */
+function formatJson(value: unknown): string {
+    return JSON.stringify(value, null, 2).replace(/\[\s+((?:-?[\d.]+,?\s+)+)\]/g, (_, numbers: string) => `[${numbers.trim().split(/,\s+/).join(", ")}]`);
+}
+const cube = formatJson({ parent: "minecraft:block/cube_all", textures: { all: "minecraft:block/diamond_block" } });
+const generated = formatJson({ parent: "minecraft:item/generated", textures: { layer0: "minecraft:item/diamond_sword" } });
+const tinted = formatJson({
     textures: { all: "minecraft:block/white_wool" },
     elements: [{ from: [0, 0, 0], to: [16, 16, 16], faces: Object.fromEntries(["east", "west", "up", "down", "south", "north"].map(face => [face, { texture: "#all", tintindex: 0 }])) }]
-}, null, 2);
-const defaults: CustomSettings = { ...modelDefaults, json: cube, namespace: "minecraft", display: "" };
+});
+const windmill = formatJson({
+    textures: {
+        wall: "minecraft:block/bricks", roof: "minecraft:block/dark_oak_planks", wood: "minecraft:block/dark_oak_log",
+        blade: "minecraft:block/birch_planks", door: "minecraft:block/dark_oak_door_bottom"
+    },
+    elements: [
+        { name: "tower", from: [4, 0, 4], to: [12, 12, 12], faces: { north: { texture: "#wall" }, south: { texture: "#wall" }, east: { texture: "#wall" }, west: { texture: "#wall" }, up: { texture: "#roof" } } },
+        { name: "door", from: [6.5, 0, 12], to: [9.5, 5, 12.1], faces: { south: { texture: "#door", uv: [0, 0, 6, 10] } } },
+        { name: "roof", from: [3, 12, 3], to: [13, 14, 13], rotation: { origin: [8, 13, 8], axis: "y", angle: 45 }, faces: { north: { texture: "#roof" }, south: { texture: "#roof" }, east: { texture: "#roof" }, west: { texture: "#roof" }, up: { texture: "#roof" }, down: { texture: "#roof" } } },
+        { name: "axle", from: [7, 8, 12], to: [9, 10, 15], faces: { south: { texture: "#wood" }, east: { texture: "#wood" }, west: { texture: "#wood" }, up: { texture: "#wood" }, down: { texture: "#wood" } } },
+        { name: "blade", from: [7.5, 1, 14], to: [8.5, 17, 15], rotation: { origin: [8, 9, 14.5], axis: "z", angle: 45 }, faces: { north: { texture: "#blade" }, south: { texture: "#blade" }, east: { texture: "#blade" }, west: { texture: "#blade" }, up: { texture: "#blade" }, down: { texture: "#blade" } } },
+        { name: "blade", from: [7.5, 1, 14], to: [8.5, 17, 15], rotation: { origin: [8, 9, 14.5], axis: "z", angle: -45 }, faces: { north: { texture: "#blade" }, south: { texture: "#blade" }, east: { texture: "#blade" }, west: { texture: "#blade" }, up: { texture: "#blade" }, down: { texture: "#blade" } } }
+    ],
+    display: { gui: { rotation: [30, 45, 0], scale: [0.625, 0.625, 0.625] } }
+});
+const defaults: CustomSettings = { ...modelDefaults, json: windmill, namespace: "minecraft", display: "" };
 let revision = 0;
 
 const app = new Playground<CustomSettings>({
@@ -25,13 +44,14 @@ const app = new Playground<CustomSettings>({
     defaults,
     renderer: { camera: { position: [40, 30, 40] } },
     presets: {
-        cube: { label: "Cube with a parent model", state: {} },
+        windmill: { label: "Windmill (rotated elements, several textures)", state: {} },
+        cube: { label: "Cube with a parent model", state: { json: cube } },
         generated: { label: "Generated item", state: { json: generated } },
         tinted: { label: "Tinted elements", state: { json: tinted, tints: { 0: 0x5599ee } } }
     },
     load,
     code(state) {
-        return `const definition = ${JSON.stringify(parseModel(state.json), null, 2)};
+        return `const definition = ${formatJson(parseModel(state.json))};
 definition.key = new MineRender.AssetKey(${JSON.stringify(state.namespace)}, "custom", "models", "block");
 const model = await MineRender.ModelMerger.mergeWithParents(definition);
 await renderer.scene.addModel(model, ${JSON.stringify({ ...modelOptions(state), displayPosition: state.display || undefined }, null, 2)});\n`;
@@ -45,7 +65,7 @@ json.spellcheck = false;
 const namespace = input(modelGroup, "Namespace for relative references", app.state.namespace);
 button(modelGroup, "Apply", () => void app.update({ json: json.value, namespace: namespace.value.trim() }));
 button(modelGroup, "Format", () => {
-    try { json.value = JSON.stringify(parseModel(json.value), null, 2); }
+    try { json.value = formatJson(parseModel(json.value)); }
     catch (error) { app.report(error instanceof Error ? error.message : String(error), true); }
 });
 const file = input(modelGroup, "Import JSON file", "", "file");
@@ -68,7 +88,7 @@ button(assetGroup, "Load into editor", async () => {
         const imported = await Models.getRaw(new AssetKey(key.namespace, path.join("/"), "models", type));
         if (!imported) throw new Error(`Model not found: ${modelId.value}`);
         const { key: _key, hierarchy: _hierarchy, ...definition } = imported;
-        json.value = JSON.stringify(definition, null, 2);
+        json.value = formatJson(definition);
         await app.update({ json: json.value, namespace: key.namespace });
     } catch (error) { app.report(error instanceof Error ? error.message : String(error), true); }
 });
