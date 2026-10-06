@@ -31,7 +31,9 @@ export class SkinObject extends SceneObject {
     }
 
     async init(): Promise<void> {
+        const cape = this.getGroupByName(SkinPart.CAPE);
         this.createMeshes();
+        if (cape) this.getGroupByName(SkinPart.BODY)!.attach(cape);
     }
 
     protected removeMeshes(): void {
@@ -39,7 +41,6 @@ export class SkinObject extends SceneObject {
     }
 
     protected createMeshes() {
-        console.log("#createMeshes")
         const mat = this.skinMaterial ?? Materials.MISSING_TEXTURE;
 
         {
@@ -53,58 +54,61 @@ export class SkinObject extends SceneObject {
         }
 
         {
-            const bodyGroup = this.createAndAddGroup("body", 0, 18, 0);
+            const bodyGroup = this.createAndAddGroup("body", 0, 24, 0);
 
             const bodyGeo = this.getBoxGeometry(SkinPart.BODY);
-            const body = this.createAndAddMesh("body", bodyGroup, bodyGeo, mat);
+            const body = this.createAndAddMesh("body", bodyGroup, bodyGeo, mat, Axis.Y, -6);
 
             const jacketGeo = this.getBoxGeometry(SkinPart.JACKET);
-            const jacket = this.createAndAddMesh("jacket", bodyGroup, jacketGeo, mat);
+            const jacket = this.createAndAddMesh("jacket", bodyGroup, jacketGeo, mat, Axis.Y, -6);
         }
 
         {
             {
-                const leftArmGroup = this.createAndAddGroup("leftArm", this.slim ? -5.5 : -6, 18, 0, Axis.Y, 4);
+                const leftArmGroup = this.createAndAddGroup("leftArm", -5, 22, 0);
 
                 const leftArmGeo = this.getBoxGeometry(SkinPart.LEFT_ARM);
                 const leftArm = this.createAndAddMesh("leftArm", leftArmGroup, leftArmGeo, mat, Axis.Y, -4);
+                leftArm.position.x = this.slim ? -0.5 : -1;
 
                 const leftSleeveGeo = this.getBoxGeometry(SkinPart.LEFT_SLEEVE);
                 const leftSleeve = this.createAndAddMesh("leftSleeve", leftArmGroup, leftSleeveGeo, mat, Axis.Y, -4);
+                leftSleeve.position.x = this.slim ? -0.5 : -1;
             }
             {
-                const rightArmGroup = this.createAndAddGroup("rightArm", this.slim ? 5.5 : 6, 18, 0, Axis.Y, 4);
+                const rightArmGroup = this.createAndAddGroup("rightArm", 5, 22, 0);
 
                 const rightArmGeo = this.getBoxGeometry(SkinPart.RIGHT_ARM);
                 const rightArm = this.createAndAddMesh("rightArm", rightArmGroup, rightArmGeo, mat, Axis.Y, -4);
+                rightArm.position.x = this.slim ? 0.5 : 1;
 
                 const rightSleeveGeo = this.getBoxGeometry(SkinPart.RIGHT_SLEEVE);
                 const rightSleeve = this.createAndAddMesh("rightSleeve", rightArmGroup, rightSleeveGeo, mat, Axis.Y, -4);
+                rightSleeve.position.x = this.slim ? 0.5 : 1;
             }
         }
 
         {
             {
-                const leftLegGroup = this.createAndAddGroup("leftLeg", -2, 6, 0, Axis.Y, 4);
+                const leftLegGroup = this.createAndAddGroup("leftLeg", -1.9, 12, 0);
 
                 const leftLegGeo = this.getBoxGeometry(SkinPart.LEFT_LEG);
-                const leftLeg = this.createAndAddMesh("leftLeg", leftLegGroup, leftLegGeo, mat, Axis.Y, -4);
+                const leftLeg = this.createAndAddMesh("leftLeg", leftLegGroup, leftLegGeo, mat, Axis.Y, -6);
 
                 const leftTrousersGeo = this.getBoxGeometry(SkinPart.LEFT_TROUSERS);
-                const leftTrousers = this.createAndAddMesh("leftTrousers", leftLegGroup, leftTrousersGeo, mat, Axis.Y, -4);
+                const leftTrousers = this.createAndAddMesh("leftTrousers", leftLegGroup, leftTrousersGeo, mat, Axis.Y, -6);
             }
             {
-                const rightLegGroup = this.createAndAddGroup("rightLeg", 2, 6, 0, Axis.Y, 4);
+                const rightLegGroup = this.createAndAddGroup("rightLeg", 1.9, 12, 0);
 
                 const rightLegGeo = this.getBoxGeometry(SkinPart.RIGHT_LEG);
-                const rightLeg = this.createAndAddMesh("rightLeg", rightLegGroup, rightLegGeo, mat, Axis.Y, -4);
+                const rightLeg = this.createAndAddMesh("rightLeg", rightLegGroup, rightLegGeo, mat, Axis.Y, -6);
 
                 const rightTrousersGeo = this.getBoxGeometry(SkinPart.RIGHT_TROUSERS);
-                const rightTrousers = this.createAndAddMesh("rightTrousers", rightLegGroup, rightTrousersGeo, mat, Axis.Y, -4);
+                const rightTrousers = this.createAndAddMesh("rightTrousers", rightLegGroup, rightTrousersGeo, mat, Axis.Y, -6);
             }
         }
 
-        console.log("#createMeshes done")
 
     }
 
@@ -134,7 +138,7 @@ export class SkinObject extends SceneObject {
         const load = ++this.capeLoad;
         if (src === undefined) {
             const group = this.getGroupByName(SkinPart.CAPE);
-            if (group) this.remove(group);
+            group?.removeFromParent();
             this.notifyDirty();
             return;
         }
@@ -149,7 +153,9 @@ export class SkinObject extends SceneObject {
             mesh.material = material;
             mesh.geometry = geometry;
         } else {
-            const group = this.createAndAddGroup(SkinPart.CAPE, 0, 24, 2);
+            const body = this.getGroupByName(SkinPart.BODY);
+            const group = this.createGroup(SkinPart.CAPE, 0, body ? 0 : 24, 2);
+            (body ?? this).add(group);
             group.rotation.set(toRadians(-6), Math.PI, 0);
             const cape = this.createAndAddMesh(SkinPart.CAPE, group, geometry, material);
             cape.position.set(0, -8, -0.5);
@@ -167,16 +173,14 @@ export class SkinObject extends SceneObject {
         if (slim === this.slim) return;
         this.slim = slim;
 
+        const offset = slim ? 0.5 : -0.5;
         for (const part of [SkinPart.LEFT_ARM, SkinPart.LEFT_SLEEVE, SkinPart.RIGHT_ARM, SkinPart.RIGHT_SLEEVE]) {
             const mesh = this.getMeshByName(part);
-            if (mesh) mesh.geometry = this.getBoxGeometry(part);
+            if (mesh) {
+                mesh.geometry = this.getBoxGeometry(part);
+                mesh.position.x += part === SkinPart.LEFT_ARM || part === SkinPart.LEFT_SLEEVE ? offset : -offset;
+            }
         }
-
-        const offset = slim ? 0.5 : -0.5;
-        const leftArm = this.getGroupByName(SkinPart.LEFT_ARM);
-        const rightArm = this.getGroupByName(SkinPart.RIGHT_ARM);
-        if (leftArm) leftArm.position.x += offset;
-        if (rightArm) rightArm.position.x -= offset;
         this.notifyDirty();
     }
 
@@ -197,7 +201,6 @@ export class SkinObject extends SceneObject {
 
 
     protected getBoxGeometry(part: SkinPart): BoxGeometry {
-        console.log("slim", this.slim)
         const coordinates: SkinTextureCoordinates = this.slim ? slimSkinTextureCoordinates : classicSkinTextureCoordinates;
         const geometries: SkinGeometries = this.slim ? slimSkinGeometries : classicSkinGeometries;
         return this._getBoxGeometryFromDimensions(geometries[part], coordinates[part], [64, 64], [64, 64]);

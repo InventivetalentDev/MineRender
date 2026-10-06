@@ -1,14 +1,14 @@
 import test, { ExecutionContext } from "ava";
 import { BufferGeometry, DataTexture, FrontSide, MeshBasicMaterial, NearestFilter, SRGBColorSpace, Vector3 } from "three";
 import { Caching } from "../src/cache/Caching";
-import { ImageLoader } from "../src/image/ImageLoader";
+import { SkinImage } from "../src/skin/SkinImage";
 import { Materials } from "../src/Materials";
 import type { CapeLayout } from "../src/skin/CapeLayout";
 import { SkinTextures } from "../src/skin/SkinTextures";
 import { SkinObject } from "../src/skin/scene/SkinObject";
 
 function fixture(t: ExecutionContext) {
-    const original = { image: Materials.getImage, data: ImageLoader.getData, skin: SkinTextures.get, cape: SkinTextures.getCape };
+    const original = { image: Materials.getImage, data: SkinImage.getData, skin: SkinTextures.get, cape: SkinTextures.getCape };
     const skins: SkinObject[] = [];
     const materials = new Set<MeshBasicMaterial>();
     const track = (material: MeshBasicMaterial) => { materials.add(material); return material; };
@@ -17,7 +17,7 @@ function fixture(t: ExecutionContext) {
     Caching.clear();
     t.teardown(() => {
         Materials.getImage = original.image;
-        ImageLoader.getData = original.data;
+        SkinImage.getData = original.data;
         SkinTextures.get = original.skin;
         SkinTextures.getCape = original.cape;
         const geometries = new Set<BufferGeometry>();
@@ -49,7 +49,7 @@ test.serial("cape textures preserve pixels and dimensions for each layout while 
     };
     const original = sources.cape.data.slice();
     const error = new Error("cape decode failed");
-    ImageLoader.getData = async src => {
+    SkinImage.getData = async src => {
         if (src === "broken") throw error;
         return sources[src as keyof typeof sources];
     };
@@ -82,14 +82,26 @@ test.serial("cape layouts normalize all six faces while preserving pre-init mesh
     await skin.setCapeTexture("cape");
     const group = skin.getGroupByName("cape")!;
     const mesh = skin.getMeshByName("cape")!;
+    group.position.x = 3;
+    group.rotation.z = 0.2;
+    group.visible = false;
+    group.updateWorldMatrix(true, false);
+    const beforeInit = group.matrixWorld.clone();
     await skin.init();
+    group.updateWorldMatrix(true, false);
+    t.true(group.matrixWorld.elements.every((value, index) => Math.abs(value - beforeInit.elements[index]) < 1e-12));
+    t.false(group.visible);
+    group.position.x = 0;
+    group.rotation.set(-Math.PI / 30, Math.PI, 0);
+    group.visible = true;
     t.is(skin.getGroupByName("cape"), group);
     t.is(skin.getMeshByName("cape"), mesh);
-    t.is(skin.children.length, 7);
+    t.is(skin.children.length, 6);
+    t.is(group.parent, skin.getGroupByName("body"));
     t.is(mesh.parent, group);
     t.is(mesh.material, capeMaterial);
     t.deepEqual(mesh.geometry.boundingBox!.getSize(new Vector3()).toArray(), [10, 16, 1]);
-    t.deepEqual(group.position.toArray(), [0, 24, 2]);
+    t.deepEqual(group.position.toArray(), [0, 0, 2]);
     t.true(Math.abs(group.rotation.x + Math.PI / 30) < 1e-12);
     t.deepEqual([group.rotation.y, group.rotation.z, group.rotation.order], [Math.PI, 0, "XYZ"]);
     t.deepEqual(mesh.position.toArray(), [0, -8, -0.5]);
@@ -108,6 +120,8 @@ test.serial("cape layouts normalize all six faces while preserving pre-init mesh
     t.deepEqual(round(mesh.localToWorld(new Vector3(0, 8, 0.5))), [0, 24, 2]);
     t.deepEqual(round(mesh.localToWorld(new Vector3(0, -8, 0.5))),
         round(new Vector3(0, 24 - 16 * Math.cos(Math.PI / 30), 2 + 16 * Math.sin(Math.PI / 30))));
+    skin.getGroupByName("body")!.rotation.x = Math.PI / 2;
+    t.deepEqual(round(mesh.localToWorld(new Vector3(0, 8, 0.5))), [0, 22, 0]);
 });
 
 test.serial("layout changes reuse geometry without mutating another cape or resetting poses, visibility and skin materials", async t => {
@@ -128,7 +142,7 @@ test.serial("layout changes reuse geometry without mutating another cape or rese
     t.is(other.getMeshByName("cape")!.geometry, geometry);
     const originalUvs = Array.from(geometry.getAttribute("uv").array);
     group.rotation.x = -0.5;
-    group.position.y = 23;
+    group.position.y = -1;
     mesh.rotation.z = 0.2;
     mesh.visible = false;
     let disposals = 0;
@@ -150,12 +164,12 @@ test.serial("layout changes reuse geometry without mutating another cape or rese
     t.is(mesh.geometry, geometry);
     t.is(other.getMeshByName("cape")!.geometry, geometry);
     t.deepEqual(Array.from(geometry.getAttribute("uv").array), originalUvs);
-    t.deepEqual([group.rotation.x, group.position.y, mesh.rotation.z, mesh.visible], [-0.5, 23, 0.2, false]);
+    t.deepEqual([group.rotation.x, group.position.y, mesh.rotation.z, mesh.visible], [-0.5, -1, 0.2, false]);
     t.is(mesh.material, second);
     await skin.setSkinTexture("skin");
     t.is(skin.getMeshByName("head")!.material, body);
     t.is(mesh.material, second);
-    t.is(skin.children.length, 7);
+    t.is(skin.children.length, 6);
     await skin.setCapeTexture(undefined);
     t.is(skin.getGroupByName("cape"), undefined);
     t.is(skin.getMeshByName("cape"), undefined);

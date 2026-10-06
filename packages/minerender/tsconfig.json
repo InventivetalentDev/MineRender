@@ -14,7 +14,7 @@
     "sourceRoot": "src",
     "outDir": "dist/esm",
     "baseUrl": ".",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "esModuleInterop": true,
     "module": "ES2020",
