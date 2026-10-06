@@ -192,10 +192,9 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                                 const neighbor = pos.clone().add(new Vector3(x, y, z));
                                 const section = this.getChunkAt(neighbor);
                                 const object = section?.getBlockAt(neighbor)?.object;
-                                return { fluid: object?.fluidKind, level: Number(object?.state.level ?? 0),
+                                return { fluid: object?.fluidKind, level: object?.fluidLevel,
                                     solid: section?.isOccludingAt(neighbor) ?? false };
                             });
-                            continue;
                         }
                         let mask = 0;
                         for (const [face, offset] of CUBE_FACE_OFFSETS.entries()) {

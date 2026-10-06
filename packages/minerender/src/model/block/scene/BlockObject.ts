@@ -38,6 +38,7 @@ export class BlockObject extends SceneObject {
     private _cullMask = 0;
     private _fluidKey?: string;
     private _fluidSampler?: FluidSampler;
+    private _fluidModel?: ModelObject | InstanceReference<ModelObject>;
 
     constructor(readonly blockState: BlockState, options?: Partial<BlockObjectOptions>) {
         super(options);
@@ -67,6 +68,7 @@ export class BlockObject extends SceneObject {
     private clearModels() {
         this.removeModels(this._models.splice(0));
         this._fluidKey = undefined;
+        this._fluidModel = undefined;
         this._isInstanced = false;
         this._instanceCounter = 0;
     }
@@ -104,11 +106,14 @@ export class BlockObject extends SceneObject {
     }
 
     public async setCullMask(worldMask: number): Promise<void> {
-        if (this.fluidKind) return;
         worldMask &= 63;
         const replacements: (ModelObject | InstanceReference<ModelObject>)[] = [];
         try {
             for (const model of this._models) {
+                if (model === this._fluidModel) {
+                    replacements.push(model);
+                    continue;
+                }
                 const object = isInstanceReference(model) ? model.instanceable : model;
                 const cullMask = this.getModelCullMask(model, worldMask);
                 if (cullMask === (object.options.cullMask ?? 0)) {
@@ -143,7 +148,11 @@ export class BlockObject extends SceneObject {
     }
 
     public get fluidKind(): FluidKind | undefined {
-        return getFluidKind(this.blockState.key);
+        return getFluidKind(this.blockState.key, this.state);
+    }
+
+    public get fluidLevel(): number {
+        return getFluidKind(this.blockState.key) ? Number(this.state.level ?? 0) : 0;
     }
 
     /** Refreshes fluid surfaces from relative neighbors; standalone previews use air around the block. */
@@ -153,20 +162,22 @@ export class BlockObject extends SceneObject {
         const { FluidModelObject, sampleFluid } = await import("../../fluid/FluidModelObject");
         this._fluidSampler = sample;
         const surface = sampleFluid(kind, (x, y, z) => x === 0 && y === 0 && z === 0
-            ? { fluid: kind, level: Number(this.state.level ?? 0) } : sample?.(x, y, z) ?? {});
+            ? { fluid: kind, level: this.fluidLevel } : sample?.(x, y, z) ?? {});
         if (this._fluidKey === surface.key) return;
-        const key = new AssetKey("minecraft", `${kind}/${surface.key}`, "models", "fluid", "assets", ".json", this.blockState.key!.root);
+        const key = new AssetKey("minecraft", `${kind}/${surface.key}`, "models", "fluid", "assets", ".json", this.blockState.key?.root);
         const replacement = await this.scene.addSceneObject({ key },
-            () => new FluidModelObject(kind, surface.sample, this.blockState.key!, this.options));
-        const previous = this._models;
-        const matrix = previous.length ? this.getModelMatrix(previous[0]) : new Matrix4().makeTranslation(...this.position.toArray());
+            () => new FluidModelObject(kind, surface.sample, this.blockState.key, this.options));
+        const previous = this._fluidModel;
+        const matrix = previous ? this.getModelMatrix(previous) : new Matrix4().makeTranslation(...this.position.toArray());
         if (isInstanceReference(replacement)) replacement.setMatrix(matrix);
         else matrix.decompose(replacement.position, replacement.quaternion, replacement.scale);
-        this._models = [replacement];
+        this._models = this._models.filter(model => model !== previous);
+        this._models.push(replacement);
+        this._fluidModel = replacement;
         this._fluidKey = surface.key;
-        this._isInstanced = isInstanceReference(replacement);
+        this._isInstanced ||= isInstanceReference(replacement);
         this._instanceCounter = this._isInstanced ? 1 : 0;
-        this.removeModels(previous);
+        if (previous) this.removeModels([previous]);
         this.notifyDirty();
     }
 
@@ -194,7 +205,7 @@ export class BlockObject extends SceneObject {
         // TODO: try to reuse models instead of just removing them and creating new ones
         this.clearModels();
 
-        if (this.fluidKind) {
+        if (getFluidKind(this.blockState.key)) {
             await this.updateFluid(this._fluidSampler);
             return;
         }
@@ -222,6 +233,7 @@ export class BlockObject extends SceneObject {
         for (let blockStateVariant of variantsToCreate) {
             this._models.push(await this.createVariant(blockStateVariant));
         }
+        await this.updateFluid(this._fluidSampler);
         /*
     }
 

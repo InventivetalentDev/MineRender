@@ -1,12 +1,13 @@
 import { BufferGeometry, Float32BufferAttribute } from "three";
 import type { DoubleArray, TripleArray } from "../Model";
 import type { AssetKey } from "../../assets/AssetKey";
+import type { BlockStateProperties } from "../block/BlockStateProperties";
 
 export type FluidKind = "water" | "lava";
 
-export function getFluidKind(key?: AssetKey): FluidKind | undefined {
-    if (key?.namespace !== "minecraft" || key.type) return undefined;
-    return key.path === "water" || key.path === "lava" ? key.path : undefined;
+export function getFluidKind(key?: AssetKey, state?: BlockStateProperties): FluidKind | undefined {
+    if (key?.namespace === "minecraft" && !key.type && (key.path === "water" || key.path === "lava")) return key.path;
+    return state?.waterlogged === "true" ? "water" : undefined;
 }
 
 export interface FluidSample {

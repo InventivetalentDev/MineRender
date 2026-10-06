@@ -83,13 +83,13 @@ function fixture<SectionMeshing extends boolean = false>(t: ExecutionContext, op
     return { world, scene, states, addModel, place };
 }
 
-function modelOf(block: BlockObject): ModelObject {
-    const part = block["_models"][0];
+function modelOf(block: BlockObject, index = 0): ModelObject {
+    const part = block["_models"][index];
     return isInstanceReference(part) ? part.instanceable as ModelObject : part as ModelObject;
 }
-const geometryOf = (block: BlockObject) => (modelOf(block).children[0] as Mesh).geometry;
-const indexCount = (block: BlockObject) => {
-    const geometry = geometryOf(block);
+const geometryOf = (block: BlockObject, index = 0) => (modelOf(block, index).children[0] as Mesh).geometry;
+const indexCount = (block: BlockObject, index = 0) => {
+    const geometry = geometryOf(block, index);
     return geometry.index?.count ?? geometry.getAttribute("position")?.count ?? 0;
 };
 
@@ -353,5 +353,42 @@ for (const sectionMeshing of [false, true]) {
         await world.setBlockAt(-16, -1, -1, undefined);
         t.is(indexCount(left), 36);
         t.is(world.getBlockAt(-17, -1, -1)!.object, left);
+    });
+}
+
+for (const sectionMeshing of [false, true]) {
+    test.serial(`waterlogged blocks retain models and source water through neighbor edits and removal (sectionMeshing=${sectionMeshing})`, async t => {
+        const { world, scene, states, place } = fixture(t, { sectionMeshing });
+        states.set("test:logged", { key: AssetKey.parse("blockstates", "test:logged"),
+            variants: { "": { model: "test:block/cube", y: 90 } } });
+        const value = { type: "test:logged", properties: { waterlogged: "true", level: "7" } };
+        const logged = (await world.setBlockAt([-17, 0, 0], value))!.object!;
+        t.truthy(logged);
+        t.is(logged["_models"].length, 2);
+        t.is(logged.fluidLevel, 0);
+        const ordinary = logged["_models"][0];
+        const pose = [ordinary.getPosition().toArray(), ordinary.getRotation().toArray()];
+        const fluidRotation = logged["_models"][1].getRotation();
+        t.is(Math.abs(fluidRotation.x) + Math.abs(fluidRotation.y) + Math.abs(fluidRotation.z), 0);
+        const water = (await world.setBlockAt([-16, 0, 0], { type: "water" }))!.object!;
+        t.is(logged["_models"][0], ordinary);
+        t.deepEqual([ordinary.getPosition().toArray(), ordinary.getRotation().toArray()], pose);
+        t.deepEqual([indexCount(logged), indexCount(logged, 1), indexCount(water)], [36, 30, 30]);
+        t.true(Math.abs(geometryOf(water).getAttribute("position").getY(0) - ((80 / 99 - 0.001) * 16 - 8)) < 1e-6);
+        await place([-18, 0, 0]);
+        t.is(indexCount(logged), 30);
+        t.deepEqual([logged["_models"][0].getPosition().toArray(), logged["_models"][0].getRotation().toArray()], pose);
+        await world.setBlockAt(-18, 0, 0, undefined);
+        t.is(indexCount(logged), 36);
+        const fluid = logged["_models"][1];
+        const dry = (await world.setBlockAt([-17, 0, 0], { ...value, properties: { ...value.properties, waterlogged: "false" } }))!;
+        t.is(logged["_models"].length, 0);
+        t.throws(() => fluid.getPosition(), { message: "Instance has been removed" });
+        t.is(dry.object?.fluidKind, undefined);
+        t.is(scene.stats.instanceCount, sectionMeshing ? 1 : 2);
+        await world.setBlockAt(-17, 0, 0, undefined);
+        t.is(indexCount(water), 36);
+        await world.clear();
+        t.is(scene.stats.instanceCount, 0);
     });
 }

@@ -25,9 +25,9 @@ export class FluidModelObject extends ModelObject {
     private geometry?: BufferGeometry;
 
     constructor(readonly kind: FluidKind, private readonly sample: FluidSampler,
-                origin: AssetKey, options?: Partial<ModelObjectOptions>) {
+                origin?: AssetKey, options?: Partial<ModelObjectOptions>) {
         super({
-            key: new AssetKey("minecraft", kind, "models", "fluid", "assets", ".json", origin.root),
+            key: new AssetKey("minecraft", kind, "models", "fluid", "assets", ".json", origin?.root),
             textures: { still: `minecraft:block/${kind}_still`, flow: `minecraft:block/${kind}_flow` },
             elements: []
         }, options);
