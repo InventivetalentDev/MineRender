@@ -26,6 +26,7 @@ export * from './cache';
 export * from './canvas';
 export * from './entity';
 export * from './error';
+export * from './export';
 export * from './gui';
 export * from './image';
 export * from './inspector';
