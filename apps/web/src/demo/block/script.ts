@@ -82,7 +82,7 @@ async function load(ctx: DemoContext, state: BlockSettings): Promise<DemoContent
         suggestions(input, list);
     };
     return {
-        object: visuals[0],
+        object: visuals.length === 1 ? visuals[0] : undefined,
         bounds,
         activate: restore,
         restore

@@ -72,3 +72,90 @@ canvas {
     bottom: 0;
     left: 0;
 }
+
+/* Playground pages keep controls outside the drawing area. Legacy test overlays retain their layout. */
+body.playground {
+    --panel-width: 380px;
+    color-scheme: dark;
+    display: grid;
+    grid-template-columns: var(--panel-width) minmax(0, 1fr);
+    background: #14191f;
+    color: #ecf1f5;
+    font: 14px/1.5 system-ui, sans-serif;
+}
+
+.playground * { box-sizing: border-box; }
+.playground [hidden] { display: none !important; }
+.playground-panel { min-width: 0; overflow: auto; padding: 20px 16px 28px; border-right: 1px solid #39424e; }
+.playground h1 { margin: 12px 0; font-size: 22px; line-height: 1.2; }
+.playground h2, .playground h3 { font-size: 16px; margin: 16px 0 8px; }
+.playground a { color: #9bdca4; }
+.playground-status { padding: 8px 10px; background: #252e39; border-radius: 4px; overflow-wrap: anywhere; min-height: 38px; }
+.playground-status.error { border-left: 3px solid #ffa18d; color: #ffd7cf; }
+.playground details { border-top: 1px solid #39424e; margin-top: 12px; }
+.playground summary { cursor: pointer; padding: 12px 0; font-weight: 650; }
+.control-section { padding-bottom: 10px; }
+.playground label { display: block; margin: 9px 0; }
+.control-field > span { display: block; margin-bottom: 4px; }
+.playground input, .playground select, .playground textarea, .playground button {
+    font: inherit;
+    color: inherit;
+    background: #222b35;
+    border: 1px solid #586575;
+    border-radius: 4px;
+    padding: 7px 9px;
+    max-width: 100%;
+}
+.playground input:not([type=checkbox]):not([type=radio]):not([type=color]), .playground select, .playground textarea { width: 100%; }
+.playground input[type=color] { width: 56px; height: 34px; padding: 3px; vertical-align: middle; }
+.playground textarea { display: block; min-height: 96px; font: 12px/1.5 ui-monospace, monospace; resize: vertical; tab-size: 2; }
+.playground select[multiple] { min-height: 100px; }
+.playground button { cursor: pointer; margin: 4px 5px 4px 0; min-height: 36px; }
+.playground button:hover { background: #334339; border-color: #9bdca4; }
+.playground button:disabled, .playground input:disabled, .playground select:disabled { opacity: .55; cursor: default; }
+.playground :focus-visible { outline: 2px solid #a5e8b0; outline-offset: 3px; }
+.playground fieldset { min-width: 0; margin: 10px 0; border: 1px solid #465260; border-radius: 4px; padding: 10px; }
+.playground legend { font-weight: 600; padding: 0 5px; }
+.control-checkbox { display: flex !important; align-items: center; gap: 10px; }
+.control-checkbox > span { margin: 0; flex: 1; }
+.control-note, .playground small { display: block; color: #b9c4cf; font-size: 12px; overflow-wrap: anywhere; }
+.playground-viewport { position: relative; min-width: 0; min-height: 0; overflow: hidden; background: conic-gradient(#272e37 25%, #20262f 0 50%, #272e37 0 75%, #20262f 0) 0 0 / 32px 32px; }
+.preview-mount { position: absolute; inset: 0; }
+.preview-mount.staging { visibility: hidden; pointer-events: none; }
+.playground canvas { display: block; }
+.playground .panel-toggle { position: fixed; z-index: 200; top: 10px; left: calc(var(--panel-width) + 12px); background: #202831; }
+.playground.controls-hidden { grid-template-columns: minmax(0, 1fr); }
+.playground.controls-hidden .playground-panel { display: none; }
+.playground.controls-hidden .panel-toggle { left: 12px; }
+.playground-stats { display: block; margin-top: 16px; color: #b9c4cf; font: 12px/1.6 ui-monospace, monospace; overflow-wrap: anywhere; }
+.playground .minerender-inspector { overflow-wrap: anywhere; }
+.playground .minerender-inspector input[type=range] { width: 100%; }
+.playground .minerender-inspector button { min-height: 28px; padding: 3px 6px; }
+.playground .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.playground-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.playground-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+
+@media (max-width: 800px) {
+    body.playground { --panel-width: 320px; }
+}
+
+@media (max-width: 600px) {
+    body.playground { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(200px, 50%) minmax(0, 1fr); }
+    .playground-panel { grid-row: 2; border-right: 0; border-top: 1px solid #39424e; }
+    .playground-viewport { grid-row: 1; }
+    .playground .panel-toggle { left: 12px; }
+    .playground.controls-hidden { grid-template-rows: minmax(0, 1fr); }
+}
+
+body.playground-index { overflow: auto; height: auto; min-height: 100%; background: #14191f; color: #ecf1f5; font: 16px/1.6 system-ui, sans-serif; }
+.playground-index main { max-width: 1080px; margin: 0 auto; padding: 48px 24px; }
+.playground-index h1 { max-width: 750px; font-size: clamp(32px, 5vw, 50px); line-height: 1.1; margin: 12px 0 24px; }
+.playground-index p { max-width: 760px; color: #bdc8d2; }
+.playground-index .eyebrow { color: #9bdca4; font-size: 13px; font-weight: 600; letter-spacing: .06em; }
+.playground-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin: 32px 0; }
+.playground-cards a { display: block; padding: 20px; border: 1px solid #43505d; border-radius: 8px; background: #1e2730; color: inherit; text-decoration: none; }
+.playground-cards a:hover, .playground-cards a:focus-visible { border-color: #9bdca4; background: #26352d; }
+.playground-cards strong { display: block; font-size: 18px; margin-bottom: 8px; }
+.playground-cards span { color: #bdc8d2; font-size: 14px; }
+.playground-index .footnote { font-size: 13px; }
+.playground-index a { color: #9bdca4; }

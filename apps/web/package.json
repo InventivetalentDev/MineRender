@@ -4,6 +4,7 @@
   "description": "MineRender demo and manual test pages",
   "scripts": {
     "build": "node ./build.mjs",
+    "typecheck": "tsc --noEmit",
     "bundle": "node ./build.mjs",
     "dev": "node ./build.mjs --serve"
   },

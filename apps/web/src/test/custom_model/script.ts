@@ -177,7 +177,7 @@ function parseModel(source: string): Model {
     if (!parsed.parent && !parsed.elements?.length) throw new Error("Add a parent model or at least one element.");
     const model: BlockModel & ItemModel = {};
     for (const key of ["parent", "textures", "elements", "display", "ambientocclusion", "gui_light"] as const) {
-        if (parsed[key] !== undefined) model[key] = parsed[key];
+        if (parsed[key] !== undefined) Object.assign(model, { [key]: parsed[key] });
     }
     return model;
 }

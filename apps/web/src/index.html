@@ -1,29 +1,31 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>MineRender demos</title>
-    </head>
-    <body>
-        <h1>MineRender demos</h1>
-        <p>Drag to orbit, scroll to zoom, and Ctrl+click an object to inspect it.</p>
-        <h2>Demos</h2>
-        <ul>
-            <li><a href="demo/block/">Blocks</a></li>
-            <li><a href="demo/item/">Items</a></li>
-            <li><a href="demo/entity/">Entities</a></li>
-            <li><a href="demo/skin/">Player skins</a></li>
-            <li><a href="demo/structure/">Structures</a></li>
-            <li><a href="demo/gui/">GUI layers</a></li>
-        </ul>
-        <h2>Manual test pages</h2>
-        <ul>
-            <li><a href="test/blocksphere/">Block sphere</a></li>
-            <li><a href="test/custom_model/">Custom model</a></li>
-            <li><a href="test/exports/">Exports</a></li>
-            <li><a href="test/stonecube/">Stone cube</a></li>
-            <li><a href="test/v2test/">V2 experiments</a></li>
-        </ul>
-    </body>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>MineRender playgrounds</title>
+    <link rel="stylesheet" href="demo_shared.css">
+</head>
+<body class="playground-index">
+    <main>
+        <p class="eyebrow">MineRender · standalone demos</p>
+        <h1>Experiment with Minecraft rendering.</h1>
+        <p>Choose a playground, adjust its content and renderer, then save the configuration or export the result.</p>
+        <p>Drag to orbit, scroll to zoom, and Ctrl/Cmd+click a part to inspect it. Every playground includes camera, asset-source, export, and sharing controls.</p>
+        <div class="playground-cards">
+            <a href="demo/block/"><strong>Blocks</strong><span>States, multipart models, block entities, tints, and instancing.</span></a>
+            <a href="demo/item/"><strong>Items and models</strong><span>Item definitions, raw models, display poses, and tint palettes.</span></a>
+            <a href="demo/skin/"><strong>Player skins</strong><span>Skin and cape uploads, model detection, poses, and visible parts.</span></a>
+            <a href="demo/entity/"><strong>Entities</strong><span>Dataset passes, geometry layers, textures, and animation playback.</span></a>
+            <a href="demo/gui/"><strong>GUI editor</strong><span>Inventory slots, recipes, and ordered texture or item layers.</span></a>
+            <a href="demo/structure/"><strong>Structures and worlds</strong><span>Structures, schematics, region files, block edits, and section meshes.</span></a>
+            <a href="test/custom_model/"><strong>Custom model JSON</strong><span>Edit or import a Java model and load its textures from custom assets.</span></a>
+            <a href="test/exports/"><strong>Export comparison</strong><span>Capture animated instances as images or static 3D snapshots.</span></a>
+            <a href="test/stonecube/"><strong>Cube workload</strong><span>Compare repeatable block volumes and section meshing.</span></a>
+            <a href="test/blocksphere/"><strong>Sphere workload</strong><span>Choose a seed, radius, spacing, and block palette.</span></a>
+            <a href="test/v2test/"><strong>Fluid and culling experiments</strong><span>Inspect neighboring blocks, water, lava, and waterlogged shapes.</span></a>
+        </div>
+        <p class="footnote"><a href="test/materials/">Canvas material regression check</a> · Local files stay in this browser; shared links require you to select them again.</p>
+    </main>
+</body>
 </html>
