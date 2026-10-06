@@ -8,7 +8,17 @@ Run from the repository root:
 yarn dev:web
 ```
 
-Open <http://127.0.0.1:3000/>. To verify changes, run `yarn workspace @minerender/web typecheck` and `yarn workspace @minerender/web build`. Root `yarn typecheck` includes this workspace.
+The preview listens on all network interfaces (`0.0.0.0`) on port `3000`. Open <http://127.0.0.1:3000/> on this computer, or use its LAN address from another device on the same network. The terminal lists the available addresses.
+
+To choose a port, run:
+
+```sh
+yarn dev:web --port 4000
+```
+
+Use `--host 127.0.0.1` for a preview accessible only on this computer, or `--host` with a specific LAN address. `HOST` and `PORT` environment variables are also supported; command-line flags take precedence. After building the library, use `yarn workspace @minerender/web dev --port 4000` to restart the preview without rebuilding it.
+
+To verify changes, run `yarn workspace @minerender/web typecheck` and `yarn workspace @minerender/web build`. Root `yarn typecheck` includes this workspace.
 
 ## Shared controls
 
