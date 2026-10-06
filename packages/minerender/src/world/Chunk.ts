@@ -3,14 +3,12 @@ import { BlockObject } from "../model/block/scene/BlockObject";
 import { Vector3 } from "three";
 import { Maybe } from "../util/util";
 import { BlockInfo } from "./BlockInfo";
+import { ChunkData } from "./ChunkData";
 import { MineRenderScene } from "../renderer/MineRenderScene";
 import { BlockStates } from "../assets/BlockStates";
 import { AssetKey } from "../assets/AssetKey";
 import { MineRenderWorld } from "./MineRenderWorld";
 import { isTripleArray, TripleArray } from "../model/Model";
-import { prefix } from "../util/log";
-
-const p = prefix("Chunk");
 
 export class Chunk {
 
@@ -20,7 +18,8 @@ export class Chunk {
     public readonly y: number;
     public readonly z: number;
 
-    private readonly _blocks: BlockInfo[] = [];
+    private readonly data = new ChunkData();
+    private readonly renderedBlocks = new Map<number, BlockInfo>();
 
     constructor(scene: MineRenderScene, x: number, y: number, z: number) {
         this.scene = scene;
@@ -41,7 +40,7 @@ export class Chunk {
         }
         const pos: Vector3 = this.worldPosToChunkPos(posOrX);
         const index = Chunk.chunkPosToBlockIndex(pos);
-        return this._blocks[index];
+        return this.renderedBlocks.get(index);
     }
 
     /**
@@ -73,41 +72,42 @@ export class Chunk {
         }
 
         const index = Chunk.chunkPosToBlockIndex(pos);
-        const current = this._blocks[index];
-        if (typeof current !== "undefined") {
-            console.debug(p, "deleting existing block at", pos, worldPos, index);
-            current.object.removeFromScene();
-            delete this._blocks[index];
-        }
+        this.data.set(index, block);
+        const readBlock = this.data.snapshot(index);
+        this.renderedBlocks.get(index)?.object.removeFromScene();
+        this.renderedBlocks.delete(index);
+        if (!readBlock) return undefined;
 
-        if (!block || Chunk.isAir(block)) return undefined;
-
-        const blockState = await BlockStates.get(AssetKey.parse("blockstates", block.type));
-        if (blockState) {
-            const blockObject: BlockObject = await this.scene.addBlock(blockState, {
+        const stored = readBlock();
+        let object: BlockObject | undefined;
+        try {
+            const blockState = await BlockStates.get(AssetKey.parse("blockstates", stored.type));
+            if (!blockState) {
+                this.data.set(index, undefined);
+                return undefined;
+            }
+            object = await this.scene.addBlock(blockState, {
                 mergeMeshes: true,
                 instanceMeshes: true,
                 maxInstanceCount: 2000
-            }) as BlockObject;//TODO
-            if (block.properties) {
-                await blockObject.setState(block.properties);
-            }
+            }) as BlockObject;
+            if (stored.properties) await object.setState(stored.properties);
+            object.setPosition(MineRenderWorld.worldToScenePosition(worldPos));
 
-            const scenePos = MineRenderWorld.worldToScenePosition(worldPos);
-            blockObject.setPosition(scenePos);
-
-            this._blocks[index] = {
-                block: block,
-                object: blockObject as BlockObject
-            }
-            return this._blocks[index];
+            const info: BlockInfo = { get block() { return readBlock(); }, object };
+            this.renderedBlocks.set(index, info);
+            return info;
+        } catch (error) {
+            this.data.set(index, undefined);
+            object?.removeFromScene();
+            throw error;
         }
-        return undefined;
     }
 
     public async clear(): Promise<void> {
-        this._blocks.forEach(block => block.object.removeFromScene());
-        this._blocks.length = 0;
+        for (const info of this.renderedBlocks.values()) info.object.removeFromScene();
+        this.renderedBlocks.clear();
+        this.data.clear();
     }
 
     public async dispose(): Promise<void> {
@@ -115,9 +115,7 @@ export class Chunk {
     }
 
     static isAir(block: Maybe<Block>): boolean {
-        if (typeof block === "undefined" || typeof block.type === "undefined") return true;
-        const key = AssetKey.parse("blockstates", block.type);
-        return key.namespace === "minecraft" && !key.type && ["air", "cave_air", "void_air"].includes(key.path);
+        return ChunkData.isAir(block);
     }
 
     static chunkPosToBlockIndex(pos: Vector3): number {
