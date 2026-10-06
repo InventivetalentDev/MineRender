@@ -1,8 +1,8 @@
 import test, { ExecutionContext } from "ava";
+import { Vector3 } from "three";
 import { AssetKey } from "../src/assets/AssetKey";
 import { BlockStates } from "../src/assets/BlockStates";
 import { Block } from "../src/model/block/Block";
-import { TripleArray } from "../src/model/Model";
 import { MultiBlockBlock, MultiBlockStructure } from "../src/model/multiblock/MultiBlockStructure";
 import { MineRenderScene } from "../src/renderer/MineRenderScene";
 import { BatchedExecutor } from "../src/util/BatchedExecutor";
@@ -23,10 +23,10 @@ function fixture(t: ExecutionContext, place: (block: MultiBlockBlock) => Promise
     BlockStates.getAll = async keys => { preloads.push([...keys]); return []; };
     t.teardown(() => { BlockStates.getAll = original; });
     const world = new MineRenderWorld(new MineRenderScene());
-    world.setBlockAt = (async (position: TripleArray, value: Block) => {
-        await place({ ...value, position });
+    world["placeBlock"] = async (position: Vector3, value: Block) => {
+        await place({ ...value, position: position.toArray() });
         return undefined;
-    }) as typeof world.setBlockAt;
+    };
     return { world, preloads };
 }
 
