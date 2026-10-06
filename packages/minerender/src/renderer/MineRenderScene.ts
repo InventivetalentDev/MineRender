@@ -15,6 +15,8 @@ import { SkinObject, SkinObjectOptions } from "../skin/scene/SkinObject";
 import { EntityObject, EntityObjectOptions } from "../entity/scene/EntityObject";
 import { EntityModel } from "../entity/EntityModel";
 import { AssetKey, isAssetKey } from "../assets/AssetKey";
+import { GuiLayer } from "../gui/GuiLayer";
+import { GuiObject, GuiObjectOptions } from "../gui/scene/GuiObject";
 
 export class MineRenderScene extends Scene {
 
@@ -160,6 +162,15 @@ export class MineRenderScene extends Scene {
 
     public async addEntity(entity: EntityModel, options?: Partial<EntityObjectOptions>, parent: Object3D = this): Promise<EntityObject | InstanceReference<EntityObject>> {
         return this.addSceneObject<EntityModel, EntityObject, BlockObjectOptions>(entity, () => new EntityObject(entity, options), options, parent);
+    }
+
+    public async addGui(layers: readonly GuiLayer[], options?: Partial<GuiObjectOptions>, parent: Object3D = this): Promise<GuiObject> {
+        const obj = new GuiObject(layers, options);
+        obj.scene = this;
+        await obj.init();
+        parent.add(obj);
+        this.dirty = true;
+        return obj;
     }
 
 }
