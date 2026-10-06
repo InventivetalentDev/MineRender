@@ -92,6 +92,7 @@ const select = (id: string) => document.getElementById(id) as HTMLSelectElement;
 const json = document.getElementById("layers-json") as HTMLTextAreaElement;
 let displayedLayers: EditableLayer[] = [];
 let selectedLayer = 0;
+let fileImportGeneration = 0;
 const recipeInputs: HTMLInputElement[] = [];
 for (let i = 0; i < 9; i++) {
     const label = document.createElement("label");
@@ -199,10 +200,14 @@ for (const [id, offset] of [["layer-up", -1], ["layer-down", 1]] as const) {
 }
 document.getElementById("json-import")!.addEventListener("click", () => guard(() => editLayers(validateLayers(JSON.parse(json.value)))));
 input("json-file").addEventListener("change", () => guard(async () => {
+    const generation = ++fileImportGeneration;
+    const settings = app.state;
     const file = input("json-file").files?.[0];
     if (!file) return;
     if (file.size > 1024 * 1024) throw new Error("Choose a GUI JSON file smaller than 1 MiB.");
-    await editLayers(validateLayers(JSON.parse(await file.text())));
+    const text = await file.text();
+    if (generation !== fileImportGeneration || app.state !== settings) return;
+    await editLayers(validateLayers(JSON.parse(text)));
 }));
 document.getElementById("json-export")!.addEventListener("click", () => {
     const url = URL.createObjectURL(new Blob([JSON.stringify(displayedLayers, null, 2)], { type: "application/json" }));

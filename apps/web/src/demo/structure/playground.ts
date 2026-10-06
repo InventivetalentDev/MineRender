@@ -247,8 +247,9 @@ export function startWorldPlayground(title: string, shape?: Workload["shape"]) {
         const file = input("structure-file").files?.[0];
         if (!file) return;
         const generation = ++fileGeneration;
+        const settings = app.state;
         const bytes = new Uint8Array(await file.arrayBuffer());
-        if (generation !== fileGeneration) return;
+        if (generation !== fileGeneration || app.state !== settings) return;
         localFile = { name: file.name, bytes };
         await app.update({ source: "file", fileName: file.name, chunk: "", edits: [] });
         app.fit();
