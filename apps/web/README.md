@@ -22,7 +22,7 @@ yarn workspace @minerender/web check       # loads every page and preset in head
 | `demo/gui/` | Chest and recipe layouts, custom texture/item layers, layer JSON |
 | `demo/structure/` | Built-in structures, local `.nbt`/`.schematic`/`.mca` files, random block workloads, section meshing, block edits |
 | `test/custom_model/` | Java model JSON editor |
-| `test/exports/` | Image and 3D export of an animated scene |
+| `test/exports/` | Image and 3D export of a small instanced scene |
 | `test/materials/` | Canvas material shader regression check |
 
 Every page shares the sidebar from `src/playground/Playground.ts`: presets, renderer and camera settings, Minecraft version / hosted root / resource-pack ZIP, exports, and a shareable link or JSON that restores the page state. Local files are not part of shared links and have to be selected again.
