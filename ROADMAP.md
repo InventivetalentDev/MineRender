@@ -34,7 +34,7 @@ legacy website cleanup is a separate task.
 | Entity rendering | 76 hosted models, mirror, inheritance | Versioned dataset, nested parts, mirrored UVs, and selected layers with separate textures; renderer-specific effects remain | high |
 | GUI / inventory / recipes | full GuiRender + Positions + recipe() | Texture/item layers, recipes, sprite scaling, styled bitmap text, and supplied-text tooltips; boss bar/book layouts remain | medium |
 | Structure (.nbt) loading | works via ModelConverter | Bounded placement, signed coordinates, slot cleanup, DataVersion and entity NBT preservation; entities are not rendered | high |
-| Legacy .schematic | full incl. AddBlocks nibbles | Numeric block IDs, metadata, AddBlocks and block/entity NBT parsed; unknown ID states reject | medium |
+| Legacy .schematic | full incl. AddBlocks nibbles | Numeric block IDs, metadata, AddBlocks and block/entity NBT parsed; unknown ID states reject unless lenient parsing is enabled | medium |
 | Combined multi-renderer scene | CombinedRender wrapper | Superseded by design (one scene hosts all types) — **at parity** | — |
 | Screenshots & 3D export | toImage(trim,mime), toObj/toGLTF/toPLY | Fresh captures with trim/MIME/quality; static OBJ/PLY and textured browser glTF/GLB snapshots | complete |
 | Asset loading & resource packs | swappable assetRoot, fallback | Ordered whole-asset source selection; decode fetched bytes; failure-evicting caches; contextual errors; defaults to 1.21.11, ZIPs browser-only | high |
