@@ -1,6 +1,7 @@
 import test, { ExecutionContext } from "ava";
-import { Box3, MeshBasicMaterial, ShaderMaterial } from "three";
+import { Box3, Matrix4, MeshBasicMaterial, ShaderMaterial } from "three";
 import { AssetKey } from "../src/assets/AssetKey";
+import { Entities } from "../src/assets/Entities";
 import { Models } from "../src/assets/Models";
 import { ModelTextures } from "../src/assets/ModelTextures";
 import { Caching } from "../src/cache/Caching";
@@ -127,4 +128,52 @@ test.serial("GUI disposal releases item resources and subscriptions while retain
     t.is(atlas.ticker, undefined);
     t.deepEqual(scene.children, before);
     t.deepEqual([sharedDisposals, imageDisposals()], [0, 0]);
+});
+
+test.serial("special GUI items include nested poses in local bounds and own only their material copies", async t => {
+    const { scene, model } = fixture(t);
+    model.special = { type: "minecraft:chest", texture: "minecraft:normal" };
+    model.display = {};
+    const texture = AssetKey.parse("textures", "minecraft:entity/chest/normal");
+    const original = Entities.getEntity;
+    Entities.getEntity = async key => ({
+        key, texture, id: "chest", layer: { texture: [16, 16], root: {
+            pose: { offset: [30, 0, 0], rotation: [0, 0, Math.PI / 2] }, cubes: [], children: {
+                cube: { pose: { offset: [4, 0, 0], rotation: [0, 0, 0] }, children: {},
+                    cubes: [{ origin: [0, 0, 0], size: [4, 2, 2], uv: [0, 0] }] }
+            }
+        } }
+    });
+    t.teardown(() => { Entities.getEntity = original; });
+    const shared = Materials.createEntityCanvasMaterial({ width: 16, height: 16 } as HTMLCanvasElement, "solid");
+    Caching.materialCache.get(`entity:solid::${texture.serialize()}`, () => shared);
+    const gui = new GuiObject([
+        { name: "background", texture: "test:gui/background", position: [10, 20] },
+        { name: "item", item: "minecraft:item/chest", position: [10, 20] },
+        { name: "overlay", texture: "test:gui/overlay", position: [10, 20] }
+    ]);
+    gui.position.set(200, 100, 30);
+    gui.rotation.z = Math.PI / 2;
+    gui.scale.setScalar(2);
+    scene.add(gui);
+    await gui.init();
+    gui.updateWorldMatrix(true, true);
+    const mesh = gui.getMeshByName("item")!, material = mesh.material as MeshBasicMaterial;
+    const box = mesh.geometry.boundingBox!.clone().applyMatrix4(new Matrix4().multiplyMatrices(gui.matrixWorld.clone().invert(), mesh.matrixWorld));
+    t.deepEqual([box.min.x, box.min.y, box.max.x, box.max.y].map(Math.round), [38, -32, 40, -28]);
+    t.deepEqual([gui.bounds.min.toArray(), gui.bounds.max.toArray()].map(point => point.map(Math.round)), [[10, 20], [40, 36]]);
+    const background = gui.getMeshByName("background")!, overlay = gui.getMeshByName("overlay")!;
+    t.true(background.renderOrder < mesh.renderOrder && mesh.renderOrder < overlay.renderOrder);
+    t.true(background.position.z < box.min.z && box.max.z < overlay.position.z);
+    t.not(material, shared);
+    t.is(material.map, shared.map);
+    t.true(material.transparent);
+    t.false(shared.transparent);
+    let geometryDisposals = 0, materialDisposals = 0, sharedDisposals = 0, textureDisposals = 0;
+    mesh.geometry.addEventListener("dispose", () => geometryDisposals++);
+    material.addEventListener("dispose", () => materialDisposals++);
+    shared.addEventListener("dispose", () => sharedDisposals++);
+    shared.map!.addEventListener("dispose", () => textureDisposals++);
+    gui.dispose(); gui.dispose();
+    t.deepEqual([geometryDisposals, materialDisposals, sharedDisposals, textureDisposals], [1, 1, 0, 0]);
 });

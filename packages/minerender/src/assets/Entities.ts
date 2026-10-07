@@ -29,7 +29,7 @@ export class Entities {
 
     private static async getModelFile(modelKey: BasicAssetKey): Promise<Maybe<EntityModelFile>> {
         const path = isAssetKey(modelKey) ? modelKey.getFullPath() : modelKey.path;
-        const key = new AssetKey(modelKey.namespace, path, undefined, undefined, "entity-models", ".json");
+        const key = new AssetKey(modelKey.namespace, path, undefined, undefined, "entity-models", ".json", isAssetKey(modelKey) ? modelKey.root : undefined);
         return Caching.entityModelCache.get(key.serialize(), () => AssetLoader.get<EntityModelFile>(key, AssetParser.JSON));
     }
 
@@ -74,6 +74,7 @@ export class Entities {
                     : new AssetKey(override.namespace, path, "textures", "entity", "assets", ".png", isAssetKey(override) ? override.root : undefined);
             } else if (textureLocation !== undefined) {
                 texture = AssetKey.parse("textures", textureLocation.replace(/^([^:]+:)?textures\//, "$1"));
+                if (isAssetKey(modelKey)) texture.root = modelKey.root;
             } else {
                 texture = await this.resolveTexture(modelKey);
             }
@@ -95,24 +96,28 @@ export class Entities {
 
     public static async resolveTexture(modelKey: BasicAssetKey): Promise<Maybe<AssetKey>> {
         const path = isAssetKey(modelKey) ? modelKey.getFullPath() : modelKey.path;
-        const key = new AssetKey(modelKey.namespace, path, undefined, undefined, "entity-models", ".json");
+        const root = isAssetKey(modelKey) ? modelKey.root : undefined;
+        const key = new AssetKey(modelKey.namespace, path, undefined, undefined, "entity-models", ".json", root);
         return Caching.entityTextureCache.get(key.serialize(), async () => {
             const name = path.split("/").pop()!;
             for (const candidate of [path, `${path}/${name}`]) {
-                const texture = new AssetKey(modelKey.namespace, candidate, "textures", "entity", "assets", ".png");
+                const texture = new AssetKey(modelKey.namespace, candidate, "textures", "entity", "assets", ".png", root);
                 if (await ModelTextures.get(texture)) return texture;
             }
-            const listKey = new AssetKey(modelKey.namespace, "_list", `${name}_variant`, undefined, "data", ".json");
+            const listKey = new AssetKey(modelKey.namespace, "_list", `${name}_variant`, undefined, "data", ".json", root);
             const list = await AssetLoader.get<ListAsset>(listKey, AssetParser.LIST);
             const files = list?.files.filter(file => file.endsWith(".json") && file !== "_list.json");
             const file = files?.find(file => file === "temperate.json") ?? files?.[0];
             if (!file) return undefined;
-            const variantKey = new AssetKey(modelKey.namespace, file.slice(0, -5), `${name}_variant`, undefined, "data", ".json");
+            const variantKey = new AssetKey(modelKey.namespace, file.slice(0, -5), `${name}_variant`, undefined, "data", ".json", root);
             const variant = await AssetLoader.get<EntityVariant>(variantKey, AssetParser.JSON);
             const assets = variant?.assets;
             const textureId = variant?.asset_id ?? (typeof assets?.wild === "string" ? assets.wild :
                 Object.values(assets ?? {}).find(value => typeof value === "string"));
-            return typeof textureId === "string" ? AssetKey.parse("textures", textureId) : undefined;
+            if (typeof textureId !== "string") return undefined;
+            const texture = AssetKey.parse("textures", textureId);
+            texture.root = root;
+            return texture;
         });
     }
 

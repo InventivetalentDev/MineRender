@@ -26,7 +26,13 @@ export interface BlockModel extends Model {
 export interface ItemModel extends Model {
     textures?: ItemModelTextures;
     gui_light?: GuiLight;
+    special?: SpecialItemRenderer;
 }
+
+export type SpecialItemRenderer =
+    | { type: "chest" | "minecraft:chest"; texture: string; openness?: number }
+    | { type: "bed" | "minecraft:bed"; texture: string }
+    | { type: "head" | "minecraft:head"; kind: string; texture?: string; animation?: number };
 
 export interface TextureAsset extends MinecraftAsset, ImageInfo {
 }

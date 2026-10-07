@@ -8,6 +8,7 @@ export * from './ModelCulling';
 export * from './ModelElement';
 export * from './ModelGenerator';
 export * from './ModelMerger';
+export * from './SpecialItems';
 export * from './block';
 export * from './fluid';
 export * from './multiblock';

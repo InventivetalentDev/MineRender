@@ -1,5 +1,5 @@
 import { SceneObject } from "../../renderer/SceneObject";
-import { Model, TextureAsset, TripleArray } from "../Model";
+import { ItemModel, Model, TextureAsset, TripleArray } from "../Model";
 import { Materials } from "../../Materials";
 import { Maybe, toRadians } from "../../util/util";
 import { UVMapper } from "../../UVMapper";
@@ -17,6 +17,9 @@ import { DisplayPosition } from "../DisplayPosition";
 import { DisplayTransforms } from "../DisplayTransforms";
 import { ModelCulling } from "../ModelCulling";
 import type { MineRenderScene } from "../../renderer/MineRenderScene";
+import { SpecialItems } from "../SpecialItems";
+import { EntityObject } from "../../entity/scene/EntityObject";
+import { GuiLight } from "../GuiLight";
 
 
 const p = prefix("ModelObject");
@@ -33,6 +36,7 @@ export class ModelObject extends SceneObject {
     private atlasMaterial?: Material;
     private atlasTexture?: Texture;
     private unsubscribeAtlas?: () => void;
+    private readonly specialMaterials = new Map<Material, Material>();
 
     public blockParent: Maybe<BlockObject>;
 
@@ -41,12 +45,48 @@ export class ModelObject extends SceneObject {
     constructor(readonly originalModel: Model, options?: Partial<ModelObjectOptions>) {
         super(options);
         this.options = merge({}, ModelObject.DEFAULT_OPTIONS, options ?? {});
+        if ((originalModel as ItemModel).special) this.options.instanceMeshes = false;
         if (this.options.tints) this.options.tints = { ...this.options.tints };
         this.addEventListener("added", () => this.updateAnimationSubscription());
         this.addEventListener("removed", () => this.updateAnimationSubscription());
     }
 
     async init(): Promise<void> {
+        const special = (this.originalModel as ItemModel).special;
+        if (special) {
+            const parts = await SpecialItems.getParts(special, this.originalModel.key?.root);
+            const transform = this.options.displayPosition
+                ? DisplayTransforms.getMatrix(this.originalModel.display, this.options.displayPosition) : new Matrix4();
+            transform.multiply(new Matrix4().makeTranslation(-8, -8, -8));
+            try {
+                for (const part of parts) {
+                    const object = new EntityObject(part.model, { flip: false, wireframe: this.options.wireframe });
+                    object.matrix.copy(transform).multiply(part.transform);
+                    object.matrixAutoUpdate = false;
+                    this.add(object);
+                    await object.init();
+                    object.iterateAllMeshes(mesh => {
+                        const source = mesh.material as MeshBasicMaterial;
+                        let material = this.specialMaterials.get(source);
+                        if (!material) {
+                            const front = this.options.displayPosition === DisplayPosition.GUI &&
+                                (this.originalModel as ItemModel).gui_light === GuiLight.FRONT;
+                            material = SpecialItems.createMaterial(source, !front);
+                            this.specialMaterials.set(source, material);
+                        }
+                        mesh.material = material;
+                    });
+                    for (const [name, rotation] of Object.entries(part.rotations)) {
+                        object.getGroupByName(name)?.rotation.set(...rotation, "ZYX");
+                    }
+                }
+            } catch (error) {
+                this.disposeAndRemoveAllChildren();
+                throw error;
+            }
+            this.notifyDirty();
+            return;
+        }
         // load textures first so we have the updated UV coordinates from the atlas
         await this.loadTextures();
 
@@ -227,6 +267,8 @@ export class ModelObject extends SceneObject {
         this.atlasMaterial?.dispose();
         this.atlasTexture = undefined;
         this.atlasMaterial = undefined;
+        for (const material of this.specialMaterials.values()) material.dispose();
+        this.specialMaterials.clear();
         super.disposeAndRemoveAllChildren();
     }
 

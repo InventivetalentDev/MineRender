@@ -1,4 +1,4 @@
-import { Model } from "./Model";
+import { BUILTIN_ENTITY, Model } from "./Model";
 import { Models } from "../assets/Models";
 import merge from "ts-deepmerge";
 import { Assets } from "../assets/Assets";
@@ -30,6 +30,7 @@ export class ModelMerger {
         }
         const models: Model[] = [];
         const parentKey = AssetKey.parse("models", model.parent);
+        if (parentKey.namespace === "minecraft" && parentKey.getFullPath() === BUILTIN_ENTITY) return models;
         parentKey.root = model.key?.root;
         const parentModel = await Models.getRaw(parentKey);
         if (parentModel) {
