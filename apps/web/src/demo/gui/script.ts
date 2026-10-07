@@ -25,12 +25,17 @@ const items = [
     { name: "apple", slot: 0 },
     { name: "diamond", slot: 1 },
     { name: "stone", slot: 2 },
-    { name: "grass_block", slot: 3, tints: { 0: 0x91bd59 } },
+    { name: "grass_block", slot: 3 },
     { name: "oak_stairs", slot: 4 },
-    { name: "leather_helmet", slot: 5, tints: { 0: 0xc060d0 } },
+    { name: "leather_helmet", slot: 5 },
     { name: "chest", slot: 6 },
     { name: "red_bed", slot: 7 },
-    { name: "creeper_head", slot: 8 }
+    { name: "creeper_head", slot: 8 },
+    { name: "potion", slot: 9 },
+    { name: "tipped_arrow", slot: 10 },
+    { name: "filled_map", slot: 11 },
+    { name: "firework_star", slot: 12 },
+    { name: "leather_chestplate", slot: 13, tints: { 0: 0xc060d0 } }
 ];
 const chestLayers: GuiLayer[] = [
     { name: "container", texture: "minecraft:gui/container/generic_54", crop: [0, 0, 176, 222] },

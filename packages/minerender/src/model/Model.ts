@@ -27,7 +27,17 @@ export interface ItemModel extends Model {
     textures?: ItemModelTextures;
     gui_light?: GuiLight;
     special?: SpecialItemRenderer;
+    tints?: ItemTintSource[];
 }
+
+export type ItemTintColor = number | TripleArray;
+
+export type ItemTintSource =
+    | { type: "constant" | "minecraft:constant"; value: ItemTintColor }
+    | { type: "grass" | "minecraft:grass"; temperature: number; downfall: number }
+    | { type: "dye" | "minecraft:dye" | "potion" | "minecraft:potion" | "map_color" | "minecraft:map_color"
+        | "firework" | "minecraft:firework" | "team" | "minecraft:team"; default: ItemTintColor }
+    | { type: "custom_model_data" | "minecraft:custom_model_data"; index?: number; default: ItemTintColor };
 
 export type SpecialItemRenderer =
     | { type: "chest" | "minecraft:chest"; texture: string; openness?: number }

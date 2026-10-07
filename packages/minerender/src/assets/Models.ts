@@ -1,4 +1,4 @@
-import { Model, SpecialItemRenderer } from "../model/Model";
+import { ItemTintSource, Model, SpecialItemRenderer } from "../model/Model";
 import { Caching } from "../cache/Caching";
 import { Maybe } from "../util/util";
 import { ModelMerger } from "../model/ModelMerger";
@@ -37,7 +37,7 @@ export class Models {
 
     private static async getItemModel(key: AssetKey): Promise<Maybe<Model>> {
         const itemKey = new AssetKey(key.namespace, key.path, "items", undefined, key.rootType, ".json", key.root);
-        const model = await this.PERSISTENT_CACHE.getOrLoad(AssetLoader.persistentKey(itemKey.serialize()), async () => {
+        const model = await this.PERSISTENT_CACHE.getOrLoad(`item-v2:${AssetLoader.persistentKey(itemKey.serialize())}`, async () => {
             const result = await AssetLoader.getFirst<Model & { model?: ItemModelNode }>([itemKey, key], AssetParser.JSON);
             if (!result) return undefined;
             if (result.key.assetType !== "items") return { ...result.asset, key };
@@ -48,19 +48,19 @@ export class Models {
             const model = await this.getRaw(modelKey);
             if (!model) throw new Error(`Item ${key.toNamespacedString()} references missing model ${selected.model}`);
             // Relative texture paths belong to the referenced model's namespace.
-            return selected.special ? { ...model, special: selected.special } : model;
+            return { ...model, ...(selected.special && { special: selected.special }), ...(selected.tints && { tints: selected.tints }) };
         });
         return model ? { ...model, key: Object.assign(new AssetKey("", ""), model.key) } : undefined;
     }
 
     // Item previews use the GUI context, false conditions, and zero numeric properties.
-    private static defaultItemModel(node: ItemModelNode | undefined, key: AssetKey): { model: string; special?: SpecialItemRenderer } {
+    private static defaultItemModel(node: ItemModelNode | undefined, key: AssetKey): { model: string; special?: SpecialItemRenderer; tints?: ItemTintSource[] } {
         if (!node || typeof node.type !== "string") {
             throw new Error(`Unsupported item model definition for ${key.toNamespacedString()}`);
         }
         switch (node.type.replace(/^minecraft:/, "")) {
             case "model":
-                if (typeof node.model === "string" && node.model) return { model: node.model };
+                if (typeof node.model === "string" && node.model) return { model: node.model, tints: node.tints };
                 break;
             case "special": {
                 if (!node.base || !node.model || typeof node.model !== "object") break;
@@ -145,6 +145,7 @@ export class Models {
 interface ItemModelNode {
     type: string;
     model?: string | SpecialItemRenderer;
+    tints?: ItemTintSource[];
     base?: string;
     property?: string;
     on_false?: ItemModelNode;

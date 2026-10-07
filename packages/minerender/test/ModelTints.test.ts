@@ -12,7 +12,7 @@ import { MineRenderScene } from "../src/renderer/MineRenderScene";
 import { TextureAtlas } from "../src/texture/TextureAtlas";
 import { UVMapper } from "../src/UVMapper";
 import type { CanvasImage } from "../src/canvas/CanvasImage";
-import type { Model } from "../src/model/Model";
+import type { ItemModel, Model } from "../src/model/Model";
 
 function fixture(t: ExecutionContext) {
     const originals = { model: Models.getMerged, atlas: UVMapper.getAtlas, material: Materials.getImage, shaded: Materials.createShadedCanvasMaterial };
@@ -102,6 +102,29 @@ test.serial("block palettes separate instance pools by color values and compose 
     t.deepEqual(attribute(locked, "color"), attribute(red, "color"));
     t.notDeepEqual(attribute(locked, "uv"), attribute(red, "uv"));
     t.is(locked.textureAtlas, atlas);
+});
+
+test.serial("item defaults separate instance palettes while sharing the atlas and preserving explicit black", async t => {
+    const { scene, model, atlas } = fixture(t);
+    model.key = AssetKey.parse("models", "test:item/shared");
+    const red = { ...model, tints: [{ type: "minecraft:constant", value: 0xff0000 }] } as ItemModel;
+    const blue = { ...model, tints: [{ type: "minecraft:constant", value: 0x0000ff }] } as ItemModel;
+    const override = { 0: 0 };
+    const original = JSON.stringify([red, blue, override, atlas.model]);
+    const base = Geometries.getBox({ width: 16, height: 16, depth: 16, uv: model.elements![0].mappedUv });
+    await scene.addModel(red);
+    await scene.addModel(blue);
+    await scene.addModel(red);
+    await scene.addModel(red, { tints: override });
+    t.is(scene.children.length, 3);
+    const [redObject, blueObject, blackObject] = scene.children as ModelObject[];
+    t.deepEqual([redObject.instanceCounter, blueObject.instanceCounter, blackObject.instanceCounter], [2, 1, 1]);
+    for (const [object, color] of [[redObject, [1, 0, 0]], [blueObject, [0, 0, 1]], [blackObject, [0, 0, 0]]] as const) {
+        t.deepEqual(attribute(object, "color"), [color, ...Array(5).fill([1, 1, 1])].flatMap(rgb => [...rgb, ...rgb, ...rgb, ...rgb]));
+        t.is(object.textureAtlas, atlas);
+    }
+    t.false(base.hasAttribute("color"));
+    t.is(JSON.stringify([red, blue, override, atlas.model]), original);
 });
 
 test("generated item front and back faces retain the tint index of each texture layer", t => {

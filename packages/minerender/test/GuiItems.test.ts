@@ -56,6 +56,7 @@ function fixture(t: ExecutionContext) {
 
 test.serial("GUI items preserve their display pose, tint, and source key within ordered pixel layers", async t => {
     const { scene, model, requests } = fixture(t);
+    model.tints = [{ type: "minecraft:constant", value: 0x0000ff }];
     const item = new AssetKey("test", "front", "models", "item", "assets", ".json", "custom-root");
     const layers = [
         { name: "background", texture: "test:gui/background", position: [10, 20] as [number, number], size: [32, 16] as [number, number] },
@@ -87,6 +88,10 @@ test.serial("GUI items preserve their display pose, tint, and source key within 
     t.deepEqual(side.getGroupByName("side")!.position.toArray().slice(0, 2), [8, -8]);
     t.deepEqual(side.getGroupByName("side")!.scale.toArray().slice(0, 2), [1, 1]);
     t.is(requests[1].toNamespacedString(), "test:item/side");
+    const defaults = await scene.addGui([{ name: "default", item }]);
+    const defaultColors = defaults.getMeshByName("default")!.geometry.getAttribute("color");
+    t.deepEqual([defaultColors.getX(0), defaultColors.getY(0), defaultColors.getZ(0)], [0, 0, 1]);
+    t.deepEqual([colors.getX(0), colors.getY(0), colors.getZ(0)], [1, 0, 0]);
     t.is(JSON.stringify([layers, model]), original);
 });
 
