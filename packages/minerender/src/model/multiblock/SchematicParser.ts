@@ -7,7 +7,11 @@ import legacyBlocks from "./legacyBlocks.json";
 
 export class SchematicParser {
 
-    public static async parse(nbt: NBT): Promise<MultiBlockStructure> {
+    /**
+     * Parses a legacy schematic using custom mappings before the bundled defaults.
+     * Keys are `id:metadata`; values are block states such as `minecraft:oak_log[axis=x]`.
+     */
+    public static async parse(nbt: NBT, customMappings: Readonly<Record<string, string>> = {}): Promise<MultiBlockStructure> {
         const tags = nbt.value;
         if (tags.Materials?.type !== "string" || tags.Materials.value !== "Alpha") {
             throw new MineRenderError("Schematic Materials must be Alpha");
@@ -52,7 +56,8 @@ export class SchematicParser {
             const high = (packed >> ((index & 1) * 4)) & 0xf;
             const id = (high << 8) | (ids.value[index] & 0xff);
             const metadata = data.value[index] & 0xff;
-            const mapped = mapping[`${id}:${metadata}`];
+            const key = `${id}:${metadata}`;
+            const mapped = customMappings[key] ?? mapping[key];
             if (!mapped) throw new MineRenderError(`Unsupported legacy block ${id}:${metadata} at schematic index ${index}`);
             const [type, state] = mapped.split("[");
             if (type === "minecraft:air") continue;
