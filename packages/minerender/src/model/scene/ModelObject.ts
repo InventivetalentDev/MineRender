@@ -64,6 +64,7 @@ export class ModelObject extends SceneObject {
                 for (const part of parts) {
                     const object = new EntityObject(part.model, { flip: false, wireframe: this.options.wireframe });
                     object.matrix.copy(transform).multiply(part.transform);
+                    object.matrixWorldNeedsUpdate = true;
                     object.matrixAutoUpdate = false;
                     this.add(object);
                     await object.init();

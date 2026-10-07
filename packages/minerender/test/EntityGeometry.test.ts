@@ -87,9 +87,8 @@ test.serial("the dataset transform replaces the flip unless the caller sets it",
         const object = new EntityObject({ key: new BasicAssetKey("minecraft", "fixture"), id: "minecraft:fixture", transform, layer: { texture: [64, 32], root: part({ cubes: [cube] }) } }, options);
         object["createMeshes"]();
         t.teardown(() => object.dispose());
-        object.updateMatrixWorld(true);
         // The cube spans [1, 2, 3]..[3, 5, 7] in model space.
-        return coordinates(new Vector3(1, 2, 3).applyMatrix4(object.getLayerGroup("main")!.matrixWorld));
+        return coordinates(object.getLayerGroup("main")!.localToWorld(new Vector3(1, 2, 3)));
     };
     // Vanilla's living transform: face +Z, flip, then lift the model by 1.501 blocks.
     const living: EntityTransformOp[] = [{ rotate: [0, Math.PI, 0] }, { scale: [-1, -1, 1] }, { translate: [0, -24.016, 0] }];
