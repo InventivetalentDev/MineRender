@@ -129,7 +129,7 @@
     "esbuild-runner": "^2.2.2",
     "three": "^0.186.1",
     "tsup": "^8.5.0",
-    "typedoc": "patch:typedoc@npm%3A0.28.20#~/.yarn/patches/typedoc-npm-0.28.20-92d0a89709.patch",
+    "typedoc": "^0.28.20",
     "typedoc-plugin-markdown": "^4.13.1",
     "typescript": "~5.6.3",
     "vitepress": "^1.6.4"

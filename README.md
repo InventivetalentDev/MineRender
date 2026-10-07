@@ -28,21 +28,9 @@ Choose a workspace to work on:
 The `dev:*` commands build the library before starting their server.
 Run `yarn typecheck` and `yarn test` to check your changes.
 
-## Generate API documentation
+## API documentation
 
-Run `yarn doc` from the repository root to generate the API and build the VitePress
-site in `packages/minerender/docs/`. Run `yarn doc:preview` to serve that build,
-or `yarn doc:dev` to generate the API and start a development server.
-
-Author reference pages in `packages/minerender/reference/`. TypeDoc generates
-`reference/api/`; do not edit those files. The sidebar groups exported APIs by
-feature and keeps shared declarations in one place. Protected members and inherited
-three.js members are omitted; inherited MineRender methods remain documented.
-The grouping rules live in `packages/minerender/scripts/typedoc-navigation.mjs`.
-
-After changing library code, rerun `yarn workspace minerender doc:generate` to
-refresh the API during development. Generated pages, caches, and build output are
-ignored by Git. For hosting under a subdirectory, set `DOCS_BASE` when building,
-for example `DOCS_BASE=/v2/docs/ yarn doc`.
+Run `yarn doc` to build the API reference into `packages/minerender/docs/`, or
+`yarn doc:dev` for a live preview. Hand-written pages live in `packages/minerender/reference/`.
 
 See [AGENTS.md](./AGENTS.md) for architecture, contributor conventions, and publishing instructions.
