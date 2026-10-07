@@ -9,7 +9,7 @@ import { WrappedImage } from "./WrappedImage";
 import { CanvasImage } from "./canvas/CanvasImage";
 import { TextureAtlas } from "./texture/TextureAtlas";
 import { Caching } from "./cache/Caching";
-import { ImageLoader } from "./image/ImageLoader";
+import { Textures } from "./texture/Textures";
 import { AnimatorFunction } from "./AnimatorFunction";
 import { MinecraftTextureMeta } from "./MinecraftTextureMeta";
 import { AssetKey } from "./assets/AssetKey";
@@ -370,14 +370,13 @@ export class UVMapper {
             // console.log("size: " + size);
             const squaredSize = size * size;
 
-            const missing = await ImageLoader.getData("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABAAQMAAACQp+OdAAAABlBMVEX/AP8AAACfphTyAAAAFUlEQVQoz2MIhQKGVVAwKjIqQrwIAHRz/wFI17TEAAAAAElFTkSuQmCC");
-            const empty = await ImageLoader.getData("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABAAQMAAACQp+OdAAAAA1BMVEUAAACnej3aAAAAAXRSTlMAQObYZgAAAA5JREFUKM9jGAWjgAIAAAJAAAFSSwuTAAAAAElFTkSuQmCC");
-            //TODO: add transparent texture and use as default uv
-
-            // Create image
             const image = new CanvasImage(size, size);
-            image.putData(missing, 0, 0); // fill with invalid texture image
-            image.putData(empty, 0, 0, 0, 0, maxWidth, maxWidth); // add transparent section in the top-left corner
+            const missing = Textures.getMissing().image;
+            const missingPixels = image.context.createImageData(missing.width, missing.height);
+            missingPixels.data.set(missing.data!);
+            image.putData(missingPixels, 0, 0);
+            // The top-left atlas cell keeps absent model faces transparent.
+            image.context.clearRect(0, 0, maxWidth, maxWidth);
 
             const positions: { [texture: string]: DoubleArray; } = {};
 
@@ -449,9 +448,6 @@ export class UVMapper {
                     ty++;
                 }
             }
-            const atlasImageData = image.toDataURL();
-            console.log(p, "Atlas Image for", model.key, atlasImageData);
-
             this.fillMissingTextureKeys(model.textures, positions);
 
             // console.log("positions", positions);

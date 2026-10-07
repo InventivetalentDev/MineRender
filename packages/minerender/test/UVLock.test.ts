@@ -6,7 +6,6 @@ import { ModelTextures } from "../src/assets/ModelTextures";
 import { Caching } from "../src/cache/Caching";
 import { CUBE_FACES, CubeFace } from "../src/CubeFace";
 import { Env, EnvProvider } from "../src/Env";
-import { ImageLoader } from "../src/image/ImageLoader";
 import { Materials } from "../src/Materials";
 import { ModelObject } from "../src/model/scene/ModelObject";
 import { MineRenderScene } from "../src/renderer/MineRenderScene";
@@ -20,7 +19,7 @@ import type { Model } from "../src/model/Model";
 async function fixture(t: ExecutionContext, face: Partial<ElementFace> = {}) {
     const originals = {
         provider: Env["_provider"], model: Models.getMerged, texture: ModelTextures.get,
-        meta: ModelTextures.getMeta, data: ImageLoader.getData,
+        meta: ModelTextures.getMeta,
         material: Materials.getImage, shaded: Materials.createShadedCanvasMaterial
     };
     const material = new MeshBasicMaterial();
@@ -31,7 +30,6 @@ async function fixture(t: ExecutionContext, face: Partial<ElementFace> = {}) {
         Models.getMerged = originals.model;
         ModelTextures.get = originals.texture;
         ModelTextures.getMeta = originals.meta;
-        ImageLoader.getData = originals.data;
         Materials.getImage = originals.material;
         Materials.createShadedCanvasMaterial = originals.shaded;
         scene.traverse(object => { if ((object as Mesh).isMesh) (object as Mesh).geometry.dispose(); });
@@ -42,12 +40,14 @@ async function fixture(t: ExecutionContext, face: Partial<ElementFace> = {}) {
     Env.register({
         name: "test",
         createCanvas: (width, height) => ({
-            width, height, getContext: () => ({ putImageData() {} }), toDataURL: () => ""
+            width, height, getContext: () => ({
+                createImageData: (w: number, h: number) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) }),
+                putImageData() {}, clearRect() {}
+            }), toDataURL: () => ""
         } as unknown as CompatCanvas)
     } as EnvProvider);
     ModelTextures.get = async () => ({ width: 16, height: 16, data: { getImageData: () => pixels } } as ExtractableImageData);
     ModelTextures.getMeta = async () => undefined;
-    ImageLoader.getData = async () => pixels;
     Materials.getImage = Materials.createShadedCanvasMaterial = () => material;
     const model: Model = {
         key: new AssetKey("test", "cube", "models", "block"),

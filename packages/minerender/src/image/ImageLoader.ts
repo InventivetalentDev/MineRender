@@ -119,6 +119,24 @@ export class ImageLoader {
 
 
     public static async loadInfo(src: string): Promise<ImageInfo> {
+        if (/^data:/i.test(src.trimStart())) {
+            const url = new URL(src);
+            url.hash = "";
+            const comma = url.href.indexOf(",");
+            if (comma < 0) {
+                throw new Error("Invalid image data URL");
+            }
+            // Percent escapes represent image bytes, which need not be valid UTF-8.
+            let bytes = url.href.slice(comma + 1).replace(/%([\da-f]{2})/gi,
+                (_, hex: string) => String.fromCharCode(parseInt(hex, 16)));
+            if (/; *base64 *$/i.test(url.href.slice(5, comma))) {
+                bytes = atob(bytes);
+            }
+            return this.processResponse({
+                url: src,
+                data: Uint8Array.from(bytes, char => char.charCodeAt(0)).buffer
+            });
+        }
 
         return Requests.genericRequest({
             url: src,
