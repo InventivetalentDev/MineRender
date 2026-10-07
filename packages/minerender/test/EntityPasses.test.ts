@@ -1,5 +1,5 @@
 import test, { ExecutionContext } from "ava";
-import { Color, CustomBlending, Mesh, MeshBasicMaterial, NormalBlending, Object3D, OneFactor, RepeatWrapping, ZeroFactor } from "three";
+import { Color, CustomBlending, Mesh, MeshBasicMaterial, NormalBlending, Object3D, OneFactor, RepeatWrapping, OneMinusSrcAlphaFactor } from "three";
 import { AssetKey, BasicAssetKey } from "../src/assets/AssetKey";
 import { AssetLoader } from "../src/assets/AssetLoader";
 import { Entities } from "../src/assets/Entities";
@@ -135,7 +135,7 @@ test("each render mode maps to vanilla's blend, depth and colour state", t => {
     t.deepEqual(state("water_mask"), { ...cutout, alphaTest: 0, colorWrite: false });
 
     const swirl = created.energy_swirl;
-    t.deepEqual([swirl.blendSrc, swirl.blendDst, swirl.blendSrcAlpha, swirl.blendDstAlpha], [OneFactor, OneFactor, ZeroFactor, OneFactor]);
+    t.deepEqual([swirl.blendSrc, swirl.blendDst, swirl.blendSrcAlpha, swirl.blendDstAlpha], [OneFactor, OneFactor, OneFactor, OneMinusSrcAlphaFactor]);
     t.is(swirl.color.getHex(), 0x808080);
     t.is(created.translucent.color.getHex(), 0xffffff);
     for (const mode of modes) {

@@ -1,5 +1,5 @@
 import { MaterialKey, serializeMaterialKey } from "./cache/CacheKey";
-import { Color, ColorRepresentation, CustomBlending, DoubleSide, OneFactor, RepeatWrapping, FrontSide, Material, MeshBasicMaterial, MeshLambertMaterial, MeshPhongMaterial, MeshStandardMaterial, ShaderChunk, ShaderMaterial, ZeroFactor } from "three";
+import { Color, ColorRepresentation, CustomBlending, DoubleSide, OneFactor, OneMinusSrcAlphaFactor, RepeatWrapping, FrontSide, Material, MeshBasicMaterial, MeshLambertMaterial, MeshPhongMaterial, MeshStandardMaterial, ShaderChunk, ShaderMaterial } from "three";
 import { Textures } from "./texture/Textures";
 import { TextureLoader } from "./texture/TextureLoader";
 import { Caching } from "./cache/Caching";
@@ -100,9 +100,15 @@ export class Materials {
                 material.blending = CustomBlending;
                 material.blendSrc = OneFactor;
                 material.blendDst = OneFactor;
-                // Leave destination alpha alone: on a transparent canvas the glow adds to the page instead of covering it.
-                material.blendSrcAlpha = ZeroFactor;
-                material.blendDstAlpha = OneFactor;
+                // The canvas is premultiplied: a glow pixel needs alpha, or browsers and image exports drop it wherever
+                // nothing opaque is behind it. Its brightness serves as coverage, so the glow stays visible outside the body.
+                material.blendSrcAlpha = OneFactor;
+                material.blendDstAlpha = OneMinusSrcAlphaFactor;
+                material.onBeforeCompile = shader => {
+                    shader.fragmentShader = shader.fragmentShader.replace("#include <dithering_fragment>",
+                        "gl_FragColor.a = max(gl_FragColor.r, max(gl_FragColor.g, gl_FragColor.b));\n#include <dithering_fragment>");
+                };
+                material.customProgramCacheKey = () => "energy_swirl";
                 // Vanilla submits the swirl with half-grey vertex colour.
                 material.color.set(0x808080);
                 break;
