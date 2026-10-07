@@ -190,4 +190,10 @@ export function addWireframeToMesh(geo: BufferGeometry, mesh: Mesh, color: numbe
 
     let axes = new AxesHelper(1);
     mesh.add(axes);
+
+    return () => {
+        wireGeo.dispose();
+        wireMat.dispose();
+        axes.dispose();
+    };
 }

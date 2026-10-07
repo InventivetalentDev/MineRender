@@ -42,10 +42,7 @@ function fixture(t: ExecutionContext) {
     Materials.getImage = () => placeholder;
     ModelTextures.get = async () => ({ width: 64, height: 32, data: { canvas } } as unknown as ExtractableImageData);
     t.teardown(() => {
-        for (const object of objects) {
-            object.iterateAllMeshes(mesh => mesh.geometry.dispose());
-            object.dispose();
-        }
+        for (const object of objects) object.dispose();
         placeholder.dispose();
     });
     return async (layers: Record<string, Partial<EntityLayer>>, options?: Partial<EntityObjectOptions>) => {
@@ -201,7 +198,7 @@ test.serial("scrolling modes follow entity age on an owned texture and stop on d
     const object = await create(layers);
     const other = await create(layers);
     const scene = Object.assign(new Object3D(), { isMineRenderScene: true, dirty: false });
-    scene.add(object);
+    scene.add(object, other);
     t.is(Ticker.tickers.size, tickers + 2);
     t.is(material(object, "main"), material(plain, "main"));
     t.not(material(object, "armor"), material(other, "armor"));
@@ -236,6 +233,40 @@ test.serial("scrolling modes follow entity age on an owned texture and stop on d
     object.dispose();
     other.dispose();
     t.is(disposed, 2);
+    t.is(Ticker.tickers.size, tickers);
+    t.is(Ticker["interval"], undefined);
+});
+
+test.serial("scrolling entity tickers pause while detached and resume once with the same age", async t => {
+    const create = fixture(t);
+    const tickers = Ticker.tickers.size;
+    const object = await create({ armor: { render: "energy_swirl" }, wind: { render: "breeze_wind" } });
+    const scene = Object.assign(new Object3D(), { isMineRenderScene: true, dirty: false });
+    const tick = () => Ticker.tickers.forEach(callback => callback());
+    t.is(Ticker.tickers.size, tickers);
+    t.is(object.age, 0);
+
+    scene.add(object);
+    t.is(Ticker.tickers.size, tickers + 1);
+    tick();
+    t.is(object.age, 1);
+    t.true(scene.dirty);
+    const offset = material(object, "armor").map!.offset.clone();
+    object.removeFromScene();
+    scene.dirty = false;
+    t.is(Ticker.tickers.size, tickers);
+    tick();
+    t.is(object.age, 1);
+    t.true(material(object, "armor").map!.offset.equals(offset));
+    t.false(scene.dirty);
+
+    scene.add(object);
+    scene.add(object);
+    t.is(Ticker.tickers.size, tickers + 1);
+    tick();
+    t.is(object.age, 2);
+    t.true(scene.dirty);
+    object.dispose();
     t.is(Ticker.tickers.size, tickers);
     t.is(Ticker["interval"], undefined);
 });

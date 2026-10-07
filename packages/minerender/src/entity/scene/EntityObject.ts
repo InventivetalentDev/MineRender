@@ -3,7 +3,7 @@ import { SceneObjectOptions } from "../../renderer/SceneObjectOptions";
 import { Caching } from "../../cache/Caching";
 import merge from "ts-deepmerge";
 import { Color, Euler, Matrix4, Object3D } from "three";
-import type { ColorRepresentation, Material, Mesh, MeshBasicMaterial } from "three";
+import type { BufferGeometry, ColorRepresentation, Material, Mesh, MeshBasicMaterial } from "three";
 import { Ticker } from "../../Ticker";
 import { addWireframeToMesh } from "../../util/model";
 import { ModelTextures } from "../../assets/ModelTextures";
@@ -26,6 +26,8 @@ export class EntityObject extends SceneObject {
     public readonly options: EntityObjectOptions;
 
     private meshesCreated: boolean = false;
+    private readonly geometries = new Set<BufferGeometry>();
+    private readonly disposeWireframes: (() => void)[] = [];
     /** Scrolling materials are owned: their texture offset follows this entity's age. */
     private readonly scrollMaterials: { material: Material, offset: { set(x: number, y: number): unknown }, speed: [number, number] }[] = [];
     private scrollTicker: Maybe<number>;
@@ -36,6 +38,8 @@ export class EntityObject extends SceneObject {
     constructor(readonly entity: EntityModel, options?: Partial<EntityObjectOptions>) {
         super();
         this.options = merge({}, EntityObject.DEFAULT_OPTIONS, options ?? {});
+        this.addEventListener("added", () => this.updateScrollSubscription());
+        this.addEventListener("removed", () => this.updateScrollSubscription());
     }
 
     async init(): Promise<void> {
@@ -49,6 +53,9 @@ export class EntityObject extends SceneObject {
 
     public disposeAndRemoveAllChildren() {
         this.clearScrollMaterials();
+        for (const geometry of this.geometries) geometry.dispose();
+        this.geometries.clear();
+        for (const dispose of this.disposeWireframes.splice(0)) dispose();
         // The animated part groups are removed with the children.
         this.animationPlayer.clear();
         super.disposeAndRemoveAllChildren();
@@ -60,6 +67,20 @@ export class EntityObject extends SceneObject {
         for (const { material } of this.scrollMaterials.splice(0)) {
             (material as { map?: { dispose(): void } }).map?.dispose();
             material.dispose();
+        }
+    }
+
+    private updateScrollSubscription() {
+        if (this.parent && this.scrollMaterials.length) {
+            if (this.scrollTicker === undefined) {
+                this.scrollTicker = Ticker.add(() => {
+                    this.age++;
+                    this.updateScroll();
+                });
+            }
+        } else {
+            Ticker.remove(this.scrollTicker);
+            this.scrollTicker = undefined;
         }
     }
 
@@ -193,6 +214,7 @@ export class EntityObject extends SceneObject {
             const geometry = this._getBoxGeometryForDimensionsAndUv(
                 width + growX * 2, height + growY * 2, depth + growZ * 2, uv
             ).clone();
+            this.geometries.add(geometry);
             geometry.translate(cube.origin[0] + width / 2, cube.origin[1] + height / 2, cube.origin[2] + depth / 2);
             // Vanilla draws most entity render types without backface culling, e.g. chicken legs are only painted on faces seen from inside.
             // Zero-thickness cubes keep one face per side, as their coplanar faces would z-fight.
@@ -203,7 +225,7 @@ export class EntityObject extends SceneObject {
             const mesh = this.createMesh(name, geometry, material);
             mesh.renderOrder = renderOrder;
             anchor.add(mesh);
-            if (this.options.wireframe) addWireframeToMesh(geometry, mesh);
+            if (this.options.wireframe) this.disposeWireframes.push(addWireframeToMesh(geometry, mesh));
         }
         for (const [childName, child] of Object.entries(part.children)) {
             this.createPart(childName, child, anchor, size, material, renderOrder, inward);
@@ -243,11 +265,8 @@ export class EntityObject extends SceneObject {
             this.clearScrollMaterials();
         } else if (this.scrollMaterials.length) {
             this.updateScroll();
-            this.scrollTicker = Ticker.add(() => {
-                this.age++;
-                this.updateScroll();
-            });
         }
+        this.updateScrollSubscription();
         this.notifyDirty();
     }
 
