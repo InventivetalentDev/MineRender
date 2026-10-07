@@ -1,5 +1,5 @@
 import test, { ExecutionContext } from "ava";
-import { BoxGeometry, MeshBasicMaterial, Vector3 } from "three";
+import { BoxGeometry, InstancedMesh, Matrix4, MeshBasicMaterial, Vector3 } from "three";
 import { AssetKey } from "../src/assets/AssetKey";
 import { AssetLoader } from "../src/assets/AssetLoader";
 import { BlockEntities, BlockEntityIndex } from "../src/assets/BlockEntities";
@@ -12,6 +12,7 @@ import { AssetParser } from "../src/assets/source/parser/AssetParsers";
 import { Caching } from "../src/cache/Caching";
 import { EntityObject } from "../src/entity/scene/EntityObject";
 import type { EntityModelPart } from "../src/entity/EntityModel";
+import type { InstanceReference } from "../src/instance/InstanceReference";
 import type { MinecraftAsset } from "../src/MinecraftAsset";
 import { BlockObject } from "../src/model/block/scene/BlockObject";
 import { ModelObject } from "../src/model/scene/ModelObject";
@@ -234,4 +235,33 @@ test.serial("block models with geometry stay next to the entity, and blocks with
     t.deepEqual(entities(), [...sign.blockEntities]);
     sign.dispose();
     t.is(entities().length, 0);
+});
+
+test.serial("block visibility preserves entity poses and hides only the matching frame instance", async t => {
+    const { world, scene, models } = fixture(t, { sectionMeshing: true });
+    const bell = (await world.setBlockAt(0, 0, 0, { type: "minecraft:bell" }))!;
+    const sibling = (await world.setBlockAt(2, 0, 0, { type: "minecraft:bell" }))!.object!;
+    const object = bell.object!, entity = object.blockEntities[0];
+    const part = entity.getGroupByName("root")!;
+    part.rotation.x = 0.7;
+    const frame = object["_models"][0] as InstanceReference<ModelObject>;
+    const siblingFrame = sibling["_models"][0] as InstanceReference<ModelObject>;
+    const mesh = models[0].children[0] as InstancedMesh;
+    const matrix = (index: number) => { const value = new Matrix4(); mesh.getMatrixAt(index, value); return value; };
+    const original = matrix(frame.index), siblingMatrix = matrix(siblingFrame.index);
+    scene.dirty = false;
+    await world.setBlockVisibleAt(0, 0, 0, false);
+    t.true(scene.dirty);
+    t.false(entity.visible);
+    t.true(sibling.blockEntities[0].visible);
+    t.deepEqual(matrix(frame.index), new Matrix4().makeScale(0, 0, 0));
+    t.deepEqual(matrix(siblingFrame.index), siblingMatrix);
+    await world.setBlockVisibleAt(0, 0, 0, true);
+    t.true(entity.visible);
+    t.is(object.blockEntities[0], entity);
+    t.is(entity.getGroupByName("root"), part);
+    t.is(part.rotation.x, 0.7);
+    t.is(object["_models"][0], frame);
+    t.deepEqual(matrix(frame.index), original);
+    t.is(world.getBlockAt(0, 0, 0), bell);
 });

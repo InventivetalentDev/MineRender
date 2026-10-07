@@ -14,6 +14,8 @@ export interface Instanceable {
 
     setMatrixAt(index: number, matrix: Matrix4): void;
 
+    setInstanceVisibleAt(index: number, visible: boolean): void;
+
     setPositionRotationScaleAt(index: number, position?: Vector3, rotation?: Euler, scale?: Vector3): void;
 
     setPositionAt(index: number, position: Vector3): void;

@@ -61,6 +61,25 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         return chunk?.setBlockInChunkAt(chunk.worldPosToChunkPos(pos), value, pos, onBlocksChanged);
     }
 
+    /**
+     * Shows or hides a placed block without changing its data. Hidden blocks do not occlude neighbors.
+     * Missing blocks are ignored; replacing or removing a block resets its visibility.
+     */
+    public async setBlockVisibleAt(x: number, y: number, z: number, visible: boolean): Promise<void>;
+    public async setBlockVisibleAt(pos: Vector3, visible: boolean): Promise<void>;
+    public async setBlockVisibleAt(pos: TripleArray, visible: boolean): Promise<void>;
+    public async setBlockVisibleAt(posOrX: number | Vector3 | TripleArray, yOrVisible: number | boolean,
+                                   z?: number, visible?: boolean): Promise<void> {
+        if (typeof posOrX === "number") {
+            return this.setBlockVisibleAt(new Vector3(posOrX, yOrVisible as number, z), visible!);
+        }
+        if (isTripleArray(posOrX)) {
+            return this.setBlockVisibleAt(new Vector3(...posOrX), yOrVisible as boolean);
+        }
+        this.validatePosBounds(posOrX);
+        await this.getChunkAt(posOrX)?.setBlockVisibleAt(posOrX, yOrVisible as boolean);
+    }
+
 
     public async placeMultiBlock(multiblock: MultiBlockStructure, useBatches: boolean = true, executor?: BatchedExecutor): Promise<void> {
         const changes = new Map<string, Vector3>();
@@ -186,12 +205,14 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                         if (!chunk) continue;
                         changed.add(chunk);
                         const block = chunk.getBlockAt(pos);
-                        if (!block) continue;
+                        if (!block || !chunk.isBlockVisibleAt(pos)) {
+                            continue;
+                        }
                         if (block.object?.fluidKind) {
                             await block.object.updateFluid((x, y, z) => {
                                 const neighbor = pos.clone().add(new Vector3(x, y, z));
                                 const section = this.getChunkAt(neighbor);
-                                const object = section?.getBlockAt(neighbor)?.object;
+                                const object = section?.isBlockVisibleAt(neighbor) ? section.getBlockAt(neighbor)?.object : undefined;
                                 return { fluid: object?.fluidKind, level: object?.fluidLevel,
                                     solid: section?.isOccludingAt(neighbor) ?? false };
                             });

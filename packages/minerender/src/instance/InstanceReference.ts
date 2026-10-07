@@ -37,6 +37,10 @@ export class InstanceReference<T extends Instanceable> implements Transformable,
         this.activeInstanceable.setMatrixAt(this.index, matrix);
     }
 
+    setVisible(visible: boolean): void {
+        this.activeInstanceable.setInstanceVisibleAt(this.index, visible);
+    }
+
     setPositionRotationScale(position?: Vector3, rotation?: Euler, scale?: Vector3): void {
         this.activeInstanceable.setPositionRotationScaleAt(this.index, position, rotation, scale);
     }

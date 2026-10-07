@@ -49,7 +49,8 @@ test("released slots are reused without moving live instances and stale referenc
         () => middle.getMatrix(), () => middle.getPosition(), () => middle.getRotation(), () => middle.getScale(),
         () => middle.setMatrix(new Matrix4()), () => middle.setPosition(new Vector3()),
         () => middle.setRotation(new Euler()), () => middle.setScale(new Vector3(1, 1, 1)),
-        () => middle.setPositionRotationScale(new Vector3(), new Euler(), new Vector3(1, 1, 1))
+        () => middle.setPositionRotationScale(new Vector3(), new Euler(), new Vector3(1, 1, 1)),
+        () => middle.setVisible(false), () => middle.setVisible(true)
     ];
     for (const operation of staleOperations) t.throws(operation, { instanceOf: MineRenderError });
     const replacement = owner.nextInstance();
@@ -73,6 +74,52 @@ test("released slots are reused without moving live instances and stale referenc
     t.deepEqual([owner.instanceCounter, owner.scene.stats.instanceCount, owner.mesh.count], [1, 1, 1]);
     first.dispose();
     t.deepEqual([owner.instanceCounter, owner.scene.stats.instanceCount, owner.mesh.count], [0, 0, 0]);
+});
+
+test("hidden instances retain transforms and restore without changing their siblings", t => {
+    const owner = fixture(t);
+    const [hidden, sibling] = [owner.nextInstance(), owner.nextInstance()];
+    const position = new Vector3(10, 20, 30);
+    const rotation = new Euler(0, 0.4, 0);
+    const scale = new Vector3(2, 3, 4);
+    hidden.setPositionRotationScale(position, rotation, scale);
+    sibling.setPosition(new Vector3(40, 50, 60));
+    const original = hidden.getMatrix();
+    const siblingMatrix = sibling.getMatrix();
+    owner.mesh.computeBoundingBox();
+    owner.mesh.computeBoundingSphere();
+    owner.scene.dirty = false;
+    hidden.setVisible(false);
+    hidden.setVisible(false);
+    t.true(owner.scene.dirty);
+    t.is(owner.mesh.boundingBox, null);
+    t.is(owner.mesh.boundingSphere, null);
+    t.deepEqual(hidden.getMatrix(), original);
+    t.is(slotMatrix(owner.mesh, hidden.index).determinant(), 0);
+    t.deepEqual([owner.instanceCounter, owner.scene.stats.instanceCount, owner.mesh.count], [2, 2, 2]);
+    position.set(100, 200, 300);
+    hidden.setPosition(position);
+    const expected = new Matrix4().compose(position, new Quaternion().setFromEuler(rotation), scale);
+    t.deepEqual(matrixValues(hidden.getMatrix()), matrixValues(expected));
+    t.is(slotMatrix(owner.mesh, hidden.index).determinant(), 0);
+    t.deepEqual(sibling.getMatrix(), siblingMatrix);
+    owner.mesh.computeBoundingBox();
+    owner.mesh.computeBoundingSphere();
+    owner.scene.dirty = false;
+    hidden.setVisible(true);
+    hidden.setVisible(true);
+    t.true(owner.scene.dirty);
+    t.is(owner.mesh.boundingBox, null);
+    t.is(owner.mesh.boundingSphere, null);
+    t.deepEqual(matrixValues(slotMatrix(owner.mesh, hidden.index)), matrixValues(expected));
+    t.deepEqual(sibling.getMatrix(), siblingMatrix);
+    hidden.setVisible(false);
+    hidden.dispose();
+    const replacement = owner.nextInstance();
+    t.is(replacement.index, hidden.index);
+    t.deepEqual(slotMatrix(owner.mesh, replacement.index), new Matrix4());
+    t.deepEqual(replacement.getMatrix(), new Matrix4());
+    t.throws(() => hidden.setVisible(true), { instanceOf: MineRenderError });
 });
 
 test("bulk transforms skip holes and invalidate bounds when a live instance moves", t => {
