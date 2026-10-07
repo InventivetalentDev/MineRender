@@ -64,6 +64,25 @@ test("schematics retain tile entities, free entities and DataVersion without cha
     t.deepEqual(input, before);
 });
 
+test("custom mappings extend and override defaults for one parse, including AddBlocks IDs", async t => {
+    const input = schematic([1, 1, 1, 35, 35], [3, 0, 1, 14, 1]);
+    input.value.AddBlocks = { type: "byteArray", value: [0x02] };
+    const mappings = Object.freeze({
+        "513:3": "example:custom_block[facing=east,active=true]",
+        "1:0": "minecraft:diamond_block",
+        "35:1": "minecraft:air"
+    });
+    const parsed = await SchematicParser.parse(input, mappings);
+    t.deepEqual(parsed.blocks.map(({ type, properties }) => ({ type, properties })), [
+        { type: "example:custom_block", properties: { facing: "east", active: "true" } },
+        { type: "minecraft:diamond_block", properties: {} },
+        { type: "minecraft:granite", properties: {} },
+        { type: "minecraft:red_wool", properties: {} }
+    ]);
+    t.is((await SchematicParser.parse(schematic([1]))).blocks[0].type, "minecraft:stone");
+    await t.throwsAsync(SchematicParser.parse(input), { message: /Unsupported legacy block 513:3/ });
+});
+
 test("AddBlocks uses the low nibble for even cells and the high nibble for odd cells", async t => {
     for (const [extra, expected] of [[0x02, 513], [0x30, 803], [-16, 3875]]) {
         const input = schematic([1, 35], [0, 14]);
