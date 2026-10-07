@@ -1,6 +1,7 @@
 import { Euler, Vector3 } from "three";
 import type { Object3D } from "three";
 import { EntityAnimation, sampleEntityAnimation } from "../EntityAnimation";
+import type { EntityModelPart } from "../EntityModel";
 
 export interface EntityAnimationOptions {
     /** Overrides the animation's own `loop` flag. */
@@ -19,6 +20,9 @@ interface AnimatedPart {
     position: Vector3;
     rotation: Euler;
     scale: Vector3;
+    basePosition: Vector3;
+    baseRotation: Euler;
+    baseScale: Vector3;
 }
 
 /**
@@ -43,26 +47,41 @@ export class EntityAnimationPlayer {
     }
 
     /**
-     * Starts an animation on the named parts below each layer root. The current pose of a part becomes its default;
-     * bones without a matching part are skipped.
+     * Starts an animation on matching named parts. Supplied baked poses are the baseline for offsets;
+     * without them, the current pose is used. Stopping restores the pose from before playback.
      */
-    play(layers: Object3D[], animation: EntityAnimation, options: EntityAnimationOptions = {}): void {
+    play(layers: Object3D[], animation: EntityAnimation, options: EntityAnimationOptions = {},
+         poses?: ReadonlyMap<Object3D, EntityModelPart["pose"]>): void {
         this.stop();
         this._animation = animation;
         this._time = options.time ?? 0;
         this.loop = options.loop ?? animation.loop;
         this.speed = options.speed ?? 1;
         for (const layer of layers) {
-            for (const bone of Object.keys(animation.bones)) {
-                const object = layer.getObjectByName(`group:${ bone }`);
-                if (!object) continue;
-                this.parts.push({ bone, object, position: object.position.clone(), rotation: object.rotation.clone(), scale: object.scale.clone() });
+            const objects: Object3D[] = [];
+            if (poses) {
+                layer.traverse(object => { if (poses.has(object)) objects.push(object); });
+            } else {
+                for (const bone of Object.keys(animation.bones)) {
+                    const object = layer.getObjectByName(`group:${bone}`);
+                    if (object) objects.push(object);
+                }
+            }
+            for (const object of objects) {
+                const bone = object.name.slice("group:".length);
+                const pose = poses?.get(object);
+                this.parts.push({
+                    bone, object, position: object.position.clone(), rotation: object.rotation.clone(), scale: object.scale.clone(),
+                    basePosition: pose ? new Vector3(...pose.offset) : object.position.clone(),
+                    baseRotation: pose ? new Euler(...pose.rotation, "ZYX") : object.rotation.clone(),
+                    baseScale: pose ? new Vector3(...(pose.scale ?? [1, 1, 1])) : object.scale.clone()
+                });
             }
         }
         this.apply();
     }
 
-    /** Restores the default poses. Returns whether an animation was active. */
+    /** Restores the poses from before playback. Returns whether an animation was active. */
     stop(): boolean {
         if (!this._animation) return false;
         for (const part of this.parts) {
@@ -95,11 +114,11 @@ export class EntityAnimationPlayer {
     private apply(): void {
         const pose = sampleEntityAnimation(this._animation!, this._time, this.loop);
         for (const part of this.parts) {
-            const { position = ZERO, rotation = ZERO, scale = ZERO } = pose[part.bone];
-            part.object.position.set(part.position.x + position[0], part.position.y + position[1], part.position.z + position[2]);
+            const { position = ZERO, rotation = ZERO, scale = ZERO } = pose[part.bone] ?? {};
+            part.object.position.set(part.basePosition.x + position[0], part.basePosition.y + position[1], part.basePosition.z + position[2]);
             // Vanilla adds to the Euler angles themselves, so the part keeps its rotation order.
-            part.object.rotation.set(part.rotation.x + rotation[0], part.rotation.y + rotation[1], part.rotation.z + rotation[2], part.rotation.order);
-            part.object.scale.set(part.scale.x + scale[0], part.scale.y + scale[1], part.scale.z + scale[2]);
+            part.object.rotation.set(part.baseRotation.x + rotation[0], part.baseRotation.y + rotation[1], part.baseRotation.z + rotation[2], part.baseRotation.order);
+            part.object.scale.set(part.baseScale.x + scale[0], part.baseScale.y + scale[1], part.baseScale.z + scale[2]);
         }
     }
 

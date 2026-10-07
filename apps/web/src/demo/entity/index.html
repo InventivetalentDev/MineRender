@@ -22,12 +22,19 @@
                 <legend>States</legend>
             </fieldset>
             <div id="entity-animation-row" hidden>
-                <label for="entity-animation">Animation</label><br/>
-                <select id="entity-animation"></select>
+                <label for="entity-animation">Animations</label><br/>
+                <select id="entity-animation" multiple size="5" aria-describedby="animation-help"></select>
+                <div id="animation-help">Select one clip per layer.<br/>Hold Ctrl or Command to select multiple clips.</div>
+                <button id="animation-play" type="button" disabled>Play</button>
+                <button id="animation-replay" type="button" disabled>Replay</button>
+                <button id="animation-stop" type="button" disabled>Reset pose</button>
+                <br/><label for="animation-time">Time (seconds)</label><br/>
+                <input id="animation-time" type="range" min="0" max="0" step="0.01" value="0" disabled>
+                <output id="animation-time-value" for="animation-time">0.00 s</output>
             </div>
             <div id="entity-status" role="status"></div>
         </div>
-        <div id="inspector" class="overlay bottom-right"></div>
+        <div id="inspector" class="overlay bottom-left"></div>
 
 
 

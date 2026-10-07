@@ -85,11 +85,11 @@ export class Entities {
     }
 
     /**
-     * Vanilla's keyframe animations of a model by name, or undefined when the model or the selected version has none.
+     * Native and sampled vanilla clips by name, or undefined when the model or selected version has none.
      */
     public static async getAnimations(modelKey: BasicAssetKey): Promise<Maybe<Record<string, EntityAnimation>>> {
         const path = isAssetKey(modelKey) ? modelKey.getFullPath() : modelKey.path;
-        const key = new AssetKey(modelKey.namespace, path, undefined, undefined, "entity-models/animations", ".json");
+        const key = new AssetKey(modelKey.namespace, path, undefined, undefined, "entity-models/animations", ".json", isAssetKey(modelKey) ? modelKey.root : undefined);
         const file = await Caching.entityAnimationCache.get(key.serialize(), () => AssetLoader.get<EntityAnimationFile>(key, AssetParser.JSON));
         return file?.animations;
     }

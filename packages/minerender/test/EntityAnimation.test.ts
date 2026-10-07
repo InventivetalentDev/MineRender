@@ -24,8 +24,9 @@ test("linear keyframes hold outside their range and use the later keyframe's int
     t.deepEqual(sampleEntityKeyframes(keyframes, 1), [0, 0, 0]);
     t.deepEqual(sampleEntityKeyframes(keyframes, 2), [1, 2, -3]);
     t.deepEqual(sampleEntityKeyframes(keyframes, 3), [2, 4, -6]);
-    // The arrival value replaces the target; the keyframe's own value applies once it is passed.
+    // The arrival value applies before the boundary; the keyframe's own value applies at it.
     t.deepEqual(sampleEntityKeyframes(keyframes, 4), [6, 4, -6]);
+    t.deepEqual(sampleEntityKeyframes(keyframes, 5), [0, 0, 0]);
     t.deepEqual(sampleEntityKeyframes(keyframes, 9), [0, 0, 0]);
     t.deepEqual(sampleEntityKeyframes([keyframe(2, [1, 2, 3], "catmullrom")], 7), [1, 2, 3]);
     t.deepEqual(sampleEntityKeyframes([], 1), [0, 0, 0]);
@@ -92,8 +93,9 @@ test.serial("animations load from the dataset's animation tree per version and a
     AssetLoader.addSource("test", new StubSource((key, parser) => {
         t.is(parser, AssetParser.JSON);
         t.is(key.assetType, undefined);
-        requests.push(`${ AssetLoader.ROOT }/${ key.rootType }/${ key.namespace }/${ key.path }${ key.extension }`);
-        return AssetLoader.ROOT === "https://example.test/1.21.11" && key.path === "warden" ? file : undefined;
+        const root = key.root ?? AssetLoader.ROOT;
+        requests.push(`${ root }/${ key.rootType }/${ key.namespace }/${ key.path }${ key.extension }`);
+        return root !== "https://example.test/1.18.2" && key.path === "warden" ? file : undefined;
     }));
 
     AssetLoader.ROOT = "https://example.test/1.21.11";
@@ -104,10 +106,14 @@ test.serial("animations load from the dataset's animation tree per version and a
     // A version without animations has no file; the newer version's result must not be reused.
     AssetLoader.ROOT = "https://example.test/1.18.2";
     t.is(await Entities.getAnimations(key), undefined);
+    const custom = new AssetKey("minecraft", "warden", undefined, undefined, "entity-models", ".json", "https://pack.example/custom");
+    t.is(await Entities.getAnimations(custom), file.animations);
+    t.is(await Entities.getAnimations(custom), file.animations);
     t.deepEqual(requests, [
         "https://example.test/1.21.11/entity-models/animations/minecraft/warden.json",
         "https://example.test/1.21.11/entity-models/animations/minecraft/cow.json",
-        "https://example.test/1.18.2/entity-models/animations/minecraft/warden.json"
+        "https://example.test/1.18.2/entity-models/animations/minecraft/warden.json",
+        "https://pack.example/custom/entity-models/animations/minecraft/warden.json"
     ]);
 });
 
@@ -132,7 +138,8 @@ function fixture(t: ExecutionContext) {
         }
     });
     const layer = (): EntityLayer => ({ key: new BasicAssetKey("minecraft", "fixture"), layer: { texture: [64, 64], root: root() } });
-    const layers = { main: layer(), overlay: layer() };
+    const main = layer();
+    const layers = { main, "main#2": main, wool: layer() };
     const object = new EntityObject({ ...layers.main, id: "minecraft:fixture", layers });
     object["createMeshes"]();
     const scene = Object.assign(new Object3D(), { isMineRenderScene: true, dirty: false });
@@ -161,7 +168,7 @@ const animation: EntityAnimation = {
     }
 };
 
-test("playback adds sampled offsets to the default pose of matching parts in every layer", t => {
+test("playback targets the named layer and its repeated draws without changing other layers", t => {
     const { object, state, wasDirty } = fixture(t);
     const rest = { root: [1, 2, 3, 0, 0, 0, 1, 1, 1], body: [0, -21, 0, 0.1, 0.2, 0.3, 1, 2, 1], head: [0, -13, 0, 0, 0, 0, 1, 1, 1] };
 
@@ -173,11 +180,12 @@ test("playback adds sampled offsets to the default pose of matching parts in eve
 
     object.setAnimationTime(1);
     t.true(wasDirty());
-    for (const layer of ["main", "overlay"]) {
+    for (const layer of ["main", "main#2"]) {
         t.deepEqual(state("root", layer), [1, 6, 3, 0, 0, 0, 1, 1, 1]);
         t.deepEqual(state("body", layer), [1, -19, 3, 0.6, -0.05, 0.425, 0.75, 2, 0.5]);
         t.deepEqual(state("head", layer), rest.head);
     }
+    for (const [name, values] of Object.entries(rest)) t.deepEqual(state(name, "wool"), values);
     // Offsets add to vanilla's Euler angles: translate, rotate Z, then Y, then X, then scale.
     const body = object.getGroupByName("body", "main")!;
     body.updateMatrix();
@@ -196,7 +204,7 @@ test("playback adds sampled offsets to the default pose of matching parts in eve
     object.stopAnimation();
     t.is(object.animation, undefined);
     t.true(wasDirty());
-    for (const [name, values] of Object.entries(rest)) t.deepEqual(state(name, "overlay"), values);
+    for (const [name, values] of Object.entries(rest)) t.deepEqual(state(name, "main#2"), values);
     object.stopAnimation();
     object.setAnimationTime(1);
     object.advanceAnimation(1);
@@ -204,28 +212,58 @@ test("playback adds sampled offsets to the default pose of matching parts in eve
     t.deepEqual(state("body"), rest.body);
 });
 
-test("advancing applies speed and loop options and a caller's pose stays the default", t => {
+test("advancing applies baked offsets and restores the caller's pose when stopped", t => {
     const { object, state, wasDirty } = fixture(t);
     object.getGroupByName("head", "main")!.rotation.set(0.5, 0, 0, "ZYX");
+    object.getGroupByName("body", "main")!.position.y = 99;
     const nod: EntityAnimation = { length: 1, loop: true, bones: { head: { rotation: [keyframe(0, [0, 0, 0]), keyframe(1, [1, 0, 0])] } } };
 
     object.playAnimation(nod, { speed: 2, time: 0.25 });
-    t.deepEqual(state("head").slice(3, 6), [0.75, 0, 0]);
+    t.is(object.getGroupByName("body", "main")!.position.y, -21);
+    t.deepEqual(state("head").slice(3, 6), [0.25, 0, 0]);
     object.advanceAnimation(0.125);
     t.is(object.animationTime, 0.5);
     t.true(wasDirty());
-    t.deepEqual(state("head").slice(3, 6), [1, 0, 0]);
-    object.advanceAnimation(0.375);
-    t.deepEqual(state("head").slice(3, 6), [0.75, 0, 0]);
-
-    // Replacing an animation restores the default pose first; without looping the last keyframe holds.
-    object.playAnimation(nod, { loop: false });
     t.deepEqual(state("head").slice(3, 6), [0.5, 0, 0]);
+    object.advanceAnimation(0.375);
+    t.deepEqual(state("head").slice(3, 6), [0.25, 0, 0]);
+
+    // Replacing playback keeps the saved caller pose; without looping the last keyframe holds.
+    object.playAnimation(nod, { loop: false });
+    t.deepEqual(state("head").slice(3, 6), [0, 0, 0]);
     object.advanceAnimation(5);
-    t.deepEqual(state("head").slice(3, 6), [1.5, 0, 0]);
+    t.deepEqual(state("head").slice(3, 6), [1, 0, 0]);
     object.stopAnimation();
     t.deepEqual(state("head").slice(3, 6), [0.5, 0, 0]);
-    t.deepEqual(state("head", "overlay").slice(3, 6), [0, 0, 0]);
+    t.is(object.getGroupByName("body", "main")!.position.y, 99);
+    t.deepEqual(state("head", "wool").slice(3, 6), [0, 0, 0]);
+});
+
+test("layer clips share playback time, validate before replacing, and restore their caller poses together", t => {
+    const { object, state } = fixture(t);
+    const wool: EntityAnimation = { length: 2, loop: false, layer: "wool", bones: {
+        body: { position: [keyframe(0, [0, 2, 0]), keyframe(2, [0, 6, 0])] }
+    } };
+    object.getGroupByName("body", "wool")!.position.set(4, 5, 6);
+    object.playAnimations([animation, wool], { speed: 2, time: 0.5 });
+    t.deepEqual(object.activeAnimations, [animation, wool]);
+    t.is(object.animation, animation);
+    object.advanceAnimation(0.25);
+    t.is(object.animationTime, 1);
+    t.deepEqual(state("body").slice(0, 3), [1, -19, 3]);
+    t.deepEqual(state("body", "main#2"), state("body"));
+    t.deepEqual(state("body", "wool").slice(0, 3), [0, -17, 0]);
+    t.throws(() => object.playAnimations([animation, animation]), { message: 'Multiple animations target layer "main"' });
+    t.throws(() => object.playAnimation({ ...wool, layer: "missing" }), {
+        message: 'Entity minecraft:fixture has no selected animation layer "missing"'
+    });
+    t.deepEqual(object.activeAnimations, [animation, wool]);
+    t.is(object.animationTime, 1);
+    object.playAnimations([]);
+    t.deepEqual(object.activeAnimations, []);
+    t.is(object.animation, undefined);
+    t.deepEqual(state("body", "wool").slice(0, 3), [4, 5, 6]);
+    t.deepEqual(state("body").slice(0, 3), [0, -21, 0]);
 });
 
 test("disposal ends playback", t => {

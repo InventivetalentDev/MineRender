@@ -33,7 +33,8 @@ export class EntityObject extends SceneObject {
     private scrollTicker: Maybe<number>;
     /** Entity age in ticks, as vanilla's `ageInTicks`; drives the scrolling render modes. */
     public age: number = 0;
-    private readonly animationPlayer = new EntityAnimationPlayer();
+    private readonly animationPlayers: EntityAnimationPlayer[] = [];
+    private readonly partPoses = new Map<Object3D, EntityModelPart["pose"]>();
 
     constructor(readonly entity: EntityModel, options?: Partial<EntityObjectOptions>) {
         super();
@@ -57,7 +58,8 @@ export class EntityObject extends SceneObject {
         this.geometries.clear();
         for (const dispose of this.disposeWireframes.splice(0)) dispose();
         // The animated part groups are removed with the children.
-        this.animationPlayer.clear();
+        for (const player of this.animationPlayers.splice(0)) player.clear();
+        this.partPoses.clear();
         super.disposeAndRemoveAllChildren();
     }
 
@@ -95,41 +97,68 @@ export class EntityObject extends SceneObject {
 
     //<editor-fold desc="ANIMATION">
 
-    /** The animation started by {@link playAnimation}, until {@link stopAnimation} or disposal. */
+    /** The first active clip, until playback is stopped or the object is disposed. */
     public get animation(): Maybe<EntityAnimation> {
-        return this.animationPlayer.animation;
+        return this.animationPlayers[0]?.animation;
+    }
+
+    /** Clips playing together, each targeting a separate geometry layer. */
+    public get activeAnimations(): readonly EntityAnimation[] {
+        return this.animationPlayers.map(player => player.animation!);
     }
 
     /** Seconds since the animation started, before looping. */
     public get animationTime(): number {
-        return this.animationPlayer.time;
+        return this.animationPlayers[0]?.time ?? 0;
     }
 
     /**
-     * Poses the object from a keyframe animation of {@link Entities.getAnimations}, replacing the current one.
-     * Parts of every layer are matched by name and their current pose is the default the offsets add to.
+     * Plays a clip from {@link Entities.getAnimations}, replacing all active clips.
+     * Offsets apply to the baked pose in the clip's layer (`main` by default), including repeated draws of that layer.
      * The object owns no clock: call {@link advanceAnimation} per frame, or {@link setAnimationTime}.
      */
     public playAnimation(animation: EntityAnimation, options?: EntityAnimationOptions): void {
+        this.playAnimations([animation], options);
+    }
+
+    /** Plays one clip per selected geometry layer, with a shared clock and no blending between clips. */
+    public playAnimations(animations: readonly EntityAnimation[], options?: EntityAnimationOptions): void {
+        const targets = new Set<string>();
+        const selections = animations.map(animation => {
+            const layer = animation.layer ?? "main";
+            if (targets.has(layer)) throw new Error(`Multiple animations target layer "${layer}"`);
+            targets.add(layer);
+            const names = Object.keys(this.entityLayers).filter(name => name.split("#")[0] === layer);
+            if (!names.length) throw new Error(`Entity ${this.entity.id} has no selected animation layer "${layer}"`);
+            return { animation, names };
+        });
         this.createMeshes();
-        const layers = Object.keys(this.entityLayers).map(name => this.getLayerGroup(name)).filter(layer => !!layer) as Object3D[];
-        this.animationPlayer.play(layers, animation, options);
+        this.stopAnimation();
+        for (const { animation, names } of selections) {
+            const player = new EntityAnimationPlayer();
+            player.play(names.map(name => this.getLayerGroup(name)!), animation, options, this.partPoses);
+            this.animationPlayers.push(player);
+        }
         this.notifyDirty();
     }
 
-    /** Stops the animation and restores the default pose. */
+    /** Stops all clips and restores the poses from before playback. */
     public stopAnimation(): void {
-        if (this.animationPlayer.stop()) this.notifyDirty();
+        const players = this.animationPlayers.splice(0);
+        for (const player of players) player.stop();
+        if (players.length) this.notifyDirty();
     }
 
     /** Poses the object at an explicit time in seconds. Has no effect without an animation. */
     public setAnimationTime(seconds: number): void {
-        if (this.animationPlayer.setTime(seconds)) this.notifyDirty();
+        for (const player of this.animationPlayers) player.setTime(seconds);
+        if (this.animationPlayers.length) this.notifyDirty();
     }
 
     /** Advances the animation by a frame delta in seconds, scaled by its speed. Has no effect without an animation. */
     public advanceAnimation(deltaSeconds: number): void {
-        if (this.animationPlayer.advance(deltaSeconds)) this.notifyDirty();
+        for (const player of this.animationPlayers) player.advance(deltaSeconds);
+        if (this.animationPlayers.length) this.notifyDirty();
     }
 
     //</editor-fold>
@@ -203,6 +232,7 @@ export class EntityObject extends SceneObject {
         anchor.position.fromArray(part.pose.offset);
         anchor.rotation.set(...part.pose.rotation, "ZYX");
         anchor.scale.fromArray(part.pose.scale ?? [1, 1, 1]);
+        this.partPoses.set(anchor, part.pose);
         parent.add(anchor);
         const size = part.texture ?? textureSize;
 
