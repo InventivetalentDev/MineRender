@@ -320,7 +320,9 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
     getMatrixAt(index: number, matrix: Matrix4 = new Matrix4()): Matrix4 {
         if (!this.instanceReferences.has(index)) throw new MineRenderError("Instance is not active");
         const hidden = this.hiddenInstanceMatrices.get(index);
-        if (hidden) return matrix.copy(hidden);
+        if (hidden) {
+            return matrix.copy(hidden);
+        }
         this.instanceMesh!.getMatrixAt(index, matrix);
         return matrix;
     }
@@ -329,7 +331,9 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
         if (!this.instanceReferences.has(index)) throw new MineRenderError("Instance is not active");
         const mesh = this.instanceMesh!;
         const hidden = this.hiddenInstanceMatrices.get(index);
-        if (hidden) hidden.copy(matrix);
+        if (hidden) {
+            hidden.copy(matrix);
+        }
         mesh.setMatrixAt(index, hidden ? new Matrix4().makeScale(0, 0, 0) : matrix);
         mesh.instanceMatrix.needsUpdate = true;
         mesh.boundingBox = null;
@@ -338,14 +342,20 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
     }
 
     setInstanceVisibleAt(index: number, visible: boolean): void {
-        if (!this.instanceReferences.has(index)) throw new MineRenderError("Instance is not active");
+        if (!this.instanceReferences.has(index)) {
+            throw new MineRenderError("Instance is not active");
+        }
         const hidden = this.hiddenInstanceMatrices.get(index);
         if (visible) {
-            if (!hidden) return;
+            if (!hidden) {
+                return;
+            }
             this.hiddenInstanceMatrices.delete(index);
             this.setMatrixAt(index, hidden);
         } else {
-            if (hidden) return;
+            if (hidden) {
+                return;
+            }
             const matrix = this.getMatrixAt(index);
             this.hiddenInstanceMatrices.set(index, matrix);
             this.setMatrixAt(index, matrix);

@@ -130,11 +130,18 @@ export class Chunk<SectionMeshing extends boolean = false> {
     public async setBlockVisibleAt(pos: Vector3, visible: boolean): Promise<void> {
         const index = Chunk.chunkPosToBlockIndex(this.worldPosToChunkPos(pos));
         const block = this.renderedBlocks.get(index);
-        if (!block || visible === !this.hiddenBlocks.has(index)) return;
-        if (visible) this.hiddenBlocks.delete(index);
-        else this.hiddenBlocks.add(index);
+        if (!block || visible === !this.hiddenBlocks.has(index)) {
+            return;
+        }
+        if (visible) {
+            this.hiddenBlocks.delete(index);
+        } else {
+            this.hiddenBlocks.add(index);
+        }
         block.object?.setVisible(visible);
-        if (this.sectionBlocks.has(index)) this.meshDirty = true;
+        if (this.sectionBlocks.has(index)) {
+            this.meshDirty = true;
+        }
         this.scene.dirty = true;
         await this.onBlocksChanged?.([pos]);
     }

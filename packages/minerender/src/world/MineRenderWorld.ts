@@ -205,7 +205,9 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                         if (!chunk) continue;
                         changed.add(chunk);
                         const block = chunk.getBlockAt(pos);
-                        if (!block || !chunk.isBlockVisibleAt(pos)) continue;
+                        if (!block || !chunk.isBlockVisibleAt(pos)) {
+                            continue;
+                        }
                         if (block.object?.fluidKind) {
                             await block.object.updateFluid((x, y, z) => {
                                 const neighbor = pos.clone().add(new Vector3(x, y, z));
