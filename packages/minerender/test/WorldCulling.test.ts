@@ -202,6 +202,74 @@ test.serial("visibility changes preserve the originally selected weighted model"
     t.is(world.getBlockAt(0, 0, 0), weighted);
 });
 
+for (const sectionMeshing of [false, true]) {
+    test.serial(`hidden blocks retain their data and reveal neighboring faces across chunk borders (sectionMeshing=${sectionMeshing})`, async t => {
+        const { world, scene, states, addModel, place } = fixture(t, { sectionMeshing });
+        addModel("unculled", { cullable: [] });
+        states.set("test:weighted", { variants: { "": [{ model: "test:block/cube" }, { model: "test:block/unculled" }] } });
+        const random = Math.random;
+        t.teardown(() => { Math.random = random; });
+        Math.random = () => 0;
+        const value = { type: "test:weighted", properties: { axis: "x" }, nbt: { items: [1] } };
+        const left = (await world.setBlockAt([-17, -1, -1], value))!;
+        const right = (await place([-16, -1, -1]))!;
+        const object = left.object, model = object?.["_models"][0];
+        const count = (x: number) => {
+            if (!sectionMeshing) {
+                const block = world.getBlockAt(x, -1, -1)?.object;
+                return block?.visible ? indexCount(block) : 0;
+            }
+            const section = scene.children.find(child => child instanceof SectionMesh && child.position.x === Math.floor(x / 16) * 256);
+            return section?.children.reduce((sum, child) => sum + (child as Mesh).geometry.getIndex()!.count, 0) ?? 0;
+        };
+        t.deepEqual([count(-17), count(-16)], [30, 30]);
+        Math.random = () => 0.99;
+        scene.dirty = false;
+        await world.setBlockVisibleAt([-17, -1, -1], false);
+        t.true(scene.dirty);
+        t.deepEqual([count(-17), count(-16)], [0, 36]);
+        t.is(world.getBlockAt(-17, -1, -1), left);
+        t.is(left.object, object);
+        t.deepEqual(left.block, value);
+        await world.setBlockVisibleAt(new Vector3(-17, -1, -1), true);
+        t.deepEqual([count(-17), count(-16)], [30, 30]);
+        t.is(left.object?.["_models"][0], model);
+        t.is(world.getBlockAt(-16, -1, -1), right);
+
+        await world.setBlockVisibleAt(-17, -1, -1, false);
+        await place([-17, -1, -1]);
+        t.deepEqual([count(-17), count(-16)], [30, 30]);
+        await world.setBlockVisibleAt(-17, -1, -1, false);
+        await world.setBlockAt(-17, -1, -1, undefined);
+        await world.setBlockVisibleAt(-17, -1, -1, false);
+        await place([-17, -1, -1]);
+        t.deepEqual([count(-17), count(-16)], [30, 30]);
+        await world.setBlockVisibleAt([256, 0, 0], false);
+        t.is(world.getChunkAt(new Vector3(256, 0, 0)), undefined);
+    });
+
+    test.serial(`hidden water reveals neighboring fluid surfaces and restores them when shown (sectionMeshing=${sectionMeshing})`, async t => {
+        const { world } = fixture(t, { sectionMeshing });
+        const left = (await world.setBlockAt([-17, -1, -1], { type: "water", properties: { level: "0" } }))!;
+        const right = (await world.setBlockAt([-16, -1, -1], { type: "water", properties: { level: "4" } }))!;
+        const object = left.object!, model = object["_models"][0];
+        const surface = modelOf(right.object!);
+        t.deepEqual([indexCount(object), indexCount(right.object!)], [30, 30]);
+        await world.setBlockVisibleAt([-17, -1, -1], false);
+        t.false(object.visible);
+        t.is(indexCount(right.object!), 36);
+        t.not(modelOf(right.object!), surface);
+        t.is(left.object, object);
+        t.is(object["_models"][0], model);
+        await world.setBlockVisibleAt([-17, -1, -1], true);
+        t.true(object.visible);
+        t.is(modelOf(right.object!), surface);
+        t.is(object["_models"][0], model);
+        t.deepEqual([indexCount(object), indexCount(right.object!)], [30, 30]);
+        t.deepEqual(left.block, { type: "minecraft:water", properties: { level: "0" } });
+    });
+}
+
 
 test.serial("failed bulk placement updates successful writes and neighbors of removed blocks before rejecting", async t => {
     const { world, scene, place } = fixture(t);

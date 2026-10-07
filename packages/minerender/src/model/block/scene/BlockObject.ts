@@ -100,6 +100,17 @@ export class BlockObject extends SceneObject {
         return this._entities;
     }
 
+    /** Sets visibility for this block's model instances and block entities. */
+    public setVisible(visible: boolean): void {
+        this.visible = visible;
+        for (const model of this._models) {
+            if (isInstanceReference(model)) model.setVisible(visible);
+            else model.visible = visible;
+        }
+        for (const entity of this._entities) entity.visible = visible;
+        this.notifyDirty();
+    }
+
     /**
      * Draws the block through the dataset's block-entity index. Returns false, leaving nothing behind,
      * when the block is not listed or one of its models cannot be loaded.
@@ -135,6 +146,7 @@ export class BlockObject extends SceneObject {
         BlockEntities.matrix(resolved, this._entityPlacement);
         this._entities = created;
         this.placeEntities();
+        this.setVisible(this.visible);
         return true;
     }
 
@@ -147,6 +159,7 @@ export class BlockObject extends SceneObject {
     }
 
     public get isOccluding(): boolean {
+        if (!this.visible) return false;
         return this._models.some(model => {
             const object = isInstanceReference(model) ? model.instanceable : model;
             return object.isOpaqueFullCube && this.getModelCullMask(model, 63) === 63;
@@ -206,6 +219,7 @@ export class BlockObject extends SceneObject {
         this._models = replacements;
         this._cullMask = worldMask;
         this.removeModels(previous.filter(model => !replacements.includes(model)));
+        if (!this.visible) this.setVisible(false);
         this.notifyDirty();
     }
 
@@ -244,6 +258,7 @@ export class BlockObject extends SceneObject {
         this._isInstanced ||= isInstanceReference(replacement);
         this._instanceCounter = this._isInstanced ? 1 : 0;
         if (previous) this.removeModels([previous]);
+        if (!this.visible) this.setVisible(false);
         this.notifyDirty();
     }
 
@@ -303,6 +318,7 @@ export class BlockObject extends SceneObject {
             this._models.push(await this.createVariant(blockStateVariant));
         }
         await this.updateFluid(this._fluidSampler);
+        this.setVisible(this.visible);
         /*
     }
 

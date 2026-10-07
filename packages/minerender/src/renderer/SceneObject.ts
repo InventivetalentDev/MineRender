@@ -42,6 +42,7 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
     protected instanceMesh?: InstancedMesh;
     private readonly instanceReferences = new Map<number, InstanceReference<SceneObject>>();
     private readonly freeInstanceIndices: number[] = [];
+    private readonly hiddenInstanceMatrices = new Map<number, Matrix4>();
 
     constructor(options?: Partial<SceneObjectOptions>) {
         super();
@@ -278,6 +279,7 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
     removeInstanceAt(index: number): void {
         if (!this.instanceReferences.has(index)) return;
         const mesh = this.instanceMesh!;
+        this.hiddenInstanceMatrices.delete(index);
         this.setMatrixAt(index, new Matrix4().makeScale(0, 0, 0));
         this.instanceReferences.delete(index);
         this.freeInstanceIndices.push(index);
@@ -317,6 +319,8 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
 
     getMatrixAt(index: number, matrix: Matrix4 = new Matrix4()): Matrix4 {
         if (!this.instanceReferences.has(index)) throw new MineRenderError("Instance is not active");
+        const hidden = this.hiddenInstanceMatrices.get(index);
+        if (hidden) return matrix.copy(hidden);
         this.instanceMesh!.getMatrixAt(index, matrix);
         return matrix;
     }
@@ -324,11 +328,28 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
     setMatrixAt(index: number, matrix: Matrix4) {
         if (!this.instanceReferences.has(index)) throw new MineRenderError("Instance is not active");
         const mesh = this.instanceMesh!;
-        mesh.setMatrixAt(index, matrix);
+        const hidden = this.hiddenInstanceMatrices.get(index);
+        if (hidden) hidden.copy(matrix);
+        mesh.setMatrixAt(index, hidden ? new Matrix4().makeScale(0, 0, 0) : matrix);
         mesh.instanceMatrix.needsUpdate = true;
         mesh.boundingBox = null;
         mesh.boundingSphere = null;
         this.notifyDirty();
+    }
+
+    setInstanceVisibleAt(index: number, visible: boolean): void {
+        if (!this.instanceReferences.has(index)) throw new MineRenderError("Instance is not active");
+        const hidden = this.hiddenInstanceMatrices.get(index);
+        if (visible) {
+            if (!hidden) return;
+            this.hiddenInstanceMatrices.delete(index);
+            this.setMatrixAt(index, hidden);
+        } else {
+            if (hidden) return;
+            const matrix = this.getMatrixAt(index);
+            this.hiddenInstanceMatrices.set(index, matrix);
+            this.setMatrixAt(index, matrix);
+        }
     }
 
     setPositionRotationScaleAt(index: number, position?: Vector3, rotation?: Euler, scale?: Vector3) {
@@ -492,6 +513,7 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
             if (this._scene) this._scene.stats.instanceCount -= this.instanceReferences.size;
             this.instanceReferences.clear();
             this.freeInstanceIndices.length = 0;
+            this.hiddenInstanceMatrices.clear();
             this._instanceCounter = 0;
             this.instanceMesh.count = 0;
             this.instanceMesh.dispose();

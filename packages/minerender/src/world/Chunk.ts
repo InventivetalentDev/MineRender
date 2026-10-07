@@ -25,6 +25,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
     private readonly data = new ChunkData();
     private readonly renderedBlocks = new Map<number, BlockInfo<SectionMeshing>>();
     private readonly sectionBlocks = new Map<number, SectionMeshEntry>();
+    private readonly hiddenBlocks = new Set<number>();
     private sectionMesh?: SectionMesh;
     private meshDirty = false;
 
@@ -82,6 +83,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
         }
 
         const index = Chunk.chunkPosToBlockIndex(pos);
+        this.hiddenBlocks.delete(index);
         this.data.set(index, block);
         const readBlock = this.data.snapshot(index);
         this.renderedBlocks.get(index)?.object?.removeFromScene();
@@ -125,9 +127,27 @@ export class Chunk<SectionMeshing extends boolean = false> {
         }
     }
 
+    public async setBlockVisibleAt(pos: Vector3, visible: boolean): Promise<void> {
+        const index = Chunk.chunkPosToBlockIndex(this.worldPosToChunkPos(pos));
+        const block = this.renderedBlocks.get(index);
+        if (!block || visible === !this.hiddenBlocks.has(index)) return;
+        if (visible) this.hiddenBlocks.delete(index);
+        else this.hiddenBlocks.add(index);
+        block.object?.setVisible(visible);
+        if (this.sectionBlocks.has(index)) this.meshDirty = true;
+        this.scene.dirty = true;
+        await this.onBlocksChanged?.([pos]);
+    }
+
+    public isBlockVisibleAt(pos: Vector3): boolean {
+        const index = Chunk.chunkPosToBlockIndex(this.worldPosToChunkPos(pos));
+        return this.renderedBlocks.has(index) && !this.hiddenBlocks.has(index);
+    }
+
     public isOccludingAt(pos: Vector3): boolean {
         const index = Chunk.chunkPosToBlockIndex(this.worldPosToChunkPos(pos));
-        return this.sectionBlocks.has(index) || (this.renderedBlocks.get(index)?.object?.isOccluding ?? false);
+        return !this.hiddenBlocks.has(index)
+            && (this.sectionBlocks.has(index) || (this.renderedBlocks.get(index)?.object?.isOccluding ?? false));
     }
 
     public async setCullMaskAt(pos: Vector3, mask: number): Promise<void> {
@@ -146,7 +166,8 @@ export class Chunk<SectionMeshing extends boolean = false> {
     public rebuildSectionMesh(): void {
         if (!this.meshDirty) return;
         const next = this.sectionBlocks.size
-            ? SectionMesh.build([...this.sectionBlocks.values()], this.sectionModels!.maxAtlasSize) : undefined;
+            ? SectionMesh.build([...this.sectionBlocks.values()].filter(entry => !this.hiddenBlocks.has(entry.index)),
+                this.sectionModels!.maxAtlasSize) : undefined;
         this.sectionMesh?.dispose();
         this.sectionMesh = next;
         if (next) {
@@ -167,6 +188,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
         this.sectionMesh = undefined;
         this.meshDirty = false;
         this.renderedBlocks.clear();
+        this.hiddenBlocks.clear();
         this.data.clear();
         await onBlocksChanged?.(positions);
     }
