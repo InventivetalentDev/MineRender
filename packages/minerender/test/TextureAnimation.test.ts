@@ -12,18 +12,26 @@ import type { AnimationMeta, MinecraftTextureMeta } from "../src/MinecraftTextur
 import type { CompatCanvas } from "../src/canvas/CanvasCompat";
 import type { ExtractableImageData } from "../src/ExtractableImageData";
 
-async function fixture(t: ExecutionContext, width: number, height: number, animation?: Partial<AnimationMeta>) {
+async function fixture(t: ExecutionContext, width: number, height: number, animation?: Partial<AnimationMeta>, sourcePixels?: number[]) {
     const originals = { provider: Env["_provider"], get: ModelTextures.get, meta: ModelTextures.getMeta,
         data: ImageLoader.getData };
     const draws: number[][] = [];
+    const uploads: number[][] = [];
     const pixels = (w: number, h: number) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4).fill(255) });
     Env.register({ name: "test", createCanvas: (width, height) => ({ width, height,
-        getContext: () => ({ putImageData() {} }), toDataURL: () => ""
+        getContext: () => ({ createImageData: pixels,
+            putImageData: (image: { data: Uint8ClampedArray }) => uploads.push(Array.from(image.data))
+        }), toDataURL: () => ""
     } as unknown as CompatCanvas) } as EnvProvider);
     ModelTextures.get = async () => ({ width, height, data: {
         getImageData(x: number, y: number, w: number, h: number) {
             draws.push([x, y, w, h]);
-            return pixels(w, h);
+            const image = pixels(w, h);
+            if (sourcePixels) for (let row = 0; row < h; row++) {
+                const start = ((y + row) * width + x) * 4;
+                image.data.set(sourcePixels.slice(start, start + w * 4), row * w * 4);
+            }
+            return image;
         }
     } } as ExtractableImageData);
     ModelTextures.getMeta = async () => animation ? { animation } as MinecraftTextureMeta : undefined;
@@ -37,7 +45,7 @@ async function fixture(t: ExecutionContext, width: number, height: number, anima
     t.teardown(restore);
     const atlas = (await UVMapper.createAtlas({ textures: { side: "block/animated" }, elements: [] }))!;
     t.teardown(() => atlas.dispose());
-    return { atlas, draws, restore, tick: () => Ticker.tickers.get(atlas.ticker!)!() };
+    return { atlas, draws, uploads, restore, tick: () => Ticker.tickers.get(atlas.ticker!)!() };
 }
 
 class AnimatedModel extends ModelObject {
@@ -90,8 +98,32 @@ test.serial("animation dimensions use metadata while images without animation me
     }
 });
 
-test.serial("shared animation updates each texture and attached scene, then stops on removal and empty instance pools", async t => {
-    const { atlas, tick } = await fixture(t, 16, 32, { frametime: 2 });
+for (const interpolate of [false, true]) test.serial(`animation uploads ${interpolate ? "interpolated RGBA" : "stepped frames"} across custom durations, repeated indices, and wrap`, async t => {
+    const first = [0, 31, 71, 40], second = [253, 110, 20, 200];
+    const { atlas, uploads, tick } = await fixture(t, 1, 2, {
+        interpolate, frames: [{ index: 1, time: 3 }, { index: 0, time: 2 }, { index: 0, time: 4 }]
+    }, [...first, ...second]);
+    t.deepEqual(uploads.at(-1), second);
+    let changes = 0;
+    const stop = atlas.subscribe(() => changes++);
+    const expected = interpolate
+        ? [[169, 84, 37, 147], [85, 57, 54, 93], first, undefined, undefined,
+            [63, 51, 58, 80], [126, 70, 46, 120], [190, 90, 33, 160], second]
+        : [undefined, undefined, first, undefined, undefined, undefined, undefined, undefined, second];
+    let changedTicks = 0;
+    for (const frame of expected) {
+        uploads.length = 0;
+        tick();
+        t.deepEqual(uploads, frame ? [frame] : []);
+        if (frame) changedTicks++;
+        t.is(changes, changedTicks);
+    }
+    stop();
+    t.is(atlas.ticker, undefined);
+});
+
+for (const interpolate of [false, true]) test.serial(`shared ${interpolate ? "interpolated" : "stepped"} animation updates each texture and scene, then stops on removal and empty instance pools`, async t => {
+    const { atlas, tick } = await fixture(t, 16, 32, { frametime: 2, interpolate });
     const scenes = [new MineRenderScene(), new MineRenderScene()];
     const models = [new AnimatedModel(atlas), new AnimatedModel(atlas, true)];
     const group = new Group();
@@ -108,10 +140,10 @@ test.serial("shared animation updates each texture and attached scene, then stop
     const materialVersions = models.map(model => model.material.version);
     scenes.forEach(scene => scene.dirty = false);
     tick();
-    t.deepEqual(scenes.map(scene => scene.dirty), [false, false]);
+    t.deepEqual(scenes.map(scene => scene.dirty), [interpolate, interpolate]);
     tick();
     t.deepEqual(scenes.map(scene => scene.dirty), [true, true]);
-    t.deepEqual(textures.map(texture => texture.version), versions.map(version => version + 1));
+    t.deepEqual(textures.map(texture => texture.version), versions.map(version => version + (interpolate ? 2 : 1)));
     t.deepEqual(models.map(model => model.material.version), materialVersions);
     models[0].removeFromParent();
     const detachedVersion = textures[0].version;
