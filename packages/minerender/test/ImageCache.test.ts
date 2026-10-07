@@ -1,14 +1,46 @@
 import test from "ava";
-import { MeshBasicMaterial } from "three";
+import { MeshBasicMaterial, NearestFilter, SRGBColorSpace } from "three";
 import { AssetKey } from "../src/assets/AssetKey";
 import { AssetLoader } from "../src/assets/AssetLoader";
 import { ModelTextures } from "../src/assets/ModelTextures";
 import { Caching } from "../src/cache/Caching";
 import { serializeImageKey } from "../src/cache/CacheKey";
 import { EntityObject } from "../src/entity/scene/EntityObject";
+import { Env } from "../src/Env";
 import { ExtractableImageData } from "../src/ExtractableImageData";
 import { ImageInfo, ImageLoader } from "../src/image/ImageLoader";
 import { Materials } from "../src/Materials";
+import { Textures } from "../src/texture/Textures";
+
+test.serial("the missing texture is shared pixel data without image loading or an environment provider", t => {
+    const originals = { provider: Env["_provider"], data: ImageLoader.getData };
+    Caching.clear();
+    Env["_provider"] = undefined;
+    ImageLoader.getData = async () => {
+        t.fail("The built-in missing texture must not load an image");
+        throw new Error("Unexpected image load");
+    };
+    t.teardown(() => {
+        Env["_provider"] = originals.provider;
+        ImageLoader.getData = originals.data;
+        Caching.clear();
+    });
+
+    const material = Materials.MISSING_TEXTURE as MeshBasicMaterial;
+    const texture = Textures.getMissing();
+    t.is(Materials.MISSING_TEXTURE, material);
+    t.is(material.map, texture);
+    t.is(Textures.getMissing(), texture);
+    t.deepEqual([texture.image.width, texture.image.height], [64, 64]);
+    t.deepEqual(Array.from(texture.image.data.slice(0, 8)), [255, 0, 255, 255, 0, 0, 0, 255]);
+    t.deepEqual(Array.from(texture.image.data.slice(256, 264)), [0, 0, 0, 255, 255, 0, 255, 255]);
+    t.deepEqual([texture.colorSpace, texture.minFilter, texture.magFilter], [SRGBColorSpace, NearestFilter, NearestFilter]);
+    t.true(texture.flipY);
+
+    Caching.clear();
+    t.not(Materials.MISSING_TEXTURE, material);
+    t.not(Textures.getMissing(), texture);
+});
 
 function deferred<T>() {
     let resolve!: (value: T) => void;

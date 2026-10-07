@@ -2,7 +2,6 @@ import test, { ExecutionContext } from "ava";
 import { BoxGeometry, Group, Mesh, MeshBasicMaterial, ShaderMaterial } from "three";
 import { Env, EnvProvider } from "../src/Env";
 import { ModelTextures } from "../src/assets/ModelTextures";
-import { ImageLoader } from "../src/image/ImageLoader";
 import { UVMapper } from "../src/UVMapper";
 import { Ticker } from "../src/Ticker";
 import { ModelObject } from "../src/model/scene/ModelObject";
@@ -13,13 +12,12 @@ import type { CompatCanvas } from "../src/canvas/CanvasCompat";
 import type { ExtractableImageData } from "../src/ExtractableImageData";
 
 async function fixture(t: ExecutionContext, width: number, height: number, animation?: Partial<AnimationMeta>, sourcePixels?: number[]) {
-    const originals = { provider: Env["_provider"], get: ModelTextures.get, meta: ModelTextures.getMeta,
-        data: ImageLoader.getData };
+    const originals = { provider: Env["_provider"], get: ModelTextures.get, meta: ModelTextures.getMeta };
     const draws: number[][] = [];
     const uploads: number[][] = [];
     const pixels = (w: number, h: number) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4).fill(255) });
     Env.register({ name: "test", createCanvas: (width, height) => ({ width, height,
-        getContext: () => ({ createImageData: pixels,
+        getContext: () => ({ createImageData: pixels, clearRect() {},
             putImageData: (image: { data: Uint8ClampedArray }) => uploads.push(Array.from(image.data))
         }), toDataURL: () => ""
     } as unknown as CompatCanvas) } as EnvProvider);
@@ -35,12 +33,10 @@ async function fixture(t: ExecutionContext, width: number, height: number, anima
         }
     } } as ExtractableImageData);
     ModelTextures.getMeta = async () => animation ? { animation } as MinecraftTextureMeta : undefined;
-    ImageLoader.getData = async () => pixels(16, 16);
     const restore = () => {
         Env["_provider"] = originals.provider;
         ModelTextures.get = originals.get;
         ModelTextures.getMeta = originals.meta;
-        ImageLoader.getData = originals.data;
     };
     t.teardown(restore);
     const atlas = (await UVMapper.createAtlas({ textures: { side: "block/animated" }, elements: [] }))!;

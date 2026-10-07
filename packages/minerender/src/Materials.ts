@@ -8,12 +8,11 @@ import type { EntityRenderMode } from "./entity/EntityModel";
 
 export class Materials {
 
-    private static readonly MISSING_TEXTURE_SRC = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABAAQMAAACQp+OdAAAABlBMVEX/AP8AAACfphTyAAAAFUlEQVQoz2MIhQKGVVAwKjIqQrwIAHRz/wFI17TEAAAAAElFTkSuQmCC";
-
-    // resolved lazily: as a static field this decoded an image the moment the library was
-    // imported, which needs both a DOM and an EnvProvider to already be in place
     public static get MISSING_TEXTURE(): Material {
-        return Materials.getImage({ texture: { src: Materials.MISSING_TEXTURE_SRC } });
+        return Caching.materialCache.get("builtin:missing-texture", () => new MeshBasicMaterial({
+            map: Textures.getMissing(),
+            alphaTest: 0.5
+        }))!;
     }
 
     public static createImage(key: MaterialKey): Material {
