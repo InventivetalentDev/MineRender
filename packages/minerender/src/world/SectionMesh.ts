@@ -78,14 +78,17 @@ export class SectionMesh extends Group {
             for (const { atlas, x, y } of page.placements) {
                 context.drawImage(atlas.image.canvas as CanvasImageSource, x, y);
             }
-            const positions: number[] = [], normals: number[] = [], uvs: number[] = [], colors: number[] = [], indices: number[] = [];
+            const positions: number[] = [], normals: number[] = [], uvs: number[] = [], uvBounds: number[] = [], colors: number[] = [], indices: number[] = [];
             for (const { index, template, cullMask } of page.entries) {
                 const position = template.geometry.getAttribute("position");
                 const normal = template.geometry.getAttribute("normal");
                 const uv = template.geometry.getAttribute("uv");
+                const bounds = template.geometry.getAttribute("uvBounds");
                 const color = template.geometry.getAttribute("color");
                 const sourceIndices = template.geometry.getIndex()!;
                 const placement = locations.get(template.atlas)!.placement;
+                const mapU = (u: number) => (placement.x + u * template.atlas.image.width) / page.width;
+                const mapV = (v: number) => 1 - (placement.y + (1 - v) * template.atlas.image.height) / page.height;
                 const offsetX = (index % 16) * 16;
                 const offsetY = Math.floor(index / 256) * 16;
                 const offsetZ = (Math.floor(index / 16) % 16) * 16;
@@ -96,9 +99,10 @@ export class SectionMesh extends Group {
                         const vertex = face * 4 + corner;
                         positions.push(position.getX(vertex) + offsetX, position.getY(vertex) + offsetY, position.getZ(vertex) + offsetZ);
                         normals.push(normal.getX(vertex), normal.getY(vertex), normal.getZ(vertex));
-                        uvs.push(
-                            (placement.x + uv.getX(vertex) * template.atlas.image.width) / page.width,
-                            1 - (placement.y + (1 - uv.getY(vertex)) * template.atlas.image.height) / page.height
+                        uvs.push(mapU(uv.getX(vertex)), mapV(uv.getY(vertex)));
+                        uvBounds.push(
+                            mapU(bounds?.getX(vertex) ?? 0), mapV(bounds?.getY(vertex) ?? 0),
+                            mapU(bounds?.getZ(vertex) ?? 1), mapV(bounds?.getW(vertex) ?? 1)
                         );
                         colors.push(color?.getX(vertex) ?? 1, color?.getY(vertex) ?? 1, color?.getZ(vertex) ?? 1);
                     }
@@ -109,11 +113,12 @@ export class SectionMesh extends Group {
             geometry.setAttribute("position", new Float32BufferAttribute(positions, 3));
             geometry.setAttribute("normal", new Float32BufferAttribute(normals, 3));
             geometry.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
+            geometry.setAttribute("uvBounds", new Float32BufferAttribute(uvBounds, 4));
             geometry.setAttribute("color", new Float32BufferAttribute(colors, 3));
             geometry.setIndex(indices);
             geometry.computeBoundingBox();
             geometry.computeBoundingSphere();
-            const material = Materials.createShadedCanvasMaterial(canvas as HTMLCanvasElement, false);
+            const material = Materials.createShadedCanvasMaterial(canvas as HTMLCanvasElement, false, false, true);
             material.vertexColors = true;
             const texture = (material as ShaderMaterial).uniforms?.map?.value ?? (material as MeshBasicMaterial).map;
             const mesh = new Mesh(geometry, material);
