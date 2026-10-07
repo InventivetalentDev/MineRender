@@ -10,7 +10,10 @@
   "scripts": {
     "build": "yarn build:lib && yarn build:consumers",
     "build:lib": "yarn workspace minerender build",
-    "build:consumers": "yarn workspace @minerender/web build && yarn workspace @minerender/example-vite build && yarn workspace @minerender/example-script-tag build",
+    "build:consumers": "yarn workspace @minerender/web build && yarn workspace @minerender/example-vite build && yarn workspace @minerender/example-script-tag build && yarn workspace @minerender/site build",
+    "build:site": "yarn build:lib && yarn workspace @minerender/site build",
+    "deploy:site": "yarn build:lib && yarn workspace @minerender/site deploy",
+    "deploy:site:preview": "yarn build:lib && yarn workspace @minerender/site deploy:preview",
     "build:watch": "yarn workspace minerender build:watch",
     "typecheck": "yarn workspace minerender typecheck && yarn workspace @minerender/example-vite typecheck",
     "test": "yarn workspace minerender test",
@@ -21,6 +24,7 @@
     "dev:web": "yarn build:lib && yarn workspace @minerender/web dev",
     "dev:vite": "yarn build:lib && yarn workspace @minerender/example-vite dev",
     "dev:script-tag": "yarn build:lib && yarn workspace @minerender/example-script-tag dev",
+    "dev:site": "yarn build:lib && yarn workspace @minerender/site dev",
     "publish:alpha": "yarn workspace minerender publish:alpha",
     "publish:beta": "yarn workspace minerender publish:beta"
   }

@@ -21,6 +21,7 @@ Choose a workspace to work on:
 |---|---|---|
 | [packages/minerender](./packages/minerender) | Public library | `yarn build:watch` |
 | [apps/web](./apps/web) | Demo and manual test pages | `yarn dev:web` |
+| [apps/site](./apps/site) | V2 website with live examples and docs | `yarn dev:site` |
 | [examples/vite](./examples/vite) | Vue/Vite example | `yarn dev:vite` |
 | [examples/script-tag](./examples/script-tag) | Plain HTML example | `yarn dev:script-tag` |
 

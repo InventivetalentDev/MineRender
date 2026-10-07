@@ -14,6 +14,7 @@ The private Yarn workspace root contains the public library and its consumers. U
 |---|---|
 | `packages/minerender/` | Public `minerender` library, moved from the V2 repository root. Browser, Node, and IIFE delivery formats retain their package paths. |
 | `apps/web/` | MineRenderWeb demo/test pages, built with esbuild against the library workspace. |
+| `apps/site/` | V2 website (Vite + TypeScript, no framework): feature overview, live examples, usage docs. Examples live in `src/examples/*.ts`; `src/viewport/` lazily creates renderers and caps how many are alive at once. See its README. |
 | `examples/vite/` | Vue 3 + Vite consumer, imported from `MineRender/example-vite`. Uses ESM named imports and a workspace dependency. |
 | `examples/script-tag/` | Plain HTML consumer, imported from `MineRender/example-bundle`. Loads the library's IIFE as `MineRender`. |
 | `InventivetalentDev/MineRender` (V1 checkout: `MineRenderV1`) | `master` contains V1 (JS, webpack 4, three 0.93, browser-only), the feature-parity reference. V2 development shares this repository on `typescript` and the stacked refactor branches. Preserve V1 tags, bundles, and website URLs. |
@@ -35,7 +36,8 @@ The private Yarn workspace root contains the public library and its consumers. U
   | `yarn build:lib` | Build the public library only. |
   | `yarn test` | Run the library's AVA tests. |
   | `yarn typecheck` | Typecheck the library and Vite example. |
-  | `yarn dev:web`, `yarn dev:vite`, `yarn dev:script-tag` | Start the corresponding local consumer. |
+  | `yarn dev:web`, `yarn dev:vite`, `yarn dev:script-tag`, `yarn dev:site` | Start the corresponding local consumer. |
+  | `yarn build:site` | Build the library and the V2 website into `apps/site/dist/`. |
 
 - **tsup builds the library** (`tsup.config.ts` exports three passes; Rollup only appears through the declaration build). The web demos use esbuild, and the Vue example uses Vite.
 

@@ -1,0 +1,27 @@
+{
+  "name": "@minerender/site",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "MineRender V2 website: feature showcase, live examples, and usage docs",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "yarn typecheck && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "deploy": "yarn build && wrangler deploy",
+    "deploy:preview": "yarn build && wrangler versions upload",
+    "preview:cf": "yarn build && wrangler dev"
+  },
+  "dependencies": {
+    "minerender": "workspace:*",
+    "three": "^0.158.0"
+  },
+  "devDependencies": {
+    "@types/three": "~0.158.0",
+    "typescript": "~5.6.3",
+    "vite": "^4.4.5",
+    "vite-plugin-node-polyfills": "^0.16.0",
+    "wrangler": "^4.147.0"
+  }
+}
