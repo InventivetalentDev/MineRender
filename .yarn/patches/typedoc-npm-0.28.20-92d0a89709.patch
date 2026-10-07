@@ -1,0 +1,13 @@
+diff --git a/dist/index.js b/dist/index.js
+index daa82424664dcf1236746613e27a3e79abf96bdd..2edf4d36e3f24f3fa10444690a541e18f647ac1d 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -9777,7 +9777,7 @@ var RepositoryManager = class {
+         checkedDirs.add(dir);
+         try {
+           const gitStats = await stat(join2(dir, ".git"));
+-          return gitStats.isDirectory();
++          return gitStats.isDirectory() || gitStats.isFile();
+         } catch {
+           return false;
+         }

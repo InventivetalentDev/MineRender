@@ -36,9 +36,13 @@ The private Yarn workspace root contains the public library and its consumers. U
   | `yarn build:lib` | Build the public library only. |
   | `yarn test` | Run the library's AVA tests. |
   | `yarn typecheck` | Typecheck the library and Vite example. |
+  | `yarn doc` | Generate the shared, browser, and Node API reference and build VitePress into `packages/minerender/docs/`. |
+  | `yarn doc:dev`, `yarn doc:preview` | Generate the API and start docs development, or serve the built docs. |
   | `yarn dev:web`, `yarn dev:vite`, `yarn dev:script-tag`, `yarn dev:site` | Start the corresponding local consumer. |
   | `yarn build:site` | Build the library and the V2 website into `apps/site/dist/`. |
 
+- The TypeDoc Yarn patch recognizes `.git` files so generated source links work in Git worktrees.
+- Author docs in `packages/minerender/reference/`; `reference/api/` is generated and ignored. `scripts/typedoc-navigation.mjs` groups symbols by declaration path and omits inherited three.js members while preserving MineRender inheritance. The docs complement the V2 website's examples with API and behavior details.
 - **tsup builds the library** (`tsup.config.ts` exports three passes; Rollup only appears through the declaration build). The web demos use esbuild, and the Vue example uses Vite.
 
   | Pass | Entry | Output | Notes |
