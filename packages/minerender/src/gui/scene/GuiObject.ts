@@ -1,4 +1,4 @@
-import { Box2, Box3, BufferGeometry, Matrix4, Mesh, MeshBasicMaterial, ShaderMaterial, Vector2 } from "three";
+import { Box2, Box3, BufferGeometry, DoubleSide, Group, Matrix4, Mesh, MeshBasicMaterial, ShaderMaterial, Vector2 } from "three";
 import { AssetKey } from "../../assets/AssetKey";
 import { ModelTextures } from "../../assets/ModelTextures";
 import { Models } from "../../assets/Models";
@@ -12,6 +12,8 @@ import { DisplayPosition } from "../../model/DisplayPosition";
 import { GuiLight } from "../../model/GuiLight";
 import type { ItemModel } from "../../model/Model";
 import { createGuiTextureGeometry } from "../GuiTextureGeometry";
+import { createGuiTextGeometry, layoutGuiText } from "../GuiText";
+import type { CompatCanvas } from "../../canvas/CanvasCompat";
 
 export class GuiObject extends SceneObject {
 
@@ -20,6 +22,7 @@ export class GuiObject extends SceneObject {
     public readonly bounds = new Box2();
     private readonly geometries = new Set<BufferGeometry>();
     private readonly ownedMaterials = new Set<MeshBasicMaterial>();
+    private readonly textMaterials = new Map<CompatCanvas | undefined, MeshBasicMaterial>();
     private initialized = false;
 
     constructor(readonly textureLayers: readonly GuiLayer[], options?: Partial<GuiObjectOptions>) {
@@ -32,6 +35,44 @@ export class GuiObject extends SceneObject {
             let depth = 0;
             for (const [index, layer] of this.textureLayers.entries()) {
                 const [x, y] = layer.position ?? [0, 0];
+                if ("text" in layer) {
+                    const layout = await layoutGuiText(layer.text, layer);
+                    const group = new Group();
+                    group.name = `group:${layer.name ?? index}`;
+                    group.position.set(x, -y, depth);
+                    const [width, height] = layer.size ?? [layout.width, layout.height];
+                    group.scale.set(layout.width ? width / layout.width : 1, height / layout.height, 1);
+                    this.add(group);
+                    const parts = createGuiTextGeometry(layout, layer.shadow);
+                    const bounds = new Box3();
+                    for (const [partIndex, { image, geometry }] of parts.entries()) {
+                        this.geometries.add(geometry);
+                        geometry.computeBoundingBox();
+                        bounds.union(geometry.boundingBox!);
+                        let material = this.textMaterials.get(image);
+                        if (!material) {
+                            material = image ? Materials.createGuiCanvasMaterial(image as HTMLCanvasElement)
+                                : new MeshBasicMaterial({ transparent: true, depthWrite: false, side: DoubleSide, toneMapped: false });
+                            material.vertexColors = true;
+                            this.textMaterials.set(image, material);
+                            this.ownedMaterials.add(material);
+                        }
+                        const mesh = new Mesh(geometry, material);
+                        mesh.name = `mesh:${layer.name ?? index}:${partIndex}`;
+                        mesh.renderOrder = index + partIndex / (parts.length + 1) * 0.5;
+                        group.add(mesh);
+                    }
+                    group.updateMatrix();
+                    bounds.applyMatrix4(group.matrix);
+                    this.bounds.expandByPoint(new Vector2(x, y));
+                    this.bounds.expandByPoint(new Vector2(x + width, y + height));
+                    if (!bounds.isEmpty()) {
+                        this.bounds.expandByPoint(new Vector2(bounds.min.x, -bounds.max.y));
+                        this.bounds.expandByPoint(new Vector2(bounds.max.x, -bounds.min.y));
+                    }
+                    depth += 0.01;
+                    continue;
+                }
                 if ("item" in layer) {
                     const [width, height] = layer.size ?? [16, 16];
                     const item = await this.createItem(layer, index);
@@ -128,10 +169,11 @@ export class GuiObject extends SceneObject {
         for (const geometry of this.geometries) geometry.dispose();
         this.geometries.clear();
         for (const material of this.ownedMaterials) {
-            material.map!.dispose();
+            material.map?.dispose();
             material.dispose();
         }
         this.ownedMaterials.clear();
+        this.textMaterials.clear();
         this.bounds.makeEmpty();
         this.initialized = false;
         super.disposeAndRemoveAllChildren();

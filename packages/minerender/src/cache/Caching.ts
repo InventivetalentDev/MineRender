@@ -17,6 +17,7 @@ import type { BlockEntityIndex } from "../assets/BlockEntities";
 import type { ListAsset } from "../ListAsset";
 import { BlockState } from "../model/block/BlockState";
 import type { AssetKey } from "../assets/AssetKey";
+import type { BitmapFont } from "../assets/Fonts";
 
 export class Caching {
 
@@ -110,6 +111,7 @@ export class Caching {
 
     static readonly entityAnimationCache: AsyncLoadingCache<CacheKey, EntityAnimationFile> = Caching.createAssetCache<EntityAnimationFile>();
     static readonly blockEntityIndexCache: AsyncLoadingCache<CacheKey, BlockEntityIndex> = Caching.createAssetCache<BlockEntityIndex>();
+    static readonly fontCache: AsyncLoadingCache<CacheKey, BitmapFont> = Caching.createAssetCache<BitmapFont>();
 
     private static createAssetCache<T>(): AsyncLoadingCache<CacheKey, T> {
         return Caches.builder()
@@ -143,7 +145,8 @@ export class Caching {
             this.entityModelCache,
             this.entityTextureCache,
             this.entityAnimationCache,
-            this.blockEntityIndexCache
+            this.blockEntityIndexCache,
+            this.fontCache
         ];
     }
 
@@ -173,4 +176,3 @@ export class Caching {
     }
 
 }
-

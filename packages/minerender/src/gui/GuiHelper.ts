@@ -1,7 +1,30 @@
 import { AssetKey, isAssetKey } from "../assets/AssetKey";
 import type { GuiLayer } from "./GuiLayer";
+import { layoutGuiText, type GuiText, type GuiTextOptions } from "./GuiText";
 
 export class GuiHelper {
+
+    /** Sizes a tooltip around supplied text; the first entry is its title. */
+    public static async tooltip(lines: readonly GuiText[], options: GuiTooltipOptions = {}): Promise<GuiLayer[]> {
+        if (!lines.length) return [];
+        const { position = [0, 0], titleGap = 2, lineHeight = 10, shadow = true, ...style } = options;
+        const textOptions = { ...style, lineHeight, shadow };
+        const layouts = await Promise.all(lines.map(line => layoutGuiText(line, textOptions)));
+        const width = Math.max(...layouts.map(layout => layout.width));
+        const height = layouts.reduce((sum, layout) => sum + layout.height, 0) - 2 + (lines.length > 1 ? titleGap : 0);
+        const layers: GuiLayer[] = ["background", "frame"].map(part => ({
+            name: `tooltip-${part}`,
+            texture: `minecraft:gui/sprites/tooltip/${part}`,
+            position: [position[0] - 12, position[1] - 12],
+            size: [width + 24, height + 24]
+        }));
+        let y = position[1];
+        lines.forEach((text, index) => {
+            layers.push({ ...textOptions, name: `tooltip-line-${index}`, text, position: [position[0], y] });
+            y += layouts[index].height + (index === 0 ? titleGap : 0);
+        });
+        return layers;
+    }
 
     public static inventorySlot(slot: number | [number, number], origin: [number, number] = [0, 0], offset: [number, number] = [18, 18], rowSize: number = 9): [number, number] {
         const [column, row] = typeof slot === "number" ? [slot % rowSize, Math.floor(slot / rowSize)] : slot;
@@ -66,6 +89,13 @@ export class GuiHelper {
         return layers;
     }
 
+}
+
+export interface GuiTooltipOptions extends GuiTextOptions {
+    /** Top-left text position, inside the tooltip's padding. */
+    position?: [number, number];
+    /** Extra space after the title, in pixels. Defaults to 2. */
+    titleGap?: number;
 }
 
 type GuiRecipeIngredientValue = string | { item: string } | { tag: string };
