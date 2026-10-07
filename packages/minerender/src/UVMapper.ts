@@ -373,7 +373,7 @@ export class UVMapper {
             const image = new CanvasImage(size, size);
             const missing = Textures.getMissing().image;
             const missingPixels = image.context.createImageData(missing.width, missing.height);
-            missingPixels.data.set(missing.data);
+            missingPixels.data.set(missing.data!);
             image.putData(missingPixels, 0, 0);
             // The top-left atlas cell keeps absent model faces transparent.
             image.context.clearRect(0, 0, maxWidth, maxWidth);

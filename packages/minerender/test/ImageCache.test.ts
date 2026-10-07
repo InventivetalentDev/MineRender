@@ -1,4 +1,4 @@
-import test from "ava";
+import test, { ExecutionContext } from "ava";
 import { MeshBasicMaterial, NearestFilter, SRGBColorSpace } from "three";
 import { AssetKey } from "../src/assets/AssetKey";
 import { AssetLoader } from "../src/assets/AssetLoader";
@@ -6,11 +6,90 @@ import { ModelTextures } from "../src/assets/ModelTextures";
 import { Caching } from "../src/cache/Caching";
 import { serializeImageKey } from "../src/cache/CacheKey";
 import { EntityObject } from "../src/entity/scene/EntityObject";
-import { Env } from "../src/Env";
+import { Env, EnvProvider } from "../src/Env";
+import { probeImageSize } from "../src/env/browser/probeImageSize";
 import { ExtractableImageData } from "../src/ExtractableImageData";
 import { ImageInfo, ImageLoader } from "../src/image/ImageLoader";
 import { Materials } from "../src/Materials";
+import { Requests } from "../src/request/Requests";
 import { Textures } from "../src/texture/Textures";
+
+const inlinePng = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAQAAABeK7cBAAAADUlEQVR4nGNwY+iRAgACTwDtynKYqgAAAABJRU5ErkJggg==", "base64");
+
+function inlineImageFixture(t: ExecutionContext) {
+    const originals = { provider: Env["_provider"], request: Requests.genericRequest, decode: ImageLoader.infoToCanvasData };
+    const requests: string[] = [];
+    Caching.clear();
+    Env.register({ name: "test", imageSize: probeImageSize } as EnvProvider);
+    Requests.genericRequest = async request => {
+        requests.push(request.url);
+        throw new Error("Embedded images must not make requests");
+    };
+    t.teardown(() => {
+        Env["_provider"] = originals.provider;
+        Requests.genericRequest = originals.request;
+        ImageLoader.infoToCanvasData = originals.decode;
+        Caching.clear();
+    });
+    return requests;
+}
+
+test.serial("embedded image bytes decode without requests and retain the image info cache", async t => {
+    const requests = inlineImageFixture(t);
+    for (const src of [
+        `data:image/png;base64,${inlinePng.toString("base64")}`,
+        `DATA:image/png; BASE64,${encodeURIComponent(inlinePng.toString("base64").replace(/=+$/, ""))}%20#preview`,
+        `data:image/png,${Array.from(inlinePng, byte => `%${byte.toString(16).padStart(2, "0")}`).join("")}`
+    ]) {
+        const info = await ImageLoader.getInfo(src);
+        t.deepEqual([info.width, info.height, info.type], [2, 1, "png"]);
+        t.is(info.src, src);
+        t.deepEqual(info.data, inlinePng);
+        t.is(await ImageLoader.getInfo(src), info);
+    }
+    t.deepEqual(requests, []);
+});
+
+test.serial("invalid embedded images reject without caching while remote images still use requests", async t => {
+    const requests = inlineImageFixture(t);
+    for (const src of ["data:image/png;base64", "data:image/png;base64,not!base64", "data:image/png;base64,YWJj"]) {
+        await t.throwsAsync(ImageLoader.getInfo(src));
+        t.is(Caching.rawImageCache.getIfPresent(serializeImageKey({ src })), undefined);
+    }
+    t.deepEqual(requests, []);
+
+    Requests.genericRequest = (async request => {
+        requests.push(request.url);
+        t.is(request.responseType, "arraybuffer");
+        return { data: Uint8Array.from(inlinePng).buffer, url: request.url };
+    }) as typeof Requests.genericRequest;
+    const src = "https://example.invalid/image.png";
+    t.deepEqual((await ImageLoader.getInfo(src)).data, inlinePng);
+    t.deepEqual(requests, [src]);
+});
+
+test.serial("an embedded image decode failure evicts its bytes and can be retried", async t => {
+    const requests = inlineImageFixture(t);
+    const src = `data:image/png;base64,${inlinePng.toString("base64")}`;
+    const key = serializeImageKey({ src });
+    const error = new Error("Image decode failed");
+    const decoded = { width: 2, height: 1, data: {} as CanvasRenderingContext2D };
+    let decodes = 0;
+    ImageLoader.infoToCanvasData = async info => {
+        t.deepEqual(info.data, inlinePng);
+        if (++decodes === 1) {
+            throw error;
+        }
+        return decoded;
+    };
+    await t.throwsAsync(ImageLoader.getCanvasData(src), { is: error });
+    t.is(Caching.rawImageCache.getIfPresent(key), undefined);
+    t.is(Caching.canvasImageDataCache.getIfPresent(key), undefined);
+    t.is(await ImageLoader.getCanvasData(src), decoded);
+    t.is(await ImageLoader.getCanvasData(src), decoded);
+    t.is(decodes, 2);
+    t.deepEqual(requests, []);
+});
 
 test.serial("the missing texture is shared pixel data without image loading or an environment provider", t => {
     const originals = { provider: Env["_provider"], data: ImageLoader.getData };
