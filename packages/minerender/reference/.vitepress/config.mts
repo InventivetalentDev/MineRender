@@ -7,6 +7,7 @@ export default defineConfig({
     description: "API reference for Minecraft skins, models, entities, GUIs, and worlds.",
     base: process.env.DOCS_BASE || "/",
     outDir: "../docs",
+    cleanUrls: true,
     themeConfig: {
         nav: [
             { text: "API reference", link: "/" },

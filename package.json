@@ -22,6 +22,8 @@
     "doc": "yarn workspace minerender doc",
     "doc:dev": "yarn workspace minerender doc:dev",
     "doc:preview": "yarn workspace minerender doc:preview",
+    "deploy:docs": "yarn workspace minerender doc:deploy",
+    "deploy:docs:preview": "yarn workspace minerender doc:deploy:preview",
     "clean": "yarn workspace minerender clean",
     "dev:web": "yarn build:lib && yarn workspace @minerender/web dev",
     "dev:vite": "yarn build:lib && yarn workspace @minerender/example-vite dev",

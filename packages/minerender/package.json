@@ -81,6 +81,8 @@
     "doc:generate": "typedoc",
     "doc:dev": "yarn doc:generate && vitepress dev reference",
     "doc:preview": "vitepress preview reference",
+    "doc:deploy": "yarn doc && wrangler deploy -c reference/wrangler.jsonc",
+    "doc:deploy:preview": "yarn doc && wrangler versions upload -c reference/wrangler.jsonc",
     "prepublishOnly": "yarn run build",
     "publish:alpha": "yarn build && yarn version prerelease --immediate && yarn npm publish --tag alpha",
     "publish:beta": "yarn build && yarn version prerelease --immediate && yarn npm publish --tag beta"
@@ -132,6 +134,7 @@
     "typedoc": "^0.28.20",
     "typedoc-plugin-markdown": "^4.13.1",
     "typescript": "~5.6.3",
-    "vitepress": "^1.6.4"
+    "vitepress": "^1.6.4",
+    "wrangler": "^4.147.0"
   }
 }

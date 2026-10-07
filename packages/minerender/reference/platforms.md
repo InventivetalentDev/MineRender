@@ -28,8 +28,8 @@ The supported environments have these requirements:
 
 | Environment | Requirements |
 | --- | --- |
-| Browser | Fetch, `AbortSignal.any()`, and `AbortSignal.timeout()`. Interactive rendering also requires a DOM and WebGL. |
-| Node.js | Node.js 22 or later, plus a working native `canvas` installation. The Node entry imports `canvas`, even when the API you plan to call does not render an image. |
+| Browser | Fetch, `AbortSignal.any()`, and `AbortSignal.timeout()`. Interactive rendering also requires a DOM and WebGL 2. |
+| Node.js | Node.js 22.12 or later, plus a working native `canvas` installation. The Node entry imports `canvas`, even when the API you plan to call does not render an image. |
 
 `canvas` is an optional package dependency so browser-only installs can omit its native build. It is required when importing the Node entry.
 

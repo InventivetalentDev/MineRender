@@ -38,6 +38,7 @@ The private Yarn workspace root contains the public library and its consumers. U
   | `yarn typecheck` | Typecheck the library and Vite example. |
   | `yarn doc` | Generate the shared, browser, and Node API reference and build VitePress into `packages/minerender/docs/`. |
   | `yarn doc:dev`, `yarn doc:preview` | Generate the API and start docs development, or serve the built docs. |
+  | `yarn deploy:docs`, `yarn deploy:docs:preview` | Build the docs and deploy the `minerender-docs` Cloudflare Worker (`reference/wrangler.jsonc`), or upload a non-promoted preview version. |
   | `yarn dev:web`, `yarn dev:vite`, `yarn dev:script-tag`, `yarn dev:site` | Start the corresponding local consumer. |
   | `yarn build:site` | Build the library and the V2 website into `apps/site/dist/`. |
 
