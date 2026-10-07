@@ -54,7 +54,10 @@ test.serial("section faces retain baked rotation, tint and atlas UVs without cha
     geometry.addEventListener("dispose", () => { disposed.geometry++; });
     material.addEventListener("dispose", () => { disposed.material++; });
     texture.addEventListener("dispose", () => { disposed.texture++; });
+    let sectionDisposals = 0;
+    section.addEventListener("dispose", () => { sectionDisposals++; });
     section.dispose();
+    t.is(sectionDisposals, 1);
     section.dispose();
     t.deepEqual(disposed, { geometry: 1, material: 1, texture: 1 });
     t.is(sourceDisposals, 0);

@@ -183,6 +183,8 @@ test("capacity growth preserves the mesh and live data while disposing only owne
     const transform = [mesh.position.toArray(), mesh.rotation.toArray(), mesh.scale.toArray()];
     const disposedBuffers: unknown[] = [];
     let sharedDisposals = 0;
+    let ownerDisposals = 0;
+    owner.addEventListener("dispose", () => ownerDisposals++);
     mesh.addEventListener("dispose", () => disposedBuffers.push([mesh.instanceMatrix, mesh.instanceColor]));
     mesh.geometry.addEventListener("dispose", () => sharedDisposals++);
     (mesh.material as MeshBasicMaterial).addEventListener("dispose", () => sharedDisposals++);
@@ -204,6 +206,7 @@ test("capacity growth preserves the mesh and live data while disposing only owne
     t.deepEqual(colors, [[1, 0, 0], [0, 1, 0], [1, 1, 1]]);
     t.is(sharedDisposals, 0);
     owner.dispose();
+    t.is(ownerDisposals, 1);
     t.is(disposedBuffers.length, 2);
     t.is(sharedDisposals, 0);
     t.deepEqual([owner.instanceCounter, owner.scene.stats.instanceCount, mesh.count], [0, 0, 0]);

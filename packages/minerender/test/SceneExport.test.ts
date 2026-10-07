@@ -87,13 +87,17 @@ test("PLY retains instance and vertex colors, supports binary output in Node, an
     mesh.setColorAt(0, new Color(0.25, 1, 0.5));
     const output = SceneExporter.toPLY(mesh) as string;
     const vertex = output.split("end_header\n")[1].split("\n")[0];
-    const expected = new Color(0.25, 0.5, 0.5).convertLinearToSRGB().toArray().map(value => Math.floor(value * 255));
+    const expected = new Color(0.25, 0.5, 0.5).convertLinearToSRGB().toArray();
     t.true(output.includes("element vertex 3\n"));
     t.true(output.includes("element face 1\n"));
+    t.true(output.includes("property float red\nproperty float green\nproperty float blue\n"));
     t.deepEqual(vertex.split(" ").slice(-3).map(Number), expected);
     const binary = SceneExporter.toPLY(mesh, { binary: true, littleEndian: true }) as ArrayBuffer;
     t.true(binary instanceof ArrayBuffer);
     t.true(new TextDecoder().decode(binary.slice(0, 80)).includes("format binary_little_endian 1.0"));
+    const headerEnd = new TextDecoder().decode(binary).indexOf("end_header\n") + "end_header\n".length;
+    const binaryColors = expected.map((_, i) => new DataView(binary).getFloat32(headerEnd + (8 + i) * 4, true));
+    t.deepEqual(binaryColors, Array.from(new Float32Array(expected)));
     t.deepEqual(Array.from(geometry.getAttribute("color").array), [1, 0.5, 1, 1, 0.5, 1, 1, 0.5, 1]);
     t.deepEqual(Array.from(mesh.instanceColor!.array), [0.25, 1, 0.5]);
     geometry.setDrawRange(3, 3);
@@ -126,7 +130,7 @@ test("geometry exports accept atlas shaders without DOM, and glTF reports its br
     let disposed = false;
     texture.addEventListener("dispose", () => { disposed = true; });
     t.true(SceneExporter.toObj(mesh).includes("f 1/1/1 2/2/2 3/3/3"));
-    const green = Math.floor(new Color(0, 1, 0).convertLinearToSRGB().g * 255);
+    const green = new Color(0, 1, 0).convertLinearToSRGB().g;
     t.true((SceneExporter.toPLY(mesh) as string).includes(`0 ${green} 0`));
     await t.throwsAsync(SceneExporter.toGLTF(mesh), { message: /requires a browser/ });
     t.is(material.uniforms.map.value, texture);

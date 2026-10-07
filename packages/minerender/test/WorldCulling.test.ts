@@ -138,6 +138,22 @@ test.serial("instance pools separate cull masks while matching masks retain shar
     t.is(scene.stats.instanceCount, 4);
 });
 
+test.serial("cull-mask replacements preserve manually managed model matrices", async t => {
+    const { scene, states } = fixture(t);
+    const block = await scene.addBlock(states.get("test:cube")!, { instanceMeshes: false }) as BlockObject;
+    const position = new Vector3(32, 16, -48);
+    block.setPosition(position);
+    const original = modelOf(block);
+    original.updateMatrix();
+    original.matrixAutoUpdate = false;
+    await block.setCullMask(1);
+    const replacement = modelOf(block);
+    t.not(replacement, original);
+    t.false(replacement.matrixAutoUpdate);
+    t.deepEqual(replacement.getWorldPosition(new Vector3()), position);
+    t.is(indexCount(block), 30);
+});
+
 test.serial("a surrounded cube has no fallback geometry and regains only the newly exposed face", async t => {
     const { world, scene, place } = fixture(t);
     const center = (await place([0, 0, 0]))!;

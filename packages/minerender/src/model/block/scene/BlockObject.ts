@@ -213,6 +213,7 @@ export class BlockObject extends SceneObject {
                     replacement.setMatrix(matrix);
                 } else {
                     replacement.matrix.copy(matrix);
+                    replacement.matrixWorldNeedsUpdate = true;
                     matrix.decompose(replacement.position, replacement.quaternion, replacement.scale);
                     replacement.matrixAutoUpdate = object.matrixAutoUpdate;
                     replacement.visible = object.visible;

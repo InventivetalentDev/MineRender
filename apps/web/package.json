@@ -16,7 +16,7 @@
   "homepage": "https://minerender.org",
   "dependencies": {
     "minerender": "workspace:*",
-    "three": "^0.158.0"
+    "three": "^0.186.1"
   },
   "devDependencies": {
     "esbuild": "^0.19.5",

@@ -213,6 +213,7 @@ export class EntityObject extends SceneObject {
                 modelRoot.matrix.multiply(matrix);
             }
             // The composed matrix may not decompose into position, rotation and scale.
+            modelRoot.matrixWorldNeedsUpdate = true;
             modelRoot.matrixAutoUpdate = false;
         } else if (this.options.flip ?? true) {
             modelRoot.scale.set(-1, -1, 1);

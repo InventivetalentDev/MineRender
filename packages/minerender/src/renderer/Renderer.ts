@@ -1,4 +1,4 @@
-import { AxesHelper, Camera, EventDispatcher, GridHelper, OrthographicCamera, PCFSoftShadowMap, PerspectiveCamera, SRGBColorSpace, Vector3, WebGLRenderer } from "three";
+import { AxesHelper, Camera, EventDispatcher, GridHelper, OrthographicCamera, PCFShadowMap, PerspectiveCamera, SRGBColorSpace, Vector3, WebGLRenderer } from "three";
 import {MineRenderScene} from "./MineRenderScene";
 import merge from "ts-deepmerge";
 import Stats from "stats.js";
@@ -154,7 +154,7 @@ export class Renderer implements Disposable {
         renderer.setClearColor(0x000000, 0);
 
         renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = PCFSoftShadowMap;
+        renderer.shadowMap.type = PCFShadowMap;
 
         renderer.outputColorSpace = SRGBColorSpace;
 
