@@ -6,7 +6,10 @@ Interactive pages for trying out and manually testing the library. The public we
 yarn dev:web                       # http://127.0.0.1:3000/
 yarn dev:web --host 0.0.0.0 --port 4000
 yarn workspace @minerender/web typecheck
+yarn workspace @minerender/web check       # loads every page and preset in headless Chrome
 ```
+
+`check` starts the dev server on its own, reports the status line and console errors per page, and saves screenshots to `.screenshots/`. It uses the installed Google Chrome; set `CHROME_PATH` for another binary.
 
 ## Pages
 
