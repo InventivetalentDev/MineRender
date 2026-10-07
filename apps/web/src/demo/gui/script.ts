@@ -21,6 +21,11 @@ window["renderer"] = renderer;
 let gui: GuiObject | undefined;
 const status = document.getElementById("gui-status")!;
 const exampleInput = document.getElementById("gui-example") as HTMLSelectElement;
+const spriteForm = document.getElementById("gui-sprite-options") as HTMLFormElement;
+const spriteControls = document.getElementById("gui-sprite-controls") as HTMLFieldSetElement;
+const spriteInput = document.getElementById("gui-sprite") as HTMLSelectElement;
+const widthInput = document.getElementById("gui-width") as HTMLInputElement;
+const heightInput = document.getElementById("gui-height") as HTMLInputElement;
 const items = [
     { name: "apple", slot: 0 },
     { name: "diamond", slot: 1 },
@@ -78,9 +83,17 @@ window.addEventListener("resize", fitGui);
 
 async function setExample(example: string) {
     exampleInput.disabled = true;
+    spriteControls.disabled = true;
+    spriteForm.hidden = example !== "scaling";
     status.textContent = "Loading GUI layers…";
     try {
-        const layers = example === "shaped"
+        const layers: GuiLayer[] = example === "scaling"
+            ? [{
+                name: "sprite",
+                texture: `minecraft:gui/sprites/${spriteInput.value}`,
+                size: [widthInput.valueAsNumber, heightInput.valueAsNumber]
+            }]
+            : example === "shaped"
             ? GuiHelper.recipe(shapedRecipe, {
                 resolveIngredient: () => "minecraft:diamond"
             })
@@ -99,10 +112,15 @@ async function setExample(example: string) {
         throw error;
     } finally {
         exampleInput.disabled = false;
+        spriteControls.disabled = false;
     }
 }
 
 exampleInput.addEventListener("change", () => {
     setExample(exampleInput.value).catch(console.error);
+});
+spriteForm.addEventListener("submit", event => {
+    event.preventDefault();
+    setExample("scaling").catch(console.error);
 });
 setExample(exampleInput.value).catch(console.error);

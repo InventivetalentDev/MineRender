@@ -10,6 +10,8 @@ import type { TextureAsset } from "../src/model/Model";
 
 function fixture(t: ExecutionContext) {
     const get = ModelTextures.get;
+    const getMeta = ModelTextures.getMeta;
+    ModelTextures.getMeta = async () => undefined;
     const scene = new MineRenderScene();
     const requests: AssetKey[] = [];
     const canvas = { width: 64, height: 32 };
@@ -22,6 +24,7 @@ function fixture(t: ExecutionContext) {
     Caching.clear();
     t.teardown(() => {
         ModelTextures.get = get;
+        ModelTextures.getMeta = getMeta;
         for (const object of [...scene.children]) {
             if ("dispose" in object) (object as { dispose(): void }).dispose();
             object.removeFromParent();
@@ -56,6 +59,30 @@ test.serial("GUI crops and pixel layout preserve shared textures and caller inpu
     t.deepEqual(Array.from(background.geometry.getAttribute("uv").array), uv);
     t.is(JSON.stringify(layers), original);
     t.true(requests.every(key => key.serialize() === texture.serialize()));
+});
+
+test.serial("GUI sprite metadata sets logical size and scaling while explicit crops bypass it", async t => {
+    const { scene } = fixture(t);
+    const texture = new AssetKey("test", "sprites/panel", "textures", "gui", "assets", ".png", "test-root");
+    const metadataRequests: AssetKey[] = [];
+    ModelTextures.getMeta = async key => {
+        metadataRequests.push(key);
+        return { gui: { scaling: { type: "tile", width: 8, height: 4 } } };
+    };
+    const gui = await scene.addGui([
+        { name: "native", texture },
+        { name: "tiled", texture, size: [19, 9] },
+        { name: "cropped", texture, crop: [8, 4, 16, 8], size: [32, 16] }
+    ]);
+    const native = gui.getMeshByName("native")!, tiled = gui.getMeshByName("tiled")!, cropped = gui.getMeshByName("cropped")!;
+    const bounds = new Box3().setFromObject(native);
+    t.deepEqual([bounds.min.x, bounds.min.y, bounds.max.x, bounds.max.y], [0, -4, 8, 0]);
+    t.is(tiled.geometry.getAttribute("position").count, 36);
+    t.deepEqual(Array.from(cropped.geometry.getAttribute("uv").array),
+        [0.125, 0.875, 0.375, 0.875, 0.125, 0.625, 0.375, 0.625]);
+    t.deepEqual(metadataRequests, [texture, texture]);
+    t.is(native.material, tiled.material);
+    t.is(tiled.material, cropped.material);
 });
 
 test.serial("GUI layers keep painter order and dispose geometry without releasing cached materials", async t => {

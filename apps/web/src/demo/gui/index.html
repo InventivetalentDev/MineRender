@@ -17,7 +17,29 @@
                 <option value="chest">Chest</option>
                 <option value="shaped">Shaped recipe</option>
                 <option value="shapeless">Shapeless recipe</option>
+                <option value="scaling">Sprite scaling</option>
             </select>
+            <form id="gui-sprite-options" hidden>
+                <fieldset id="gui-sprite-controls" disabled>
+                    <legend>Sprite size</legend>
+                    <div>
+                        <label for="gui-sprite">Sprite</label>
+                        <select id="gui-sprite">
+                            <option value="widget/button">Button</option>
+                            <option value="tooltip/frame">Tooltip frame</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="gui-width">Width (pixels)</label>
+                        <input id="gui-width" type="number" min="1" max="1024" step="1" value="240" required>
+                    </div>
+                    <div>
+                        <label for="gui-height">Height (pixels)</label>
+                        <input id="gui-height" type="number" min="1" max="1024" step="1" value="40" required>
+                    </div>
+                    <button type="submit">Update sprite</button>
+                </fieldset>
+            </form>
             <div id="gui-status" role="status">Loading GUI layers…</div>
         </div>
 
