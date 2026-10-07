@@ -16,7 +16,8 @@ interface EntityState {
     flip: "dataset" | "flip" | "raw";
     wireframe: boolean;
     hiddenParts: string[];
-    animation: string;
+    /** Clip names playing together, at most one per geometry layer. */
+    animations: string[];
     playing: boolean;
     time: number;
     speed: number;
@@ -25,7 +26,7 @@ interface EntityState {
 
 const defaults: EntityState = {
     entity: "bat", selection: "auto", layers: ["main"], when: [], tints: {}, textures: {}, flip: "dataset",
-    wireframe: false, hiddenParts: [], animation: "", playing: false, time: 0, speed: 1, loop: true
+    wireframe: false, hiddenParts: [], animations: [], playing: false, time: 0, speed: 1, loop: true
 };
 let activeEntity: EntityObject | undefined;
 let activeCurrent: (() => boolean) | undefined;
@@ -38,7 +39,7 @@ const app = new Playground<EntityState>({
     defaults,
     renderer: { camera: { near: 1, far: 2000, position: [50, 35, 50] } },
     presets: {
-        bat: { label: "Bat (flying animation)", state: { animation: "flying", playing: true } },
+        bat: { label: "Bat (flying animation)", state: { animations: ["flying"], playing: true } },
         charged: { label: "Charged creeper", state: { entity: "creeper", when: ["powered"] } },
         sheep: { label: "Orange sheep", state: { entity: "sheep", when: ["not_sheared", "dyed"], tints: { wool_color: "#f9801d" } } },
         breeze: { label: "Breeze (wind layer)", state: { entity: "breeze" } }
@@ -84,6 +85,7 @@ const app = new Playground<EntityState>({
         }));
         for (const part of parts) part.object.visible = !state.hiddenParts.includes(part.key);
         ctx.renderer.scene.add(object);
+        const drawnLayers = Object.keys(model.layers ?? { main: model }).map(name => name.split("#")[0]);
         const sync = () => {
             activeEntity = object;
             activeCurrent = ctx.isCurrent;
@@ -106,8 +108,7 @@ const app = new Playground<EntityState>({
         return {
             object,
             activate() {
-                controller = createPlayback(object, animations ?? {}, ctx.renderer, ctx.isCurrent);
-                app.record({ animation: Object.prototype.hasOwnProperty.call(animations ?? {}, state.animation) ? state.animation : "" });
+                controller = createPlayback(object, animations ?? {}, drawnLayers, ctx.renderer, ctx.isCurrent);
                 sync();
                 controller.apply(state.playing);
             },
@@ -127,9 +128,9 @@ const app = new Playground<EntityState>({
         code += `const model = await MineRender.Entities.getEntity(key, undefined, { ${entries.join(", ")} });\n`;
         code += `const entity = await renderer.scene.addEntity(model${Object.keys(options).length ? `, ${JSON.stringify(options)}` : ""});\n`;
         for (const part of state.hiddenParts) code += `entity.getGroupByName(${JSON.stringify(part.split("/").pop())}).visible = false;\n`;
-        if (state.animation) {
+        if (state.animations.length) {
             code += `const animations = await MineRender.Entities.getAnimations(key);\n`;
-            code += `entity.playAnimation(animations[${JSON.stringify(state.animation)}], ${JSON.stringify({ loop: state.loop, speed: state.speed, time: state.time })});\n`;
+            code += `entity.playAnimations([${state.animations.map(name => `animations[${JSON.stringify(name)}]`).join(", ")}], ${JSON.stringify({ loop: state.loop, speed: state.speed, time: state.time })});\n`;
             if (state.playing) code += `renderer.onFrame(({ delta }) => entity.advanceAnimation(delta));\n`;
         }
         return code;
@@ -153,9 +154,9 @@ app.controls.innerHTML = `
         <div id="entity-textures"></div>
     </details>
     <fieldset><legend>Animation</legend>
-        <select id="entity-animation" aria-label="Animation"><option value="">None</option></select>
+        <select id="entity-animation" multiple size="5" aria-label="Animations"></select>
         <p id="entity-animation-help" class="control-note"></p>
-        <div class="row"><button id="entity-play" type="button">Play</button><button id="entity-pause" type="button">Pause</button><button id="entity-stop" type="button">Stop</button></div>
+        <div class="row"><button id="entity-play" type="button">Play</button><button id="entity-pause" type="button">Pause</button><button id="entity-replay" type="button">Replay</button><button id="entity-stop" type="button">Stop</button></div>
         <label for="entity-time">Time</label><input id="entity-time" type="range" min="0" max="1" step="0.01" value="0"><output id="entity-time-value">0.00 s</output>
         <label for="entity-speed">Speed</label><input id="entity-speed" type="number" min="0.05" max="5" step="0.05" value="1">
         <label><input id="entity-loop" type="checkbox" checked> Loop</label>
@@ -176,10 +177,11 @@ function record(patch: Partial<EntityState>): boolean {
 function validateState(state: EntityState) {
     const dictionary = (value: unknown) => value !== null && typeof value === "object" && !Array.isArray(value)
         && Object.values(value).every(entry => typeof entry === "string");
+    const strings = (values: unknown) => Array.isArray(values) && values.every(value => typeof value === "string");
     if (typeof state.entity !== "string" || !state.entity.trim() || !["auto", "manual"].includes(state.selection)
         || !["dataset", "flip", "raw"].includes(state.flip) || ![state.wireframe, state.playing, state.loop].every(value => typeof value === "boolean")
-        || ![state.layers, state.when, state.hiddenParts].every(values => Array.isArray(values) && values.every(value => typeof value === "string"))
-        || !dictionary(state.textures) || !dictionary(state.tints) || typeof state.animation !== "string"
+        || ![state.layers, state.when, state.hiddenParts, state.animations].every(strings)
+        || !dictionary(state.textures) || !dictionary(state.tints)
         || !Number.isFinite(state.time) || state.time < 0 || !Number.isFinite(state.speed) || state.speed < 0.05 || state.speed > 5) {
         throw new Error("Invalid entity configuration.");
     }
@@ -256,20 +258,38 @@ function buildControls(state: EntityState, layers: string[], passes: EntityModel
         part.object.visible = checked;
         activeEntity?.notifyDirty();
     })));
+    const picker = select("entity-animation");
+    picker.replaceChildren(...Object.entries(animations).map(([name, animation]) => {
+        const layer = animation.layer ?? "main";
+        const option = new Option(`${name} (${layer})`, name, false, state.animations.includes(name));
+        option.disabled = !drawnLayers.includes(layer);
+        if (option.disabled) option.title = `Draw the ${layer} layer to enable this clip.`;
+        return option;
+    }));
     const names = Object.keys(animations);
-    select("entity-animation").replaceChildren(new Option("None", ""), ...names.map(name => new Option(name)));
-    select("entity-animation").value = state.animation;
-    document.getElementById("entity-animation-help")!.textContent = names.length ? "" : "No keyframe animations for this entity in the selected version.";
+    document.getElementById("entity-animation-help")!.textContent = names.length
+        ? (names.some(name => (animations[name].layer ?? "main") !== "main") ? "One clip per layer; Ctrl/Cmd+click selects several." : "")
+        : "No keyframe animations for this entity in the selected version.";
     input("entity-speed").value = String(state.speed);
     input("entity-loop").checked = state.loop;
 }
 
-function createPlayback(object: EntityObject, animations: Record<string, EntityAnimation>, renderer: Renderer, isCurrent: () => boolean) {
+function createPlayback(object: EntityObject, animations: Record<string, EntityAnimation>, drawnLayers: string[], renderer: Renderer, isCurrent: () => boolean) {
     let unsubscribe: (() => void) | undefined;
-    const selectedAnimation = () => Object.prototype.hasOwnProperty.call(animations, app.state.animation) ? animations[app.state.animation] : undefined;
+    /** The saved selection reduced to known clips on drawn layers, the last chosen clip per layer winning. */
+    const selectedClips = (): { names: string[], clips: EntityAnimation[] } => {
+        const byLayer = new Map<string, string>();
+        for (const name of app.state.animations) {
+            const clip = Object.prototype.hasOwnProperty.call(animations, name) ? animations[name] : undefined;
+            if (clip && drawnLayers.includes(clip.layer ?? "main")) byLayer.set(clip.layer ?? "main", name);
+        }
+        const names = [...byLayer.values()];
+        return { names, clips: names.map(name => animations[name]) };
+    };
+    const duration = (clips: EntityAnimation[]) => Math.max(0, ...clips.map(clip => clip.length));
     const elapsed = () => {
-        const animation = object.animation;
-        return animation && app.state.loop && animation.length > 0 ? object.animationTime % animation.length : object.animationTime;
+        const length = duration(object.activeAnimations as EntityAnimation[]);
+        return app.state.loop && length > 0 ? object.animationTime % length : Math.min(object.animationTime, length);
     };
     function pauseFrames() { unsubscribe?.(); unsubscribe = undefined; }
     function updateTime() {
@@ -277,33 +297,34 @@ function createPlayback(object: EntityObject, animations: Record<string, EntityA
         document.getElementById("entity-time-value")!.textContent = `${elapsed().toFixed(2)} s`;
     }
     function controls() {
-        const animation = selectedAnimation();
-        input("entity-time").max = String(animation?.length ?? 1);
-        input("entity-time").disabled = !animation;
-        for (const id of ["entity-play", "entity-pause", "entity-stop"]) (document.getElementById(id) as HTMLButtonElement).disabled = !animation;
+        const { names, clips } = selectedClips();
+        for (const option of select("entity-animation").options) option.selected = names.includes(option.value);
+        input("entity-time").max = String(duration(clips) || 1);
+        input("entity-time").disabled = !clips.length;
+        for (const id of ["entity-play", "entity-pause", "entity-replay", "entity-stop"]) (document.getElementById(id) as HTMLButtonElement).disabled = !clips.length;
         document.getElementById("entity-play")!.setAttribute("aria-pressed", String(app.state.playing));
     }
     function apply(playing: boolean) {
         pauseFrames();
-        const animation = selectedAnimation();
-        if (!animation) {
+        const { names, clips } = selectedClips();
+        if (!clips.length) {
             object.stopAnimation();
-            app.record({ animation: "", playing: false, time: 0 });
-            select("entity-animation").value = "";
+            app.record({ animations: [], playing: false, time: 0 });
             controls();
             updateTime();
             return;
         }
+        const length = duration(clips);
         const speed = Math.min(5, Math.max(0.05, Number(app.state.speed) || 1));
-        const time = Math.max(0, Math.min(animation.length, Number(app.state.time) || 0));
-        app.record({ playing, speed, time });
-        object.playAnimation(animation, { time, speed, loop: app.state.loop });
+        const time = Math.max(0, Math.min(length, Number(app.state.time) || 0));
+        app.record({ animations: names, playing, speed, time });
+        object.playAnimations(clips, { time, speed, loop: app.state.loop });
         if (playing) {
             unsubscribe = renderer.onFrame(({ delta }) => {
                 if (!isCurrent()) { pauseFrames(); return; }
                 object.advanceAnimation(delta);
-                if (!app.state.loop && object.animationTime >= animation.length) {
-                    object.setAnimationTime(animation.length);
+                if (!app.state.loop && object.animationTime >= length) {
+                    object.setAnimationTime(length);
                     pauseFrames();
                     app.record({ playing: false });
                     controls();
@@ -331,14 +352,20 @@ select("entity-selection").addEventListener("change", () => update({ selection: 
 select("entity-flip").addEventListener("change", () => update({ flip: select("entity-flip").value as EntityState["flip"] }));
 input("entity-wireframe").addEventListener("change", () => update({ wireframe: input("entity-wireframe").checked }));
 select("entity-animation").addEventListener("change", () => {
-    if (record({ animation: select("entity-animation").value, time: 0, playing: true })) playback?.apply(true);
+    // Newly chosen clips go last so they replace an earlier clip on the same layer.
+    const chosen = Array.from(select("entity-animation").selectedOptions, option => option.value);
+    const previous = app.state.animations.filter(name => chosen.includes(name));
+    const animations = [...previous, ...chosen.filter(name => !previous.includes(name))];
+    if (record({ animations, time: 0, playing: true })) playback?.apply(true);
 });
 document.getElementById("entity-play")!.addEventListener("click", () => {
     if (!record({ playing: true })) return;
-    if (activeEntity?.animation && app.state.time >= activeEntity.animation.length) app.record({ time: 0 });
+    const length = Math.max(0, ...(activeEntity?.activeAnimations ?? []).map(clip => clip.length));
+    if (length && app.state.time >= length) app.record({ time: 0 });
     playback?.apply(true);
 });
 document.getElementById("entity-pause")!.addEventListener("click", () => { if (record({ playing: false })) playback?.pause(); });
+document.getElementById("entity-replay")!.addEventListener("click", () => { if (record({ playing: true, time: 0 })) playback?.apply(true); });
 document.getElementById("entity-stop")!.addEventListener("click", () => { if (record({ playing: false, time: 0 })) playback?.stop(); });
 input("entity-time").addEventListener("input", () => {
     const time = Number(input("entity-time").value);
@@ -351,12 +378,13 @@ input("entity-speed").addEventListener("change", () => {
 });
 input("entity-loop").addEventListener("change", () => { if (record({ loop: input("entity-loop").checked })) playback?.apply(app.state.playing); });
 document.getElementById("entity-reset-pose")!.addEventListener("click", () => {
-    if (!record({ animation: "", playing: false, time: 0 })) return;
+    if (!record({ animations: [], playing: false, time: 0 })) return;
     resetPose();
     playback?.apply(false);
 });
 window["setEntity"] = (entity: string, layers?: string[], when: string[] = [], tints: Record<string, string> = {}) => app.update({
     ...defaults, entity, selection: layers ? "manual" : "auto", layers: layers ?? ["main"], when, tints
 });
-window["playAnimation"] = (animation = "") => { if (record({ animation, time: 0, playing: !!animation })) playback?.apply(!!animation); };
+window["playAnimations"] = (animations: string[] = []) => { if (record({ animations, time: 0, playing: animations.length > 0 })) playback?.apply(animations.length > 0); };
+window["playAnimation"] = (animation = "") => window["playAnimations"](animation ? [animation] : []);
 void app.start();

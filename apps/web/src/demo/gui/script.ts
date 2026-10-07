@@ -59,6 +59,7 @@ app.controls.innerHTML = `
     <fieldset id="chest-editor"><legend>Chest slot</legend>
         <label>Slot (0–53)<input id="slot-index" type="number" min="0" max="53" value="0"></label>
         <label>Item ID (empty clears the slot)<input id="slot-item" placeholder="minecraft:apple"></label>
+        <label>Tints JSON (empty uses the item's own)<input id="slot-tints" placeholder='{"0": 12607696}'></label>
         <button id="slot-apply" type="button">Apply</button>
     </fieldset>
     <fieldset id="recipe-editor"><legend>Recipe</legend>
@@ -111,7 +112,7 @@ function syncControls(layers: EditableLayer[]) {
     select("gui-scale").value = app.state.scale;
     document.getElementById("chest-editor")!.hidden = app.state.mode !== "chest";
     document.getElementById("recipe-editor")!.hidden = !["shaped", "shapeless"].includes(app.state.mode);
-    input("slot-item").value = app.state.slots[Number(input("slot-index").value)] ?? "";
+    syncSlot();
     recipeInputs.forEach((field, index) => field.value = app.state.ingredients[index] ?? "");
     input("recipe-result").value = app.state.result;
     select("layer-list").replaceChildren(...layers.map((layer, index) => new Option(`${index + 1}. ${layer.name || layer.item || layer.texture}`, String(index))));
@@ -119,6 +120,12 @@ function syncControls(layers: EditableLayer[]) {
     select("layer-list").value = String(selectedLayer);
     json.value = JSON.stringify(layers, null, 2);
     syncLayer();
+}
+
+function syncSlot() {
+    const slot = Number(input("slot-index").value);
+    input("slot-item").value = app.state.slots[slot] ?? "";
+    input("slot-tints").value = app.state.slotTints[slot] ? JSON.stringify(app.state.slotTints[slot]) : "";
 }
 
 function syncLayer() {
@@ -164,13 +171,16 @@ async function updateAndFit(patch: Partial<GuiState>) {
 
 select("gui-mode").addEventListener("change", () => guard(() => updateAndFit({ mode: select("gui-mode").value as GuiState["mode"], layers: displayedLayers })));
 select("gui-scale").addEventListener("change", () => guard(() => updateAndFit({ scale: select("gui-scale").value as GuiState["scale"] })));
-input("slot-index").addEventListener("input", () => input("slot-item").value = app.state.slots[Number(input("slot-index").value)] ?? "");
+input("slot-index").addEventListener("input", syncSlot);
 document.getElementById("slot-apply")!.addEventListener("click", () => guard(() => {
     const slot = Number(input("slot-index").value);
     if (!Number.isInteger(slot) || slot < 0 || slot > 53) throw new Error("Choose a slot from 0 to 53.");
     const slots = Array.from({ length: 54 }, (_, index) => app.state.slots[index] ?? "");
     slots[slot] = input("slot-item").value.trim();
-    return app.update({ slots });
+    const slotTints = { ...app.state.slotTints };
+    if (input("slot-tints").value.trim()) slotTints[slot] = JSON.parse(input("slot-tints").value);
+    else delete slotTints[slot];
+    return app.update({ slots, slotTints });
 }));
 document.getElementById("recipe-apply")!.addEventListener("click", () => guard(() => app.update({ ingredients: recipeInputs.map(field => field.value.trim()), result: input("recipe-result").value.trim() })));
 select("layer-list").addEventListener("change", () => { selectedLayer = Number(select("layer-list").value); syncLayer(); });

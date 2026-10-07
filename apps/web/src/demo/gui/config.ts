@@ -12,7 +12,10 @@ export type EditableLayer = {
 
 export interface GuiState {
     mode: "chest" | "shaped" | "shapeless" | "custom";
+    /** Item IDs by chest slot; empty strings are empty slots. */
     slots: string[];
+    /** Explicit tint overrides by chest slot; items without an entry use their automatic tints. */
+    slotTints: Record<number, Record<number, number>>;
     ingredients: string[];
     result: string;
     layers: EditableLayer[];
@@ -21,7 +24,8 @@ export interface GuiState {
 
 export const defaults: GuiState = {
     mode: "chest",
-    slots: ["apple", "diamond", "stone", "grass_block", "oak_stairs", "leather_helmet"],
+    slots: ["apple", "diamond", "stone", "grass_block", "oak_stairs", "leather_helmet", "chest", "red_bed", "creeper_head", "potion", "tipped_arrow", "filled_map", "firework_star", "leather_chestplate"],
+    slotTints: { 13: { 0: 0xc060d0 } },
     ingredients: ["diamond", "diamond", "diamond", "", "stick", "", "", "stick", ""],
     result: "diamond_pickaxe",
     layers: [],
@@ -41,11 +45,12 @@ export function layersFor(state: GuiState): EditableLayer[] {
     if (state.mode === "custom") return validateLayers(state.layers);
     if (state.mode === "chest") {
         if (!Array.isArray(state.slots) || state.slots.length > 54 || state.slots.some(item => typeof item !== "string")) throw new Error("A chest has 54 slots.");
+        if (!state.slotTints || typeof state.slotTints !== "object" || Array.isArray(state.slotTints)) throw new Error("Slot tints must be an object keyed by slot.");
         return [
             { name: "chest", texture: "minecraft:gui/container/generic_54", crop: [0, 0, 176, 222] },
-            ...state.slots.flatMap((item, slot): EditableLayer[] => item.trim() ? [{
-                name: `slot-${slot}`, item: modelId(item), position: GuiHelper.inventorySlot(slot, [8, 18])
-            }] : [])
+            ...state.slots.flatMap((item, slot): EditableLayer[] => item.trim() ? [validateLayers([{
+                name: `slot-${slot}`, item: modelId(item), position: GuiHelper.inventorySlot(slot, [8, 18]), tints: state.slotTints[slot]
+            }])[0]] : [])
         ];
     }
     if (!Array.isArray(state.ingredients) || state.ingredients.length !== 9 || state.ingredients.some(item => typeof item !== "string")) throw new Error("Recipes require nine cells; leave unused cells empty.");
@@ -57,9 +62,10 @@ export function layersFor(state: GuiState): EditableLayer[] {
             pattern: [0, 3, 6].map(offset => state.ingredients.slice(offset, offset + 3).map((item, i) => item.trim() ? String(offset + i) : " ").join("")),
             key: Object.fromEntries(state.ingredients.map((item, i) => [String(i), item.trim() ? itemId(item) : ""]))
         });
-    return layers.map(layer => "item" in layer
-        ? { ...layer, item: typeof layer.item === "string" ? layer.item : layer.item.toNamespacedString() }
-        : { ...layer, texture: typeof layer.texture === "string" ? layer.texture : layer.texture.toNamespacedString() });
+    // The layer editor handles texture and item layers; text layers (stack counts) are not editable here.
+    return layers.flatMap((layer): EditableLayer[] => "item" in layer
+        ? [{ ...layer, item: typeof layer.item === "string" ? layer.item : layer.item.toNamespacedString() }]
+        : "texture" in layer ? [{ ...layer, texture: typeof layer.texture === "string" ? layer.texture : layer.texture.toNamespacedString() }] : []);
 }
 
 function modelId(item: string): string {
