@@ -5,6 +5,10 @@ import { MineRenderError } from "../error/MineRenderError";
 import { Disposable } from "../Disposable";
 import { SceneObject } from "../renderer/SceneObject";
 
+/**
+ * Controls one placement of a shared model. Transform methods affect only this instance.
+ * After {@link removeFromScene} or {@link dispose}, accessing its transforms throws.
+ */
 export class InstanceReference<T extends Instanceable> implements Transformable, Disposable {
 
     public readonly isInstanceReference: true = true;
@@ -21,6 +25,7 @@ export class InstanceReference<T extends Instanceable> implements Transformable,
         return this.instanceable;
     }
 
+    /** Releases this placement's slot for reuse. Repeated calls have no effect. */
     removeFromScene(): void {
         if (this.instanceable.isInstanceActive(this.index, this)) this.instanceable.removeInstanceAt(this.index);
     }
@@ -37,10 +42,12 @@ export class InstanceReference<T extends Instanceable> implements Transformable,
         this.activeInstanceable.setMatrixAt(this.index, matrix);
     }
 
+    /** Hides or restores this placement while preserving its transform and allocated slot. */
     setVisible(visible: boolean): void {
         this.activeInstanceable.setInstanceVisibleAt(this.index, visible);
     }
 
+    /** Updates the supplied transform components. Positions use scene units and rotations use radians. */
     setPositionRotationScale(position?: Vector3, rotation?: Euler, scale?: Vector3): void {
         this.activeInstanceable.setPositionRotationScaleAt(this.index, position, rotation, scale);
     }

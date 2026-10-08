@@ -21,6 +21,7 @@ const DEFAULT_OPTIONS: HostedAssetSourceOptions = {
     retryDefaults: true
 }
 
+/** Loads assets over HTTP from a Minecraft directory tree rooted at the constructor's URL. */
 export class HostedAssetSource extends AssetSource {
 
     static readonly MODEL: ResponseParser<Model> = {
@@ -86,6 +87,7 @@ export class HostedAssetSource extends AssetSource {
         [AssetParser.JSON, HostedAssetSource.JSON],
     ]);
 
+    /** Retries missing assets with the `minecraft` namespace and default root. Other failures reject. */
     public async loadOrRetryWithDefaults<T extends MinecraftAsset>(key: AssetKey, parser: ResponseParser<T>): Promise<Maybe<T>> {
         const direct = await this.load<T>(key, parser);
         if (typeof direct !== "undefined") {
@@ -154,6 +156,10 @@ export class HostedAssetSource extends AssetSource {
     private readonly _root: string;
     private readonly _options: HostedAssetSourceOptions;
 
+    /**
+     * Creates a hosted source for {@link AssetLoader.addSource}.
+     * Set `options.retryDefaults` to `false` to restrict lookups to the requested namespace and root.
+     */
     public constructor(root: string, options?: Partial<HostedAssetSourceOptions>) {
         super();
         this._root = root;

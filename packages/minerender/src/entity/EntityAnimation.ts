@@ -7,6 +7,7 @@ export interface EntityAnimationFile extends MinecraftAsset {
     animations: Record<string, EntityAnimation>;
 }
 
+/** A clip of pose offsets, played with {@link EntityObject.playAnimation} or sampled directly. */
 export interface EntityAnimation {
     /** Seconds. */
     length: number;
@@ -22,6 +23,7 @@ export type EntityAnimationChannel = "position" | "rotation" | "scale";
 /** Keyframes in time order per channel. */
 export type EntityAnimationBone = Partial<Record<EntityAnimationChannel, EntityAnimationKeyframe[]>>;
 
+/** One timed offset for a part's position, rotation, or scale channel. */
 export interface EntityAnimationKeyframe {
     /** Seconds. */
     time: number;

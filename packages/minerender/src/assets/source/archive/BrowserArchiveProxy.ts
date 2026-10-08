@@ -2,12 +2,18 @@ import { ArchiveProxy } from "./ArchiveProxy";
 import { BlobReader, BlobWriter, ZipReader } from "@zip.js/zip.js";
 import { ArchiveEntry } from "./ArchiveEntry";
 
+/** Reads a resource-pack ZIP from a browser Blob or File for {@link ArchiveAssetSource}. */
 export class BrowserArchiveProxy implements ArchiveProxy {
 
     readonly _blob: Blob;
     readonly _reader: ZipReader<Blob>;
     readonly id?: string;
 
+    /**
+     * Opens a ZIP for asset lookup.
+     * @param id - Cache identity for this content. Change it when the pack changes.
+     * A File supplies an identity from its name, size, and modification time when omitted.
+     */
     constructor(blob: Blob, id?: string) {
         this._blob = blob;
         this._reader = new ZipReader(new BlobReader(this._blob));

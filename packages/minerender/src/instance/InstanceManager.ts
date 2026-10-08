@@ -5,6 +5,7 @@ import { prefix } from "../util/log";
 
 const p = prefix("InstanceManager");
 
+/** Shares initialized model objects by cache key and allocates references to their placements. */
 export class InstanceManager {
 
     public readonly isInstanceManager: true = true;
@@ -14,6 +15,7 @@ export class InstanceManager {
     constructor() {
     }
 
+    /** Allocates a new placement of a cached model, or returns `undefined` if the key is unknown. */
     public async get<T extends SceneObject>(key: string): Promise<Maybe<InstanceReference<T>>> {
         if (key in this.instanceCache) {
             console.debug(p, "key in cache", key)
@@ -23,6 +25,7 @@ export class InstanceManager {
         return undefined;
     }
 
+    /** Allocates a placement, calling the supplier once when the shared model is first needed. */
     public async getOrCreate<T extends SceneObject>(key: string, supplier: () => T | Promise<T>): Promise<InstanceReference<T>> {
         if (key in this.instanceCache) {
             return await (this.get<T>(key)) as InstanceReference<T>;
@@ -40,6 +43,7 @@ export class InstanceManager {
         }
     }
 
+    /** Forgets cached models without disposing them or releasing their existing placements. */
     public reset() {
         for (let instanceCacheKey in this.instanceCache) {
             delete this.instanceCache[instanceCacheKey];

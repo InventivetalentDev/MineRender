@@ -19,6 +19,7 @@ import { BlockEntities, ResolvedBlockEntity } from "../../../assets/BlockEntitie
 import { Entities } from "../../../assets/Entities";
 import type { EntityObject } from "../../../entity/scene/EntityObject";
 
+/** Controls the model parts selected by a blockstate. Create it through {@link MineRenderScene.addBlock}. */
 export class BlockObject extends SceneObject {
 
     public readonly isBlockObject: true = true;
@@ -233,6 +234,7 @@ export class BlockObject extends SceneObject {
         this.notifyDirty();
     }
 
+    /** Selected property values. Use {@link setState} to change properties and rebuild the rendered models. */
     public get state(): { [key: string]: string; } {
         return this._state;
     }
@@ -378,6 +380,7 @@ export class BlockObject extends SceneObject {
         return obj;
     }
 
+    /** Clears selected properties and rebuilds models without reapplying property defaults. */
     public async resetState() {
         this._previousState = this._state;
         this._state = {};
@@ -385,6 +388,11 @@ export class BlockObject extends SceneObject {
     }
 
     // TODO: support state per instance
+    /**
+     * Updates properties and rebuilds the selected models.
+     * Accepts `"facing=north,open=true"`, a property object, or a key and value.
+     * Properties omitted from the call keep their current values.
+     */
     public async setState(string: string);
     public async setState(state: BlockStateProperties);
     public async setState(key: string, value: string);
@@ -509,7 +517,9 @@ export class BlockObject extends SceneObject {
 
 }
 
+/** Block settings passed to `scene.addBlock(blockState, options)` or the BlockObject constructor. */
 export interface BlockObjectOptions extends ModelObjectOptions {
+    /** Loads vanilla property defaults before applying `initialState`. Defaults to `true`. */
     applyDefaultState: boolean;
     /** Properties applied before model creation, overriding defaults when applyDefaultState is enabled. */
     initialState?: BlockStateProperties;

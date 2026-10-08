@@ -44,6 +44,7 @@ export class NodeEnv implements EnvProvider {
 
 }
 
+/** Installs the Node provider. The Node package entry calls this automatically and requires native `canvas`. */
 export function registerNodeEnv(): NodeEnv {
     const env = new NodeEnv();
     Env.register(env);

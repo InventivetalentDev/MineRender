@@ -10,6 +10,7 @@ import { AssetParser } from "./source/parser/AssetParsers";
 import { ListAsset } from "../ListAsset";
 import { MinecraftAsset } from "../MinecraftAsset";
 
+/** Loads blockstate definitions and the property defaults used to select block models. */
 export class BlockStates {
 
     private static _persistentCache: PersistentCache | undefined;
@@ -19,6 +20,7 @@ export class BlockStates {
     }
 
     // BlockState names are hardcoded
+    /** Returns blockstate filenames from the selected version's `_list.json`, or an empty list. */
     public static async getList(): Promise<string[]> {
         const key = new AssetKey(
             DEFAULT_NAMESPACE,
@@ -41,6 +43,7 @@ export class BlockStates {
         });
     }
 
+    /** Looks up vanilla property definitions for the key's block path, or returns `undefined`. */
     public static async getDefaultState(key: AssetKey): Promise<Maybe<BlockStatePropertyDefaults>> {
         const defaultStates = await this.getDefaultStates();
         if (!defaultStates) {
@@ -49,6 +52,7 @@ export class BlockStates {
         return defaultStates["minecraft:" + key.path] as BlockStatePropertyDefaults;
     }
 
+    /** Loads a cached blockstate definition for {@link MineRenderScene.addBlock}, or returns `undefined`. */
     public static async get(key: AssetKey): Promise<Maybe<BlockState>> {
         if (!key.assetType) {
             key.assetType = "blockstates";
@@ -77,6 +81,7 @@ export class BlockStates {
         return Promise.all(promises);
     }
 
+    /** Clears persisted blockstates. Use {@link Caching.clear} to also discard in-memory assets. */
     public static async clearCache() {
         await this.PERSISTENT_CACHE.clear();
     }

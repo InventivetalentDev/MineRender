@@ -4,12 +4,14 @@ import { Entities } from "../assets/Entities";
 import type { EntityModel } from "../entity/EntityModel";
 import type { SpecialItemRenderer, TripleArray } from "./Model";
 
+/** Entity geometry and placement for a special item preview. Named part rotations use radians. */
 export interface SpecialItemPart {
     model: EntityModel;
     transform: Matrix4;
     rotations: Record<string, TripleArray>;
 }
 
+/** Loads the entity geometry used by chest, bed, and supported mob-head item previews. */
 export class SpecialItems {
 
     /** Resolves the static entity parts drawn by a special item renderer, in model units. */

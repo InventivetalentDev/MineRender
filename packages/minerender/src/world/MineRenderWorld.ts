@@ -14,6 +14,11 @@ import type { AnvilChunk } from "./AnvilParser";
 import { SectionModels } from "./SectionModels";
 
 //TODO: maybe make this an Object3D to add children
+/**
+ * Stores and renders blocks in sparse 16×16×16 chunks.
+ * Positions use integer block coordinates, including negatives. One block is 16 scene units.
+ * Set `options.sectionMeshing` in `new MineRenderWorld(scene, options)` to merge compatible terrain.
+ */
 export class MineRenderWorld<SectionMeshing extends boolean = false> {
 
     public readonly scene: MineRenderScene;
@@ -28,6 +33,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         if (options.sectionMeshing) this.sectionModels = new SectionModels(options.maxAtlasSize);
     }
 
+    /** Returns a placed block at world block coordinates, or `undefined` for an empty position. */
     public getBlockAt(x: number, y: number, z: number): Maybe<BlockInfo<SectionMeshing>>;
     public getBlockAt(pos: Vector3): Maybe<BlockInfo<SectionMeshing>>;
     public getBlockAt(pos: TripleArray): Maybe<BlockInfo<SectionMeshing>>;
@@ -42,6 +48,10 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         return this.getChunkAt(posOrX)?.getBlockAt(posOrX);
     }
 
+    /**
+     * Places or replaces a block and refreshes neighboring faces.
+     * Pass `undefined` or an air block to remove the block at these world block coordinates.
+     */
     public async setBlockAt(x: number, y: number, z: number, block: Maybe<Block>): Promise<Maybe<BlockInfo<SectionMeshing>>>;
     public async setBlockAt(pos: Vector3, block: Maybe<Block>): Promise<Maybe<BlockInfo<SectionMeshing>>>;
     public async setBlockAt(pos: TripleArray, block: Maybe<Block>): Promise<Maybe<BlockInfo<SectionMeshing>>>;
@@ -81,6 +91,13 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
     }
 
 
+    /**
+     * Places a structure's blocks at their stored positions, then refreshes neighboring faces.
+     * Entity NBT is retained by the structure but is not rendered.
+     *
+     * @param useBatches - Uses bounded batches by default. Set to `false` for sequential placement.
+     * @param executor - Optional queue for batched placement. The caller remains responsible for stopping it.
+     */
     public async placeMultiBlock(multiblock: MultiBlockStructure, useBatches: boolean = true, executor?: BatchedExecutor): Promise<void> {
         const changes = new Map<string, Vector3>();
         try {
@@ -185,6 +202,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         }
     }
 
+    /** Removes all chunks and releases their block placements and section meshes. */
     public async clear(): Promise<void> {
         await this.culling;
         const chunks = [...this._chunks.values()];
@@ -266,11 +284,13 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         return chunk;
     }
 
+    /** Returns the loaded chunk containing a world block position, without creating a chunk. */
     public getChunkAt(pos: Vector3): Maybe<Chunk<SectionMeshing>> {
         return this._chunks.get(this.worldPosToChunkKey(pos));
     }
 
 
+    /** Converts block coordinates to scene units by multiplying each component by 16. */
     static worldToScenePosition(pos: Vector3): Vector3 {
         return new Vector3(
             pos.x * 16.0,
@@ -279,6 +299,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         );
     }
 
+    /** Converts scene units to block coordinates without rounding to an integer block. */
     static sceneToWorldPosition(pos: Vector3): Vector3 {
         return new Vector3(
             pos.x / 16.0,
@@ -303,6 +324,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
 }
 
 
+/** Settings passed as the second argument to `new MineRenderWorld(scene, options)`. */
 export interface MineRenderWorldOptions<SectionMeshing extends boolean = boolean> {
     /** Merge static opaque cubes into section meshes. Merged blocks have no individual object. */
     sectionMeshing?: SectionMeshing;

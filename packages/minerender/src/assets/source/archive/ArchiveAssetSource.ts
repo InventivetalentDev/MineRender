@@ -20,6 +20,7 @@ export interface ArchiveAssetSourceOptions {
     dataPackFormat?: PackFormat;
 }
 
+/** Loads assets from resource-pack ZIP entries. Register it with {@link AssetLoader.addSource}. */
 export class ArchiveAssetSource extends AssetSource implements ArchiveProxy {
 
     readonly _archiveProxy: ArchiveProxy;
@@ -38,6 +39,7 @@ export class ArchiveAssetSource extends AssetSource implements ArchiveProxy {
         };
     }
 
+    /** Creates a browser ZIP source from a Blob or File. */
     public static blob(blob: Blob, options?: ArchiveAssetSourceOptions): ArchiveAssetSource {
         return new ArchiveAssetSource(new BrowserArchiveProxy(blob), options);
     }

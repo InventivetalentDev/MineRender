@@ -47,12 +47,14 @@ export function toDegrees(radians: number): number {
     return radians * 180 / Math.PI;
 }
 
+/** Resolves after a delay in milliseconds. */
 export async function sleep(timeout: number): Promise<void> {
     return new Promise(resolve => {
         setTimeout(() => resolve(), timeout);
     });
 }
 
+/** Reduces an angle modulo 360, retaining a negative sign for negative inputs. */
 export function clampRotationDegrees(deg: number): number {
     return deg % 360;
 }

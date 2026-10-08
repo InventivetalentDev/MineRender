@@ -3,11 +3,13 @@ import { AssetKey } from "../AssetKey";
 import { Maybe } from "../../util";
 import { AssetParser } from "./parser/AssetParsers";
 
+/** An asset provider registered with {@link AssetLoader.addSource}. */
 export abstract class AssetSource {
 
     protected constructor() {
     }
 
+    /** Returns a parsed asset, or `undefined` to allow fallback. Load and parse failures should reject. */
     public abstract get<T extends MinecraftAsset>(key: AssetKey, parser: AssetParser | string): Promise<Maybe<T>>;
 
     /** Whether this source prevents lower-priority sources from supplying the key. Its own assets remain available. */

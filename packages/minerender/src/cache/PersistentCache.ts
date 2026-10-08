@@ -12,6 +12,7 @@ export abstract class PersistentCache<B = unknown> {
     /** Bump to invalidate every persisted entry. */
     public static readonly VERSION = 2;
 
+    /** Opens a named store in the active environment using the current cache schema version. */
     public static open(name: string): PersistentCache {
         return Env.provider.openCache(name, PersistentCache.VERSION);
     }

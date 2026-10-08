@@ -17,6 +17,7 @@ function rotateAboutPoint(obj: Object3D, point: Vector3, axis: Vector3, theta: n
     obj.rotateOnAxis(axis, theta); // rotate the OBJECT
 }
 
+/** Rotates geometry in place around the element's origin. The supplied angle is in degrees. */
 export function applyElementRotation(rotation: ElementRotation, geometry: BufferGeometry) {
     const origin = new Vector3(rotation.origin[0], rotation.origin[1], rotation.origin[2]);
     // origin.multiplyScalar(0.0625);
@@ -97,6 +98,7 @@ export function applyElementRotation(rotation: ElementRotation, geometry: Buffer
 
 }
 
+/** Rotates an object around a local axis by an angle in degrees. */
 export function applyGenericRotation(axis: Axis, rotation: number, obj: Object3D) {
 
 
@@ -182,6 +184,7 @@ export function addWireframeToObject(obj: Object3D, color: number = 0xffffff, w:
     obj.add(axes);
 }
 
+/** Adds edge and axis helpers to a mesh and returns a function that disposes their resources. */
 export function addWireframeToMesh(geo: BufferGeometry, mesh: Mesh, color: number = 0xffffff, w: number = 2) {
     let wireGeo = new EdgesGeometry(geo);
     let wireMat = new LineBasicMaterial({ color: color, linewidth: w, })

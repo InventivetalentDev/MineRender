@@ -6,8 +6,10 @@ import { Caching } from "./cache/Caching";
 import { AssetKey } from "./assets/AssetKey";
 import type { EntityRenderMode } from "./entity/EntityModel";
 
+/** Creates Minecraft model, entity, and GUI materials, with shared caches for image materials. */
 export class Materials {
 
+    /** Shared checkerboard material, created on first access. */
     public static get MISSING_TEXTURE(): Material {
         return Caching.materialCache.get("builtin:missing-texture", () => new MeshBasicMaterial({
             map: Textures.getMissing(),
@@ -123,6 +125,7 @@ export class Materials {
         return material;
     }
 
+    /** Creates an unlit, transparent GUI material without depth writes or tone mapping. */
     public static createGuiCanvasMaterial(canvas: HTMLCanvasElement): MeshBasicMaterial {
         const material = new MeshBasicMaterial({
             map: Textures.createCanvasTexture(canvas),
@@ -298,6 +301,7 @@ export class Materials {
         return this.createBasicCanvasMaterial(canvas, transparent, shade);
     }
 
+    /** Returns a shared image material. Use {@link createImage} for a separate material instance. */
     public static getImage(key: MaterialKey): Material {
         const keyStr = serializeMaterialKey(key);
         const map = (Caching.materialCache.peek(keyStr) as MeshBasicMaterial | undefined)?.map;

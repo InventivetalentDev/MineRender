@@ -9,6 +9,7 @@ import { createCanvas } from "../canvas/CanvasCompat";
 
 export type { PLYExporterOptions } from "three/examples/jsm/exporters/PLYExporter.js";
 
+/** Settings passed to {@link Renderer.toGLTF} or {@link SceneExporter.toGLTF}. */
 export interface SceneGLTFExportOptions {
     /** Returns a GLB ArrayBuffer instead of a glTF object. */
     binary?: boolean;

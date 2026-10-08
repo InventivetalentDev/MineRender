@@ -2,6 +2,7 @@ import { Caching } from "../cache/Caching";
 import { serializeImageKey } from "../cache/CacheKey";
 import { ImageLoader } from "../image/ImageLoader";
 
+/** Decodes skin pixels while preserving hidden RGB values in transparent PNG pixels. */
 export class SkinImage {
 
     public static async getData(src: string): Promise<ImageData> {

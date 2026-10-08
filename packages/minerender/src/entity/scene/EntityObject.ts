@@ -18,6 +18,7 @@ import { isMesh } from "../../util/three";
 import type { EntityAnimation } from "../EntityAnimation";
 import { EntityAnimationOptions, EntityAnimationPlayer } from "./EntityAnimationPlayer";
 
+/** Renders selected entity layers as named part groups. Create it through {@link MineRenderScene.addEntity}. */
 export class EntityObject extends SceneObject {
 
     public readonly isEntityObject: true = true;
@@ -163,15 +164,18 @@ export class EntityObject extends SceneObject {
 
     //</editor-fold>
 
+    /** Finds a selected draw by its layer key, such as `main` or `main#2`, or returns `undefined`. */
     public getLayerGroup(name: string): Maybe<Object3D> {
         return super.getGroupByName(`layer:${name}`);
     }
 
+    /** Finds a part name without `group:`. Supply `layerName` to restrict the search to one draw. */
     public getGroupByName(name: string, layerName?: string): Maybe<Object3D> {
         return layerName === undefined ? super.getGroupByName(name)
             : this.getLayerGroup(layerName)?.getObjectByName(`group:${name}`);
     }
 
+    /** Finds a mesh name without `mesh:`. Supply `layerName` to restrict the search to one draw. */
     public getMeshByName(name: string, layerName?: string): Maybe<Mesh> {
         return layerName === undefined ? super.getMeshByName(name)
             : this.getLayerGroup(layerName)?.getObjectByName(`mesh:${name}`) as Maybe<Mesh>;
@@ -304,6 +308,7 @@ export class EntityObject extends SceneObject {
 
 }
 
+/** Render settings passed to `scene.addEntity(entity, options)` or the EntityObject constructor. */
 export interface EntityObjectOptions extends SceneObjectOptions {
     /**
      * `true` applies only vanilla's entity flip, scale (-1, -1, 1); `false` keeps raw model space.

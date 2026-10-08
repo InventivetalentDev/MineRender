@@ -4,8 +4,14 @@ import type { NBT } from "prismarine-nbt";
 import { MineRenderError } from "../../error/MineRenderError";
 import { BlockStateProperties } from "../block/BlockStateProperties";
 
+/** Converts Java structure NBT into blocks and preserved entity data for world placement. */
 export class StructureParser {
 
+    /**
+     * Parses decoded NBT, omitting air blocks.
+     * @param _nbt - Structure data decoded by {@link NBTHelper.fromBuffer}.
+     * @param paletteIndex - Palette to select when the structure has several. Defaults to 0.
+     */
     public static async parse(_nbt: NBT, paletteIndex?: number): Promise<MultiBlockStructure> {
         const nbt = _nbt.value as unknown as StructureNBT;
 
@@ -51,6 +57,7 @@ export class StructureParser {
 
 }
 
+/** Tagged NBT fields used by Java structure files. */
 export interface StructureNBT {
     DataVersion?: {
         type: "int";

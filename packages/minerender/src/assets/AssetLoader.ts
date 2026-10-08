@@ -20,8 +20,10 @@ const p = prefix("AssetLoader");
 
 const FALLBACK_ROOT = "https://raw.githubusercontent.com/InventivetalentDev/minerender-fallback-assets/master";
 
+/** Loads assets from a shared, ordered registry of hosted sources and resource packs. */
 export class AssetLoader {
 
+    /** Default asset base URL. Use {@link setVersion} to select a Minecraft version. */
     static ROOT: string = DEFAULT_ROOT;
 
     private static _SOURCES: AssetSourceReference[] = [];
@@ -33,6 +35,7 @@ export class AssetLoader {
         return this.ROOT.substring(this.ROOT.lastIndexOf("/") + 1);
     }
 
+    /** Selects an mcasset.cloud version, updates the vanilla source, and clears in-memory caches. */
     public static setVersion(version: string): void {
         this.ROOT = `https://assets.mcasset.cloud/${version}`;
         const source = new HostedAssetSource(this.ROOT, { retryDefaults: false });
@@ -68,6 +71,13 @@ export class AssetLoader {
         return scope ? `${scope}\n${key}` : key;
     }
 
+    /**
+     * Registers a source at the highest priority.
+     * Call {@link Caching.clear} after changing sources to discard previously loaded assets.
+     *
+     * @param key - Name used to replace or remove this source.
+     * @param override - Removes the first source with this name before adding the new one.
+     */
     public static addSource(key: string, source: AssetSource, override: boolean = true) {
         if (override) {
             const existing = this.removeSource(key);
@@ -80,6 +90,7 @@ export class AssetLoader {
         console.log(p, "Added AssetSource", key);
     }
 
+    /** Removes and returns the first source with this name. Call {@link Caching.clear} to reload assets. */
     public static removeSource(key: string): Maybe<AssetSource> {
         const index = this._SOURCES.findIndex(s => s.key === key);
         if (index != -1) {
@@ -96,6 +107,7 @@ export class AssetLoader {
         this.addSource("mcassets", new HostedAssetSource(this.ROOT, { retryDefaults: false }));
     }
 
+    /** Loads from all sources and returns defined results in priority order. Any source failure rejects the call. */
     public static async getAll<T extends MinecraftAsset>(key: AssetKey, parser: AssetParser | string): Promise<T[]> {
         const sources = [...this._SOURCES];
         const results: T[] = [];
