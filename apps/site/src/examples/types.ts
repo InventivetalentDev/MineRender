@@ -37,6 +37,8 @@ export interface ExampleGroup {
     examples: Example[];
     /** Optional notes rendered under the showcase. */
     notes?: string[];
+    /** Playground pages for trying this content type with your own assets. */
+    playgrounds?: Array<{ url: string; label: string }>;
 }
 
 /** Resolves once the signal aborts, for cancelling awaited work in setup(). */

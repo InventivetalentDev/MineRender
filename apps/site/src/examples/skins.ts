@@ -231,5 +231,6 @@ export const skins: ExampleGroup = {
     id: "skins",
     title: "Skins",
     lead: "Player skins from a texture or a player name, with classic, slim, and legacy layouts detected from the texture, plus capes.",
+    playgrounds: [{ url: "https://beta.minerender.org/demo/skin/", label: "Skin playground" }],
     examples: [{ ...textureUrl, title: "Classic and slim" }, byName, cape, layers, posed]
 };
