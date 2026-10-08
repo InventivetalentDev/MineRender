@@ -1,6 +1,6 @@
 import test from "ava";
 import { AssetKey, AssetLoader, AssetSource, Caching, DisplayPosition, Models, PersistentCache, shutdown } from "../src";
-import type { ItemModel, ItemTintSource, MinecraftAsset, Maybe, SpecialItemRenderer } from "../src";
+import type { ItemModel, ItemModelContext, ItemTintSource, MinecraftAsset, Maybe, SpecialItemRenderer } from "../src";
 
 class MemoryCache extends PersistentCache<Map<string, string>> {
     constructor() { super(new Map()); }
@@ -156,6 +156,77 @@ test.serial("static item previews resolve idle, GUI, fallback, and zero-threshol
     }
 });
 
+test.serial("item-preview properties select typed branches and scaled ranges with canonical cache keys", async t => {
+    const source = new FixtureSource({
+        "items/stateful": { model: { type: "composite", models: [
+            { type: "condition", property: "using_item", on_false: reference("item/idle"), on_true: {
+                type: "range_dispatch", property: "minecraft:use_duration", scale: 0.05,
+                entries: [0, 0.65, 0.9].map((threshold, index) => ({ threshold, model: reference(`item/pulling_${index}`) }))
+            } },
+            { type: "select", property: "custom:finish", cases: [
+                { when: ["matte", "plain"], model: reference("item/matte") },
+                { when: "glossy", model: reference("item/glossy") }
+            ], fallback: reference("item/default") }
+        ] } },
+        ...Object.fromEntries(["idle", "pulling_0", "pulling_1", "pulling_2", "matte", "glossy", "default"]
+            .map(name => [`models/item/${name}`, { textures: { layer0: name } }]))
+    });
+    AssetLoader.addSource("test-items", source);
+    const key = itemKey("stateful");
+    const layers = (model: ItemModel) => model.parts!.map(part => part.textures?.layer0);
+    const idle = (await Models.getMerged(key))! as ItemModel;
+    t.deepEqual(layers(idle), ["idle", "default"]);
+    t.is(await Models.getMerged(key, { displayContext: DisplayPosition.GUI, properties: {}, itemReferences: {} }), idle);
+    for (const [duration, stage] of [[0, 0], [12.99, 0], [13, 1], [17.99, 1], [18, 2]]) {
+        const model = (await Models.getMerged(key, { properties: { using_item: true, use_duration: duration, "custom:finish": "plain" } }))! as ItemModel;
+        t.deepEqual(layers(model), [`pulling_${stage}`, "matte"]);
+    }
+    t.deepEqual(layers((await Models.getMerged(key, { properties: { using_item: false, use_duration: 18, "custom:finish": "glossy" } }))! as ItemModel), ["idle", "glossy"]);
+    t.deepEqual(layers((await Models.getMerged(key, { properties: { "custom:finish": "unknown" } }))! as ItemModel), ["idle", "default"]);
+
+    const context = { properties: { using_item: true, use_duration: 13, "custom:finish": "matte" },
+        itemReferences: { unused: itemKey("unused"), "custom:unused": itemKey("other") } };
+    const canonical = { properties: { "custom:finish": "matte", "minecraft:use_duration": 13, "minecraft:using_item": true },
+        itemReferences: { "custom:unused": itemKey("other"), "minecraft:unused": itemKey("unused") } };
+    const active = (await Models.getMerged(key, context))! as ItemModel;
+    t.deepEqual(layers(active), ["pulling_1", "matte"]);
+    t.is(await Models.getMerged(key, canonical), active);
+    const calls = source.calls.length;
+    Caching.clear();
+    t.deepEqual(await Models.getMerged(key, canonical), active);
+    t.deepEqual(await Models.getMerged(key), idle);
+    t.is(source.calls.length, calls);
+
+    for (const [properties, message] of [
+        [{ using_item: "false" }, /requires a boolean/],
+        [{ "custom:finish": false }, /requires a string/],
+        [{ using_item: true, use_duration: "13" }, /requires a number/]
+    ] as Array<[ItemModelContext["properties"], RegExp]>) {
+        await t.throwsAsync(Models.getMerged(key, { properties }), { message });
+    }
+});
+
+test.serial("invalid item-preview inputs reject before requesting assets", async t => {
+    const source = new FixtureSource({});
+    AssetLoader.addSource("test-items", source);
+    const contexts = [
+        { properties: { "Invalid ID": true } },
+        { properties: { using_item: true, "minecraft:using_item": true } },
+        { properties: { use_duration: NaN } },
+        { properties: { use_duration: Infinity } },
+        { properties: { using_item: null } },
+        { properties: [] },
+        { itemReferences: { "Invalid ID": itemKey("apple") } },
+        { itemReferences: { "bundle/selected_item": itemKey("apple"), "minecraft:bundle/selected_item": itemKey("apple") } },
+        { itemReferences: { "bundle/selected_item": AssetKey.parse("models", "minecraft:block/stone") } },
+        { itemReferences: { "bundle/selected_item": "minecraft:item/apple" } },
+        { itemReferences: { "bundle/selected_item": itemKey("Invalid ID") } },
+        { displayContext: "invalid" }
+    ];
+    for (const context of contexts) await t.throwsAsync(Models.getMerged(itemKey("preview"), context as ItemModelContext));
+    t.is(source.calls.length, 0);
+});
+
 test.serial("special items retain their renderer and inherit the base pose through cache hits", async t => {
     const renderers: SpecialItemRenderer[] = [
         { type: "minecraft:chest", texture: "pack:normal", openness: 0.5 },
@@ -249,7 +320,7 @@ test.serial("empty composites remain empty and a missing child rejects the compl
     t.deepEqual(recovered.parts!.map(part => part.textures?.layer0), ["item/first", "item/recovered"]);
 });
 
-test.serial("bundle previews keep selected items and display contexts separate through persistent cache hits", async t => {
+test.serial("bundle properties and references stay independent through display-context and persistent cache changes", async t => {
     const tints: ItemTintSource[] = [{ type: "minecraft:constant", value: 0xff8844 }];
     const source = new FixtureSource({
         ...bundleAssets(),
@@ -262,28 +333,36 @@ test.serial("bundle previews keep selected items and display contexts separate t
     });
     AssetLoader.addSource("test-items", source);
     const key = itemKey("bundle"), appleKey = itemKey("apple"), stoneKey = itemKey("stone");
+    const properties = { "bundle/has_selected_item": true };
+    const appleReferences = { "bundle/selected_item": appleKey };
     let calls = 0;
     for (let attempt = 0; attempt < 2; attempt++) {
         const closed = (await Models.getMerged(key))! as ItemModel;
         t.is(closed.parts, undefined);
         t.is(closed.textures?.layer0, "item/bundle");
-        const apple = (await Models.getMerged(key, { bundleSelectedItem: appleKey }))! as ItemModel;
+        const referenceOnly = (await Models.getMerged(key, { itemReferences: appleReferences }))! as ItemModel;
+        t.is(referenceOnly.parts, undefined);
+        const propertyOnly = (await Models.getMerged(key, { properties }))! as ItemModel;
+        t.deepEqual(propertyOnly.parts![1].parts, []);
+        const apple = (await Models.getMerged(key, { properties, itemReferences: appleReferences }))! as ItemModel;
         t.deepEqual(apple.parts!.map(part => part.key?.toNamespacedString()), [
             "minecraft:item/bundle_open_back", "pack:item/apple", "minecraft:item/bundle_open_front"
         ]);
         t.deepEqual(apple.parts![1].tints, tints);
         t.is(apple.parts![1].gui_light, "front");
         t.deepEqual([apple.parts![0].display?.gui?.translation, apple.parts![2].display?.gui?.translation], [[0, 0, -16], [0, 0, 16]]);
-        const stone = (await Models.getMerged(key, { displayContext: DisplayPosition.GUI, bundleSelectedItem: stoneKey }))! as ItemModel;
+        const stone = (await Models.getMerged(key, { displayContext: DisplayPosition.GUI, properties,
+            itemReferences: { "bundle/selected_item": stoneKey } }))! as ItemModel;
         t.is(stone.parts![1].key?.toNamespacedString(), "minecraft:block/stone");
         t.deepEqual(stone.parts![1].display?.gui?.scale, [0.625, 0.625, 0.625]);
         t.is(stone.parts![1].tints, undefined);
         for (const displayContext of [DisplayPosition.GROUND, "none"] as const) {
-            const other = (await Models.getMerged(key, { displayContext, bundleSelectedItem: appleKey }))! as ItemModel;
+            const other = (await Models.getMerged(key, { displayContext, properties, itemReferences: appleReferences }))! as ItemModel;
             t.is(other.parts, undefined);
             t.is(other.textures?.layer0, "item/bundle");
         }
-        t.deepEqual(await Models.getMerged(key, { displayContext: DisplayPosition.GUI, bundleSelectedItem: appleKey }), apple);
+        t.deepEqual(await Models.getMerged(key, { displayContext: DisplayPosition.GUI,
+            properties: { ...properties, display_context: "ground" }, itemReferences: appleReferences }), apple);
         t.deepEqual(await Models.getMerged(key), closed);
         if (attempt) t.is(source.calls.length, calls);
         calls = source.calls.length;
@@ -291,7 +370,7 @@ test.serial("bundle previews keep selected items and display contexts separate t
     }
 });
 
-test.serial("selected bundle items preserve their renderer and inherit or explicitly override the asset root", async t => {
+test.serial("item-preview inputs are snapshotted and referenced items preserve their renderer and asset root", async t => {
     const special: SpecialItemRenderer = { type: "minecraft:chest", texture: "pack:normal", openness: 0.25 };
     const source = new FixtureSource({
         ...bundleAssets(),
@@ -301,8 +380,9 @@ test.serial("selected bundle items preserve their renderer and inherit or explic
     AssetLoader.addSource("test-items", source);
     const key = itemKey("bundle");
     key.root = "https://pack.example/bundle";
+    const properties = { "bundle/has_selected_item": true };
     const inheritedKey = Object.freeze(itemKey("chest"));
-    const inherited = (await Models.getMerged(key, { bundleSelectedItem: inheritedKey }))! as ItemModel;
+    const inherited = (await Models.getMerged(key, { properties, itemReferences: { "bundle/selected_item": inheritedKey } }))! as ItemModel;
     t.is(inherited.parts![1].key?.root, key.root);
     t.is(inheritedKey.root, undefined);
     t.deepEqual(inherited.parts![1].special, special);
@@ -310,16 +390,21 @@ test.serial("selected bundle items preserve their renderer and inherit or explic
 
     const selectedKey = itemKey("chest");
     selectedKey.root = "https://pack.example/first";
-    const pending = Models.getMerged(key, { bundleSelectedItem: selectedKey });
+    const itemReferences = { "bundle/selected_item": selectedKey };
+    const pending = Models.getMerged(key, { properties, itemReferences });
+    properties["bundle/has_selected_item"] = false;
+    itemReferences["bundle/selected_item"] = itemKey("missing");
     selectedKey.root = "https://pack.example/second";
     const first = (await pending)! as ItemModel;
-    const second = (await Models.getMerged(key, { bundleSelectedItem: selectedKey }))! as ItemModel;
+    properties["bundle/has_selected_item"] = true;
+    itemReferences["bundle/selected_item"] = selectedKey;
+    const second = (await Models.getMerged(key, { properties, itemReferences }))! as ItemModel;
     t.deepEqual([first.parts![1].key?.root, second.parts![1].key?.root], ["https://pack.example/first", "https://pack.example/second"]);
     t.true(first.parts!.filter((_, index) => index !== 1).every(part => part.key?.root === key.root));
     const calls = source.calls.length;
     Caching.clear();
     selectedKey.root = "https://pack.example/first";
-    const cached = (await Models.getMerged(key, { bundleSelectedItem: selectedKey }))! as ItemModel;
+    const cached = (await Models.getMerged(key, { properties, itemReferences }))! as ItemModel;
     t.is(cached.parts![1].key?.serialize(), first.parts![1].key?.serialize());
     t.deepEqual(cached.parts![1].special, special);
     t.is(source.calls.length, calls);
@@ -328,10 +413,10 @@ test.serial("selected bundle items preserve their renderer and inherit or explic
     ]);
 });
 
-test.serial("bundle selection does not recurse into selected bundles and keeps unrelated condition defaults", async t => {
+test.serial("referenced items retain display context but start with their own properties and references", async t => {
     const source = new FixtureSource({
         ...bundleAssets(),
-        "items/selected_only": { model: { type: "minecraft:bundle/selected_item" } },
+        "items/selected_only": { model: { type: "bundle/selected_item" } },
         "items/contextual": { model: {
             type: "minecraft:condition", property: "minecraft:using_item", on_true: reference("item/wrong"),
             on_false: { type: "minecraft:select", property: "minecraft:display_context",
@@ -343,15 +428,22 @@ test.serial("bundle selection does not recurse into selected bundles and keeps u
     AssetLoader.addSource("test-items", source);
     const empty = (await Models.getMerged(itemKey("selected_only")))! as ItemModel;
     t.deepEqual(empty.parts, []);
-    const bundle = (await Models.getMerged(itemKey("bundle"), { bundleSelectedItem: itemKey("bundle") }))! as ItemModel;
+    const properties = { "bundle/has_selected_item": true };
+    const bundle = (await Models.getMerged(itemKey("bundle"), { properties,
+        itemReferences: { "bundle/selected_item": itemKey("bundle") } }))! as ItemModel;
     t.is(bundle.parts!.length, 3);
     t.is(bundle.parts![1].parts, undefined);
     t.is(bundle.parts![1].textures?.layer0, "item/bundle");
     const ground = await Models.getMerged(itemKey("selected_only"), {
-        displayContext: DisplayPosition.GROUND, bundleSelectedItem: itemKey("contextual")
+        displayContext: DisplayPosition.GROUND, properties: { using_item: true },
+        itemReferences: { "bundle/selected_item": itemKey("contextual") }
     });
     t.is(ground?.textures?.layer0, "ground");
-    await t.throwsAsync(Models.getMerged(itemKey("bundle"), { bundleSelectedItem: itemKey("missing") }), { message: /missing/ });
+    t.deepEqual(((await Models.getMerged(itemKey("selected_only"), {
+        itemReferences: { "bundle/selected_item": itemKey("selected_only") }
+    }))! as ItemModel).parts, []);
+    await t.throwsAsync(Models.getMerged(itemKey("bundle"), { properties,
+        itemReferences: { "bundle/selected_item": itemKey("missing") } }), { message: /missing/ });
     t.false(source.calls.some(call => call.getFullPath() === "item/wrong"));
 });
 

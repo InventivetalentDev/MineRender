@@ -74,7 +74,7 @@ legacy website cleanup is a separate task.
 - ~~Default to 1.21.11 with static item definitions, animal texture paths, structure directory aliases, and versioned cache keys.~~
 - ~~Add an asset-version selection API.~~
 - ~~Read ZIP pack metadata, select version-applicable overlays, and filter lower-priority resources.~~
-- ~~Support chest, bed, and mob-head special item models.~~ ~~Resolve static/default item tint sources.~~ ~~Render nested composite items with each child's textures, display pose, lighting, and tints.~~ ~~Preview bundle contents and select item display contexts, with bundle controls in the item playground.~~ Composite items do not use instancing. Other special renderers, component-driven tint colors, and other gameplay-dependent item selection remain.
+- ~~Support chest, bed, and mob-head special item models.~~ ~~Resolve static/default item tint sources.~~ ~~Render nested composite items with each child's textures, display pose, lighting, and tints.~~ ~~Preview caller-supplied item properties, display contexts, and referenced items, with shared playground controls and bundle, bow, and crossbow presets.~~ Composite items do not use instancing. Other special renderers, component-driven tint colors, and automatic calculation of gameplay state remain.
 - ~~Fix `WrappedImage` frame math.~~
 
 ### 7. Model/blockstate correctness — complete

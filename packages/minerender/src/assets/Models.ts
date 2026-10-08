@@ -5,17 +5,19 @@ import { ModelMerger } from "../model/ModelMerger";
 import { AssetLoader } from "./AssetLoader";
 import { DEFAULT_NAMESPACE } from "./Assets";
 import { PersistentCache } from "../cache/PersistentCache";
-import { AssetKey } from "./AssetKey";
+import { AssetKey, isAssetKey } from "./AssetKey";
 import { ListAsset } from "../ListAsset";
 import { AssetParser } from "./source/parser/AssetParsers";
 import { DisplayPosition } from "../model/DisplayPosition";
 
-/** Item-preview state passed to {@link Models.getMerged}. Other gameplay properties use their defaults. */
+/** Caller-supplied item-preview state passed to {@link Models.getMerged}. */
 export interface ItemModelContext {
-    /** Context used by item-definition selectors. Defaults to GUI. */
+    /** Context used by display-context selectors, overriding `properties`. Defaults to GUI. */
     displayContext?: DisplayPosition | "none";
-    /** Selected bundle item, such as `AssetKey.parse("models", "minecraft:item/apple")`. Omit for a closed bundle. */
-    bundleSelectedItem?: AssetKey;
+    /** Supplied values by property ID; gameplay state is not calculated. Nodes with the same ID share one value, regardless of their parameters. */
+    properties?: Record<string, boolean | string | number>;
+    /** Item-model keys by reference-node ID, such as `minecraft:bundle/selected_item`. Unset references draw nothing. */
+    itemReferences?: Record<string, AssetKey>;
 }
 
 /** Loads and caches Java block/item models, including inherited geometry and textures. */
@@ -47,9 +49,9 @@ export class Models {
     }
 
     private static async getItemModel(key: AssetKey, context: ItemModelContext = {}): Promise<Maybe<Model>> {
-        context = this.snapshotContext(key, context);
+        const preview = this.snapshotContext(key, context);
         const itemKey = new AssetKey(key.namespace, key.path, "items", undefined, key.rootType, ".json", key.root);
-        const cacheKey = itemKey.serialize() + this.contextKey(context);
+        const cacheKey = itemKey.serialize() + this.contextKey(preview);
         const model = await this.PERSISTENT_CACHE.getOrLoad(`item-v2:${AssetLoader.persistentKey(cacheKey)}`, async () => {
             const result = await AssetLoader.getFirst<Model & { model?: ItemModelNode }>([itemKey, key], AssetParser.JSON);
             if (!result) return undefined;
@@ -60,9 +62,9 @@ export class Models {
                     return { key, parts: await Promise.all(selected.parts.map(load)) };
                 }
                 if ("item" in selected) {
-                    // The selected stack has its own contents, not the outer bundle's selection.
-                    const model = await this.getItemModel(selected.item, { displayContext: context.displayContext });
-                    if (!model) throw new Error(`Item ${key.toNamespacedString()} references missing bundle item ${selected.item.toNamespacedString()}`);
+                    // Referenced items start with their own default properties and references.
+                    const model = await this.getItemModel(selected.item, { displayContext: preview.displayContext });
+                    if (!model) throw new Error(`Item ${key.toNamespacedString()} references missing item ${selected.item.toNamespacedString()}`);
                     return model as ItemModel;
                 }
                 const modelKey = AssetKey.parse("models", selected.model);
@@ -72,7 +74,7 @@ export class Models {
                 // Relative texture paths belong to the referenced model's namespace.
                 return { ...model, ...(selected.special && { special: selected.special }), ...(selected.tints && { tints: selected.tints }) } as ItemModel;
             };
-            return load(this.selectItemModel(result.asset.model, key, context));
+            return load(this.selectItemModel(result.asset.model, key, preview));
         });
         const restore = (model: ItemModel): ItemModel => ({
             ...model, key: Object.assign(new AssetKey("", ""), model.key),
@@ -81,21 +83,54 @@ export class Models {
         return model ? restore(model) : undefined;
     }
 
-    private static snapshotContext(key: AssetKey, context: ItemModelContext): ItemModelContext {
-        const selected = context.bundleSelectedItem;
-        return {
-            displayContext: context.displayContext ?? DisplayPosition.GUI,
-            bundleSelectedItem: selected && Object.assign(new AssetKey("", ""), selected, { root: selected.root ?? key.root })
-        };
+    private static contextIdentifier(id: string): string {
+        if (typeof id !== "string" || !/^(?:[a-z0-9_.-]+:)?[a-z0-9_./-]+$/.test(id)) {
+            throw new Error(`Invalid item-preview identifier: ${id}`);
+        }
+        return id.includes(":") ? id : `minecraft:${id}`;
     }
 
-    private static contextKey(context: ItemModelContext): string {
-        if (context.displayContext === DisplayPosition.GUI && !context.bundleSelectedItem) return "";
-        return `|item:${JSON.stringify([context.displayContext, context.bundleSelectedItem?.serialize() ?? null])}`;
+    private static snapshotContext(key: AssetKey, context: ItemModelContext): Required<ItemModelContext> {
+        const displayContext = context.displayContext ?? DisplayPosition.GUI;
+        if (displayContext !== "none" && !Object.values(DisplayPosition).includes(displayContext)) {
+            throw new Error(`Unsupported item display context: ${displayContext}`);
+        }
+        for (const map of [context.properties, context.itemReferences]) {
+            if (map !== undefined && (!map || typeof map !== "object" || Array.isArray(map))) {
+                throw new Error("Item-preview properties and references must be objects keyed by identifier");
+            }
+        }
+        const properties: Required<ItemModelContext>["properties"] = {};
+        for (const [id, value] of Object.entries(context.properties ?? {})) {
+            const property = this.contextIdentifier(id);
+            if (!["boolean", "string", "number"].includes(typeof value) || typeof value === "number" && !Number.isFinite(value)) {
+                throw new Error(`Item-preview property ${property} must be a boolean, string, or finite number`);
+            }
+            if (Object.prototype.hasOwnProperty.call(properties, property)) throw new Error(`Duplicate item-preview property: ${property}`);
+            properties[property] = value;
+        }
+        const itemReferences: Record<string, AssetKey> = {};
+        for (const [id, value] of Object.entries(context.itemReferences ?? {})) {
+            const reference = this.contextIdentifier(id);
+            if (!isAssetKey(value) || value.assetType !== "models" || value.type !== "item") {
+                throw new Error(`Item-preview reference ${reference} must be an item-model AssetKey`);
+            }
+            this.contextIdentifier(`${value.namespace}:${value.path}`);
+            if (Object.prototype.hasOwnProperty.call(itemReferences, reference)) throw new Error(`Duplicate item-preview reference: ${reference}`);
+            itemReferences[reference] = Object.assign(new AssetKey("", ""), value, { root: value.root ?? key.root });
+        }
+        return { displayContext, properties, itemReferences };
+    }
+
+    private static contextKey(context: Required<ItemModelContext>): string {
+        const properties = Object.keys(context.properties).sort().map(id => [id, context.properties[id]]);
+        const references = Object.keys(context.itemReferences).sort().map(id => [id, context.itemReferences[id].serialize()]);
+        if (context.displayContext === DisplayPosition.GUI && !properties.length && !references.length) return "";
+        return `|item:${JSON.stringify([context.displayContext, properties, references])}`;
     }
 
     // Unspecified conditions are false and numeric properties are zero.
-    private static selectItemModel(node: ItemModelNode | undefined, key: AssetKey, context: ItemModelContext): SelectedItemModel {
+    private static selectItemModel(node: ItemModelNode | undefined, key: AssetKey, context: Required<ItemModelContext>): SelectedItemModel {
         if (!node || typeof node.type !== "string") {
             throw new Error(`Unsupported item model definition for ${key.toNamespacedString()}`);
         }
@@ -103,8 +138,10 @@ export class Models {
             case "composite":
                 if (Array.isArray(node.models)) return { parts: node.models.map(child => this.selectItemModel(child, key, context)) };
                 break;
-            case "bundle/selected_item":
-                return context.bundleSelectedItem ? { item: context.bundleSelectedItem } : { parts: [] };
+            case "bundle/selected_item": {
+                const item = context.itemReferences["minecraft:bundle/selected_item"];
+                return item ? { item } : { parts: [] };
+            }
             case "model":
                 if (typeof node.model === "string" && node.model) return { model: node.model, tints: node.tints };
                 break;
@@ -126,18 +163,25 @@ export class Models {
                 throw new Error(`Unsupported special item renderer ${special.type} for ${key.toNamespacedString()}`);
             }
             case "condition": {
-                const selected = node.property?.replace(/^minecraft:/, "") === "bundle/has_selected_item" && !!context.bundleSelectedItem;
-                return this.selectItemModel(selected ? node.on_true : node.on_false, key, context);
+                const value = node.property ? context.properties[this.contextIdentifier(node.property)] ?? false : false;
+                if (typeof value !== "boolean") throw new Error(`Item-preview condition ${node.property} requires a boolean`);
+                return this.selectItemModel(value ? node.on_true : node.on_false, key, context);
             }
             case "select": {
-                const selected = node.property?.replace(/^minecraft:/, "") === "display_context"
-                    ? node.cases?.find(entry => Array.isArray(entry.when) ? entry.when.includes(context.displayContext!) : entry.when === context.displayContext)?.model
-                    : undefined;
+                const property = node.property ? this.contextIdentifier(node.property) : undefined;
+                const value = property === "minecraft:display_context" ? context.displayContext : property ? context.properties[property] : undefined;
+                if (value !== undefined && typeof value !== "string") throw new Error(`Item-preview selector ${node.property} requires a string`);
+                const selected = value === undefined ? undefined
+                    : node.cases?.find(entry => Array.isArray(entry.when) ? entry.when.includes(value) : entry.when === value)?.model;
                 return this.selectItemModel(selected ?? node.fallback, key, context);
             }
             case "range_dispatch": {
+                const value = node.property ? context.properties[this.contextIdentifier(node.property)] ?? 0 : 0;
+                if (typeof value !== "number") throw new Error(`Item-preview range ${node.property} requires a number`);
+                const scaled = value * (node.scale ?? 1);
+                if (!Number.isFinite(scaled)) throw new Error(`Item-preview range ${node.property} requires a finite value and scale`);
                 const selected = node.entries?.reduce<{ threshold: number; model: ItemModelNode } | undefined>((match, entry) => {
-                    return entry.threshold <= 0 && (!match || entry.threshold >= match.threshold) ? entry : match;
+                    return entry.threshold <= scaled && (!match || entry.threshold >= match.threshold) ? entry : match;
                 }, undefined);
                 return this.selectItemModel(selected?.model ?? node.fallback, key, context);
             }
@@ -170,7 +214,7 @@ export class Models {
     /**
      * Loads a model and resolves its parent chain. Returns `undefined` when the model is missing.
      * Item keys default to GUI context, false conditions, and zero numeric properties.
-     * Pass `context` to select a display context or preview a bundle's selected item.
+     * Pass `context` to supply property values and item references for a preview.
      * Composite items retain independently merged children in `ItemModel.parts`.
      *
      * @param key - Model key, for example `AssetKey.parse("models", "minecraft:item/diamond_sword")`.
@@ -182,11 +226,11 @@ export class Models {
         if (!key.extension) {
             key.extension = ".json";
         }
-        context = this.snapshotContext(key, context);
-        const keyStr = key.serialize() + (key.type === "item" ? this.contextKey(context) : "");
+        const preview = this.snapshotContext(key, context);
+        const keyStr = key.serialize() + (key.type === "item" ? this.contextKey(preview) : "");
         return Caching.mergedModelCache.get(keyStr, k => {
             //TODO: persistent cache
-            return Models.loadAndMerge(key, context);
+            return Models.loadAndMerge(key, preview);
         });
     }
 
@@ -213,6 +257,7 @@ interface ItemModelNode {
     fallback?: ItemModelNode;
     cases?: Array<{ when: string | string[]; model: ItemModelNode }>;
     entries?: Array<{ threshold: number; model: ItemModelNode }>;
+    scale?: number;
     models?: ItemModelNode[];
 }
 

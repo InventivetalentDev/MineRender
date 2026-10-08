@@ -95,7 +95,7 @@ async function visit(url, name) {
             if (/FAIL/.test(status) || status === "(no status)") problems.add(status);
         }
         await page.screenshot({ path: path.join(shots, `${name}.png`) });
-        if (url === "demo/item/?preset=bundle" && /^Ready/.test(status)) {
+        if (/^demo\/item\/\?preset=(bundle|bow|crossbow)$/.test(url) && /^Ready/.test(status)) {
             const inspect = () => {
                 const parts = [];
                 window.item.traverse(object => {
@@ -114,64 +114,109 @@ async function visit(url, name) {
                 const result = await page.$eval(".playground-status", element => element.textContent ?? "");
                 if (!/^Ready/.test(result)) throw new Error(result);
             };
-            const expectParts = async (selected) => {
+            const expectModels = async (...expected) => {
                 const parts = await page.evaluate(inspect);
-                const expected = selected ? ["minecraft:item/bundle_open_back", `minecraft:${selected}`, "minecraft:item/bundle_open_front"] : ["minecraft:item/bundle"];
-                if (JSON.stringify(parts.map(part => part.model)) !== JSON.stringify(expected)
+                if (JSON.stringify(parts.map(part => part.model)) !== JSON.stringify(expected.map(path => `minecraft:${path}`))
                     || parts.some(part => !part.vertices || part.instanced)) {
-                    problems.add(`Bundle preview differs from the selected state: ${JSON.stringify(parts)}`);
+                    problems.add(`Item preview differs from the selected state: ${JSON.stringify(parts)}`);
                 }
             };
-            const expectBundleCamera = async () => {
-                const camera = await page.evaluate(() => ({ orthographic: window.renderer.camera.isOrthographicCamera,
-                    position: window.renderer.camera.position.toArray(), zoom: window.renderer.camera.zoom }));
-                if (!camera.orthographic || camera.zoom !== 24 || camera.position.some((n, i) => Math.abs(n - [0, 0, 100][i]) > 0.0001)) {
-                    problems.add(`Bundle camera changed its scale or direction: ${JSON.stringify(camera)}`);
-                }
-            };
-            const selectItem = async (item) => {
-                await page.$eval("#bundle-item-input", (input, value) => {
-                    input.value = value;
-                    input.dispatchEvent(new Event("change", { bubbles: true }));
-                }, item);
+            const setControl = async (selector, value) => {
+                await page.$eval(selector, (control, value) => {
+                    control.value = String(value);
+                    control.dispatchEvent(new Event("change", { bubbles: true }));
+                }, value);
                 await waitReady();
             };
-            await expectParts("item/apple");
-            await expectBundleCamera();
-            await page.select("#bundle-state", "closed");
-            await waitReady();
-            await expectParts();
-            if (!await page.$eval("#bundle-item-input", input => input.disabled)) problems.add("Closed bundle still allows selection changes.");
-            await page.screenshot({ path: path.join(shots, `${name}_closed.png`) });
-            await page.select("#bundle-state", "open");
-            await waitReady();
-            await expectParts("item/apple");
-            await selectItem("minecraft:diamond_block");
-            await expectParts("block/diamond_block");
-            await expectBundleCamera();
-            await page.screenshot({ path: path.join(shots, `${name}_diamond_block.png`) });
-            await selectItem("minecraft:apple");
-            await expectParts("item/apple");
-            await selectItem("minecraft:diamond_block");
-            await expectParts("block/diamond_block");
-            for (const pose of ["ground", ""]) {
-                await page.select("#item-display", pose);
+            const property = id => `[data-item-property="minecraft:${id}"]`;
+            if (url.endsWith("=bundle")) {
+                const reference = '[data-item-reference="minecraft:bundle/selected_item"]';
+                const expectParts = selected => selected ? expectModels("item/bundle_open_back", selected, "item/bundle_open_front") : expectModels("item/bundle");
+                const expectBundleCamera = async () => {
+                    const camera = await page.evaluate(() => ({ orthographic: window.renderer.camera.isOrthographicCamera,
+                        position: window.renderer.camera.position.toArray(), zoom: window.renderer.camera.zoom }));
+                    if (!camera.orthographic || camera.zoom !== 24 || camera.position.some((n, i) => Math.abs(n - [0, 0, 100][i]) > 0.0001)) {
+                        problems.add(`Bundle camera changed its scale or direction: ${JSON.stringify(camera)}`);
+                    }
+                };
+                await expectParts("item/apple");
+                await expectBundleCamera();
+                await setControl(property("bundle/has_selected_item"), false);
+                await expectParts();
+                if (await page.$eval(reference, input => input.value) !== "minecraft:apple") problems.add("Changing a property removed the independent item reference.");
+                await page.screenshot({ path: path.join(shots, `${name}_closed.png`) });
+                await setControl(property("bundle/has_selected_item"), true);
+                await expectParts("item/apple");
+                await setControl(reference, "minecraft:diamond_block");
+                await expectParts("block/diamond_block");
+                await expectBundleCamera();
+                await page.screenshot({ path: path.join(shots, `${name}_diamond_block.png`) });
+                await setControl(reference, "minecraft:apple");
+                await expectParts("item/apple");
+                await setControl(reference, "minecraft:diamond_block");
+                await expectParts("block/diamond_block");
+                for (const pose of ["ground", ""]) {
+                    await setControl("#item-display", pose);
+                    await expectParts();
+                }
+                await setControl("#item-display", "gui");
+                await expectParts("block/diamond_block");
+                await page.select(".playground-panel > label select", "sword");
+                await waitReady();
+                if (await page.$$eval("[data-item-property], [data-item-reference]", controls => controls.length)) problems.add("Preset switch retained item state.");
+                await page.select(".playground-panel > label select", "bundle");
+                await waitReady();
+                await expectParts("item/apple");
+                await expectBundleCamera();
+                await page.$eval(reference, control => control.parentElement.parentElement.querySelector("button").click());
+                await waitReady();
+                await expectModels("item/bundle_open_back", "item/bundle_open_front");
+                await page.evaluate(() => {
+                    const section = [...document.querySelectorAll("summary")].find(summary => summary.textContent === "Add reference").parentElement;
+                    section.open = true;
+                    const inputs = section.querySelectorAll("input");
+                    inputs[0].value = "minecraft:bundle/selected_item";
+                    inputs[1].value = "minecraft:apple";
+                    section.querySelector("button").click();
+                });
+                await waitReady();
+                await expectParts("item/apple");
+                await page.$eval(property("bundle/has_selected_item"), control => control.parentElement.parentElement.querySelector("button").click());
                 await waitReady();
                 await expectParts();
+                await page.evaluate(() => {
+                    const section = [...document.querySelectorAll("summary")].find(summary => summary.textContent === "Add property").parentElement;
+                    section.open = true;
+                    section.querySelector("input").value = "minecraft:bundle/has_selected_item";
+                    section.querySelector("select").value = "boolean";
+                    section.querySelector("button").click();
+                });
+                await waitReady();
+                await expectParts();
+                await setControl(property("bundle/has_selected_item"), true);
+                await expectParts("item/apple");
+                const code = await page.evaluate(() => window.playground.code());
+                if (!code.includes('properties: {"minecraft:bundle/has_selected_item":true}')
+                    || !code.includes('itemReferences: { "minecraft:bundle/selected_item": new MineRender.AssetKey("minecraft", "apple", "models", "item") }')) {
+                    problems.add("Generated code does not reproduce the configured item properties and references.");
+                }
+            } else if (url.endsWith("=bow")) {
+                await expectModels("item/bow_pulling_0");
+                for (const [ticks, model] of [[12, 0], [13, 1], [17, 1], [18, 2], [20, 2], [0, 0]]) {
+                    await setControl(property("use_duration"), ticks);
+                    await expectModels(`item/bow_pulling_${model}`);
+                }
+                await setControl(property("using_item"), false);
+                await expectModels("item/bow");
+                await setControl(property("using_item"), true);
+                await expectModels("item/bow_pulling_0");
+            } else {
+                await expectModels("item/crossbow_arrow");
+                for (const [charge, model] of [["rocket", "crossbow_firework"], ["none", "crossbow"], ["arrow", "crossbow_arrow"]]) {
+                    await setControl(property("charge_type"), charge);
+                    await expectModels(`item/${model}`);
+                }
             }
-            await page.select("#item-display", "gui");
-            await waitReady();
-            await expectParts("block/diamond_block");
-            await page.$eval("#item-input", input => {
-                input.value = "minecraft:iron_sword";
-                input.dispatchEvent(new Event("change", { bubbles: true }));
-            });
-            await waitReady();
-            if (!await page.$eval("#bundle-state", select => select.closest("fieldset").hidden)) problems.add("Bundle controls remain visible for the sword.");
-            await page.select(".playground-panel > label select", "bundle");
-            await waitReady();
-            await expectParts("item/apple");
-            await expectBundleCamera();
         }
     } catch (error) {
         problems.add(`load failed: ${error.message}`);
