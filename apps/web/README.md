@@ -1,6 +1,6 @@
 # MineRender playgrounds
 
-Interactive pages for trying out and manually testing the library. The public website has its own examples; `examples/` holds minimal consumer setups.
+Interactive demos and a [scene editor](src/editor/README.md) for trying out the library. The public website has its own examples; `examples/` holds minimal consumer setups.
 
 ```sh
 yarn dev:web                       # http://127.0.0.1:3000/
@@ -13,8 +13,11 @@ yarn workspace @minerender/web check       # loads every page and preset in head
 
 ## Pages
 
+These paths are relative to the development server root:
+
 | Page | Content |
 |---|---|
+| `editor/` | Mixed scenes with object controls, transforms, animations, import, and export |
 | `demo/block/` | Blockstates with property pickers, multipart models, block entities, tints |
 | `demo/item/` | Item definitions or model files, display poses, tints |
 | `demo/skin/` | Player skins and capes, model/layout overrides, poses, visible parts |
@@ -25,7 +28,7 @@ yarn workspace @minerender/web check       # loads every page and preset in head
 | `demo/exports/` | Image and 3D export of a small instanced scene |
 | `demo/materials/` | Canvas material shader regression check |
 
-Every page shares the sidebar from `src/playground/Playground.ts`: presets, renderer and camera settings, Minecraft version / hosted root / resource-pack ZIP, exports, and a shareable link or JSON that restores the page state. Local files are not part of shared links and have to be selected again.
+The sidebar from `src/playground/Playground.ts` provides presets, renderer and camera settings, Minecraft version / hosted root / resource-pack ZIP, exports, and a shareable link or JSON that restores the page state. Local files are not part of shared links and have to be selected again.
 
 ## Adding a page
 

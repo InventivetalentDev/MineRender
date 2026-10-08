@@ -6,6 +6,8 @@ import { Box3, Color, InstancedMesh, Mesh, Object3D, OrthographicCamera, Perspec
 import { button, checkbox, download, input, note, section, select } from "./controls";
 import { clone, readConfig, type AssetSettings, type CameraState, type PlaygroundConfig, type ViewSettings } from "./config";
 
+declare const MINERENDER_PLAYGROUND_HOME: string;
+
 export interface DemoContext {
     renderer: Renderer;
     /** File paths inside the selected resource pack, if any. */
@@ -111,7 +113,7 @@ export class Playground<S extends object> {
         panel.className = "playground-panel";
         panel.id = "playground-panel";
         const home = document.createElement("a");
-        home.href = "../../";
+        home.href = MINERENDER_PLAYGROUND_HOME;
         home.textContent = "← All playgrounds";
         const title = document.createElement("h1");
         title.textContent = options.title;

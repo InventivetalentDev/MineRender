@@ -30,6 +30,9 @@
     "dev:script-tag": "yarn build:lib && yarn workspace @minerender/example-script-tag dev",
     "dev:site": "yarn build:lib && yarn workspace @minerender/site dev",
     "publish:alpha": "yarn workspace minerender publish:alpha",
-    "publish:beta": "yarn workspace minerender publish:beta"
+    "publish:beta": "yarn workspace minerender publish:beta",
+    "build:web": "yarn build:lib && yarn workspace @minerender/web build:production",
+    "deploy:web": "yarn build:lib && yarn workspace @minerender/web deploy",
+    "preview:web": "yarn build:lib && yarn workspace @minerender/web preview:cf"
   }
 }
