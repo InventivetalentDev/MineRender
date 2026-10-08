@@ -116,14 +116,9 @@ export class ModelObject extends SceneObject {
             return;
         }
         // load textures first so we have the updated UV coordinates from the atlas
-        try {
-            await this.loadTextures();
-            this.createMeshes();
-            this.applyTextures();
-        } catch (error) {
-            this.disposeAndRemoveAllChildren();
-            throw error;
-        }
+        await this.loadTextures();
+        this.createMeshes();
+        this.applyTextures();
     }
 
     public get textureAtlas(): Maybe<TextureAtlas> {
@@ -222,7 +217,6 @@ export class ModelObject extends SceneObject {
 
                 combinedGeo = mergeBufferGeometries(allGeos);
                 for (const geometry of allGeos) {
-                    geometry.dispose();
                     this.geometries.delete(geometry);
                 }
             } else {
@@ -319,7 +313,6 @@ export class ModelObject extends SceneObject {
         this.specialMaterials.clear();
         for (const geometry of this.geometries) geometry.dispose();
         this.geometries.clear();
-        this.meshesCreated = false;
         super.disposeAndRemoveAllChildren();
     }
 

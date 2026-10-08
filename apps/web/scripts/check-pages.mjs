@@ -95,38 +95,83 @@ async function visit(url, name) {
             if (/FAIL/.test(status) || status === "(no status)") problems.add(status);
         }
         await page.screenshot({ path: path.join(shots, `${name}.png`) });
-        if (url === "demo/item/?preset=composite" && /^Ready/.test(status)) {
+        if (url === "demo/item/?preset=bundle" && /^Ready/.test(status)) {
             const inspect = () => {
                 const parts = [];
                 window.item.traverse(object => {
                     if (!object.isModelObject || object.originalModel.parts) return;
                     let vertices = 0;
-                    const centers = [];
                     object.traverse(mesh => {
                         if (!mesh.isMesh) return;
                         vertices += mesh.geometry.getAttribute("position").count;
-                        mesh.geometry.computeBoundingBox();
-                        const { min, max } = mesh.geometry.boundingBox;
-                        centers.push([min.x + max.x, min.y + max.y, min.z + max.z]);
                     });
-                    parts.push({ tint: object.options.tints?.[0], instanced: object.isInstanced, vertices, centers });
+                    parts.push({ model: object.originalModel.key?.toNamespacedString(), instanced: object.isInstanced, vertices });
                 });
                 return parts;
             };
-            const parts = await page.evaluate(inspect);
-            if (parts.length !== 3 || parts.some(part => !part.vertices || part.instanced)
-                || JSON.stringify(parts.map(part => part.tint)) !== JSON.stringify([0xd64b4b, 0x64b85b, 0x5b8cdb])
-                || new Set(parts.map(part => JSON.stringify(part.centers))).size !== 3) {
-                problems.add(`Composite children are missing or share their appearance: ${JSON.stringify(parts)}`);
+            const waitReady = async () => {
+                await page.waitForFunction(() => !/^Loading/.test(document.querySelector(".playground-status")?.textContent ?? ""), { timeout: 120000 });
+                const result = await page.$eval(".playground-status", element => element.textContent ?? "");
+                if (!/^Ready/.test(result)) throw new Error(result);
+            };
+            const expectParts = async (selected) => {
+                const parts = await page.evaluate(inspect);
+                const expected = selected ? ["minecraft:item/bundle_open_back", `minecraft:${selected}`, "minecraft:item/bundle_open_front"] : ["minecraft:item/bundle"];
+                if (JSON.stringify(parts.map(part => part.model)) !== JSON.stringify(expected)
+                    || parts.some(part => !part.vertices || part.instanced)) {
+                    problems.add(`Bundle preview differs from the selected state: ${JSON.stringify(parts)}`);
+                }
+            };
+            const expectBundleCamera = async () => {
+                const camera = await page.evaluate(() => ({ orthographic: window.renderer.camera.isOrthographicCamera,
+                    position: window.renderer.camera.position.toArray(), zoom: window.renderer.camera.zoom }));
+                if (!camera.orthographic || camera.zoom !== 24 || camera.position.some((n, i) => Math.abs(n - [0, 0, 100][i]) > 0.0001)) {
+                    problems.add(`Bundle camera changed its scale or direction: ${JSON.stringify(camera)}`);
+                }
+            };
+            const selectItem = async (item) => {
+                await page.$eval("#bundle-item-input", (input, value) => {
+                    input.value = value;
+                    input.dispatchEvent(new Event("change", { bubbles: true }));
+                }, item);
+                await waitReady();
+            };
+            await expectParts("item/apple");
+            await expectBundleCamera();
+            await page.select("#bundle-state", "closed");
+            await waitReady();
+            await expectParts();
+            if (!await page.$eval("#bundle-item-input", input => input.disabled)) problems.add("Closed bundle still allows selection changes.");
+            await page.screenshot({ path: path.join(shots, `${name}_closed.png`) });
+            await page.select("#bundle-state", "open");
+            await waitReady();
+            await expectParts("item/apple");
+            await selectItem("minecraft:diamond_block");
+            await expectParts("block/diamond_block");
+            await expectBundleCamera();
+            await page.screenshot({ path: path.join(shots, `${name}_diamond_block.png`) });
+            await selectItem("minecraft:apple");
+            await expectParts("item/apple");
+            await selectItem("minecraft:diamond_block");
+            await expectParts("block/diamond_block");
+            for (const pose of ["ground", ""]) {
+                await page.select("#item-display", pose);
+                await waitReady();
+                await expectParts();
             }
-            await page.evaluate(() => window.playground.update({ tints: { 0: 0xffaa00 }, instanceMeshes: true }));
-            const overridden = await page.evaluate(inspect);
-            if (overridden.length !== 3 || overridden.some(part => part.tint !== 0xffaa00 || part.instanced)) {
-                problems.add(`Composite tint override or non-instancing failed: ${JSON.stringify(overridden)}`);
-            }
-            await page.evaluate(() => window.playground.update({ item: "minecraft:iron_sword", tints: {}, instanceMeshes: false }));
-            const switched = await page.$eval(".playground-status", element => element.textContent ?? "");
-            if (!/^Ready/.test(switched)) problems.add(`Switching away from the composite failed: ${switched}`);
+            await page.select("#item-display", "gui");
+            await waitReady();
+            await expectParts("block/diamond_block");
+            await page.$eval("#item-input", input => {
+                input.value = "minecraft:iron_sword";
+                input.dispatchEvent(new Event("change", { bubbles: true }));
+            });
+            await waitReady();
+            if (!await page.$eval("#bundle-state", select => select.closest("fieldset").hidden)) problems.add("Bundle controls remain visible for the sword.");
+            await page.select(".playground-panel > label select", "bundle");
+            await waitReady();
+            await expectParts("item/apple");
+            await expectBundleCamera();
         }
     } catch (error) {
         problems.add(`load failed: ${error.message}`);
