@@ -21,7 +21,9 @@ renderer.start();
 
 The package provides ESM and CommonJS entries for browsers and Node.js, plus
 `dist/bundle.js` for the `MineRender` browser global. Node imports require the optional
-native `canvas` dependency; headless rendering is still in development.
+native `canvas` dependency. The Node-only `NodeRenderer` creates PNG buffers through
+an injected WebGL 2 context or the optional native `gl` backend. See
+[Node rendering and setup](https://github.com/InventivetalentDev/MineRender/blob/main/packages/minerender/reference/platforms.md#render-a-png-in-nodejs).
 
 Requires Node.js 22.12+ or a browser with WebGL 2, Fetch, `AbortSignal.any()`, and `AbortSignal.timeout()`.
 

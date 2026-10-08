@@ -15,8 +15,8 @@ import { VideoExporter, VideoExportOptions } from "../export/VideoExporter";
 
 /**
  * Renders a Minecraft scene with a camera and an optional effects composer.
- * Requires a browser DOM and WebGL. Call {@link appendTo} to attach the canvas,
- * then {@link start} to render scene changes.
+ * Uses a browser canvas by default, or a caller-supplied {@link RendererSurface}.
+ * Call {@link start} for browser animation or {@link renderOnce} for a single frame.
  */
 export class Renderer implements Disposable {
 
@@ -62,6 +62,10 @@ export class Renderer implements Disposable {
 
     protected _element?: HTMLElement;
 
+    private readonly _surface?: RendererSurface;
+    private _width: number = 0;
+    private _height: number = 0;
+
     protected _scene: MineRenderScene;
     protected _camera: Camera;
     protected _renderer: WebGLRenderer;
@@ -88,11 +92,21 @@ export class Renderer implements Disposable {
         this._dirty = true;
     };
 
-    constructor(options?: DeepPartial<RendererOptions>) {
+    constructor(options?: DeepPartial<RendererOptions>, surface?: RendererSurface) {
         this.options = merge({}, Renderer.DEFAULT_OPTIONS, options ?? {});
         const pixelRatio = this.options.render.pixelRatio ?? 1;
         if (!Number.isFinite(pixelRatio) || pixelRatio <= 0) {
             throw new RangeError("render.pixelRatio must be a finite positive number");
+        }
+        this._surface = surface;
+        if (surface) {
+            this.validateSurfaceSize(surface.width, surface.height);
+            this._width = surface.width;
+            this._height = surface.height;
+        }
+        if (typeof document === "undefined") {
+            if (this.options.render.stats) throw new Error("Renderer stats require a browser DOM");
+            if (this.options.controls?.enabled) throw new Error("Renderer controls require a browser DOM");
         }
 
         this._animationLoop = (time: number) => {
@@ -111,16 +125,22 @@ export class Renderer implements Disposable {
         this._scene = this.createScene();
         this._camera = this.createCamera();
         this._renderer = this.createRenderer();
-        this._composer = this.createComposer();
+        try {
+            this._composer = this.createComposer();
 
-        if (this.options.render.stats) {
-            this._stats = new Stats();
+            if (this.options.render.stats) {
+                this._stats = new Stats();
 
-            document.body.appendChild(this._stats.dom);//TODO
+                document.body.appendChild(this._stats.dom);//TODO
+            }
+
+            this.init();
+            this._controls = this.createControls();
+        } catch (error) {
+            // Subclass resources are not initialized until this constructor returns.
+            Renderer.prototype.dispose.call(this);
+            throw error;
         }
-
-        this.init();
-        this._controls = this.createControls();
     }
 
     //<editor-fold desc="INIT">
@@ -154,7 +174,14 @@ export class Renderer implements Disposable {
     }
 
     protected createRenderer(): WebGLRenderer {
+        if (!this._surface && typeof document === "undefined") {
+            throw new Error("Renderer requires a browser canvas or an injected RendererSurface");
+        }
+        const pixelRatio = this.options.render.pixelRatio ?? 1;
+        this._surface?.resize?.(Math.floor(this.viewWidth * pixelRatio), Math.floor(this.viewHeight * pixelRatio));
         const renderer = new WebGLRenderer({
+            canvas: this._surface?.canvas as HTMLCanvasElement | undefined,
+            context: this._surface?.context,
             antialias: this.options.render.antialias,
             alpha: true,
             powerPreference: "high-performance",
@@ -168,8 +195,12 @@ export class Renderer implements Disposable {
 
         renderer.outputColorSpace = SRGBColorSpace;
 
-        renderer.setPixelRatio(this.options.render.pixelRatio ?? 1);
-        renderer.setSize(this.viewWidth, this.viewHeight);
+        if (this._surface) {
+            renderer.setDrawingBufferSize(this.viewWidth, this.viewHeight, pixelRatio);
+        } else {
+            renderer.setPixelRatio(pixelRatio);
+            renderer.setSize(this.viewWidth, this.viewHeight);
+        }
 
         return renderer;
     }
@@ -179,7 +210,7 @@ export class Renderer implements Disposable {
 
         const composer = new EffectComposer(this.renderer);
 
-        composer.setSize(this.viewWidth, this.viewHeight);
+        composer.setSize(this.viewWidth, this.viewHeight, !this._surface);
         //TODO: options
 
         // // This one just tanks completely down to ~2fps (in structures at least, works pretty well for simpler stuff)
@@ -239,7 +270,7 @@ export class Renderer implements Disposable {
     public init() {
         if (this._disposed) return;
 
-        if (typeof window["__THREE_DEVTOOLS__"] !== 'undefined') {
+        if (typeof window !== "undefined" && typeof window["__THREE_DEVTOOLS__"] !== 'undefined') {
             window["__THREE_DEVTOOLS__"].dispatchEvent(new CustomEvent('observe', {detail: this.scene}));
         }
 
@@ -281,7 +312,7 @@ export class Renderer implements Disposable {
             }
         }
 
-        if (this.options.render.autoResize && !this._resizeListener) {
+        if (this.options.render.autoResize && !this._resizeListener && typeof window !== "undefined") {
             this._resizeListener = () => {
                 this.resize(this.viewWidth, this.viewHeight);
             };
@@ -329,6 +360,13 @@ export class Renderer implements Disposable {
     /** Updates the camera and canvas size. Width and height are in CSS pixels. */
     public resize(width: number, height: number) {
         if (this._disposed) return;
+        if (this._surface) {
+            this.validateSurfaceSize(width, height);
+            const pixelRatio = this.renderer.getPixelRatio();
+            this._surface.resize?.(Math.floor(width * pixelRatio), Math.floor(height * pixelRatio));
+        }
+        this._width = width;
+        this._height = height;
 
         if (isPerspectiveCamera(this.camera)) {
             this.camera.aspect = width / height;
@@ -341,9 +379,18 @@ export class Renderer implements Disposable {
             this.camera.updateProjectionMatrix();
         }
 
-        this.renderer.setSize(width, height);
-        this.composer?.setSize(width, height);
+        this.renderer.setSize(width, height, !this._surface);
+        this.composer?.setSize(width, height, !this._surface);
         this._dirty = true;
+    }
+
+    private validateSurfaceSize(width: number, height: number): void {
+        const pixelRatio = this._renderer?.getPixelRatio() ?? this.options.render.pixelRatio ?? 1;
+        for (const value of [width, height]) {
+            if (!Number.isSafeInteger(value) || value <= 0 || !Number.isSafeInteger(Math.floor(value * pixelRatio)) || Math.floor(value * pixelRatio) <= 0) {
+                throw new RangeError("RendererSurface dimensions must be positive integers with positive drawing-buffer dimensions");
+            }
+        }
     }
 
     //<editor-fold desc="RENDER">
@@ -412,7 +459,7 @@ export class Renderer implements Disposable {
         this._disposed = true;
         this._frameCallbacks.clear();
 
-        if (this._resizeListener) {
+        if (this._resizeListener && typeof window !== "undefined") {
             window.removeEventListener('resize', this._resizeListener);
             this._resizeListener = undefined;
         }
@@ -425,7 +472,9 @@ export class Renderer implements Disposable {
 
         this._stats?.dom.remove();
         this._stats = undefined;
-        this.renderer.domElement.remove();
+        if (!this._surface || (this._element && this.renderer.domElement.parentElement === this._element)) {
+            this.renderer.domElement.remove();
+        }
         this._element = undefined;
 
         if (this._controls) {
@@ -447,7 +496,7 @@ export class Renderer implements Disposable {
 
         this.composer?.dispose();
         this.renderer.dispose();
-        this.renderer.forceContextLoss();
+        if (!this._surface) this.renderer.forceContextLoss();
     }
 
     private animate(t: number = performance.now()): void {
@@ -501,6 +550,13 @@ export class Renderer implements Disposable {
 
     //</editor-fold>
 
+    /** Draws a fresh frame without starting the animation loop or invoking frame callbacks. */
+    public renderOnce(): void {
+        if (this._disposed) throw new Error("Cannot render a disposed renderer");
+        if (this._controls?.enabled) this._controls.update();
+        this.drawFrame();
+    }
+
     /**
      * Renders a fresh frame and returns an image data URL, including while the animation loop is stopped.
      * Trimming removes transparent borders; an empty image becomes one transparent pixel.
@@ -508,12 +564,8 @@ export class Renderer implements Disposable {
      */
     public toImage(trim: boolean = false, mime: string = "image/png", quality?: number): string {
         if (this._disposed) throw new Error("Cannot export an image from a disposed renderer");
-        if (this._controls?.enabled) {
-            this._controls.update();
-        }
-
         // Read the drawing buffer in the same task as the draw, before WebGL can clear it.
-        this.drawFrame();
+        this.renderOnce();
         const canvas = trim ? trimCanvas(this.renderer.domElement) : this.renderer.domElement;
         return (canvas as HTMLCanvasElement).toDataURL(mime, quality);
     }
@@ -567,15 +619,15 @@ export class Renderer implements Disposable {
     ///
 
     protected get attachedToBody() {
-        return this.element === document.body;
+        return typeof document !== "undefined" && this.element === document.body;
     }
 
     protected get viewWidth() {
-        return this.attachedToBody ? window.innerWidth : this.element?.offsetWidth || 0;
+        return typeof window !== "undefined" && this.attachedToBody ? window.innerWidth : this.element?.offsetWidth ?? this._width;
     }
 
     protected get viewHeight() {
-        return this.attachedToBody ? window.innerHeight : this.element?.offsetHeight || 0;
+        return typeof window !== "undefined" && this.attachedToBody ? window.innerHeight : this.element?.offsetHeight ?? this._height;
     }
 
     public get scene(): MineRenderScene {
@@ -602,6 +654,17 @@ export class Renderer implements Disposable {
     ///
 
 
+}
+
+/** Caller-owned canvas and WebGL 2 context for rendering without a browser DOM. */
+export interface RendererSurface {
+    canvas: Pick<HTMLCanvasElement, "width" | "height" | "addEventListener" | "removeEventListener">;
+    context: WebGL2RenderingContext;
+    /** Initial logical dimensions, before applying `render.pixelRatio`. */
+    width: number;
+    height: number;
+    /** Resizes the native drawing buffer when assigning canvas dimensions is insufficient. */
+    resize?: (drawingBufferWidth: number, drawingBufferHeight: number) => void;
 }
 
 /** Timing passed to callbacks registered with {@link Renderer.onFrame}. */

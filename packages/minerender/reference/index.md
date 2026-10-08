@@ -21,7 +21,7 @@ Start with the main API for the content you want to render. Related options and 
 
 [Core concepts](./concepts.md) explains coordinate units, asynchronous initialization, redraws, and cleanup. Read it when a change does not appear on screen or when several objects share rendering resources.
 
-[Browser and Node.js](./platforms.md) explains package imports and which capabilities each environment provides. Node package support does not include a headless WebGL renderer.
+[Browser and Node.js](./platforms.md) explains package imports, native PNG rendering with `NodeRenderer`, and the capabilities each environment provides.
 
 ## Reading the API
 

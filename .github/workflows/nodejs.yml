@@ -21,6 +21,10 @@ jobs:
           package-manager-cache: false
       - name: Enable Yarn
         run: corepack enable
+      - name: Install native rendering dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y xvfb libgl1-mesa-dri libwayland-client0 libxi-dev libglu1-mesa-dev libglew-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev
       - name: Install workspace dependencies
         run: yarn install --immutable
       - name: Build the library and consumers
@@ -30,5 +34,7 @@ jobs:
           yarn typecheck
           yarn test
           yarn test:package
+      - name: Test native rendering
+        run: xvfb-run -a yarn test:node
       - name: Pack the public library
         run: yarn workspace minerender pack --out /tmp/minerender.tgz
