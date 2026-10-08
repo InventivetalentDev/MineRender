@@ -1,6 +1,6 @@
 {
   "name": "minerender",
-  "version": "2.1.0-alpha.74",
+  "version": "2.1.0-alpha.75",
   "description": "Interactive 3D renders of Minecraft skins, models, blocks, entities and worlds",
   "main": "./dist/node/index.js",
   "module": "./dist/browser/index.mjs",
@@ -90,7 +90,7 @@
   "engines": {
     "node": ">=22.12.0"
   },
-  "author": "Haylee Sch\u00e4fer",
+  "author": "Haylee Schäfer",
   "license": "MIT",
   "repository": {
     "type": "git",
