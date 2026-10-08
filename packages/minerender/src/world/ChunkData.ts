@@ -10,6 +10,7 @@ interface PaletteEntry {
     references: number;
 }
 
+/** Stores 4,096 block cells in a shared state palette, with separate NBT for each cell. */
 export class ChunkData {
 
     private readonly indices = new Uint16Array(4096);
@@ -18,12 +19,14 @@ export class ChunkData {
     private readonly freeIds: number[] = [];
     private readonly nbt = new Map<number, unknown>();
 
+    /** Returns a detached copy of a cell, or `undefined` for air. Indices range from 0 to 4095. */
     public get(index: number): Maybe<Block> {
         ChunkData.validateIndex(index);
         const entry = this.palette[this.indices[index]];
         return entry ? ChunkData.copyBlock(entry.state, this.nbt.get(index)) : undefined;
     }
 
+    /** Captures a cell's data and returns a copy-producing reader that survives later cell changes. */
     public snapshot(index: number): Maybe<() => Block> {
         ChunkData.validateIndex(index);
         const entry = this.palette[this.indices[index]];
@@ -31,6 +34,7 @@ export class ChunkData {
         return entry ? ChunkData.copyBlock.bind(undefined, entry.state, this.nbt.get(index)) : undefined;
     }
 
+    /** Copies block data into a cell. An omitted block or an air block clears the cell. */
     public set(index: number, block?: Block): void {
         ChunkData.validateIndex(index);
         let state: PaletteState | undefined;

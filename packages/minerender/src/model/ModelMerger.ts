@@ -5,8 +5,10 @@ import { Assets } from "../assets/Assets";
 import { AssetKey } from "../assets/AssetKey";
 import { DisplayTransforms } from "./DisplayTransforms";
 
+/** Resolves Java model inheritance, with child elements and display poses overriding their parents. */
 export class ModelMerger {
 
+    /** Loads the parent chain and returns a merged model without modifying the supplied definition. */
     public static async mergeWithParents(model: Model): Promise<Model> {
         const models = await this.collectAllParents(model);
         let merged: Model = {};

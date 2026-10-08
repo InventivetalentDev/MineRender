@@ -10,6 +10,7 @@ import { HostedAssetSource } from "../HostedAssetSource";
 import type { RequestConfig } from "../../../request";
 import { BrowserArchiveProxy } from "./BrowserArchiveProxy";
 
+/** Loads assets from resource-pack ZIP entries. Register it with {@link AssetLoader.addSource}. */
 export class ArchiveAssetSource extends AssetSource implements ArchiveProxy {
 
     readonly _archiveProxy: ArchiveProxy;
@@ -20,6 +21,7 @@ export class ArchiveAssetSource extends AssetSource implements ArchiveProxy {
         this._archiveProxy = archiveProxy;
     }
 
+    /** Creates a browser ZIP source from a Blob or File. */
     public static blob(blob: Blob): ArchiveAssetSource {
         return new ArchiveAssetSource(new BrowserArchiveProxy(blob));
     }

@@ -5,6 +5,7 @@ import { BlockStateProperties } from "../block/BlockStateProperties";
 import { MultiBlockBlock, MultiBlockStructure } from "./MultiBlockStructure";
 import legacyBlocks from "./legacyBlocks.json";
 
+/** Converts legacy Alpha `.schematic` NBT with numeric block IDs into modern block names and properties. */
 export class SchematicParser {
 
     /**

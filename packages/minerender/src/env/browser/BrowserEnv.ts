@@ -42,6 +42,7 @@ export class BrowserEnv implements EnvProvider {
 
 }
 
+/** Installs the browser provider. The browser package entry calls this automatically. */
 export function registerBrowserEnv(): BrowserEnv {
     const env = new BrowserEnv();
     Env.register(env);

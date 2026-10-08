@@ -14,6 +14,11 @@ import { BlockEntities } from "../assets/BlockEntities";
 import { SectionMesh, SectionMeshEntry } from "./SectionMesh";
 import { getFluidKind } from "../model/fluid/FluidGeometry";
 
+/**
+ * A 16×16×16 block section and its render objects.
+ * Constructor coordinates identify the section. Block accessors use world block coordinates
+ * unless their name explicitly refers to positions within the chunk.
+ */
 export class Chunk<SectionMeshing extends boolean = false> {
 
     public readonly scene: MineRenderScene; //TODO: should probably be the world
@@ -54,7 +59,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
     }
 
     /**
-     * Set block at a _world_ position
+     * Places a block at integer world block coordinates. Pass `undefined` to remove it.
      */
     public async setBlockAt(x: number, y: number, z: number, block: Maybe<Block>): Promise<Maybe<BlockInfo<SectionMeshing>>>;
     public async setBlockAt(pos: Vector3, block: Maybe<Block>): Promise<Maybe<BlockInfo<SectionMeshing>>>;
@@ -74,7 +79,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
     }
 
     /**
-     * Set a block at integer chunk-local coordinates from 0 to 15.
+     * Places a block at integer chunk-local coordinates from 0 to 15.
      */
     public async setBlockInChunkAt(pos: Vector3, block?: Block, worldPos?: Vector3,
                                    onBlocksChanged = this.onBlocksChanged): Promise<Maybe<BlockInfo<SectionMeshing>>> {
@@ -127,6 +132,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
         }
     }
 
+    /** Changes visibility at world block coordinates while preserving the block's data. */
     public async setBlockVisibleAt(pos: Vector3, visible: boolean): Promise<void> {
         const index = Chunk.chunkPosToBlockIndex(this.worldPosToChunkPos(pos));
         const block = this.renderedBlocks.get(index);
@@ -185,6 +191,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
         this.meshDirty = false;
     }
 
+    /** Removes stored blocks and their render objects, then notifies the owning world of changed positions. */
     public async clear(onBlocksChanged = this.onBlocksChanged): Promise<void> {
         const positions = [...this.renderedBlocks.keys()].map(index => this.chunkPosToWorldPos(
             new Vector3(index % 16, Math.floor(index / 256), Math.floor(index / 16) % 16)
@@ -208,6 +215,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
         return ChunkData.isAir(block);
     }
 
+    /** Maps chunk-local coordinates from 0 to 15 to a storage index, with x varying fastest, then z, then y. */
     static chunkPosToBlockIndex(pos: Vector3): number {
         if ([pos.x, pos.y, pos.z].some(value => !Number.isInteger(value) || value < 0 || value >= 16)) {
             throw new RangeError("Block coordinates must be integers from 0 to 15 within a chunk");

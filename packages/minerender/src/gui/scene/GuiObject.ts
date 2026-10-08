@@ -15,6 +15,10 @@ import { createGuiTextureGeometry } from "../GuiTextureGeometry";
 import { createGuiTextGeometry, layoutGuiText } from "../GuiText";
 import type { CompatCanvas } from "../../canvas/CanvasCompat";
 
+/**
+ * Renders ordered texture, item, and text layers. Create it through {@link MineRenderScene.addGui}.
+ * GUI coordinates grow right and down, with one pixel equal to one scene unit.
+ */
 export class GuiObject extends SceneObject {
 
     public readonly isGuiObject: true = true;
@@ -181,6 +185,7 @@ export class GuiObject extends SceneObject {
 
 }
 
+/** Scene-object settings for `scene.addGui(layers, options)`. GUI objects disable instancing and mesh merging. */
 export interface GuiObjectOptions extends SceneObjectOptions {
 
 }

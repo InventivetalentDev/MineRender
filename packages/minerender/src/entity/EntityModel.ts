@@ -1,6 +1,7 @@
 import type { AssetKey, BasicAssetKey } from "../assets/AssetKey";
 import type { MinecraftAsset } from "../MinecraftAsset";
 
+/** One selected draw, combining geometry, texture, and material settings. */
 export interface EntityLayer {
     key: BasicAssetKey;
     texture?: AssetKey;
@@ -11,6 +12,7 @@ export interface EntityLayer {
     tint?: string;
 }
 
+/** Selected entity data returned by {@link Entities.getEntity} for rendering. */
 export interface EntityModel extends EntityLayer {
     id: string;
     /** Root transform from the dataset; see {@link EntityTransformOp}. */
@@ -22,6 +24,7 @@ export interface EntityModel extends EntityLayer {
     layers?: Record<string, EntityLayer>;
 }
 
+/** Dataset file containing all geometry layers and optional extra render passes. */
 export interface EntityModelFile extends MinecraftAsset {
     id: string;
     transform?: EntityTransformOp[];
@@ -34,6 +37,7 @@ export interface EntityModelFile extends MinecraftAsset {
 export type EntityRenderMode = "cutout" | "cutout_cull" | "cutout_z_offset" | "solid" | "translucent" | "translucent_emissive"
     | "eyes" | "energy_swirl" | "breeze_wind" | "water_mask";
 
+/** An extra draw of a geometry layer, optionally enabled by an entity-state label. */
 export interface EntityModelPass {
     /** Geometry layer of the same file; a pass on `main` draws that geometry again. */
     layer: string;
@@ -55,6 +59,7 @@ export interface EntityModelPass {
 export type EntityTransformOp =
     { scale: [number, number, number] } | { translate: [number, number, number] } | { rotate: [number, number, number] };
 
+/** A named geometry tree with texture dimensions in pixels and an optional default texture path. */
 export interface EntityModelLayer {
     texture: [number, number];
     textureLocation?: string;
@@ -63,6 +68,7 @@ export interface EntityModelLayer {
     root: EntityModelPart;
 }
 
+/** A named part's baked pose and children. Offsets use model units and rotations use radians. */
 export interface EntityModelPart {
     pose: {
         offset: [number, number, number];
@@ -74,6 +80,7 @@ export interface EntityModelPart {
     children: Record<string, EntityModelPart>;
 }
 
+/** A part's cuboid in model units, with a texture origin in pixels and optional per-axis growth. */
 export interface EntityModelCube {
     origin: [number, number, number];
     size: [number, number, number];

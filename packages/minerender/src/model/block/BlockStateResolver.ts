@@ -16,8 +16,10 @@ function matchesCondition(condition: MultipartCondition, state: BlockStateProper
     });
 }
 
+/** Selects block models from property values, including multipart conditions and weighted alternatives. */
 export class BlockStateResolver {
 
+    /** Loads vanilla property defaults, falling back to preview values inferred from the blockstate file. */
     public static async defaults(blockState: BlockState): Promise<BlockStateProperties> {
         const defaults = blockState.key ? await BlockStates.getDefaultState(blockState.key) : undefined;
         const state = {};
@@ -41,11 +43,13 @@ export class BlockStateResolver {
         return state;
     }
 
+    /** Selects matching models. Supply `choose` to control selection within each alternatives array. */
     public static select(blockState: BlockState, state: BlockStateProperties,
                          choose: (variants: BlockStateVariant | BlockStateVariant[]) => BlockStateVariant = this.choose): BlockStateVariant[] {
         return this.matching(blockState, state).map(choose);
     }
 
+    /** Returns matching model groups before choosing weighted alternatives. */
     public static matching(blockState: BlockState, state: BlockStateProperties): (BlockStateVariant | BlockStateVariant[])[] {
         const out: (BlockStateVariant | BlockStateVariant[])[] = [];
         if (blockState.variants) {
@@ -70,6 +74,7 @@ export class BlockStateResolver {
         return out;
     }
 
+    /** Selects a random alternative using positive integer weights, each defaulting to 1. */
     public static choose(variants: BlockStateVariant | BlockStateVariant[]): BlockStateVariant {
         if (!Array.isArray(variants)) return variants;
         if (!variants.length) throw new MineRenderError("Blockstate variant arrays must not be empty");
@@ -88,6 +93,7 @@ export class BlockStateResolver {
         return variants[variants.length - 1];
     }
 
+    /** Converts blockstate rotations in degrees into the Euler rotation used by model rendering. */
     public static rotation(variant: BlockStateVariant): Euler {
         const rotation = new Euler();
         if (typeof variant.x !== "undefined") {

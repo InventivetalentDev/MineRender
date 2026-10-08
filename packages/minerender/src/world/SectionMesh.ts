@@ -3,12 +3,14 @@ import { createCanvas } from "../canvas/CanvasCompat";
 import { Materials } from "../Materials";
 import { TextureAtlas } from "../texture/TextureAtlas";
 
+/** Shared cube geometry and atlas data prepared for section merging. */
 export interface SectionMeshTemplate {
     geometry: BufferGeometry;
     atlas: TextureAtlas;
     cullFaces: readonly number[];
 }
 
+/** One block placement in a section, with its storage index and hidden-face mask. */
 export interface SectionMeshEntry {
     index: number;
     template: SectionMeshTemplate;
@@ -31,10 +33,12 @@ interface AtlasPage {
     height: number;
 }
 
+/** Merged terrain geometry and atlas pages for one 16×16×16 section. Owns its generated render resources. */
 export class SectionMesh extends Group {
 
     private readonly ownedMeshes: { mesh: Mesh<BufferGeometry, Material>; texture?: Texture }[] = [];
 
+    /** Builds section-local meshes from visible cube faces. `maxAtlasSize` limits each atlas dimension in pixels. */
     public static build(entries: readonly SectionMeshEntry[], maxAtlasSize = 2048): SectionMesh {
         if (!Number.isInteger(maxAtlasSize) || maxAtlasSize < 1) throw new RangeError("Section atlas size must be a positive integer");
         const visible = entries.filter(entry => entry.template.cullFaces.some(direction => !(entry.cullMask & direction)));

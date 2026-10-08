@@ -1,6 +1,7 @@
 import type { ImageData } from "canvas";
 import type { ExtractableImageData } from "./ExtractableImageData";
 
+/** Provides pixel and frame access to a canvas-backed image. Simple frame helpers assume a vertical strip of squares. */
 export class WrappedImage {
 
     constructor(readonly dta: ExtractableImageData) {
@@ -32,6 +33,7 @@ export class WrappedImage {
         return false;
     }
 
+    /** Whether the dimensions form a vertical strip of square frames, without consulting `.mcmeta`. */
     get animated(): boolean {
         return this.height > this.width && this.height % this.width === 0;
     }

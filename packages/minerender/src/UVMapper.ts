@@ -40,6 +40,7 @@ const FACE_UV_AXES: Record<CubeFace, [Vector3, Vector3]> = {
  */
 
 // noinspection PointlessArithmeticExpressionJS
+/** Maps Minecraft face coordinates to Three.js UVs and builds per-model texture atlases. */
 export class UVMapper {
 
     protected static makeUv(uvCoord: number, originalTextureSize: number, actualTextureSize: number): number {
@@ -208,6 +209,7 @@ export class UVMapper {
         uv.needsUpdate = true;
     }
 
+    /** Returns the shared atlas for a keyed, merged model, creating it on first use. */
     public static async getAtlas(model: Model): Promise<Maybe<TextureAtlas>> {
         const keyStr = model.key!.serialize();
         return Caching.modelTextureAtlasCache.get(keyStr, k => {
@@ -286,6 +288,11 @@ export class UVMapper {
         return [tl, tr, bl, br];
     }
 
+    /**
+     * Combines model textures and animation metadata into an atlas.
+     * Mapped UVs are stored on copies of the model's elements, available through the returned atlas.
+     * Returns `undefined` for models without a texture map.
+     */
     public static async createAtlas(originalModel: Model): Promise<Maybe<TextureAtlas>> {
         const textureMap: { [key: string]: Maybe<WrappedImage>; } = {};
         const metaMap: { [key: string]: Maybe<MinecraftTextureMeta>; } = {};
@@ -552,6 +559,7 @@ export class UVMapper {
 }
 
 // Based on net.minecraft.client.renderer.block.model.BlockFaceUV
+/** Stores a Minecraft face's UV rectangle and its rotation in degrees. */
 export class MinecraftFaceUV {
 
     constructor(readonly uv: QuadArray = [0, 0, 16, 16], readonly rotation: number = 0) {

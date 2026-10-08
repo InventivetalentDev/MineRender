@@ -6,6 +6,7 @@ import { createCanvas } from "../canvas/CanvasCompat";
 import type { CanvasRenderingContext2D } from "canvas";
 import { Textures } from "./Textures";
 
+/** Creates sRGB textures immediately and fills their pixels after asynchronous image loading. */
 export class TextureLoader {
 
     private static readonly failedTextures = new WeakSet<Texture>();
@@ -35,6 +36,7 @@ export class TextureLoader {
         return Textures.initTextureProps(texture);
     }
 
+    /** Loads image pixels in the background. `rotation` is in radians. Check {@link hasFailed} for load failures. */
     public static load(src: string,format: PixelFormat = RGBAFormat, rotation: number = 0): Texture {
         const texture = new Texture();
         texture.colorSpace = THREE.SRGBColorSpace;

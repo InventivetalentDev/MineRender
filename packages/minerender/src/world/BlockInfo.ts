@@ -1,6 +1,7 @@
 import { Block } from "../model/block/Block";
 import { BlockObject } from "../model/block/scene/BlockObject";
 
+/** A placed block's data snapshot and optional render object, returned by world and chunk accessors. */
 export interface BlockInfo<SectionMeshing extends boolean = false> {
     /** Detached block data; use world or chunk setters to update stored blocks. */
     readonly block: Block;

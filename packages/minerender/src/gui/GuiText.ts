@@ -3,6 +3,7 @@ import type { AssetKey } from "../assets/AssetKey";
 import { Fonts, type BitmapGlyph } from "../assets/Fonts";
 import type { CompatCanvas } from "../canvas/CanvasCompat";
 
+/** Text appearance set on a GUI text layer or overridden by an individual text run. */
 export interface GuiTextStyle {
     /** sRGB 0xRRGGBB; defaults to white. */
     color?: number;
@@ -10,6 +11,7 @@ export interface GuiTextStyle {
     italic?: boolean;
 }
 
+/** A text segment with optional style overrides within {@link GuiText}. */
 export interface GuiTextRun extends GuiTextStyle {
     text: string;
 }
@@ -17,6 +19,7 @@ export interface GuiTextRun extends GuiTextStyle {
 /** Literal text, or styled runs. Newlines are preserved. */
 export type GuiText = string | readonly GuiTextRun[];
 
+/** Text layout settings set on a GUI text layer or passed to {@link layoutGuiText}. */
 export interface GuiTextOptions extends GuiTextStyle {
     /** Font resource ID; defaults to minecraft:default. */
     font?: AssetKey | string;
@@ -28,6 +31,7 @@ export interface GuiTextOptions extends GuiTextStyle {
     lineHeight?: number;
 }
 
+/** One measured glyph and its position in GUI pixels, produced by {@link layoutGuiText}. */
 export interface PositionedGuiGlyph {
     character: string;
     glyph?: BitmapGlyph;
@@ -37,6 +41,7 @@ export interface PositionedGuiGlyph {
     style: Required<GuiTextStyle>;
 }
 
+/** Measured glyphs, line widths, and overall dimensions in GUI pixels. */
 export interface GuiTextLayout {
     glyphs: PositionedGuiGlyph[];
     lineWidths: number[];

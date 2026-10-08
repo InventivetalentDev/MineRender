@@ -26,6 +26,7 @@ import { ItemTints } from "../ItemTints";
 const p = prefix("ModelObject");
 
 //TODO: might want to abstract this out into a generic model, and create a separate class for Block models
+/** Builds render geometry from a merged Java model. Create it through {@link MineRenderScene.addModel}. */
 export class ModelObject extends SceneObject {
 
     public readonly isModelObject: true = true;
@@ -277,12 +278,13 @@ export class ModelObject extends SceneObject {
 
 }
 
+/** Model settings passed to `scene.addModel(model, options)` or the ModelObject constructor. */
 export interface ModelObjectOptions extends SceneObjectOptions {
     /** Minecraft display pose applied around the model center, before scene transforms. */
     displayPosition?: DisplayPosition;
     /** Quarter-turn block rotation in radians to compensate when locking UVs. */
     uvLockRotation?: TripleArray;
-    /** sRGB 0xRRGGBB colors by face tint index; omitted indices stay white. */
+    /** sRGB 0xRRGGBB colors by face tint index, overriding automatic item or block preview colors. */
     tints?: Record<number, number>;
     /** Hidden neighbor directions in CUBE_FACES order, before the model's block rotation. */
     cullMask?: number;

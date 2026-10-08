@@ -10,6 +10,7 @@ export const BUILTIN_ENTITY = "builtin/entity";
 
 export const DEFAULT_ELEMENTS: ModelElement[] = []
 
+/** A Java model definition. {@link Models.getMerged} resolves its parent, textures, and elements. */
 export interface Model extends MinecraftAsset {
     textures?: IModelTextures;
     parent?: string;
@@ -18,11 +19,13 @@ export interface Model extends MinecraftAsset {
     hierarchy?: string[];
 }
 
+/** Java block-model data, including the ambient-occlusion flag. */
 export interface BlockModel extends Model {
     textures?: BlockModelTextures;
     ambientocclusion?: boolean;
 }
 
+/** Item preview data, including GUI lighting, tint sources, and supported special renderers. */
 export interface ItemModel extends Model {
     textures?: ItemModelTextures;
     gui_light?: GuiLight;
@@ -30,8 +33,10 @@ export interface ItemModel extends Model {
     tints?: ItemTintSource[];
 }
 
+/** An sRGB packed `0xRRGGBB` value or an RGB triple with components from 0 to 1. */
 export type ItemTintColor = number | TripleArray;
 
+/** A vanilla item color source. Gameplay-dependent sources use their declared default color. */
 export type ItemTintSource =
     | { type: "constant" | "minecraft:constant"; value: ItemTintColor }
     | { type: "grass" | "minecraft:grass"; temperature: number; downfall: number }
@@ -39,6 +44,7 @@ export type ItemTintSource =
         | "firework" | "minecraft:firework" | "team" | "minecraft:team"; default: ItemTintColor }
     | { type: "custom_model_data" | "minecraft:custom_model_data"; index?: number; default: ItemTintColor };
 
+/** Supported item definitions that draw entity geometry instead of ordinary model elements. */
 export type SpecialItemRenderer =
     | { type: "chest" | "minecraft:chest"; texture: string; openness?: number }
     | { type: "bed" | "minecraft:bed"; texture: string }
@@ -47,6 +53,7 @@ export type SpecialItemRenderer =
 export interface TextureAsset extends MinecraftAsset, ImageInfo {
 }
 
+/** A model display pose: translation in model units, rotation in degrees, and scale factors. */
 export interface ModelDisplay {
     translation?: TripleArray;
     rotation?: TripleArray;

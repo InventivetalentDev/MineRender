@@ -31,6 +31,7 @@ function cached<T>(map: Map<string, Promise<T>>, key: string, load: () => Promis
     return value;
 }
 
+/** Prepares and caches static opaque cube geometry for merged world sections. */
 export class SectionModels {
     private states = new WeakMap<BlockState, Map<string, Promise<PreparedState | undefined>>>();
     private models = new WeakMap<Model, Map<string, Promise<SectionMeshTemplate>>>();
@@ -40,6 +41,7 @@ export class SectionModels {
         if (!Number.isInteger(maxAtlasSize) || maxAtlasSize < 1) throw new RangeError("maxAtlasSize must be a positive integer");
     }
 
+    /** Returns a cube template, or `undefined` when the block requires an individual render object. */
     public async get(blockState: BlockState, properties: BlockStateProperties = {}): Promise<SectionMeshTemplate | undefined> {
         if (!blockState.variants || blockState.multipart) return undefined;
         let states = this.states.get(blockState);
@@ -97,6 +99,7 @@ export class SectionModels {
         return { variants, templates };
     }
 
+    /** Disposes prepared geometry and clears this world's template caches. */
     public clear(): void {
         for (const template of this.templates) template.geometry.dispose();
         this.templates.clear();

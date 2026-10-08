@@ -12,19 +12,22 @@ interface GuiLayerLayout {
     size?: [number, number];
 }
 
+/** A texture layer for {@link MineRenderScene.addGui}. Uncropped textures use their `.mcmeta` scaling rules. */
 export interface GuiTextureLayer extends GuiLayerLayout {
     texture: AssetKey | string;
     /** Source-image pixels: [x, y, width, height], measured from the top left. Crops ignore sprite scaling. */
     crop?: [number, number, number, number];
 }
 
+/** An item preview in a 16×16 GUI slot by default, with optional tint overrides. */
 export interface GuiItemLayer extends GuiLayerLayout {
     /** Model key, such as minecraft:item/stone; uses the model's GUI display pose. */
     item: AssetKey | string;
-    /** sRGB 0xRRGGBB colors by face tint index; omitted indices stay white. */
+    /** sRGB 0xRRGGBB colors by face tint index, overriding the item's automatic preview colors. */
     tints?: Record<number, number>;
 }
 
+/** A bitmap-text layer. Set font, wrapping, and style directly on the layer object. */
 export interface GuiTextLayer extends GuiLayerLayout, GuiTextOptions {
     text: GuiText;
 }

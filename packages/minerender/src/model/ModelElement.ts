@@ -8,6 +8,7 @@ export interface FromTo {
     to: TripleArray;
 }
 
+/** A cuboid in model units, where 16 units equal one block. */
 export interface ModelElement extends FromTo {
     rotation?: ElementRotation;
 
@@ -20,6 +21,7 @@ export interface ModelElement extends FromTo {
 
 export type ModelFaces = Partial<Record<CubeFace, Partial<ElementFace>>>;
 
+/** Rotates one cuboid around an origin in model units, using an angle in degrees. */
 export interface ElementRotation {
     origin: TripleArray;
     axis: Axis;

@@ -6,6 +6,7 @@ import { Caching } from "../cache/Caching";
 import type { CompatCanvas } from "../canvas/CanvasCompat";
 import type { MinecraftAsset } from "../MinecraftAsset";
 
+/** A glyph's source pixels and layout metrics. Glyphs without an image contribute spacing only. */
 export interface BitmapGlyph {
     image?: CompatCanvas;
     /** Source rectangle in the bitmap sheet, before applying scale. */
@@ -18,6 +19,7 @@ export interface BitmapGlyph {
     advance: number;
 }
 
+/** Character-to-glyph lookup assembled from the active resource-pack fonts. */
 export interface BitmapFont {
     glyphs: Map<string, BitmapGlyph>;
 }
@@ -52,8 +54,10 @@ interface FontAsset extends MinecraftAsset {
     providers: (BitmapProvider | SpaceProvider | ReferenceProvider | UnsupportedProvider)[];
 }
 
+/** Loads Minecraft bitmap, space, and reference font providers for GUI text. */
 export class Fonts {
 
+    /** Combines font definitions in source-priority order. Unsupported Unihex and TrueType providers are skipped. */
     public static async get(key: AssetKey | string = "minecraft:default"): Promise<BitmapFont> {
         const fontKey = typeof key === "string" ? AssetKey.parse("font", key) : key;
         return (await Caching.fontCache.get(fontKey.serialize(), () => this.load(fontKey, [])))!;

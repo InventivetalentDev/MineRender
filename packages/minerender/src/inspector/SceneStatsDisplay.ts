@@ -1,6 +1,7 @@
 import type { Disposable } from "../Disposable";
 import type { Renderer } from "../renderer/Renderer";
 
+/** A browser statistics panel refreshed once per second. Dispose it separately from its renderer. */
 export class SceneStatsDisplay implements Disposable {
 
     readonly statsContainer: HTMLDivElement;
@@ -28,6 +29,7 @@ export class SceneStatsDisplay implements Disposable {
         el.append(this.statsContainer);
     }
 
+    /** Stops the refresh timer and removes the panel from the page. */
     dispose(): void {
         clearInterval(this.interval);
         this.interval = undefined;
