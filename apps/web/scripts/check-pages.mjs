@@ -76,6 +76,19 @@ async function visit(url, name) {
                     .map(option => option.value)
             })));
             if (!/^Ready/.test(status)) problems.add(status);
+        } else if (await page.$("#add-form")) {
+            await page.waitForFunction(() => {
+                const element = document.querySelector("#status");
+                return element?.classList.contains("error")
+                    || /^(Add objects to build a scene|Local save restored\.)/.test(element?.textContent ?? "");
+            }, { timeout: 120000 });
+            status = await page.$eval("#status", element => element.textContent ?? "");
+            if (await page.$("#status.error")) {
+                problems.add(status);
+            }
+            if (!await page.$("#viewport canvas")) {
+                problems.add("Editor canvas missing");
+            }
         } else {
             await new Promise(resolve => setTimeout(resolve, 3000));
             status = (await page.evaluate(() => document.body.innerText)).split("\n").find(line => /PASS|FAIL/.test(line)) ?? "(no status)";

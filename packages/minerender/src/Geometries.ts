@@ -2,6 +2,7 @@ import { BoxGeometry, BufferAttribute, Float32BufferAttribute } from "three";
 import {  BoxGeometryKey, serializeBoxGeometryKey } from "./cache/CacheKey";
 import { Caching } from "./cache/Caching";
 
+/** Creates box geometry with optional face UVs and caches it by dimensions and UV values. */
 export class Geometries {
 
     public static createBox(key: BoxGeometryKey): BoxGeometry {
@@ -87,6 +88,7 @@ export class Geometries {
         return geometry;
     }
 
+    /** Returns shared geometry. Use {@link createBox} when the caller needs to modify or dispose it independently. */
     public static getBox(key: BoxGeometryKey): BoxGeometry {
         const keyStr = serializeBoxGeometryKey(key)
         return Caching.boxGeometryCache.get(keyStr, k => {

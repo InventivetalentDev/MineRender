@@ -12,6 +12,11 @@ import { SceneExporter, SceneGLTFExportOptions } from "../export/SceneExporter";
 import type { PLYExporterOptions } from "three/examples/jsm/exporters/PLYExporter.js";
 import { trimCanvas } from "../canvas/trimCanvas";
 
+/**
+ * Renders a Minecraft scene with a camera and an optional effects composer.
+ * Requires a browser DOM and WebGL. Call {@link appendTo} to attach the canvas,
+ * then {@link start} to render scene changes.
+ */
 export class Renderer implements Disposable {
 
     public static readonly DEFAULT_OPTIONS: RendererOptions = merge({}, <RendererOptions>{
@@ -283,6 +288,7 @@ export class Renderer implements Disposable {
         return this._element;
     }
 
+    /** Attaches the canvas to an element and sizes it to that element's dimensions. */
     public appendTo(element: HTMLElement): void {
         if (this._disposed) return;
 
@@ -315,6 +321,7 @@ export class Renderer implements Disposable {
         dispatcher.addEventListener(changeEvent, this._changeListener);
     }
 
+    /** Updates the camera and canvas size. Width and height are in CSS pixels. */
     public resize(width: number, height: number) {
         if (this._disposed) return;
 
@@ -359,6 +366,7 @@ export class Renderer implements Disposable {
         };
     }
 
+    /** Starts or resumes the animation loop and registered frame callbacks. */
     public start() {
         if (this._disposed) return;
 
@@ -367,6 +375,7 @@ export class Renderer implements Disposable {
         if (!this._inAnimationLoop) this.renderer.setAnimationLoop(this._animationLoop);
     }
 
+    /** Pauses rendering and frame callbacks. Call {@link start} to resume. */
     public stop() {
         if (this._disposed) return;
 
@@ -501,14 +510,17 @@ export class Renderer implements Disposable {
         return (canvas as HTMLCanvasElement).toDataURL(mime, quality);
     }
 
+    /** Exports visible scene meshes as OBJ text, without texture images. */
     public toObj(): string {
         return SceneExporter.toObj(this.scene);
     }
 
+    /** Exports visible scene meshes as PLY. Set `options.binary` for an ArrayBuffer. */
     public toPLY(options?: PLYExporterOptions): string | ArrayBuffer {
         return SceneExporter.toPLY(this.scene, options);
     }
 
+    /** Exports a static textured scene in the browser. Set `options.binary` for GLB output. */
     public toGLTF(options?: SceneGLTFExportOptions): Promise<Record<string, any> | ArrayBuffer> {
         return SceneExporter.toGLTF(this.scene, options);
     }
@@ -553,6 +565,7 @@ export class Renderer implements Disposable {
 
 }
 
+/** Timing passed to callbacks registered with {@link Renderer.onFrame}. */
 export interface RendererFrame {
     /** Animation-loop timestamp in seconds, relative to the browser's performance time origin. */
     readonly time: number;
@@ -560,8 +573,10 @@ export interface RendererFrame {
     readonly delta: number;
 }
 
+/** A synchronous scene update registered with {@link Renderer.onFrame}. */
 export type FrameCallback = (frame: RendererFrame) => void;
 
+/** Settings for `new Renderer(options)`. Omitted values use {@link Renderer.DEFAULT_OPTIONS}. */
 export interface RendererOptions {
     camera: CameraOptions;
     render: RenderOptions;
@@ -570,12 +585,14 @@ export interface RendererOptions {
     debug: DebugOptions;
 }
 
+/** Camera settings passed as `camera` in the Renderer constructor options. Positions use scene units. */
 export interface CameraOptions {
     type: "perspective" | "orthographic";
     near: number;
     far: number;
     perspective: {
         aspect: undefined | number;
+        /** Vertical field of view in degrees. */
         fov: number;
     }
     orthographic: {
@@ -588,6 +605,7 @@ export interface CameraOptions {
     lookingAt: Vector3 | TripleArray;
 }
 
+/** Canvas and draw-loop settings passed as `render` in the Renderer constructor options. */
 export interface RenderOptions {
     /** Maximum draw rate (60 by default); zero or a negative value disables the limit. */
     fpsLimit: number;
@@ -596,18 +614,23 @@ export interface RenderOptions {
     stats: boolean;
     antialias: boolean;
     shade: boolean;
+    /** Resizes to the attached element when the browser window resizes. */
     autoResize: boolean;
+    /** Draws even when the scene is unchanged, while still respecting `fpsLimit`. */
     renderAlways: boolean;
 }
 
+/** Effects settings passed as `composer` in the Renderer constructor options. */
 export interface ComposerOptions {
     enabled: boolean;
 }
 
+/** Set `controls: { enabled: true }` in the Renderer constructor to create owned OrbitControls. */
 export interface ControlsOptions {
     enabled: boolean;
 }
 
+/** Scene helpers enabled through `debug` in the Renderer constructor options. */
 export interface DebugOptions {
     grid: boolean;
     axes: boolean;

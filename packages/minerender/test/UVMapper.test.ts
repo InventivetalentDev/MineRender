@@ -1,7 +1,7 @@
 import test from "ava";
+import { BoxGeometry, Float32BufferAttribute } from "three";
 import { Env, EnvProvider } from "../src/Env";
 import { ModelTextures } from "../src/assets/ModelTextures";
-import { ImageLoader } from "../src/image/ImageLoader";
 import { UVMapper } from "../src/UVMapper";
 import type { Model } from "../src/model/Model";
 import type { CompatCanvas } from "../src/canvas/CanvasCompat";
@@ -10,25 +10,26 @@ import type { ExtractableImageData } from "../src/ExtractableImageData";
 import type { ExecutionContext } from "ava";
 
 function stubTextures(t: ExecutionContext): void {
-    const originals = { provider: Env["_provider"], get: ModelTextures.get, meta: ModelTextures.getMeta, data: ImageLoader.getData };
+    const originals = { provider: Env["_provider"], get: ModelTextures.get, meta: ModelTextures.getMeta };
     t.teardown(() => {
         Env["_provider"] = originals.provider;
         ModelTextures.get = originals.get;
         ModelTextures.getMeta = originals.meta;
-        ImageLoader.getData = originals.data;
     });
     const pixels = { width: 16, height: 16, data: new Uint8ClampedArray(16 * 16 * 4).fill(255) };
     Env.register({
         name: "test",
         createCanvas: (width, height) => ({
             width, height,
-            getContext: () => ({ putImageData() {} }),
+            getContext: () => ({
+                createImageData: (w: number, h: number) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) }),
+                putImageData() {}, clearRect() {}
+            }),
             toDataURL: () => ""
         } as unknown as CompatCanvas)
     } as EnvProvider);
     ModelTextures.get = async () => ({ width: 16, height: 16, data: { getImageData: () => pixels } } as ExtractableImageData);
     ModelTextures.getMeta = async () => undefined;
-    ImageLoader.getData = async () => pixels;
 }
 
 test.serial("faces without texture references keep fallback UVs while textured faces map normally", async t => {
@@ -69,4 +70,30 @@ test.serial("atlases bake UVs onto their own element copies, not onto elements s
     t.is(shared[0].mappedUv, undefined);
     t.deepEqual(first.model.elements![0].mappedUv, firstUv);
     t.notDeepEqual(second.model.elements![0].mappedUv, firstUv);
+});
+
+test.serial("atlas bounds preserve narrow crops and constrain missing faces", async t => {
+    stubTextures(t);
+    const atlas = (await UVMapper.createAtlas({
+        textures: { side: "block/stone", west: "#side" },
+        elements: [{
+            from: [0, 0, 0], to: [16, 16, 16],
+            faces: { east: {}, west: { texture: "#west", uv: [0, 0, 0.125, 0.125] } }
+        }]
+    }))!;
+    const element = atlas.model.elements![0];
+    const geometry = new BoxGeometry(16, 16, 16);
+    const uv = new Float32BufferAttribute(element.mappedUv!, 2);
+    for (let vertex = 20; vertex < 24; vertex++) uv.setXY(vertex, 0.25, 0.75);
+    geometry.setAttribute("uv", uv);
+    const originalUv = uv.array.slice();
+
+    UVMapper.setAtlasUvBounds(geometry, element.faces, atlas);
+
+    const bounds = geometry.getAttribute("uvBounds").array;
+    t.deepEqual(Array.from(bounds.slice(0, 4)), [0.015625, 0.015625, 0.234375, 0.234375]);
+    t.deepEqual(Array.from(bounds.slice(16, 32)), Array(4).fill([0.515625, 0.515625, 0.984375, 0.984375]).flat());
+    t.deepEqual(Array.from(bounds.slice(32, 36)), [0.015625, 0.765625, 0.234375, 0.984375]);
+    t.deepEqual(Array.from(bounds.slice(80, 84)), [0.25, 0.75, 0.25, 0.75]);
+    t.deepEqual(uv.array, originalUv);
 });

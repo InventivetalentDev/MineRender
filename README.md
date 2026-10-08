@@ -28,4 +28,9 @@ Choose a workspace to work on:
 The `dev:*` commands build the library before starting their server.
 Run `yarn typecheck` and `yarn test` to check your changes.
 
+## API documentation
+
+Run `yarn doc` to build the API reference into `packages/minerender/docs/`, or
+`yarn doc:dev` for a live preview. Hand-written pages live in `packages/minerender/reference/`.
+
 See [AGENTS.md](./AGENTS.md) for architecture, contributor conventions, and publishing instructions.

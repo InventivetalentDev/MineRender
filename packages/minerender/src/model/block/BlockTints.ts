@@ -9,6 +9,7 @@ type BlockTintRule = ({ source: "constant"; color: number } |
 
 const rules = blockTints as Record<string, BlockTintRule>;
 
+/** Supplies block-preview tint colors from block properties and the active resource pack. */
 export class BlockTints {
 
     /** Resolves block preview colors without biome context; explicit tints take precedence. */

@@ -330,6 +330,89 @@ test.serial("chunk column placement culls across sections and empty replacement 
     t.is(scene.stats.instanceCount, 1);
 });
 
+for (const sectionMeshing of [false, true]) {
+    test.serial(`unloading a signed chunk column releases every section and allows reloading (sectionMeshing=${sectionMeshing})`, async t => {
+        const { world, scene, place } = fixture(t, { sectionMeshing });
+        const neighbor = (await place([-16, -1, -1]))!;
+        const lower = new ChunkData(), upper = new ChunkData();
+        lower.set(4095, { type: "test:cube", nbt: { items: [1] } });
+        upper.set(255, { type: "test:cube" });
+        const column = { x: -2, z: -1, sections: [{ y: -1, data: lower }, { y: 1, data: upper }] };
+        await world.placeChunk(column);
+        const positions = [new Vector3(-17, -1, -1), new Vector3(-17, 16, -1)];
+        const sections = positions.map(pos => world.getChunkAt(pos)!);
+        const blocks = positions.map(pos => world.getBlockAt(pos)!);
+        const references = blocks.flatMap(block => block.object?.["_models"] ?? []);
+        const meshes = scene.children.filter(child => child instanceof SectionMesh && child.position.x === -512);
+        const geometries = sectionMeshing ? meshes.flatMap(mesh => mesh.children.map(child => (child as Mesh).geometry))
+            : blocks.map(block => geometryOf(block.object!));
+        let disposals = 0;
+        for (const geometry of new Set(geometries)) geometry.addEventListener("dispose", () => { disposals++; });
+        const neighborCount = () => {
+            if (neighbor.object) return indexCount(neighbor.object);
+            const section = scene.children.find(child => child instanceof SectionMesh && child.position.x === -256)!;
+            return section.children.reduce((sum, child) => sum + (child as Mesh).geometry.getIndex()!.count, 0);
+        };
+        t.is(neighborCount(), 30);
+        scene.dirty = false;
+        await world.unloadChunkColumn(-2, -1);
+        t.true(scene.dirty);
+        t.deepEqual(positions.map(pos => world.getChunkAt(pos)), [undefined, undefined]);
+        t.deepEqual(positions.map(pos => world.getBlockAt(pos)), [undefined, undefined]);
+        t.is(world.getBlockAt(-16, -1, -1), neighbor);
+        t.is(neighborCount(), 36);
+        t.is(scene.stats.instanceCount, sectionMeshing ? 0 : 1);
+        t.is(disposals, sectionMeshing ? 2 : 0);
+        t.true(meshes.every(mesh => mesh.parent === null && mesh.children.length === 0));
+        for (const reference of references) t.throws(() => reference.getPosition(), { message: "Instance has been removed" });
+        scene.dirty = false;
+        await world.unloadChunkColumn(-2, -1);
+        t.false(scene.dirty);
+        await world.placeChunk(column);
+        t.true(positions.every((pos, i) => world.getChunkAt(pos) !== sections[i] && world.getBlockAt(pos) !== blocks[i]));
+        t.deepEqual(world.getBlockAt(positions[0])!.block, lower.get(4095));
+        t.is(neighborCount(), 30);
+        t.is(scene.stats.instanceCount, sectionMeshing ? 0 : 3);
+    });
+
+    test.serial(`unloading a column restores neighboring fluid surfaces and heights (sectionMeshing=${sectionMeshing})`, async t => {
+        const { world, scene } = fixture(t, { sectionMeshing });
+        const left = (await world.setBlockAt([-17, -1, -1], { type: "water", properties: { level: "4" } }))!;
+        const object = left.object!, baseline = modelOf(object);
+        const height = () => geometryOf(object).getAttribute("position").getY(2);
+        const isolatedHeight = height();
+        const water = new ChunkData(), above = new ChunkData();
+        water.set(15 * 256 + 15 * 16, { type: "water" });
+        above.set(15 * 16, { type: "water" });
+        const column = { x: -1, z: -1, sections: [{ y: -1, data: water }, { y: 0, data: above }] };
+        await world.placeChunk(column);
+        const joinedHeight = height();
+        const reference = world.getBlockAt(-16, -1, -1)!.object!["_models"][0];
+        t.is(indexCount(object), 30);
+        t.true(joinedHeight > isolatedHeight);
+        await world.unloadChunkColumn(-1, -1);
+        t.is(world.getBlockAt(-17, -1, -1), left);
+        t.is(left.object, object);
+        t.is(indexCount(object), 36);
+        t.is(height(), isolatedHeight);
+        t.is(modelOf(object), baseline);
+        t.is(scene.stats.instanceCount, 1);
+        t.throws(() => reference.getPosition(), { message: "Instance has been removed" });
+        await world.placeChunk(column);
+        t.is(indexCount(object), 30);
+        t.is(height(), joinedHeight);
+        t.is(scene.stats.instanceCount, 3);
+    });
+}
+
+test.serial("unloading a chunk column rejects noninteger coordinates", async t => {
+    const { world } = fixture(t);
+    for (const value of [0.5, NaN, Infinity]) {
+        await t.throwsAsync(world.unloadChunkColumn(value, 0), { instanceOf: RangeError });
+        await t.throwsAsync(world.unloadChunkColumn(0, value), { instanceOf: RangeError });
+    }
+});
+
 test.serial("standalone edits finish culling while another bulk placement is waiting for an asset", async t => {
     const { world, place, addModel } = fixture(t);
     addModel("delayed");

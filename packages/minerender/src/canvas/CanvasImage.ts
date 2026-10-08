@@ -2,6 +2,7 @@ import type { ImageData, CanvasRenderingContext2D } from "canvas";
 import { CompatCanvas, createCanvas } from "./CanvasCompat";
 import { Disposable } from "../Disposable";
 
+/** Wraps a browser or Node canvas for pixel reads and writes. All coordinates and dimensions use pixels. */
 export class CanvasImage implements Disposable {
 
     readonly canvas: CompatCanvas;

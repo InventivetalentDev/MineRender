@@ -4,6 +4,7 @@ import type { Model } from "./Model";
 import { DisplayPosition } from "./DisplayPosition";
 import { toRadians } from "../util/util";
 
+/** Resolves Minecraft display poses and applies them to model geometry. */
 export class DisplayTransforms {
 
     /** Resolve hand fallbacks within one model, before inheriting parent display entries. */
@@ -33,6 +34,7 @@ export class DisplayTransforms {
         return new Matrix4().compose(translation, rotation, scale);
     }
 
+    /** Transforms geometry in place and reverses triangle winding when the matrix reflects it. */
     public static apply(geometry: BufferGeometry, matrix: Matrix4): void {
         geometry.applyMatrix4(matrix);
         if (matrix.determinant() < 0) {

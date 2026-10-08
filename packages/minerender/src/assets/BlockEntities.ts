@@ -22,6 +22,7 @@ export interface BlockEntityPart {
 /** Degrees per property value, or degrees per unit of a numeric property. */
 export type BlockEntityRotation = { property: string; degrees: Record<string, number> } | { property: string; step: number };
 
+/** Models and state-dependent placement for one block ID in the block-entity index. */
 export interface BlockEntityEntry {
     parts: BlockEntityPart[];
     rotation?: BlockEntityRotation;
@@ -32,6 +33,7 @@ export interface BlockEntityEntry {
 /** The dataset's `blocks.json`: block ID to the models its block-entity renderer draws. */
 export type BlockEntityIndex = MinecraftAsset & { [block: string]: BlockEntityEntry };
 
+/** Parts and placement selected by {@link BlockEntities.resolve} for a block's properties. */
 export interface ResolvedBlockEntity {
     parts: BlockEntityPart[];
     /** Degrees counter-clockwise seen from above, about the block's vertical centre axis. */
@@ -39,6 +41,7 @@ export interface ResolvedBlockEntity {
     translation: TripleArray;
 }
 
+/** Resolves blockstate properties into the entity models used to draw chests, beds, and other block entities. */
 export class BlockEntities {
 
     /**

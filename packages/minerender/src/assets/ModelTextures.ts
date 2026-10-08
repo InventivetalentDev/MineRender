@@ -10,6 +10,7 @@ import { PersistentCache } from "../cache/PersistentCache";
 import { AssetKey } from "./AssetKey";
 import { AssetParser } from "./source/parser/AssetParsers";
 
+/** Loads texture pixels and `.mcmeta` files through the active asset sources. */
 export class ModelTextures {
 
     private static _persistentMetaCache: PersistentCache | undefined;
@@ -18,6 +19,7 @@ export class ModelTextures {
         return this._persistentMetaCache ??= PersistentCache.open("minerender-texturemeta");
     }
 
+    /** Loads and decodes a texture into a readable canvas, or returns `undefined` when missing. */
     public static async get(key: AssetKey): Promise<Maybe<ExtractableImageData>> {
         const keyStr = key.serialize();
         const pending = this.preload(key);
@@ -37,6 +39,7 @@ export class ModelTextures {
         }
     }
 
+    /** Fetches and caches encoded texture bytes without decoding the pixels. */
     public static async preload(key: AssetKey): Promise<Maybe<TextureAsset>> {
         const keyStr = key.serialize();
         return Caching.textureAssetCache.get(keyStr, k => {
@@ -48,6 +51,7 @@ export class ModelTextures {
         })
     }
 
+    /** Loads a texture's `.mcmeta` file, or returns `undefined` when no metadata file exists. */
     public static async getMeta(key: AssetKey): Promise<Maybe<MinecraftTextureMeta>> {
         if (!key.extension || !key.extension.endsWith(".mcmeta")) {
             key = Object.assign(new AssetKey("", ""), key);
@@ -66,6 +70,7 @@ export class ModelTextures {
         })
     }
 
+    /** Clears persisted texture metadata. Use {@link Caching.clear} to discard in-memory textures and metadata. */
     public static async clearCache() {
         await this.PERSISTENT_META_CACHE.clear();
     }

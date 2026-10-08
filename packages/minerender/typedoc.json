@@ -1,0 +1,28 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "name": "MineRender V2",
+  "entryPoints": [
+    "src/index.ts",
+    "src/index.browser.ts",
+    "src/index.node.ts"
+  ],
+  "tsconfig": "tsconfig.json",
+  "readme": "none",
+  "out": "reference/api",
+  "plugin": [
+    "typedoc-plugin-markdown",
+    "./scripts/typedoc-navigation.mjs"
+  ],
+  "entryFileName": "index.md",
+  "hidePageHeader": true,
+  "useCustomAnchors": true,
+  "excludeProtected": true,
+  "hideBreadcrumbs": true,
+  "sanitizeComments": true,
+  "useCodeBlocks": true,
+  "parametersFormat": "table",
+  "interfacePropertiesFormat": "table",
+  "classPropertiesFormat": "table",
+  "excludeReferences": true,
+  "includeVersion": true
+}

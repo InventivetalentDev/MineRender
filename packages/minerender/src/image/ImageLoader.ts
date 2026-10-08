@@ -11,6 +11,7 @@ import { prefix } from "../util/log";
 
 const p = prefix("ImageLoader");
 
+/** Encoded image bytes with dimensions and format detected from the file header. */
 export interface ImageInfo {
     src?: string;
     width: number;
@@ -19,12 +20,14 @@ export interface ImageInfo {
     data: Buffer;
 }
 
+/** Fetches and decodes images through the active browser or Node environment provider. */
 export class ImageLoader {
 
     protected static _createImage(): CompatImage {
         return createImage();
     }
 
+    /** Resolves when an image URL has decoded, or rejects if decoding fails. */
     public static async loadAsync(src: string): Promise<CompatImage> {
         return new Promise<CompatImage>((resolve, reject) => {
             const image = this._createImage();
@@ -35,6 +38,7 @@ export class ImageLoader {
         });
     }
 
+    /** Returns an image immediately. Use the callbacks to observe loading, or await {@link loadAsync}. */
     public static loadElement(src: string, onload?: () => void, onerr?: (err: Error) => void): CompatImage {
         const image = this._createImage();
         if (onload)
@@ -67,6 +71,7 @@ export class ImageLoader {
         }
     }
 
+    /** Decodes the supplied bytes into a canvas without fetching the source URL again. */
     public static async infoToCanvasData(info: ImageInfo): Promise<ExtractableImageData> {
         const type = info.type === "jpg" ? "jpeg" : info.type ?? "png";
         // Both browser and Node images accept data URLs; src remains provenance, not a second fetch.
@@ -87,6 +92,7 @@ export class ImageLoader {
         return image.data.getImageData(0, 0, image.width, image.height);
     }
 
+    /** Returns cached RGBA pixels for an image URL or data URL. Failed loads can be retried. */
     public static async getData(src: string): Promise<ImageData> {
         const keyStr = serializeImageKey({ src });
         return (await Caching.imageDataCache.get(keyStr, k => {
@@ -94,6 +100,7 @@ export class ImageLoader {
         }))!;
     }
 
+    /** Returns a cached canvas context and dimensions for an image URL or data URL. */
     public static async getCanvasData(src: string): Promise<ExtractableImageData> {
         const keyStr = serializeImageKey({ src });
         return (await Caching.canvasImageDataCache.get(keyStr, k => {
@@ -119,6 +126,24 @@ export class ImageLoader {
 
 
     public static async loadInfo(src: string): Promise<ImageInfo> {
+        if (/^data:/i.test(src.trimStart())) {
+            const url = new URL(src);
+            url.hash = "";
+            const comma = url.href.indexOf(",");
+            if (comma < 0) {
+                throw new Error("Invalid image data URL");
+            }
+            // Percent escapes represent image bytes, which need not be valid UTF-8.
+            let bytes = url.href.slice(comma + 1).replace(/%([\da-f]{2})/gi,
+                (_, hex: string) => String.fromCharCode(parseInt(hex, 16)));
+            if (/; *base64 *$/i.test(url.href.slice(5, comma))) {
+                bytes = atob(bytes);
+            }
+            return this.processResponse({
+                url: src,
+                data: Uint8Array.from(bytes, char => char.charCodeAt(0)).buffer
+            });
+        }
 
         return Requests.genericRequest({
             url: src,

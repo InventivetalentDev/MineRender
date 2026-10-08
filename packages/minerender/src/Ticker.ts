@@ -1,3 +1,4 @@
+/** A synchronous callback registered with {@link Ticker.add}. */
 export interface TickerFunction {
     (): void;
 }
@@ -37,6 +38,7 @@ export class Ticker {
         return handle;
     }
 
+    /** Starts or resumes the shared tick loop. Repeated calls have no effect. */
     public static start(): void {
         if (this.interval) return;
 
@@ -63,6 +65,7 @@ export class Ticker {
         }, 1000 * 5);
     }
 
+    /** Pauses the loop while retaining callbacks for a later {@link start}. */
     public static stop(): void {
         if (this.interval) clearInterval(this.interval);
         if (this.oneSecondTicksTracker) clearInterval(this.oneSecondTicksTracker);
@@ -72,6 +75,7 @@ export class Ticker {
         this.fiveSecondTicksTracker = undefined;
     }
 
+    /** Registers a callback, starts the loop if needed, and returns an ID for {@link remove}. */
     public static add(tick: TickerFunction): number {
         this.start();
         const c = this.counter++;
@@ -79,6 +83,7 @@ export class Ticker {
         return c;
     }
 
+    /** Removes a callback by ID and stops the timers when no callbacks remain. */
     public static remove(c?: number) {
         // note: plain `if (c)` used to drop id 0, i.e. the very first registered ticker
         if (typeof c === "number") this._tickers.delete(c);
@@ -97,6 +102,7 @@ export class Ticker {
         return this.fiveSecondTps;
     }
 
+    /** Stops the loop and removes all registered callbacks. */
     public static dispose() {
         this.stop();
         this._tickers.clear();

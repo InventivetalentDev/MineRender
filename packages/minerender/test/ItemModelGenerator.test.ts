@@ -1,7 +1,6 @@
 import test from "ava";
 import { Env, EnvProvider } from "../src/Env";
 import { ModelTextures } from "../src/assets/ModelTextures";
-import { ImageLoader } from "../src/image/ImageLoader";
 import { UVMapper } from "../src/UVMapper";
 import { ModelGenerator } from "../src/model/ModelGenerator";
 import type { ModelElement } from "../src/model/ModelElement";
@@ -87,18 +86,20 @@ test("every face of a layer uses that layer's texture and tint index", t => {
 });
 
 test.serial("layered models outline each layer from the first animation frame and map side faces into the atlas", async t => {
-    const originals = { provider: Env["_provider"], get: ModelTextures.get, meta: ModelTextures.getMeta, data: ImageLoader.getData };
+    const originals = { provider: Env["_provider"], get: ModelTextures.get, meta: ModelTextures.getMeta };
     t.teardown(() => {
         Env["_provider"] = originals.provider;
         ModelTextures.get = originals.get;
         ModelTextures.getMeta = originals.meta;
-        ImageLoader.getData = originals.data;
     });
     Env.register({
         name: "test",
         createCanvas: (width, height) => ({
             width, height,
-            getContext: () => ({ putImageData() {} }),
+            getContext: () => ({
+                createImageData: (w: number, h: number) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) }),
+                putImageData() {}, clearRect() {}
+            }),
             toDataURL: () => ""
         } as unknown as CompatCanvas)
     } as EnvProvider);
@@ -115,7 +116,6 @@ test.serial("layered models outline each layer from the first animation frame an
         }
     } : { width: 2, height: 2, data: { getImageData: () => mask("##", "##") } }) as unknown as ExtractableImageData;
     ModelTextures.getMeta = async key => key.path.endsWith("animated") ? { animation: {} } as any : undefined;
-    ImageLoader.getData = async () => mask("#") as any;
 
     const atlas = (await UVMapper.createAtlas({ textures: { layer0: "item/animated", layer1: "item/overlay" } }))!;
     const elements = atlas.model.elements!;

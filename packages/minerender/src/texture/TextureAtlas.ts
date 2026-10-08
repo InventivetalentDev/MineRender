@@ -5,6 +5,7 @@ import { AnimatorFunction } from "../AnimatorFunction";
 import { Disposable } from "../Disposable";
 import { Ticker } from "../Ticker";
 
+/** A model's combined texture canvas, per-texture rectangles, and shared animation subscriptions. */
 export class TextureAtlas implements Disposable {
     ticker?: number;
     private readonly subscribers = new Set<() => void>();
@@ -42,6 +43,7 @@ export class TextureAtlas implements Disposable {
         };
     }
 
+    /** Copies pixels for a texture variable from its current atlas rectangle. */
     getData(texture: string): ImageData {
         const pos = this.positions[texture];
         const size = this.sizes[texture];

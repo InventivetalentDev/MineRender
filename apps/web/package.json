@@ -7,6 +7,7 @@
     "typecheck": "tsc --noEmit",
     "bundle": "node ./build.mjs",
     "dev": "node ./build.mjs --serve",
+    "typecheck:editor": "tsc -p tsconfig.editor.json",
     "check": "node ./scripts/check-pages.mjs"
   },
   "author": "Haylee Schäfer",

@@ -6,6 +6,7 @@ import fluidBlocks from "./fluidBlocks.json";
 
 export type FluidKind = "water" | "lava";
 
+/** Fluid contained in a block and whether the block's ordinary model is also drawn. */
 export interface BlockFluidState {
     kind: FluidKind;
     level: number;
@@ -14,6 +15,7 @@ export interface BlockFluidState {
 
 const fluidRules = fluidBlocks as Record<string, { kind: FluidKind; levelProperty?: string; renderModel: boolean }>;
 
+/** Finds water or lava from the block ID and properties, including waterlogged blocks and aquatic plants. */
 export function getBlockFluidState(key?: AssetKey, state?: BlockStateProperties): BlockFluidState | undefined {
     const rule = key && fluidRules[key.toNamespacedString()];
     if (rule) return {
@@ -28,12 +30,14 @@ export function getFluidKind(key?: AssetKey, state?: BlockStateProperties): Flui
     return getBlockFluidState(key, state)?.kind;
 }
 
+/** A neighboring cell's fluid level and full-cube occlusion state. */
 export interface FluidSample {
     fluid?: FluidKind;
     level?: number;
     solid?: boolean;
 }
 
+/** Reads cells at integer block offsets relative to the fluid being rendered, with `(0, 0, 0)` as the center. */
 export type FluidSampler = (x: number, y: number, z: number) => FluidSample;
 
 const HORIZONTAL = [[0, -1], [0, 1], [-1, 0], [1, 0]] as const;

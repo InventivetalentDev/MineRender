@@ -4,6 +4,7 @@ import { AssetLoader } from "./AssetLoader";
 
 export type AssetType = "models" | "textures" | "blockstates" | string;
 
+/** A Minecraft namespace and path, such as `minecraft` and `zombie`. */
 export class BasicAssetKey implements Serializable {
 
     readonly namespace: string;
@@ -35,10 +36,19 @@ export class BasicAssetKey implements Serializable {
 }
 
 // TODO: rewrite this to be less dumb
+/** Locates an asset by namespace, directory, extension, and optional asset root. */
 export class AssetKey extends BasicAssetKey {
 
     public readonly isAssetKey: true = true;
 
+    /**
+     * Creates a key from separate path components. Use {@link parse} for a combined reference.
+     *
+     * @param assetType - Asset directory, such as `models`, `textures`, or `blockstates`.
+     * @param type - Subdirectory, such as `block` or `item`.
+     * @param rootType - Top-level directory, usually `assets` or `data`.
+     * @param root - Base URL override for hosted asset sources.
+     */
     constructor(
         readonly namespace: string, readonly path: string,
         public assetType?: AssetType,
@@ -51,6 +61,16 @@ export class AssetKey extends BasicAssetKey {
     }
 
 
+    /**
+     * Parses an asset reference such as `minecraft:block/stone`.
+     * A missing namespace defaults to the origin's namespace or `minecraft`.
+     *
+     * @param assetType - Asset category, such as `models` or `textures`.
+     * @param str - Path with an optional namespace and file extension.
+     * @param origin - Supplies the asset root, default namespace, and non-texture extension.
+     * @returns A key with the matching extension removed from its path. Textures use `.png`;
+     * other assets use the origin's extension or `.json`.
+     */
     public static parse(assetType: AssetType, str: string, origin?: AssetKey): AssetKey {
         let namespace = origin?.namespace || DEFAULT_NAMESPACE;
         if (str.includes(":")) {
@@ -88,6 +108,7 @@ export class AssetKey extends BasicAssetKey {
         return a.join("/");
     }
 
+    /** Joins the type subdirectory and path without adding a namespace or file extension. */
     getFullPath() {
         let p: string[] = [];
         if (this.type) {
@@ -101,6 +122,7 @@ export class AssetKey extends BasicAssetKey {
         return this.namespace + ":" + this.getFullPath();
     }
 
+    /** Returns a cache identifier that includes the explicit root or {@link AssetLoader.ROOT}. */
     serialize(): string {
         return this.toString();
     }

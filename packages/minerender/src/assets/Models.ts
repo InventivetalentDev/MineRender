@@ -9,6 +9,7 @@ import { AssetKey } from "./AssetKey";
 import { ListAsset } from "../ListAsset";
 import { AssetParser } from "./source/parser/AssetParsers";
 
+/** Loads and caches Java block/item models, including inherited geometry and textures. */
 export class Models {
 
     private static _persistentCache: PersistentCache | undefined;
@@ -19,6 +20,7 @@ export class Models {
         return this._persistentCache ??= PersistentCache.open("minerender-models");
     }
 
+    /** Lists item filenames from the asset source's `_list.json`, with a legacy model-directory fallback. */
     public static async getItemList(): Promise<string[]> {
         const key = new AssetKey(DEFAULT_NAMESPACE, "_list", "items");
         const legacyKey = new AssetKey(DEFAULT_NAMESPACE, "_list", "models", "item");
@@ -97,6 +99,7 @@ export class Models {
         throw new Error(`Unsupported item model ${node?.type ?? "definition"} for ${key.toNamespacedString()}`);
     }
 
+    /** Loads one model file without resolving its parents. Returns `undefined` when the file is missing. */
     public static async getRaw(key: AssetKey): Promise<Maybe<Model>> {
         if (!key.assetType) {
             key.assetType = "models";
@@ -118,6 +121,12 @@ export class Models {
         })
     }
 
+    /**
+     * Loads a model and resolves its parent chain. Returns `undefined` when the model is missing.
+     * Item keys use GUI context, false conditions, and zero numeric properties.
+     *
+     * @param key - Model key, for example `AssetKey.parse("models", "minecraft:item/diamond_sword")`.
+     */
     public static async getMerged(key: AssetKey): Promise<Maybe<Model>> {
         if (!key.assetType) {
             key.assetType = "models";
@@ -132,10 +141,12 @@ export class Models {
         });
     }
 
+    /** Alias for {@link getMerged}. */
     public static async get(key: AssetKey): Promise<Maybe<Model>> {
         return this.getMerged(key);
     }
 
+    /** Clears persisted models. Use {@link Caching.clear} to also discard in-memory assets. */
     public static async clearCache() {
         return this.PERSISTENT_CACHE.clear();
     }

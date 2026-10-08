@@ -2,6 +2,7 @@ import { MineRenderError } from "../error/MineRenderError";
 import { Colormaps } from "../texture/Colormaps";
 import type { ItemModel, ItemTintColor, Model } from "./Model";
 
+/** Resolves static item-preview colors from vanilla tint definitions and caller overrides. */
 export class ItemTints {
 
     /** Resolves preview colors from item definitions; explicit per-index colors take precedence. */

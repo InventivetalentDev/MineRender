@@ -114,6 +114,14 @@ export class SkinObject extends SceneObject {
     }
 
 
+    /**
+     * Loads a skin texture, detecting slim arms and legacy layouts by default.
+     * To override detection, set `slim` or `legacy` in the options passed to
+     * `new SkinObject(options)` or `scene.addSkin(src, options)`.
+     * Use {@link setSlim} or {@link setLegacy} to change these settings later.
+     *
+     * @param src - URL of the skin texture.
+     */
     public async setSkinTexture(src: string): Promise<void> {
         if (typeof src === "undefined") return;
         this.skinTextureSrc = src;
@@ -211,7 +219,10 @@ export class SkinObject extends SceneObject {
 
 }
 
+/** Player settings passed to `new SkinObject(options)` or `scene.addSkin(src, options)`. */
 export interface SkinObjectOptions extends SceneObjectOptions {
+    /** Forces slim (`true`) or classic (`false`) arms. Omit it to detect the model from the texture. */
     slim?: boolean;
+    /** Forces the legacy (`true`) or modern (`false`) texture layout. Omit it to detect the layout. */
     legacy?: boolean;
 }

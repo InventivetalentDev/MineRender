@@ -7,6 +7,7 @@ import { ModelElement } from "./ModelElement";
 import { CubeFace } from "../CubeFace";
 import type { QuadArray, TripleArray } from "./Model";
 
+/** Builds extruded item-model elements from sprite pixels, including edges around transparent regions. */
 export class ModelGenerator {
 
     public static readonly ITEM_LAYERS: string[] = ["layer0", "layer1", "layer2", "layer3", "layer4"];

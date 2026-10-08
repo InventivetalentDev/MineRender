@@ -6,14 +6,15 @@ import { Caching } from "./cache/Caching";
 import { AssetKey } from "./assets/AssetKey";
 import type { EntityRenderMode } from "./entity/EntityModel";
 
+/** Creates Minecraft model, entity, and GUI materials, with shared caches for image materials. */
 export class Materials {
 
-    private static readonly MISSING_TEXTURE_SRC = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABAAQMAAACQp+OdAAAABlBMVEX/AP8AAACfphTyAAAAFUlEQVQoz2MIhQKGVVAwKjIqQrwIAHRz/wFI17TEAAAAAElFTkSuQmCC";
-
-    // resolved lazily: as a static field this decoded an image the moment the library was
-    // imported, which needs both a DOM and an EnvProvider to already be in place
+    /** Shared checkerboard material, created on first access. */
     public static get MISSING_TEXTURE(): Material {
-        return Materials.getImage({ texture: { src: Materials.MISSING_TEXTURE_SRC } });
+        return Caching.materialCache.get("builtin:missing-texture", () => new MeshBasicMaterial({
+            map: Textures.getMissing(),
+            alphaTest: 0.5
+        }))!;
     }
 
     public static createImage(key: MaterialKey): Material {
@@ -124,6 +125,7 @@ export class Materials {
         return material;
     }
 
+    /** Creates an unlit, transparent GUI material without depth writes or tone mapping. */
     public static createGuiCanvasMaterial(canvas: HTMLCanvasElement): MeshBasicMaterial {
         const material = new MeshBasicMaterial({
             map: Textures.createCanvasTexture(canvas),
@@ -149,7 +151,7 @@ export class Materials {
         return material;
     }
 
-    public static createShadedCanvasMaterial(canvas: HTMLCanvasElement, transparent: boolean = false, shade:boolean=false):Material {
+    public static createShadedCanvasMaterial(canvas: HTMLCanvasElement, transparent: boolean = false, shade:boolean=false, boundUvs: boolean = false):Material {
         //TODO
         //  this might help https://github.com/JannisX11/blockbench/blob/1701f764641376414d29100c4f6c7cd74997fad8/js/preview/canvas.js#L62
 
@@ -164,6 +166,10 @@ export class Materials {
             centroid out vec2 vUv;
             #else
             varying vec2 vUv;
+            #endif
+            #ifdef BOUND_UVS
+            attribute vec4 uvBounds;
+            flat out vec4 vUvBounds;
             #endif
             varying vec3 vTint;
             varying float light;
@@ -200,13 +206,17 @@ export class Materials {
                 }
                 
                 vUv = uv;
+                #ifdef BOUND_UVS
+                vUvBounds = uvBounds;
+                #endif
                 vTint = color;
                
+                vec4 mvPosition = vec4(position, 1.0);
                 #ifdef USE_INSTANCING
-                    gl_Position = projectionMatrix * viewMatrix * modelMatrix * instanceMatrix * vec4(position, 1.0);
-                #else
-                    gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+                    mvPosition = instanceMatrix * mvPosition;
                 #endif
+                mvPosition = modelViewMatrix * mvPosition;
+                gl_Position = projectionMatrix * mvPosition;
                 
             }
         `
@@ -226,13 +236,22 @@ export class Materials {
             #else
             varying vec2 vUv;
             #endif
+            #ifdef BOUND_UVS
+            flat in vec4 vUvBounds;
+            #endif
             varying vec3 vTint;
             varying float light;
             varying float lift;
 
             void main(void)
             {
-                vec4 color = texture2D(map, vUv);
+                #ifdef BOUND_UVS
+                // Keep edge samples inside their texture even without centroid interpolation.
+                vec2 mapUv = clamp(vUv, vUvBounds.xy, vUvBounds.zw);
+                #else
+                vec2 mapUv = vUv;
+                #endif
+                vec4 color = texture2D(map, mapUv);
                 color.rgb *= vTint;
                 
                 if (color.a < 0.01) discard;
@@ -256,7 +275,8 @@ export class Materials {
         //  https://medium.com/@pailhead011/instancing-with-three-js-part-2-3be34ae83c57 might help with that
 
         try {
-            return new ShaderMaterial({
+            const material = new ShaderMaterial({
+                defines: boundUvs ? { BOUND_UVS: true } : {},
                 uniforms: {
                     SHADE: { value: true },
                     BRIGHTNESS: { value: 1 },
@@ -271,6 +291,8 @@ export class Materials {
                 side: transparent ? DoubleSide : FrontSide,
                 alphaTest: 0.5,
             });
+            Object.assign(material.defaultAttributeValues, { uvBounds: [0, 0, 1, 1] });
+            return material;
         } catch (e) {
             console.warn(e)
         }
@@ -279,6 +301,7 @@ export class Materials {
         return this.createBasicCanvasMaterial(canvas, transparent, shade);
     }
 
+    /** Returns a shared image material. Use {@link createImage} for a separate material instance. */
     public static getImage(key: MaterialKey): Material {
         const keyStr = serializeMaterialKey(key);
         const map = (Caching.materialCache.peek(keyStr) as MeshBasicMaterial | undefined)?.map;

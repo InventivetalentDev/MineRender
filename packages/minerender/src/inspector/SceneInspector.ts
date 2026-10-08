@@ -12,6 +12,10 @@ const p = prefix("SceneInspector");
 
 const help = "<span>Ctrl/Cmd+Click to Select<br/></span><br/>";
 
+/**
+ * Browser controls for inspecting and editing scene objects with Ctrl/Cmd-click selection.
+ * Construct it with a renderer, attach its panels with {@link appendTo}, and call {@link dispose} when finished.
+ */
 export class SceneInspector {
 
     readonly objectInfoContainer: HTMLDivElement;
