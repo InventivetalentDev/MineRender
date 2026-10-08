@@ -14,8 +14,12 @@ import { DisplayPosition } from "../model/DisplayPosition";
 export interface ItemModelContext {
     /** Context used by display-context selectors, overriding `properties`. Defaults to GUI. */
     displayContext?: DisplayPosition | "none";
-    /** Supplied values by property ID; gameplay state is not calculated. Nodes with the same ID share one value, regardless of their parameters. */
+    /** Explicit property overrides. Nodes with the same ID share one override, regardless of their parameters. */
     properties?: Record<string, boolean | string | number>;
+    /** Supplied component JSON by ID. Item-registry defaults are not added; component selectors compare structural JSON values. */
+    components?: Record<string, unknown>;
+    /** Stack count, as a nonnegative integer. Defaults to 1; absent `max_stack_size` also defaults to 1. */
+    count?: number;
     /** Item-model keys by reference-node ID, such as `minecraft:bundle/selected_item`. Unset references draw nothing. */
     itemReferences?: Record<string, AssetKey>;
 }
@@ -52,7 +56,7 @@ export class Models {
         const preview = this.snapshotContext(key, context);
         const itemKey = new AssetKey(key.namespace, key.path, "items", undefined, key.rootType, ".json", key.root);
         const cacheKey = itemKey.serialize() + this.contextKey(preview);
-        const model = await this.PERSISTENT_CACHE.getOrLoad(`item-v2:${AssetLoader.persistentKey(cacheKey)}`, async () => {
+        const model = await this.PERSISTENT_CACHE.getOrLoad(`item-v3:${AssetLoader.persistentKey(cacheKey)}`, async () => {
             const result = await AssetLoader.getFirst<Model & { model?: ItemModelNode }>([itemKey, key], AssetParser.JSON);
             if (!result) return undefined;
             if (result.key.assetType !== "items") return { ...result.asset, key } as ItemModel;
@@ -62,7 +66,7 @@ export class Models {
                     return { key, parts: await Promise.all(selected.parts.map(load)) };
                 }
                 if ("item" in selected) {
-                    // Referenced items start with their own default properties and references.
+                    // Referenced items start with their own default stack state and references.
                     const model = await this.getItemModel(selected.item, { displayContext: preview.displayContext });
                     if (!model) throw new Error(`Item ${key.toNamespacedString()} references missing item ${selected.item.toNamespacedString()}`);
                     return model as ItemModel;
@@ -95,11 +99,13 @@ export class Models {
         if (displayContext !== "none" && !Object.values(DisplayPosition).includes(displayContext)) {
             throw new Error(`Unsupported item display context: ${displayContext}`);
         }
-        for (const map of [context.properties, context.itemReferences]) {
+        for (const map of [context.properties, context.components, context.itemReferences]) {
             if (map !== undefined && (!map || typeof map !== "object" || Array.isArray(map))) {
-                throw new Error("Item-preview properties and references must be objects keyed by identifier");
+                throw new Error("Item-preview properties, components, and references must be objects keyed by identifier");
             }
         }
+        const count = context.count === undefined ? 1 : context.count;
+        if (!Number.isSafeInteger(count) || count < 0) throw new Error("Item-preview count must be a nonnegative safe integer");
         const properties: Required<ItemModelContext>["properties"] = {};
         for (const [id, value] of Object.entries(context.properties ?? {})) {
             const property = this.contextIdentifier(id);
@@ -108,6 +114,12 @@ export class Models {
             }
             if (Object.prototype.hasOwnProperty.call(properties, property)) throw new Error(`Duplicate item-preview property: ${property}`);
             properties[property] = value;
+        }
+        const components: Record<string, unknown> = {};
+        for (const [id, value] of Object.entries(context.components ?? {})) {
+            const component = this.contextIdentifier(id);
+            if (Object.prototype.hasOwnProperty.call(components, component)) throw new Error(`Duplicate item-preview component: ${component}`);
+            components[component] = this.snapshotJson(value);
         }
         const itemReferences: Record<string, AssetKey> = {};
         for (const [id, value] of Object.entries(context.itemReferences ?? {})) {
@@ -119,17 +131,86 @@ export class Models {
             if (Object.prototype.hasOwnProperty.call(itemReferences, reference)) throw new Error(`Duplicate item-preview reference: ${reference}`);
             itemReferences[reference] = Object.assign(new AssetKey("", ""), value, { root: value.root ?? key.root });
         }
-        return { displayContext, properties, itemReferences };
+        return { displayContext, properties, components, count, itemReferences };
     }
 
     private static contextKey(context: Required<ItemModelContext>): string {
-        const properties = Object.keys(context.properties).sort().map(id => [id, context.properties[id]]);
-        const references = Object.keys(context.itemReferences).sort().map(id => [id, context.itemReferences[id].serialize()]);
-        if (context.displayContext === DisplayPosition.GUI && !properties.length && !references.length) return "";
-        return `|item:${JSON.stringify([context.displayContext, properties, references])}`;
+        const itemReferences = Object.fromEntries(Object.entries(context.itemReferences).map(([id, key]) => [id, key.serialize()]));
+        return `|item-v3:${JSON.stringify(this.snapshotJson({ ...context, itemReferences }))}`;
     }
 
-    // Unspecified conditions are false and numeric properties are zero.
+    private static snapshotJson(value: unknown, ancestors = new Set<object>()): unknown {
+        if (value === null || typeof value === "string" || typeof value === "boolean" || typeof value === "number" && Number.isFinite(value)) return value;
+        if (typeof value !== "object" || ancestors.has(value) || !Array.isArray(value)
+            && Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null) {
+            throw new Error("Item-preview components must contain finite JSON values without circular references");
+        }
+        ancestors.add(value);
+        const copy = Array.isArray(value) ? Array.from(value, entry => this.snapshotJson(entry, ancestors))
+            : Object.fromEntries(Object.keys(value).sort().map(key => [key, this.snapshotJson((value as Record<string, unknown>)[key], ancestors)]));
+        ancestors.delete(value);
+        return copy;
+    }
+
+    private static propertyValue(node: ItemModelNode, context: Required<ItemModelContext>): unknown {
+        const kind = node.type.replace(/^minecraft:/, "");
+        const property = node.property ? this.contextIdentifier(node.property) : undefined;
+        if (kind === "select" && property === "minecraft:display_context") return context.displayContext;
+        if (property && Object.prototype.hasOwnProperty.call(context.properties, property)) return context.properties[property];
+        const fallback = kind === "condition" ? false : kind === "range_dispatch" ? 0 : undefined;
+        const component = (id: string) => context.components[this.contextIdentifier(id)];
+        if (property === "minecraft:custom_model_data") {
+            const index = node.index ?? 0;
+            if (!Number.isSafeInteger(index) || index < 0) throw new Error("Item-model custom_model_data index must be a nonnegative integer");
+            const data = component("custom_model_data");
+            if (data === undefined) return fallback;
+            if (!data || typeof data !== "object" || Array.isArray(data)) throw new Error("Item-preview custom_model_data must be an object");
+            const field = kind === "condition" ? "flags" : kind === "select" ? "strings" : "floats";
+            const values = (data as Record<string, unknown>)[field];
+            if (values === undefined) return fallback;
+            if (!Array.isArray(values)) throw new Error(`Item-preview custom_model_data.${field} must be an array`);
+            return index < values.length ? values[index] : fallback;
+        }
+        if (kind === "condition" && property === "minecraft:has_component") {
+            if (node.ignore_default) throw new Error("Item-preview has_component with ignore_default requires an explicit properties override; item defaults are unavailable");
+            return Object.prototype.hasOwnProperty.call(context.components, this.contextIdentifier(node.component!));
+        }
+        if (kind === "select") {
+            switch (property) {
+                case "minecraft:component": return component(node.component!);
+                case "minecraft:block_state": {
+                    const state = component("block_state");
+                    if (state === undefined) return undefined;
+                    if (!state || typeof state !== "object" || Array.isArray(state)) throw new Error("Item-preview block_state must be an object");
+                    if (typeof node.block_state_property !== "string") throw new Error("Item-model block_state requires block_state_property");
+                    return Object.prototype.hasOwnProperty.call(state, node.block_state_property)
+                        ? (state as Record<string, unknown>)[node.block_state_property] : undefined;
+                }
+                case "minecraft:charge_type": {
+                    const projectiles = component("charged_projectiles");
+                    if (projectiles === undefined) return "none";
+                    if (!Array.isArray(projectiles)) throw new Error("Item-preview charged_projectiles must be an array of item stacks");
+                    const ids = projectiles.map(stack => {
+                        if (!stack || typeof stack !== "object" || Array.isArray(stack)) throw new Error("Item-preview charged_projectiles must contain item-stack objects");
+                        return this.contextIdentifier((stack as { id: string }).id);
+                    });
+                    return !ids.length ? "none" : ids.includes("minecraft:firework_rocket") ? "rocket" : "arrow";
+                }
+            }
+        }
+        if (kind === "range_dispatch" && (property === "minecraft:damage" || property === "minecraft:count")) {
+            const damage = property === "minecraft:damage";
+            const maximumComponent = component(damage ? "max_damage" : "max_stack_size");
+            const maximum = maximumComponent === undefined ? damage ? 0 : 1 : maximumComponent;
+            const damageComponent = component("damage");
+            const value = damage ? damageComponent === undefined ? 0 : damageComponent : context.count;
+            if (typeof value !== "number" || typeof maximum !== "number" || maximum < 0) throw new Error(`Item-preview ${property} requires numeric components and a nonnegative maximum`);
+            const clamped = Math.max(0, Math.min(maximum, value));
+            return node.normalize === false ? clamped : clamped / maximum;
+        }
+        return fallback;
+    }
+
     private static selectItemModel(node: ItemModelNode | undefined, key: AssetKey, context: Required<ItemModelContext>): SelectedItemModel {
         if (!node || typeof node.type !== "string") {
             throw new Error(`Unsupported item model definition for ${key.toNamespacedString()}`);
@@ -163,21 +244,24 @@ export class Models {
                 throw new Error(`Unsupported special item renderer ${special.type} for ${key.toNamespacedString()}`);
             }
             case "condition": {
-                const value = node.property ? context.properties[this.contextIdentifier(node.property)] ?? false : false;
+                const value = this.propertyValue(node, context);
                 if (typeof value !== "boolean") throw new Error(`Item-preview condition ${node.property} requires a boolean`);
                 return this.selectItemModel(value ? node.on_true : node.on_false, key, context);
             }
             case "select": {
-                const property = node.property ? this.contextIdentifier(node.property) : undefined;
-                const value = property === "minecraft:display_context" ? context.displayContext : property ? context.properties[property] : undefined;
-                if (value !== undefined && typeof value !== "string") throw new Error(`Item-preview selector ${node.property} requires a string`);
+                const value = this.propertyValue(node, context);
+                const component = node.property && this.contextIdentifier(node.property) === "minecraft:component";
+                if (!component && value !== undefined && typeof value !== "string") throw new Error(`Item-preview selector ${node.property} requires a string`);
+                const matches = (candidate: unknown) => component
+                    ? JSON.stringify(this.snapshotJson(candidate)) === JSON.stringify(this.snapshotJson(value)) : candidate === value;
                 const selected = value === undefined ? undefined
-                    : node.cases?.find(entry => Array.isArray(entry.when) ? entry.when.includes(value) : entry.when === value)?.model;
+                    : node.cases?.find(entry => matches(entry.when) || Array.isArray(entry.when) && entry.when.some(matches))?.model;
                 return this.selectItemModel(selected ?? node.fallback, key, context);
             }
             case "range_dispatch": {
-                const value = node.property ? context.properties[this.contextIdentifier(node.property)] ?? 0 : 0;
+                const value = this.propertyValue(node, context);
                 if (typeof value !== "number") throw new Error(`Item-preview range ${node.property} requires a number`);
+                if (Number.isNaN(value)) return this.selectItemModel(node.fallback, key, context);
                 const scaled = value * (node.scale ?? 1);
                 if (!Number.isFinite(scaled)) throw new Error(`Item-preview range ${node.property} requires a finite value and scale`);
                 const selected = node.entries?.reduce<{ threshold: number; model: ItemModelNode } | undefined>((match, entry) => {
@@ -213,8 +297,8 @@ export class Models {
 
     /**
      * Loads a model and resolves its parent chain. Returns `undefined` when the model is missing.
-     * Item keys default to GUI context, false conditions, and zero numeric properties.
-     * Pass `context` to supply property values and item references for a preview.
+     * Item keys default to GUI context and a stack count of 1. Unresolved conditions are false and numeric properties are zero.
+     * Pass `context` to supply component values, property overrides, and item references for a preview.
      * Composite items retain independently merged children in `ItemModel.parts`.
      *
      * @param key - Model key, for example `AssetKey.parse("models", "minecraft:item/diamond_sword")`.
@@ -252,10 +336,15 @@ interface ItemModelNode {
     tints?: ItemTintSource[];
     base?: string;
     property?: string;
+    index?: number;
+    component?: string;
+    ignore_default?: boolean;
+    normalize?: boolean;
+    block_state_property?: string;
     on_false?: ItemModelNode;
     on_true?: ItemModelNode;
     fallback?: ItemModelNode;
-    cases?: Array<{ when: string | string[]; model: ItemModelNode }>;
+    cases?: Array<{ when: unknown; model: ItemModelNode }>;
     entries?: Array<{ threshold: number; model: ItemModelNode }>;
     scale?: number;
     models?: ItemModelNode[];

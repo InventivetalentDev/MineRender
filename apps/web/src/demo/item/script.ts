@@ -1,8 +1,9 @@
 import { AssetKey, DISPLAY_POSITIONS, DisplayPosition, ModelMerger, Models, isInstanceReference, type ItemModelContext } from "minerender";
 import { Box3 } from "three";
 import { Playground, type DemoContext, type DemoContent } from "../../playground/Playground";
-import { button, group, input, note, section, select, suggestions } from "../../playground/controls";
+import { button, field, group, input, note, section, select, suggestions } from "../../playground/controls";
 import { assetKey, loadModel, modelControls, modelDefaults, modelOptions, selectModel, type ModelSettings } from "../../playground/models";
+import { CUSTOM_MODEL_DATA_ITEM, customModelDataCode, loadCustomModelData } from "./customModelData";
 
 interface ItemSettings extends ModelSettings {
     /** An item ID (`minecraft:apple`) or a model path (`minecraft:item/apple`, `minecraft:block/stone`). */
@@ -10,9 +11,11 @@ interface ItemSettings extends ModelSettings {
     display: DisplayPosition | "";
     properties: Record<string, boolean | string | number>;
     itemReferences: Record<string, string>;
+    components: Record<string, unknown>;
+    count: number;
 }
 
-const defaults: ItemSettings = { ...modelDefaults, item: "minecraft:iron_sword", display: "", properties: {}, itemReferences: {} };
+const defaults: ItemSettings = { ...modelDefaults, item: "minecraft:iron_sword", display: "", properties: {}, itemReferences: {}, components: {}, count: 1 };
 const app = new Playground<ItemSettings>({
     title: "Items and models",
     defaults,
@@ -34,6 +37,8 @@ const app = new Playground<ItemSettings>({
             properties: { "minecraft:using_item": true, "minecraft:use_duration": 0 } } },
         crossbow: { label: "Crossbow with an arrow", state: { item: "minecraft:crossbow", display: DisplayPosition.GUI,
             properties: { "minecraft:charge_type": "arrow" } } },
+        custom_model_data: { label: "Custom model data: two float indices", state: { item: CUSTOM_MODEL_DATA_ITEM, display: DisplayPosition.GUI,
+            components: { "minecraft:custom_model_data": { floats: [0, 0] } } } },
         legacy: { label: "Model path: item/iron_sword", state: { item: "minecraft:item/iron_sword" } }
     },
     load,
@@ -42,10 +47,12 @@ const app = new Playground<ItemSettings>({
         const context = itemContext(state);
         const references = Object.entries(context.itemReferences ?? {}).map(([id, key]) => `${JSON.stringify(id)}: ${keyCode(key)}`);
         const contextCode = `{ displayContext: ${JSON.stringify(context.displayContext)}`
+            + `, count: ${context.count}`
+            + (Object.keys(context.components ?? {}).length ? `, components: ${JSON.stringify(context.components)}` : "")
             + (Object.keys(context.properties ?? {}).length ? `, properties: ${JSON.stringify(context.properties)}` : "")
             + (references.length ? `, itemReferences: { ${references.join(", ")} }` : "") + " }";
         const load = isModelPath(state.item) ? `MineRender.ModelMerger.mergeWithParents(await MineRender.Models.getRaw(${keyCode(key)}))` : `MineRender.Models.getMerged(${keyCode(key)}, ${contextCode})`;
-        return `const model = await ${load};
+        return `${state.item === CUSTOM_MODEL_DATA_ITEM ? customModelDataCode(load) : `const model = await ${load};\n`}
 await renderer.scene.addModel(model, ${JSON.stringify({ ...modelOptions(state), displayPosition: state.display || undefined }, null, 2)});\n`;
     }
 });
@@ -59,6 +66,18 @@ note(itemGroup, "minecraft:apple loads the item definition; minecraft:item/apple
 const display = select(itemGroup, "Display pose", [["", "None"], ...DISPLAY_POSITIONS], app.state.display);
 display.id = "item-display";
 display.addEventListener("change", () => void app.update({ display: display.value as ItemSettings["display"] }));
+const stackGroup = group(app.controls, "Item stack");
+const count = input(stackGroup, "Count", app.state.count, "number");
+count.id = "item-count";
+Object.assign(count, { min: "0", max: String(Number.MAX_SAFE_INTEGER), step: "1" });
+count.addEventListener("change", () => void app.update({ count: count.valueAsNumber }));
+const components = field(stackGroup, "Components (JSON)", document.createElement("textarea"));
+components.id = "item-components";
+components.rows = 6;
+button(stackGroup, "Apply components", () => {
+    try { void app.update({ components: JSON.parse(components.value) }); }
+    catch (error) { app.report((error as Error).message, true); }
+});
 const propertiesGroup = group(app.controls, "Item properties");
 const propertyEntries = document.createElement("div");
 propertiesGroup.append(propertyEntries);
@@ -123,6 +142,8 @@ function referenceKey(value: unknown): AssetKey {
 }
 
 function syncStateControls(state: ItemSettings, items: string[]): void {
+    count.value = String(state.count);
+    components.value = JSON.stringify(state.components, null, 2);
     propertyEntries.replaceChildren();
     for (const [id, value] of Object.entries(state.properties)) {
         const row = document.createElement("div");
@@ -160,11 +181,12 @@ function syncStateControls(state: ItemSettings, items: string[]): void {
 }
 
 function itemContext(state: ItemSettings): ItemModelContext {
-    const context: ItemModelContext = { displayContext: state.display || "none", properties: {}, itemReferences: {} };
-    for (const entries of [state.properties, state.itemReferences]) {
-        if (!entries || typeof entries !== "object" || Array.isArray(entries)) throw new Error("Item properties and references must be objects keyed by ID.");
+    if (!Number.isSafeInteger(state.count) || state.count < 0) throw new Error("Item count must be a nonnegative safe integer.");
+    const context: ItemModelContext = { displayContext: state.display || "none", properties: {}, itemReferences: {}, components: {}, count: state.count };
+    for (const entries of [state.properties, state.itemReferences, state.components]) {
+        if (!entries || typeof entries !== "object" || Array.isArray(entries)) throw new Error("Item properties, references, and components must be objects keyed by ID.");
         const ids = Object.keys(entries).map(stateId);
-        if (new Set(ids).size !== ids.length) throw new Error("Each item property or reference ID must occur once, including namespace aliases.");
+        if (new Set(ids).size !== ids.length) throw new Error("Each item property, reference, or component ID must occur once, including namespace aliases.");
     }
     for (const [id, value] of Object.entries(state.properties)) {
         if (!["boolean", "string", "number"].includes(typeof value) || (typeof value === "number" && !Number.isFinite(value))) {
@@ -173,6 +195,7 @@ function itemContext(state: ItemSettings): ItemModelContext {
         context.properties![stateId(id)] = value;
     }
     for (const [id, value] of Object.entries(state.itemReferences)) context.itemReferences![stateId(id)] = referenceKey(value);
+    for (const [id, value] of Object.entries(state.components)) context.components![stateId(id)] = value;
     return context;
 }
 
@@ -181,7 +204,8 @@ async function load(ctx: DemoContext, state: ItemSettings): Promise<DemoContent>
     const key = modelKey(state.item);
     const direct = isModelPath(state.item);
     const context = itemContext(state);
-    const [loaded, list] = await Promise.all([direct ? Models.getRaw(key) : Models.getMerged(key, context), Models.getItemList().catch(() => [])]);
+    const [loaded, list] = await Promise.all([direct ? Models.getRaw(key) : state.item === CUSTOM_MODEL_DATA_ITEM
+        ? loadCustomModelData(key, context) : Models.getMerged(key, context), Models.getItemList().catch(() => [])]);
     const model = direct && loaded ? await ModelMerger.mergeWithParents(loaded) : loaded;
     if (!model) throw new Error(`Model not found: ${state.item}`);
     const object = await loadModel(ctx, model, { ...modelOptions(state), displayPosition: state.display || undefined });

@@ -216,6 +216,16 @@ test.serial("invalid item-preview inputs reject before requesting assets", async
         { properties: { use_duration: Infinity } },
         { properties: { using_item: null } },
         { properties: [] },
+        { components: { custom_model_data: { floats: [Infinity] } } },
+        { components: { custom_model_data: {}, "minecraft:custom_model_data": {} } },
+        { components: { "Invalid ID": {} } },
+        { components: { custom_data: { nested: undefined } } },
+        { components: { custom_data: new Date() } },
+        { components: [] },
+        { count: -1 },
+        { count: 1.5 },
+        { count: NaN },
+        { count: null },
         { itemReferences: { "Invalid ID": itemKey("apple") } },
         { itemReferences: { "bundle/selected_item": itemKey("apple"), "minecraft:bundle/selected_item": itemKey("apple") } },
         { itemReferences: { "bundle/selected_item": AssetKey.parse("models", "minecraft:block/stone") } },
@@ -224,7 +234,125 @@ test.serial("invalid item-preview inputs reject before requesting assets", async
         { displayContext: "invalid" }
     ];
     for (const context of contexts) await t.throwsAsync(Models.getMerged(itemKey("preview"), context as ItemModelContext));
+    const cyclic: Record<string, unknown> = {};
+    cyclic.self = cyclic;
+    await t.throwsAsync(Models.getMerged(itemKey("preview"), { components: { custom_data: cyclic } }), { message: /circular/ });
     t.is(source.calls.length, 0);
+});
+
+test.serial("custom model data evaluates each node index and snapshots nested component cache inputs", async t => {
+    const source = new FixtureSource({
+        "items/data": { model: { type: "composite", models: [
+            ...[undefined, 1, 8].map(index => ({ type: "condition", property: "custom_model_data", index,
+                on_true: reference("item/yes"), on_false: reference("item/no") })),
+            ...[undefined, 1, 8].map(index => ({ type: "select", property: "minecraft:custom_model_data", index,
+                cases: ["left", "right"].map(when => ({ when, model: reference(`item/${when}`) })), fallback: reference("item/missing") })),
+            ...[undefined, 1, 8].map(index => ({ type: "range_dispatch", property: "custom_model_data", index, scale: 2,
+                entries: [{ threshold: 10, model: reference("item/high") }], fallback: reference("item/low") }))
+        ] } },
+        ...Object.fromEntries(["yes", "no", "left", "right", "missing", "high", "low"]
+            .map(name => [`models/item/${name}`, { textures: { layer0: name } }]))
+    });
+    AssetLoader.addSource("test-items", source);
+    const key = itemKey("data");
+    const components = { custom_model_data: { flags: [false, true], strings: ["left", "right"], floats: [2, 7] },
+        "custom:payload": { nested: { a: 1, b: [2, 3] } } };
+    const pending = Models.getMerged(key, { components });
+    components.custom_model_data.flags[0] = true;
+    components.custom_model_data.strings[0] = "right";
+    components.custom_model_data.floats[1] = 0;
+    components["custom:payload"].nested.b.reverse();
+    const model = (await pending)! as ItemModel;
+    t.deepEqual(model.parts!.map(part => part.textures?.layer0), ["no", "yes", "no", "left", "right", "missing", "low", "high", "low"]);
+    const canonical = { "custom:payload": { nested: { b: [2, 3], a: 1 } },
+        "minecraft:custom_model_data": { floats: [2, 7], strings: ["left", "right"], flags: [false, true] } };
+    t.is(await Models.getMerged(key, { components: canonical }), model);
+    const changed = (await Models.getMerged(key, { components }))! as ItemModel;
+    t.deepEqual(changed.parts!.map(part => part.textures?.layer0), ["yes", "yes", "no", "right", "right", "missing", "low", "low", "low"]);
+    const calls = source.calls.length;
+    Caching.clear();
+    t.deepEqual(await Models.getMerged(key, { components: canonical }), model);
+    t.deepEqual(await Models.getMerged(key, { components }), changed);
+    t.is(source.calls.length, calls);
+    const absent = (await Models.getMerged(key))! as ItemModel;
+    t.deepEqual(absent.parts!.map(part => part.textures?.layer0), ["no", "no", "no", "missing", "missing", "missing", "low", "low", "low"]);
+});
+
+test.serial("component selectors use named scalar and structured values while has_component checks presence", async t => {
+    const values = [false, 3, "", { nested: { second: [1, 2], first: true } }, [{ id: "minecraft:arrow" }, { id: "minecraft:firework_rocket" }]];
+    const source = new FixtureSource({
+        "items/components": { model: { type: "composite", models: [
+            ...values.map((when, index) => ({ type: "select", property: "component", component: `custom:value_${index}`,
+                cases: [{ when, model: reference("item/match") }], fallback: reference("item/missing") })),
+            { type: "condition", property: "has_component", component: "custom:value_0",
+                on_true: reference("item/match"), on_false: reference("item/missing") }
+        ] } },
+        "items/alternatives": { model: { type: "select", property: "component", component: "custom:value",
+            cases: [{ when: [{ value: 1 }, { value: 2 }], model: reference("item/match") }], fallback: reference("item/missing") } },
+        "items/nondefault": { model: { type: "condition", property: "has_component", component: "custom:value", ignore_default: true,
+            on_true: reference("item/match"), on_false: reference("item/missing") } },
+        "models/item/match": { textures: { layer0: "match" } },
+        "models/item/missing": { textures: { layer0: "missing" } }
+    });
+    AssetLoader.addSource("test-items", source);
+    const components = Object.fromEntries(values.map((value, index) => [`custom:value_${index}`, value]));
+    components["custom:value_3"] = { nested: { first: true, second: [1, 2] } };
+    const model = (await Models.getMerged(itemKey("components"), { components }))! as ItemModel;
+    t.deepEqual(model.parts!.map(part => part.textures?.layer0), Array(6).fill("match"));
+    const reordered = (await Models.getMerged(itemKey("components"), { components: {
+        ...components, "custom:value_4": [...values[4] as Array<unknown>].reverse()
+    } }))! as ItemModel;
+    t.is(reordered.parts![4].textures?.layer0, "missing");
+    const absent = (await Models.getMerged(itemKey("components")))! as ItemModel;
+    t.deepEqual(absent.parts!.map(part => part.textures?.layer0), Array(6).fill("missing"));
+    t.is((await Models.getMerged(itemKey("alternatives"), { components: { "custom:value": { value: 2 } } }))?.textures?.layer0, "match");
+    await t.throwsAsync(Models.getMerged(itemKey("nondefault"), { components: { "custom:value": false } }), { message: /ignore_default requires an explicit properties override/ });
+    t.is((await Models.getMerged(itemKey("nondefault"), { properties: { has_component: false } }))?.textures?.layer0, "missing");
+});
+
+test.serial("damage and count ranges normalize, clamp, honor overrides, and invalidate earlier preview caches", async t => {
+    const source = new FixtureSource({
+        "items/amounts": { model: { type: "composite", models: [
+            { type: "range_dispatch", property: "damage", entries: [{ threshold: 0, model: reference("item/zero") }, { threshold: 0.5, model: reference("item/half") }, { threshold: 1, model: reference("item/full") }], fallback: reference("item/missing") },
+            { type: "range_dispatch", property: "damage", normalize: false, entries: [{ threshold: 50, model: reference("item/half") }], fallback: reference("item/zero") },
+            { type: "range_dispatch", property: "count", entries: [{ threshold: 0.5, model: reference("item/half") }, { threshold: 1, model: reference("item/full") }], fallback: reference("item/zero") },
+            { type: "range_dispatch", property: "count", normalize: false, entries: [{ threshold: 8, model: reference("item/full") }], fallback: reference("item/zero") }
+        ] } },
+        ...Object.fromEntries(["zero", "half", "full", "missing"].map(name => [`models/item/${name}`, { textures: { layer0: name } }]))
+    });
+    AssetLoader.addSource("test-items", source);
+    const key = itemKey("amounts");
+    const definitionKey = new AssetKey(key.namespace, key.path, "items", undefined, key.rootType, ".json", key.root);
+    await Models["_persistentCache"]!.put(`item-v2:${AssetLoader.persistentKey(definitionKey.serialize())}`, { key, textures: { layer0: "stale" } });
+    const layers = async (context: ItemModelContext = {}) => ((await Models.getMerged(key, context))! as ItemModel).parts!.map(part => part.textures?.layer0);
+    t.deepEqual(await layers(), ["missing", "zero", "full", "zero"]);
+    t.deepEqual(await layers({ count: 4, components: { damage: 50, max_damage: 100, max_stack_size: 8 } }), ["half", "half", "half", "zero"]);
+    t.deepEqual(await layers({ count: 80, components: { damage: 150, max_damage: 100, max_stack_size: 8 } }), ["full", "half", "full", "full"]);
+    t.deepEqual(await layers({ count: 0, components: { damage: -5, max_damage: 100, max_stack_size: 8 } }), ["zero", "zero", "zero", "zero"]);
+    t.deepEqual(await layers({ count: 8, components: { damage: 100, max_damage: 100, max_stack_size: 8 }, properties: { damage: 0, count: 0 } }), ["zero", "zero", "zero", "zero"]);
+    const calls = source.calls.length;
+    Caching.clear();
+    t.deepEqual(await layers({ count: 4, components: { max_stack_size: 8, max_damage: 100, damage: 50 } }), ["half", "half", "half", "zero"]);
+    t.deepEqual(await layers(), ["missing", "zero", "full", "zero"]);
+    t.is(source.calls.length, calls);
+});
+
+test.serial("block-state and charge selectors derive values from components unless overridden", async t => {
+    const source = new FixtureSource({
+        "items/selectors": { model: { type: "composite", models: [
+            { type: "select", property: "block_state", block_state_property: "facing", cases: [{ when: "east", model: reference("item/east") }, { when: "", model: reference("item/empty") }], fallback: reference("item/missing") },
+            { type: "select", property: "charge_type", cases: ["none", "arrow", "rocket"].map(when => ({ when, model: reference(`item/${when}`) })), fallback: reference("item/missing") }
+        ] } },
+        ...Object.fromEntries(["east", "empty", "missing", "none", "arrow", "rocket"].map(name => [`models/item/${name}`, { textures: { layer0: name } }]))
+    });
+    AssetLoader.addSource("test-items", source);
+    const layers = async (context: ItemModelContext = {}) => ((await Models.getMerged(itemKey("selectors"), context))! as ItemModel).parts!.map(part => part.textures?.layer0);
+    t.deepEqual(await layers(), ["missing", "none"]);
+    t.deepEqual(await layers({ components: { block_state: { facing: "east" }, charged_projectiles: [] } }), ["east", "none"]);
+    t.deepEqual(await layers({ components: { block_state: {}, charged_projectiles: [{ id: "minecraft:arrow" }] } }), ["missing", "arrow"]);
+    const components = { block_state: { facing: "east" }, charged_projectiles: [{ id: "minecraft:arrow" }, { id: "firework_rocket" }] };
+    t.deepEqual(await layers({ components }), ["east", "rocket"]);
+    t.deepEqual(await layers({ components, properties: { block_state: "", charge_type: "none" } }), ["empty", "none"]);
 });
 
 test.serial("special items retain their renderer and inherit the base pose through cache hits", async t => {
@@ -413,14 +541,19 @@ test.serial("item-preview inputs are snapshotted and referenced items preserve t
     ]);
 });
 
-test.serial("referenced items retain display context but start with their own properties and references", async t => {
+test.serial("referenced items retain display context but start with their own stack state and references", async t => {
     const source = new FixtureSource({
         ...bundleAssets(),
         "items/selected_only": { model: { type: "bundle/selected_item" } },
         "items/contextual": { model: {
             type: "minecraft:condition", property: "minecraft:using_item", on_true: reference("item/wrong"),
-            on_false: { type: "minecraft:select", property: "minecraft:display_context",
-                cases: [{ when: "ground", model: reference("item/ground") }], fallback: reference("item/gui") }
+            on_false: { type: "condition", property: "custom_model_data", on_true: reference("item/wrong"), on_false: {
+                type: "range_dispatch", property: "count", normalize: false,
+                fallback: reference("item/wrong"), entries: [{ threshold: 1, model: {
+                    type: "minecraft:select", property: "minecraft:display_context",
+                    cases: [{ when: "ground", model: reference("item/ground") }], fallback: reference("item/gui")
+                } }]
+            } }
         } },
         "models/item/ground": { textures: { layer0: "ground" } },
         "models/item/gui": { textures: { layer0: "gui" } }
@@ -436,6 +569,7 @@ test.serial("referenced items retain display context but start with their own pr
     t.is(bundle.parts![1].textures?.layer0, "item/bundle");
     const ground = await Models.getMerged(itemKey("selected_only"), {
         displayContext: DisplayPosition.GROUND, properties: { using_item: true },
+        count: 0, components: { custom_model_data: { flags: [true] } },
         itemReferences: { "bundle/selected_item": itemKey("contextual") }
     });
     t.is(ground?.textures?.layer0, "ground");
