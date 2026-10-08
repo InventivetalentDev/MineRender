@@ -3,9 +3,6 @@
 Compose mixed MineRender scenes at `/editor/`. From the repository root, run
 `yarn dev:web`, then open `http://127.0.0.1:3000/editor/`.
 
-The editor deploys alongside the demos in the `minerender-web` Cloudflare Worker.
-See [deployment commands and routes](../../README.md#deploy-to-cloudflare).
-
 ## Edit a scene
 
 1. Choose an object type, enter an asset ID or skin source, and select **Add to scene**.

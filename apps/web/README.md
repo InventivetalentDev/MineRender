@@ -11,49 +11,6 @@ yarn workspace @minerender/web check       # loads every page and preset in head
 
 `check` starts the dev server on its own, reports the status line and console errors per page, and saves screenshots to `.screenshots/`. It uses the installed Google Chrome; set `CHROME_PATH` for another binary.
 
-## Deploy to Cloudflare
-
-Run these commands from the repository root:
-
-```sh
-yarn build:web                  # Build apps/web/dist/
-yarn preview:web                # Preview at http://localhost:8787/demo/
-yarn deploy:web --dry-run        # Check deployment packaging
-yarn deploy:web                  # Deploy the minerender-web Worker
-```
-
-`apps/web/wrangler.jsonc` deploys the built files with Workers Static Assets.
-The editor is at `/editor/`; the demo index is at `/demo/`. Individual demos stay
-under `/demo/`, and test pages move from `/test/` to `/demo/test/`. The development
-server keeps its existing paths. Missing deployed paths return 404 responses.
-
-For Workers Builds, set the root directory to `.`, the build command to
-`yarn build:web`, and the deploy command to
-`yarn workspace @minerender/web exec wrangler deploy`.
-
-Choose your hostname, then assign these four routes to `minerender-web`:
-`YOUR_DOMAIN/editor`, `YOUR_DOMAIN/editor/*`, `YOUR_DOMAIN/demo`, and
-`YOUR_DOMAIN/demo/*`. These routes leave the rest of the website with its existing
-host. To manage routes in source, add this configuration to `wrangler.jsonc`,
-replacing the example hostname and zone:
-
-```json
-"routes": [
-    { "pattern": "example.com/editor", "zone_name": "example.com" },
-    { "pattern": "example.com/editor/*", "zone_name": "example.com" },
-    { "pattern": "example.com/demo", "zone_name": "example.com" },
-    { "pattern": "example.com/demo/*", "zone_name": "example.com" }
-]
-```
-
-Use `/editor/` and `/demo/` in links. The bare paths redirect to the trailing-slash
-URLs, but Cloudflare's exact-path routes do not match `/editor?query` or
-`/demo?query`. See [route matching](https://developers.cloudflare.com/workers/configuration/routing/routes/#matching-behavior).
-On the Worker preview hostname, open `/demo/` or `/editor/`; there is no root page.
-
-Minecraft assets and player textures load from their existing external providers.
-Saved editor scenes remain in the browser or downloaded JSON files.
-
 ## Pages
 
 These paths are relative to the development server root:
