@@ -3,65 +3,10 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>Custom model | MineRender</title>
+        <title>Custom model playground | MineRender</title>
         <link rel="stylesheet" href="../../demo_shared.css">
-        <style>
-            #info {
-                z-index: 100;
-                position: absolute;
-                top: 0;
-                right: 0;
-                background-color: hsla(0, 0%, 59%, 0.5);
-                width: 80px;
-                height: 100px;
-                padding: 5px;
-                color: white;
-                text-shadow: 0 0 4px black;
-                font-size: 12px;
-            }
-
-            #rayinfo {
-                z-index: 100;
-                position: absolute;
-                bottom: 0;
-                right: 0;
-                background-color: hsla(0, 0%, 59%, 0.5);
-                width: 300px;
-                height: 500px;
-                padding: 5px;
-                color: white;
-                text-shadow: 0 0 4px black;
-                font-size: 12px;
-                overflow: auto;
-            }
-        </style>
     </head>
     <body>
-        <div id="info">
-            <span>OC <span id="objectCount" title="objectCount">0</span></span><br/>
-            <span>SOC <span id="sceneObjectCount" title="sceneObjectCount">0</span></span><br/>
-            <span>IC <span id="instanceCount" title="instanceCount">0</span></span><br/>
-            <br/>
-            <span>RC <span id="renderCalls" title="renderCalls">0</span></span><br/>
-            <br/>
-            <span>TPS <span id="1sTps" title="1sTps">20</span>/<span id="5sTps" title="5sTps">20</span></span><br/>
-        </div>
-        <div id="rayinfo">
-        </div>
-
-
-
-
-
-        <!--        <script>-->
-        <!--            navigator.serviceWorker.register('./serviceworker.js', {-->
-        <!--                scope: '.'-->
-        <!--            }).then(function(registration) {-->
-        <!--                console.log('The service worker has been registered ', registration);-->
-        <!--            });-->
-        <!--        </script>-->
-
-
         <script type="module" src="script.bundle.js"></script>
     </body>
 </html>

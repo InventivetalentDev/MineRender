@@ -1,30 +1,64 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>MineRender demos</title>
-    </head>
-    <body>
-        <h1>MineRender demos</h1>
-        <p>Drag to orbit, scroll to zoom, and Ctrl+click an object to inspect it.</p>
-        <h2>Demos</h2>
-        <ul>
-            <li><a href="editor/">Scene editor</a></li>
-            <li><a href="demo/block/">Blocks</a></li>
-            <li><a href="demo/item/">Items</a></li>
-            <li><a href="demo/entity/">Entities</a></li>
-            <li><a href="demo/skin/">Player skins</a></li>
-            <li><a href="demo/structure/">Structures</a></li>
-            <li><a href="demo/gui/">GUI layers</a></li>
-        </ul>
-        <h2>Manual test pages</h2>
-        <ul>
-            <li><a href="test/blocksphere/">Block sphere</a></li>
-            <li><a href="test/custom_model/">Custom model</a></li>
-            <li><a href="test/exports/">Exports</a></li>
-            <li><a href="test/stonecube/">Stone cube</a></li>
-            <li><a href="test/v2test/">V2 experiments</a></li>
-        </ul>
-    </body>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>MineRender playgrounds</title>
+    <link rel="stylesheet" href="demo_shared.css">
+</head>
+<body class="playground-index">
+    <main>
+        <h1>MineRender playgrounds</h1>
+        <p>Drag to orbit, scroll to zoom, Ctrl/Cmd+click to inspect. Each page can switch Minecraft versions and resource packs, export images and 3D files, and share its state as a link. The smaller links open a page with a preset applied.</p>
+        <div class="playground-cards">
+            <article>
+                <a href="editor/">Scene editor</a>
+                <span>Build scenes and save them as JSON.</span>
+            </article>
+            <article>
+                <a href="demo/block/">Blocks</a>
+                <span>Blockstates, multipart models, block entities, tints.</span>
+                <nav><a href="demo/block/?preset=grass">Grass block</a><a href="demo/block/?preset=fence">Fence</a><a href="demo/block/?preset=stairs">Stairs</a><a href="demo/block/?preset=chest">Chest</a><a href="demo/block/?preset=bed">Bed</a><a href="demo/block/?preset=skull">Skull</a><a href="demo/block/?preset=sign">Sign</a><a href="demo/block/?preset=bell">Bell</a></nav>
+            </article>
+            <article>
+                <a href="demo/item/">Items and models</a>
+                <span>Item definitions, model files, display poses.</span>
+                <nav><a href="demo/item/?preset=sword">Sword</a><a href="demo/item/?preset=sapling">Sapling</a><a href="demo/item/?preset=apple">Apple in GUI pose</a><a href="demo/item/?preset=potion">Tinted potion</a><a href="demo/item/?preset=block">Block model</a></nav>
+            </article>
+            <article>
+                <a href="demo/skin/">Player skins</a>
+                <span>Skins, capes, poses, visible parts.</span>
+                <nav><a href="demo/skin/?preset=wave">Waving</a><a href="demo/skin/?preset=walk">Walking</a><a href="demo/skin/?preset=base">Base layer only</a></nav>
+            </article>
+            <article>
+                <a href="demo/entity/">Entities</a>
+                <span>Dataset passes, layers, textures, keyframe animations.</span>
+                <nav><a href="demo/entity/?preset=bat">Bat animation</a><a href="demo/entity/?preset=charged">Charged creeper</a><a href="demo/entity/?preset=sheep">Orange sheep</a><a href="demo/entity/?preset=breeze">Breeze</a></nav>
+            </article>
+            <article>
+                <a href="demo/gui/">GUI layers</a>
+                <span>Chests, recipes, custom texture and item layers.</span>
+                <nav><a href="demo/gui/?preset=chest">Chest</a><a href="demo/gui/?preset=shaped">Shaped recipe</a><a href="demo/gui/?preset=shapeless">Shapeless recipe</a></nav>
+            </article>
+            <article>
+                <a href="demo/structure/">Structures and worlds</a>
+                <span>Structure files, schematics, region files, random blocks, block edits.</span>
+                <nav><a href="demo/structure/?preset=ship">End city ship</a><a href="demo/structure/?preset=culling">Chunk border culling</a><a href="demo/structure/?preset=fluids">Fluids</a><a href="demo/structure/?preset=cube">Stone cube</a><a href="demo/structure/?preset=sphere">Block sphere</a></nav>
+            </article>
+            <article>
+                <a href="test/custom_model/">Custom model</a>
+                <span>Paste or import a Java model JSON.</span>
+                <nav><a href="test/custom_model/?preset=windmill">Windmill</a><a href="test/custom_model/?preset=cube">Parent model</a><a href="test/custom_model/?preset=generated">Generated item</a><a href="test/custom_model/?preset=tinted">Tinted elements</a></nav>
+            </article>
+            <article>
+                <a href="test/exports/">Exports</a>
+                <span>Image and 3D export of a small instanced scene.</span>
+            </article>
+            <article>
+                <a href="test/materials/">Materials check</a>
+                <span>Shader regression test for canvas materials.</span>
+            </article>
+        </div>
+    </main>
+</body>
 </html>

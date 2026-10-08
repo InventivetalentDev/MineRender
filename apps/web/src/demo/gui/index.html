@@ -1,49 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>GUI | MineRender</title>
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@100;400;500;600&display=swap" rel="stylesheet">
-
-        <link rel="stylesheet" href="../../demo_shared.css">
-    </head>
-    <body>
-        <div class="overlay top-right">
-            <label for="gui-example">GUI example</label>
-            <select id="gui-example" disabled>
-                <option value="chest">Chest</option>
-                <option value="shaped">Shaped recipe</option>
-                <option value="shapeless">Shapeless recipe</option>
-                <option value="scaling">Sprite scaling</option>
-                <option value="tooltip">Tooltip</option>
-            </select>
-            <form id="gui-sprite-options" hidden>
-                <fieldset id="gui-sprite-controls" disabled>
-                    <legend>Sprite size</legend>
-                    <div>
-                        <label for="gui-sprite">Sprite</label>
-                        <select id="gui-sprite">
-                            <option value="widget/button">Button</option>
-                            <option value="tooltip/frame">Tooltip frame</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="gui-width">Width (pixels)</label>
-                        <input id="gui-width" type="number" min="1" max="1024" step="1" value="240" required>
-                    </div>
-                    <div>
-                        <label for="gui-height">Height (pixels)</label>
-                        <input id="gui-height" type="number" min="1" max="1024" step="1" value="40" required>
-                    </div>
-                    <button type="submit">Update sprite</button>
-                </fieldset>
-            </form>
-            <div id="gui-status" role="status">Loading GUI layers…</div>
-        </div>
-
-        <script type="module" src="script.bundle.js"></script>
-    </body>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>GUI playground | MineRender</title>
+    <link rel="stylesheet" href="../../demo_shared.css">
+</head>
+<body>
+    <script type="module" src="script.bundle.js"></script>
+</body>
 </html>

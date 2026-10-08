@@ -1,63 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>Structure | MineRender</title>
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@100;400;500;600&display=swap" rel="stylesheet">
-
-        <link rel="stylesheet" href="../../demo_shared.css">
-        <style>
-            #info {
-                z-index: 100;
-                position: absolute;
-                top: 50px;
-                left: 0;
-                background-color: hsla(0, 0%, 59%, 0.5);
-                width: 80px;
-                height: 100px;
-                padding: 5px;
-                color: white;
-                text-shadow: 0 0 4px black;
-                font-size: 12px;
-            }
-
-            #input { max-width: min(360px, calc(100vw - 10px)); }
-            #input input, #input select { max-width: 100%; }
-            #input label { display: block; margin-top: 5px; }
-            #load-status { max-width: 340px; overflow-wrap: anywhere; }
-
-        </style>
-    </head>
-    <body>
-        <div id="info">
-            <span>OC <span id="objectCount" title="objectCount">0</span></span><br/>
-            <span>SOC <span id="sceneObjectCount" title="sceneObjectCount">0</span></span><br/>
-            <span>IC <span id="instanceCount" title="instanceCount">0</span></span><br/>
-            <br/>
-            <span>RC <span id="renderCalls" title="renderCalls">0</span></span><br/>
-            <br/>
-            <span>TPS <span id="1sTps" title="1sTps">20</span>/<span id="5sTps" title="5sTps">20</span></span><br/>
-        </div>
-        <div id="input" class="overlay top-right">
-            <label for="structure-input">Built-in structure</label>
-            <input type="text" id="structure-input" value="end_city/ship" list="structure-suggestions">
-            <datalist id="structure-suggestions"></datalist>
-            <label for="file-input">Local file (.nbt, .schematic, .mca)</label>
-            <input type="file" id="file-input" accept=".nbt,.schematic,.mca">
-            <div id="chunk-picker" hidden>
-                <label for="chunk-input">Chunk in region (local X, Z)</label>
-                <select id="chunk-input" disabled></select>
-            </div>
-            <label><input type="checkbox" id="section-meshing"> Section meshes</label>
-            <p id="load-status" role="status" aria-live="polite"></p>
-        </div>
-        <div id="inspector" class="overlay bottom-right"></div>
-
-
-
-        <script type="module" src="script.bundle.js"></script>
-    </body>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Structure and world playground | MineRender</title>
+    <link rel="stylesheet" href="../../demo_shared.css">
+</head>
+<body>
+    <script type="module" src="script.bundle.js"></script>
+</body>
 </html>

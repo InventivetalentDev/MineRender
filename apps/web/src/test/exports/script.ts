@@ -1,98 +1,46 @@
-import { AssetKey, Models, Renderer } from "minerender";
-import { Euler, Vector3 } from "three";
+import { AssetKey, Models, type InstanceReference, type ModelObject } from "minerender";
+import { Box3, Vector3 } from "three";
+import { Playground } from "../../playground/Playground";
+import { input, note } from "../../playground/controls";
 
-const renderer = new Renderer({
-    camera: {
-        position: [85, 65, 100],
-        lookingAt: [0, 0, 0]
+interface ExportScene { tint: string; }
+const app = new Playground<ExportScene>({
+    title: "Exports",
+    defaults: { tint: "#91bd59" },
+    renderer: { camera: { position: [85, 65, 100] } },
+    async load(ctx, state) {
+        if (!/^#[0-9a-f]{6}$/i.test(state.tint)) throw new Error("Invalid tint color.");
+        const [stone, grass] = await Promise.all([
+            Models.getMerged(AssetKey.parse("models", "minecraft:block/stone")),
+            Models.getMerged(AssetKey.parse("models", "minecraft:block/grass_block"))
+        ]);
+        if (!stone || !grass) throw new Error("A block model is missing.");
+        const objects: Array<ModelObject | InstanceReference<ModelObject>> = [];
+        ctx.onCleanup(() => objects.forEach(object => { object.removeFromScene(); object.dispose(); }));
+        for (const x of [-24, 24]) {
+            const block = await ctx.renderer.scene.addModel(stone, { instanceMeshes: true, mergeMeshes: true });
+            objects.push(block);
+            block.setPosition(new Vector3(x, 0, 0));
+        }
+        objects.push(await ctx.renderer.scene.addModel(grass, { tints: { 0: Number.parseInt(state.tint.slice(1), 16) } }));
+        return {
+            bounds: new Box3(new Vector3(-32, -12, -12), new Vector3(32, 12, 12)),
+            activate() { tint.value = app.state.tint; }
+        };
     },
-    controls: {
-        enabled: true
-    },
-    render: {
-        antialias: false
-    },
-    composer: {
-        enabled: false
+    code(state) {
+        return `const stone = await MineRender.Models.getMerged(MineRender.AssetKey.parse("models", "minecraft:block/stone"));
+for (const x of [-24, 24]) {
+    const block = await renderer.scene.addModel(stone, { instanceMeshes: true, mergeMeshes: true });
+    block.setPosition(new THREE.Vector3(x, 0, 0));
+}
+const grass = await MineRender.Models.getMerged(MineRender.AssetKey.parse("models", "minecraft:block/grass_block"));
+await renderer.scene.addModel(grass, { tints: { 0: ${Number.parseInt(state.tint.slice(1), 16)} } });
+const png = renderer.toImage();
+const gltf = await MineRender.SceneExporter.toGLTF(renderer.scene);\n`;
     }
 });
-renderer.appendTo(document.body);
-renderer.start();
-window["renderer"] = renderer;
-
-const controls = document.getElementById("exports") as HTMLFieldSetElement;
-const animation = document.getElementById("animate-stone") as HTMLInputElement;
-const status = document.getElementById("export-status")!;
-
-function download(content: string | ArrayBuffer | object, filename: string, mime?: string) {
-    const dataUrl = typeof content === "string" && content.startsWith("data:");
-    const url = dataUrl ? content as string : URL.createObjectURL(new Blob([
-        typeof content === "string" || content instanceof ArrayBuffer ? content : JSON.stringify(content)
-    ], { type: mime }));
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    if (!dataUrl) setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-const exports: Record<string, () => void | Promise<void>> = {
-    png: () => download(renderer.toImage(), "blocks.png"),
-    trim: () => download(renderer.toImage(true), "blocks-cropped.png"),
-    jpeg: () => download(renderer.toImage(false, "image/jpeg", 0.9), "blocks.jpg"),
-    obj: () => download(renderer.toObj(), "blocks.obj", "text/plain"),
-    ply: () => download(renderer.toPLY(), "blocks.ply", "application/octet-stream"),
-    gltf: async () => download(await renderer.toGLTF(), "blocks.gltf", "model/gltf+json"),
-    glb: async () => download(await renderer.toGLTF({ binary: true }), "blocks.glb", "model/gltf-binary")
-};
-
-for (const button of controls.querySelectorAll<HTMLButtonElement>("button")) {
-    button.addEventListener("click", async () => {
-        controls.disabled = true;
-        status.textContent = `Exporting ${button.textContent}…`;
-        try {
-            await exports[button.dataset.export!]();
-            status.textContent = "Download ready.";
-        } catch (error) {
-            status.textContent = error instanceof Error ? `Could not export: ${error.message}` : "Could not export the scene.";
-            console.error(error);
-        } finally {
-            controls.disabled = false;
-        }
-    });
-}
-
-async function loadBlocks() {
-    const [stone, grass] = await Promise.all([
-        Models.getMerged(AssetKey.parse("models", "minecraft:block/stone")),
-        Models.getMerged(AssetKey.parse("models", "minecraft:block/grass_block"))
-    ]);
-    if (!stone || !grass) throw new Error("A block model is missing.");
-
-    for (const x of [-24, 24]) {
-        const block = await renderer.scene.addModel(stone, { instanceMeshes: true, mergeMeshes: true });
-        block.setPosition(new Vector3(x, 0, 0));
-        if (x === -24) {
-            let angle = 0;
-            let unsubscribe: (() => void) | undefined;
-            animation.addEventListener("change", () => {
-                unsubscribe?.();
-                unsubscribe = animation.checked ? renderer.onFrame(({ delta }) => {
-                    angle += delta;
-                    block.setRotation(new Euler(0, angle, 0));
-                }) : undefined;
-            });
-        }
-    }
-    await renderer.scene.addModel(grass, { instanceMeshes: true, mergeMeshes: true, tints: { 0: 0x91bd59 } });
-    controls.disabled = false;
-    animation.disabled = false;
-    status.textContent = "Ready to export.";
-}
-
-loadBlocks().catch(error => {
-    status.textContent = error instanceof Error ? `Could not load blocks: ${error.message}` : "Could not load blocks.";
-    console.error(error);
-});
+note(app.controls, "Two instanced stone blocks and a tinted grass block: instance placements and vertex tints in the 3D formats. Use Export below.");
+const tint = input(app.controls, "Grass tint", app.state.tint, "color");
+tint.addEventListener("change", () => { void app.update({ tint: tint.value }); });
+void app.start();

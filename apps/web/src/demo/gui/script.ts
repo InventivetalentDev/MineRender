@@ -1,138 +1,223 @@
-import { GuiHelper, type GuiLayer, type GuiObject, type GuiRecipe, type GuiText, Renderer } from "minerender";
-import { OrthographicCamera, Vector2 } from "three";
+import { GuiObject } from "minerender";
+import { OrthographicCamera, PerspectiveCamera, Vector2 } from "three";
+import { Playground } from "../../playground/Playground";
+import { asGuiLayers, defaults, layersFor, validateLayers, type EditableLayer, type GuiState } from "./config";
 
-const renderer = new Renderer({
-    camera: {
-        type: "orthographic",
-        position: [0, 0, 100]
+const app = new Playground<GuiState>({
+    title: "GUI layers",
+    defaults,
+    renderer: {
+        camera: { type: "orthographic", position: [0, 0, 100] },
+        render: { antialias: false },
+        composer: { enabled: false }
     },
-    render: {
-        antialias: false,
-        autoResize: false
+    presets: {
+        chest: { label: "Chest", state: {} },
+        shaped: { label: "Shaped recipe", state: { mode: "shaped" } },
+        shapeless: { label: "Shapeless recipe", state: { mode: "shapeless", ingredients: ["blue_dye", "red_dye", "", "", "", "", "", "", ""], result: "purple_dye" } }
     },
-    composer: {
-        enabled: false
+    code: state => `const gui = await renderer.scene.addGui(${JSON.stringify(layersFor(state), null, 2)});\n`,
+    load: async (ctx, state) => {
+        const layers = layersFor(state);
+        const gui = new GuiObject(asGuiLayers(layers));
+        gui.scene = ctx.renderer.scene;
+        ctx.onCleanup(() => { gui.removeFromScene(); gui.dispose(); });
+        await gui.init();
+        ctx.renderer.scene.add(gui);
+        return {
+            object: gui,
+            activate: () => syncControls(layers),
+            fit: () => {
+                const camera = ctx.renderer.camera;
+                const size = gui.bounds.getSize(new Vector2());
+                const center = gui.bounds.getCenter(new Vector2());
+                const canvas = ctx.renderer.renderer.domElement;
+                if (camera instanceof OrthographicCamera) {
+                    camera.position.set(center.x, -center.y, 100);
+                    camera.zoom = state.scale === "fit"
+                        ? Math.min(canvas.clientWidth / (size.x + 32), canvas.clientHeight / (size.y + 32))
+                        : Number(state.scale);
+                } else if (camera instanceof PerspectiveCamera) {
+                    const tangent = Math.tan(camera.fov * Math.PI / 360);
+                    const distance = Math.max((size.y + 32) / (2 * tangent), (size.x + 32) / (2 * tangent * camera.aspect));
+                    camera.position.set(center.x, -center.y, distance);
+                    camera.zoom = 1;
+                }
+                camera.lookAt(center.x, -center.y, 0);
+                if (camera instanceof OrthographicCamera || camera instanceof PerspectiveCamera) camera.updateProjectionMatrix();
+                ctx.renderer.controls?.target.set(center.x, -center.y, 0);
+                ctx.renderer.controls?.update();
+                ctx.renderer.dirty = true;
+            }
+        };
     }
 });
-renderer.appendTo(document.body);
-renderer.start();
-window["renderer"] = renderer;
 
-let gui: GuiObject | undefined;
-const status = document.getElementById("gui-status")!;
-const exampleInput = document.getElementById("gui-example") as HTMLSelectElement;
-const spriteForm = document.getElementById("gui-sprite-options") as HTMLFormElement;
-const spriteControls = document.getElementById("gui-sprite-controls") as HTMLFieldSetElement;
-const spriteInput = document.getElementById("gui-sprite") as HTMLSelectElement;
-const widthInput = document.getElementById("gui-width") as HTMLInputElement;
-const heightInput = document.getElementById("gui-height") as HTMLInputElement;
-const items = [
-    { name: "apple", slot: 0 },
-    { name: "diamond", slot: 1 },
-    { name: "stone", slot: 2 },
-    { name: "grass_block", slot: 3 },
-    { name: "oak_stairs", slot: 4 },
-    { name: "leather_helmet", slot: 5 },
-    { name: "chest", slot: 6 },
-    { name: "red_bed", slot: 7 },
-    { name: "creeper_head", slot: 8 },
-    { name: "potion", slot: 9 },
-    { name: "tipped_arrow", slot: 10 },
-    { name: "filled_map", slot: 11 },
-    { name: "firework_star", slot: 12 },
-    { name: "leather_chestplate", slot: 13, tints: { 0: 0xc060d0 } }
-];
-const chestLayers: GuiLayer[] = [
-    { name: "container", texture: "minecraft:gui/container/generic_54", crop: [0, 0, 176, 222] },
-    ...items.map(({ name, slot, tints }): GuiLayer => ({
-        name,
-        item: `minecraft:item/${name}`,
-        position: GuiHelper.inventorySlot(slot, [8, 18]),
-        tints
-    }))
-];
-const shapedRecipe: GuiRecipe = {
-    type: "minecraft:crafting_shaped",
-    key: {
-        "#": "minecraft:stick",
-        X: "#minecraft:diamond_tool_materials"
-    },
-    pattern: ["XXX", " # ", " # "],
-    result: { count: 1, id: "minecraft:diamond_pickaxe" }
-};
-const shapelessRecipe: GuiRecipe = {
-    type: "minecraft:crafting_shapeless",
-    ingredients: ["minecraft:blue_dye", "minecraft:red_dye"],
-    result: { count: 2, id: "minecraft:purple_dye" }
-};
-const tooltipLines: GuiText[] = [
-    [{ text: "Diamond Pickaxe", color: 0x55ffff }],
-    [{ text: "Efficiency V", color: 0xaaaaaa }],
-    [{ text: "Unbreaking III", color: 0xaaaaaa }],
-    [{ text: "A trusted companion for adventures deep below the surface.", color: 0xaa00aa, italic: true }],
-    "",
-    [{ text: "When in Main Hand:", color: 0xaaaaaa }],
-    [{ text: " 5 Attack Damage", color: 0x00aa00 }],
-    [{ text: " 1.2 Attack Speed", color: 0x00aa00 }]
-];
+app.controls.innerHTML = `
+    <label>Layout<select id="gui-mode"><option value="chest">Chest</option><option value="shaped">Shaped recipe</option><option value="shapeless">Shapeless recipe</option><option value="custom">Custom layers</option></select></label>
+    <label>Scale<select id="gui-scale"><option value="fit">Fit</option><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option></select></label>
+    <fieldset id="chest-editor"><legend>Chest slot</legend>
+        <label>Slot (0–53)<input id="slot-index" type="number" min="0" max="53" value="0"></label>
+        <label>Item ID (empty clears the slot)<input id="slot-item" placeholder="minecraft:apple"></label>
+        <label>Tints JSON (empty uses the item's own)<input id="slot-tints" placeholder='{"0": 12607696}'></label>
+        <button id="slot-apply" type="button">Apply</button>
+    </fieldset>
+    <fieldset id="recipe-editor"><legend>Recipe</legend>
+        <div id="recipe-cells" class="playground-grid"></div>
+        <label>Result<input id="recipe-result"></label>
+        <button id="recipe-apply" type="button">Apply</button>
+    </fieldset>
+    <details open><summary>Layers</summary>
+        <p class="control-note">Later layers draw on top. Editing a layer switches the layout to Custom layers.</p>
+        <select id="layer-list" size="6" aria-label="Layers"></select>
+        <div class="playground-actions"><button id="layer-up" type="button">Move up</button><button id="layer-down" type="button">Move down</button><button id="layer-remove" type="button">Remove</button></div>
+        <label>Type<select id="layer-kind"><option value="item">Item</option><option value="texture">Texture</option></select></label>
+        <label>Name<input id="layer-name"></label>
+        <label>Asset ID<input id="layer-asset" placeholder="minecraft:item/diamond"></label>
+        <label>Position (x, y)<input id="layer-position" placeholder="0, 0"></label>
+        <label>Size (width, height)<input id="layer-size" placeholder="16, 16"></label>
+        <label id="crop-label">Crop (x, y, width, height)<input id="layer-crop" placeholder="0, 0, 176, 222"></label>
+        <label id="tint-label">Tints JSON<input id="layer-tints" placeholder='{"0": 9551193}'></label>
+        <div class="playground-actions"><button id="layer-apply" type="button">Apply to layer</button><button id="layer-add" type="button">Add as new layer</button></div>
+    </details>
+    <details><summary>Layer JSON</summary>
+        <textarea id="layers-json" rows="12" spellcheck="false" aria-label="Layer JSON"></textarea>
+        <div class="playground-actions"><button id="json-import" type="button">Apply JSON</button><button id="json-export" type="button">Download JSON</button></div>
+        <label>Import JSON file<input id="json-file" type="file" accept=".json,application/json"></label>
+    </details>`;
 
-function fitGui() {
-    renderer.resize(window.innerWidth, window.innerHeight);
-    if (!gui) return;
-
-    const size = gui.bounds.getSize(new Vector2());
-    const center = gui.bounds.getCenter(new Vector2());
-    const camera = renderer.camera as OrthographicCamera;
-    camera.position.set(center.x, -center.y, 100);
-    camera.zoom = Math.min(window.innerWidth / (size.x + 32), window.innerHeight / (size.y + 32));
-    camera.updateProjectionMatrix();
-    renderer.dirty = true;
+const input = (id: string) => document.getElementById(id) as HTMLInputElement;
+const select = (id: string) => document.getElementById(id) as HTMLSelectElement;
+const json = document.getElementById("layers-json") as HTMLTextAreaElement;
+let displayedLayers: EditableLayer[] = [];
+let selectedLayer = 0;
+const recipeInputs: HTMLInputElement[] = [];
+for (let i = 0; i < 9; i++) {
+    const label = document.createElement("label");
+    label.textContent = `Cell ${Math.floor(i / 3) + 1}, ${i % 3 + 1}`;
+    const field = document.createElement("input");
+    field.placeholder = "Item ID";
+    label.append(field);
+    document.getElementById("recipe-cells")!.append(label);
+    recipeInputs.push(field);
 }
 
-window.addEventListener("resize", fitGui);
+function guard(task: () => void | Promise<void>) {
+    void Promise.resolve().then(task).catch(error => app.report(error instanceof Error ? error.message : String(error), true));
+}
 
-async function setExample(example: string) {
-    exampleInput.disabled = true;
-    spriteControls.disabled = true;
-    spriteForm.hidden = example !== "scaling";
-    status.textContent = "Loading GUI layers…";
-    try {
-        const layers: GuiLayer[] = example === "tooltip"
-            ? await GuiHelper.tooltip(tooltipLines, { maxWidth: 180 })
-            : example === "scaling"
-            ? [{
-                name: "sprite",
-                texture: `minecraft:gui/sprites/${spriteInput.value}`,
-                size: [widthInput.valueAsNumber, heightInput.valueAsNumber]
-            }]
-            : example === "shaped"
-            ? GuiHelper.recipe(shapedRecipe, {
-                resolveIngredient: () => "minecraft:diamond"
-            })
-            : example === "shapeless" ? GuiHelper.recipe(shapelessRecipe) : chestLayers;
-        const replacement = await renderer.scene.addGui(layers);
-        if (gui) {
-            gui.removeFromScene();
-            gui.dispose();
-        }
-        gui = replacement;
-        window["gui"] = gui;
-        fitGui();
-        status.textContent = "";
-    } catch (error) {
-        status.textContent = error instanceof Error ? error.message : "Could not load GUI layers.";
-        throw error;
-    } finally {
-        exampleInput.disabled = false;
-        spriteControls.disabled = false;
+function syncControls(layers: EditableLayer[]) {
+    displayedLayers = layers;
+    select("gui-mode").value = app.state.mode;
+    select("gui-scale").value = app.state.scale;
+    document.getElementById("chest-editor")!.hidden = app.state.mode !== "chest";
+    document.getElementById("recipe-editor")!.hidden = !["shaped", "shapeless"].includes(app.state.mode);
+    syncSlot();
+    recipeInputs.forEach((field, index) => field.value = app.state.ingredients[index] ?? "");
+    input("recipe-result").value = app.state.result;
+    select("layer-list").replaceChildren(...layers.map((layer, index) => new Option(`${index + 1}. ${layer.name || layer.item || layer.texture}`, String(index))));
+    selectedLayer = Math.max(0, Math.min(selectedLayer, layers.length - 1));
+    select("layer-list").value = String(selectedLayer);
+    json.value = JSON.stringify(layers, null, 2);
+    syncLayer();
+}
+
+function syncSlot() {
+    const slot = Number(input("slot-index").value);
+    input("slot-item").value = app.state.slots[slot] ?? "";
+    input("slot-tints").value = app.state.slotTints[slot] ? JSON.stringify(app.state.slotTints[slot]) : "";
+}
+
+function syncLayer() {
+    const layer = displayedLayers[selectedLayer];
+    if (!layer) return;
+    select("layer-kind").value = layer.item ? "item" : "texture";
+    input("layer-name").value = layer.name ?? "";
+    input("layer-asset").value = layer.item ?? layer.texture ?? "";
+    input("layer-position").value = (layer.position ?? [0, 0]).join(", ");
+    input("layer-size").value = layer.size?.join(", ") ?? "";
+    input("layer-crop").value = layer.crop?.join(", ") ?? "";
+    input("layer-tints").value = layer.tints ? JSON.stringify(layer.tints) : "";
+    syncKind();
+}
+
+function syncKind() {
+    const isItem = select("layer-kind").value === "item";
+    document.getElementById("crop-label")!.hidden = isItem;
+    document.getElementById("tint-label")!.hidden = !isItem;
+}
+
+function readLayer(): EditableLayer {
+    const layer: Record<string, unknown> = { name: input("layer-name").value };
+    const kind = select("layer-kind").value;
+    layer[kind] = input("layer-asset").value.trim();
+    for (const key of ["position", "size", ...(kind === "texture" ? ["crop"] : [])]) {
+        const value = input(`layer-${key}`).value.trim();
+        if (value) layer[key] = value.split(",").map(Number);
     }
+    if (kind === "item" && input("layer-tints").value.trim()) layer.tints = JSON.parse(input("layer-tints").value);
+    return validateLayers([layer])[0];
 }
 
-exampleInput.addEventListener("change", () => {
-    setExample(exampleInput.value).catch(console.error);
+function editLayers(layers: EditableLayer[]) {
+    return app.update({ mode: "custom", layers: validateLayers(layers) });
+}
+
+async function updateAndFit(patch: Partial<GuiState>) {
+    const previousRenderer = app.renderer;
+    await app.update(patch);
+    if (app.renderer !== previousRenderer) app.fit();
+}
+
+select("gui-mode").addEventListener("change", () => guard(() => updateAndFit({ mode: select("gui-mode").value as GuiState["mode"], layers: displayedLayers })));
+select("gui-scale").addEventListener("change", () => guard(() => updateAndFit({ scale: select("gui-scale").value as GuiState["scale"] })));
+input("slot-index").addEventListener("input", syncSlot);
+document.getElementById("slot-apply")!.addEventListener("click", () => guard(() => {
+    const slot = Number(input("slot-index").value);
+    if (!Number.isInteger(slot) || slot < 0 || slot > 53) throw new Error("Choose a slot from 0 to 53.");
+    const slots = Array.from({ length: 54 }, (_, index) => app.state.slots[index] ?? "");
+    slots[slot] = input("slot-item").value.trim();
+    const slotTints = { ...app.state.slotTints };
+    if (input("slot-tints").value.trim()) slotTints[slot] = JSON.parse(input("slot-tints").value);
+    else delete slotTints[slot];
+    return app.update({ slots, slotTints });
+}));
+document.getElementById("recipe-apply")!.addEventListener("click", () => guard(() => app.update({ ingredients: recipeInputs.map(field => field.value.trim()), result: input("recipe-result").value.trim() })));
+select("layer-list").addEventListener("change", () => { selectedLayer = Number(select("layer-list").value); syncLayer(); });
+select("layer-kind").addEventListener("change", syncKind);
+document.getElementById("layer-apply")!.addEventListener("click", () => guard(() => {
+    const layers = [...displayedLayers];
+    layers[selectedLayer] = readLayer();
+    return editLayers(layers);
+}));
+document.getElementById("layer-add")!.addEventListener("click", () => guard(() => {
+    selectedLayer = displayedLayers.length;
+    return editLayers([...displayedLayers, readLayer()]);
+}));
+document.getElementById("layer-remove")!.addEventListener("click", () => guard(() => editLayers(displayedLayers.filter((_, index) => index !== selectedLayer))));
+for (const [id, offset] of [["layer-up", -1], ["layer-down", 1]] as const) {
+    document.getElementById(id)!.addEventListener("click", () => guard(() => {
+        const next = selectedLayer + offset;
+        if (next < 0 || next >= displayedLayers.length) return;
+        const layers = [...displayedLayers];
+        [layers[selectedLayer], layers[next]] = [layers[next], layers[selectedLayer]];
+        selectedLayer = next;
+        return editLayers(layers);
+    }));
+}
+document.getElementById("json-import")!.addEventListener("click", () => guard(() => editLayers(validateLayers(JSON.parse(json.value)))));
+input("json-file").addEventListener("change", () => guard(async () => {
+    const file = input("json-file").files?.[0];
+    input("json-file").value = "";
+    if (!file) return;
+    await editLayers(validateLayers(JSON.parse(await file.text())));
+}));
+document.getElementById("json-export")!.addEventListener("click", () => {
+    const url = URL.createObjectURL(new Blob([JSON.stringify(displayedLayers, null, 2)], { type: "application/json" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "gui-layers.json";
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
-spriteForm.addEventListener("submit", event => {
-    event.preventDefault();
-    setExample("scaling").catch(console.error);
-});
-setExample(exampleInput.value).catch(console.error);
+void app.start();

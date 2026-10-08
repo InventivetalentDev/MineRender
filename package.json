@@ -15,7 +15,7 @@
     "deploy:site": "yarn build:lib && yarn workspace @minerender/site deploy",
     "deploy:site:preview": "yarn build:lib && yarn workspace @minerender/site deploy:preview",
     "build:watch": "yarn workspace minerender build:watch",
-    "typecheck": "yarn workspace minerender typecheck && yarn workspace @minerender/example-vite typecheck && yarn workspace @minerender/web typecheck:editor",
+    "typecheck": "yarn workspace minerender typecheck && yarn workspace @minerender/web typecheck && yarn workspace @minerender/web typecheck:editor && yarn workspace @minerender/example-vite typecheck",
     "test": "yarn workspace minerender test",
     "test:package": "yarn workspace minerender test:package",
     "exports": "yarn workspace minerender exports",
