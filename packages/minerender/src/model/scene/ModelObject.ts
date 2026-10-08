@@ -39,6 +39,7 @@ export class ModelObject extends SceneObject {
     private atlasTexture?: Texture;
     private unsubscribeAtlas?: () => void;
     private readonly specialMaterials = new Map<Material, Material>();
+    private readonly geometries = new Set<BufferGeometry>();
 
     public blockParent: Maybe<BlockObject>;
 
@@ -47,13 +48,36 @@ export class ModelObject extends SceneObject {
     constructor(readonly originalModel: Model, options?: Partial<ModelObjectOptions>) {
         super(options);
         this.options = merge({}, ModelObject.DEFAULT_OPTIONS, options ?? {});
-        if ((originalModel as ItemModel).special) this.options.instanceMeshes = false;
+        if ((originalModel as ItemModel).special || (originalModel as ItemModel).parts) this.options.instanceMeshes = false;
         if (this.options.tints) this.options.tints = { ...this.options.tints };
         this.addEventListener("added", () => this.updateAnimationSubscription());
         this.addEventListener("removed", () => this.updateAnimationSubscription());
     }
 
     async init(): Promise<void> {
+        const parts = (this.originalModel as ItemModel).parts;
+        if (parts) {
+            try {
+                for (const part of parts) {
+                    const object = new ModelObject(part, { ...this.options, instanceMeshes: false });
+                    this.add(object);
+                    await object.init();
+                }
+                let order = 0;
+                this.iterateAllMeshes(mesh => {
+                    mesh.renderOrder = order++;
+                    // Keep composite children in one render pass so their declared order is retained.
+                    for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+                        material.transparent = true;
+                    }
+                });
+            } catch (error) {
+                this.disposeAndRemoveAllChildren();
+                throw error;
+            }
+            this.notifyDirty();
+            return;
+        }
         this.options.tints = await ItemTints.get(this.originalModel, this.options.tints);
         const special = (this.originalModel as ItemModel).special;
         if (special) {
@@ -92,10 +116,14 @@ export class ModelObject extends SceneObject {
             return;
         }
         // load textures first so we have the updated UV coordinates from the atlas
-        await this.loadTextures();
-
-        this.createMeshes();
-        this.applyTextures();
+        try {
+            await this.loadTextures();
+            this.createMeshes();
+            this.applyTextures();
+        } catch (error) {
+            this.disposeAndRemoveAllChildren();
+            throw error;
+        }
     }
 
     public get textureAtlas(): Maybe<TextureAtlas> {
@@ -126,6 +154,7 @@ export class ModelObject extends SceneObject {
             if (this.atlas.model.elements) {
                 this.atlas.model.elements?.forEach(el => {
                     const elGeo = this._getBoxGeometryFromElement(el).clone();
+                    this.geometries.add(elGeo);
                     if (this.options.cullMask) {
                         const indices = Array.from(elGeo.getIndex()!.array);
                         elGeo.setIndex(indices.filter((_, index) => {
@@ -192,10 +221,15 @@ export class ModelObject extends SceneObject {
                 // }
 
                 combinedGeo = mergeBufferGeometries(allGeos);
+                for (const geometry of allGeos) {
+                    geometry.dispose();
+                    this.geometries.delete(geometry);
+                }
             } else {
                 combinedGeo = new BoxGeometry(16, 16, 16);
                 if (displayTransform) DisplayTransforms.apply(combinedGeo, displayTransform);
             }
+            this.geometries.add(combinedGeo);
             combinedGeo.computeBoundingBox();
             // combinedGeo.translate(-8, -8, -8);
             // TODO: cache the combined geometry
@@ -227,6 +261,10 @@ export class ModelObject extends SceneObject {
             const mat = Materials.createShadedCanvasMaterial(this.atlas.image.canvas as HTMLCanvasElement, this.atlas.hasTransparency, false, true);
             this.atlasMaterial = mat;
             this.atlasTexture = (mat as ShaderMaterial).uniforms?.map?.value ?? (mat as MeshBasicMaterial).map;
+            if (this.options.displayPosition === DisplayPosition.GUI &&
+                (this.originalModel as ItemModel).gui_light === GuiLight.FRONT && (mat as ShaderMaterial).uniforms?.SHADE) {
+                (mat as ShaderMaterial).uniforms.SHADE.value = false;
+            }
             this.iterateAllMeshes(mesh => {
                 if (mesh.geometry.hasAttribute("color")) mat.vertexColors = true;
                 mesh.material = mat;
@@ -236,7 +274,9 @@ export class ModelObject extends SceneObject {
     }
 
     private updateAnimationSubscription(): void {
-        const active = !!this.parent && (!this.isInstanced || this.instanceCounter > 0);
+        let root: ModelObject = this;
+        while (root.parent && isModelObject(root.parent)) root = root.parent;
+        const active = !!root.parent && (!this.isInstanced || this.instanceCounter > 0);
         if (active && this.atlas?.hasAnimation && this.atlasTexture) {
             if (!this.unsubscribeAtlas) {
                 this.atlasTexture.needsUpdate = true;
@@ -251,6 +291,9 @@ export class ModelObject extends SceneObject {
         } else {
             this.unsubscribeAtlas?.();
             this.unsubscribeAtlas = undefined;
+        }
+        for (const child of this.children) {
+            if (isModelObject(child)) child.updateAnimationSubscription();
         }
     }
 
@@ -274,6 +317,9 @@ export class ModelObject extends SceneObject {
         this.atlasMaterial = undefined;
         for (const material of this.specialMaterials.values()) material.dispose();
         this.specialMaterials.clear();
+        for (const geometry of this.geometries) geometry.dispose();
+        this.geometries.clear();
+        this.meshesCreated = false;
         super.disposeAndRemoveAllChildren();
     }
 

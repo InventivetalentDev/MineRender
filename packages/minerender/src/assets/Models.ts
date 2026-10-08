@@ -1,4 +1,4 @@
-import { ItemTintSource, Model, SpecialItemRenderer } from "../model/Model";
+import { ItemModel, ItemTintSource, Model, SpecialItemRenderer } from "../model/Model";
 import { Caching } from "../cache/Caching";
 import { Maybe } from "../util/util";
 import { ModelMerger } from "../model/ModelMerger";
@@ -42,25 +42,37 @@ export class Models {
         const model = await this.PERSISTENT_CACHE.getOrLoad(`item-v2:${AssetLoader.persistentKey(itemKey.serialize())}`, async () => {
             const result = await AssetLoader.getFirst<Model & { model?: ItemModelNode }>([itemKey, key], AssetParser.JSON);
             if (!result) return undefined;
-            if (result.key.assetType !== "items") return { ...result.asset, key };
+            if (result.key.assetType !== "items") return { ...result.asset, key } as ItemModel;
 
-            const selected = this.defaultItemModel(result.asset.model, key);
-            const modelKey = AssetKey.parse("models", selected.model);
-            modelKey.root = key.root;
-            const model = await this.getRaw(modelKey);
-            if (!model) throw new Error(`Item ${key.toNamespacedString()} references missing model ${selected.model}`);
-            // Relative texture paths belong to the referenced model's namespace.
-            return { ...model, ...(selected.special && { special: selected.special }), ...(selected.tints && { tints: selected.tints }) };
+            const load = async (selected: SelectedItemModel): Promise<ItemModel> => {
+                if ("parts" in selected) {
+                    return { key, parts: await Promise.all(selected.parts.map(load)) };
+                }
+                const modelKey = AssetKey.parse("models", selected.model);
+                modelKey.root = key.root;
+                const model = await this.getRaw(modelKey);
+                if (!model) throw new Error(`Item ${key.toNamespacedString()} references missing model ${selected.model}`);
+                // Relative texture paths belong to the referenced model's namespace.
+                return { ...model, ...(selected.special && { special: selected.special }), ...(selected.tints && { tints: selected.tints }) } as ItemModel;
+            };
+            return load(this.defaultItemModel(result.asset.model, key));
         });
-        return model ? { ...model, key: Object.assign(new AssetKey("", ""), model.key) } : undefined;
+        const restore = (model: ItemModel): ItemModel => ({
+            ...model, key: Object.assign(new AssetKey("", ""), model.key),
+            ...(model.parts && { parts: model.parts.map(restore) })
+        });
+        return model ? restore(model) : undefined;
     }
 
     // Item previews use the GUI context, false conditions, and zero numeric properties.
-    private static defaultItemModel(node: ItemModelNode | undefined, key: AssetKey): { model: string; special?: SpecialItemRenderer; tints?: ItemTintSource[] } {
+    private static defaultItemModel(node: ItemModelNode | undefined, key: AssetKey): SelectedItemModel {
         if (!node || typeof node.type !== "string") {
             throw new Error(`Unsupported item model definition for ${key.toNamespacedString()}`);
         }
         switch (node.type.replace(/^minecraft:/, "")) {
+            case "composite":
+                if (Array.isArray(node.models)) return { parts: node.models.map(child => this.defaultItemModel(child, key)) };
+                break;
             case "model":
                 if (typeof node.model === "string" && node.model) return { model: node.model, tints: node.tints };
                 break;
@@ -124,6 +136,7 @@ export class Models {
     /**
      * Loads a model and resolves its parent chain. Returns `undefined` when the model is missing.
      * Item keys use GUI context, false conditions, and zero numeric properties.
+     * Composite items retain independently merged children in `ItemModel.parts`.
      *
      * @param key - Model key, for example `AssetKey.parse("models", "minecraft:item/diamond_sword")`.
      */
@@ -163,4 +176,8 @@ interface ItemModelNode {
     fallback?: ItemModelNode;
     cases?: Array<{ when: string | string[]; model: ItemModelNode }>;
     entries?: Array<{ threshold: number; model: ItemModelNode }>;
+    models?: ItemModelNode[];
 }
+
+type SelectedItemModel = { model: string; special?: SpecialItemRenderer; tints?: ItemTintSource[] }
+    | { parts: SelectedItemModel[] };

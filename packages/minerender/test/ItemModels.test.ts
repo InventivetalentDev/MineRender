@@ -172,6 +172,66 @@ test.serial("special items retain their renderer and inherit the base pose throu
     t.true(source.calls.every(key => key.root === "https://assets.example/1.21.11"));
 });
 
+test.serial("composite items retain ordered nested parts, independent inheritance, and keys through cache hits", async t => {
+    const firstTint: ItemTintSource[] = [{ type: "minecraft:constant", value: 0xff0000 }];
+    const lastTint: ItemTintSource[] = [{ type: "minecraft:constant", value: 0x0000ff }];
+    const special: SpecialItemRenderer = { type: "minecraft:chest", texture: "pack:normal", openness: 0.5 };
+    const source = new FixtureSource({
+        "items/composite": { model: { type: "minecraft:composite", models: [
+            { ...reference("pack:item/front"), tints: firstTint },
+            { type: "minecraft:composite", models: [
+                { type: "minecraft:select", property: "minecraft:display_context", cases: [{
+                    when: "gui", model: { type: "minecraft:condition", on_false: reference("other:item/side") }
+                }] },
+                { type: "minecraft:special", base: "pack:item/chest_base", model: special }
+            ] },
+            { ...reference("pack:item/front"), tints: lastTint }
+        ] } },
+        "models/item/front": { parent: "pack:item/front_parent", textures: { layer0: "item/front" } },
+        "models/item/front_parent": { textures: { particle: "#layer0" }, gui_light: "front", display: { gui: { translation: [1, 2, 3] } } },
+        "models/item/side": { parent: "other:item/side_parent", textures: { layer0: "item/side" } },
+        "models/item/side_parent": { gui_light: "side", display: { gui: { translation: [4, 5, 6] } } },
+        "models/item/chest_base": { parent: "minecraft:builtin/entity", display: { gui: { scale: [0.5, 0.5, 0.5] } } }
+    });
+    AssetLoader.addSource("test-items", source);
+    const key = new AssetKey("custom", "composite", "models", "item", "assets", ".json", "https://pack.example/composite");
+    for (let attempt = 0; attempt < 2; attempt++) {
+        const model = (await Models.getMerged(key))! as ItemModel;
+        const [first, nested, last] = model.parts!;
+        const [side, chest] = nested.parts!;
+        t.is(model.key?.serialize(), key.serialize());
+        t.deepEqual(model.parts!.map(part => part.key?.toNamespacedString()), [
+            "pack:item/front", "custom:item/composite", "pack:item/front"
+        ]);
+        t.deepEqual([first.tints, last.tints], [firstTint, lastTint]);
+        t.deepEqual([first.gui_light, side.gui_light], ["front", "side"]);
+        t.deepEqual([first.display?.gui?.translation, side.display?.gui?.translation], [[1, 2, 3], [4, 5, 6]]);
+        t.deepEqual(chest.special, special);
+        t.deepEqual(chest.display?.gui?.scale, [0.5, 0.5, 0.5]);
+        t.is(first.textures?.particle, "#layer0");
+        for (const part of [first, nested, last, side, chest]) t.is(part.key?.root, key.root);
+        t.is(AssetKey.parse("textures", side.textures!.layer0, side.key).toNamespacedString(), "other:item/side");
+        t.is(((await Models.getRaw(first.key!))! as ItemModel).tints, undefined);
+        Caching.clear();
+    }
+    t.is(source.calls.filter(call => call.assetType === "items").length, 1);
+    t.true(source.calls.every(call => call.root === key.root));
+});
+
+test.serial("empty composites remain empty and a missing child rejects the complete item", async t => {
+    const assets: Record<string, unknown> = {
+        "items/empty": { model: { type: "minecraft:composite", models: [] } },
+        "items/broken": { model: { type: "minecraft:composite", models: [reference("item/first"), reference("item/missing")] } },
+        "models/item/first": { textures: { layer0: "item/first" } }
+    };
+    AssetLoader.addSource("test-items", new FixtureSource(assets));
+    t.deepEqual(((await Models.getMerged(itemKey("empty")))! as ItemModel).parts, []);
+    await t.throwsAsync(Models.getMerged(itemKey("broken")), { message: /references missing model item\/missing/ });
+    assets["models/item/missing"] = { textures: { layer0: "item/recovered" } };
+    const recovered = (await Models.getMerged(itemKey("broken")))! as ItemModel;
+    t.deepEqual(recovered.parts!.map(part => part.textures?.layer0), ["item/first", "item/recovered"]);
+});
+
 test.serial("unsupported or broken definitions reject instead of using lower-priority assets", async t => {
     const source = new FixtureSource({ "models/item/invalid": { textures: { layer0: "wrong" } } });
     AssetLoader.addSource("test-items", source);

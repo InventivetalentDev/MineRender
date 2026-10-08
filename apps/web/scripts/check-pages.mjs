@@ -95,6 +95,39 @@ async function visit(url, name) {
             if (/FAIL/.test(status) || status === "(no status)") problems.add(status);
         }
         await page.screenshot({ path: path.join(shots, `${name}.png`) });
+        if (url === "demo/item/?preset=composite" && /^Ready/.test(status)) {
+            const inspect = () => {
+                const parts = [];
+                window.item.traverse(object => {
+                    if (!object.isModelObject || object.originalModel.parts) return;
+                    let vertices = 0;
+                    const centers = [];
+                    object.traverse(mesh => {
+                        if (!mesh.isMesh) return;
+                        vertices += mesh.geometry.getAttribute("position").count;
+                        mesh.geometry.computeBoundingBox();
+                        const { min, max } = mesh.geometry.boundingBox;
+                        centers.push([min.x + max.x, min.y + max.y, min.z + max.z]);
+                    });
+                    parts.push({ tint: object.options.tints?.[0], instanced: object.isInstanced, vertices, centers });
+                });
+                return parts;
+            };
+            const parts = await page.evaluate(inspect);
+            if (parts.length !== 3 || parts.some(part => !part.vertices || part.instanced)
+                || JSON.stringify(parts.map(part => part.tint)) !== JSON.stringify([0xd64b4b, 0x64b85b, 0x5b8cdb])
+                || new Set(parts.map(part => JSON.stringify(part.centers))).size !== 3) {
+                problems.add(`Composite children are missing or share their appearance: ${JSON.stringify(parts)}`);
+            }
+            await page.evaluate(() => window.playground.update({ tints: { 0: 0xffaa00 }, instanceMeshes: true }));
+            const overridden = await page.evaluate(inspect);
+            if (overridden.length !== 3 || overridden.some(part => part.tint !== 0xffaa00 || part.instanced)) {
+                problems.add(`Composite tint override or non-instancing failed: ${JSON.stringify(overridden)}`);
+            }
+            await page.evaluate(() => window.playground.update({ item: "minecraft:iron_sword", tints: {}, instanceMeshes: false }));
+            const switched = await page.$eval(".playground-status", element => element.textContent ?? "");
+            if (!/^Ready/.test(switched)) problems.add(`Switching away from the composite failed: ${switched}`);
+        }
     } catch (error) {
         problems.add(`load failed: ${error.message}`);
     }

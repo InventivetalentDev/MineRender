@@ -1,8 +1,9 @@
-import { AssetKey, DISPLAY_POSITIONS, DisplayPosition, ModelMerger, Models, isInstanceReference } from "minerender";
+import { AssetKey, AssetLoader, DISPLAY_POSITIONS, DisplayPosition, ModelMerger, Models, isInstanceReference } from "minerender";
 import { Box3 } from "three";
 import { Playground, type DemoContext, type DemoContent } from "../../playground/Playground";
 import { button, group, input, note, select, suggestions } from "../../playground/controls";
 import { assetKey, loadModel, modelControls, modelDefaults, modelOptions, selectModel, type ModelSettings } from "../../playground/models";
+import { COMPOSITE_ITEM, compositeSource, compositeSourceCode } from "./composite";
 
 interface ItemSettings extends ModelSettings {
     /** An item ID (`minecraft:apple`) or a model path (`minecraft:item/apple`, `minecraft:block/stone`). */
@@ -11,6 +12,7 @@ interface ItemSettings extends ModelSettings {
 }
 
 const defaults: ItemSettings = { ...modelDefaults, item: "minecraft:iron_sword", display: "" };
+AssetLoader.addSource("composite-demo", compositeSource());
 const app = new Playground<ItemSettings>({
     title: "Items and models",
     defaults,
@@ -21,6 +23,7 @@ const app = new Playground<ItemSettings>({
         apple: { label: "Apple in GUI pose", state: { item: "minecraft:apple", display: DisplayPosition.GUI } },
         potion: { label: "Potion (tinted)", state: { item: "minecraft:potion", tints: { 0: 0xd557ef } } },
         block: { label: "Block model: diamond ore", state: { item: "minecraft:block/diamond_ore", display: DisplayPosition.GUI } },
+        composite: { label: "Composite item: three tinted pieces", state: { item: COMPOSITE_ITEM, display: DisplayPosition.GUI } },
         legacy: { label: "Model path: item/iron_sword", state: { item: "minecraft:item/iron_sword" } }
     },
     load,
@@ -28,7 +31,7 @@ const app = new Playground<ItemSettings>({
         const key = modelKey(state.item);
         const keyCode = `new MineRender.AssetKey(${JSON.stringify(key.namespace)}, ${JSON.stringify(key.path)}, "models", ${JSON.stringify(key.type)})`;
         const load = isModelPath(state.item) ? `MineRender.ModelMerger.mergeWithParents(await MineRender.Models.getRaw(${keyCode}))` : `MineRender.Models.getMerged(${keyCode})`;
-        return `const model = await ${load};
+        return `${key.namespace === "minerender_demo" ? compositeSourceCode() : ""}const model = await ${load};
 await renderer.scene.addModel(model, ${JSON.stringify({ ...modelOptions(state), displayPosition: state.display || undefined }, null, 2)});\n`;
     }
 });
