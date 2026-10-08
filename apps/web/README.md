@@ -21,12 +21,12 @@ yarn workspace @minerender/web check       # loads every page and preset in head
 | `demo/entity/` | Dataset passes or manual layers, states, tints, texture overrides, keyframe animations |
 | `demo/gui/` | Chest and recipe layouts, custom texture/item layers, layer JSON |
 | `demo/structure/` | Built-in structures, local `.nbt`/`.schematic`/`.mca` files, random block workloads, section meshing, block edits |
-| `test/custom_model/` | Java model JSON editor |
-| `test/exports/` | Image and 3D export of a small instanced scene |
-| `test/materials/` | Canvas material shader regression check |
+| `demo/custom_model/` | Java model JSON editor |
+| `demo/exports/` | Image and 3D export of a small instanced scene |
+| `demo/materials/` | Canvas material shader regression check |
 
 Every page shares the sidebar from `src/playground/Playground.ts`: presets, renderer and camera settings, Minecraft version / hosted root / resource-pack ZIP, exports, and a shareable link or JSON that restores the page state. Local files are not part of shared links and have to be selected again.
 
 ## Adding a page
 
-Create `src/<group>/<name>/index.html` (copy an existing one) and `script.ts`. A page constructs a `Playground` with serializable `defaults`, optional `presets`, an async `load(ctx, state)` that builds the scene for `state` and returns the content's bounds plus an `activate` callback that syncs the page controls, and optionally `code(state)` for the "Copy code" snippet. Loads run one at a time; a failed load keeps the previous preview and reverts the saved state.
+Create `src/demo/<name>/index.html` (copy an existing one) and `script.ts`. A page constructs a `Playground` with serializable `defaults`, optional `presets`, an async `load(ctx, state)` that builds the scene for `state` and returns the content's bounds plus an `activate` callback that syncs the page controls, and optionally `code(state)` for the "Copy code" snippet. Loads run one at a time; a failed load keeps the previous preview and reverts the saved state.
