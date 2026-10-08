@@ -9,33 +9,74 @@ import { Requests } from "../../../request";
 import { HostedAssetSource } from "../HostedAssetSource";
 import type { RequestConfig } from "../../../request";
 import { BrowserArchiveProxy } from "./BrowserArchiveProxy";
+import { AssetLoader } from "../../AssetLoader";
+import { PackMetadata, type PackFormat } from "./PackMetadata";
+import { PackFormats } from "./PackFormats";
+
+export interface ArchiveAssetSourceOptions {
+    /** Target resource-pack format. Omit to look up the version selected by AssetLoader.setVersion. */
+    resourcePackFormat?: PackFormat;
+    /** Target data-pack format, used for assets under data/. Omit to look up the selected version. */
+    dataPackFormat?: PackFormat;
+}
 
 export class ArchiveAssetSource extends AssetSource implements ArchiveProxy {
 
     readonly _archiveProxy: ArchiveProxy;
+    private readonly options: ArchiveAssetSourceOptions;
+    private entries?: Promise<ArchiveEntry[]>;
+    private metadata?: Promise<PackMetadata>;
 
-    constructor(archiveProxy: ArchiveProxy) {
+    constructor(archiveProxy: ArchiveProxy, options: ArchiveAssetSourceOptions = {}) {
         super();
-        console.log(archiveProxy)
         this._archiveProxy = archiveProxy;
+        const copyFormat = (format?: PackFormat): PackFormat | undefined =>
+            typeof format === "object" ? [format[0], format[1]] : format;
+        this.options = {
+            resourcePackFormat: copyFormat(options.resourcePackFormat),
+            dataPackFormat: copyFormat(options.dataPackFormat)
+        };
     }
 
-    public static blob(blob: Blob): ArchiveAssetSource {
-        return new ArchiveAssetSource(new BrowserArchiveProxy(blob));
+    public static blob(blob: Blob, options?: ArchiveAssetSourceOptions): ArchiveAssetSource {
+        return new ArchiveAssetSource(new BrowserArchiveProxy(blob), options);
     }
 
     public get cacheId(): Maybe<string> {
         const id = this._archiveProxy.id;
-        return id === undefined ? undefined : `archive:${id}`;
+        const formats = [this.options.resourcePackFormat ?? AssetLoader.version, this.options.dataPackFormat ?? AssetLoader.version];
+        return id === undefined ? undefined : `archive-metadata:1:${id}:${JSON.stringify(formats)}`;
     }
 
     public async getEntries(): Promise<ArchiveEntry[]> {
-        return this._archiveProxy.getEntries();
+        return this.entries ??= this._archiveProxy.getEntries().catch(error => {
+            this.entries = undefined;
+            throw error;
+        });
     }
 
     public async getEntry(path: string): Promise<Maybe<ArchiveEntry>> {
         const entries = await this.getEntries();
         return entries.find(e => e.filename === path);
+    }
+
+    private async getMetadata(key: AssetKey): Promise<PackMetadata> {
+        try {
+            return await (this.metadata ??= this.getEntry("pack.mcmeta").then(async entry =>
+                PackMetadata.parse(entry ? JSON.parse(await (await entry.getData()).text()) : {})).catch(error => {
+                this.metadata = undefined;
+                throw error;
+            }));
+        } catch (cause) {
+            throw new AssetLoadError(this, key, "pack.mcmeta", cause);
+        }
+    }
+
+    public async blocks(key: AssetKey): Promise<boolean> {
+        if (key.rootType !== "assets" && key.rootType !== "data") return false;
+        const metadata = await this.getMetadata(key);
+        const path = `${key.assetType !== undefined ? key.assetType + '/' : ''}${key.getFullPath()}${key.extension}`;
+        return metadata.blocks(key.namespace, path);
     }
 
     async get<T extends MinecraftAsset>(key: AssetKey, parser: AssetParser | string): Promise<Maybe<T>> {
@@ -45,9 +86,25 @@ export class ArchiveAssetSource extends AssetSource implements ArchiveProxy {
 
     protected async load<T extends MinecraftAsset>(key: AssetKey, parser: ResponseParser<T>): Promise<Maybe<T>> {
         const path = `${this.assetBasePath(key)}${key.type !== undefined ? key.type + '/' : ''}${key.path}${key.extension}`;
+        const version = AssetLoader.version;
+        let selectedPath = path;
         let url: string | undefined;
         try {
-            const entry = await this.getEntry(path);
+            let directories: string[] = [];
+            if (key.rootType === "assets" || key.rootType === "data") {
+                const metadata = await this.getMetadata(key);
+                if (metadata.hasOverlays) {
+                    const format = (key.rootType === "assets" ? this.options.resourcePackFormat : this.options.dataPackFormat)
+                        ?? await PackFormats.get(version, key.rootType);
+                    directories = metadata.overlayDirectories(format);
+                }
+            }
+            let entry: ArchiveEntry | undefined;
+            for (const directory of [...directories, ""]) {
+                selectedPath = directory ? `${directory}/${path}` : path;
+                entry = await this.getEntry(selectedPath);
+                if (entry) break;
+            }
             if (!entry) {
                 return undefined;
             }
@@ -60,7 +117,8 @@ export class ArchiveAssetSource extends AssetSource implements ArchiveProxy {
             }
             return await parser.parse(response);
         } catch (cause) {
-            throw new AssetLoadError(this, key, path, cause);
+            if (cause instanceof AssetLoadError) throw cause;
+            throw new AssetLoadError(this, key, selectedPath, cause);
         } finally {
             if (url !== undefined) {
                 URL.revokeObjectURL(url);

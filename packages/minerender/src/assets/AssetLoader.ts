@@ -97,13 +97,14 @@ export class AssetLoader {
     }
 
     public static async getAll<T extends MinecraftAsset>(key: AssetKey, parser: AssetParser | string): Promise<T[]> {
-        let promises: Promise<Maybe<T>>[] = [];
-        for (const source of this._SOURCES) {
-            promises.push(source.source.get<T>(key, parser));
+        const sources = [...this._SOURCES];
+        const results: T[] = [];
+        for (const { source } of sources) {
+            const asset = await source.get<T>(key, parser);
+            if (asset != undefined) results.push(asset);
+            if (await source.blocks(key)) break;
         }
-        return Promise.all(promises).then(results => {
-            return results.filter(r => r != undefined) as T[];
-        });
+        return results;
     }
 
     /** Returns the first defined result in source-priority order, without merging assets. */
@@ -121,13 +122,17 @@ export class AssetLoader {
     public static async getFirst<T extends MinecraftAsset>(keys: readonly AssetKey[], parser: AssetParser | string): Promise<Maybe<{ key: AssetKey; asset: T }>> {
         // Source changes affect later lookups, not the priority of an in-flight lookup.
         const sources = [...this._SOURCES];
+        let remaining = [...keys];
         for (const source of sources) {
-            for (const key of keys) {
+            for (const key of remaining) {
                 const result = await source.source.get<T>(key, parser);
                 if (result !== undefined) {
                     return { key, asset: result };
                 }
             }
+            const blocked = await Promise.all(remaining.map(key => source.source.blocks(key)));
+            remaining = remaining.filter((_, index) => !blocked[index]);
+            if (!remaining.length) break;
         }
         return undefined;
     }
