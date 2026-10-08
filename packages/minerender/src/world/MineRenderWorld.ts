@@ -156,13 +156,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
     public async placeChunk(chunk: AnvilChunk, executor?: BatchedExecutor): Promise<void> {
         const changes = new Map<string, Vector3>();
         try {
-            const previous = [...this._chunks.entries()].filter(([, section]) => section.x === chunk.x && section.z === chunk.z);
-            for (const [key, section] of previous) {
-                this._chunks.delete(key);
-                await section.clear(async positions => {
-                    for (const pos of positions) changes.set(pos.toArray().join(","), pos);
-                });
-            }
+            await this.clearChunkColumn(chunk.x, chunk.z, changes);
             for (const section of chunk.sections) {
                 const blocks: MultiBlockBlock[] = [];
                 for (let index = 0; index < 4096; index++) {
@@ -178,6 +172,33 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
             }
         } finally {
             await this.updateCulling([...changes.values()]);
+        }
+    }
+
+    /**
+     * Removes all sections at integer chunk-column coordinates, then refreshes neighboring faces and fluids.
+     * Coordinates match AnvilChunk.x/z, not block positions. Missing columns are ignored.
+     */
+    public async unloadChunkColumn(x: number, z: number): Promise<void> {
+        if (!Number.isInteger(x) || !Number.isInteger(z)) {
+            throw new RangeError("Chunk column coordinates must be integers");
+        }
+        await this.culling;
+        const changes = new Map<string, Vector3>();
+        try {
+            await this.clearChunkColumn(x, z, changes);
+        } finally {
+            await this.updateCulling([...changes.values()]);
+        }
+    }
+
+    private async clearChunkColumn(x: number, z: number, changes: Map<string, Vector3>): Promise<void> {
+        const previous = [...this._chunks.entries()].filter(([, section]) => section.x === x && section.z === z);
+        for (const [key, section] of previous) {
+            this._chunks.delete(key);
+            await section.clear(async positions => {
+                for (const pos of positions) changes.set(pos.toArray().join(","), pos);
+            });
         }
     }
 

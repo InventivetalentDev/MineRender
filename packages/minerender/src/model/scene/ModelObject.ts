@@ -138,6 +138,7 @@ export class ModelObject extends SceneObject {
                     if (this.options.uvLockRotation) {
                         UVMapper.lockUvs(elGeo, el.faces, this.atlas!, new Euler(...this.options.uvLockRotation));
                     }
+                    UVMapper.setAtlasUvBounds(elGeo, el.faces, this.atlas!);
                     if (this.options.tints) {
                         const colors = new Float32Array(elGeo.getAttribute("position").count * 3).fill(1);
                         for (const [faceIndex, faceName] of CUBE_FACES.entries()) {
@@ -223,7 +224,7 @@ export class ModelObject extends SceneObject {
 
     protected applyTextures() {
         if (this.atlas) {
-            const mat = Materials.createShadedCanvasMaterial(this.atlas.image.canvas as HTMLCanvasElement, this.atlas.hasTransparency, false);
+            const mat = Materials.createShadedCanvasMaterial(this.atlas.image.canvas as HTMLCanvasElement, this.atlas.hasTransparency, false, true);
             this.atlasMaterial = mat;
             this.atlasTexture = (mat as ShaderMaterial).uniforms?.map?.value ?? (mat as MeshBasicMaterial).map;
             this.iterateAllMeshes(mesh => {
