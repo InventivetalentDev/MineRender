@@ -10,6 +10,11 @@ export abstract class AssetSource {
 
     public abstract get<T extends MinecraftAsset>(key: AssetKey, parser: AssetParser | string): Promise<Maybe<T>>;
 
+    /** Whether this source prevents lower-priority sources from supplying the key. Its own assets remain available. */
+    public blocks(key: AssetKey): boolean | Promise<boolean> {
+        return false;
+    }
+
     /**
      * Identifies this source's content across sessions for persistent caching. Sources that
      * cannot tell whether their content changed (an unnamed archive, for example) return

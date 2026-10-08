@@ -1,0 +1,15 @@
+{
+    "$schema": "../../../node_modules/wrangler/config-schema.json",
+    "name": "minerender-docs",
+    "compatibility_date": "2026-10-01",
+    "assets": {
+        // `yarn doc` writes the VitePress build here.
+        "directory": "../docs",
+        // Serve VitePress's generated 404 page for unknown paths.
+        "not_found_handling": "404-page",
+        "html_handling": "auto-trailing-slash"
+    },
+    "observability": {
+        "enabled": true
+    }
+}

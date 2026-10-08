@@ -77,7 +77,12 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "ava",
     "test:package": "ava --config ava.package.config.js",
-    "doc": "typedoc --out docs src",
+    "doc": "yarn doc:generate && vitepress build reference",
+    "doc:generate": "typedoc",
+    "doc:dev": "yarn doc:generate && vitepress dev reference",
+    "doc:preview": "vitepress preview reference",
+    "doc:deploy": "yarn doc && wrangler deploy -c reference/wrangler.jsonc",
+    "doc:deploy:preview": "yarn doc && wrangler versions upload -c reference/wrangler.jsonc",
     "prepublishOnly": "yarn run build",
     "publish:alpha": "yarn build && yarn version prerelease --immediate && yarn npm publish --tag alpha",
     "publish:beta": "yarn build && yarn version prerelease --immediate && yarn npm publish --tag beta"
@@ -126,7 +131,10 @@
     "esbuild-runner": "^2.2.2",
     "three": "^0.186.1",
     "tsup": "^8.5.0",
-    "typedoc": "^0.26.11",
-    "typescript": "~5.6.3"
+    "typedoc": "^0.28.20",
+    "typedoc-plugin-markdown": "^4.13.1",
+    "typescript": "~5.6.3",
+    "vitepress": "^1.6.4",
+    "wrangler": "^4.147.0"
   }
 }
