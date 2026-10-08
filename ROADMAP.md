@@ -37,7 +37,7 @@ legacy website cleanup is a separate task.
 | Legacy .schematic | full incl. AddBlocks nibbles | Numeric block IDs, metadata, AddBlocks and block/entity NBT parsed; unknown ID states reject unless lenient parsing is enabled | medium |
 | Combined multi-renderer scene | CombinedRender wrapper | Superseded by design (one scene hosts all types) — **at parity** | — |
 | Screenshots & 3D export | toImage(trim,mime), toObj/toGLTF/toPLY | Fresh captures with trim/MIME/quality; static OBJ/PLY and textured browser glTF/GLB snapshots | complete |
-| Asset loading & resource packs | swappable assetRoot, fallback | Ordered whole-asset source selection; decode fetched bytes; failure-evicting caches; contextual errors; defaults to 1.21.11, ZIPs browser-only | high |
+| Asset loading & resource packs | swappable assetRoot, fallback | Ordered source selection, ZIP pack overlays and filters, failure-evicting caches, and contextual errors; defaults to 1.21.11, ZIPs browser-only | high |
 | Per-frame animation API | `<type>Render` CustomEvents | `onFrame` subscriptions with time/delta, FPS limiting, pause/resume, and disposal | complete |
 | Entity keyframe animations | none | Native and sampled procedural clips with synchronized, layer-specific playback and caller-driven time; runtime state selection, blending, visibility, and animated renderer transforms remain | partial |
 | Embeds & website | minerender.org + iframe embeds | Workspace demos and examples; V2 website and embeds remain | low |
@@ -72,6 +72,7 @@ legacy website cleanup is a separate task.
 - ~~Propagate hosted/archive and model initialization errors with source context.~~
 - ~~Default to 1.21.11 with static item definitions, animal texture paths, structure directory aliases, and versioned cache keys.~~
 - ~~Add an asset-version selection API.~~
+- ~~Read ZIP pack metadata, select version-applicable overlays, and filter lower-priority resources.~~
 - ~~Support chest, bed, and mob-head special item models.~~ ~~Resolve static/default item tint sources.~~ Other special renderers, composite models, component-driven tint colors, and gameplay-dependent item selection remain.
 - ~~Fix `WrappedImage` frame math.~~
 
