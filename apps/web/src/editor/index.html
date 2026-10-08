@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Scene editor · MineRender</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header class="app-header">
+        <a class="brand" href="../">MineRender <span>Scene editor</span></a>
+        <nav aria-label="Scene files">
+            <button id="new-scene">New</button>
+            <button id="import-scene">Import</button>
+            <button id="save-scene" class="primary">Save JSON</button>
+            <button id="show-code">Use in code</button>
+            <select id="export-format" aria-label="Export format">
+                <option value="png">PNG image</option><option value="glb">GLB model</option>
+                <option value="gltf">glTF model</option><option value="obj">OBJ model</option><option value="ply">PLY model</option>
+            </select>
+            <button id="export-scene">Export</button>
+        </nav>
+    </header>
+    <div class="workspace">
+        <aside class="objects-panel" aria-label="Scene objects">
+            <section>
+                <h2>Add an object</h2>
+                <form id="add-form">
+                    <label class="editor-field">Type<select id="add-type">
+                        <option value="block">Block</option><option value="skin">Player</option>
+                        <option value="entity">Entity</option><option value="item">Item</option>
+                        <option value="model">Model</option><option value="gui">GUI</option>
+                    </select></label>
+                    <label class="editor-field" id="asset-field">Asset or texture<input id="add-asset" list="asset-list" value="minecraft:stone" autocomplete="off" spellcheck="false"></label>
+                    <datalist id="asset-list"></datalist>
+                    <button type="submit" class="primary wide">+ Add to scene</button>
+                </form>
+            </section>
+            <section class="scene-list-section">
+                <div class="section-heading"><h2>Objects</h2><span id="object-count">0</span></div>
+                <div id="objects" role="list" aria-label="Objects"></div>
+                <div class="editor-row"><button id="duplicate" disabled>Duplicate</button><button id="delete" disabled>Delete</button></div>
+            </section>
+            <details class="scene-settings">
+                <summary>Scene settings</summary>
+                <label class="editor-field">Minecraft version<input id="minecraft-version" value="1.21.11" spellcheck="false"></label>
+                <button id="apply-version">Reload assets</button>
+                <label class="editor-check"><input id="show-grid" type="checkbox" checked> Show grid</label>
+                <label class="editor-check"><input id="transparent" type="checkbox"> Transparent background</label>
+                <button id="restore-scene">Restore last local save</button>
+                <p class="editor-note">Edits are saved in this browser. Download JSON to keep or share a scene.</p>
+            </details>
+        </aside>
+        <main class="viewport-panel">
+            <div class="viewport-toolbar" role="toolbar" aria-label="Scene tools">
+                <div class="tool-group">
+                    <button data-mode="translate" aria-pressed="true" title="Move (W)">Move</button>
+                    <button data-mode="rotate" aria-pressed="false" title="Rotate (E)">Rotate</button>
+                    <button data-mode="scale" aria-pressed="false" title="Scale (R)">Scale</button>
+                </div>
+                <select id="transform-space" aria-label="Transform space"><option value="world">World</option><option value="local">Local</option></select>
+                <label class="editor-check"><input id="snap" type="checkbox"> Snap</label>
+                <button id="fit-scene" title="Frame selected object, or all objects (F)">Frame</button>
+                <div class="tool-group history"><button id="undo" disabled title="Undo (Ctrl/Cmd+Z)">Undo</button><button id="redo" disabled title="Redo (Ctrl/Cmd+Shift+Z)">Redo</button></div>
+            </div>
+            <div id="viewport" aria-label="3D scene"></div>
+            <p class="viewport-help">Click to select · Drag empty space to orbit · Scroll to zoom · W / E / R to transform</p>
+        </main>
+        <aside class="inspector-panel" aria-label="Object properties">
+            <h2>Object properties</h2>
+            <p id="selection-empty" class="editor-note">Select an object in the scene or the object list.</p>
+            <fieldset id="properties" hidden>
+                <div id="transform-properties"></div>
+                <div id="object-properties"></div>
+            </fieldset>
+        </aside>
+    </div>
+    <footer><span id="status" role="status" aria-live="polite">Starting renderer…</span><span>1 block = 16 units</span></footer>
+    <input id="file-input" type="file" accept=".json,.nbt,.schematic" hidden>
+    <dialog id="code-dialog">
+        <div class="section-heading"><h2>Use this scene</h2><button id="close-code" aria-label="Close">Close</button></div>
+        <p>Save <code>scene.json</code> beside your app, then load it with MineRender.</p>
+        <textarea id="code-output" readonly aria-label="Scene loading code" spellcheck="false"></textarea>
+        <button id="copy-code" class="primary">Copy code</button>
+    </dialog>
+    <script type="module" src="script.bundle.js"></script>
+</body>
+</html>

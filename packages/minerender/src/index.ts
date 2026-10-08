@@ -35,6 +35,7 @@ export * from './model';
 export * from './nbt';
 export * from './renderer';
 export * from './request';
+export * from './scene';
 export * from './skin';
 export * from './texture';
 export * from './three';
