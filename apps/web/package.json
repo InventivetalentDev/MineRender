@@ -5,7 +5,8 @@
   "scripts": {
     "build": "node ./build.mjs",
     "bundle": "node ./build.mjs",
-    "dev": "node ./build.mjs --serve"
+    "dev": "node ./build.mjs --serve",
+    "typecheck:editor": "tsc -p tsconfig.editor.json"
   },
   "author": "Haylee Schäfer",
   "license": "MIT",
