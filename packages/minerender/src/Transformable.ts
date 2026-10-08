@@ -1,5 +1,6 @@
 import { Euler, Vector3 } from "three";
 
+/** Transform access shared by scene objects and instance references. Positions use scene units and rotations use radians. */
 export interface Transformable {
 
     setPositionRotationScale(position?: Vector3, rotation?: Euler, scale?: Vector3): void;

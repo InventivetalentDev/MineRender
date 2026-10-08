@@ -21,6 +21,7 @@ export function sampleFluid(kind: FluidKind, sample: FluidSampler): { key: strin
     return { key: key.join(""), sample: (x, y, z) => cells[(y + 1) * 9 + (z + 1) * 3 + x + 1] };
 }
 
+/** Renders water or lava with neighbor-dependent surfaces and animated still/flow textures. */
 export class FluidModelObject extends ModelObject {
     private geometry?: BufferGeometry;
 

@@ -40,6 +40,7 @@ const FACE_UV_AXES: Record<CubeFace, [Vector3, Vector3]> = {
  */
 
 // noinspection PointlessArithmeticExpressionJS
+/** Maps Minecraft face coordinates to Three.js UVs and builds per-model texture atlases. */
 export class UVMapper {
 
     protected static makeUv(uvCoord: number, originalTextureSize: number, actualTextureSize: number): number {
@@ -170,6 +171,38 @@ export class UVMapper {
         return new Float32BufferAttribute(this.facesToUvArray(faces, originalTextureSize, actualTextureSize), 2);
     }
 
+    /** Bounds texture sampling to texel centres without changing cropped face UVs. */
+    public static setAtlasUvBounds(geometry: BoxGeometry, faces: ModelFaces, atlas: TextureAtlas): void {
+        const uv = geometry.getAttribute("uv");
+        const bounds = new Float32Array(uv.count * 4);
+        for (const [faceIndex, faceName] of CUBE_FACES.entries()) {
+            const texture = faces[faceName]?.texture?.substring(1);
+            const position = texture && atlas.positions[texture];
+            const size = texture && atlas.sizes[texture];
+            let minU = Infinity, minV = Infinity, maxU = -Infinity, maxV = -Infinity;
+            if (position && size) {
+                minU = position[0] / atlas.image.width;
+                maxU = (position[0] + size[0]) / atlas.image.width;
+                minV = 1 - (position[1] + size[1]) / atlas.image.height;
+                maxV = 1 - position[1] / atlas.image.height;
+            } else {
+                for (let corner = 0; corner < 4; corner++) {
+                    const index = faceIndex * 4 + corner;
+                    minU = Math.min(minU, uv.getX(index));
+                    minV = Math.min(minV, uv.getY(index));
+                    maxU = Math.max(maxU, uv.getX(index));
+                    maxV = Math.max(maxV, uv.getY(index));
+                }
+            }
+            const insetU = Math.min(0.5 / atlas.image.width, (maxU - minU) / 2);
+            const insetV = Math.min(0.5 / atlas.image.height, (maxV - minV) / 2);
+            for (let corner = 0; corner < 4; corner++) {
+                bounds.set([minU + insetU, minV + insetV, maxU - insetU, maxV - insetV], (faceIndex * 4 + corner) * 4);
+            }
+        }
+        geometry.setAttribute("uvBounds", new Float32BufferAttribute(bounds, 4));
+    }
+
     public static lockUvs(geometry: BoxGeometry, faces: ModelFaces, atlas: TextureAtlas, rotation: Euler): void {
         const uv = geometry.getAttribute("uv") as BufferAttribute;
         for (let faceIndex = 0; faceIndex < CUBE_FACES.length; faceIndex++) {
@@ -208,6 +241,7 @@ export class UVMapper {
         uv.needsUpdate = true;
     }
 
+    /** Returns the shared atlas for a keyed, merged model, creating it on first use. */
     public static async getAtlas(model: Model): Promise<Maybe<TextureAtlas>> {
         const keyStr = model.key!.serialize();
         return Caching.modelTextureAtlasCache.get(keyStr, k => {
@@ -286,6 +320,11 @@ export class UVMapper {
         return [tl, tr, bl, br];
     }
 
+    /**
+     * Combines model textures and animation metadata into an atlas.
+     * Mapped UVs are stored on copies of the model's elements, available through the returned atlas.
+     * Returns `undefined` for models without a texture map.
+     */
     public static async createAtlas(originalModel: Model): Promise<Maybe<TextureAtlas>> {
         const textureMap: { [key: string]: Maybe<WrappedImage>; } = {};
         const metaMap: { [key: string]: Maybe<MinecraftTextureMeta>; } = {};
@@ -552,6 +591,7 @@ export class UVMapper {
 }
 
 // Based on net.minecraft.client.renderer.block.model.BlockFaceUV
+/** Stores a Minecraft face's UV rectangle and its rotation in degrees. */
 export class MinecraftFaceUV {
 
     constructor(readonly uv: QuadArray = [0, 0, 16, 16], readonly rotation: number = 0) {

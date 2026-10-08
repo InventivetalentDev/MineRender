@@ -2,11 +2,13 @@ import { Requests } from "../request/Requests";
 import { Maybe } from "../util/util";
 
 //TODO: cache stuff
+/** Resolves player names, UUIDs, and service IDs to skin or cape texture URLs. */
 export class Skins {
 
 
     //<editor-fold desc="Skins">
 
+    /** Returns a skin URL for {@link MineRenderScene.addSkin}, or `undefined` if name lookup fails. */
     static async fromUuidOrUsername(uuidOrUsername: string): Promise<Maybe<string>> {
         if (uuidOrUsername.length === 32 || uuidOrUsername.length === 36) {
             return this.fromUuid(uuidOrUsername);
@@ -14,6 +16,7 @@ export class Skins {
         return this.fromUsername(uuidOrUsername);
     }
 
+    /** Builds a proxy URL for a UUID without downloading or checking the skin. */
     static async fromUuid(uuid: string): Promise<Maybe<string>> {
         return this.getMcProxySkinUrl(uuid);
     }
@@ -27,6 +30,7 @@ export class Skins {
         })
     }
 
+    /** Looks up a saved MineSkin skin and returns its texture URL, or `undefined` on lookup failure. */
     static async fromMineSkin(mineskinId: string): Promise<Maybe<string>> {
         return this.getMineSkin(mineskinId).then(mineskin => {
             if (mineskin) {
@@ -41,6 +45,7 @@ export class Skins {
 
     //<editor-fold desc="Capes">
 
+    /** Resolves a player's Minecraft cape URL for {@link SkinObject.setCapeTexture}. */
     static async capeFromUuidOrUsername(uuidOrUsername: string): Promise<Maybe<string>> {
         if (uuidOrUsername.length === 32 || uuidOrUsername.length === 36) {
             return this.capeFromUuid(uuidOrUsername);
@@ -48,6 +53,7 @@ export class Skins {
         return this.capeFromUsername(uuidOrUsername);
     }
 
+    /** Builds a proxy URL without checking whether the player has a cape. */
     static async capeFromUuid(uuid: string): Promise<Maybe<string>> {
         return this.getMcProxyCapeUrl(uuid);
     }

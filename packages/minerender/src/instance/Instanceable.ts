@@ -2,6 +2,7 @@ import { InstanceReference } from "./InstanceReference";
 import { Euler, Matrix4, Vector3 } from "three";
 import { SceneObject } from "../renderer/SceneObject";
 
+/** A model that owns reusable instance slots and exposes per-slot transforms to {@link InstanceReference}. */
 export interface Instanceable {
 
     nextInstance(): InstanceReference<SceneObject>;

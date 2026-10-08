@@ -97,6 +97,39 @@ test("AddBlocks uses the low nibble for even cells and the high nibble for odd c
     await t.throwsAsync(SchematicParser.parse(schematic([1], [15])), { message: /Unsupported legacy block 1:15/ });
 });
 
+test("lenient parsing accepts missing or non-Alpha Materials without changing strict defaults", async t => {
+    for (const materials of [undefined, { type: "string" as const, value: "Classic" }]) {
+        const input = schematic([1]);
+        if (materials) {
+            input.value.Materials = materials;
+        } else {
+            delete input.value.Materials;
+        }
+        await t.throwsAsync(SchematicParser.parse(input), { message: /Materials must be Alpha/ });
+        t.is((await SchematicParser.parse(input, {}, { lenient: true })).blocks[0].type, "minecraft:stone");
+    }
+});
+
+test("lenient mappings prefer exact matches, fall back to metadata zero and skip unknown IDs", async t => {
+    const input = schematic([1, 1, 35, 1, 1, 1, 54], [1, 15, 31, 3, 2, 0, 2]);
+    input.value.AddBlocks = { type: "byteArray", value: [0, 0, 0xf2] };
+    const mappings = {
+        "1:0": "minecraft:diamond_block",
+        "1:3": "minecraft:gold_block",
+        "513:0": "example:custom_block[facing=east]"
+    };
+    const parsed = await SchematicParser.parse(input, mappings, { lenient: true });
+    t.deepEqual(parsed.blocks.map(({ type, properties, position }) => ({ type, properties, position })), [
+        { type: "minecraft:granite", properties: {}, position: [0, 0, 0] },
+        { type: "minecraft:diamond_block", properties: {}, position: [1, 0, 0] },
+        { type: "minecraft:white_wool", properties: {}, position: [2, 0, 0] },
+        { type: "minecraft:gold_block", properties: {}, position: [3, 0, 0] },
+        { type: "example:custom_block", properties: { facing: "east" }, position: [4, 0, 0] },
+        { type: "minecraft:chest", properties: { facing: "north", type: "single" }, position: [6, 0, 0] }
+    ]);
+    await t.throwsAsync(SchematicParser.parse(input, mappings, { lenient: false }), { message: /Unsupported legacy block 1:15/ });
+});
+
 test("schematic dimensions, array lengths and tile positions are checked before conversion", async t => {
     const invalid = [
         schematic([1], [0], [0, 1, 1]),
@@ -108,9 +141,13 @@ test("schematic dimensions, array lengths and tile positions are checked before 
     for (const input of invalid) {
         await t.throwsAsync(SchematicParser.parse(input), { name: "MineRenderError" });
     }
+    for (const input of invalid.slice(0, 3)) {
+        await t.throwsAsync(SchematicParser.parse(input, {}, { lenient: true }), { name: "MineRenderError" });
+    }
     const input = schematic([54], [2]);
     input.value.TileEntities = { type: "list", value: { type: "compound", value: [{
         x: { type: "int", value: 1 }, y: { type: "int", value: 0 }, z: { type: "int", value: 0 }
     }] } };
     await t.throwsAsync(SchematicParser.parse(input), { message: /TileEntities.*position/ });
+    await t.throwsAsync(SchematicParser.parse(input, {}, { lenient: true }), { message: /TileEntities.*position/ });
 });

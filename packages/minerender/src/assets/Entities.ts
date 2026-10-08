@@ -11,8 +11,10 @@ import { MineRenderError } from "../error/MineRenderError";
 import { ModelTextures } from "./ModelTextures";
 import type { MinecraftAsset } from "../MinecraftAsset";
 
+/** Loads entity and block-entity geometry, texture selections, and animation clips from the dataset. */
 export class Entities {
 
+    /** Lists model paths in the `minecraft` namespace, including subdirectories and excluding `.json`. */
     public static async getEntityList(): Promise<string[]> {
         const collect = async (path: string): Promise<string[]> => {
             const prefix = path ? `${path}/` : "";
@@ -33,6 +35,7 @@ export class Entities {
         return Caching.entityModelCache.get(key.serialize(), () => AssetLoader.get<EntityModelFile>(key, AssetParser.JSON));
     }
 
+    /** Returns selectable geometry-layer names, or an empty list when the model is missing. */
     public static async getLayerList(modelKey: BasicAssetKey): Promise<string[]> {
         return Object.keys((await this.getModelFile(modelKey))?.layers ?? {});
     }
@@ -42,6 +45,15 @@ export class Entities {
         return (await this.getModelFile(modelKey))?.passes ?? [];
     }
 
+    /**
+     * Loads the layers and textures to pass to {@link MineRenderScene.addEntity}.
+     * By default, selects `main`, unconditional passes, and passes enabled by `options.when`.
+     *
+     * @param modelKey - Dataset model, such as `new BasicAssetKey("minecraft", "zombie")`.
+     * @param textureKey - Texture override for the first selected layer.
+     * @param options - Layer selection, conditional passes, and per-layer texture overrides.
+     * @returns The selected model, or `undefined` when its dataset file is missing.
+     */
     public static async getEntity(modelKey: BasicAssetKey, textureKey?: BasicAssetKey, options?: EntityModelOptions): Promise<Maybe<EntityModel>> {
         const model = await this.getModelFile(modelKey);
         if (!model) return undefined;
@@ -94,6 +106,7 @@ export class Entities {
         return file?.animations;
     }
 
+    /** Finds a fallback texture using the model path, its directory, and vanilla variant data. */
     public static async resolveTexture(modelKey: BasicAssetKey): Promise<Maybe<AssetKey>> {
         const path = isAssetKey(modelKey) ? modelKey.getFullPath() : modelKey.path;
         const root = isAssetKey(modelKey) ? modelKey.root : undefined;
@@ -133,7 +146,9 @@ export class Entities {
 
 }
 
+/** Selection settings passed as the third argument to {@link Entities.getEntity}. */
 export interface EntityModelOptions {
+    /** Selects one geometry layer without dataset passes. `layers` takes precedence when supplied. */
     layer?: string;
     /** Layer names in draw order; an explicit selection draws exactly these layers and no dataset passes. */
     layers?: string[];

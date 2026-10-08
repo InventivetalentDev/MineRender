@@ -3,6 +3,7 @@ import { md5 } from "../util/util";
 
 export type CacheKey = string;
 
+/** Source URL used to identify cached image bytes and pixels. */
 export interface RawImageKey {
     src: string;
 }
@@ -19,6 +20,7 @@ export function serializeImageKey(key: RawImageKey): string {
 
 ///
 
+/** Box dimensions in scene units and optional normalized UVs in Three.js face order. */
 export interface BoxGeometryKey {
     width: number;
     height: number;
@@ -43,6 +45,7 @@ export function serializeBoxGeometryKey(key: BoxGeometryKey): string {
 
 ///
 
+/** Settings passed to {@link Textures.getImage}. Texture rotation uses radians. */
 export interface TextureKey extends RawImageKey {
     format?: PixelFormat;
     rotation?: number;
@@ -62,6 +65,7 @@ export function serializeTextureKey(key: TextureKey): string {
 
 ///
 
+/** Texture and transparency settings passed to {@link Materials.getImage}. */
 export interface MaterialKey {
     texture: TextureKey;
     transparent?: boolean;
@@ -74,6 +78,7 @@ export function serializeMaterialKey(key: MaterialKey): string {
 
 ///
 
+/** Geometry and material settings passed to {@link Meshes.createBox} or {@link Meshes.getBox}. */
 export interface MeshKey {
     geometry: BoxGeometryKey;
     material: MaterialKey;

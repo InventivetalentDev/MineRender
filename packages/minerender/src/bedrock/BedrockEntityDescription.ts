@@ -1,3 +1,4 @@
+/** Bedrock client-entity resource references. This schema does not provide a Bedrock renderer. */
 export interface BedrockEntityDescription {
     identifier: string;
     materials: { [k: string]: string };

@@ -63,7 +63,8 @@ test.serial("a source without a content identity confines persisted entries to t
 
 test.serial("archive sources identify themselves through their proxy", t => {
     const proxy = (id?: string): ArchiveProxy => ({ id, getEntries: async () => [] });
-    t.is(new ArchiveAssetSource(proxy("pack.zip:10:1")).cacheId, "archive:pack.zip:10:1");
+    t.is(new ArchiveAssetSource(proxy("pack.zip:10:1")).cacheId,
+        `archive-metadata:1:pack.zip:10:1:${JSON.stringify([AssetLoader.version, AssetLoader.version])}`);
     t.is(new ArchiveAssetSource(proxy()).cacheId, undefined);
     t.is(new HostedAssetSource("https://cdn.example/root").cacheId, "hosted:https://cdn.example/root");
 });

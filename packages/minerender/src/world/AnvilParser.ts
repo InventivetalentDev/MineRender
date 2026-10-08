@@ -16,10 +16,12 @@ interface ChunkLocation {
     length: number;
 }
 
+/** Chunk columns decoded from an Anvil region file. */
 export interface AnvilRegion {
     chunks: AnvilChunk[];
 }
 
+/** A decoded chunk column. `x` and `z` are absolute chunk coordinates, and section `y` is a section coordinate. */
 export interface AnvilChunk {
     x: number;
     z: number;
@@ -28,12 +30,15 @@ export interface AnvilChunk {
     entities?: MultiBlockEntity[];
 }
 
+/** Reads Java 1.13+ paletted `.mca` regions. Entity NBT is preserved without data-version migration. */
 export class AnvilParser {
 
+    /** Lists occupied chunk positions within the region, using local coordinates from 0 to 31. */
     public static getChunkList(data: RegionInput): { x: number; z: number }[] {
         return this.locations(this.bytes(data)).map(({ x, z }) => ({ x, z }));
     }
 
+    /** Decodes all stored chunks. Gzip, zlib, and uncompressed payloads are supported. */
     public static async parse(data: RegionInput): Promise<AnvilRegion> {
         const bytes = this.bytes(data);
         const chunks: AnvilChunk[] = [];
@@ -41,6 +46,12 @@ export class AnvilParser {
         return { chunks };
     }
 
+    /**
+     * Decodes one chunk for {@link MineRenderWorld.placeChunk}.
+     * @param localX - Chunk x within the region, from 0 to 31.
+     * @param localZ - Chunk z within the region, from 0 to 31.
+     * @returns The chunk with absolute coordinates, or `undefined` if the region has no chunk there.
+     */
     public static async parseChunk(data: RegionInput, localX: number, localZ: number): Promise<AnvilChunk | undefined> {
         if (![localX, localZ].every(value => Number.isInteger(value) && value >= 0 && value < 32)) {
             throw new RangeError("Region-local chunk coordinates must be integers from 0 to 31");

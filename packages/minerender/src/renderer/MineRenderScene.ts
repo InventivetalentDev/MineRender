@@ -20,6 +20,7 @@ import { GuiLayer } from "../gui/GuiLayer";
 import { GuiObject, GuiObjectOptions } from "../gui/scene/GuiObject";
 import { ItemTints } from "../model/ItemTints";
 
+/** A Three.js scene that initializes Minecraft objects and tracks changes that need a redraw. */
 export class MineRenderScene extends Scene {
 
     public readonly isMineRenderScene: true = true;
@@ -91,6 +92,7 @@ export class MineRenderScene extends Scene {
         }
     }
 
+    /** Initializes each object before attaching it to the scene. */
     public async initAndAdd(...object: SceneObject[]): Promise<this> {
         this.dirty = true;
         for (let obj of object) {
@@ -137,15 +139,35 @@ export class MineRenderScene extends Scene {
         }
     }
 
+    /**
+     * Adds a model loaded with {@link Models.getMerged}.
+     * Set `options.instanceMeshes` to `false` to create a separate ModelObject.
+     *
+     * @param parent - Object to attach the model to. Defaults to this scene.
+     * @returns The model, or a reference to one placement of a shared model.
+     */
     public async addModel(model: Model, options?: Partial<ModelObjectOptions>, parent: Object3D = this): Promise<ModelObject | InstanceReference<ModelObject>> {
         options = { ...options, tints: await ItemTints.get(model, options?.tints) };
         return this.addSceneObject<Model, ModelObject, ModelObjectOptions>(model, () => new ModelObject(model, options), options, parent);
     }
 
+    /**
+     * Adds the models selected by a blockstate loaded with {@link BlockStates.get}.
+     * Set `options.initialState` to choose block properties such as `facing` or `axis`.
+     * Use the returned object's `setPosition` method to move all of its model parts.
+     */
     public async addBlock(blockState: BlockState, options?: Partial<BlockObjectOptions>, parent: Object3D = this): Promise<BlockObject | InstanceReference<BlockObject>> {
         return this.addSceneObject<BlockState, BlockObject, BlockObjectOptions>(blockState, () => new BlockObject(blockState, options), options, parent);
     }
 
+    /**
+     * Loads a skin and adds an initialized player model.
+     *
+     * @param skin - Texture URL, such as one returned by {@link Skins.fromUuidOrUsername}.
+     * Omit it to assign a texture later with {@link SkinObject.setSkinTexture}.
+     * @param options - Player settings, including `slim` and `legacy` detection overrides.
+     * @param parent - Object to attach the player to. Defaults to this scene.
+     */
     public async addSkin(skin?: string, options?: Partial<SkinObjectOptions>, parent: Object3D = this): Promise<SkinObject> {
         this.dirty = true;
         const obj = new SkinObject(options);
@@ -158,10 +180,15 @@ export class MineRenderScene extends Scene {
         return obj;
     }
 
+    /** Adds an entity loaded with {@link Entities.getEntity}, using its selected layers and textures. */
     public async addEntity(entity: EntityModel, options?: Partial<EntityObjectOptions>, parent: Object3D = this): Promise<EntityObject | InstanceReference<EntityObject>> {
         return this.addSceneObject<EntityModel, EntityObject, EntityObjectOptions>(entity, () => new EntityObject(entity, options), options, parent);
     }
 
+    /**
+     * Adds GUI layers in draw order. One GUI pixel equals one scene unit.
+     * Layer positions start at the top left, with positive GUI y pointing down.
+     */
     public async addGui(layers: readonly GuiLayer[], options?: Partial<GuiObjectOptions>, parent: Object3D = this): Promise<GuiObject> {
         const obj = new GuiObject(layers, options);
         obj.scene = this;

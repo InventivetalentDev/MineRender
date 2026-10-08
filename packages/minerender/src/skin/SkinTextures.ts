@@ -6,14 +6,17 @@ import { SkinImage } from "./SkinImage";
 import { Textures } from "../texture/Textures";
 import { CapeLayout } from "./CapeLayout";
 
+/** A prepared shared skin material with detected arm-model and texture-layout flags. */
 export interface SkinTexture {
     material: MeshBasicMaterial;
     slim: boolean;
     legacy: boolean;
 }
 
+/** Prepares shared skin and cape materials, including legacy layout conversion and base-layer opacity. */
 export class SkinTextures {
 
+    /** Loads a skin URL. Pass `legacy` to override layout detection from the image dimensions. */
     public static async get(src: string, legacy?: boolean): Promise<SkinTexture> {
         const image = await SkinImage.getData(src);
         const scale = image.width / 64;

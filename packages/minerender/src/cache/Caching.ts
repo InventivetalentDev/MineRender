@@ -19,6 +19,7 @@ import { BlockState } from "../model/block/BlockState";
 import type { AssetKey } from "../assets/AssetKey";
 import type { BitmapFont } from "../assets/Fonts";
 
+/** Shared in-memory caches for loaded assets and render resources. Persistent stores are managed separately. */
 export class Caching {
 
     static readonly rawImageCache: AsyncLoadingCache<CacheKey, ImageInfo> = Caches.builder()
@@ -150,6 +151,7 @@ export class Caching {
         ];
     }
 
+    /** Invalidates in-memory entries so later lookups reload them. Persisted entries are retained. */
     public static clear() {
         for (const cache of this.all) {
             cache.invalidateAll();

@@ -1,5 +1,6 @@
 import { DoubleArray, TripleArray } from "../model/Model";
 
+/** Bedrock bone-and-cube geometry schema, provided for typing only. */
 export interface BedrockGeometry {
     visible_bounds_width: number;
     visible_bounds_height: number;

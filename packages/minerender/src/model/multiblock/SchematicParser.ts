@@ -5,15 +5,17 @@ import { BlockStateProperties } from "../block/BlockStateProperties";
 import { MultiBlockBlock, MultiBlockStructure } from "./MultiBlockStructure";
 import legacyBlocks from "./legacyBlocks.json";
 
+/** Converts legacy Alpha `.schematic` NBT with numeric block IDs into modern block names and properties. */
 export class SchematicParser {
 
     /**
      * Parses a legacy schematic using custom mappings before the bundled defaults.
      * Keys are `id:metadata`; values are block states such as `minecraft:oak_log[axis=x]`.
      */
-    public static async parse(nbt: NBT, customMappings: Readonly<Record<string, string>> = {}): Promise<MultiBlockStructure> {
+    public static async parse(nbt: NBT, customMappings: Readonly<Record<string, string>> = {},
+                              options: SchematicParserOptions = {}): Promise<MultiBlockStructure> {
         const tags = nbt.value;
-        if (tags.Materials?.type !== "string" || tags.Materials.value !== "Alpha") {
+        if (!options.lenient && (tags.Materials?.type !== "string" || tags.Materials.value !== "Alpha")) {
             throw new MineRenderError("Schematic Materials must be Alpha");
         }
         const size = ["Width", "Height", "Length"].map(name => {
@@ -57,8 +59,16 @@ export class SchematicParser {
             const id = (high << 8) | (ids.value[index] & 0xff);
             const metadata = data.value[index] & 0xff;
             const key = `${id}:${metadata}`;
-            const mapped = customMappings[key] ?? mapping[key];
-            if (!mapped) throw new MineRenderError(`Unsupported legacy block ${id}:${metadata} at schematic index ${index}`);
+            let mapped = customMappings[key] ?? mapping[key];
+            if (!mapped && options.lenient) {
+                mapped = customMappings[`${id}:0`] ?? mapping[`${id}:0`];
+            }
+            if (!mapped) {
+                if (options.lenient) {
+                    continue;
+                }
+                throw new MineRenderError(`Unsupported legacy block ${id}:${metadata} at schematic index ${index}`);
+            }
             const [type, state] = mapped.split("[");
             if (type === "minecraft:air") continue;
             const properties: BlockStateProperties = {};
@@ -89,6 +99,14 @@ export class SchematicParser {
         return { size, blocks, entities, dataVersion: dataVersion?.value };
     }
 
+}
+
+export interface SchematicParserOptions {
+    /**
+     * Ignores Materials, tries metadata 0 for unmapped states, and skips unknown IDs. Defaults to false.
+     * Dimensions, arrays, and entity data remain validated.
+     */
+    lenient?: boolean;
 }
 
 function compoundList(tags: Compound["value"], name: string): Compound["value"][] {

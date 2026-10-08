@@ -20,6 +20,10 @@ import { prefix } from "../util/log";
 
 const p = prefix("SceneObject");
 
+/**
+ * Base for renderable Minecraft objects, with named parts and optional shared instances.
+ * Use {@link notifyDirty} after changing a part directly so the renderer redraws it.
+ */
 export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> implements Disposable, Instanceable, Transformable {
 
     public readonly isSceneObject: true = true;
@@ -62,6 +66,7 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
     async init(): Promise<void> {
     }
 
+    /** Marks ancestor scenes for redraw and emits a `change` event. */
     public notifyDirty() {
         this.traverseAncestors(parent => {
             const scene = parent as MineRenderScene;
@@ -103,16 +108,18 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
     }
 
     /**
-     * Get a group by its name
+     * Finds a named part, such as `head`, without the internal `group:` prefix.
+     * Returns `undefined` when the group does not exist.
      */
     public getGroupByName(name: string): Maybe<Object3D> {
         return this.getObjectByName(`group:${name}`) as Object3D;
     }
 
     /**
-     * Toggle visibility of a group
-     * @param name name of the group
-     * @param visible set the visibility directly, if not set toggles it
+     * Changes a named group's visibility and requests a redraw.
+     * @param name - Part name without the `group:` prefix.
+     * @param visible - Visibility to assign. Omit it to toggle the current value.
+     * @returns The resulting visibility, or `false` if the group does not exist.
      */
     public toggleGroupVisibility(name: string, visible?: boolean): boolean {
         return this.toggleObjectVisibility(this.getGroupByName(name), visible);
@@ -173,16 +180,17 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
     }
 
     /**
-     * Get a mesh by its name
+     * Finds a named mesh without the internal `mesh:` prefix, or returns `undefined`.
      */
     public getMeshByName(name: string): Maybe<Mesh> {
         return this.getObjectByName(`mesh:${name}`) as Mesh;
     }
 
     /**
-     * Toggle visibility of a mesh
-     * @param name name of the mesh
-     * @param visible set the visibility directly, if not set toggles it
+     * Changes a named mesh's visibility and requests a redraw.
+     * @param name - Mesh name without the `mesh:` prefix.
+     * @param visible - Visibility to assign. Omit it to toggle the current value.
+     * @returns The resulting visibility, or `false` if the mesh does not exist.
      */
     public toggleMeshVisibility(name: string, visible?: boolean): boolean {
         return this.toggleObjectVisibility(this.getMeshByName(name), visible);
@@ -240,6 +248,7 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
         return this._isInstanced;
     }
 
+    /** Number of live placements, excluding released instance slots. */
     get instanceCounter(): number {
         return this._instanceCounter;
     }
@@ -248,6 +257,7 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
         return new InstanceReference<this>(this, i);
     }
 
+    /** Allocates a placement of this instanced object, reusing a released slot when available. */
     nextInstance(): InstanceReference<SceneObject> {
         const mesh = this.instanceMesh;
         if (!mesh) throw new MineRenderError("Object is not instanced");
@@ -418,6 +428,7 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
         return vector;
     }
 
+    /** Updates supplied transform components. For a shared model, affects every live instance. */
     setPositionRotationScale(position?: Vector3, rotation?: Euler, scale?: Vector3): void {
         if (this.isInstanced) {
             for (const i of this.activeInstanceIndices()) {
@@ -437,6 +448,7 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
         this.notifyDirty();
     }
 
+    /** Sets position in scene units. For a shared model, updates every live instance. */
     setPosition(position: Vector3) {
         if (this.isInstanced) {
             for (const i of this.activeInstanceIndices()) {
@@ -456,6 +468,7 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
         }
     }
 
+    /** Sets rotation in radians. For a shared model, updates every live instance. */
     setRotation(rotation: Euler) {
         if (this.isInstanced) {
             for (const i of this.activeInstanceIndices()) {
@@ -475,6 +488,7 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
         }
     }
 
+    /** Sets scale factors. For a shared model, updates every live instance. */
     setScale(scale: Vector3) {
         if (this.isInstanced) {
             for (const i of this.activeInstanceIndices()) {
@@ -518,6 +532,7 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
         super.dispose();
     }
 
+    /** Releases instance slots and removes children, disposing children that implement Disposable. */
     public disposeAndRemoveAllChildren() {
         if (this.instanceMesh) {
             if (this._scene) this._scene.stats.instanceCount -= this.instanceReferences.size;
@@ -541,6 +556,7 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
         this.notifyDirty();
     }
 
+    /** Detaches the object from its parent and requests a redraw. */
     public removeFromScene() {
         this.notifyDirty();
         this.removeFromParent();

@@ -3,6 +3,7 @@ import type { Object3D } from "three";
 import { EntityAnimation, sampleEntityAnimation } from "../EntityAnimation";
 import type { EntityModelPart } from "../EntityModel";
 
+/** Playback settings passed to {@link EntityObject.playAnimation}, {@link EntityObject.playAnimations}, or {@link EntityAnimationPlayer.play}. */
 export interface EntityAnimationOptions {
     /** Overrides the animation's own `loop` flag. */
     loop?: boolean;
@@ -100,6 +101,7 @@ export class EntityAnimationPlayer {
         this._time = 0;
     }
 
+    /** Applies the pose at an absolute playback time. Returns `false` when no clip is active. */
     setTime(seconds: number): boolean {
         if (!this._animation) return false;
         this._time = seconds;
@@ -107,6 +109,7 @@ export class EntityAnimationPlayer {
         return true;
     }
 
+    /** Advances playback by elapsed seconds multiplied by the speed passed to {@link play}. */
     advance(deltaSeconds: number): boolean {
         return this.setTime(this._time + deltaSeconds * this.speed);
     }

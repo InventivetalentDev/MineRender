@@ -3,6 +3,7 @@ import { ModelTextures } from "../assets/ModelTextures";
 import { Caching } from "../cache/Caching";
 import { MineRenderError } from "../error/MineRenderError";
 
+/** Samples resource-pack colormaps to produce packed sRGB tint colors. */
 export class Colormaps {
 
     /** Samples the selected resource pack's grass colormap using Minecraft's climate coordinates. */

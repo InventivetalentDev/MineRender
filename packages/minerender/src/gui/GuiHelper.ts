@@ -2,6 +2,7 @@ import { AssetKey, isAssetKey } from "../assets/AssetKey";
 import type { GuiLayer } from "./GuiLayer";
 import { layoutGuiText, type GuiText, type GuiTextOptions } from "./GuiText";
 
+/** Creates GUI positions and layer lists for {@link MineRenderScene.addGui}. */
 export class GuiHelper {
 
     /** Sizes a tooltip around supplied text; the first entry is its title. */
@@ -26,6 +27,13 @@ export class GuiHelper {
         return layers;
     }
 
+    /**
+     * Calculates a slot's top-left position in GUI pixels.
+     * @param slot - Zero-based slot index, or `[column, row]`.
+     * @param origin - Position of the first slot.
+     * @param offset - Horizontal and vertical spacing between slot origins, in pixels.
+     * @param rowSize - Slots per row when `slot` is an index.
+     */
     public static inventorySlot(slot: number | [number, number], origin: [number, number] = [0, 0], offset: [number, number] = [18, 18], rowSize: number = 9): [number, number] {
         const [column, row] = typeof slot === "number" ? [slot % rowSize, Math.floor(slot / rowSize)] : slot;
         return [origin[0] + column * offset[0], origin[1] + row * offset[1]];
@@ -91,6 +99,7 @@ export class GuiHelper {
 
 }
 
+/** Settings passed to {@link GuiHelper.tooltip}. Its default `lineHeight` is 10 GUI pixels. */
 export interface GuiTooltipOptions extends GuiTextOptions {
     /** Top-left text position, inside the tooltip's padding. */
     position?: [number, number];
@@ -100,8 +109,10 @@ export interface GuiTooltipOptions extends GuiTextOptions {
 
 type GuiRecipeIngredientValue = string | { item: string } | { tag: string };
 
+/** An item, tag, or alternatives list. Tags and alternatives need `GuiRecipeOptions.resolveIngredient`. */
 export type GuiRecipeIngredient = GuiRecipeIngredientValue | readonly GuiRecipeIngredientValue[];
 
+/** Shaped or shapeless crafting data accepted by {@link GuiHelper.recipe}. */
 export type GuiRecipe = ({
     type: "minecraft:crafting_shaped" | "crafting_shaped";
     pattern: readonly string[];
@@ -113,6 +124,7 @@ export type GuiRecipe = ({
     result: { id: string; count?: number } | { item: string; count?: number };
 };
 
+/** Settings passed as the second argument to {@link GuiHelper.recipe}. */
 export interface GuiRecipeOptions {
     /** Selects a concrete item ID or model AssetKey for a tag or alternatives array. */
     resolveIngredient?: (ingredient: GuiRecipeIngredient) => string | AssetKey;

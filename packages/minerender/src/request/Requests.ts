@@ -3,15 +3,18 @@ import { prefix } from "../util/log";
 
 const p = prefix("Requests");
 
+/** Fetch settings passed to {@link Requests.genericRequest} or {@link Requests.mcAssetRequest}. */
 export interface RequestConfig extends RequestInit {
     url: string;
     /** Prepended to relative URLs, preserving any path in the base URL. */
     baseURL?: string;
     /** Timeout per attempt in milliseconds, including body reading. Defaults to 5000; 0 disables it. */
     timeout?: number;
+    /** Response-body decoding. Defaults to `json`. */
     responseType?: "json" | "arraybuffer";
 }
 
+/** A decoded response body with the HTTP status, native headers, and final URL. */
 export interface RequestResponse<T = any> {
     data: T;
     status: number;
@@ -21,6 +24,7 @@ export interface RequestResponse<T = any> {
     url: string;
 }
 
+/** An HTTP or network failure, with response details or an underlying cause when available. */
 export class RequestError extends Error {
     constructor(message: string, readonly response?: RequestResponse<undefined>, readonly cause?: unknown) {
         super(message);
@@ -161,19 +165,23 @@ class RequestQueue {
     }
 }
 
+/** Shared Fetch queues with concurrency limits, cancellation, timeouts, and bounded retries for GET requests. */
 export class Requests {
 
     private static genericQueue = new RequestQueue();
     private static mcAssetRequestQueue = new RequestQueue();
 
+    /** Queues a general request. Set `request.signal` to cancel it and `request.timeout` to limit each attempt. */
     public static genericRequest(request: RequestConfig): Promise<RequestResponse> {
         return this.genericQueue.request(request);
     }
 
+    /** Queues a request separately from general traffic, using the configured asset base URL for relative paths. */
     public static mcAssetRequest(request: RequestConfig): Promise<RequestResponse> {
         return this.mcAssetRequestQueue.request(request);
     }
 
+    /** Sets the base URL for relative asset requests. Use {@link AssetLoader.setVersion} to change Minecraft versions. */
     public static setMcAssetRoot(root: string) {
         this.mcAssetRequestQueue.baseURL = root;
     }
