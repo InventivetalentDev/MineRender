@@ -1,12 +1,13 @@
-import { AssetKey, DISPLAY_POSITIONS, Entities, type SceneObjectDefinition, type SceneSkinDefinition, type SceneSkinPosePart } from "minerender";
+import { AssetKey, DISPLAY_POSITIONS, Entities, parseSceneDocument, type SceneEntityDefinition, type SceneObjectDefinition, type SceneSkinDefinition, type SceneSkinPosePart } from "minerender";
 import { Color } from "three";
 import { getBlockProperties, getObjectList } from "./catalog";
 
 interface InspectorContext {
-    onChange: (definition: SceneObjectDefinition) => void;
+    onChange: (definition: SceneObjectDefinition, refresh?: boolean) => void | Promise<void>;
     onError: (error: unknown) => void;
     getAnimationTime?: () => number;
     onSkinPoseChange?: (pose: SceneSkinDefinition["pose"]) => void;
+    onAnimationChange?: (animation: SceneEntityDefinition["animation"]) => void | Promise<void>;
 }
 
 let nextListId = 0;
@@ -14,12 +15,41 @@ let nextListId = 0;
 export function renderInspector(container: HTMLElement, definition: SceneObjectDefinition, context: InspectorContext): () => void {
     const draft = structuredClone(definition);
     let active = true;
+    let optionsJson: HTMLTextAreaElement | undefined;
     container.replaceChildren();
-    const emit = () => { if (active) context.onChange(structuredClone(draft)); };
-    const fail = (error: unknown) => { if (active) context.onError(error); };
+    const errors = new Map<HTMLElement, HTMLParagraphElement>();
+    const submissions = new Map<HTMLElement, number>();
+    const errorTarget = (): HTMLElement => {
+        const focused = document.activeElement;
+        return focused instanceof HTMLElement && container.contains(focused)
+            ? focused.closest<HTMLElement>(".editor-field, fieldset, details") ?? container : container;
+    };
+    const clearError = (host: HTMLElement) => { errors.get(host)?.remove(); errors.delete(host); };
+    const fail = (error: unknown, host = errorTarget()) => {
+        if (!active) return;
+        const message = errors.get(host) ?? note(host, "");
+        message.classList.add("editor-error");
+        message.setAttribute("role", "alert");
+        message.textContent = error instanceof Error ? error.message : String(error);
+        errors.set(host, message);
+        context.onError(error);
+    };
+    const submit = (action: () => void | Promise<void>, host = errorTarget()) => {
+        if (!active) return;
+        const submission = (submissions.get(host) ?? 0) + 1;
+        submissions.set(host, submission);
+        clearError(host);
+        try { Promise.resolve(action()).catch(error => { if (submissions.get(host) === submission) fail(error, host); }); }
+        catch (error) { fail(error, host); }
+    };
+    const emit = (refresh = false, host = errorTarget()) => submit(() => {
+        const validated = parseSceneDocument({ format: "minerender-scene", version: 1, objects: [draft] }).objects[0];
+        return context.onChange(validated, refresh);
+    }, host);
     const options = (patch: Record<string, unknown>) => {
         if (draft.type === "gui") return;
         draft.options = Object.assign({}, draft.options, patch);
+        if (optionsJson) optionsJson.value = JSON.stringify(draft.options, null, 2);
         emit();
     };
 
@@ -34,7 +64,7 @@ export function renderInspector(container: HTMLElement, definition: SceneObjectD
                 delete draft.textures;
                 delete draft.animation;
             }
-            emit();
+            emit(true);
         });
         const list = document.createElement("datalist");
         list.id = `editor-assets-${++nextListId}`;
@@ -50,7 +80,7 @@ export function renderInspector(container: HTMLElement, definition: SceneObjectD
         const source = section(container, "Skin");
         const field = text(source, "Player name, UUID, or PNG URL", skin.skin ?? "");
         field.addEventListener("change", () => { skin.skin = field.value.trim() || undefined; emit(); });
-        png(source, "Import skin PNG", value => { skin.skin = value; emit(); }, fail);
+        png(source, "Import skin PNG", value => { skin.skin = value; field.value = value; emit(); }, error => fail(error, source));
         select(source, "Arms", [["auto", "Detect"], ["false", "Classic"], ["true", "Slim"]], String(skin.options?.slim ?? "auto"), value => options({ slim: value === "auto" ? undefined : value === "true" }));
         select(source, "Texture layout", [["auto", "Detect"], ["false", "Modern (64 × 64)"], ["true", "Legacy (64 × 32)"]], String(skin.options?.legacy ?? "auto"), value => options({ legacy: value === "auto" ? undefined : value === "true" }));
         const cape = section(container, "Cape");
@@ -58,15 +88,16 @@ export function renderInspector(container: HTMLElement, definition: SceneObjectD
         const capeSource = text(cape, "Player name, UUID, or PNG URL", skin.cape?.texture ?? "");
         capeSource.placeholder = "None";
         capeSource.addEventListener("change", () => {
+            const hadCape = !!skin.cape;
             skin.cape = capeSource.value.trim() ? { texture: capeSource.value.trim(), layout: capeLayout } : undefined;
-            emit();
+            emit(hadCape !== !!skin.cape);
         });
-        png(cape, "Import cape PNG", texture => { skin.cape = { texture, layout: capeLayout }; emit(); }, fail);
+        png(cape, "Import cape PNG", texture => { skin.cape = { texture, layout: capeLayout }; emit(true); }, error => fail(error, cape));
         select(cape, "Layout", [["minecraft", "Minecraft"], ["optifine", "OptiFine"], ["labymod", "LabyMod"]], capeLayout, value => {
             capeLayout = value as typeof capeLayout;
             if (skin.cape) { skin.cape.layout = capeLayout; emit(); }
         });
-        button(cape, "Remove cape", () => { delete skin.cape; emit(); });
+        button(cape, "Remove cape", () => { delete skin.cape; capeSource.value = ""; emit(true); });
         const labels = {
             head: "Head", body: "Body", rightArm: "Right arm", leftArm: "Left arm", rightLeg: "Right leg", leftLeg: "Left leg",
             hat: "Hat", jacket: "Jacket", rightSleeve: "Right sleeve", leftSleeve: "Left sleeve", rightTrousers: "Right trousers", leftTrousers: "Left trousers", cape: "Cape"
@@ -157,9 +188,9 @@ export function renderInspector(container: HTMLElement, definition: SceneObjectD
                     emit();
                 });
             }
-            if (Object.keys(choices).length) button(states, "Reset properties", () => { block.state = {}; emit(); });
+            if (Object.keys(choices).length) button(states, "Reset properties", () => { block.state = {}; emit(true); });
         }).catch(error => {
-            if (active) { status.textContent = "Could not load blockstate properties."; fail(error); }
+            if (active) { status.textContent = "Could not load blockstate properties."; fail(error, states); }
         });
     }
 
@@ -171,18 +202,36 @@ export function renderInspector(container: HTMLElement, definition: SceneObjectD
         const object = draft;
         const tints = section(container, "Tint colors");
         note(tints, "Colors apply to model faces with the matching tint index.");
-        for (const index of [...new Set([0, ...Object.keys(object.options?.tints ?? {}).map(Number)])]) {
-            const color = text(tints, `Tint ${index}`, object.options?.tints?.[index] === undefined ? "" : hex(object.options.tints[index]));
-            color.placeholder = "Automatic";
-            color.addEventListener("change", () => {
-                const value = color.value.trim();
-                if (value && !/^#[\da-f]{6}$/i.test(value)) { fail(new Error("Enter a tint as #RRGGBB, or leave it empty for the default.")); return; }
+        const tintFields = document.createElement("div");
+        tints.append(tintFields);
+        const indices = new Set([0, ...Object.keys(object.options?.tints ?? {}).map(Number)]);
+        const addTint = (index: number) => {
+            colorPicker(tintFields, `Tint ${index}`, object.options?.tints?.[index], value => {
                 const values = { ...object.options?.tints };
-                if (value) values[index] = parseInt(value.slice(1), 16);
+                if (value !== undefined) values[index] = value;
                 else delete values[index];
                 options({ tints: Object.keys(values).length ? values : undefined });
             });
-        }
+        };
+        indices.forEach(addTint);
+        const add = document.createElement("div");
+        add.className = "editor-row";
+        tints.append(add);
+        const index = text(add, "Tint index", "1");
+        index.type = "number";
+        index.min = "0";
+        index.step = "1";
+        button(add, "Add tint index", () => {
+            if (!index.value || !Number.isSafeInteger(index.valueAsNumber) || index.valueAsNumber < 0) {
+                fail(new Error("Enter a nonnegative whole number for the tint index."), add);
+                return;
+            }
+            if (indices.has(index.valueAsNumber)) { fail(new Error("This tint index already has a color control."), add); return; }
+            clearError(add);
+            indices.add(index.valueAsNumber);
+            addTint(index.valueAsNumber);
+            index.value = String(index.valueAsNumber + 1);
+        });
     }
 
     if (draft.type === "entity") {
@@ -190,9 +239,6 @@ export function renderInspector(container: HTMLElement, definition: SceneObjectD
         const drawing = section(container, "Entity layers and states");
         const metadata = note(drawing, "Loading layers…");
         select(drawing, "Model transform", [["auto", "Dataset default"], ["true", "Vanilla flip"], ["false", "Raw model space"]], String(entity.options?.flip ?? "auto"), value => options({ flip: value === "auto" ? undefined : value === "true" }));
-        const texture = text(drawing, "First layer texture", entity.texture ?? "");
-        texture.placeholder = "Use entity texture";
-        texture.addEventListener("change", () => { entity.texture = texture.value.trim() || undefined; emit(); });
         const key = AssetKey.parse("entities", entity.asset);
         const modelData = Promise.all([Entities.getLayerList(key), Entities.getPassList(key)]);
         void modelData.then(([layers, passes]) => {
@@ -201,16 +247,16 @@ export function renderInspector(container: HTMLElement, definition: SceneObjectD
             check(drawing, "Use custom layers", entity.layers !== undefined, enabled => {
                 entity.layers = enabled ? [layers.includes("main") ? "main" : layers[0]].filter(Boolean) : undefined;
                 delete entity.animation;
-                emit();
+                emit(true);
             });
             if (entity.layers) {
                 for (const name of layers) check(drawing, name, entity.layers.includes(name), enabled => {
                     const selected = new Set(entity.layers);
                     if (enabled) selected.add(name); else selected.delete(name);
-                    if (!selected.size) { fail(new Error("Select at least one entity layer.")); return; }
+                    if (!selected.size) { fail(new Error("Select at least one entity layer."), drawing); return; }
                     entity.layers = layers.filter(layer => selected.has(layer));
                     delete entity.animation;
-                    emit();
+                    emit(true);
                 });
             } else {
                 for (const name of [...new Set(passes.map(pass => pass.when).filter((name): name is string => name !== undefined))]) {
@@ -219,7 +265,7 @@ export function renderInspector(container: HTMLElement, definition: SceneObjectD
                         if (enabled) values.push(name);
                         entity.when = values;
                         delete entity.animation;
-                        emit();
+                        emit(true);
                     });
                 }
             }
@@ -230,26 +276,30 @@ export function renderInspector(container: HTMLElement, definition: SceneObjectD
                 let name = layer;
                 for (let n = 2; names.includes(name); n++) name = `${layer}#${n}`;
                 names.push(name);
-                const field = text(textures, name, entity.textures?.[name] ?? "");
+                const first = names.length === 1;
+                const field = text(textures, name, entity.textures?.[name] ?? (first ? entity.texture : undefined) ?? "");
                 field.placeholder = "Use entity texture";
                 field.addEventListener("change", () => {
                     const values = { ...entity.textures };
                     if (field.value.trim()) values[name] = field.value.trim(); else delete values[name];
                     entity.textures = Object.keys(values).length ? values : undefined;
+                    if (first) delete entity.texture;
                     emit();
                 });
             }
-            const labels = [...new Set(passes.map(pass => pass.tint).filter((name): name is string => name !== undefined))];
+            const labels = [...new Set([...passes.map(pass => pass.tint).filter((name): name is string => name !== undefined), ...Object.keys(entity.options?.tints ?? {})])];
             if (labels.length) {
                 const colors = section(container, "Entity tint colors");
                 for (const name of labels) {
-                    const field = text(colors, name, hex(entity.options?.tints?.[name] ?? 0xffffff));
-                    field.type = "color";
-                    field.addEventListener("change", () => options({ tints: { ...entity.options?.tints, [name]: field.value } }));
+                    colorPicker(colors, name, entity.options?.tints?.[name], value => {
+                        const values = { ...entity.options?.tints };
+                        if (value !== undefined) values[name] = value; else delete values[name];
+                        options({ tints: Object.keys(values).length ? values : undefined });
+                    });
                 }
             }
         }).catch(error => {
-            if (active) { metadata.textContent = "Could not load entity layers."; fail(error); }
+            if (active) { metadata.textContent = "Could not load entity layers."; fail(error, drawing); }
         });
         const animation = section(container, "Animation");
         const animationStatus = note(animation, "Loading animations…");
@@ -259,9 +309,14 @@ export function renderInspector(container: HTMLElement, definition: SceneObjectD
             animationStatus.textContent = entries.length ? "" : "This entity has no available animation clips.";
             if (!entries.length) return;
             const drawn = entity.layers ?? ["main", ...passes.filter(pass => pass.when === undefined || entity.when?.includes(pass.when)).map(pass => pass.layer)];
+            const emitAnimation = () => {
+                if (context.onAnimationChange) submit(() => context.onAnimationChange!(structuredClone(entity.animation)));
+                else emit();
+            };
             const picker = select(animation, "Clip", [["", "None"], ...entries.map(([name, clip]) => [name, `${name} (${clip.layer ?? "main"})`] as [string, string])], entity.animation?.name ?? "", name => {
                 entity.animation = name ? { name, loop: clips![name].loop, speed: 1, time: 0 } : undefined;
-                emit();
+                emitAnimation();
+                renderPlayback(false);
             });
             for (const entry of Array.from(picker.options)) {
                 const clip = clips?.[entry.value];
@@ -270,35 +325,173 @@ export function renderInspector(container: HTMLElement, definition: SceneObjectD
                     entry.title = `Enable the ${clip.layer ?? "main"} layer to play this clip.`;
                 }
             }
-            if (!entity.animation) return;
-            const clip = clips?.[entity.animation.name];
-            const keepTime = () => { entity.animation!.time = context.getAnimationTime?.() ?? entity.animation!.time ?? 0; };
-            check(animation, "Loop", entity.animation.loop ?? clip?.loop ?? false, loop => { keepTime(); entity.animation!.loop = loop; emit(); });
-            number(animation, "Speed", entity.animation.speed ?? 1, 0, undefined, 0.1, speed => { keepTime(); entity.animation!.speed = speed; emit(); });
-            const time = context.getAnimationTime?.() ?? entity.animation.time ?? 0;
-            const displayedTime = clip?.length ? (entity.animation.loop ?? clip.loop) ? time % clip.length : Math.min(time, clip.length) : time;
-            number(animation, "Time (seconds)", displayedTime, 0, clip?.length, 0.05, time => { entity.animation!.time = time; entity.animation!.paused = true; emit(); });
-            const row = document.createElement("div");
-            row.className = "editor-row";
-            animation.append(row);
-            button(row, entity.animation.paused ? "Play" : "Pause", () => { keepTime(); entity.animation!.paused = !entity.animation!.paused; emit(); });
-            button(row, "Restart", () => { entity.animation!.time = 0; entity.animation!.paused = false; emit(); });
-            button(row, "Stop", () => { delete entity.animation; emit(); });
-            if (clip) note(animation, `Clip duration: ${clip.length.toFixed(2)} seconds. Set time to pause at a frame.`);
+            const playback = document.createElement("div");
+            animation.append(playback);
+            function renderPlayback(liveTime = true) {
+                playback.replaceChildren();
+                if (!entity.animation) return;
+                const clip = clips?.[entity.animation.name];
+                const keepTime = () => { entity.animation!.time = context.getAnimationTime?.() ?? entity.animation!.time ?? 0; };
+                const displayTime = (time: number) => clip?.length ? (entity.animation!.loop ?? clip.loop) ? time % clip.length : Math.min(time, clip.length) : time;
+                check(playback, "Loop", entity.animation.loop ?? clip?.loop ?? false, loop => { keepTime(); entity.animation!.loop = loop; emitAnimation(); });
+                number(playback, "Speed", entity.animation.speed ?? 1, 0, undefined, 0.1, speed => { keepTime(); entity.animation!.speed = speed; emitAnimation(); });
+                const time = displayTime((liveTime ? context.getAnimationTime?.() : undefined) ?? entity.animation.time ?? 0);
+                const seek = (time: number) => {
+                    entity.animation!.time = time;
+                    entity.animation!.paused = true;
+                    syncPlayback(time);
+                    emitAnimation();
+                };
+                const timeInput = number(playback, "Time (seconds)", time, 0, clip?.length, "any", seek);
+                const scrub = document.createElement("input");
+                scrub.type = "range";
+                scrub.min = "0";
+                scrub.max = String(clip?.length ?? 0);
+                scrub.step = "0.01";
+                scrub.value = String(time);
+                scrub.disabled = !clip?.length;
+                scrub.addEventListener("input", () => seek(scrub.valueAsNumber));
+                field(playback, "Scrub animation", scrub);
+                const row = document.createElement("div");
+                row.className = "editor-row";
+                playback.append(row);
+                const play = button(row, entity.animation.paused ? "Play" : "Pause", () => {
+                    keepTime();
+                    entity.animation!.paused = !entity.animation!.paused;
+                    syncPlayback(displayTime(entity.animation!.time!));
+                    emitAnimation();
+                });
+                function syncPlayback(time: number) {
+                    timeInput.value = String(Number(time.toFixed(3)));
+                    scrub.value = String(time);
+                    play.textContent = entity.animation!.paused ? "Play" : "Pause";
+                }
+                button(row, "Restart", () => { entity.animation!.time = 0; entity.animation!.paused = false; syncPlayback(0); emitAnimation(); });
+                button(row, "Stop", () => { delete entity.animation; picker.value = ""; emitAnimation(); renderPlayback(); });
+                if (clip) note(playback, `Clip duration: ${clip.length.toFixed(2)} seconds. Set time to pause at a frame.`);
+            }
+            renderPlayback();
         }).catch(error => {
-            if (active) { animationStatus.textContent = "Could not load animation clips."; fail(error); }
+            if (active) { animationStatus.textContent = "Could not load animation clips."; fail(error, animation); }
         });
     }
 
     if (draft.type === "gui") {
         const gui = draft;
         const layers = section(container, "GUI layers");
-        note(layers, "Layers draw in order. Use texture, item, or text with positions in GUI pixels.");
-        json(layers, "Layers JSON", gui.layers, value => {
+        note(layers, "Later layers draw on top. Positions and sizes use GUI pixels.");
+        const add = document.createElement("div");
+        add.className = "editor-row";
+        layers.append(add);
+        const list = document.createElement("div");
+        layers.append(list);
+        let layersJson: HTMLTextAreaElement;
+        const commit = (host = errorTarget()) => { layersJson.value = JSON.stringify(gui.layers, null, 2); emit(false, host); };
+        const addLayer = (layer: typeof gui.layers[number]) => {
+            gui.layers.push(layer);
+            renderLayers(gui.layers.length - 1);
+            commit(layers);
+        };
+        button(add, "Add texture", () => addLayer({ texture: "minecraft:gui/sprites/tooltip/background", position: [0, gui.layers.length * 18], size: [128, 32] }));
+        button(add, "Add item", () => addLayer({ item: "minecraft:item/diamond", position: [0, gui.layers.length * 18] }));
+        button(add, "Add text", () => addLayer({ text: "Text", position: [0, gui.layers.length * 18], shadow: true }));
+        function renderLayers(openIndex = 0) {
+            list.replaceChildren();
+            if (!gui.layers.length) note(list, "Add a layer to give this GUI some content.");
+            gui.layers.forEach((layer, index) => {
+                const item = document.createElement("details");
+                item.className = "gui-layer";
+                item.open = index === openIndex;
+                const title = document.createElement("summary");
+                title.className = "gui-layer-header";
+                const kind = "texture" in layer ? "Texture" : "item" in layer ? "Item" : "Text";
+                const syncTitle = () => { title.textContent = `${index + 1}. ${layer.name || kind}`; };
+                syncTitle();
+                item.append(title);
+                list.append(item);
+                const name = text(item, "Layer name", layer.name ?? "");
+                name.addEventListener("change", () => { layer.name = name.value.trim() || undefined; syncTitle(); commit(); });
+                const position = document.createElement("div");
+                position.className = "editor-row";
+                item.append(position);
+                for (const [axis, label] of ["X", "Y"].entries()) {
+                    number(position, label, layer.position?.[axis] ?? 0, undefined, undefined, "any", value => {
+                        const next: [number, number] = [...(layer.position ?? [0, 0])];
+                        next[axis] = value;
+                        layer.position = next;
+                        commit();
+                    }).setAttribute("aria-label", `Layer ${index + 1} position ${label}`);
+                }
+                const size = document.createElement("div");
+                size.className = "editor-row";
+                const sizeInputs: HTMLInputElement[] = [];
+                check(item, "Set output size", !!layer.size, enabled => {
+                    layer.size = enabled ? [16, 16] : undefined;
+                    size.hidden = !enabled;
+                    sizeInputs.forEach(input => { input.value = "16"; });
+                    commit();
+                });
+                size.hidden = !layer.size;
+                item.append(size);
+                for (const [axis, label] of ["Width", "Height"].entries()) {
+                    sizeInputs.push(number(size, label, layer.size?.[axis] ?? 16, 0, undefined, "any", value => {
+                        const next: [number, number] = [...(layer.size ?? [16, 16])];
+                        next[axis] = value;
+                        layer.size = next;
+                        commit();
+                    }));
+                }
+                if ("texture" in layer || "item" in layer) {
+                    const source = text(item, "texture" in layer ? "Texture ID" : "Item ID", "texture" in layer ? layer.texture : layer.item);
+                    source.addEventListener("change", () => {
+                        if ("texture" in layer) layer.texture = source.value.trim(); else layer.item = source.value.trim();
+                        commit();
+                    });
+                } else {
+                    if (typeof layer.text === "string") {
+                        const content = document.createElement("textarea");
+                        content.rows = 3;
+                        content.value = layer.text;
+                        field(item, "Text", content);
+                        content.addEventListener("change", () => { layer.text = content.value; commit(); });
+                    } else {
+                        json(item, "Styled text runs JSON", layer.text, value => { layer.text = value; commit(); }, error => fail(error, item));
+                    }
+                    const font = text(item, "Font ID", layer.font ?? "");
+                    font.placeholder = "minecraft:default";
+                    font.addEventListener("change", () => { layer.font = font.value.trim() || undefined; commit(); });
+                    colorPicker(item, "Text color", layer.color, value => { layer.color = value; commit(); });
+                    check(item, "Bold", layer.bold ?? false, value => { layer.bold = value; commit(); });
+                    check(item, "Italic", layer.italic ?? false, value => { layer.italic = value; commit(); });
+                    check(item, "Shadow", layer.shadow ?? true, value => { layer.shadow = value; commit(); });
+                }
+                const actions = document.createElement("div");
+                actions.className = "gui-layer-actions";
+                item.append(actions);
+                const move = (offset: number) => {
+                    const next = index + offset;
+                    [gui.layers[index], gui.layers[next]] = [gui.layers[next], gui.layers[index]];
+                    renderLayers(next);
+                    commit(layers);
+                };
+                button(actions, "Move up", () => move(-1)).disabled = index === 0;
+                button(actions, "Move down", () => move(1)).disabled = index === gui.layers.length - 1;
+                button(actions, "Remove layer", () => { gui.layers.splice(index, 1); renderLayers(Math.min(index, gui.layers.length - 1)); commit(layers); });
+            });
+        }
+        const advanced = document.createElement("details");
+        const summary = document.createElement("summary");
+        summary.textContent = "Advanced layers JSON";
+        advanced.append(summary);
+        layers.append(advanced);
+        layersJson = json(advanced, "Layers JSON", gui.layers, value => {
             if (!Array.isArray(value)) throw new Error("GUI layers must be an array.");
+            parseSceneDocument({ format: "minerender-scene", version: 1, objects: [{ ...gui, layers: value }] });
             gui.layers = value;
-            emit();
-        }, fail);
+            renderLayers();
+            commit();
+        }, error => fail(error, advanced));
+        renderLayers();
     }
 
     if (draft.type !== "skin" && draft.type !== "gui") {
@@ -310,11 +503,11 @@ export function renderInspector(container: HTMLElement, definition: SceneObjectD
         summary.textContent = "Advanced object options";
         advanced.append(summary);
         container.append(advanced);
-        json(advanced, "Options JSON", draft.options ?? {}, value => {
+        optionsJson = json(advanced, "Options JSON", draft.options ?? {}, value => {
             if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Object options must be a JSON object.");
             draft.options = value;
-            emit();
-        }, fail);
+            emit(true);
+        }, error => fail(error, advanced));
     }
     return () => { active = false; };
 }
@@ -382,15 +575,38 @@ function check(parent: HTMLElement, title: string, value: boolean, change: (valu
     parent.append(label);
 }
 
-function number(parent: HTMLElement, title: string, value: number, min: number, max: number | undefined, step: number, change: (value: number) => void) {
+function number(parent: HTMLElement, title: string, value: number, min: number | undefined, max: number | undefined, step: number | "any", change: (value: number) => void) {
     const input = text(parent, title, String(value));
     input.type = "number";
-    input.min = String(min);
+    if (min !== undefined) input.min = String(min);
     if (max !== undefined) input.max = String(max);
     input.step = String(step);
     input.addEventListener("change", () => {
         if (!input.value || !Number.isFinite(input.valueAsNumber) || !input.checkValidity()) { input.reportValidity(); return; }
         change(input.valueAsNumber);
+    });
+    return input;
+}
+
+function colorPicker(parent: HTMLElement, title: string, value: string | number | undefined, change: (value: number | undefined) => void) {
+    const row = document.createElement("div");
+    row.className = "tint-row";
+    parent.append(row);
+    const color = text(row, title, hex(value ?? 0xffffff));
+    color.type = "color";
+    const reset = button(row, "Automatic", () => {
+        color.value = "#ffffff";
+        reset.disabled = true;
+        status.textContent = "Automatic color";
+        change(undefined);
+    });
+    reset.setAttribute("aria-label", `Use automatic ${title.toLowerCase()}`);
+    reset.disabled = value === undefined;
+    const status = note(row, value === undefined ? "Automatic color" : "Custom color");
+    color.addEventListener("change", () => {
+        reset.disabled = false;
+        status.textContent = "Custom color";
+        change(parseInt(color.value.slice(1), 16));
     });
 }
 
@@ -413,6 +629,7 @@ function json(parent: HTMLElement, title: string, value: unknown, apply: (value:
     button(parent, "Apply JSON", () => {
         try { apply(JSON.parse(input.value)); } catch (error) { fail(error); }
     });
+    return input;
 }
 
 function png(parent: HTMLElement, title: string, apply: (value: string) => void, fail: (error: unknown) => void) {

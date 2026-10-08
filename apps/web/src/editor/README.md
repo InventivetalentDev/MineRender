@@ -19,9 +19,11 @@ Compose mixed MineRender scenes at `/editor/`. From the repository root, run
 The W, E, R, and F shortcuts select these tools. Ctrl/Cmd+Z undoes an edit;
 Ctrl/Cmd+Shift+Z redoes it. Undo retains up to 50 scene states.
 
-Edits save to browser storage. **Restore last local save** loads that scene after
-reopening the page. **New** starts an empty scene and can be undone. Downloads remain
-available when browser storage is unavailable or full.
+Edits save to browser storage and restore automatically when the page opens.
+**Restore last local save** retries the restore. If it fails, new edits do not
+overwrite the saved scene; use **Save JSON** to keep them until restore succeeds.
+**New** starts an empty scene and can be undone. Downloads remain available when
+browser storage is unavailable or full.
 
 ## Import and export
 
@@ -41,5 +43,8 @@ JSON stores asset IDs, transforms, exposed options, animation settings, and came
 position/target. Local skin and cape PNG imports are embedded as data URLs; remote
 textures remain URLs. Weighted block model alternatives are selected again on load.
 The document does not include custom resource packs, editor tool settings, arbitrary
-JavaScript, or user-authored geometry. GUI layers use a JSON field for their ordered
-texture, item, and text definitions.
+JavaScript, or user-authored geometry.
+
+Use **GUI layers** to add, edit, reorder, or remove texture, item, and text layers.
+The controls expose positions, sizes, and each layer's content. **Advanced layers
+JSON** edits the complete layer definitions, including options without a control.

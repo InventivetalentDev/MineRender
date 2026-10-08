@@ -31,9 +31,11 @@
                         <option value="entity">Entity</option><option value="item">Item</option>
                         <option value="model">Model</option><option value="gui">GUI</option>
                     </select></label>
-                    <label class="editor-field" id="asset-field">Asset or texture<input id="add-asset" list="asset-list" value="minecraft:stone" autocomplete="off" spellcheck="false"></label>
+                    <label class="editor-field" id="asset-field">Asset or texture<input id="add-asset" list="asset-list" value="minecraft:stone" autocomplete="off" spellcheck="false" aria-describedby="asset-hint add-error"></label>
+                    <p id="asset-hint" class="editor-note asset-hint">Enter a block ID, such as minecraft:stone.</p>
                     <datalist id="asset-list"></datalist>
                     <button type="submit" class="primary wide">+ Add to scene</button>
+                    <p id="add-error" class="editor-error" role="alert" hidden></p>
                 </form>
             </section>
             <section class="scene-list-section">
@@ -41,14 +43,18 @@
                 <div id="objects" role="list" aria-label="Objects"></div>
                 <div class="editor-row"><button id="duplicate" disabled>Duplicate</button><button id="delete" disabled>Delete</button></div>
             </section>
+            <section class="local-save">
+                <button id="restore-scene" class="wide" aria-describedby="local-save-error">Restore last local save</button>
+                <p id="local-save-error" class="editor-error" role="alert" hidden></p>
+                <p class="editor-note">Edits are saved in this browser. Download JSON to keep or share a scene.</p>
+            </section>
             <details class="scene-settings">
                 <summary>Scene settings</summary>
-                <label class="editor-field">Minecraft version<input id="minecraft-version" value="1.21.11" spellcheck="false"></label>
+                <label class="editor-field">Minecraft version<input id="minecraft-version" value="1.21.11" spellcheck="false" aria-describedby="version-error"></label>
                 <button id="apply-version">Reload assets</button>
+                <p id="version-error" class="editor-error" role="alert" hidden></p>
                 <label class="editor-check"><input id="show-grid" type="checkbox" checked> Show grid</label>
                 <label class="editor-check"><input id="transparent" type="checkbox"> Transparent background</label>
-                <button id="restore-scene">Restore last local save</button>
-                <p class="editor-note">Edits are saved in this browser. Download JSON to keep or share a scene.</p>
             </details>
         </aside>
         <main class="viewport-panel">
@@ -68,8 +74,9 @@
         </main>
         <aside class="inspector-panel" aria-label="Object properties">
             <h2>Object properties</h2>
+            <p id="inspector-error" class="editor-error" role="alert" hidden></p>
             <p id="selection-empty" class="editor-note">Select an object in the scene or the object list.</p>
-            <fieldset id="properties" hidden>
+            <fieldset id="properties" aria-describedby="inspector-error" hidden>
                 <div id="transform-properties"></div>
                 <div id="object-properties"></div>
             </fieldset>

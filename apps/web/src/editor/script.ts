@@ -1,11 +1,11 @@
 import {
-    AssetLoader, Renderer, SceneDocumentLoader, SceneExporter, isEntityObject,
-    type LoadedSceneObject, type SceneDocument, type SceneObjectDefinition, type SceneSkinDefinition
+    AssetKey, AssetLoader, Entities, Renderer, SceneDocumentLoader, SceneExporter, isEntityObject,
+    type LoadedSceneObject, type SceneDocument, type SceneObjectDefinition, type SceneSkinDefinition, type SceneEntityDefinition
 } from "minerender";
 import { Box3, Box3Helper, Color, GridHelper, Group, Raycaster, Vector2, Vector3 } from "three";
 import { TransformControls } from "three/examples/jsm/controls/TransformControls.js";
 import { renderInspector } from "./inspector";
-import { getObjectList } from "./catalog";
+import { getObjectList, getObjectListHint, validateMinecraftVersion } from "./catalog";
 import { importStructure } from "./imports";
 
 const element = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -76,6 +76,10 @@ async function start(): Promise<void> {
     let history: string[] = [];
     let historyIndex = -1;
     let catalogGeneration = 0;
+    let localSaveProtected = false;
+    const pendingUpdates = new Set<Promise<void>>();
+    const loadingObjects = new Map<string, symbol>();
+    const animationRequests = new Map<string, symbol>();
     const vectorInputs = new Map<string, HTMLInputElement[]>();
 
     const selected = () => sceneDocument.objects.find(object => object.id === selectedId);
@@ -93,10 +97,24 @@ async function start(): Promise<void> {
     };
 
     function updateButtons(): void {
-        element<HTMLButtonElement>("undo").disabled = busy || historyIndex <= 0;
-        element<HTMLButtonElement>("redo").disabled = busy || historyIndex >= history.length - 1;
+        element<HTMLButtonElement>("undo").disabled = busy || loadingObjects.size > 0 || historyIndex <= 0;
+        element<HTMLButtonElement>("redo").disabled = busy || loadingObjects.size > 0 || historyIndex >= history.length - 1;
         element<HTMLButtonElement>("duplicate").disabled = busy || !selected();
         element<HTMLButtonElement>("delete").disabled = busy || !selected();
+        for (const id of ["new-scene", "import-scene", "restore-scene", "apply-version"]) element<HTMLButtonElement>(id).disabled = busy;
+        element("add-form").querySelector<HTMLButtonElement>("button[type=submit]")!.disabled = busy;
+    }
+
+    function showError(id: string, error?: unknown): void {
+        const target = element(id);
+        target.textContent = error === undefined ? "" : error instanceof Error ? error.message : String(error);
+        target.hidden = error === undefined;
+    }
+
+    function saveLocal(): void {
+        if (localSaveProtected) return;
+        try { localStorage.setItem(storageKey, JSON.stringify(snapshot())); }
+        catch { report("Browser storage is full or unavailable. Use Save JSON to keep this scene.", true); }
     }
 
     function remember(): void {
@@ -107,34 +125,31 @@ async function start(): Promise<void> {
             if (history.length > 50) history.shift();
             historyIndex = history.length - 1;
         }
-        try { localStorage.setItem(storageKey, JSON.stringify(snapshot())); }
-        catch { report("Browser storage is full or unavailable. Use Save JSON to keep this scene.", true); }
+        saveLocal();
         updateButtons();
     }
 
-    async function run(label: string, action: () => Promise<void> | void): Promise<boolean> {
+    async function run(label: string, action: () => Promise<void> | void, errorId?: string): Promise<boolean> {
         if (busy || disposed) return false;
         busy = true;
         report(label);
-        document.body.classList.add("loading");
-        const controls = Array.from(document.querySelectorAll<HTMLButtonElement | HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>("button, input, select, textarea"));
-        const disabled = controls.map(control => control.disabled);
-        controls.forEach(control => { control.disabled = true; });
+        if (errorId) showError(errorId);
         properties.disabled = true;
         transform.enabled = false;
+        updateButtons();
         try {
+            await Promise.allSettled([...pendingUpdates]);
             await action();
             return true;
         } catch (error) {
             report(error instanceof Error ? error.message : String(error), true);
+            if (errorId) showError(errorId, error);
             console.error(error);
             return false;
         } finally {
             busy = false;
-            controls.forEach((control, index) => { control.disabled = disabled[index]; });
             properties.disabled = false;
             transform.enabled = true;
-            document.body.classList.remove("loading");
             updateButtons();
         }
     }
@@ -160,23 +175,70 @@ async function start(): Promise<void> {
         }
     }
 
+    function renameObject(id: string, name: string): void {
+        const definition = sceneDocument.objects.find(object => object.id === id), loaded = objects.get(id);
+        if (busy || !definition || !loaded) return;
+        definition.name = name.trim() || id;
+        loaded.definition.name = definition.name;
+        loaded.root.name = definition.name;
+        if (id === selectedId) element<HTMLInputElement>("object-name").value = definition.name;
+        renderList(); remember();
+    }
+
+    function setObjectVisible(id: string, visible: boolean): void {
+        const definition = sceneDocument.objects.find(object => object.id === id), loaded = objects.get(id);
+        if (busy || !definition || !loaded) return;
+        definition.visible = visible;
+        loaded.definition.visible = visible;
+        loaded.root.visible = visible;
+        if (id === selectedId) {
+            element<HTMLInputElement>("object-visible").checked = visible;
+            transform.detach();
+            if (visible) transform.attach(loaded.root);
+        }
+        renderList(); updateBounds(); remember();
+    }
+
     function renderList(): void {
-        objectList.replaceChildren();
-        for (const definition of sceneDocument.objects) {
-            const button = document.createElement("button");
-            button.className = "object-row";
-            button.classList.toggle("hidden-object", definition.visible === false);
-            button.setAttribute("aria-pressed", String(definition.id === selectedId));
-            button.setAttribute("role", "listitem");
-            const type = document.createElement("span");
-            type.className = "object-type";
-            type.textContent = definition.type === "skin" ? "player" : definition.type;
-            const name = document.createElement("span");
-            name.className = "object-name";
-            name.textContent = definition.name || definition.id;
-            button.append(type, name);
-            button.addEventListener("click", () => { if (!busy) selectObject(definition.id); });
-            objectList.append(button);
+        const rows = new Map(Array.from(objectList.children).map(row => [(row as HTMLElement).dataset.id, row as HTMLElement]));
+        for (const row of rows.values()) if (!sceneDocument.objects.some(object => object.id === row.dataset.id)) row.remove();
+        for (const [index, definition] of sceneDocument.objects.entries()) {
+            let row = rows.get(definition.id);
+            if (!row) {
+                row = document.createElement("div");
+                row.className = "object-row";
+                row.dataset.id = definition.id;
+                row.setAttribute("role", "listitem");
+                const select = document.createElement("button");
+                select.className = "object-select";
+                select.textContent = definition.type === "skin" ? "player" : definition.type;
+                select.addEventListener("click", () => { if (!busy) selectObject(definition.id); });
+                const name = document.createElement("input");
+                name.className = "object-name";
+                name.addEventListener("change", () => renameObject(definition.id, name.value));
+                const visibility = document.createElement("button");
+                visibility.className = "object-visibility";
+                visibility.addEventListener("click", () => setObjectVisible(definition.id, objects.get(definition.id)?.root.visible === false));
+                const loading = document.createElement("span");
+                loading.className = "object-loading";
+                loading.textContent = "Loading…";
+                row.append(select, name, visibility, loading);
+                objectList.append(row);
+            }
+            if (objectList.children[index] !== row) objectList.insertBefore(row, objectList.children[index] ?? null);
+            row.classList.toggle("hidden-object", definition.visible === false);
+            row.setAttribute("aria-selected", String(definition.id === selectedId));
+            row.setAttribute("aria-busy", String(loadingObjects.has(definition.id)));
+            const name = row.querySelector<HTMLInputElement>(".object-name")!;
+            if (document.activeElement !== name) name.value = definition.name || definition.id;
+            name.setAttribute("aria-label", `Rename ${definition.name || definition.id}`);
+            const select = row.querySelector(".object-select")!;
+            select.textContent = definition.type === "skin" ? "player" : definition.type;
+            select.setAttribute("aria-label", `Select ${definition.name || definition.id}`);
+            const visibility = row.querySelector<HTMLButtonElement>(".object-visibility")!;
+            visibility.textContent = definition.visible === false ? "Show" : "Hide";
+            visibility.setAttribute("aria-label", `${visibility.textContent} ${definition.name || definition.id}`);
+            row.querySelector<HTMLElement>(".object-loading")!.hidden = !loadingObjects.has(definition.id);
         }
         element("object-count").textContent = String(sceneDocument.objects.length);
         if (!sceneDocument.objects.length) {
@@ -204,6 +266,7 @@ async function start(): Promise<void> {
         definition.position = current.root.position.toArray() as [number, number, number];
         definition.rotation = [current.root.rotation.x, current.root.rotation.y, current.root.rotation.z];
         definition.scale = current.root.scale.toArray() as [number, number, number];
+        Object.assign(current.definition, { position: definition.position, rotation: definition.rotation, scale: definition.scale });
         syncTransform();
         updateBounds();
     }
@@ -216,23 +279,17 @@ async function start(): Promise<void> {
         nameLabel.className = "editor-field";
         nameLabel.textContent = "Name";
         const name = document.createElement("input");
+        name.id = "object-name";
         name.value = definition.name ?? definition.id;
-        name.addEventListener("change", () => {
-            definition.name = name.value.trim() || definition.id;
-            currentObject()!.root.name = definition.name;
-            renderList(); remember();
-        });
+        name.addEventListener("change", () => renameObject(definition.id, name.value));
         nameLabel.append(name);
         const visibility = document.createElement("label");
         visibility.className = "editor-check";
         const visible = document.createElement("input");
+        visible.id = "object-visible";
         visible.type = "checkbox";
         visible.checked = definition.visible !== false;
-        visible.addEventListener("change", () => {
-            definition.visible = visible.checked;
-            currentObject()!.root.visible = visible.checked;
-            selectObject(definition.id); remember();
-        });
+        visible.addEventListener("change", () => setObjectVisible(definition.id, visible.checked));
         visibility.append(visible, " Visible");
         host.append(nameLabel, visibility);
         for (const [key, label] of [["position", "Position · scene units"], ["rotation", "Rotation · degrees"], ["scale", "Scale"]]) {
@@ -269,23 +326,75 @@ async function start(): Promise<void> {
         syncTransform();
     }
 
-    function selectObject(id?: string): void {
+    function preserveInspector(): () => () => void {
+        const panel = properties.closest<HTMLElement>(".inspector-panel")!;
+        const key = (node: Element): string => {
+            const path: string[] = [];
+            for (let parent: Element | null = node; parent && parent !== properties; parent = parent.parentElement) {
+                const heading = parent.querySelector(":scope > summary, :scope > legend, :scope > h3");
+                if (heading) path.unshift(heading.textContent ?? "");
+            }
+            const parentLabel = node.closest("label");
+            const label = parentLabel?.querySelector(":scope > span")?.textContent
+                ?? (parentLabel ? Array.from(parentLabel.childNodes).filter(child => child.nodeType === Node.TEXT_NODE).map(child => child.textContent).join("").trim() : undefined);
+            return [...path, node.tagName, node.getAttribute("aria-label") ?? label ?? node.textContent ?? ""].join("/");
+        };
+        const details = new Map(Array.from(properties.querySelectorAll("details")).map(node => [key(node), node.open]));
+        const focus = document.activeElement;
+        const focusKey = focus && properties.contains(focus) ? key(focus) : undefined;
+        const scrollTop = panel.scrollTop;
+        return () => {
+            let restoredFocus = !focusKey, userScrolled = false;
+            const onScroll = () => { userScrolled = true; restoredFocus = true; };
+            const restore = () => {
+                properties.querySelectorAll("details").forEach(node => {
+                    const identity = key(node), open = details.get(identity);
+                    if (open !== undefined) { node.open = open; details.delete(identity); }
+                });
+                if (!restoredFocus && focusKey && (!document.activeElement || document.activeElement === document.body)) {
+                    const target = Array.from(properties.querySelectorAll<HTMLElement>("input,select,textarea,button")).find(node => key(node) === focusKey);
+                    if (target) { target.focus({ preventScroll: true }); restoredFocus = true; }
+                }
+                if (!userScrolled) panel.scrollTop = scrollTop;
+                if (restoredFocus && !details.size) observer.disconnect();
+            };
+            const observer = new MutationObserver(restore);
+            observer.observe(properties, { childList: true, subtree: true });
+            panel.addEventListener("wheel", onScroll, { passive: true });
+            panel.addEventListener("pointerdown", onScroll);
+            panel.addEventListener("keydown", onScroll);
+            restore();
+            return () => {
+                observer.disconnect(); panel.removeEventListener("wheel", onScroll);
+                panel.removeEventListener("pointerdown", onScroll); panel.removeEventListener("keydown", onScroll);
+            };
+        };
+    }
+
+    function selectObject(id?: string, preserve = false): void {
+        const restore = preserve && id === selectedId ? preserveInspector() : undefined;
         cleanupInspector?.();
         cleanupInspector = undefined;
         selectedId = id && objects.has(id) ? id : undefined;
         const definition = selected(), current = currentObject();
         properties.hidden = !definition;
         element("selection-empty").hidden = !!definition;
+        showError("inspector-error");
         transform.detach();
         if (definition && current) {
             if (current.root.visible) transform.attach(current.root);
             renderTransforms(definition);
             cleanupInspector = renderInspector(element("object-properties"), clone(definition), {
-                onChange: next => { void replaceObject(next); },
-                onError: error => report(error instanceof Error ? error.message : String(error), true),
-                getAnimationTime: () => isEntityObject(current.object) ? current.object.animationTime : 0,
-                onSkinPoseChange: applySkinPose
+                onChange: replaceObject,
+                onError: error => { report(error instanceof Error ? error.message : String(error), true); showError("inspector-error", error); },
+                getAnimationTime: () => { const object = currentObject()?.object; return object && isEntityObject(object) ? object.animationTime : 0; },
+                onSkinPoseChange: applySkinPose,
+                onAnimationChange: applyAnimation
             });
+        }
+        if (restore) {
+            const cleanup = cleanupInspector, stopRestoring = restore();
+            cleanupInspector = () => { cleanup?.(); stopRestoring(); };
         }
         renderList(); updateButtons(); updateBounds();
     }
@@ -308,24 +417,108 @@ async function start(): Promise<void> {
         report("Skin pose updated."); remember();
     }
 
-    async function replaceObject(next: SceneObjectDefinition): Promise<void> {
-        const current = sceneDocument.objects.find(object => object.id === next.id);
-        if (!current) return;
-        next = { ...next, name: current.name, position: current.position, rotation: current.rotation,
-            scale: current.scale, visible: current.visible };
-        const updated = await run("Updating object…", async () => {
-            const old = objects.get(next.id);
-            if (!old) return;
-            const staged = await SceneDocumentLoader.loadObject(renderer.scene, next, new Group());
-            if (disposed) { staged.dispose(); return; }
-            content.add(staged.root);
-            objects.set(next.id, staged);
-            sceneDocument.objects = sceneDocument.objects.map(object => object.id === next.id ? clone(next) : object);
-            old.dispose();
-            selectObject(next.id); updateAnimation();
-            report("Object updated."); remember();
-        });
-        if (!updated && !disposed) selectObject(selectedId);
+    function trackUpdate(update: Promise<void>): Promise<void> {
+        pendingUpdates.add(update);
+        void update.then(() => pendingUpdates.delete(update), () => pendingUpdates.delete(update));
+        return update;
+    }
+
+    function applyAnimation(animation: SceneEntityDefinition["animation"]): Promise<void> {
+        const initial = selected();
+        if (busy || disposed || initial?.type !== "entity") return Promise.resolve();
+        const token = Symbol();
+        animationRequests.set(initial.id, token);
+        return trackUpdate((async () => {
+            const clips = animation ? await Entities.getAnimations(AssetKey.parse("entities", initial.asset)) : undefined;
+            const definition = sceneDocument.objects.find(object => object.id === initial.id), loaded = objects.get(initial.id);
+            if (disposed || animationRequests.get(initial.id) !== token || definition?.type !== "entity"
+                || definition.asset !== initial.asset || loaded?.definition.type !== "entity" || !isEntityObject(loaded.object)) return;
+            if (animation) {
+                const clip = clips?.[animation.name];
+                if (!clip) throw new Error(`Entity ${definition.asset} has no animation "${animation.name}"`);
+                loaded.object.playAnimation(clip, animation);
+                definition.animation = clone(animation);
+                loaded.definition.animation = definition.animation;
+            } else {
+                loaded.object.stopAnimation();
+                delete definition.animation;
+                delete loaded.definition.animation;
+            }
+            showError("inspector-error");
+            updateAnimation(); updateBounds();
+            report("Animation updated."); remember();
+        })());
+    }
+
+    function replaceObject(next: SceneObjectDefinition, refresh = false): Promise<void> {
+        const before = sceneDocument.objects.find(object => object.id === next.id);
+        if (busy || disposed || !before) return Promise.resolve();
+        const structure = (definition: SceneObjectDefinition) => definition.type === "entity"
+            ? [definition.asset, definition.layers, definition.when]
+            : definition.type === "skin" ? [!!definition.cape] : "asset" in definition ? [definition.asset] : [];
+        refresh ||= !equalJson(structure(before), structure(next));
+        const token = Symbol();
+        loadingObjects.set(next.id, token);
+        showError("inspector-error");
+        renderList(); updateButtons();
+        const previous = clone(before);
+        const update = (async () => {
+            let staged: LoadedSceneObject | undefined;
+            try {
+                staged = await SceneDocumentLoader.loadObject(renderer.scene, next, new Group());
+                const live = sceneDocument.objects.find(object => object.id === next.id);
+                const clips = next.type === "entity" && live?.type === "entity" && previous.type === "entity"
+                    && live.animation && !equalJson(live.animation, previous.animation)
+                    ? await Entities.getAnimations(AssetKey.parse("entities", next.asset)) : undefined;
+                const current = sceneDocument.objects.find(object => object.id === next.id), old = objects.get(next.id);
+                if (disposed || loadingObjects.get(next.id) !== token || !current || !old) { staged.dispose(); return; }
+                next = { ...next, name: current.name, position: current.position, rotation: current.rotation,
+                    scale: current.scale, visible: current.visible };
+                if (next.type === "skin" && current.type === "skin" && previous.type === "skin" && !equalJson(current.pose, previous.pose)) {
+                    next.pose = current.pose;
+                    for (const part of ["head", "body", "rightArm", "leftArm", "rightLeg", "leftLeg", "cape"] as const) {
+                        staged.object.getGroupByName(part)?.rotation.set(...(next.pose?.[part] ?? [part === "cape" ? Math.PI / 30 : 0, 0, 0]), "XYZ");
+                    }
+                }
+                if (next.type === "entity" && current.type === "entity" && previous.type === "entity" && !equalJson(current.animation, previous.animation)) {
+                    next.animation = current.animation;
+                    if (isEntityObject(staged.object)) {
+                        if (next.animation) {
+                            const clip = clips?.[next.animation.name];
+                            if (!clip) throw new Error(`Entity ${next.asset} has no animation "${next.animation.name}"`);
+                            staged.object.playAnimation(clip, next.animation);
+                        } else staged.object.stopAnimation();
+                    }
+                }
+                Object.assign(staged.definition, next);
+                staged.root.name = next.name ?? next.id;
+                staged.root.position.fromArray(next.position ?? [0, 0, 0]);
+                staged.root.rotation.set(...(next.rotation ?? [0, 0, 0]));
+                staged.root.scale.fromArray(next.scale ?? [1, 1, 1]);
+                staged.root.visible = next.visible ?? true;
+                content.add(staged.root);
+                objects.set(next.id, staged);
+                sceneDocument.objects = sceneDocument.objects.map(object => object.id === next.id ? clone(next) : object);
+                old.dispose();
+                if (selectedId === next.id) {
+                    if (refresh) selectObject(next.id, true);
+                    else {
+                        transform.detach();
+                        if (staged.root.visible) transform.attach(staged.root);
+                        syncTransform(); updateBounds();
+                    }
+                }
+                updateAnimation();
+                report("Object updated."); remember();
+            } catch (error) {
+                staged?.dispose();
+                if (loadingObjects.get(next.id) === token && objects.has(next.id) && !disposed) throw error;
+            } finally {
+                if (loadingObjects.get(next.id) === token) loadingObjects.delete(next.id);
+                if (!disposed) { renderList(); updateButtons(); }
+            }
+        })();
+        return trackUpdate(update);
     }
 
     async function appendObjects(definitions: SceneObjectDefinition[]): Promise<void> {
@@ -348,6 +541,7 @@ async function start(): Promise<void> {
         const oldVersion = AssetLoader.version;
         const versionChanged = next.minecraftVersion !== undefined && next.minecraftVersion !== oldVersion;
         let staged;
+        if (versionChanged) await validateMinecraftVersion(next.minecraftVersion!);
         try {
             if (versionChanged) AssetLoader.setVersion(next.minecraftVersion!);
             staged = await SceneDocumentLoader.load(renderer.scene, next, new Group());
@@ -397,34 +591,42 @@ async function start(): Promise<void> {
         const generation = ++catalogGeneration;
         const type = element<HTMLSelectElement>("add-type").value;
         const list = element("asset-list");
+        const hint = element("asset-hint");
+        hint.textContent = getObjectListHint(type as SceneObjectDefinition["type"]);
         list.replaceChildren();
         try {
             const items = await getObjectList(type);
             if (generation !== catalogGeneration || disposed) return;
             const options = items.map(value => { const option = document.createElement("option"); option.value = value; return option; });
             list.replaceChildren(...options);
-        } catch { /* Asset IDs can still be entered when a directory index is unavailable. */ }
+        } catch {
+            if (generation === catalogGeneration) hint.textContent = "Suggestions could not load. You can still enter an asset ID.";
+        }
     }
 
     element("add-type").addEventListener("change", () => {
         const type = element<HTMLSelectElement>("add-type").value;
         const input = element<HTMLInputElement>("add-asset");
         input.value = defaults[type];
-        input.placeholder = type === "skin" ? "Skin texture URL (optional)" : "minecraft:asset";
+        input.placeholder = type === "skin" ? "Player name, UUID, or PNG URL (optional)" : type === "gui" ? "GUI texture ID, or leave empty for text" : "minecraft:asset";
+        showError("add-error");
         void refreshCatalog();
     });
     element("add-form").addEventListener("submit", event => {
         event.preventDefault();
+        const type = element<HTMLSelectElement>("add-type").value;
+        const asset = element<HTMLInputElement>("add-asset").value.trim();
         void run("Adding object…", async () => {
-            const type = element<HTMLSelectElement>("add-type").value;
-            const asset = element<HTMLInputElement>("add-asset").value.trim();
-            const base = { id: crypto.randomUUID(), name: `${type === "skin" ? "Player" : asset.split(":").pop()}`, position: [0, 0, 0] as [number, number, number] };
+            const selectedRoot = currentObject()?.root;
+            const position = selectedRoot ? selectedRoot.position.clone() : renderer.controls!.target.clone();
+            if (selectedRoot) position.x += Math.max(16, new Box3().setFromObject(selectedRoot).getSize(new Vector3()).x + 4);
+            const base = { id: crypto.randomUUID(), name: type === "skin" ? "Player" : asset.split(":").pop() || "GUI text", position: position.toArray() as [number, number, number] };
             let definition: SceneObjectDefinition;
             if (type === "skin") definition = { ...base, type, ...(asset ? { skin: asset } : {}) };
-            else if (type === "gui") definition = { ...base, type, layers: [{ texture: asset, position: [0, 0] }] };
+            else if (type === "gui") definition = { ...base, type, layers: [asset ? { texture: asset, position: [0, 0] } : { text: "Hello, MineRender", position: [0, 0] }] };
             else definition = { ...base, type, asset } as SceneObjectDefinition;
             await appendObjects([definition]);
-        });
+        }, "add-error");
     });
 
     element("duplicate").addEventListener("click", () => { void run("Duplicating object…", async () => {
@@ -442,6 +644,7 @@ async function start(): Promise<void> {
         const id = selectedId;
         transform.detach();
         objects.get(id)?.dispose(); objects.delete(id);
+        loadingObjects.delete(id); animationRequests.delete(id);
         sceneDocument.objects = sceneDocument.objects.filter(object => object.id !== id);
         selectObject(); updateAnimation(); report("Object removed. Use Undo to restore it."); remember();
     }
@@ -472,9 +675,10 @@ async function start(): Promise<void> {
     }
 
     async function travelHistory(offset: number): Promise<void> {
-        const index = historyIndex + offset;
-        if (index < 0 || index >= history.length) return;
+        if (loadingObjects.size) return;
         await run(offset < 0 ? "Undoing…" : "Redoing…", async () => {
+            const index = historyIndex + offset;
+            if (index < 0 || index >= history.length) return;
             const next = SceneDocumentLoader.parse(history[index]);
             if (!applyHistoryTransforms(next)) {
                 const selection = selectedId;
@@ -482,7 +686,7 @@ async function start(): Promise<void> {
                 selectObject(selection);
             }
             historyIndex = index;
-            try { localStorage.setItem(storageKey, JSON.stringify(snapshot())); } catch { /* Download remains available without browser storage. */ }
+            saveLocal();
             report(offset < 0 ? "Undone." : "Redone.");
         });
     }
@@ -565,13 +769,17 @@ async function start(): Promise<void> {
     element("restore-scene").addEventListener("click", () => { void run("Restoring local save…", async () => {
         const saved = localStorage.getItem(storageKey);
         if (!saved) throw new Error("No saved scene in this browser yet.");
-        await replaceDocument(saved); report("Local save restored."); remember();
-    }); });
+        await replaceDocument(saved);
+        localSaveProtected = false;
+        showError("local-save-error");
+        report("Local save restored."); remember();
+    }, "local-save-error"); });
     element("apply-version").addEventListener("click", () => { void run("Reloading scene assets…", async () => {
         const next = snapshot(); next.minecraftVersion = element<HTMLInputElement>("minecraft-version").value.trim();
         if (!next.minecraftVersion) throw new Error("Enter a Minecraft version, such as 1.21.11.");
+        if (next.minecraftVersion === AssetLoader.version) await validateMinecraftVersion(next.minecraftVersion);
         await replaceDocument(next); report(`Loaded Minecraft ${next.minecraftVersion} assets.`); remember();
-    }); });
+    }, "version-error"); });
     element("show-grid").addEventListener("change", event => { grid.visible = (event.target as HTMLInputElement).checked; renderer.scene.dirty = true; });
     element("transparent").addEventListener("change", event => {
         renderer.scene.background = (event.target as HTMLInputElement).checked ? null : new Color("#19212d"); renderer.scene.dirty = true;
@@ -642,8 +850,18 @@ function dispose() {
     window.addEventListener("pagehide", event => { if (!event.persisted) dispose(); }, { once: true });
     document.addEventListener("visibilitychange", () => { if (!disposed) document.hidden ? renderer.stop() : renderer.start(); });
     selectObject();
+    localSaveProtected = true;
+    const restored = await run("Restoring local save…", async () => {
+        const saved = localStorage.getItem(storageKey);
+        if (saved) {
+            await replaceDocument(saved);
+            report("Local save restored.");
+        } else report("Add objects to build a scene, or import a saved JSON, .nbt, or .schematic file.");
+        localSaveProtected = false;
+    }, "local-save-error");
+    if (!restored) showError("local-save-error", "The saved scene could not load. It is preserved. Retry Restore, or use Save JSON to keep new edits.");
     history = [historySnapshot()]; historyIndex = 0;
-    report("Add objects to build a scene, or import a saved JSON, .nbt, or .schematic file.");
+    updateButtons();
     void refreshCatalog();
 }
 

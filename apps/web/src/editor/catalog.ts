@@ -1,4 +1,39 @@
-import { AssetKey, BlockStates, Entities, Models, type BlockState, type MultipartCondition } from "minerender";
+import { AssetKey, BlockStates, Entities, Models, type BlockState, type MultipartCondition, type SceneObjectDefinition } from "minerender";
+
+export async function validateMinecraftVersion(version: string): Promise<void> {
+    if (!version) throw new Error("Enter a Minecraft version, such as 1.21.11.");
+    const unavailable = () => new Error(`Minecraft version "${version}" is not available on MC Assets. Check the spelling; for example, 1.21.11.`);
+    if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(version)) throw unavailable();
+    const signal = AbortSignal.timeout(10000);
+    let found = false;
+    try {
+        const response = await fetch("https://assets.mcasset.cloud/versions.json", { signal });
+        if (!response.ok) throw new Error("Version list request failed");
+        const manifest: { versions?: { name?: unknown }[] } = await response.json();
+        if (!Array.isArray(manifest?.versions) || !manifest.versions.length
+            || !manifest.versions.every(entry => typeof entry?.name === "string")) throw new Error("Invalid version list");
+        found = manifest.versions.some(entry => entry.name === version);
+        if (!found && ["latest", "release", "snapshot"].includes(version)) {
+            const aliasResponse = await fetch(`https://assets.mcasset.cloud/${version}/version.json`, { signal });
+            if (aliasResponse.status !== 404) {
+                if (!aliasResponse.ok) throw new Error("Version alias request failed");
+                const alias: { id?: unknown } = await aliasResponse.json();
+                if (typeof alias?.id !== "string" || !alias.id) throw new Error("Invalid version alias");
+                found = true;
+            }
+        }
+    } catch {
+        throw new Error("Could not check Minecraft versions on MC Assets. Check your connection and try again.");
+    }
+    if (!found) throw unavailable();
+}
+
+export function getObjectListHint(type: SceneObjectDefinition["type"]): string {
+    if (type === "model") return "Model suggestions are unavailable. Enter a model ID, such as minecraft:block/stone.";
+    if (type === "skin") return "Player suggestions are unavailable. Enter a name, UUID, or PNG URL, or leave blank for Steve.";
+    if (type === "gui") return "GUI texture suggestions are unavailable. Enter a texture ID, or leave blank for text.";
+    return "";
+}
 
 export async function getObjectList(type: string): Promise<string[]> {
     const values = type === "block" ? await BlockStates.getList()

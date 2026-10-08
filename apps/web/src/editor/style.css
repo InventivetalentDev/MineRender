@@ -1,5 +1,6 @@
 :root { color-scheme: dark; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #e8eaf0; background: #111419; font-size: 13px; }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body { margin: 0; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
 button, input, select, textarea { font: inherit; color: inherit; border: 1px solid #39414d; border-radius: 5px; background: #20262f; padding: 7px 9px; }
 button { cursor: pointer; white-space: nowrap; }
@@ -20,6 +21,8 @@ h2 { font-size: 13px; letter-spacing: .025em; margin: 0 0 13px; font-weight: 650
 .section-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
 .section-heading span, .editor-note { color: #a5b0c0; }
 .editor-note { line-height: 1.5; font-size: 12px; }
+.asset-hint { margin: -6px 0 12px; overflow-wrap: anywhere; }
+.editor-error { margin: 9px 0; color: #ffb5ad; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
 .editor-field { display: flex; flex-direction: column; gap: 5px; margin: 0 0 12px; color: #b7c0ce; font-size: 12px; }
 .editor-field input, .editor-field select, .editor-field textarea { width: 100%; min-width: 0; color: #f0f2f6; }
 .editor-check { display: flex; align-items: center; gap: 6px; margin: 9px 0; font-size: 12px; }
@@ -27,11 +30,16 @@ input[type="checkbox"] { accent-color: #86bf98; }
 .wide { width: 100%; }
 .scene-list-section { flex: 1; min-height: 120px; }
 #objects { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
-.object-row { display: flex; width: 100%; align-items: center; gap: 9px; padding: 9px; text-align: left; background: transparent; border-color: transparent; }
-.object-row[aria-pressed="true"] { background: #2a3d33; border-color: #4d6c58; }
-.object-row .object-type { border: 1px solid #465163; border-radius: 4px; font-size: 10px; padding: 3px; text-transform: uppercase; color: #b7c0ce; width: 45px; text-align: center; flex-shrink: 0; }
-.object-row .object-name { overflow: hidden; text-overflow: ellipsis; }
-.object-row.hidden-object { opacity: .5; }
+.object-row { display: grid; grid-template-columns: 44px minmax(0, 1fr) 38px; width: 100%; align-items: center; gap: 4px; padding: 5px; border: 1px solid transparent; border-radius: 5px; background: transparent; }
+.object-row[aria-selected="true"] { background: #2a3d33; border-color: #4d6c58; }
+.object-select { padding: 5px 2px; font-size: 10px; text-transform: uppercase; color: #b7c0ce; }
+.object-row .object-name { width: 100%; min-width: 0; padding: 5px 3px; border-color: transparent; background: transparent; text-overflow: ellipsis; }
+.object-row .object-name:hover, .object-row .object-name:focus { border-color: #566579; background: #20262f; }
+.object-visibility { padding: 5px 2px; font-size: 11px; }
+.object-row.hidden-object .object-select, .object-row.hidden-object .object-name { opacity: .55; }
+.object-row[aria-busy="true"] { border-color: #64758d; }
+.object-loading { grid-column: 1 / -1; margin: 0; padding: 2px 3px; color: #b7c0ce; font-size: 11px; }
+.local-save .editor-note { margin-bottom: 0; }
 summary { cursor: pointer; color: #bdc8d7; margin-bottom: 12px; }
 .scene-settings { border-top: 1px solid #303742; padding-top: 16px; }
 .viewport-panel { position: relative; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
@@ -42,12 +50,20 @@ summary { cursor: pointer; color: #bdc8d7; margin-bottom: 12px; }
 #viewport canvas { display: block; position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
 .viewport-help { position: absolute; bottom: 8px; left: 16px; right: 16px; pointer-events: none; color: #aab7c9; font-size: 11px; text-align: center; text-shadow: 0 1px 3px #000; }
 fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
-fieldset[hidden] { display: none; }
 .transform-vector { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; margin-bottom: 12px; }
 .transform-vector .editor-field { margin: 0; }
 .vector-label { margin: 12px 0 6px; color: #b7c0ce; font-size: 12px; }
 .editor-section { border-top: 1px solid #303742; margin-top: 15px; padding-top: 15px; }
 .editor-section h3 { font-size: 13px; margin: 0 0 12px; }
+.gui-layer { margin: 8px 0; padding: 10px; border: 1px solid #39414d; border-radius: 6px; }
+.gui-layer-header { margin-bottom: 0; font-weight: 600; overflow-wrap: anywhere; }
+.gui-layer[open] > .gui-layer-header { margin-bottom: 12px; }
+.gui-layer-actions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; }
+.gui-layer-actions button { flex: 1; padding: 5px; font-size: 11px; }
+.tint-row { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.tint-row > .editor-field { flex: 1; min-width: 96px; margin: 0; }
+.tint-row > .editor-note { flex-basis: 100%; margin: 0; }
+.tint-row input[type="color"] { height: 34px; padding: 3px; }
 .editor-json { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; width: 100%; min-height: 90px; resize: vertical; }
 .editor-row > .editor-field { flex: 1; min-width: 0; }
 footer { min-height: 29px; border-top: 1px solid #303742; background: #181d24; display: flex; gap: 18px; align-items: center; justify-content: space-between; padding: 5px 14px; color: #a5b0c0; font-size: 11px; }
