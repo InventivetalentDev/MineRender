@@ -3,6 +3,7 @@ import { Caching } from "../cache/Caching";
 import { Maybe } from "../util/util";
 import { ModelMerger } from "../model/ModelMerger";
 import { AssetLoader } from "./AssetLoader";
+import type { AssetContext } from "./AssetContext";
 import { DEFAULT_NAMESPACE } from "./Assets";
 import { PersistentCache } from "../cache/PersistentCache";
 import { AssetKey, isAssetKey } from "./AssetKey";
@@ -28,6 +29,33 @@ export interface ItemModelContext {
 /** Loads and caches Java block/item models, including inherited geometry and textures. */
 export class Models {
 
+    constructor(private readonly assets: AssetContext) {
+    }
+
+    public static getItemList(): Promise<string[]> {
+        return AssetLoader.context.models.getItemList();
+    }
+
+    public static loadAndMerge(key: AssetKey, itemState: ItemModelContext = {}): Promise<Maybe<Model>> {
+        return AssetLoader.context.models.loadAndMerge(key, itemState);
+    }
+
+    public static getRaw(key: AssetKey): Promise<Maybe<Model>> {
+        return AssetLoader.context.models.getRaw(key);
+    }
+
+    public static getMerged(key: AssetKey, itemState: ItemModelContext = {}): Promise<Maybe<Model>> {
+        return AssetLoader.context.models.getMerged(key, itemState);
+    }
+
+    public static get(key: AssetKey, itemState: ItemModelContext = {}): Promise<Maybe<Model>> {
+        return AssetLoader.context.models.get(key, itemState);
+    }
+
+    public static clearCache() {
+        return AssetLoader.context.models.clearCache();
+    }
+
     private static _persistentCache: PersistentCache | undefined;
 
     // opened lazily: touching the store at import time would hit IndexedDB/disk just for loading
@@ -37,28 +65,29 @@ export class Models {
     }
 
     /** Lists item filenames from the asset source's `_list.json`, with a legacy model-directory fallback. */
-    public static async getItemList(): Promise<string[]> {
+    public async getItemList(): Promise<string[]> {
         const key = new AssetKey(DEFAULT_NAMESPACE, "_list", "items");
         const legacyKey = new AssetKey(DEFAULT_NAMESPACE, "_list", "models", "item");
-        return Caching.listAssetCache.get(key.serialize(), async () => {
-            return (await AssetLoader.getFirst<ListAsset>([key, legacyKey], AssetParser.LIST))?.asset;
+        return Caching.listAssetCache.get(this.assets.cacheKey(key), async () => {
+            return (await this.assets.getFirst<ListAsset>([key, legacyKey], AssetParser.LIST))?.asset;
         }).then(r => r?.files ?? []);
     }
 
-    public static async loadAndMerge(key: AssetKey, context: ItemModelContext = {}): Promise<Maybe<Model>> {
-        const model = key.type === "item" ? await this.getItemModel(key, context) : await this.getRaw(key);
+    public async loadAndMerge(key: AssetKey, itemState: ItemModelContext = {}): Promise<Maybe<Model>> {
+        key = this.assets.bind(Object.assign(new AssetKey("", ""), key));
+        const model = key.type === "item" ? await this.getItemModel(key, itemState) : await this.getRaw(key);
         if (!model) {
             return undefined;
         }
-        return ModelMerger.mergeWithParents(model);
+        return new ModelMerger(this.assets).mergeWithParents(model);
     }
 
-    private static async getItemModel(key: AssetKey, context: ItemModelContext = {}): Promise<Maybe<Model>> {
+    private async getItemModel(key: AssetKey, context: ItemModelContext = {}): Promise<Maybe<Model>> {
         const preview = this.snapshotContext(key, context);
         const itemKey = new AssetKey(key.namespace, key.path, "items", undefined, key.rootType, ".json", key.root);
-        const cacheKey = itemKey.serialize() + this.contextKey(preview);
-        const model = await this.PERSISTENT_CACHE.getOrLoad(`item-v4:${AssetLoader.persistentKey(cacheKey)}`, async () => {
-            const result = await AssetLoader.getFirst<Model & { model?: ItemModelNode }>([itemKey, key], AssetParser.JSON);
+        const cacheKey = this.assets.persistentKey(itemKey) + this.contextKey(preview);
+        const model = await Models.PERSISTENT_CACHE.getOrLoad(`item-v4:${cacheKey}`, async () => {
+            const result = await this.assets.getFirst<Model & { model?: ItemModelNode }>([itemKey, key], AssetParser.JSON);
             if (!result) return undefined;
             if (result.key.assetType !== "items") return { ...result.asset, key, components: preview.components } as ItemModel;
 
@@ -81,21 +110,21 @@ export class Models {
             };
             return load(this.selectItemModel(result.asset.model, key, preview));
         });
-        const restore = (model: ItemModel): ItemModel => ({
-            ...model, key: Object.assign(new AssetKey("", ""), model.key),
+        const restore = (model: ItemModel): ItemModel => this.assets.bind({
+            ...model, key: this.assets.bind(Object.assign(new AssetKey("", ""), model.key)),
             ...(model.parts && { parts: model.parts.map(restore) })
         });
         return model ? restore(model) : undefined;
     }
 
-    private static contextIdentifier(id: string): string {
+    private contextIdentifier(id: string): string {
         if (typeof id !== "string" || !/^(?:[a-z0-9_.-]+:)?[a-z0-9_./-]+$/.test(id)) {
             throw new Error(`Invalid item-preview identifier: ${id}`);
         }
         return id.includes(":") ? id : `minecraft:${id}`;
     }
 
-    private static snapshotContext(key: AssetKey, context: ItemModelContext): Required<ItemModelContext> {
+    private snapshotContext(key: AssetKey, context: ItemModelContext): Required<ItemModelContext> {
         const displayContext = context.displayContext ?? DisplayPosition.GUI;
         if (displayContext !== "none" && !Object.values(DisplayPosition).includes(displayContext)) {
             throw new Error(`Unsupported item display context: ${displayContext}`);
@@ -135,12 +164,12 @@ export class Models {
         return { displayContext, properties, components, count, itemReferences };
     }
 
-    private static contextKey(context: Required<ItemModelContext>): string {
-        const itemReferences = Object.fromEntries(Object.entries(context.itemReferences).map(([id, key]) => [id, key.serialize()]));
+    private contextKey(context: Required<ItemModelContext>): string {
+        const itemReferences = Object.fromEntries(Object.entries(context.itemReferences).map(([id, key]) => [id, this.assets.persistentKey(key)]));
         return `|item-v4:${JSON.stringify(this.snapshotJson({ ...context, itemReferences }))}`;
     }
 
-    private static snapshotJson(value: unknown, ancestors = new Set<object>()): unknown {
+    private snapshotJson(value: unknown, ancestors = new Set<object>()): unknown {
         if (value === null || typeof value === "string" || typeof value === "boolean" || typeof value === "number" && Number.isFinite(value)) return value;
         if (typeof value !== "object" || ancestors.has(value) || !Array.isArray(value)
             && Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null) {
@@ -153,7 +182,7 @@ export class Models {
         return copy;
     }
 
-    private static propertyValue(node: ItemModelNode, context: Required<ItemModelContext>): unknown {
+    private propertyValue(node: ItemModelNode, context: Required<ItemModelContext>): unknown {
         const kind = node.type.replace(/^minecraft:/, "");
         const property = node.property ? this.contextIdentifier(node.property) : undefined;
         if (kind === "select" && property === "minecraft:display_context") return context.displayContext;
@@ -212,7 +241,7 @@ export class Models {
         return fallback;
     }
 
-    private static selectItemModel(node: ItemModelNode | undefined, key: AssetKey, context: Required<ItemModelContext>): SelectedItemModel {
+    private selectItemModel(node: ItemModelNode | undefined, key: AssetKey, context: Required<ItemModelContext>): SelectedItemModel {
         if (!node || typeof node.type !== "string") {
             throw new Error(`Unsupported item model definition for ${key.toNamespacedString()}`);
         }
@@ -294,58 +323,54 @@ export class Models {
     }
 
     /** Loads one model file without resolving its parents. Returns `undefined` when the file is missing. */
-    public static async getRaw(key: AssetKey): Promise<Maybe<Model>> {
+    public async getRaw(key: AssetKey): Promise<Maybe<Model>> {
         if (!key.assetType) {
             key.assetType = "models";
         }
         if (!key.extension) {
             key.extension = ".json";
         }
-        const keyStr = key.serialize();
-        //TODO: maybe add the asset source to the key
-        return Caching.rawModelCache.get(keyStr, k => {
-            return this.PERSISTENT_CACHE.getOrLoad(AssetLoader.persistentKey(keyStr), k1 => {
-                return AssetLoader.get<Model>(key, AssetParser.MODEL);
-            })
-        }).then(asset => {
-            if (asset) {
-                asset.key = key;
-            }
-            return asset;
-        })
+        key = this.assets.bind(Object.assign(new AssetKey("", ""), key));
+        return Caching.rawModelCache.get(this.assets.cacheKey(key), async () => {
+            const asset = await Models.PERSISTENT_CACHE.getOrLoad(this.assets.persistentKey(key), () => {
+                return this.assets.get<Model>(key, AssetParser.MODEL);
+            });
+            return asset ? this.assets.bind({ ...asset, key }) : undefined;
+        });
     }
 
     /**
      * Loads a model and resolves its parent chain. Returns `undefined` when the model is missing.
      * Item keys default to GUI context and a stack count of 1. Unresolved conditions are false and numeric properties are zero.
-     * Pass `context` to supply component values, property overrides, and item references for a preview.
+     * Pass `itemState` to supply component values, property overrides, and item references for a preview.
      * Composite items retain independently merged children in `ItemModel.parts`.
      *
      * @param key - Model key, for example `AssetKey.parse("models", "minecraft:item/diamond_sword")`.
      */
-    public static async getMerged(key: AssetKey, context: ItemModelContext = {}): Promise<Maybe<Model>> {
+    public async getMerged(key: AssetKey, itemState: ItemModelContext = {}): Promise<Maybe<Model>> {
         if (!key.assetType) {
             key.assetType = "models";
         }
         if (!key.extension) {
             key.extension = ".json";
         }
-        const preview = this.snapshotContext(key, context);
-        const keyStr = key.serialize() + (key.type === "item" ? this.contextKey(preview) : "");
+        key = this.assets.bind(Object.assign(new AssetKey("", ""), key));
+        const preview = this.snapshotContext(key, itemState);
+        const keyStr = this.assets.cacheKey(key) + (key.type === "item" ? this.contextKey(preview) : "");
         return Caching.mergedModelCache.get(keyStr, k => {
             //TODO: persistent cache
-            return Models.loadAndMerge(key, preview);
+            return this.loadAndMerge(key, preview);
         });
     }
 
     /** Alias for {@link getMerged}. */
-    public static async get(key: AssetKey, context: ItemModelContext = {}): Promise<Maybe<Model>> {
-        return this.getMerged(key, context);
+    public async get(key: AssetKey, itemState: ItemModelContext = {}): Promise<Maybe<Model>> {
+        return this.getMerged(key, itemState);
     }
 
     /** Clears persisted models. Use {@link Caching.clear} to also discard in-memory assets. */
-    public static async clearCache() {
-        return this.PERSISTENT_CACHE.clear();
+    public async clearCache() {
+        return Models.PERSISTENT_CACHE.clear();
     }
 
 }

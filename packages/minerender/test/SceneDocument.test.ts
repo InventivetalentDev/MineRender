@@ -1,5 +1,6 @@
 import test, { ExecutionContext } from "ava";
 import { Group, Matrix4, MeshBasicMaterial, Object3D } from "three";
+import { AssetContext } from "../src/assets/AssetContext";
 import { AssetKey } from "../src/assets/AssetKey";
 import { AssetLoader } from "../src/assets/AssetLoader";
 import { BlockEntities } from "../src/assets/BlockEntities";
@@ -77,7 +78,7 @@ function modelFixture(t: ExecutionContext) {
     const created: ModelObject[] = [];
     const disposed: ModelObject[] = [];
     const originalDispose = ModelObject.prototype.dispose;
-    stub(t, Models, "getMerged", async key => ({ key, elements: [], textures: {} }));
+    stub(t, Models.prototype, "getMerged", async key => ({ key, elements: [], textures: {} }));
     stub(t, ModelObject.prototype, "init", async function () {
         created.push(this);
         this.add(new Object3D());
@@ -91,9 +92,9 @@ function modelFixture(t: ExecutionContext) {
 
 test.serial("multipart blocks retain variant rotations under the document transform and later state changes", async t => {
     const { created, disposed } = modelFixture(t);
-    stub(t, BlockEntities, "getIndex", async () => ({}));
-    stub(t, BlockStates, "getDefaultState", async () => undefined);
-    stub(t, BlockStates, "get", async key => ({ key, multipart: [
+    stub(t, BlockEntities.prototype, "getIndex", async () => ({}));
+    stub(t, BlockStates.prototype, "getDefaultState", async () => undefined);
+    stub(t, BlockStates.prototype, "get", async key => ({ key, multipart: [
         { apply: { model: "minecraft:block/first", y: 90 } },
         { when: { open: "true" }, apply: { model: "minecraft:block/second", x: 90 } }
     ] }));
@@ -134,7 +135,7 @@ test.serial("documents load objects in parallel and preserve document order when
     const names = ["first", "second", "third"];
     const gates = Object.fromEntries(names.map(name => [name, gate()]));
     const started: string[] = [];
-    stub(t, Models, "getMerged", async key => {
+    stub(t, Models.prototype, "getMerged", async key => {
         started.push(key.path);
         await gates[key.path].promise;
         return { key, elements: [], textures: {} };
@@ -168,7 +169,7 @@ test.serial("failed parallel documents wait for every load, dispose successes, a
     const names = ["first-failure", "early-success", "later-failure", "late-success"];
     const gates = Object.fromEntries(names.map(name => [name, gate()]));
     const started: string[] = [];
-    stub(t, Models, "getMerged", async key => {
+    stub(t, Models.prototype, "getMerged", async key => {
         started.push(key.path);
         await gates[key.path].promise;
         if (key.path.endsWith("failure")) throw new Error(`${key.path} download failed`);
@@ -223,7 +224,7 @@ test.serial("short item IDs select item models and GUI display without changing 
     t.teardown(() => loaded.dispose());
     t.deepEqual(created.map(object => object.originalModel.key!.toNamespacedString()), ["minecraft:item/diamond", "minecraft:item/diamond"]);
     t.true(created.every(object => object.options.displayPosition === "gui"));
-    await t.throwsAsync(SceneDocumentLoader.load(scene, { ...document(), minecraftVersion: "different-version" }), { message: /AssetLoader.setVersion/ });
+    await t.throwsAsync(SceneDocumentLoader.load(scene, { ...document(), minecraftVersion: "different-version" }), { message: /configure the scene asset context/ });
     t.is(AssetLoader.ROOT, originalRoot);
     t.deepEqual(scene.children, [loaded.root]);
 });
@@ -234,11 +235,11 @@ test.serial("entity animations load by name, start at saved time, and respect pa
     Caching.clear();
     t.teardown(() => { material.dispose(); Caching.clear(); });
     const key = new AssetKey("minecraft", "fixture");
-    stub(t, Entities, "getEntity", async () => ({ id: "minecraft:fixture", key,
+    stub(t, Entities.prototype, "getEntity", async () => ({ id: "minecraft:fixture", key,
         layer: { texture: [16, 16], root: { pose: { offset: [0, 0, 0], rotation: [0, 0, 0] }, cubes: [], children: {} } }
     }));
     stub(t, EntityObject.prototype, "init", async function () { this["createMeshes"](); });
-    stub(t, Entities, "getAnimations", async () => ({ walk: { length: 4, loop: true, bones: {} } }));
+    stub(t, Entities.prototype, "getAnimations", async () => ({ walk: { length: 4, loop: true, bones: {} } }));
     const scene = new MineRenderScene();
     const loaded = await SceneDocumentLoader.loadObject(scene, {
         id: "animated", type: "entity", asset: "minecraft:fixture", animation: { name: "walk", time: 1, speed: 2, paused: true }
@@ -376,4 +377,32 @@ test.serial("cape poses override the built-in angle and survive a saved scene wi
     t.teardown(() => restored.dispose());
     t.deepEqual(restored.object.getGroupByName("cape")!.rotation.toArray(), [0, 0, 0, "XYZ"]);
     t.deepEqual(restored.object.getGroupByName("head")!.rotation.toArray(), [0, 0, 0, "XYZ"]);
+});
+
+
+test.serial("documents use their scene version and context for nested objects and default skins", async t => {
+    modelFixture(t);
+    const assets = new AssetContext({ version: "document-version", root: "https://assets.example.test/document-version" });
+    const scene = new MineRenderScene({ assets });
+    const globalRoot = AssetLoader.ROOT;
+    const material = new MeshBasicMaterial();
+    t.teardown(() => material.dispose());
+    stub(t, Models.prototype, "getMerged", async function(key) {
+        t.is(this, assets.models);
+        return { key, elements: [], textures: {} };
+    });
+    stub(t, SkinTextures, "get", async source => {
+        t.is(source, `${assets.root}/assets/minecraft/textures/entity/player/wide/steve.png`);
+        return { material, slim: false, legacy: false };
+    });
+    const loaded = await SceneDocumentLoader.load(scene, {
+        ...document([{ id: "model", type: "model", asset: "test:block/stone" }, { id: "skin", type: "skin" },
+            { id: "gui", type: "gui", layers: [] }]), minecraftVersion: assets.version
+    });
+    t.teardown(() => loaded.dispose());
+    for (const { object } of loaded.objects) {
+        t.is(object.assets, assets);
+        t.is(object.scene.assets, assets);
+    }
+    t.is(AssetLoader.ROOT, globalRoot);
 });

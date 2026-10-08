@@ -2,9 +2,7 @@ import test, { type ExecutionContext } from "ava";
 import { Box3, MeshBasicMaterial, ShaderMaterial, Vector3 } from "three";
 import type { Mesh } from "three";
 import { AssetKey } from "../src/assets/AssetKey";
-import { Entities } from "../src/assets/Entities";
-import { Models } from "../src/assets/Models";
-import { ModelTextures } from "../src/assets/ModelTextures";
+import { AssetLoader } from "../src/assets/AssetLoader";
 import { Caching } from "../src/cache/Caching";
 import type { CanvasImage } from "../src/canvas/CanvasImage";
 import { CUBE_FACES } from "../src/CubeFace";
@@ -30,9 +28,10 @@ const meshes = (object: ModelObject | GuiObject): Mesh[] => {
 };
 
 function fixture(t: ExecutionContext) {
-    const original = { merged: Models.getMerged, atlas: UVMapper.getAtlas, image: Materials.getImage,
-        texture: ModelTextures.get, meta: ModelTextures.getMeta, entity: Entities.getEntity };
-    const scene = new MineRenderScene(), placeholder = new MeshBasicMaterial();
+    const assets = AssetLoader.context;
+    const original = { merged: assets.models.getMerged, atlas: UVMapper.getAtlas, image: Materials.getImage,
+        texture: assets.modelTextures.get, meta: assets.modelTextures.getMeta, entity: assets.entities.getEntity };
+    const scene = new MineRenderScene({ assets }), placeholder = new MeshBasicMaterial();
     const objects: ModelObject[] = [];
     const canvas = { width: 16, height: 16 };
     let imageDisposals = 0;
@@ -59,17 +58,17 @@ function fixture(t: ExecutionContext) {
     Caching.clear();
     const entityTexture = AssetKey.parse("textures", "test:entity/chest");
     const sharedEntityMaterial = Materials.createEntityCanvasMaterial(canvas as HTMLCanvasElement, "solid");
-    Caching.materialCache.get(`entity:solid::${entityTexture.serialize()}`, () => sharedEntityMaterial);
-    Models.getMerged = async () => composite;
+    Caching.materialCache.get(`entity:solid::${assets.cacheKey(entityTexture)}`, () => sharedEntityMaterial);
+    assets.models.getMerged = async () => composite;
     UVMapper.getAtlas = async model => {
-        if (model === front) return frontAtlas;
-        if (model === side) return sideAtlas;
+        if (model.key?.toNamespacedString() === front.key!.toNamespacedString()) return frontAtlas;
+        if (model.key?.toNamespacedString() === side.key!.toNamespacedString()) return sideAtlas;
         throw new Error(`Unexpected atlas for ${model.key?.toNamespacedString()}`);
     };
     Materials.getImage = () => placeholder;
-    ModelTextures.getMeta = async () => undefined;
-    ModelTextures.get = async () => ({ ...canvas, data: { canvas } } as unknown as ExtractableImageData);
-    Entities.getEntity = async key => ({ key, id: "chest", texture: entityTexture, layer: { texture: [16, 16], root: {
+    assets.modelTextures.getMeta = async () => undefined;
+    assets.modelTextures.get = async () => ({ ...canvas, data: { canvas } } as unknown as ExtractableImageData);
+    assets.entities.getEntity = async key => ({ key, id: "chest", texture: entityTexture, layer: { texture: [16, 16], root: {
         pose: { offset: [0, 0, 0], rotation: [0, 0, 0] }, children: {},
         cubes: [{ origin: [0, 0, 0], size: [2, 2, 2], uv: [0, 0] }]
     } } });
@@ -79,9 +78,9 @@ function fixture(t: ExecutionContext) {
             if ("dispose" in object) (object as { dispose(): void }).dispose();
             object.removeFromParent();
         }
-        Models.getMerged = original.merged; UVMapper.getAtlas = original.atlas;
-        Materials.getImage = original.image; ModelTextures.get = original.texture;
-        ModelTextures.getMeta = original.meta; Entities.getEntity = original.entity;
+        assets.models.getMerged = original.merged; UVMapper.getAtlas = original.atlas;
+        Materials.getImage = original.image; assets.modelTextures.get = original.texture;
+        assets.modelTextures.getMeta = original.meta; assets.entities.getEntity = original.entity;
         frontAtlas.dispose(); sideAtlas.dispose(); placeholder.dispose(); sharedEntityMaterial.dispose();
         Caching.clear();
     });
@@ -204,7 +203,7 @@ test.serial("empty composites have no fallback mesh and preserve finite GUI slot
     const object = await scene.addModel(empty) as ModelObject;
     t.false(object.isInstanced);
     t.deepEqual(meshes(object), []);
-    Models.getMerged = async () => empty;
+    scene.assets.models.getMerged = async () => empty;
     const gui = await scene.addGui([
         { name: "empty", item: "test:item/empty", position: [3, 5] },
         { name: "overlay", texture: "test:gui/overlay", position: [3, 5] }

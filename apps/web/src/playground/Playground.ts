@@ -1,6 +1,6 @@
 import {
     ArchiveAssetSource, AssetLoader, BrowserArchiveProxy, Caching, HostedAssetSource,
-    Renderer, SceneExporter, SceneInspector, Ticker, isSceneObject, type DeepPartial, type RendererOptions
+    Renderer, SceneExporter, SceneInspector, Ticker, isSceneObject, type RendererInitOptions
 } from "minerender";
 import { Box3, Color, InstancedMesh, Mesh, Object3D, OrthographicCamera, PerspectiveCamera, Vector3 } from "three";
 import { button, checkbox, download, input, note, section, select } from "./controls";
@@ -32,7 +32,7 @@ export interface DemoContent {
 export interface PlaygroundOptions<S> {
     title: string;
     defaults: S;
-    renderer?: DeepPartial<RendererOptions>;
+    renderer?: RendererInitOptions;
     presets?: Record<string, { label: string; state: Partial<S>; view?: Partial<ViewSettings> }>;
     load(context: DemoContext, state: S): Promise<DemoContent | void>;
     /** Content part of the "Copy code" snippet; `renderer` is already set up. */
@@ -336,7 +336,7 @@ export class Playground<S extends object> {
         return bounds;
     }
 
-    private rendererOptions(view: ViewSettings): DeepPartial<RendererOptions> {
+    private rendererOptions(view: ViewSettings): RendererInitOptions {
         const r = this.options.renderer;
         return {
             camera: {

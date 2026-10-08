@@ -1,17 +1,19 @@
 import test, { type ExecutionContext } from "ava";
+import { AssetContext } from "../src/assets/AssetContext";
+import { GuiObject } from "../src/gui/scene/GuiObject";
 import { AssetKey } from "../src/assets/AssetKey";
 import { Fonts, type BitmapGlyph } from "../src/assets/Fonts";
 import { GuiHelper } from "../src/gui/GuiHelper";
 import type { GuiTextLayer, GuiTextureLayer } from "../src/gui/GuiLayer";
 
 function fixture(t: ExecutionContext) {
-    const get = Fonts.get;
+    const get = Fonts.prototype.get;
     const glyphs = new Map<string, BitmapGlyph>();
     for (const [character, advance] of [["A", 6], ["B", 5], [" ", 3]] as const) {
         glyphs.set(character, { x: 0, y: 0, width: 0, height: 0, scale: 1, ascent: 7, advance });
     }
-    Fonts.get = async () => ({ glyphs });
-    t.teardown(() => { Fonts.get = get; });
+    Fonts.prototype.get = async () => ({ glyphs });
+    t.teardown(() => { Fonts.prototype.get = get; });
 }
 
 test.serial("tooltips size the frame around text with vanilla padding and title spacing", async t => {
@@ -48,4 +50,18 @@ test.serial("wrapped tooltip text retains run styles and positions body lines be
     t.is(texts[0].text, title);
     t.is(texts[1].text, body);
     t.true(texts.every(layer => layer.font === font && layer.maxWidth === 12 && layer.lineHeight === 11 && !layer.shadow));
+});
+
+
+test.serial("tooltip measurements and generated layers retain the supplied font context", async t => {
+    fixture(t);
+    const assets = new AssetContext();
+    const get = Fonts.prototype.get;
+    const loaders: Fonts[] = [];
+    Fonts.prototype.get = async function(key) { loaders.push(this); return get.call(this, key); };
+    const layers = await GuiHelper.tooltip(["A", "B"], { assets });
+    const gui = new GuiObject(layers);
+    t.teardown(() => gui.dispose());
+    t.deepEqual(loaders, [assets.fonts, assets.fonts]);
+    t.is(gui.assets, assets);
 });

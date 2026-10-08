@@ -12,7 +12,7 @@ import type { CompatCanvas } from "../src/canvas/CanvasCompat";
 import type { ExtractableImageData } from "../src/ExtractableImageData";
 
 async function fixture(t: ExecutionContext, width: number, height: number, animation?: Partial<AnimationMeta>, sourcePixels?: number[]) {
-    const originals = { provider: Env["_provider"], get: ModelTextures.get, meta: ModelTextures.getMeta };
+    const originals = { provider: Env["_provider"], get: ModelTextures.prototype.get, meta: ModelTextures.prototype.getMeta };
     const draws: number[][] = [];
     const uploads: number[][] = [];
     const pixels = (w: number, h: number) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4).fill(255) });
@@ -21,7 +21,7 @@ async function fixture(t: ExecutionContext, width: number, height: number, anima
             putImageData: (image: { data: Uint8ClampedArray }) => uploads.push(Array.from(image.data))
         }), toDataURL: () => ""
     } as unknown as CompatCanvas) } as EnvProvider);
-    ModelTextures.get = async () => ({ width, height, data: {
+    ModelTextures.prototype.get = async () => ({ width, height, data: {
         getImageData(x: number, y: number, w: number, h: number) {
             draws.push([x, y, w, h]);
             const image = pixels(w, h);
@@ -32,11 +32,11 @@ async function fixture(t: ExecutionContext, width: number, height: number, anima
             return image;
         }
     } } as ExtractableImageData);
-    ModelTextures.getMeta = async () => animation ? { animation } as MinecraftTextureMeta : undefined;
+    ModelTextures.prototype.getMeta = async () => animation ? { animation } as MinecraftTextureMeta : undefined;
     const restore = () => {
         Env["_provider"] = originals.provider;
-        ModelTextures.get = originals.get;
-        ModelTextures.getMeta = originals.meta;
+        ModelTextures.prototype.get = originals.get;
+        ModelTextures.prototype.getMeta = originals.meta;
     };
     t.teardown(restore);
     const atlas = (await UVMapper.createAtlas({ textures: { side: "block/animated" }, elements: [] }))!;

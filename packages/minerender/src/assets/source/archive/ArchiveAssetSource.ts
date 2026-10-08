@@ -10,11 +10,12 @@ import { HostedAssetSource } from "../HostedAssetSource";
 import type { RequestConfig } from "../../../request";
 import { BrowserArchiveProxy } from "./BrowserArchiveProxy";
 import { AssetLoader } from "../../AssetLoader";
+import type { AssetContext } from "../../AssetContext";
 import { PackMetadata, type PackFormat } from "./PackMetadata";
 import { PackFormats } from "./PackFormats";
 
 export interface ArchiveAssetSourceOptions {
-    /** Target resource-pack format. Omit to look up the version selected by AssetLoader.setVersion. */
+    /** Target resource-pack format. Omit to look up the requesting context's Minecraft version. */
     resourcePackFormat?: PackFormat;
     /** Target data-pack format, used for assets under data/. Omit to look up the selected version. */
     dataPackFormat?: PackFormat;
@@ -45,8 +46,12 @@ export class ArchiveAssetSource extends AssetSource implements ArchiveProxy {
     }
 
     public get cacheId(): Maybe<string> {
+        return this.getCacheId(AssetLoader.context);
+    }
+
+    public getCacheId(assets: AssetContext): Maybe<string> {
         const id = this._archiveProxy.id;
-        const formats = [this.options.resourcePackFormat ?? AssetLoader.version, this.options.dataPackFormat ?? AssetLoader.version];
+        const formats = [this.options.resourcePackFormat ?? assets.version, this.options.dataPackFormat ?? assets.version];
         return id === undefined ? undefined : `archive-metadata:1:${id}:${JSON.stringify(formats)}`;
     }
 
@@ -81,14 +86,14 @@ export class ArchiveAssetSource extends AssetSource implements ArchiveProxy {
         return metadata.blocks(key.namespace, path);
     }
 
-    async get<T extends MinecraftAsset>(key: AssetKey, parser: AssetParser | string): Promise<Maybe<T>> {
+    async get<T extends MinecraftAsset>(key: AssetKey, parser: AssetParser | string, assets: AssetContext = AssetLoader.context): Promise<Maybe<T>> {
         const responseParser = HostedAssetSource.PARSER_MAP.get(parser as AssetParser) as ResponseParser<T>;
-        return this.load(key, responseParser);
+        return this.load(key, responseParser, assets);
     }
 
-    protected async load<T extends MinecraftAsset>(key: AssetKey, parser: ResponseParser<T>): Promise<Maybe<T>> {
+    protected async load<T extends MinecraftAsset>(key: AssetKey, parser: ResponseParser<T>, assets: AssetContext = AssetLoader.context): Promise<Maybe<T>> {
         const path = `${this.assetBasePath(key)}${key.type !== undefined ? key.type + '/' : ''}${key.path}${key.extension}`;
-        const version = AssetLoader.version;
+        const version = assets.version;
         let selectedPath = path;
         let url: string | undefined;
         try {

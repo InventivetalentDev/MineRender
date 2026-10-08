@@ -1,18 +1,18 @@
 import test from "ava";
-import { Models } from "../src/assets/Models";
+import { AssetLoader } from "../src/assets/AssetLoader";
 import { ModelMerger } from "../src/model/ModelMerger";
 import type { Model } from "../src/model/Model";
 import type { ModelElement } from "../src/model/ModelElement";
 
-const originalGetRaw = Models.getRaw;
-test.afterEach.always(() => { Models.getRaw = originalGetRaw; });
+const originalGetRaw = AssetLoader.context.models.getRaw;
+test.afterEach.always(() => { AssetLoader.context.models.getRaw = originalGetRaw; });
 
 function element(size: number): ModelElement {
     return { from: [0, 0, 0], to: [size, size, size], faces: { north: { texture: "#side" } } };
 }
 
 function parents(models: Record<string, Model>) {
-    Models.getRaw = async key => models[key.toNamespacedString()];
+    AssetLoader.context.models.getRaw = async key => models[key.toNamespacedString()];
 }
 
 test.serial("child geometry replaces ancestor elements while texture dictionaries inherit and override", async t => {

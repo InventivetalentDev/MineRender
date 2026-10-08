@@ -1,30 +1,33 @@
 import test, { ExecutionContext } from "ava";
 import { Box3, Group, MeshBasicMaterial, PlaneGeometry, Vector3 } from "three";
+import { AssetContext } from "../src/assets/AssetContext";
+import { AssetLoader } from "../src/assets/AssetLoader";
 import { AssetKey } from "../src/assets/AssetKey";
 import { ModelTextures } from "../src/assets/ModelTextures";
 import { Caching } from "../src/cache/Caching";
+import { GuiObject } from "../src/gui/scene/GuiObject";
 import { GuiHelper } from "../src/gui/GuiHelper";
 import { MineRenderScene } from "../src/renderer/MineRenderScene";
 import type { ExtractableImageData } from "../src/ExtractableImageData";
 import type { TextureAsset } from "../src/model/Model";
 
 function fixture(t: ExecutionContext) {
-    const get = ModelTextures.get;
-    const getMeta = ModelTextures.getMeta;
-    ModelTextures.getMeta = async () => undefined;
+    const get = ModelTextures.prototype.get;
+    const getMeta = ModelTextures.prototype.getMeta;
+    ModelTextures.prototype.getMeta = async () => undefined;
     const scene = new MineRenderScene();
     const requests: AssetKey[] = [];
     const canvas = { width: 64, height: 32 };
-    ModelTextures.get = async key => {
+    ModelTextures.prototype.get = async key => {
         requests.push(key);
         if (key.path === "missing") return undefined;
-        Caching.textureAssetCache.get(key.serialize(), async () => ({ key } as TextureAsset));
+        Caching.textureAssetCache.get(AssetLoader.context.cacheKey(key), async () => ({ key } as TextureAsset));
         return { width: 64, height: 32, data: { canvas } } as unknown as ExtractableImageData;
     };
     Caching.clear();
     t.teardown(() => {
-        ModelTextures.get = get;
-        ModelTextures.getMeta = getMeta;
+        ModelTextures.prototype.get = get;
+        ModelTextures.prototype.getMeta = getMeta;
         for (const object of [...scene.children]) {
             if ("dispose" in object) (object as { dispose(): void }).dispose();
             object.removeFromParent();
@@ -65,7 +68,7 @@ test.serial("GUI sprite metadata sets logical size and scaling while explicit cr
     const { scene } = fixture(t);
     const texture = new AssetKey("test", "sprites/panel", "textures", "gui", "assets", ".png", "test-root");
     const metadataRequests: AssetKey[] = [];
-    ModelTextures.getMeta = async key => {
+    ModelTextures.prototype.getMeta = async key => {
         metadataRequests.push(key);
         return { gui: { scaling: { type: "tile", width: 8, height: 4 } } };
     };
@@ -137,17 +140,17 @@ test.serial("GUI layers keep painter order and dispose geometry without releasin
     t.is(failedGeometryDisposals, 1);
     t.deepEqual(scene.children, before);
 
-    const get = ModelTextures.get;
-    ModelTextures.get = async key => {
-        const image = await get(key);
+    const get = ModelTextures.prototype.get;
+    ModelTextures.prototype.get = async function(key) {
+        const image = await get.call(this, key);
         Caching.clear();
         return image;
     };
     const key = AssetKey.parse("textures", "test:gui/uncached");
     const uncached = await scene.addGui([{ name: "owned", texture: key }]);
-    ModelTextures.get = get;
+    ModelTextures.prototype.get = get;
     const owned = uncached.getMeshByName("owned")!.material as MeshBasicMaterial;
-    t.is(Caching.materialCache.getIfPresent(`gui:${key.serialize()}`), undefined);
+    t.is(Caching.materialCache.getIfPresent(`gui:${AssetLoader.context.cacheKey(key)}`), undefined);
     let materialDisposals = 0, textureDisposals = 0;
     owned.addEventListener("dispose", () => materialDisposals++);
     owned.map!.addEventListener("dispose", () => textureDisposals++);
@@ -244,4 +247,36 @@ test("recipes reject invalid crafting layouts and ingredients without concrete s
     t.throws(() => GuiHelper.recipe({ ...shapeless, type: "minecraft:smelting", ingredients: ["stone"] } as any), {
         message: /Unsupported crafting recipe type/
     });
+});
+
+
+test.serial("GUI materials share within a context and stay separate between contexts", async t => {
+    fixture(t);
+    const first = new AssetContext(), second = new AssetContext();
+    const scenes = [new MineRenderScene({ assets: first }), new MineRenderScene({ assets: second })];
+    const canvases = [{ width: 16, height: 16 }, { width: 32, height: 32 }];
+    const requests: AssetContext[] = [];
+    ModelTextures.prototype.get = async function(key) {
+        const assets = this["assets"];
+        requests.push(assets);
+        Caching.textureAssetCache.get(assets.cacheKey(key), async () => ({ key } as TextureAsset));
+        const canvas = canvases[assets === first ? 0 : 1];
+        return { ...canvas, data: { canvas } } as unknown as ExtractableImageData;
+    };
+    const layers = [{ name: "panel", texture: "test:gui/panel" }];
+    const [a, b] = await Promise.all(scenes.map(async scene => {
+        const gui = new GuiObject(layers);
+        gui.scene = scene;
+        await gui.init();
+        scene.add(gui);
+        return gui;
+    }));
+    const repeated = await scenes[0].addGui(layers);
+    t.teardown(() => { for (const gui of [a, b, repeated]) gui.dispose(); });
+    const material = (gui: typeof a) => gui.getMeshByName("panel")!.material as MeshBasicMaterial;
+    t.is(material(a), material(repeated));
+    t.not(material(a), material(b));
+    t.is(material(a).map!.image, canvases[0]);
+    t.is(material(b).map!.image, canvases[1]);
+    t.deepEqual(requests, [first, second]);
 });

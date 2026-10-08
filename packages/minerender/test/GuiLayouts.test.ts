@@ -10,7 +10,7 @@ import type { TextureAsset } from "../src/model/Model";
 import { MineRenderScene } from "../src/renderer/MineRenderScene";
 
 function fixture(t: ExecutionContext) {
-    const preload = ModelTextures.preload, get = ModelTextures.get, getMeta = ModelTextures.getMeta;
+    const preload = ModelTextures.prototype.preload, get = ModelTextures.prototype.get, getMeta = ModelTextures.prototype.getMeta;
     const requests: string[] = [];
     const scene = new MineRenderScene();
     const dimensions = (key: AssetKey): [number, number] => {
@@ -20,21 +20,21 @@ function fixture(t: ExecutionContext) {
         if (path === "gui/book" || path.startsWith("gui/container/")) return [512, 512];
         throw new Error(`Unexpected GUI texture ${path}`);
     };
-    ModelTextures.preload = async key => {
+    ModelTextures.prototype.preload = async key => {
         requests.push(key.toNamespacedString());
         const [width, height] = dimensions(key);
         return { key, width, height } as TextureAsset;
     };
-    ModelTextures.get = async key => {
+    ModelTextures.prototype.get = async key => {
         const [width, height] = dimensions(key);
         return { width, height, data: { canvas: { width, height } } } as unknown as ExtractableImageData;
     };
-    ModelTextures.getMeta = async () => undefined;
+    ModelTextures.prototype.getMeta = async () => undefined;
     Caching.clear();
     t.teardown(() => {
-        ModelTextures.preload = preload;
-        ModelTextures.get = get;
-        ModelTextures.getMeta = getMeta;
+        ModelTextures.prototype.preload = preload;
+        ModelTextures.prototype.get = get;
+        ModelTextures.prototype.getMeta = getMeta;
         for (const object of [...scene.children]) {
             if ("dispose" in object) (object as { dispose(): void }).dispose();
             object.removeFromParent();

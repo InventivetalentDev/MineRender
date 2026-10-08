@@ -1,19 +1,12 @@
-import { Model, TextureAsset } from "../model/Model";
 import { Maybe } from "../util/util";
-import { Requests } from "../request/Requests";
 import { MinecraftAsset } from "../MinecraftAsset";
-import { ImageInfo, ImageLoader } from "../image/ImageLoader";
-import { MinecraftTextureMeta } from "../MinecraftTextureMeta";
-import { BlockState } from "../model/block/BlockState";
-import { DEFAULT_NAMESPACE, DEFAULT_ROOT } from "./Assets";
-import { ListAsset } from "../ListAsset";
+import { DEFAULT_ROOT } from "./AssetDefaults";
 import { AssetKey } from "./AssetKey";
-import { NBTAsset, NBTHelper } from "../nbt/NBTHelper";
 import { prefix } from "../util/log";
 import { AssetSource } from "./source/AssetSource";
 import { AssetParser } from "./source/parser/AssetParsers";
 import { HostedAssetSource } from "./source";
-import { Caching } from "../cache/Caching";
+import { AssetContext } from "./AssetContext";
 
 const p = prefix("AssetLoader");
 
@@ -26,15 +19,26 @@ export class AssetLoader {
 
     private static _SOURCES: AssetSourceReference[] = [];
 
-    /** Used when a registered source cannot identify its content, so nothing persists past this session. */
-    private static readonly SESSION_SCOPE = `session:${Date.now().toString(36)}:${Math.random().toString(36).slice(2)}`;
+    private static _context?: AssetContext;
+
+    /** Fixed configuration for the current global registry. Existing contexts retain their sources. */
+    public static get context(): AssetContext {
+        const previous = this._context;
+        if (!previous || previous.root !== this.ROOT || previous.sources.length !== this._SOURCES.length
+            || previous.sources.some((entry, i) => entry.key !== this._SOURCES[i].key || entry.source !== this._SOURCES[i].source)) {
+            previous?.clearCache();
+            this._context = AssetContext.capture(this.ROOT, this._SOURCES);
+        }
+        return this._context!;
+    }
 
     public static get version(): string {
         return this.ROOT.substring(this.ROOT.lastIndexOf("/") + 1);
     }
 
-    /** Selects an mcasset.cloud version, updates the vanilla source, and clears in-memory caches. */
+    /** Selects an mcasset.cloud version and invalidates the previous global context's in-memory entries. */
     public static setVersion(version: string): void {
+        this.invalidateContext();
         this.ROOT = `https://assets.mcasset.cloud/${version}`;
         const source = new HostedAssetSource(this.ROOT, { retryDefaults: false });
         const index = this._SOURCES.findIndex(s => s.key === "mcassets");
@@ -43,34 +47,24 @@ export class AssetLoader {
         } else {
             this.addSource("mcassets", source);
         }
-        Caching.clear();
     }
 
     /**
-     * Scope for persistent cache keys. Empty with only the default vanilla source, so its
-     * entries stay valid across sessions; otherwise it names every added source (resource packs,
-     * mirrors) so their results never masquerade as vanilla assets after a reload.
+     * Scope for persistent cache keys. Empty for the default vanilla source order; otherwise
+     * includes the complete source order and content identities, or a session-only identity
+     * when a source cannot identify its content.
      */
     public static get persistentScope(): string {
-        const parts: string[] = [];
-        for (const { key, source } of this._SOURCES) {
-            const id = source.cacheId;
-            if (key === "mcassets" && id === `hosted:${this.ROOT}`) continue;
-            if (id === undefined) return this.SESSION_SCOPE;
-            parts.push(`${key}=${id}`);
-        }
-        return parts.join("|");
+        return this.context.persistentScope;
     }
 
     /** Prefixes a persistent cache key with the current source scope. */
     public static persistentKey(key: string): string {
-        const scope = this.persistentScope;
-        return scope ? `${scope}\n${key}` : key;
+        return this.context.persistentKey(key);
     }
 
     /**
-     * Registers a source at the highest priority.
-     * Call {@link Caching.clear} after changing sources to discard previously loaded assets.
+     * Registers a source at the highest priority for subsequent global loads.
      *
      * @param key - Name used to replace or remove this source.
      * @param override - Removes the first source with this name before adding the new one.
@@ -83,14 +77,16 @@ export class AssetLoader {
             }
         }
 
+        this.invalidateContext();
         this._SOURCES.unshift({key, source});
         console.log(p, "Added AssetSource", key);
     }
 
-    /** Removes and returns the first source with this name. Call {@link Caching.clear} to reload assets. */
+    /** Removes and returns the first source with this name for subsequent global loads. */
     public static removeSource(key: string): Maybe<AssetSource> {
         const index = this._SOURCES.findIndex(s => s.key === key);
         if (index != -1) {
+            this.invalidateContext();
             const spliced = this._SOURCES.splice(index, 1);
             if (spliced.length > 0) {
                 return spliced[0].source;
@@ -103,46 +99,24 @@ export class AssetLoader {
         this.addSource("mcassets", new HostedAssetSource(this.ROOT, { retryDefaults: false }));
     }
 
-    /** Loads from all sources and returns defined results in priority order. Any source failure rejects the call. */
-    public static async getAll<T extends MinecraftAsset>(key: AssetKey, parser: AssetParser | string): Promise<T[]> {
-        const sources = [...this._SOURCES];
-        const results: T[] = [];
-        for (const { source } of sources) {
-            const asset = await source.get<T>(key, parser);
-            if (asset != undefined) results.push(asset);
-            if (await source.blocks(key)) break;
-        }
-        return results;
+    private static invalidateContext(): void {
+        this._context?.clearCache();
+        this._context = undefined;
     }
 
-    /** Returns the first defined result in source-priority order, without merging assets. */
-    public static async get<T extends MinecraftAsset>(key: AssetKey, parser: AssetParser | string): Promise<Maybe<T>> {
-        const keys = [key];
-        if (key.rootType === "data" && (key.assetType === "structure" || key.assetType === "structures")) {
-            keys.push(new AssetKey(key.namespace, key.path,
-                key.assetType === "structure" ? "structures" : "structure",
-                key.type, key.rootType, key.extension, key.root));
-        }
-        return (await this.getFirst<T>(keys, parser))?.asset;
+    /** Loads defined results from the global context in source-priority order. */
+    public static getAll<T extends MinecraftAsset>(key: AssetKey, parser: AssetParser | string): Promise<T[]> {
+        return this.context.getAll<T>(key, parser);
+    }
+
+    /** Returns the first defined result from the global context, without merging assets. */
+    public static get<T extends MinecraftAsset>(key: AssetKey, parser: AssetParser | string): Promise<Maybe<T>> {
+        return this.context.get<T>(key, parser);
     }
 
     /** Tries each path within a source before considering lower-priority sources. */
-    public static async getFirst<T extends MinecraftAsset>(keys: readonly AssetKey[], parser: AssetParser | string): Promise<Maybe<{ key: AssetKey; asset: T }>> {
-        // Source changes affect later lookups, not the priority of an in-flight lookup.
-        const sources = [...this._SOURCES];
-        let remaining = [...keys];
-        for (const source of sources) {
-            for (const key of remaining) {
-                const result = await source.source.get<T>(key, parser);
-                if (result !== undefined) {
-                    return { key, asset: result };
-                }
-            }
-            const blocked = await Promise.all(remaining.map(key => source.source.blocks(key)));
-            remaining = remaining.filter((_, index) => !blocked[index]);
-            if (!remaining.length) break;
-        }
-        return undefined;
+    public static getFirst<T extends MinecraftAsset>(keys: readonly AssetKey[], parser: AssetParser | string): Promise<Maybe<{ key: AssetKey; asset: T }>> {
+        return this.context.getFirst<T>(keys, parser);
     }
 
 }

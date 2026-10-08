@@ -11,13 +11,15 @@ import { SceneObjectOptions } from "./SceneObjectOptions";
 import { BlockState } from "../model/block/BlockState";
 import { BlockObject, BlockObjectOptions, isBlockObject } from "../model/block/scene/BlockObject";
 import { InstanceManager } from "../instance/InstanceManager";
-import { DeepPartial, sleep } from "../util/util";
 import { SkinObject, SkinObjectOptions } from "../skin/scene/SkinObject";
 import { EntityObject, EntityObjectOptions } from "../entity/scene/EntityObject";
 import { EntityModel } from "../entity/EntityModel";
 import { AssetKey, isAssetKey } from "../assets/AssetKey";
 import { GuiLayer } from "../gui/GuiLayer";
 import { GuiObject, GuiObjectOptions } from "../gui/scene/GuiObject";
+import { AssetContext } from "../assets/AssetContext";
+import { AssetLoader } from "../assets/AssetLoader";
+import { mergeAssetOptions } from "./mergeAssetOptions";
 import { ItemTints } from "../model/ItemTints";
 
 /** A Three.js scene that initializes Minecraft objects and tracks changes that need a redraw. */
@@ -27,6 +29,7 @@ export class MineRenderScene extends Scene {
 
     public static readonly DEFAULT_OPTIONS: MineRenderSceneOptions = merge({}, <MineRenderSceneOptions>{});
     public readonly options: MineRenderSceneOptions;
+    private readonly _assets?: AssetContext;
 
     readonly stats: SceneStats = new SceneStats();
     protected readonly instanceManager: InstanceManager = new InstanceManager();
@@ -40,9 +43,14 @@ export class MineRenderScene extends Scene {
         }
     };
 
-    constructor(options?: DeepPartial<MineRenderSceneOptions>) {
+    constructor(options?: MineRenderSceneOptions) {
         super();
-        this.options = merge({}, MineRenderScene.DEFAULT_OPTIONS, options ?? {});
+        this.options = mergeAssetOptions(MineRenderScene.DEFAULT_OPTIONS, options);
+        this._assets = this.options.assets;
+    }
+
+    public get assets(): AssetContext {
+        return this._assets ?? AssetLoader.context;
     }
 
     add(...objects: Object3D[]): this {
@@ -95,7 +103,9 @@ export class MineRenderScene extends Scene {
     /** Initializes each object before attaching it to the scene. */
     public async initAndAdd(...object: SceneObject[]): Promise<this> {
         this.dirty = true;
+        const assets = this.assets;
         for (let obj of object) {
+            AssetContext.for(obj, assets).bind(obj);
             await obj.init();
         }
         return this.add(...object);
@@ -106,11 +116,14 @@ export class MineRenderScene extends Scene {
         //TODO: we need a way to call objectSupplier in the instance supplier below
         // but we also need to get the options that have been merged with the defaults properly
         // so maybe to the option merging _somewhere_ else, not in the object constructor
+        const assets = AssetContext.for(asset, _options?.assets ?? this.assets);
         const obj = await objectSupplier();
-        if (isModelObject(obj)) obj.options.tints = await ItemTints.get(obj.originalModel, obj.options.tints);
+        AssetContext.for(obj, assets).bind(obj);
+        obj.scene = this;
+        if (isModelObject(obj)) obj.options.tints = await ItemTints.get(obj.assets.bind({ ...obj.originalModel }), obj.options.tints);
         if (obj?.options?.instanceMeshes && asset.key &&  (<AssetKey>asset.key)?.assetType === "models"/*TODO*/) {
             // Geometry options need separate instance pools while sharing the texture atlas.
-            let key = asset.key.serialize();
+            let key = obj.assets.cacheKey(asset.key as AssetKey);
             if (isModelObject(obj)) {
                 const { displayPosition, uvLockRotation, tints, cullMask } = obj.options;
                 if (displayPosition) key += `|display:${displayPosition}`;
@@ -121,7 +134,6 @@ export class MineRenderScene extends Scene {
             }
             return this.instanceManager.getOrCreate(key, async () => {
                 // const obj = await objectSupplier();
-                obj.scene = this;
                 await obj.init();
                 parent.add(obj);
                 // await sleep(500)//TODO
@@ -129,7 +141,6 @@ export class MineRenderScene extends Scene {
             });
         } else {
             // const obj = await objectSupplier();
-            obj.scene = this;
             // await this.initAndAdd(obj);
             await obj.init();
             if (!isBlockObject(obj)) { //TODO: adding block objects slows things down (since each block has its own)
@@ -148,6 +159,7 @@ export class MineRenderScene extends Scene {
      * @returns The model, or a reference to one placement of a shared model.
      */
     public async addModel(model: Model, options?: Partial<ModelObjectOptions>, parent: Object3D = this): Promise<ModelObject | InstanceReference<ModelObject>> {
+        options = { ...options, assets: AssetContext.for(model, options?.assets ?? this.assets) };
         return this.addSceneObject<Model, ModelObject, ModelObjectOptions>(model, () => new ModelObject(model, options), options, parent);
     }
 
@@ -157,6 +169,7 @@ export class MineRenderScene extends Scene {
      * Use the returned object's `setPosition` method to move all of its model parts.
      */
     public async addBlock(blockState: BlockState, options?: Partial<BlockObjectOptions>, parent: Object3D = this): Promise<BlockObject | InstanceReference<BlockObject>> {
+        options = { ...options, assets: AssetContext.for(blockState, options?.assets ?? this.assets) };
         return this.addSceneObject<BlockState, BlockObject, BlockObjectOptions>(blockState, () => new BlockObject(blockState, options), options, parent);
     }
 
@@ -170,7 +183,7 @@ export class MineRenderScene extends Scene {
      */
     public async addSkin(skin?: string, options?: Partial<SkinObjectOptions>, parent: Object3D = this): Promise<SkinObject> {
         this.dirty = true;
-        const obj = new SkinObject(options);
+        const obj = new SkinObject({ ...options, assets: options?.assets ?? this.assets });
         obj.scene = this;
         if (skin) {
             await obj.setSkinTexture(skin);
@@ -182,6 +195,7 @@ export class MineRenderScene extends Scene {
 
     /** Adds an entity loaded with {@link Entities.getEntity}, using its selected layers and textures. */
     public async addEntity(entity: EntityModel, options?: Partial<EntityObjectOptions>, parent: Object3D = this): Promise<EntityObject | InstanceReference<EntityObject>> {
+        options = { ...options, assets: AssetContext.for(entity, options?.assets ?? this.assets) };
         return this.addSceneObject<EntityModel, EntityObject, EntityObjectOptions>(entity, () => new EntityObject(entity, options), options, parent);
     }
 
@@ -190,7 +204,7 @@ export class MineRenderScene extends Scene {
      * Layer positions start at the top left, with positive GUI y pointing down.
      */
     public async addGui(layers: readonly GuiLayer[], options?: Partial<GuiObjectOptions>, parent: Object3D = this): Promise<GuiObject> {
-        const obj = new GuiObject(layers, options);
+        const obj = new GuiObject(layers, { ...options, assets: AssetContext.for(layers, options?.assets ?? this.assets) });
         obj.scene = this;
         await obj.init();
         parent.add(obj);
@@ -201,7 +215,8 @@ export class MineRenderScene extends Scene {
 }
 
 export interface MineRenderSceneOptions {
-
+    /** Asset configuration for new objects; loaded assets retain their original configuration. */
+    assets?: AssetContext;
 }
 
 

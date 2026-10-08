@@ -3,3 +3,4 @@ export * from './MineRenderScene';
 export * from './Renderer';
 export * from './SceneObject';
 export * from './SceneObjectOptions';
+export * from './mergeAssetOptions';

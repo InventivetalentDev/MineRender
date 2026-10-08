@@ -42,7 +42,7 @@ function patterns(t: ExecutionContext, assets: Record<string, unknown>) {
 }
 
 function fixture(t: ExecutionContext) {
-    const originals = { entity: Entities.getEntity, texture: ModelTextures.get, preload: ModelTextures.preload, image: Materials.getImage, atlas: UVMapper.getAtlas };
+    const originals = { entity: Entities.prototype.getEntity, texture: ModelTextures.prototype.get, preload: ModelTextures.prototype.preload, image: Materials.getImage, atlas: UVMapper.getAtlas };
     const material = new MeshBasicMaterial();
     const requests: { key: BasicAssetKey, texture?: BasicAssetKey, options?: EntityModelOptions }[] = [];
     const textures: AssetKey[] = [];
@@ -51,13 +51,13 @@ function fixture(t: ExecutionContext) {
     Caching.clear();
     Materials.getImage = () => material;
     UVMapper.getAtlas = async () => { throw new Error("Special items must not load a block-model atlas"); };
-    ModelTextures.get = async key => {
+    ModelTextures.prototype.get = async key => {
         textures.push(key);
         return /^entity\/(?:banner|shield)/.test(key.getFullPath())
             ? { width: 64, height: 64, data: { canvas: {} } } as unknown as ExtractableImageData : undefined;
     };
-    ModelTextures.preload = async key => Caching.textureAssetCache.get(key.serialize(), async () => ({ key } as TextureAsset));
-    Entities.getEntity = async (key, texture, options) => {
+    ModelTextures.prototype.preload = async key => Caching.textureAssetCache.get(key.serialize(), async () => ({ key } as TextureAsset));
+    Entities.prototype.getEntity = async (key, texture, options) => {
         requests.push({ key, texture, options });
         const id = key.path;
         const root = id === "chest" ? part({ bottom: part({}, [1, 0, 1], [14, 10, 14]), lid: part(), lock: part() })
@@ -92,9 +92,9 @@ function fixture(t: ExecutionContext) {
     };
     t.teardown(() => {
         objects.forEach(object => object.dispose());
-        Entities.getEntity = originals.entity;
-        ModelTextures.get = originals.texture;
-        ModelTextures.preload = originals.preload;
+        Entities.prototype.getEntity = originals.entity;
+        ModelTextures.prototype.get = originals.texture;
+        ModelTextures.prototype.preload = originals.preload;
         Materials.getImage = originals.image;
         UVMapper.getAtlas = originals.atlas;
         material.dispose();
@@ -302,7 +302,7 @@ test.serial("invalid pattern components and missing textures fail before creatin
     }
     await t.throwsAsync(SpecialItems.getParts({ type: "shield" }, undefined, { "minecraft:base_color": "toString" }), { message: /Unsupported dye color/ });
     t.is(requests.length, 0);
-    ModelTextures.preload = async () => undefined;
+    ModelTextures.prototype.preload = async () => undefined;
     await t.throwsAsync(SpecialItems.getParts({ type: "shield" }), { message: /Missing special item texture minecraft:entity\/shield_base_nopattern/ });
 });
 

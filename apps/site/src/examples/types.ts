@@ -1,4 +1,4 @@
-import type { Renderer, RendererOptions } from "minerender";
+import type { Renderer, RendererInitOptions } from "minerender";
 
 export interface ExampleContext {
     renderer: Renderer;
@@ -18,7 +18,7 @@ export interface Example {
     /** One or two sentences shown under the title. */
     description: string;
     /** Renderer options merged over the viewport defaults (camera, composer, ...). */
-    renderer?: DeepPartial<RendererOptions>;
+    renderer?: RendererInitOptions;
     /** Builds the scene. Return a cleanup function for anything the renderer does not own. */
     setup(context: ExampleContext): Promise<void | (() => void)>;
     /** Code shown next to the viewport. Keep it equivalent to setup(). */

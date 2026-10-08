@@ -62,8 +62,9 @@ test.serial("the block index is cached per root and read from next to the namesp
         return key.root === "https://example.test/old" ? undefined : index;
     }));
     AssetLoader.ROOT = "https://example.test/1.21.11";
-    t.is(await BlockEntities.getIndex(), index);
-    t.is(await BlockEntities.getIndex(), index);
+    const loaded = await BlockEntities.getIndex();
+    t.deepEqual(loaded, index);
+    t.is(await BlockEntities.getIndex(), loaded);
     t.is(keys.length, 1);
     const hosted = new HostedAssetSource(AssetLoader.ROOT);
     t.is(hosted.assetBasePath(keys[0]) + keys[0].path + keys[0].extension, "https://example.test/1.21.11/entity-models/blocks.json");
@@ -130,8 +131,8 @@ test("placement turns the translated model about the block's vertical centre axi
 
 function fixture(t: ExecutionContext, options?: Partial<MineRenderWorldOptions<boolean>>) {
     const originals = {
-        state: BlockStates.get, defaults: BlockStates.getDefaultState, model: Models.getMerged, init: ModelObject.prototype.init,
-        index: BlockEntities.getIndex, entity: Entities.getEntity, textures: EntityObject.prototype["applyTextures"], warn: console.warn
+        state: BlockStates.prototype.get, defaults: BlockStates.prototype.getDefaultState, model: Models.prototype.getMerged, init: ModelObject.prototype.init,
+        index: BlockEntities.prototype.getIndex, entity: Entities.prototype.getEntity, textures: EntityObject.prototype["applyTextures"], warn: console.warn
     };
     const geometry = new BoxGeometry(16, 16, 16);
     const material = new MeshBasicMaterial();
@@ -141,15 +142,15 @@ function fixture(t: ExecutionContext, options?: Partial<MineRenderWorldOptions<b
     const requests: { model: string; texture?: string; layer?: string }[] = [];
     const missing = new Set<string>();
     const part: EntityModelPart = { pose: { offset: [0, 0, 0], rotation: [0, 0, 0] }, cubes: [], children: {} };
-    BlockStates.get = async key => ({ key, variants: { "": { model: key.path === "bell" ? "test:block/frame" : "test:block/empty" } } });
-    BlockStates.getDefaultState = async () => undefined;
-    Models.getMerged = async key => key.path === "frame" ? { key, elements: [{ from: [0, 0, 0], to: [16, 16, 16], faces: {} }] } : { key };
+    BlockStates.prototype.get = async key => ({ key, variants: { "": { model: key.path === "bell" ? "test:block/frame" : "test:block/empty" } } });
+    BlockStates.prototype.getDefaultState = async () => undefined;
+    Models.prototype.getMerged = async key => key.path === "frame" ? { key, elements: [{ from: [0, 0, 0], to: [16, 16, 16], faces: {} }] } : { key };
     ModelObject.prototype.init = async function () {
         this.add(this["createInstancedMesh"](undefined, geometry, material, this.options.maxInstanceCount));
         models.push(this);
     };
-    BlockEntities.getIndex = async () => index;
-    Entities.getEntity = async (key, texture, entityOptions) => {
+    BlockEntities.prototype.getIndex = async () => index;
+    Entities.prototype.getEntity = async (key, texture, entityOptions) => {
         requests.push({ model: key.toNamespacedString(), texture: texture?.serialize(), layer: entityOptions?.layer });
         if (missing.has(key.path)) return undefined;
         return { id: key.toNamespacedString(), key, layer: { texture: [64, 64], root: structuredClone(part) }, transform: [{ translate: [8, 0, 8] }] };
@@ -158,12 +159,12 @@ function fixture(t: ExecutionContext, options?: Partial<MineRenderWorldOptions<b
     console.warn = () => undefined;
     t.teardown(async () => {
         await world.clear();
-        BlockStates.get = originals.state;
-        BlockStates.getDefaultState = originals.defaults;
-        Models.getMerged = originals.model;
+        BlockStates.prototype.get = originals.state;
+        BlockStates.prototype.getDefaultState = originals.defaults;
+        Models.prototype.getMerged = originals.model;
         ModelObject.prototype.init = originals.init;
-        BlockEntities.getIndex = originals.index;
-        Entities.getEntity = originals.entity;
+        BlockEntities.prototype.getIndex = originals.index;
+        Entities.prototype.getEntity = originals.entity;
         EntityObject.prototype["applyTextures"] = originals.textures;
         console.warn = originals.warn;
         for (const model of models) model.dispose();

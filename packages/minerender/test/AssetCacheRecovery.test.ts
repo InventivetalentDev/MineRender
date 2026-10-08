@@ -2,9 +2,9 @@ import test from "ava";
 import { AssetKey, AssetLoader, BasicAssetKey, BlockStates, Caching, Entities, shutdown } from "../src";
 import type { EntityModelLayer } from "../src/entity/EntityModel";
 
-const originalGet = AssetLoader.get;
+const originalGet = AssetLoader.context.get;
 test.beforeEach(() => Caching.clear());
-test.afterEach.always(() => { AssetLoader.get = originalGet; Caching.clear(); });
+test.afterEach.always(() => { AssetLoader.context.get = originalGet; Caching.clear(); });
 test.after.always(() => shutdown());
 
 const entityKey = new BasicAssetKey("minecraft", "pig");
@@ -26,11 +26,11 @@ for (const fixture of cases) {
         let reject!: (error: Error) => void;
         const pending = new Promise<never>((_, rejectPromise) => { reject = rejectPromise; });
         let calls = 0;
-        AssetLoader.get = (async () => {
+        AssetLoader.context.get = (async () => {
             calls++;
             if (calls === 1) return pending;
             return calls === 2 ? undefined : fixture.asset;
-        }) as typeof AssetLoader.get;
+        }) as typeof AssetLoader.context.get;
 
         const first = fixture.load();
         const second = fixture.load();

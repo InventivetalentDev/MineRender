@@ -3,7 +3,7 @@ import { BlockObject } from "../src/model/block/scene/BlockObject";
 import type { BlockStateVariant } from "../src/model/block/BlockState";
 import type { BlockStateProperties } from "../src/model/block/BlockStateProperties";
 import { AssetKey } from "../src/assets/AssetKey";
-import { BlockStates } from "../src/assets/BlockStates";
+import { AssetLoader } from "../src/assets/AssetLoader";
 
 class SelectionBlock extends BlockObject {
     selected: BlockStateVariant[] = [];
@@ -14,10 +14,11 @@ class SelectionBlock extends BlockObject {
 }
 
 test.serial("initial properties override defaults before models are built once", async t => {
-    const original = BlockStates.getDefaultState;
-    t.teardown(() => { BlockStates.getDefaultState = original; });
+    const blockStates = AssetLoader.context.blockStates;
+    const original = blockStates.getDefaultState;
+    t.teardown(() => { blockStates.getDefaultState = original; });
     let defaultLoads = 0;
-    BlockStates.getDefaultState = async () => {
+    blockStates.getDefaultState = async () => {
         defaultLoads++;
         return {
             axis: { default: "y", type: "enum", valueType: "string", values: ["x", "y"] },

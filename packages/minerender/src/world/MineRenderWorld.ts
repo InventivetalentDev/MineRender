@@ -8,7 +8,7 @@ import { BlockInfo } from "./BlockInfo";
 import { MultiBlockBlock, MultiBlockStructure } from "../model/multiblock/MultiBlockStructure";
 import { BatchedExecutor } from "../util/BatchedExecutor";
 import { AssetKey } from "../assets/AssetKey";
-import { BlockStates } from "../assets/BlockStates";
+import type { AssetContext } from "../assets/AssetContext";
 import { CUBE_FACE_OFFSETS } from "../CubeFace";
 import type { AnvilChunk } from "./AnvilParser";
 import { SectionModels } from "./SectionModels";
@@ -65,10 +65,11 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         return this.placeBlock(posOrX, yOrBlock as Maybe<Block>);
     }
 
-    private async placeBlock(pos: Vector3, value: Maybe<Block>, onBlocksChanged?: (positions: Vector3[]) => Promise<void>): Promise<Maybe<BlockInfo<SectionMeshing>>> {
+    private async placeBlock(pos: Vector3, value: Maybe<Block>, onBlocksChanged?: (positions: Vector3[]) => Promise<void>,
+                             assets = this.scene.assets): Promise<Maybe<BlockInfo<SectionMeshing>>> {
         this.validatePosBounds(pos);
         const chunk = Chunk.isAir(value) ? this.getChunkAt(pos) : this.getOrCreateChunkAt(pos);
-        return chunk?.setBlockInChunkAt(chunk.worldPosToChunkPos(pos), value, pos, onBlocksChanged);
+        return chunk?.setBlockInChunkAt(chunk.worldPosToChunkPos(pos), value, pos, onBlocksChanged, assets);
     }
 
     /**
@@ -99,29 +100,30 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
      * @param executor - Optional queue for batched placement. The caller remains responsible for stopping it.
      */
     public async placeMultiBlock(multiblock: MultiBlockStructure, useBatches: boolean = true, executor?: BatchedExecutor): Promise<void> {
+        const assets = this.scene.assets;
         const changes = new Map<string, Vector3>();
         try {
-            await this.placeBlocks(multiblock, useBatches, executor, changes);
+            await this.placeBlocks(multiblock, useBatches, executor, changes, assets);
         } finally {
             await this.updateCulling([...changes.values()]);
         }
     }
 
     private async placeBlocks(multiblock: MultiBlockStructure, useBatches: boolean, executor: BatchedExecutor | undefined,
-                              changes: Map<string, Vector3>): Promise<void> {
+                              changes: Map<string, Vector3>, assets: AssetContext): Promise<void> {
         const collect = async (positions: Vector3[]) => {
             for (const pos of positions) changes.set(pos.toArray().join(","), pos);
         };
-        const place = (block: MultiBlockBlock) => this.placeBlock(new Vector3(...block.position), block, collect);
+        const place = (block: MultiBlockBlock) => this.placeBlock(new Vector3(...block.position), block, collect, assets);
         const keys = new Map<string, AssetKey>();
         const types = new Set<string>();
         for (const block of multiblock.blocks) {
             if (Chunk.isAir(block) || types.has(block.type)) continue;
             types.add(block.type);
             const key = AssetKey.parse("blockstates", block.type);
-            keys.set(key.serialize(), key);
+            keys.set(assets.cacheKey(key), key);
         }
-        await BlockStates.getAll(keys.values());
+        await assets.blockStates.getAll(keys.values());
 
         if (!useBatches) {
             for (const block of multiblock.blocks) await place(block);
@@ -142,7 +144,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                 if (!group) groups.set(chunk, group = []);
                 group.push({ index: (y - cy * 16) * 256 + (z - cz * 16) * 16 + x - cx * 16, block });
             }
-            await this.placeChunkGroups(groups, changes);
+            await this.placeChunkGroups(groups, changes, assets);
             return;
         }
 
@@ -167,12 +169,12 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
     }
 
     private async placeChunkGroups(groups: Map<Chunk<SectionMeshing>, { index: number; block: Maybe<Block> }[]>,
-                                   changes: Map<string, Vector3>): Promise<void> {
+                                   changes: Map<string, Vector3>, assets: AssetContext): Promise<void> {
         let sliceStart = performance.now();
         for (const [chunk, blocks] of groups) {
             let positions: Vector3[] | undefined;
             try {
-                positions = await chunk.placeBlocks(blocks);
+                positions = await chunk.placeBlocks(blocks, assets);
             } finally {
                 // Failed groups still clear cells and place their remaining blocks.
                 positions ??= blocks.map(({ index }) => new Vector3(chunk.x * 16 + index % 16,
@@ -189,6 +191,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
 
     /** Replaces one chunk column's blocks. Entity NBT remains available on the parsed chunk. */
     public async placeChunk(chunk: AnvilChunk, executor?: BatchedExecutor): Promise<void> {
+        const assets = this.scene.assets;
         const changes = new Map<string, Vector3>();
         try {
             await this.clearChunkColumn(chunk.x, chunk.z, changes);
@@ -220,9 +223,9 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                             chunk.z * 16 + Math.floor(index / 16) % 16]
                     });
                 }
-                await this.placeBlocks({ size: [16, 16, 16], blocks }, true, executor, changes);
+                await this.placeBlocks({ size: [16, 16, 16], blocks }, true, executor, changes, assets);
             }
-            if (!executor) await this.placeChunkGroups(groups, changes);
+            if (!executor) await this.placeChunkGroups(groups, changes, assets);
         } finally {
             await this.updateCulling([...changes.values()]);
         }

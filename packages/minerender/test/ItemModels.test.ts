@@ -1,5 +1,5 @@
 import test from "ava";
-import { AssetKey, AssetLoader, AssetSource, Caching, DisplayPosition, ItemTints, Models, PersistentCache, shutdown } from "../src";
+import { AssetContext, AssetKey, AssetLoader, AssetSource, Caching, DisplayPosition, ItemTints, Models, PersistentCache, shutdown } from "../src";
 import type { ItemModel, ItemModelContext, ItemTintSource, MinecraftAsset, Maybe, SpecialItemRenderer } from "../src";
 
 class MemoryCache extends PersistentCache<Map<string, string>> {
@@ -158,9 +158,10 @@ test.serial("item tint components survive snapshots, composites, legacy parents,
     const key = itemKey("colored");
     const components = { custom_model_data: { colors: [0xff0000, 0x0000ff] }, dyed_color: 0x00ff00 };
     const context = { components, itemReferences: { "bundle/selected_item": itemKey("selected") } };
-    const previousKey = new AssetKey(key.namespace, key.path, "items").serialize()
-        + Models["contextKey"](Models["snapshotContext"](key, context)).replace("|item-v4:", "|item-v3:");
-    await Models["_persistentCache"]!.put(`item-v3:${AssetLoader.persistentKey(previousKey)}`, { key, textures: { layer0: "stale" } });
+    const assets = AssetLoader.context;
+    const previousKey = assets.persistentKey(new AssetKey(key.namespace, key.path, "items"))
+        + assets.models["contextKey"](assets.models["snapshotContext"](key, context)).replace("|item-v4:", "|item-v3:");
+    await Models["_persistentCache"]!.put(`item-v3:${previousKey}`, { key, textures: { layer0: "stale" } });
     const pending = Models.getMerged(key, context);
     components.custom_model_data.colors[0] = 0xffff00;
     const first = (await pending)! as ItemModel;
@@ -542,6 +543,52 @@ test.serial("empty composites remain empty and a missing child rejects the compl
     assets["models/item/missing"] = { textures: { layer0: "item/recovered" } };
     const recovered = (await Models.getMerged(itemKey("broken")))! as ItemModel;
     t.deepEqual(recovered.parts!.map(part => part.textures?.layer0), ["item/first", "item/recovered"]);
+});
+
+test.serial("context loaders retain composite state, referenced items, and provenance across global changes", async t => {
+    const make = (name: string) => {
+        const source = new FixtureSource({
+            "items/composite": { model: { type: "condition", property: "using_item", on_true: {
+                type: "composite", models: [reference("pack:item/part"), {
+                    type: "composite", models: [{ type: "bundle/selected_item" }]
+                }]
+            }, on_false: reference("pack:item/idle") } },
+            "items/selected": { model: reference("pack:item/selected") },
+            "models/item/part": { parent: "pack:item/base", textures: { layer0: name } },
+            "models/item/base": { textures: { particle: name } },
+            "models/item/selected": { textures: { layer0: `${name}-selected` } },
+            "models/item/idle": { textures: { layer0: `${name}-idle` } }
+        });
+        return { source, assets: new AssetContext({ sources: [{ key: "pack", source }] }) };
+    };
+    const a = make("A"), b = make("B");
+    const key = itemKey("composite");
+    const state: ItemModelContext = { properties: { using_item: true },
+        itemReferences: { "bundle/selected_item": itemKey("selected") } };
+    const originalRoot = AssetLoader.ROOT;
+    try {
+        const pending = a.assets.models.getMerged(key, state);
+        AssetLoader.ROOT = "https://assets.example/global-changed";
+        const [first, second] = await Promise.all([pending, b.assets.models.getMerged(key, state)]) as ItemModel[];
+        for (const [model, { assets }, name] of [[first, a, "A"], [second, b, "B"]] as const) {
+            t.deepEqual(model.parts![0].textures, { layer0: name, particle: name });
+            t.is(model.parts![1].parts![0].textures?.layer0, `${name}-selected`);
+            for (const part of [model, ...model.parts!, ...model.parts![1].parts!]) {
+                t.is(AssetContext.for(part), assets);
+                t.is(AssetContext.for(part.key), assets);
+            }
+            t.is(await assets.models.getMerged(key, state), model);
+        }
+        const calls = [a.source.calls.length, b.source.calls.length];
+        Caching.clear();
+        AssetLoader.ROOT = originalRoot;
+        t.deepEqual(await a.assets.models.getMerged(key, state), first);
+        t.deepEqual(await b.assets.models.getMerged(key, state), second);
+        t.deepEqual([a.source.calls.length, b.source.calls.length], calls);
+        t.is((await a.assets.models.getMerged(key))?.textures?.layer0, "A-idle");
+    } finally {
+        AssetLoader.ROOT = originalRoot;
+    }
 });
 
 test.serial("bundle properties and references stay independent through display-context and persistent cache changes", async t => {

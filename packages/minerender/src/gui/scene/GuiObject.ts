@@ -1,7 +1,6 @@
 import { Box2, Box3, BufferGeometry, DoubleSide, Group, Matrix4, Mesh, MeshBasicMaterial, Vector2 } from "three";
 import { AssetKey } from "../../assets/AssetKey";
-import { ModelTextures } from "../../assets/ModelTextures";
-import { Models } from "../../assets/Models";
+import { AssetContext } from "../../assets/AssetContext";
 import { Caching } from "../../cache/Caching";
 import { SceneObject } from "../../renderer/SceneObject";
 import { SceneObjectOptions } from "../../renderer/SceneObjectOptions";
@@ -28,7 +27,7 @@ export class GuiObject extends SceneObject {
     private initialized = false;
 
     constructor(readonly textureLayers: readonly GuiLayer[], options?: Partial<GuiObjectOptions>) {
-        super({ ...options, instanceMeshes: false, mergeMeshes: false });
+        super({ ...options, assets: AssetContext.origin(textureLayers) ?? options?.assets, instanceMeshes: false, mergeMeshes: false });
     }
 
     public async init(): Promise<void> {
@@ -38,7 +37,7 @@ export class GuiObject extends SceneObject {
             for (const [index, layer] of this.textureLayers.entries()) {
                 const [x, y] = layer.position ?? [0, 0];
                 if ("text" in layer) {
-                    const layout = await layoutGuiText(layer.text, layer);
+                    const layout = await layoutGuiText(layer.text, { ...layer, assets: this.assets });
                     const group = new Group();
                     group.name = `group:${layer.name ?? index}`;
                     group.position.set(x, -y, depth);
@@ -102,7 +101,7 @@ export class GuiObject extends SceneObject {
                 const key = typeof layer.texture === "string" ? AssetKey.parse("textures", layer.texture) : layer.texture;
                 const material = await this.loadMaterial(key);
                 const image = material.map!.image as HTMLCanvasElement;
-                const scaling = layer.crop ? undefined : (await ModelTextures.getMeta(key))?.gui?.scaling;
+                const scaling = layer.crop ? undefined : (await this.assets.modelTextures.getMeta(key))?.gui?.scaling;
                 const [width, height] = layer.size ?? (layer.crop ? layer.crop.slice(2)
                     : scaling && scaling.type !== "stretch" ? [scaling.width, scaling.height] : [image.width, image.height]);
                 const geometry = createGuiTextureGeometry(width, height, image.width, image.height, layer.crop, scaling);
@@ -128,10 +127,10 @@ export class GuiObject extends SceneObject {
 
     private async createItem(layer: GuiItemLayer, index: number): Promise<ModelObject> {
         const key = typeof layer.item === "string" ? AssetKey.parse("models", layer.item) : layer.item;
-        const model = await Models.getMerged(key, { ...layer.context, displayContext: DisplayPosition.GUI });
+        const model = await this.assets.models.getMerged(key, { ...layer.context, displayContext: DisplayPosition.GUI });
         if (!model) throw new Error(`Could not load GUI item ${key.toNamespacedString()}`);
         const item = new ModelObject(model, {
-            displayPosition: DisplayPosition.GUI, tints: layer.tints, instanceMeshes: false, mergeMeshes: true
+            assets: this.assets, displayPosition: DisplayPosition.GUI, tints: layer.tints, instanceMeshes: false, mergeMeshes: true
         });
         item.name = `group:${layer.name ?? index}`;
         this.add(item);
@@ -150,12 +149,12 @@ export class GuiObject extends SceneObject {
     }
 
     private async loadMaterial(key: AssetKey): Promise<MeshBasicMaterial> {
-        const assetKey = key.serialize();
+        const assetKey = this.assets.cacheKey(key);
         const materialKey = `gui:${assetKey}`;
         const cached = Caching.materialCache.getIfPresent(materialKey);
         if (cached) return cached as MeshBasicMaterial;
 
-        const pending = ModelTextures.get(key);
+        const pending = this.assets.modelTextures.get(key);
         const cachedAsset = Caching.textureAssetCache.getIfPresent(assetKey);
         const image = await pending;
         if (!image) throw new Error(`Could not load GUI texture ${key.toNamespacedString()}`);

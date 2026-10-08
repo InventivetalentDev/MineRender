@@ -1,4 +1,5 @@
 import { AssetKey } from "../../assets/AssetKey";
+import { AssetContext } from "../../assets/AssetContext";
 import { Colormaps } from "../../texture/Colormaps";
 import type { Model } from "../Model";
 import type { BlockStateProperties } from "./BlockStateProperties";
@@ -15,6 +16,7 @@ export class BlockTints {
     /** Resolves block preview colors without biome context; explicit tints take precedence. */
     public static async get(key: AssetKey | undefined, state: BlockStateProperties, model: Model,
                             tints?: Record<number, number>): Promise<Record<number, number> | undefined> {
+        const assets = AssetContext.for(model, AssetContext.for(key));
         const rule = key && rules[key.toNamespacedString()];
         if (!key || !rule) return tints;
 
@@ -35,7 +37,7 @@ export class BlockTints {
                 color = rule.color;
                 break;
             case "grass":
-                color = await Colormaps.grassColor(key);
+                color = await Colormaps.grassColor(assets.bind(AssetKey.parse("textures", "minecraft:colormap/grass", key)));
                 break;
             case "redstone": {
                 const power = Number(state.power ?? 0) / 15;

@@ -1,6 +1,7 @@
 import { Serializable } from "../Serializable";
-import { DEFAULT_NAMESPACE } from "./Assets";
+import { DEFAULT_NAMESPACE } from "./AssetDefaults";
 import { AssetLoader } from "./AssetLoader";
+import { AssetContext } from "./AssetContext";
 
 export type AssetType = "models" | "textures" | "blockstates" | string;
 
@@ -93,7 +94,7 @@ export class AssetKey extends BasicAssetKey {
             path = path.slice(0, -extension.length);
         }
 
-        return new AssetKey(namespace, path, assetType, type, "assets", extension, origin?.root);
+        return AssetContext.inherit(new AssetKey(namespace, path, assetType, type, "assets", extension, origin?.root), origin);
     }
 
     toString(): string {

@@ -1,4 +1,7 @@
 import { AxesHelper, Camera, EventDispatcher, GridHelper, OrthographicCamera, PCFShadowMap, PerspectiveCamera, SRGBColorSpace, Vector3, WebGLRenderer } from "three";
+import type { AssetContext } from "../assets/AssetContext";
+import { AssetLoader } from "../assets/AssetLoader";
+import { mergeAssetOptions } from "./mergeAssetOptions";
 import {MineRenderScene} from "./MineRenderScene";
 import merge from "ts-deepmerge";
 import Stats from "stats.js";
@@ -60,6 +63,8 @@ export class Renderer implements Disposable {
     });
     public readonly options: RendererOptions;
 
+    private readonly _assets?: AssetContext;
+
     protected _element?: HTMLElement;
 
     protected _scene: MineRenderScene;
@@ -88,8 +93,9 @@ export class Renderer implements Disposable {
         this._dirty = true;
     };
 
-    constructor(options?: DeepPartial<RendererOptions>) {
-        this.options = merge({}, Renderer.DEFAULT_OPTIONS, options ?? {});
+    constructor(options?: RendererInitOptions) {
+        this.options = mergeAssetOptions(Renderer.DEFAULT_OPTIONS, options);
+        this._assets = this.options.assets;
         const pixelRatio = this.options.render.pixelRatio ?? 1;
         if (!Number.isFinite(pixelRatio) || pixelRatio <= 0) {
             throw new RangeError("render.pixelRatio must be a finite positive number");
@@ -126,7 +132,7 @@ export class Renderer implements Disposable {
     //<editor-fold desc="INIT">
 
     protected createScene(): MineRenderScene {
-        return new MineRenderScene();
+        return new MineRenderScene({ assets: this._assets });
     }
 
     protected createCamera(): Camera {
@@ -578,6 +584,10 @@ export class Renderer implements Disposable {
         return this.attachedToBody ? window.innerHeight : this.element?.offsetHeight || 0;
     }
 
+    public get assets(): AssetContext {
+        return this._assets ?? AssetLoader.context;
+    }
+
     public get scene(): MineRenderScene {
         return this._scene;
     }
@@ -615,8 +625,13 @@ export interface RendererFrame {
 /** A synchronous scene update registered with {@link Renderer.onFrame}. */
 export type FrameCallback = (frame: RendererFrame) => void;
 
+/** Partial renderer settings with an asset context kept as a shared reference. */
+export type RendererInitOptions = DeepPartial<Omit<RendererOptions, "assets">> & Pick<RendererOptions, "assets">;
+
 /** Settings for `new Renderer(options)`. Omitted values use {@link Renderer.DEFAULT_OPTIONS}. */
 export interface RendererOptions {
+    /** Asset configuration for this renderer; omitted values use the global default. */
+    assets?: AssetContext;
     camera: CameraOptions;
     render: RenderOptions;
     composer: ComposerOptions;

@@ -2,7 +2,7 @@ import { BoxGeometry, BufferAttribute, Euler, Float32BufferAttribute, Vector2, V
 import { DoubleArray, Model, QuadArray, TextureAsset } from "./model/Model";
 import { ModelElement, ModelFaces } from "./model/ModelElement";
 import { CUBE_FACES, CubeFace } from "./CubeFace";
-import { ModelTextures } from "./assets/ModelTextures";
+import type { IModelTextures } from "./model/Model";
 import { Assets } from "./assets/Assets";
 import { Maybe, toRadians } from "./util/util";
 import { WrappedImage } from "./WrappedImage";
@@ -13,6 +13,7 @@ import { Textures } from "./texture/Textures";
 import { AnimatorFunction } from "./AnimatorFunction";
 import { MinecraftTextureMeta } from "./MinecraftTextureMeta";
 import { AssetKey } from "./assets/AssetKey";
+import { AssetContext } from "./assets/AssetContext";
 import { ModelGenerator } from "./model/ModelGenerator";
 import { prefix } from "./util/log";
 
@@ -243,13 +244,14 @@ export class UVMapper {
 
     /** Returns the shared atlas for a keyed, merged model, creating it on first use. */
     public static async getAtlas(model: Model): Promise<Maybe<TextureAtlas>> {
-        const keyStr = model.key!.serialize();
+        const assets = AssetContext.for(model);
+        const keyStr = assets.cacheKey(model.key!);
         return Caching.modelTextureAtlasCache.get(keyStr, k => {
-            return this.createAtlas(model);
+            return this.createAtlas(assets.bind({ ...model }));
         })
     }
 
-    public static fillMissingTextureKeys<T>(textures: ModelTextures, target: { [k: string]: T }): { [k: string]: T } {
+    public static fillMissingTextureKeys<T>(textures: IModelTextures, target: { [k: string]: T }): { [k: string]: T } {
         for (let faceName of CUBE_FACES) {
             let v = textures[faceName];
             if (v && v.startsWith("#")) {
@@ -326,9 +328,10 @@ export class UVMapper {
      * Returns `undefined` for models without a texture map.
      */
     public static async createAtlas(originalModel: Model): Promise<Maybe<TextureAtlas>> {
+        const assets = AssetContext.for(originalModel);
         const textureMap: { [key: string]: Maybe<WrappedImage>; } = {};
         const metaMap: { [key: string]: Maybe<MinecraftTextureMeta>; } = {};
-        const model = {...originalModel};
+        const model = assets.bind({...originalModel});
         // Merged models share element objects with their cached parents (cube, cube_all, ...), so the
         // baked UVs below must go onto this atlas's own copies, not onto objects other atlases read.
         if (originalModel.elements) {
@@ -349,14 +352,14 @@ export class UVMapper {
                 } else {
                     uniqueTextureNames.push(textureKey);
                     const assetKey = AssetKey.parse("textures", textureValue, model.key);
-                    promises.push(ModelTextures.get(assetKey).then(asset => {
+                    promises.push(assets.modelTextures.get(assetKey).then(asset => {
                         if (!asset) {
                             console.warn(p, "Missing texture", assetKey)
                             return;
                         }
                         textureMap[textureKey] = new WrappedImage(asset);
                     }));
-                    promises.push(ModelTextures.getMeta(assetKey).then(meta => {
+                    promises.push(assets.modelTextures.getMeta(assetKey).then(meta => {
                         metaMap[textureKey] = meta;
                     }))
                 }

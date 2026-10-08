@@ -2,24 +2,51 @@ import { AssetKey, BasicAssetKey, isAssetKey } from "./AssetKey";
 import type { EntityLayer, EntityModel, EntityModelFile, EntityModelPass } from "../entity/EntityModel";
 import type { EntityAnimation, EntityAnimationFile } from "../entity/EntityAnimation";
 import { AssetLoader } from "./AssetLoader";
+import type { AssetContext } from "./AssetContext";
 import { AssetParser } from "./source";
 import { Maybe } from "../util";
 import { Caching } from "../cache/Caching";
-import { DEFAULT_NAMESPACE } from "./Assets";
+import { DEFAULT_NAMESPACE } from "./AssetDefaults";
 import type { ListAsset } from "../ListAsset";
 import { MineRenderError } from "../error/MineRenderError";
-import { ModelTextures } from "./ModelTextures";
 import type { MinecraftAsset } from "../MinecraftAsset";
 
 /** Loads entity and block-entity geometry, texture selections, and animation clips from the dataset. */
 export class Entities {
 
+    constructor(private readonly assets: AssetContext) {
+    }
+
+    public static getEntityList(): Promise<string[]> {
+        return AssetLoader.context.entities.getEntityList();
+    }
+
+    public static getLayerList(modelKey: BasicAssetKey): Promise<string[]> {
+        return AssetLoader.context.entities.getLayerList(modelKey);
+    }
+
+    public static getPassList(modelKey: BasicAssetKey): Promise<EntityModelPass[]> {
+        return AssetLoader.context.entities.getPassList(modelKey);
+    }
+
+    public static getEntity(modelKey: BasicAssetKey, textureKey?: BasicAssetKey, options?: EntityModelOptions): Promise<Maybe<EntityModel>> {
+        return AssetLoader.context.entities.getEntity(modelKey, textureKey, options);
+    }
+
+    public static getAnimations(modelKey: BasicAssetKey): Promise<Maybe<Record<string, EntityAnimation>>> {
+        return AssetLoader.context.entities.getAnimations(modelKey);
+    }
+
+    public static resolveTexture(modelKey: BasicAssetKey): Promise<Maybe<AssetKey>> {
+        return AssetLoader.context.entities.resolveTexture(modelKey);
+    }
+
     /** Lists model paths in the `minecraft` namespace, including subdirectories and excluding `.json`. */
-    public static async getEntityList(): Promise<string[]> {
+    public async getEntityList(): Promise<string[]> {
         const collect = async (path: string): Promise<string[]> => {
             const prefix = path ? `${path}/` : "";
             const key = new AssetKey(DEFAULT_NAMESPACE, `${prefix}_list`, undefined, undefined, "entity-models", ".json");
-            const list = await Caching.listAssetCache.get(key.serialize(), () => AssetLoader.get<ListAsset>(key, AssetParser.LIST));
+            const list = await Caching.listAssetCache.get(this.assets.cacheKey(key), () => this.assets.get<ListAsset>(key, AssetParser.LIST));
             if (!list) return [];
             const files = list.files.filter(file => file.endsWith(".json") && file !== "_list.json")
                 .map(file => `${prefix}${file.slice(0, -5)}`);
@@ -29,19 +56,22 @@ export class Entities {
         return collect("");
     }
 
-    private static async getModelFile(modelKey: BasicAssetKey): Promise<Maybe<EntityModelFile>> {
+    private async getModelFile(modelKey: BasicAssetKey): Promise<Maybe<EntityModelFile>> {
         const path = isAssetKey(modelKey) ? modelKey.getFullPath() : modelKey.path;
         const key = new AssetKey(modelKey.namespace, path, undefined, undefined, "entity-models", ".json", isAssetKey(modelKey) ? modelKey.root : undefined);
-        return Caching.entityModelCache.get(key.serialize(), () => AssetLoader.get<EntityModelFile>(key, AssetParser.JSON));
+        return Caching.entityModelCache.get(this.assets.cacheKey(key), async () => {
+            const model = await this.assets.get<EntityModelFile>(key, AssetParser.JSON);
+            return model ? this.assets.bind({ ...model }) : undefined;
+        });
     }
 
     /** Returns selectable geometry-layer names, or an empty list when the model is missing. */
-    public static async getLayerList(modelKey: BasicAssetKey): Promise<string[]> {
+    public async getLayerList(modelKey: BasicAssetKey): Promise<string[]> {
         return Object.keys((await this.getModelFile(modelKey))?.layers ?? {});
     }
 
     /** The dataset's extra draws on top of `main`; their `when` labels are the states `EntityModelOptions.when` can enable. */
-    public static async getPassList(modelKey: BasicAssetKey): Promise<EntityModelPass[]> {
+    public async getPassList(modelKey: BasicAssetKey): Promise<EntityModelPass[]> {
         return (await this.getModelFile(modelKey))?.passes ?? [];
     }
 
@@ -54,7 +84,8 @@ export class Entities {
      * @param options - Layer selection, conditional passes, and per-layer texture overrides.
      * @returns The selected model, or `undefined` when its dataset file is missing.
      */
-    public static async getEntity(modelKey: BasicAssetKey, textureKey?: BasicAssetKey, options?: EntityModelOptions): Promise<Maybe<EntityModel>> {
+    public async getEntity(modelKey: BasicAssetKey, textureKey?: BasicAssetKey, options?: EntityModelOptions): Promise<Maybe<EntityModel>> {
+        modelKey = this.assets.bind(isAssetKey(modelKey) ? Object.assign(new AssetKey("", ""), modelKey) : new BasicAssetKey(modelKey));
         const model = await this.getModelFile(modelKey);
         if (!model) return undefined;
         // Without an explicit selection, draw what vanilla draws: main, then the passes enabled for the requested state.
@@ -83,65 +114,65 @@ export class Entities {
                 const path = isAssetKey(override) ? override.getFullPath() : override.path;
                 texture = isAssetKey(override) && override.assetType === "textures" && path.startsWith("entity/")
                     ? override
-                    : new AssetKey(override.namespace, path, "textures", "entity", "assets", ".png", isAssetKey(override) ? override.root : undefined);
+                    : this.assets.bind(new AssetKey(override.namespace, path, "textures", "entity", "assets", ".png", isAssetKey(override) ? override.root : undefined));
             } else if (textureLocation !== undefined) {
-                texture = AssetKey.parse("textures", textureLocation.replace(/^([^:]+:)?textures\//, "$1"));
+                texture = this.assets.bind(AssetKey.parse("textures", textureLocation.replace(/^([^:]+:)?textures\//, "$1")));
                 if (isAssetKey(modelKey)) texture.root = modelKey.root;
             } else {
                 texture = await this.resolveTexture(modelKey);
             }
             const render = pass.render ?? layer.render;
-            return [name, { key: override ?? modelKey, texture, layer, ...(render && { render }), ...(pass.tint && { tint: pass.tint }) }];
+            return [name, this.assets.bind({ key: override ?? modelKey, texture, layer, ...(render && { render }), ...(pass.tint && { tint: pass.tint }) })];
         })));
-        return { ...layers[names[0]], id: model.id, layers, ...(model.transform && { transform: model.transform }) };
+        return this.assets.bind({ ...layers[names[0]], id: model.id, layers, ...(model.transform && { transform: model.transform }) });
     }
 
     /**
      * Native and sampled vanilla clips by name, or undefined when the model or selected version has none.
      */
-    public static async getAnimations(modelKey: BasicAssetKey): Promise<Maybe<Record<string, EntityAnimation>>> {
+    public async getAnimations(modelKey: BasicAssetKey): Promise<Maybe<Record<string, EntityAnimation>>> {
         const path = isAssetKey(modelKey) ? modelKey.getFullPath() : modelKey.path;
         const key = new AssetKey(modelKey.namespace, path, undefined, undefined, "entity-models/animations", ".json", isAssetKey(modelKey) ? modelKey.root : undefined);
-        const file = await Caching.entityAnimationCache.get(key.serialize(), () => AssetLoader.get<EntityAnimationFile>(key, AssetParser.JSON));
+        const file = await Caching.entityAnimationCache.get(this.assets.cacheKey(key), () => this.assets.get<EntityAnimationFile>(key, AssetParser.JSON));
         return file?.animations;
     }
 
     /** Finds a fallback texture using the model path, its directory, and vanilla variant data. */
-    public static async resolveTexture(modelKey: BasicAssetKey): Promise<Maybe<AssetKey>> {
+    public async resolveTexture(modelKey: BasicAssetKey): Promise<Maybe<AssetKey>> {
         const path = isAssetKey(modelKey) ? modelKey.getFullPath() : modelKey.path;
         const root = isAssetKey(modelKey) ? modelKey.root : undefined;
         const key = new AssetKey(modelKey.namespace, path, undefined, undefined, "entity-models", ".json", root);
-        return Caching.entityTextureCache.get(key.serialize(), async () => {
+        return Caching.entityTextureCache.get(this.assets.cacheKey(key), async () => {
             const name = path.split("/").pop()!;
             for (const candidate of [path, `${path}/${name}`]) {
                 const texture = new AssetKey(modelKey.namespace, candidate, "textures", "entity", "assets", ".png", root);
-                if (await ModelTextures.get(texture)) return texture;
+                if (await this.assets.modelTextures.get(texture)) return this.assets.bind(texture);
             }
             const listKey = new AssetKey(modelKey.namespace, "_list", `${name}_variant`, undefined, "data", ".json", root);
-            const list = await AssetLoader.get<ListAsset>(listKey, AssetParser.LIST);
+            const list = await this.assets.get<ListAsset>(listKey, AssetParser.LIST);
             const files = list?.files.filter(file => file.endsWith(".json") && file !== "_list.json");
             const file = files?.find(file => file === "temperate.json") ?? files?.[0];
             if (!file) return undefined;
             const variantKey = new AssetKey(modelKey.namespace, file.slice(0, -5), `${name}_variant`, undefined, "data", ".json", root);
-            const variant = await AssetLoader.get<EntityVariant>(variantKey, AssetParser.JSON);
-            const assets = variant?.assets;
-            const textureId = variant?.asset_id ?? (typeof assets?.wild === "string" ? assets.wild :
-                Object.values(assets ?? {}).find(value => typeof value === "string"));
+            const variant = await this.assets.get<EntityVariant>(variantKey, AssetParser.JSON);
+            const variantAssets = variant?.assets;
+            const textureId = variant?.asset_id ?? (typeof variantAssets?.wild === "string" ? variantAssets.wild :
+                Object.values(variantAssets ?? {}).find(value => typeof value === "string"));
             if (typeof textureId !== "string") return undefined;
             const texture = AssetKey.parse("textures", textureId);
             texture.root = root;
-            return texture;
+            return this.assets.bind(texture);
         });
     }
 
     /** @deprecated Use getEntityList(); block entities share the entity dataset. */
     public static getBlockList(): Promise<string[]> {
-        return this.getEntityList();
+        return AssetLoader.context.entities.getEntityList();
     }
 
     /** @deprecated Use getEntity(); block entities share the entity dataset. */
     public static getBlock(modelKey: BasicAssetKey, textureKey?: BasicAssetKey, options?: EntityModelOptions): Promise<Maybe<EntityModel>> {
-        return this.getEntity(modelKey, textureKey, options);
+        return AssetLoader.context.entities.getEntity(modelKey, textureKey, options);
     }
 
 }

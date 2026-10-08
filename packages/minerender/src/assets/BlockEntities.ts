@@ -1,6 +1,7 @@
 import { Matrix4 } from "three";
 import { AssetKey } from "./AssetKey";
 import { AssetLoader } from "./AssetLoader";
+import type { AssetContext } from "./AssetContext";
 import { AssetParser } from "./source";
 import { Caching } from "../cache/Caching";
 import type { MinecraftAsset } from "../MinecraftAsset";
@@ -44,18 +45,25 @@ export interface ResolvedBlockEntity {
 /** Resolves blockstate properties into the entity models used to draw chests, beds, and other block entities. */
 export class BlockEntities {
 
+    constructor(private readonly assets: AssetContext) {
+    }
+
+    public static getIndex(root?: string): Promise<BlockEntityIndex> {
+        return AssetLoader.context.blockEntities.getIndex(root);
+    }
+
     /**
      * Loads the block index of a version. Versions and sources without one yield an empty index, and so does
      * a failed load: the index is optional, and blocks must not retry or fail with it one by one. The empty
-     * result is cached like any other; `Caching.clear()` or `AssetLoader.setVersion()` forces a new attempt.
+     * result is cached like any other; clear this context's cache to retry.
      */
-    public static async getIndex(root?: string): Promise<BlockEntityIndex> {
+    public async getIndex(root?: string): Promise<BlockEntityIndex> {
         // The index sits next to the namespace directories, at <root>/entity-models/blocks.json.
         const key = new AssetKey("entity-models", "blocks", undefined, undefined, undefined, ".json", root);
         key.rootType = undefined!;
-        const index = await Caching.blockEntityIndexCache.get(key.serialize(), async () => {
+        const index = await Caching.blockEntityIndexCache.get(this.assets.cacheKey(key), async () => {
             try {
-                return await AssetLoader.get<BlockEntityIndex>(key, AssetParser.JSON) ?? {};
+                return this.assets.bind({ ...await this.assets.get<BlockEntityIndex>(key, AssetParser.JSON) });
             } catch (error) {
                 console.warn("Could not load the block entity index; block entities are drawn as plain block models", error);
                 return {};

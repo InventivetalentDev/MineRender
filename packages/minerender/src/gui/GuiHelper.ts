@@ -1,3 +1,4 @@
+import { AssetContext } from "../assets/AssetContext";
 import { AssetKey, isAssetKey } from "../assets/AssetKey";
 import { ModelTextures } from "../assets/ModelTextures";
 import type { GuiLayer, GuiTextureLayer } from "./GuiLayer";
@@ -111,8 +112,9 @@ export class GuiHelper {
     /** Sizes a tooltip around supplied text; the first entry is its title. */
     public static async tooltip(lines: readonly GuiText[], options: GuiTooltipOptions = {}): Promise<GuiLayer[]> {
         if (!lines.length) return [];
+        const assets = options.assets ?? AssetContext.for(typeof options.font === "object" ? options.font : undefined);
         const { position = [0, 0], titleGap = 2, lineHeight = 10, shadow = true, ...style } = options;
-        const textOptions = { ...style, lineHeight, shadow };
+        const textOptions = { ...style, lineHeight, shadow, assets };
         const layouts = await Promise.all(lines.map(line => layoutGuiText(line, textOptions)));
         const width = Math.max(...layouts.map(layout => layout.width));
         const height = layouts.reduce((sum, layout) => sum + layout.height, 0) - 2 + (lines.length > 1 ? titleGap : 0);
@@ -127,7 +129,7 @@ export class GuiHelper {
             layers.push({ ...textOptions, name: `tooltip-line-${index}`, text, position: [position[0], y] });
             y += layouts[index].height + (index === 0 ? titleGap : 0);
         });
-        return layers;
+        return assets.bind(layers);
     }
 
     /**

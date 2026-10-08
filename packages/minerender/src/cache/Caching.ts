@@ -123,7 +123,7 @@ export class Caching {
 
 
     /** Every cache above, so clear()/end() can never fall out of sync with the field list again. */
-    private static get all(): { invalidateAll(): void; end(): void }[] {
+    private static get all(): { invalidateAll(): void; invalidate(key: CacheKey): void; keys(): CacheKey[]; end(): void }[] {
         return [
             this.rawImageCache,
             this.imageDataCache,
@@ -148,6 +148,15 @@ export class Caching {
             this.fontCache,
             this.bannerPatternCache
         ];
+    }
+
+    /** @internal Invalidates keys containing a context's unique cache prefix. */
+    public static clearContext(prefix: string): void {
+        for (const cache of this.all) {
+            for (const key of cache.keys()) {
+                if (key.includes(prefix)) cache.invalidate(key);
+            }
+        }
     }
 
     /** Invalidates in-memory entries so later lookups reload them. Persisted entries are retained. */

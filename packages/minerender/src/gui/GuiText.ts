@@ -1,6 +1,7 @@
 import { BufferGeometry, Color, Float32BufferAttribute } from "three";
+import { AssetContext } from "../assets/AssetContext";
 import type { AssetKey } from "../assets/AssetKey";
-import { Fonts, type BitmapGlyph } from "../assets/Fonts";
+import type { BitmapGlyph } from "../assets/Fonts";
 import type { CompatCanvas } from "../canvas/CanvasCompat";
 
 /** Text appearance set on a GUI text layer or overridden by an individual text run. */
@@ -21,6 +22,8 @@ export type GuiText = string | readonly GuiTextRun[];
 
 /** Text layout settings set on a GUI text layer or passed to {@link layoutGuiText}. */
 export interface GuiTextOptions extends GuiTextStyle {
+    /** Asset configuration used to load and measure the font. */
+    assets?: AssetContext;
     /** Font resource ID; defaults to minecraft:default. */
     font?: AssetKey | string;
     /** Draws a one-pixel shadow; defaults to true. */
@@ -55,7 +58,8 @@ export async function layoutGuiText(text: GuiText, options: GuiTextOptions = {})
     if (!(maxWidth > 0) || !Number.isFinite(lineHeight) || lineHeight <= 0) {
         throw new Error("Text wrap width and line height must be positive");
     }
-    const font = await Fonts.get(options.font);
+    const assets = options.assets ?? AssetContext.for(typeof options.font === "object" ? options.font : undefined);
+    const font = await assets.fonts.get(options.font);
     const runs = typeof text === "string" ? [{ text }] : text;
     const glyphs: PositionedGuiGlyph[] = [], lineWidths: number[] = [];
     let line: PositionedGuiGlyph[] = [], width = 0;

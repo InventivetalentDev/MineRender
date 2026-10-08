@@ -5,16 +5,15 @@ import { classicSkinTextureCoordinates, SkinTextureCoordinates, slimSkinTextureC
 import { classicSkinGeometries, SkinGeometries, slimSkinGeometries } from "../SkinGeometries";
 import { Axis } from "../../Axis";
 import { Materials } from "../../Materials";
-import merge from "ts-deepmerge";
 import { SceneObjectOptions } from "../../renderer/SceneObjectOptions";
-import { DeepPartial, toRadians } from "../../util/util";
+import { toRadians } from "../../util/util";
 import { SkinTextures } from "../SkinTextures";
 import { CapeLayout, capeTextureSizes } from "../CapeLayout";
 
 /** A player model facing +Z. Left and right parts are the player's own: left is +X, right is -X. */
 export class SkinObject extends SceneObject {
 
-    public readonly options: SkinObjectOptions;
+    declare public readonly options: SkinObjectOptions;
 
     private slim: boolean = false;
     private detectedSlim: boolean = false;
@@ -25,9 +24,8 @@ export class SkinObject extends SceneObject {
     private capeLoad: number = 0;
 
 
-    constructor(options?: DeepPartial<SkinObjectOptions>) {
-        super();
-        this.options = merge({}, SceneObject.DEFAULT_OPTIONS, options ?? {});
+    constructor(options?: Partial<SkinObjectOptions>) {
+        super(options);
         this.slim = this.options.slim ?? false;
     }
 

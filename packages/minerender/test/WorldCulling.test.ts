@@ -1,6 +1,8 @@
 import test, { ExecutionContext } from "ava";
 import { Mesh, MeshBasicMaterial, Vector3 } from "three";
 import { AssetKey } from "../src/assets/AssetKey";
+import { AssetContext } from "../src/assets/AssetContext";
+import { AssetLoader } from "../src/assets/AssetLoader";
 import { BlockStates } from "../src/assets/BlockStates";
 import { Models } from "../src/assets/Models";
 import { Caching } from "../src/cache/Caching";
@@ -26,7 +28,7 @@ import type { CanvasImage } from "../src/canvas/CanvasImage";
 import type { CompatCanvas } from "../src/canvas/CanvasCompat";
 
 function fixture<SectionMeshing extends boolean = false>(t: ExecutionContext, options: MineRenderWorldOptions<SectionMeshing> = {}) {
-    const originals = { state: BlockStates.get, defaults: BlockStates.getDefaultState, model: Models.getMerged, atlas: UVMapper.getAtlas, image: Materials.getImage, material: Materials.createShadedCanvasMaterial, provider: Env["_provider"] };
+    const originals = { state: BlockStates.prototype.get, defaults: BlockStates.prototype.getDefaultState, model: Models.prototype.getMerged, atlas: UVMapper.getAtlas, image: Materials.getImage, material: Materials.createShadedCanvasMaterial, provider: Env["_provider"] };
     const scene = new MineRenderScene(), world = new MineRenderWorld<SectionMeshing>(scene, options);
     Env.register({ name: "test", createCanvas: (width, height) => ({
         width, height, getContext: () => ({ drawImage() {} })
@@ -35,15 +37,15 @@ function fixture<SectionMeshing extends boolean = false>(t: ExecutionContext, op
     const models = new Map<string, Model>(), atlases = new Map<Model, TextureAtlas>();
     const states = new Map<string, BlockState>();
     Caching.clear();
-    BlockStates.get = async key => states.get(key.toNamespacedString());
-    BlockStates.getDefaultState = async () => undefined;
-    Models.getMerged = async key => models.get(key.toNamespacedString());
+    BlockStates.prototype.get = async key => states.get(key.toNamespacedString());
+    BlockStates.prototype.getDefaultState = async () => undefined;
+    Models.prototype.getMerged = async key => models.get(key.toNamespacedString());
     UVMapper.getAtlas = async model => {
         if (model.key?.type === "fluid" && !atlases.has(model)) {
             atlases.set(model, new TextureAtlas(model, { width: 32, height: 16, canvas: {} } as CanvasImage,
                 { still: [16, 16], flow: [16, 16] }, { still: [0, 0], flow: [16, 0] }, false, {}, model.key.path === "water"));
         }
-        return atlases.get(model);
+        return atlases.get(model) ?? [...atlases].find(([original]) => original.key === model.key)?.[1];
     };
     Materials.getImage = Materials.createShadedCanvasMaterial = () => material;
     const addModel = (name: string, options: { height?: number; transparent?: boolean; animated?: boolean; cullable?: CubeFace[] } = {}) => {
@@ -70,9 +72,9 @@ function fixture<SectionMeshing extends boolean = false>(t: ExecutionContext, op
         scene.traverse(object => { if ((object as Mesh).isMesh) (object as Mesh).geometry.dispose(); });
         for (const owner of [...scene.children]) (owner as ModelObject).dispose();
         material.dispose();
-        BlockStates.get = originals.state;
-        BlockStates.getDefaultState = originals.defaults;
-        Models.getMerged = originals.model;
+        BlockStates.prototype.get = originals.state;
+        BlockStates.prototype.getDefaultState = originals.defaults;
+        Models.prototype.getMerged = originals.model;
         UVMapper.getAtlas = originals.atlas;
         Materials.getImage = originals.image;
         Materials.createShadedCanvasMaterial = originals.material;
@@ -94,6 +96,67 @@ const indexCount = (block: BlockObject, index = 0) => {
     const geometry = geometryOf(block, index);
     return geometry.index?.count ?? geometry.getAttribute("position")?.count ?? 0;
 };
+
+for (const sectionMeshing of [false, true]) {
+    test.serial(`bulk placement keeps its asset context while future edits follow global changes (sectionMeshing=${sectionMeshing})`, async t => {
+        const originals = { state: BlockStates.prototype.get, preload: BlockStates.prototype.getAll, defaults: BlockStates.prototype.getDefaultState,
+            model: Models.prototype.getMerged, atlas: UVMapper.getAtlas, root: AssetLoader.ROOT, sources: [...AssetLoader["_SOURCES"]] };
+        const { world } = fixture(t, { sectionMeshing });
+        const loads: [string, AssetContext | undefined][] = [];
+        const state = BlockStates.prototype.get, model = Models.prototype.getMerged, atlas = UVMapper.getAtlas;
+        BlockStates.prototype.get = async function (key) {
+            loads.push(["state", this["assets"]]);
+            return state.call(this, key);
+        };
+        Models.prototype.getMerged = async function (key, context) {
+            loads.push(["model", this["assets"]]);
+            const value = await model.call(this, key, context);
+            return value && this["assets"].bind(value);
+        };
+        UVMapper.getAtlas = async value => { loads.push(["atlas", AssetContext.for(value)]); return atlas(value); };
+        let release!: () => void, entered!: () => void;
+        const ready = new Promise<void>(resolve => { entered = resolve; });
+        const gate = new Promise<void>(resolve => { release = resolve; });
+        BlockStates.prototype.getAll = async function () {
+            loads.push(["preload", this["assets"]]);
+            entered();
+            await gate;
+            return [];
+        };
+        const executor = new BatchedExecutor(1, 1);
+        t.teardown(() => {
+            release();
+            executor.stop();
+            BlockStates.prototype.get = originals.state;
+            BlockStates.prototype.getAll = originals.preload;
+            BlockStates.prototype.getDefaultState = originals.defaults;
+            Models.prototype.getMerged = originals.model;
+            UVMapper.getAtlas = originals.atlas;
+            AssetLoader.ROOT = originals.root;
+            AssetLoader["_SOURCES"] = originals.sources;
+        });
+        const before = AssetLoader.context;
+        const pending = world.placeMultiBlock({ size: [18, 1, 1], blocks: [
+            { type: "test:cube", position: [0, 0, 0] }, { type: "test:cube", position: [17, 0, 0] }
+        ] }, true, executor);
+        await ready;
+        AssetLoader.setVersion("context-test-next");
+        const after = AssetLoader.context;
+        release();
+        await pending;
+        t.not(before, after);
+        t.true(loads.every(([, assets]) => assets === before));
+        t.true(["preload", "state", "model", "atlas"].every(kind => loads.some(([loaded]) => kind === loaded)));
+        const first = world.getBlockAt(0, 0, 0)!;
+        t.is(first.object === undefined, sectionMeshing);
+        if (first.object) t.is(first.object.assets, before);
+        loads.length = 0;
+        await world.setBlockAt(34, 0, 0, { type: "test:cube" });
+        t.true(loads.length > 0);
+        t.true(loads.every(([, assets]) => assets === after));
+        if (first.object) t.is(first.object.assets, before);
+    });
+}
 
 test.serial("opaque neighbors cull shared faces across signed chunk borders and restore them when cleared or replaced", async t => {
     const { world, place, addModel } = fixture(t);
@@ -290,10 +353,10 @@ test.serial("default bulk placement starts distinct block-state resolutions conc
     const types = ["test:cube", "test:second", "test:third"], requested: string[] = [];
     const releases: (() => void)[] = [];
     const gates = types.map(() => new Promise<void>(resolve => { releases.push(resolve); }));
-    const get = BlockStates.get, getAll = BlockStates.getAll;
+    const get = BlockStates.prototype.get, getAll = BlockStates.prototype.getAll;
     // Bypass world preloads so this test measures the chunk's resolution pass.
-    BlockStates.getAll = async () => [];
-    BlockStates.get = async key => {
+    BlockStates.prototype.getAll = async () => [];
+    BlockStates.prototype.get = async key => {
         const type = key.toNamespacedString();
         requested.push(type);
         await gates[types.indexOf(type)];
@@ -301,7 +364,7 @@ test.serial("default bulk placement starts distinct block-state resolutions conc
     };
     const pending = world.placeMultiBlock({ size: [3, 1, 1], blocks: types.map((type, x) => ({ type, position: [x, 0, 0] })) });
     t.teardown(async () => {
-        BlockStates.getAll = getAll;
+        BlockStates.prototype.getAll = getAll;
         for (const release of releases) release();
         await pending;
     });
@@ -421,15 +484,15 @@ for (const useExecutor of [false, true]) test.serial(`failed bulk placement upda
     const { world, scene, place } = fixture(t);
     await place([14, 0, 0]);
     await place([15, 0, 0]);
-    const get = BlockStates.get, getAll = BlockStates.getAll;
+    const get = BlockStates.prototype.get, getAll = BlockStates.prototype.getAll;
     const failure = new Error("block asset failed");
-    BlockStates.getAll = async () => [];
-    BlockStates.get = async key => {
+    BlockStates.prototype.getAll = async () => [];
+    BlockStates.prototype.get = async key => {
         if (key.path === "failure") throw failure;
         return get(key);
     };
     const executor = useExecutor ? new BatchedExecutor(1, 4) : undefined;
-    t.teardown(() => { BlockStates.getAll = getAll; executor?.stop(); });
+    t.teardown(() => { BlockStates.prototype.getAll = getAll; executor?.stop(); });
     await t.throwsAsync(world.placeMultiBlock({ size: [4, 1, 1], blocks: [
         { position: [15, 0, 0], type: "air" },
         { position: [16, 0, 0], type: "test:cube" },
@@ -551,13 +614,13 @@ test.serial("standalone edits finish culling while another bulk placement is wai
     let release!: () => void, started!: () => void;
     const gate = new Promise<void>(resolve => { release = resolve; });
     const loading = new Promise<void>(resolve => { started = resolve; });
-    const get = BlockStates.get, getAll = BlockStates.getAll;
-    BlockStates.getAll = async () => [];
-    BlockStates.get = async key => {
+    const get = BlockStates.prototype.get, getAll = BlockStates.prototype.getAll;
+    BlockStates.prototype.getAll = async () => [];
+    BlockStates.prototype.get = async key => {
         if (key.path === "delayed") { started(); await gate; }
         return get(key);
     };
-    t.teardown(() => { release(); BlockStates.getAll = getAll; });
+    t.teardown(() => { release(); BlockStates.prototype.getAll = getAll; });
     const pending = world.placeMultiBlock({ size: [1, 1, 1], blocks: [
         { position: [2, 0, 0], type: "test:delayed" }
     ] });

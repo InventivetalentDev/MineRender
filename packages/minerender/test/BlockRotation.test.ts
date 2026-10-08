@@ -13,9 +13,9 @@ function deferred() {
 }
 
 function fixture(t: ExecutionContext, beforeInit: () => Promise<void> = async () => {}) {
-    const originals = { get: Models.getMerged, init: ModelObject.prototype.init };
+    const originals = { get: Models.prototype.getMerged, init: ModelObject.prototype.init };
     const meshes: Mesh[] = [];
-    Models.getMerged = async key => ({ key });
+    Models.prototype.getMerged = async key => ({ key });
     ModelObject.prototype.init = async function () {
         await beforeInit();
         const geometry = new BoxGeometry(16, 16, 16);
@@ -28,7 +28,7 @@ function fixture(t: ExecutionContext, beforeInit: () => Promise<void> = async ()
         meshes.push(mesh);
     };
     t.teardown(() => {
-        Models.getMerged = originals.get;
+        Models.prototype.getMerged = originals.get;
         ModelObject.prototype.init = originals.init;
         for (const mesh of meshes) {
             mesh.geometry.dispose();

@@ -1,8 +1,7 @@
 import { Euler, Matrix4, MeshBasicMaterial } from "three";
 import { AssetKey } from "../assets/AssetKey";
-import { Entities } from "../assets/Entities";
+import { AssetContext } from "../assets/AssetContext";
 import { BannerPatterns, DYE_COLORS } from "../assets/BannerPatterns";
-import { ModelTextures } from "../assets/ModelTextures";
 import type { EntityLayer, EntityModel, EntityModelLayer } from "../entity/EntityModel";
 import type { SpecialItemRenderer, TripleArray } from "./Model";
 
@@ -22,6 +21,7 @@ export class SpecialItems {
 
     /** Resolves the static entity parts drawn by a special item renderer, in model units. */
     public static async getParts(special: SpecialItemRenderer, root?: string, components: Record<string, unknown> = {}): Promise<SpecialItemPart[]> {
+        const assets = AssetContext.for(special);
         const texture = (id: string, directory: string) => {
             const key = AssetKey.parse("textures", id);
             return new AssetKey(key.namespace, [directory, key.getFullPath()].filter(Boolean).join("/"),
@@ -30,7 +30,7 @@ export class SpecialItems {
         const load = async (id: string, textureKey: AssetKey | undefined, transform: Matrix4,
                             rotations: Record<string, TripleArray> = {}, layers = ["main"]): Promise<SpecialItemPart> => {
             const key = new AssetKey("minecraft", id, undefined, undefined, "entity-models", ".json", root);
-            const model = await Entities.getEntity(key, textureKey, layers.length === 1 ? { layer: layers[0] } : {
+            const model = await assets.entities.getEntity(key, textureKey, layers.length === 1 ? { layer: layers[0] } : {
                 layers, textures: textureKey ? Object.fromEntries(layers.map(name => [name, textureKey])) : undefined
             });
             if (!model) throw new Error(`Missing entity model minecraft:${id} for special item ${special.type}`);
@@ -44,8 +44,8 @@ export class SpecialItems {
                 const trident = special.type === "trident" || special.type === "minecraft:trident";
                 const part = await load(trident ? "trident" : "conduit", texture(trident ? "trident" : "conduit/base", ""),
                     trident ? new Matrix4().makeScale(1, -1, -1) : new Matrix4().makeTranslation(8, 8, 8), {}, trident ? ["main"] : ["shell"]);
-                part.model = { ...part.model, render: "solid", layers: part.model.layers && Object.fromEntries(
-                    Object.entries(part.model.layers).map(([name, layer]) => [name, { ...layer, render: "solid" }])) };
+                part.model = assets.bind({ ...part.model, render: "solid", layers: part.model.layers && Object.fromEntries(
+                    Object.entries(part.model.layers).map(([name, layer]) => [name, { ...layer, render: "solid" }])) });
                 return [part];
             }
             case "minecraft:banner":
@@ -55,7 +55,7 @@ export class SpecialItems {
                 const banner = special.type === "banner" || special.type === "minecraft:banner";
                 const color = banner ? BannerPatterns.getColor(special.color) : components["minecraft:base_color"] === undefined
                     ? undefined : BannerPatterns.getColor(components["minecraft:base_color"]);
-                const patterns = await BannerPatterns.getLayers(components["minecraft:banner_patterns"], banner ? "banner" : "shield", root);
+                const patterns = await BannerPatterns.getLayers(components["minecraft:banner_patterns"], banner ? "banner" : "shield", root, assets);
                 const patterned = banner || color !== undefined || patterns.length > 0;
                 const baseTexture = texture(banner ? "banner_base" : patterned ? "shield_base" : "shield_base_nopattern", "");
                 const transform = banner ? new Matrix4().makeTranslation(8, 0, 8).multiply(new Matrix4().makeScale(2 / 3, -2 / 3, -2 / 3))
@@ -88,9 +88,9 @@ export class SpecialItems {
                     });
                 }
                 await Promise.all([...new Map(Object.values(layers).map(layer => [layer.texture!.serialize(), layer.texture!])).values()].map(async key => {
-                    if (!await ModelTextures.preload(key)) throw new Error(`Missing special item texture ${key.toNamespacedString()}`);
+                    if (!await assets.modelTextures.preload(key)) throw new Error(`Missing special item texture ${key.toNamespacedString()}`);
                 }));
-                part.model = { ...part.model, ...layers.main, layers };
+                part.model = assets.bind({ ...part.model, ...layers.main, layers });
                 part.tints = tints;
                 return [part];
             }
@@ -100,7 +100,7 @@ export class SpecialItems {
                 const chest = await load("chest", texture(special.texture, "chest"), new Matrix4(), {
                     lid: [angle, 0, 0], lock: [angle, 0, 0]
                 });
-                chest.model = { ...chest.model, render: "solid", layers: undefined };
+                chest.model = assets.bind({ ...chest.model, render: "solid", layers: undefined });
                 return [chest];
             }
             case "minecraft:shulker_box":

@@ -41,24 +41,26 @@ test.serial("only the default vanilla sources leave persistent keys unscoped", t
 
 test.serial("added sources scope persistent keys by their content identity", t => {
     AssetLoader.addSource("pack", new StubSource("archive:pack.zip:10:1"));
-    t.is(AssetLoader.persistentScope, "pack=archive:pack.zip:10:1");
-    t.is(AssetLoader.persistentKey("asset"), "pack=archive:pack.zip:10:1\nasset");
+    const packScope = AssetLoader.persistentScope;
+    t.true(packScope.includes("archive:pack.zip:10:1"));
+    t.is(AssetLoader.persistentKey("asset"), `${packScope}\nasset`);
 
     AssetLoader.addSource("mirror", new HostedAssetSource("https://mirror.example/assets"));
-    t.is(AssetLoader.persistentScope, "mirror=hosted:https://mirror.example/assets|pack=archive:pack.zip:10:1");
+    t.not(AssetLoader.persistentScope, packScope);
+    t.true(AssetLoader.persistentScope.includes("hosted:https://mirror.example/assets"));
 
     AssetLoader.removeSource("mirror");
     AssetLoader.removeSource("pack");
     t.is(AssetLoader.persistentKey("asset"), "asset");
 });
 
-test.serial("a source without a content identity confines persisted entries to the session", t => {
+test.serial("a source without a content identity confines persisted entries to one registry snapshot", t => {
     AssetLoader.addSource("anonymous", new StubSource(undefined));
     const scope = AssetLoader.persistentScope;
     t.regex(scope, /^session:/);
     t.is(AssetLoader.persistentScope, scope);
     AssetLoader.addSource("pack", new StubSource("archive:pack"));
-    t.is(AssetLoader.persistentScope, scope);
+    t.not(AssetLoader.persistentScope, scope);
 });
 
 test.serial("archive sources identify themselves through their proxy", t => {
@@ -78,14 +80,17 @@ test.serial("blockstates loaded through a pack do not persist under the vanilla 
     const key = AssetKey.parse("blockstates", "minecraft:stone");
     AssetLoader["_SOURCES"] = [];
     AssetLoader.addSource("mcassets", new StubSource(`hosted:${AssetLoader.ROOT}`, { variants: { "": { model: "block/stone" } } }));
+    const vanillaKey = AssetLoader.persistentKey(key.serialize());
     await BlockStates.get(key);
-    t.deepEqual(await cache.keys(), [key.serialize()]);
+    t.deepEqual(await cache.keys(), [vanillaKey]);
 
     Caching.clear();
     AssetLoader.addSource("pack", new StubSource("archive:pack.zip:10:1", { variants: { "": { model: "block/stone7" } } }));
     const packed = await BlockStates.get(key);
     t.is(packed?.variants?.[""] && (packed.variants[""] as { model: string }).model, "block/stone7");
-    t.deepEqual((await cache.keys()).sort(), [key.serialize(), `pack=archive:pack.zip:10:1\n${key.serialize()}`].sort());
+    const packedKey = AssetLoader.persistentKey(key.serialize());
+    t.not(packedKey, vanillaKey);
+    t.deepEqual((await cache.keys()).sort(), [vanillaKey, packedKey].sort());
 
     Caching.clear();
     AssetLoader.removeSource("pack");

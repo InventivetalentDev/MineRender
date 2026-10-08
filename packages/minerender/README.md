@@ -30,11 +30,10 @@ Requires Node.js 22.12+ or a browser with WebGL 2, Fetch, `AbortSignal.any()`, a
 Register a browser `File` or `Blob` before loading models or textures:
 
 ```ts
-import { ArchiveAssetSource, AssetLoader, Caching } from "minerender";
+import { ArchiveAssetSource, AssetLoader } from "minerender";
 
 AssetLoader.setVersion("1.21.11");
 AssetLoader.addSource("pack", ArchiveAssetSource.blob(resourcePackFile));
-Caching.clear();
 ```
 
 `ArchiveAssetSource` reads the root `pack.mcmeta` once. Matching overlays take
@@ -62,6 +61,38 @@ Filter expressions use JavaScript regular expressions with substring matching.
 Namespace and path matches can come from different rules, following vanilla's
 filter behavior. Paths include the asset type and extension, such as
 `textures/block/stone.png`. Java-only regular expression syntax is not supported.
+
+## Independent asset configurations
+
+Use an `AssetContext` to load different versions or resource packs concurrently:
+
+```ts
+import { AssetContext, AssetKey, ArchiveAssetSource, Renderer } from "minerender";
+
+const assets = new AssetContext({
+    version: "1.21.11",
+    sources: [{ key: "pack", source: ArchiveAssetSource.blob(resourcePackFile) }]
+});
+const renderer = new Renderer({ assets });
+const model = await renderer.assets.models.getMerged(AssetKey.parse("models", "block/stone"));
+if (model) await renderer.scene.addModel(model);
+```
+
+Sources are ordered highest priority first, followed by vanilla and fallback assets.
+Configure source objects before constructing the context. Its version and source
+stack stay fixed; create another context and reload objects to change them.
+Context-bound `blockStates`, `modelTextures`, `entities`, and `fonts` loaders use
+the same configuration. Loaded assets retain their context when added to another
+scene. Objects created from raw data inherit their scene's context when attached.
+Worlds and scene documents inherit their scene's context.
+
+Without an explicit context, renderers and static loaders use `AssetLoader`'s
+global configuration. Global source changes affect future loads; in-flight loads
+and existing objects retain their configuration. The previous global context's
+in-memory entries are invalidated without clearing independent contexts. Use
+`assets.clearCache()` to clear one context or `Caching.clear()` to clear all of them.
+Disposing a renderer leaves
+shared contexts and their cached assets available to other renderers.
 
 ## Load an editable scene
 

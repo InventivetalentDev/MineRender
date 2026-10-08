@@ -1,6 +1,7 @@
 import test from "ava";
 import { AssetKey, BasicAssetKey } from "../src/assets/AssetKey";
 import { AssetLoader } from "../src/assets/AssetLoader";
+import { AssetContext } from "../src/assets/AssetContext";
 import { Entities } from "../src/assets/Entities";
 import { ModelTextures } from "../src/assets/ModelTextures";
 import { Env, EnvProvider } from "../src/Env";
@@ -79,6 +80,41 @@ test.serial("entity files preserve nested IDs and share layers while explicit te
     t.deepEqual(keys, [new AssetKey("custom", "boat/oak", undefined, undefined, "entity-models", ".json")]);
     t.is(lowerCalls, 0);
     t.deepEqual(file, original);
+});
+
+test.serial("pending entity loads snapshot model keys and retain their context for later animations", async t => {
+    const file = model();
+    file.layers.main.textureLocation = "minecraft:entity/cow";
+    const firstClips = { idle: { length: 1, loop: true, bones: {} } };
+    const nextClips = { idle: { length: 2, loop: true, bones: {} } };
+    let entered!: () => void, release!: () => void;
+    const started = new Promise<void>(resolve => { entered = resolve; });
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    t.teardown(() => release());
+    AssetLoader.addSource("test", new StubSource(async key => {
+        if (key.rootType === "entity-models/animations") return { animations: firstClips };
+        entered();
+        await gate;
+        return file;
+    }));
+    const assets = AssetLoader.context;
+    const root = "https://pack.example/original";
+    const key = new AssetKey("minecraft", "cow", undefined, undefined, "entity-models", ".json", root);
+    const pending = assets.entities.getEntity(key);
+    await started;
+    key.root = "https://pack.example/replacement";
+    AssetLoader.setVersion("context-test-next");
+    AssetLoader.addSource("test", new StubSource(() => ({ animations: nextClips })));
+    release();
+    const entity = (await pending)!;
+    t.not(entity.key, key);
+    t.is((entity.key as AssetKey).root, root);
+    t.is(entity.texture!.root, root);
+    t.is(AssetContext.for(entity.key), assets);
+    t.is(await assets.entities.getAnimations(entity.key!), firstClips);
+    t.is(await Entities.getAnimations(entity.key!), nextClips);
+    t.is(await Entities.getAnimations(new BasicAssetKey("minecraft", "cow")), nextClips);
+    t.is(key.root, "https://pack.example/replacement");
 });
 
 test.serial("parsed entity and texture keys retain their complete paths", async t => {

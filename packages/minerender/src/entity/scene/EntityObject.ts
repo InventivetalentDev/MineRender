@@ -1,4 +1,5 @@
 import { SceneObject } from "../../renderer/SceneObject";
+import { mergeAssetOptions } from "../../renderer/mergeAssetOptions";
 import { SceneObjectOptions } from "../../renderer/SceneObjectOptions";
 import { Caching } from "../../cache/Caching";
 import merge from "ts-deepmerge";
@@ -6,7 +7,6 @@ import { Color, Euler, Matrix4, Object3D } from "three";
 import type { BufferGeometry, ColorRepresentation, Material, Mesh, MeshBasicMaterial } from "three";
 import { Ticker } from "../../Ticker";
 import { addWireframeToMesh } from "../../util/model";
-import { ModelTextures } from "../../assets/ModelTextures";
 import { AssetKey, isAssetKey } from "../../assets/AssetKey";
 import { ExtractableImageData } from "../../ExtractableImageData";
 import { Materials } from "../../Materials";
@@ -24,7 +24,7 @@ export class EntityObject extends SceneObject {
     public readonly isEntityObject: true = true;
 
     public static readonly DEFAULT_OPTIONS: EntityObjectOptions = merge({}, SceneObject.DEFAULT_OPTIONS);
-    public readonly options: EntityObjectOptions;
+    declare public readonly options: EntityObjectOptions;
 
     private meshesCreated: boolean = false;
     private readonly geometries = new Set<BufferGeometry>();
@@ -38,8 +38,7 @@ export class EntityObject extends SceneObject {
     private readonly partPoses = new Map<Object3D, EntityModelPart["pose"]>();
 
     constructor(readonly entity: EntityModel, options?: Partial<EntityObjectOptions>) {
-        super();
-        this.options = merge({}, EntityObject.DEFAULT_OPTIONS, options ?? {});
+        super(mergeAssetOptions(EntityObject.DEFAULT_OPTIONS, options, entity));
         this.addEventListener("added", () => this.updateScrollSubscription());
         this.addEventListener("removed", () => this.updateScrollSubscription());
     }
@@ -199,7 +198,7 @@ export class EntityObject extends SceneObject {
     }
 
     protected async loadTextures(layer: EntityLayer = this.entity): Promise<Maybe<ExtractableImageData>> {
-        return ModelTextures.get(this.getTextureKey(layer));
+        return this.assets.modelTextures.get(this.getTextureKey(layer));
     }
 
     protected createMeshes(force: boolean = false) {
@@ -273,7 +272,7 @@ export class EntityObject extends SceneObject {
             const mode = layer.render ?? layer.layer.render ?? "cutout";
             const tint = layer.tint === undefined ? undefined : this.options.tints?.[layer.tint];
             const scroll = Materials.entityModeScroll(mode);
-            const assetKeyStr = this.getTextureKey(layer).serialize();
+            const assetKeyStr = this.assets.cacheKey(this.getTextureKey(layer));
             const keyStr = `entity:${ mode }:${ tint === undefined ? "" : new Color(tint).getHexString() }:${ assetKeyStr }`;
             let mat = scroll ? undefined : Caching.materialCache.getIfPresent(keyStr);
             if (!mat) {

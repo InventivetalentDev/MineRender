@@ -1,6 +1,7 @@
 import test, { ExecutionContext } from "ava";
 import { Color, CustomBlending, Mesh, MeshBasicMaterial, NormalBlending, Object3D, OneFactor, RepeatWrapping, OneMinusSrcAlphaFactor } from "three";
 import { AssetKey, BasicAssetKey } from "../src/assets/AssetKey";
+import { AssetContext } from "../src/assets/AssetContext";
 import { AssetLoader } from "../src/assets/AssetLoader";
 import { Entities } from "../src/assets/Entities";
 import { ModelTextures } from "../src/assets/ModelTextures";
@@ -25,12 +26,12 @@ const modes: EntityRenderMode[] = ["cutout", "cutout_cull", "cutout_z_offset", "
     "eyes", "no_outline", "energy_swirl", "breeze_wind", "water_mask"];
 
 const originalSources = [...AssetLoader["_SOURCES"]];
-const originalGet = ModelTextures.get;
+const originalGet = ModelTextures.prototype.get;
 const originalImage = Materials.getImage;
 test.beforeEach(() => Caching.clear());
 test.afterEach.always(() => {
     AssetLoader["_SOURCES"] = [...originalSources];
-    ModelTextures.get = originalGet;
+    ModelTextures.prototype.get = originalGet;
     Materials.getImage = originalImage;
     Caching.clear();
 });
@@ -40,7 +41,7 @@ function fixture(t: ExecutionContext) {
     const placeholder = new MeshBasicMaterial();
     const objects: EntityObject[] = [];
     Materials.getImage = () => placeholder;
-    ModelTextures.get = async () => ({ width: 64, height: 32, data: { canvas } } as unknown as ExtractableImageData);
+    ModelTextures.prototype.get = async () => ({ width: 64, height: 32, data: { canvas } } as unknown as ExtractableImageData);
     t.teardown(() => {
         for (const object of objects) object.dispose();
         placeholder.dispose();
@@ -53,7 +54,7 @@ function fixture(t: ExecutionContext) {
         objects.push(object);
         // Materials are only shared for textures that are already cached assets.
         for (const layer of Object.values(complete)) {
-            await Caching.textureAssetCache.get(layer.texture.serialize(), async () => ({ key: layer.texture } as unknown as TextureAsset));
+            await Caching.textureAssetCache.get(object.assets.cacheKey(layer.texture), async () => ({ key: layer.texture } as unknown as TextureAsset));
         }
         await object.init();
         return object;
@@ -178,7 +179,7 @@ test.serial("materials are shared per texture, mode and tint", async t => {
     t.is(material(first, "main#2"), material(second, "main#2"));
     t.not(material(first, "main"), material(first, "main#2"));
     t.is(material(first, "main#2").depthWrite, false);
-    t.is(Caching.materialCache.getIfPresent(`entity:eyes::${texture.serialize()}`), material(first, "main#2"));
+    t.is(Caching.materialCache.getIfPresent(`entity:eyes::${AssetLoader.context.cacheKey(texture)}`), material(first, "main#2"));
     // A label without a colour stays untinted and shares the plain material.
     t.is(material(first, "collar"), material(first, "main"));
     t.not(material(first, "wool"), material(second, "wool"));
@@ -204,8 +205,8 @@ test.serial("scrolling modes follow entity age on an owned texture and stop on d
     t.is(material(object, "main"), material(plain, "main"));
     t.not(material(object, "armor"), material(other, "armor"));
     t.not(material(object, "armor").map, material(object, "main").map);
-    t.is(Caching.materialCache.getIfPresent(`entity:energy_swirl::${texture.serialize()}`), undefined);
-    t.is(Caching.materialCache.getIfPresent(`entity:cutout::${texture.serialize()}`), material(object, "main"));
+    t.is(Caching.materialCache.getIfPresent(`entity:energy_swirl::${AssetLoader.context.cacheKey(texture)}`), undefined);
+    t.is(Caching.materialCache.getIfPresent(`entity:cutout::${AssetLoader.context.cacheKey(texture)}`), material(object, "main"));
 
     const tick = [...Ticker.tickers.values()][Ticker.tickers.size - 2];
     for (let i = 0; i < 3; i++) tick();
@@ -270,4 +271,27 @@ test.serial("scrolling entity tickers pause while detached and resume once with 
     object.dispose();
     t.is(Ticker.tickers.size, tickers);
     t.is(Ticker["interval"], undefined);
+});
+
+
+test.serial("entity materials retain their context when another context loads the same texture", async t => {
+    const create = fixture(t);
+    const first = new AssetContext(), second = new AssetContext();
+    const canvases = [{}, {}] as HTMLCanvasElement[];
+    const requests: AssetContext[] = [];
+    ModelTextures.prototype.get = async function(_key) {
+        const assets = this["assets"];
+        requests.push(assets);
+        return { width: 64, height: 32, data: { canvas: canvases[assets === first ? 0 : 1] } } as unknown as ExtractableImageData;
+    };
+    const layers = { main: { texture: textureKey("shared") } };
+    const a = await create(layers, { assets: first });
+    const b = await create(layers, { assets: second });
+    const repeated = await create(layers, { assets: first });
+    t.is(a.options.assets, first);
+    t.is(material(a, "main"), material(repeated, "main"));
+    t.not(material(a, "main"), material(b, "main"));
+    t.is(material(a, "main").map!.image, canvases[0]);
+    t.is(material(b, "main").map!.image, canvases[1]);
+    t.deepEqual(requests, [first, second]);
 });
