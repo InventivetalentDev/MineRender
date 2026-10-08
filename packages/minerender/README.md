@@ -44,8 +44,11 @@ supported. A pack's `filter.block` rules suppress matching files in lower-priori
 sources, including contributions to combined fonts; the pack's own files remain available.
 
 Packs with overlays lazily resolve the selected Minecraft version's resource and
-data pack formats from [mcmeta's extracted version metadata](https://github.com/misode/mcmeta).
-For offline use or versions absent from that dataset, pass explicit formats:
+data pack formats from `https://assets.mcasset.cloud/<version>/game-version.json`.
+[MCAsset-Downloader](https://github.com/InventivetalentDev/MCAsset-Downloader) extracts
+this file unchanged from the official client JAR's root `version.json`.
+For offline use, older JARs without this metadata, or versions not yet re-extracted,
+pass explicit formats:
 
 ```ts
 const pack = ArchiveAssetSource.blob(resourcePackFile, { resourcePackFormat: [75, 0] });

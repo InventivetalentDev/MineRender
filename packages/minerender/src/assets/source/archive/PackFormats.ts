@@ -3,17 +3,23 @@ import type { PackFormat } from "./PackMetadata";
 
 export class PackFormats {
 
-    private static readonly versions = new Map<string, Promise<Record<"assets" | "data", PackFormat>>>();
+    private static readonly versions = new Map<string, {
+        formats: Promise<Record<"assets" | "data", PackFormat>>;
+        expires: number;
+    }>();
 
-    /** Resolves a Minecraft version's pack formats from mcmeta's extracted client metadata. */
+    /** Resolves pack formats from Mojang's client metadata hosted on assets.mcasset.cloud. */
     public static async get(version: string, type: "assets" | "data"): Promise<PackFormat> {
         let pending = this.versions.get(version);
-        if (!pending) {
-            pending = this.load(version);
+        if (!pending || pending.expires <= Date.now()) {
+            pending = {
+                formats: this.load(version),
+                expires: ["latest", "release", "snapshot"].includes(version) ? Date.now() + 300_000 : Infinity
+            };
             this.versions.set(version, pending);
         }
         try {
-            return (await pending)[type];
+            return (await pending.formats)[type];
         } catch (cause) {
             if (this.versions.get(version) === pending) this.versions.delete(version);
             const option = type === "assets" ? "resourcePackFormat" : "dataPackFormat";
@@ -24,16 +30,21 @@ export class PackFormats {
 
     private static async load(version: string): Promise<Record<"assets" | "data", PackFormat>> {
         const response = await Requests.genericRequest({
-            url: `https://raw.githubusercontent.com/misode/mcmeta/${encodeURIComponent(version)}-summary/version.json`,
+            url: `https://assets.mcasset.cloud/${encodeURIComponent(version)}/game-version.json`,
             responseType: "json"
         });
         const data = response.data;
         if (!data || typeof data !== "object" || Array.isArray(data)) {
             throw new Error("Expected version metadata to be an object");
         }
+        const packs = data.pack_version;
+        if (typeof packs !== "number" && (!packs || typeof packs !== "object" || Array.isArray(packs))) {
+            throw new Error("Expected pack_version to be a number or an object");
+        }
         const format = (type: "resource" | "data"): PackFormat => {
-            const major = data[`${type}_pack_version`];
-            const minor = data[`${type}_pack_version_minor`] === undefined ? 0 : data[`${type}_pack_version_minor`];
+            const modern = typeof packs === "object" && ["resource_major", "resource_minor", "data_major", "data_minor"].some(key => key in packs);
+            const major = typeof packs === "number" ? packs : packs[modern ? `${type}_major` : type];
+            const minor = modern ? packs[`${type}_minor`] : 0;
             if (typeof major !== "number" || !Number.isSafeInteger(major) || major < 0
                 || typeof minor !== "number" || !Number.isSafeInteger(minor) || minor < 0) {
                 throw new Error(`Invalid ${type} pack format in version metadata`);
