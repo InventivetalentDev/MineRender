@@ -129,5 +129,6 @@ export const exports: ExampleGroup = {
     id: "export",
     title: "Export",
     lead: "Save a frame as an image or the scene as a 3D model.",
+    playgrounds: [{ url: "https://beta.minerender.org/demo/exports/", label: "Export playground" }],
     examples: [screenshot, model3d]
 };

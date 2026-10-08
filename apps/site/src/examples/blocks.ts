@@ -324,6 +324,7 @@ export const blocks: ExampleGroup = {
     id: "blocks",
     title: "Blocks",
     lead: "Vanilla blockstates and models from the asset CDN, merged through their parent chain and drawn through shared instanced meshes. Chests, beds and skulls get their entity models; water and lava render with levels and flow.",
+    playgrounds: [{ url: "https://beta.minerender.org/demo/block/", label: "Block playground" }],
     examples: [{ ...single, title: "A single block" }, multipart, blockEntities, fluids, many],
     notes: [
         "Preview tints use the resource pack's colormap at a fixed biome."
