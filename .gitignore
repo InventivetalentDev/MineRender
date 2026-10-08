@@ -7,6 +7,8 @@ res/tools/java/in*
 node_modules/
 dist/
 docs/
+packages/minerender/reference/api/
+packages/minerender/reference/.vitepress/cache/
 
 # yarn 4 (nodeLinker: node-modules)
 .yarn/*

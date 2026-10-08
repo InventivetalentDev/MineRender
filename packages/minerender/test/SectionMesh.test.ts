@@ -26,6 +26,7 @@ test.serial("section faces retain baked rotation, tint and atlas UVs without cha
     const first = create(), second = create();
     first.geometry.applyMatrix4(new Matrix4().makeRotationY(Math.PI / 2));
     first.geometry.setAttribute("color", new Float32BufferAttribute(Array.from({ length: 24 }, () => [0.25, 0.5, 0.75]).flat(), 3));
+    first.geometry.setAttribute("uvBounds", new Float32BufferAttribute(Array.from({ length: 24 }, () => [0.25, 0.25, 0.75, 0.75]).flat(), 4));
     const source = first.geometry.toJSON();
     let sourceDisposals = 0;
     first.geometry.addEventListener("dispose", () => { sourceDisposals++; });
@@ -49,6 +50,8 @@ test.serial("section faces retain baked rotation, tint and atlas UVs without cha
     t.deepEqual([texture.image.width, texture.image.height], [4, 2]);
     t.deepEqual([geometry.getAttribute("uv").getX(0), geometry.getAttribute("uv").getY(0)], [0, 1]);
     t.deepEqual([geometry.getAttribute("uv").getX(20), geometry.getAttribute("uv").getY(20)], [0.5, 1]);
+    t.deepEqual(Array.from(geometry.getAttribute("uvBounds").array).slice(0, 4), [0.125, 0.25, 0.375, 0.75]);
+    t.deepEqual(Array.from(geometry.getAttribute("uvBounds").array).slice(80, 84), [0.5, 0, 1, 1]);
     t.deepEqual(first.geometry.toJSON(), source);
     const disposed = { geometry: 0, material: 0, texture: 0 };
     geometry.addEventListener("dispose", () => { disposed.geometry++; });
