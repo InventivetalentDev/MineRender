@@ -56,6 +56,32 @@ Calling `removeFromScene()` or `dispose()` on an instance reference releases its
 
 With `sectionMeshing: true`, [MineRenderWorld](/api/index/classes/MineRenderWorld) merges eligible blocks into section meshes. A merged block has no individual `BlockInfo.object`. Edit it through the world or chunk setters so geometry and neighbor culling update together.
 
+## Streaming a Java world
+
+Use a dedicated `MineRenderWorld` with `sectionMeshing: true` and a `WorldStreamer` to render nearby chunk columns. This example reads one dimension's `r.<x>.<z>.mca` files at region coordinates:
+
+```ts
+const source = new AnvilWorldSource(async (x, z, signal) => {
+    const response = await fetch(`/world/region/r.${x}.${z}.mca`, { signal });
+    if (response.status === 404) return undefined;
+    if (!response.ok) throw new Error(`Region request failed: ${response.status}`);
+    return response.arrayBuffer();
+});
+const world = new MineRenderWorld(renderer.scene, { sectionMeshing: true });
+const stream = new WorldStreamer(world, source, { loadRadius: 1, unloadRadius: 2 });
+await stream.updatePosition(renderer.camera.position);
+```
+
+Call `updatePosition` after the camera or view center moves. It accepts scene units; `update(x, z)` accepts absolute chunk coordinates.
+
+The streamer aborts obsolete reads and active reads during disposal. Source callbacks must forward the optional signal to cancellable I/O to stop that work.
+
+Source errors appear in `failedChunks` while other columns continue loading. Call `await stream.retryFailedChunks()` to retry them. Placement or unloading failures reject the update.
+
+Await `stream.dispose()` before editing or clearing the world; it unloads its columns and leaves the world and source caller-owned.
+
+Java 1.13+ paletted chunks support gzip, zlib, and uncompressed payloads; pre-1.13 numeric chunks, LZ4, external `.mcc` payloads, and DataVersion migration remain unsupported.
+
 ## Ownership and cleanup
 
 Choose cleanup according to the resource you own:

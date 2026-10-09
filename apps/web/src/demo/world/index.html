@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>World streaming | MineRender</title>
+    <link rel="stylesheet" href="../../demo_shared.css">
+</head>
+<body class="playground">
+    <aside class="playground-panel" id="playground-panel">
+        <a href="../../">← All playgrounds</a>
+        <h1>World streaming</h1>
+        <p id="status" class="playground-status" role="status">Loading sample terrain…</p>
+        <button id="retry" type="button" hidden>Retry</button>
+        <p class="control-note">Drag to orbit, right-drag to pan, and scroll to zoom. Nearby chunks load around the view center as you pan.</p>
+        <fieldset id="source-controls">
+            <legend>World source</legend>
+            <button id="sample" type="button">Use sample terrain</button>
+            <label>World folder<input id="world-folder" type="file" webkitdirectory multiple></label>
+            <label>Or choose region files<input id="region-files" type="file" accept=".mca" multiple></label>
+            <label>Dimension<select id="dimension" disabled><option>Sample terrain</option></select></label>
+            <p id="source-info" class="control-note">Procedural terrain with no world download.</p>
+            <label>Minecraft asset version<input id="asset-version" value="1.21.11" spellcheck="false"></label>
+            <button id="apply-version" type="button">Apply version</button>
+            <p class="control-note">World files stay in your browser. Block models and textures load from the asset CDN. Choose the version used by your world.</p>
+        </fieldset>
+        <fieldset id="view-controls">
+            <legend>View center</legend>
+            <div class="playground-grid">
+                <label>Chunk X<input id="chunk-x" type="number" step="1" value="0"></label>
+                <label>Chunk Z<input id="chunk-z" type="number" step="1" value="0"></label>
+                <label>Block Y<input id="block-y" type="number" step="1" value="5"></label>
+            </div>
+            <button id="jump" type="button">Go to chunk</button>
+            <div class="playground-actions" aria-label="Move view center by one chunk">
+                <button type="button" data-step-x="-1">−X</button>
+                <button type="button" data-step-x="1">+X</button>
+                <button type="button" data-step-z="-1">−Z</button>
+                <button type="button" data-step-z="1">+Z</button>
+            </div>
+            <label>Load radius (chunks)<select id="load-radius"><option value="0">0 · one chunk</option><option value="1" selected>1 · up to 9 chunks</option><option value="2">2 · up to 25 chunks</option><option value="3">3 · up to 49 chunks</option></select></label>
+            <label class="control-checkbox"><span>Follow view center</span><input id="follow" type="checkbox" checked></label>
+            <p class="control-note">Chunks unload beyond the load radius plus one. Opaque terrain uses section meshes. Larger radii need more time and memory.</p>
+        </fieldset>
+        <output id="world-stats" class="playground-stats"></output>
+        <details><summary>Supported worlds</summary>
+            <p class="control-note">Java Edition 1.13+ region files. Select a world folder to choose the Overworld, Nether, End, or a custom dimension. Files selected without folders are treated as one dimension.</p>
+            <p class="control-note">Lighting, biome colors, entities, pre-1.13 numeric blocks, LZ4 compression, and external .mcc chunks are not rendered. This viewer streams existing chunks; it does not generate missing terrain.</p>
+        </details>
+    </aside>
+    <main id="viewport" class="playground-viewport" aria-label="World preview"></main>
+    <button id="panel-toggle" type="button" class="panel-toggle" aria-controls="playground-panel" aria-expanded="true">Hide controls</button>
+    <script type="module" src="script.bundle.js"></script>
+</body>
+</html>
