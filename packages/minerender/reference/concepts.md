@@ -65,7 +65,7 @@ const world = new MineRenderWorld(renderer.scene, { renderEntities: true });
 await world.placeMultiBlock(structure);
 ```
 
-The option defaults to `false`. Placement uses each mob's saved position and yaw. Sheep use their saved wool color and shearing state, including the dyed undercoat after shearing. Foxes, axolotls, and parrots use their saved texture variants. Missing or malformed appearance fields use vanilla defaults; parrot variant IDs clamp to the valid range. Other mobs use their default appearance from the selected entity dataset. Unsupported entities retain their NBT without creating a render object. Pitch, equipment, other variants, baby sizes, passengers, and saved animation state are ignored.
+The option defaults to `false`. With `renderEntities`, supported mobs render at their saved position and yaw; sheep wool colour and shearing and fox, axolotl and parrot variants apply; other appearance state is ignored. Unsupported entities retain their NBT without creating a render object.
 
 The world owns these entity objects. Replacing or unloading a chunk column disposes its entities, including structure entities positioned within that column. `await world.clear()` removes all of them.
 

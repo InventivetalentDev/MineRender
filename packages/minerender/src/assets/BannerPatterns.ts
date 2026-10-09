@@ -5,7 +5,7 @@ import { Caching } from "../cache/Caching";
 import type { MinecraftAsset } from "../MinecraftAsset";
 import type { ListAsset } from "../ListAsset";
 
-/** Vanilla dye colors in numeric ID order, as sRGB packed values. */
+/** Vanilla dye colors used by banner and shield textures, as sRGB packed values. */
 export const DYE_COLORS = Object.freeze({
     white: 0xf9fffe, orange: 0xf9801d, magenta: 0xc74ebd, light_blue: 0x3ab3da,
     yellow: 0xfed83d, lime: 0x80c71f, pink: 0xf38baa, gray: 0x474f52,
