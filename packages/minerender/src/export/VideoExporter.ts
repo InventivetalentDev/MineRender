@@ -12,7 +12,10 @@ export interface VideoExportOptions {
     signal?: AbortSignal;
 }
 
-/** Records fresh canvas frames in a browser, at a fixed size with an opaque black background. */
+/**
+ * Records fresh canvas frames in a browser, at a fixed size with an opaque black background.
+ * @internal
+ */
 export class VideoExporter {
     /** Resolves after the recorder provides its final video data. */
     public readonly result: Promise<Blob>;
@@ -71,7 +74,6 @@ export class VideoExporter {
             this.recorder.addEventListener("error", this.onError);
             for (const track of this.stream.getTracks()) {
                 track.addEventListener("ended", this.onTrackEnded);
-                track.addEventListener("mute", this.onTrackEnded);
             }
             this.signal?.addEventListener("abort", this.onAbort, { once: true });
             this.recorder.start();
@@ -146,7 +148,6 @@ export class VideoExporter {
         }
         for (const track of this.stream?.getTracks() ?? []) {
             track.removeEventListener("ended", this.onTrackEnded);
-            track.removeEventListener("mute", this.onTrackEnded);
             track.stop();
         }
         this.chunks.length = 0;

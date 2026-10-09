@@ -46,7 +46,7 @@ Call `renderer.toVideo({ duration: 5, fps: 30 })` to record five seconds of the 
 
 Recording runs in real time. Keep the tab visible; browser scheduling and `render.fpsLimit` can reduce the frame rate or affect duration. The video keeps the canvas's initial drawing-buffer dimensions, scales later resizes to fit, and fills transparent pixels with black. It does not trim frames or rewind animations.
 
-Only one video can record per renderer. A stopped renderer starts for the recording and stops again afterward. Pass an `AbortSignal` as `signal` to cancel. Calling `stop()`, restarting with `start()`, or disposing the renderer also cancels the recording and rejects its promise.
+Only one video can record per renderer. A stopped renderer starts for the recording and stops again afterward. Pass an `AbortSignal` as `signal` to cancel. Calling `stop()` or disposing the renderer also cancels the recording and rejects its promise. Calling `start()` while the renderer is running leaves the recording active.
 
 ## Objects and instance references
 

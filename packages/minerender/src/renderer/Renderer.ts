@@ -371,9 +371,9 @@ export class Renderer implements Disposable {
         };
     }
 
-    /** Starts or resumes the animation loop and registered frame callbacks. */
+    /** Starts or resumes the animation loop and registered frame callbacks. Has no effect while running. */
     public start() {
-        if (this._disposed) return;
+        if (this._disposed || this._running) return;
 
         this.stop();
         this._running = true;

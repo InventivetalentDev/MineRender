@@ -16,6 +16,7 @@
   "entryFileName": "index.md",
   "hidePageHeader": true,
   "useCustomAnchors": true,
+  "excludeInternal": true,
   "excludeProtected": true,
   "hideBreadcrumbs": true,
   "sanitizeComments": true,

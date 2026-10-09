@@ -141,7 +141,7 @@ function fixture(t: ExecutionContext) {
 
 test.after.always(() => shutdown());
 
-test.serial("video export composites fixed-size frames and waits for final data before resolving", async t => {
+test.serial("video export survives transient track mute, composites fixed-size frames, and waits for final data", async t => {
     const f = fixture(t);
     f.state.finishOnStop = false;
     const exporter = new VideoExporter(f.source, { duration: 2, fps: 24, videoBitsPerSecond: 1000000 });
@@ -157,6 +157,10 @@ test.serial("video export composites fixed-size frames and waits for final data 
     t.deepEqual(f.copies[1], [f.source, 0, 0, 320, 240]);
     recorder.begin();
     t.is([...f.timers.values()][0].delay, 2000);
+    f.tracks[0].dispatchEvent(new Event("mute"));
+    f.tracks[0].dispatchEvent(new Event("unmute"));
+    t.is(recorder.state, "recording");
+    t.is(f.tracks[0].stops, 0);
     recorder.data("");
     recorder.data("first", "video/webm;codecs=vp09.00.10.08");
     let resolved = false;
@@ -219,13 +223,13 @@ test.serial("video setup, capture, stream, and recorder failures release all own
         await failure;
         f.state[key] = undefined;
     }
-    for (const event of ["error", "ended", "mute", "stop", "empty"] as const) {
+    for (const event of ["error", "ended", "stop", "empty"] as const) {
         f.state.finishOnStop = false;
         const exporter = new VideoExporter(f.source, { duration: 1 });
         const failure = t.throwsAsync(exporter.result);
         const recorder = f.recorders.at(-1)!;
         recorder.begin();
-        if (event === "ended" || event === "mute") f.tracks.at(-1)!.dispatchEvent(new Event(event));
+        if (event === "ended") f.tracks.at(-1)!.dispatchEvent(new Event(event));
         else if (event === "empty") { f.fireTimer(); recorder.dispatchEvent(new Event("stop")); }
         else recorder.dispatchEvent(new Event(event));
         await failure;
@@ -247,6 +251,8 @@ test.serial("renderer video capture follows direct and composer draws and restor
         t.is(updates, 0);
         renderer.tick(0);
         t.is(updates, 1);
+        renderer.start();
+        t.is(f.recorders.at(-1)!.stops, 0);
         unsubscribe();
         renderer.tick(40);
         t.deepEqual(f.events, [draw, "fill", "copy", draw, "fill", "copy", draw, "fill", "copy"]);
