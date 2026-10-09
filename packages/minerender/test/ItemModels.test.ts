@@ -408,6 +408,8 @@ test.serial("special items retain their renderer and inherit the base pose throu
     const renderers: SpecialItemRenderer[] = [
         { type: "minecraft:chest", texture: "pack:normal", openness: 0.5 },
         { type: "minecraft:bed", texture: "minecraft:red" },
+        { type: "shulker_box", texture: "shulker" },
+        { type: "minecraft:shulker_box", texture: "pack:shulker_blue", openness: 1.5, orientation: "west" },
         { type: "minecraft:head", kind: "dragon", texture: "pack:dragon", animation: 0.25 }
     ];
     const display = { gui: { rotation: [30, 45, 0], scale: [0.625, 0.625, 0.625] } };
@@ -644,6 +646,12 @@ test.serial("unsupported or broken definitions reject instead of using lower-pri
         type: "minecraft:special", base: "item/base", model: { type: "minecraft:shield" }
     } } }));
     await t.throwsAsync(Models.getMerged(itemKey("invalid")), { message: /Unsupported special item renderer minecraft:shield/ });
+    for (const options of [{ texture: "" }, { orientation: "sideways" }, { openness: "1" }, { openness: null }]) {
+        AssetLoader.addSource("test-pack", new FixtureSource({ "items/invalid": { model: {
+            type: "special", base: "item/base", model: { type: "minecraft:shulker_box", texture: "shulker", ...options }
+        } } }));
+        await t.throwsAsync(Models.getMerged(itemKey("invalid")), { message: /Unsupported special item renderer minecraft:shulker_box/ });
+    }
 });
 
 test.serial("item lists use modern definitions and retain legacy source fallback", async t => {

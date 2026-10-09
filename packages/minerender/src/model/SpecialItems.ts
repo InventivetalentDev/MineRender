@@ -1,4 +1,4 @@
-import { Matrix4, MeshBasicMaterial } from "three";
+import { Euler, Matrix4, MeshBasicMaterial } from "three";
 import { AssetKey } from "../assets/AssetKey";
 import { Entities } from "../assets/Entities";
 import type { EntityModel } from "../entity/EntityModel";
@@ -9,9 +9,11 @@ export interface SpecialItemPart {
     model: EntityModel;
     transform: Matrix4;
     rotations: Record<string, TripleArray>;
+    /** Absolute named-part positions in the entity model's coordinate system. */
+    positions?: Record<string, TripleArray>;
 }
 
-/** Loads the entity geometry used by chest, bed, and supported mob-head item previews. */
+/** Loads the entity geometry used by chest, shulker-box, bed, and supported mob-head item previews. */
 export class SpecialItems {
 
     /** Resolves the static entity parts drawn by a special item renderer, in model units. */
@@ -37,6 +39,26 @@ export class SpecialItems {
                 });
                 chest.model = { ...chest.model, render: "solid", layers: undefined };
                 return [chest];
+            }
+            case "minecraft:shulker_box":
+            case "shulker_box": {
+                const openness = special.openness === undefined ? 0 : special.openness;
+                const orientation = special.orientation === undefined ? "up" : special.orientation;
+                const directions: Record<string, TripleArray> = {
+                    down: [Math.PI, 0, 0], up: [0, 0, 0], north: [Math.PI / 2, 0, Math.PI],
+                    south: [Math.PI / 2, 0, 0], west: [Math.PI / 2, 0, Math.PI / 2], east: [Math.PI / 2, 0, -Math.PI / 2]
+                };
+                if (!Object.prototype.hasOwnProperty.call(directions, orientation)) throw new Error(`Unsupported shulker-box orientation ${orientation}`);
+                if (typeof openness !== "number" || !Number.isFinite(openness)) throw new Error("Shulker-box openness must be finite");
+                if (typeof special.texture !== "string" || !special.texture) throw new Error("Shulker-box texture is required");
+                const transform = new Matrix4().makeTranslation(8, 8, 8)
+                    .multiply(new Matrix4().makeScale(0.9995, 0.9995, 0.9995))
+                    .multiply(new Matrix4().makeRotationFromEuler(new Euler(...directions[orientation], "XYZ")))
+                    .multiply(new Matrix4().makeScale(1, -1, -1))
+                    .multiply(new Matrix4().makeTranslation(0, -16, 0));
+                const box = await load("shulker_box", texture(special.texture, "shulker"), transform, { lid: [0, openness * Math.PI * 1.5, 0] });
+                box.positions = { lid: [0, 24 - openness * 8, 0] };
+                return [box];
             }
             case "minecraft:bed":
             case "bed": {

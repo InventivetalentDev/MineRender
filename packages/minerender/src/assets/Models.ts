@@ -230,6 +230,14 @@ export class Models {
                 if (!node.base || !node.model || typeof node.model !== "object") break;
                 const special = node.model;
                 switch (special.type) {
+                    case "shulker_box":
+                    case "minecraft:shulker_box":
+                        if (typeof special.texture === "string" && special.texture
+                            && (special.openness === undefined || typeof special.openness === "number" && Number.isFinite(special.openness))
+                            && (special.orientation === undefined || ["down", "up", "north", "south", "west", "east"].includes(special.orientation))) {
+                            return { model: node.base, special };
+                        }
+                        break;
                     case "chest":
                     case "minecraft:chest":
                     case "bed":

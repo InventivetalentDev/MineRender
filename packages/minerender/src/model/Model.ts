@@ -51,6 +51,8 @@ export type ItemTintSource =
 /** Supported item definitions that draw entity geometry instead of ordinary model elements. */
 export type SpecialItemRenderer =
     | { type: "chest" | "minecraft:chest"; texture: string; openness?: number }
+    | { type: "shulker_box" | "minecraft:shulker_box"; texture: string; openness?: number;
+        orientation?: "down" | "up" | "north" | "south" | "west" | "east" }
     | { type: "bed" | "minecraft:bed"; texture: string }
     | { type: "head" | "minecraft:head"; kind: string; texture?: string; animation?: number };
 

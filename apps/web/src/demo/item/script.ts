@@ -4,6 +4,7 @@ import { Playground, type DemoContext, type DemoContent } from "../../playground
 import { button, field, group, input, note, section, select, suggestions } from "../../playground/controls";
 import { assetKey, loadModel, modelControls, modelDefaults, modelOptions, selectModel, type ModelSettings } from "../../playground/models";
 import { CUSTOM_MODEL_DATA_ITEM, customModelDataCode, loadCustomModelData } from "./customModelData";
+import { SHULKER_DIRECTIONS, loadShulkerPreview, shulkerPreviewCode, type ShulkerDirection } from "./shulkerPreview";
 import type { ViewSettings } from "../../playground/config";
 
 interface ItemSettings extends ModelSettings {
@@ -14,9 +15,17 @@ interface ItemSettings extends ModelSettings {
     itemReferences: Record<string, string>;
     components: Record<string, unknown>;
     count: number;
+    shulkerOpenness: number;
+    shulkerOrientation: ShulkerDirection;
 }
 
-const defaults: ItemSettings = { ...modelDefaults, item: "minecraft:iron_sword", display: "", properties: {}, itemReferences: {}, components: {}, count: 1 };
+const defaults: ItemSettings = { ...modelDefaults, item: "minecraft:iron_sword", display: "", properties: {}, itemReferences: {}, components: {}, count: 1,
+    shulkerOpenness: 0, shulkerOrientation: "up" };
+const shulkerItems: Array<[string, string]> = [
+    ["minecraft:shulker_box", "Undyed"],
+    ...["white", "orange", "magenta", "light_blue", "yellow", "lime", "pink", "gray", "light_gray", "cyan", "purple", "blue", "brown", "green", "red", "black"]
+        .map(color => [`minecraft:${color}_shulker_box`, color.replace(/_/g, " ").replace(/^./, letter => letter.toUpperCase())] as [string, string])
+];
 const guiView: Partial<ViewSettings> = {
     projection: "orthographic", antialias: false, camera: { position: [0, 0, 100], target: [0, 0, 0], zoom: 24 }
 };
@@ -38,6 +47,7 @@ const app = new Playground<ItemSettings>({
         firework_color: { label: "Firework star (red and blue colors)", state: { item: "minecraft:firework_star", display: DisplayPosition.GUI,
             components: { "minecraft:firework_explosion": { shape: "small_ball", colors: [0xff0000, 0x0000ff] } } }, view: guiView },
         block: { label: "Block model: diamond ore", state: { item: "minecraft:block/diamond_ore", display: DisplayPosition.GUI } },
+        shulker: { label: "Shulker box (color and opening)", state: { item: "minecraft:shulker_box", display: DisplayPosition.GUI }, view: guiView },
         bundle: {
             label: "Bundle with a selected item",
             state: { item: "minecraft:bundle", display: DisplayPosition.GUI,
@@ -66,7 +76,9 @@ const app = new Playground<ItemSettings>({
             + (Object.keys(context.properties ?? {}).length ? `, properties: ${JSON.stringify(context.properties)}` : "")
             + (references.length ? `, itemReferences: { ${references.join(", ")} }` : "") + " }";
         const load = isModelPath(state.item) ? `MineRender.ModelMerger.mergeWithParents(await MineRender.Models.getRaw(${keyCode(key)}))` : `MineRender.Models.getMerged(${keyCode(key)}, ${contextCode})`;
-        return `${state.item === CUSTOM_MODEL_DATA_ITEM ? customModelDataCode(load) : `const model = await ${load};\n`}
+        const modelCode = state.item === CUSTOM_MODEL_DATA_ITEM ? customModelDataCode(load)
+            : hasShulkerPreview(state) ? shulkerPreviewCode(key, state.shulkerOpenness, state.shulkerOrientation, load) : `const model = await ${load};\n`;
+        return `${modelCode}
 await renderer.scene.addModel(model, ${JSON.stringify({ ...modelOptions(state), displayPosition: state.display || undefined }, null, 2)});\n`;
     }
 });
@@ -80,6 +92,25 @@ note(itemGroup, "minecraft:apple loads the item definition; minecraft:item/apple
 const display = select(itemGroup, "Display pose", [["", "None"], ...DISPLAY_POSITIONS], app.state.display);
 display.id = "item-display";
 display.addEventListener("change", () => void app.update({ display: display.value as ItemSettings["display"] }));
+const shulkerGroup = group(app.controls, "Shulker preview");
+shulkerGroup.hidden = true;
+const shulkerColor = select(shulkerGroup, "Color", shulkerItems, app.state.item);
+shulkerColor.id = "item-shulker-color";
+shulkerColor.addEventListener("change", () => void app.update({ item: shulkerColor.value }));
+const shulkerOpenness = input(shulkerGroup, "Openness (0 closed, 1 open)", app.state.shulkerOpenness, "range");
+shulkerOpenness.id = "item-shulker-openness";
+Object.assign(shulkerOpenness, { min: "0", max: "1", step: "0.05" });
+const shulkerOpennessValue = document.createElement("output");
+shulkerOpennessValue.htmlFor.value = shulkerOpenness.id;
+shulkerOpennessValue.value = String(app.state.shulkerOpenness);
+shulkerOpenness.after(shulkerOpennessValue);
+shulkerOpenness.addEventListener("input", () => { shulkerOpennessValue.value = shulkerOpenness.value; });
+shulkerOpenness.addEventListener("change", () => void app.update({ shulkerOpenness: shulkerOpenness.valueAsNumber }));
+const shulkerOrientation = select(shulkerGroup, "Direction", SHULKER_DIRECTIONS.map(direction => [direction,
+    direction.replace(/^./, letter => letter.toUpperCase())]), app.state.shulkerOrientation);
+shulkerOrientation.id = "item-shulker-orientation";
+shulkerOrientation.addEventListener("change", () => void app.update({ shulkerOrientation: shulkerOrientation.value as ShulkerDirection }));
+note(shulkerGroup, "Preview the lid opening and direction.");
 const stackGroup = group(app.controls, "Item stack");
 const count = input(stackGroup, "Count", app.state.count, "number");
 count.id = "item-count";
@@ -131,6 +162,19 @@ syncModelControls();
 
 function isModelPath(item: string): boolean {
     return /^(?:[a-z0-9_.-]+:)?(?:item|block)\//.test(item.trim());
+}
+
+function shulkerItem(item: string): string | undefined {
+    return shulkerItems.find(([id]) => id === (item.includes(":") ? item : `minecraft:${item}`))?.[0];
+}
+
+function hasShulkerPreview(state: ItemSettings): boolean {
+    if (!shulkerItem(state.item)) return false;
+    if (!Number.isFinite(state.shulkerOpenness) || state.shulkerOpenness < 0 || state.shulkerOpenness > 1) {
+        throw new Error("Shulker openness must be a number from 0 to 1.");
+    }
+    if (!SHULKER_DIRECTIONS.includes(state.shulkerOrientation)) throw new Error("Choose a supported shulker direction.");
+    return true;
 }
 
 function modelKey(item: string): AssetKey {
@@ -267,8 +311,10 @@ async function load(ctx: DemoContext, state: ItemSettings): Promise<DemoContent>
     const key = modelKey(state.item);
     const direct = isModelPath(state.item);
     const context = itemContext(state);
+    const previewShulker = hasShulkerPreview(state);
     const [loaded, list] = await Promise.all([direct ? Models.getRaw(key) : state.item === CUSTOM_MODEL_DATA_ITEM
-        ? loadCustomModelData(key, context) : Models.getMerged(key, context), Models.getItemList().catch(() => [])]);
+        ? loadCustomModelData(key, context) : previewShulker ? loadShulkerPreview(key, context, state.shulkerOpenness, state.shulkerOrientation)
+            : Models.getMerged(key, context), Models.getItemList().catch(() => [])]);
     const model = direct && loaded ? await ModelMerger.mergeWithParents(loaded) : loaded;
     if (!model) throw new Error(`Model not found: ${state.item}`);
     const object = await loadModel(ctx, model, { ...modelOptions(state), displayPosition: state.display || undefined });
@@ -280,6 +326,11 @@ async function load(ctx: DemoContext, state: ItemSettings): Promise<DemoContent>
             itemInput.value = state.item;
             suggestions(itemInput, list);
             display.value = state.display;
+            shulkerGroup.hidden = !shulkerItem(state.item);
+            shulkerColor.value = shulkerItem(state.item) ?? "";
+            shulkerOpenness.value = String(state.shulkerOpenness);
+            shulkerOpennessValue.value = String(state.shulkerOpenness);
+            shulkerOrientation.value = state.shulkerOrientation;
             syncStateControls(state, list);
             syncModelControls();
             selectModel(app, object);

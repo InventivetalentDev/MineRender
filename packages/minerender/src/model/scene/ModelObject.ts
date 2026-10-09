@@ -107,6 +107,9 @@ export class ModelObject extends SceneObject {
                     for (const [name, rotation] of Object.entries(part.rotations)) {
                         object.getGroupByName(name)?.rotation.set(...rotation, "ZYX");
                     }
+                    for (const [name, position] of Object.entries(part.positions ?? {})) {
+                        object.getGroupByName(name)?.position.set(...position);
+                    }
                 }
             } catch (error) {
                 this.disposeAndRemoveAllChildren();
