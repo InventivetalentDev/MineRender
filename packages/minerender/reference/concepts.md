@@ -56,6 +56,19 @@ Calling `removeFromScene()` or `dispose()` on an instance reference releases its
 
 With `sectionMeshing: true`, [MineRenderWorld](/api/index/classes/MineRenderWorld) merges eligible blocks into section meshes. A merged block has no individual `BlockInfo.object`. Edit it through the world or chunk setters so geometry and neighbor culling update together.
 
+## Saved entities
+
+Enable `renderEntities` to render supported mobs from parsed structures or embedded Anvil entity records:
+
+```ts
+const world = new MineRenderWorld(renderer.scene, { renderEntities: true });
+await world.placeMultiBlock(structure);
+```
+
+The option defaults to `false`. Placement uses each mob's saved position and yaw with its default appearance from the selected entity dataset. Unsupported entities retain their NBT without creating a render object. Pitch, equipment, variants, baby sizes, passengers, and saved animation state are ignored. Modern worlds' separate `entities/*.mca` files are not read.
+
+The world owns these entity objects. Replacing or unloading a chunk column disposes its entities, including structure entities positioned within that column. `await world.clear()` removes all of them.
+
 ## Streaming a Java world
 
 Use a dedicated `MineRenderWorld` with `sectionMeshing: true` and a `WorldStreamer` to render nearby chunk columns. This example reads one dimension's `r.<x>.<z>.mca` files at region coordinates:
@@ -89,7 +102,7 @@ Choose cleanup according to the resource you own:
 | Resource | Cleanup behavior |
 | --- | --- |
 | Renderer | `stop()` pauses rendering and frame callbacks. `dispose()` permanently releases renderer-owned resources, clears subscriptions, and detaches scene objects. |
-| Scene objects and worlds | Dispose objects you own when finished. Use `await world.clear()` to release a world's block handles and section meshes. Renderer disposal does not replace this cleanup. |
+| Scene objects and worlds | Dispose objects you own when finished. Use `await world.clear()` to release a world's block handles, section meshes, and owned entities. Renderer disposal does not replace this cleanup. |
 | Controls | Renderer-created controls are disposed with the renderer. Dispose caller-created controls yourself. |
 | [SceneStatsDisplay](/api/index/classes/SceneStatsDisplay) | Call `dispose()` separately to remove its timer and DOM elements. |
 | Shared library services | Call [shutdown](/api/index/functions/shutdown) only when all MineRender work is finished. It stops shared queues and timers and clears in-memory caches; request shutdown is permanent. |
