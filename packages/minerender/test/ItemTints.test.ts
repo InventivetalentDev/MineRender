@@ -73,13 +73,69 @@ test("component tints use indexed RGB values, integer firework averages, and exp
     }
 });
 
+test("potion tints resolve vanilla base effects and preserve custom color precedence", async t => {
+    const model: ItemModel = { tints: [{ type: "minecraft:potion", default: 0x123456 }], components: {} };
+    for (const [id, color] of [
+        ["healing", 16262179], ["strong_healing", 16262179], ["long_swiftness", 3402751],
+        ["turtle_master", 9274086], ["long_turtle_master", 9274086], ["strong_turtle_master", 9274854],
+        ["infested", 9214860], ["oozing", 10092451], ["weaving", 7891290], ["wind_charged", 12438015]
+    ] as const) {
+        for (const contents of [id, `minecraft:${id}`, { potion: `minecraft:${id}` }]) {
+            model.components!["minecraft:potion_contents"] = contents;
+            t.deepEqual(await ItemTints.get(model), { 0: color });
+        }
+    }
+    for (const color of [0, -1, 0xabcdef]) {
+        model.components!["minecraft:potion_contents"] = { potion: "minecraft:healing", custom_color: color, custom_effects: "unused" };
+        t.deepEqual(await ItemTints.get(model), { 0: color & 0xffffff });
+        t.deepEqual(await ItemTints.get(model, { 0: 0x123456 }), { 0: 0x123456 });
+    }
+    const list = ItemTints.getPotionList();
+    t.is(list.length, 46);
+    t.true(list.includes("minecraft:water") && list.includes("minecraft:strong_turtle_master"));
+    t.deepEqual(list, [...list].sort());
+    list.length = 0;
+    t.is(ItemTints.getPotionList().length, 46);
+});
+
+test("potion colors combine base and custom effects by amplifier and ignore hidden particles", async t => {
+    const model: ItemModel = { tints: [{ type: "potion", default: 0x123456 }], components: {} };
+    const contents = { potion: "healing", custom_effects: [
+        { id: "minecraft:speed", amplifier: 1, duration: 1, ambient: true, show_icon: false },
+        { id: "minecraft:poison", amplifier: 255, show_particles: false }
+    ] };
+    const original = JSON.stringify(contents);
+    model.components!["minecraft:potion_contents"] = contents;
+    t.deepEqual(await ItemTints.get(model), { 0: 0x74a8b5 });
+    t.is(JSON.stringify(contents), original);
+    contents.custom_effects[0].duration = 12000;
+    t.deepEqual(await ItemTints.get(model), { 0: 0x74a8b5 });
+    model.components!["minecraft:potion_contents"] = { custom_effects: [{ id: "speed" }, { id: "speed" }] };
+    t.deepEqual(await ItemTints.get(model), { 0: 3402751 });
+    model.components!["minecraft:potion_contents"] = { custom_effects: [
+        { id: "minecraft:speed", amplifier: 255 }, { id: "poison", amplifier: 0 }
+    ] };
+    t.deepEqual(await ItemTints.get(model), { 0: 0x33eafe });
+    model.components!["minecraft:potion_contents"] = { potion: "healing", custom_effects: [
+        { id: "custom:unknown", show_particles: false }
+    ] };
+    t.deepEqual(await ItemTints.get(model), { 0: 16262179 });
+});
+
 test("empty components and unresolved potion effects retain defaults, while malformed colors reject unless overridden", async t => {
     const model: ItemModel = { tints: [
         { type: "custom_model_data", index: 1, default: 0x123456 },
         { type: "firework", default: 0x123456 },
         { type: "potion", default: 0x123456 }
     ], components: { "minecraft:custom_model_data": { colors: [] }, "minecraft:firework_explosion": {} } };
-    for (const potion of ["minecraft:healing", { potion: "minecraft:healing" }, { custom_effects: [{ id: "minecraft:speed" }] }]) {
+    for (const potion of [
+        "minecraft:water", { potion: "minecraft:awkward" }, { custom_effects: [] },
+        { custom_effects: [{ id: "minecraft:speed", show_particles: false }] },
+        "custom:healing", "unknown", "constructor", "__proto__",
+        { potion: "custom:unknown", custom_effects: [{ id: "speed" }] },
+        { potion: "healing", custom_effects: [{ id: "custom:speed" }] },
+        { custom_effects: [{ id: "speed" }, { id: "unknown" }] }
+    ]) {
         model.components!["minecraft:potion_contents"] = potion;
         t.deepEqual(await ItemTints.get(model), { 0: 0x123456, 1: 0x123456, 2: 0x123456 });
     }
@@ -90,6 +146,11 @@ test("empty components and unresolved potion effects retain defaults, while malf
         [{ type: "map_color", default: -1 }, "map_color", [1, 0, 0]],
         [{ type: "firework", default: -1 }, "firework_explosion", { colors: [[1, 0, 0]] }],
         [{ type: "potion", default: -1 }, "potion_contents", { custom_color: null }],
+        ...[null, [], 1, { potion: 1 }, { potion: "Minecraft:healing" }, { custom_effects: {} },
+            { custom_effects: [null] }, { custom_effects: [{}] },
+            ...[-1, 256, 0.5, "1"].map(amplifier => ({ custom_effects: [{ id: "speed", amplifier }] })),
+            { custom_effects: [{ id: "speed", show_particles: 0 }] }
+        ].map(value => [{ type: "potion", default: -1 }, "potion_contents", value] as [ItemTintSource, string, unknown]),
         [{ type: "custom_model_data", default: -1 }, "custom_model_data", { colors: 0 }]
     ];
     for (const [source, component, value] of invalid) {
