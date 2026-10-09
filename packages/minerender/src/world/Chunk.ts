@@ -13,6 +13,7 @@ import { SectionModels } from "./SectionModels";
 import { BlockEntities } from "../assets/BlockEntities";
 import { SectionMesh, SectionMeshEntry } from "./SectionMesh";
 import { getFluidKind } from "../model/fluid/FluidGeometry";
+import { BlockState } from "../model/block/BlockState";
 
 /**
  * A 16×16×16 block section and its render objects.
@@ -31,8 +32,10 @@ export class Chunk<SectionMeshing extends boolean = false> {
     private readonly renderedBlocks = new Map<number, BlockInfo<SectionMeshing>>();
     private readonly sectionBlocks = new Map<number, SectionMeshEntry>();
     private readonly hiddenBlocks = new Set<number>();
+    private readonly blockPosition = new Vector3();
     private sectionMesh?: SectionMesh;
     private meshDirty = false;
+    private meshGeneration = 0;
 
     constructor(scene: MineRenderScene, x: number, y: number, z: number,
                 private readonly onBlocksChanged?: (positions: Vector3[]) => Promise<void>,
@@ -53,7 +56,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
         if (isTripleArray(posOrX)) {
             return this.getBlockAt(new Vector3(posOrX[0], posOrX[1], posOrX[2]))
         }
-        const pos: Vector3 = this.worldPosToChunkPos(posOrX);
+        const pos = this.blockPosition.set(posOrX.x - this.x * 16, posOrX.y - this.y * 16, posOrX.z - this.z * 16);
         const index = Chunk.chunkPosToBlockIndex(pos);
         return this.renderedBlocks.get(index);
     }
@@ -88,48 +91,81 @@ export class Chunk<SectionMeshing extends boolean = false> {
         }
 
         const index = Chunk.chunkPosToBlockIndex(pos);
-        this.hiddenBlocks.delete(index);
-        this.data.set(index, block);
-        const readBlock = this.data.snapshot(index);
-        this.renderedBlocks.get(index)?.object?.removeFromScene();
-        if (this.sectionBlocks.delete(index)) this.meshDirty = true;
-        this.renderedBlocks.delete(index);
-        let object: BlockObject | undefined;
         try {
-            if (!readBlock) return undefined;
-            const stored = readBlock();
-            const blockState = await BlockStates.get(AssetKey.parse("blockstates", stored.type));
-            if (!blockState) {
-                this.data.set(index, undefined);
-                return undefined;
-            }
-            // Fluids and block entities are drawn per block, not through the section mesh.
-            const perBlock = !this.sectionModels || getFluidKind(blockState.key, stored.properties)
-                || (blockState.key && BlockEntities.entry(await BlockEntities.getIndex(blockState.key.root), blockState.key.toNamespacedString()));
-            const template = perBlock ? undefined : await this.sectionModels!.get(blockState, stored.properties);
-            if (template) {
-                this.sectionBlocks.set(index, { index, template, cullMask: 0 });
-                this.meshDirty = true;
-            } else {
-                object = await this.scene.addBlock(blockState, {
-                    mergeMeshes: true,
-                    instanceMeshes: true,
-                    maxInstanceCount: 2000,
-                    initialState: stored.properties
-                }) as BlockObject;
-                object.setPosition(MineRenderWorld.worldToScenePosition(worldPos));
-            }
-
-            const info = { get block() { return readBlock(); }, object } as BlockInfo<SectionMeshing>;
-            this.renderedBlocks.set(index, info);
-            return info;
-        } catch (error) {
-            this.data.set(index, undefined);
-            object?.removeFromScene();
-            throw error;
+            await this.placeBlocks([{ index, block }]);
+            return this.renderedBlocks.get(index);
         } finally {
             await onBlocksChanged?.([worldPos]);
         }
+    }
+
+    /** Places cells in input order and returns changed world positions without refreshing neighbors. */
+    public async placeBlocks(blocks: readonly { index: number; block: Maybe<Block> }[]): Promise<Vector3[]> {
+        type Resolved = { blockState: Maybe<BlockState>; perBlock: boolean };
+        const resolutions = new Map<string, Promise<Resolved>>();
+        for (const { block } of blocks) {
+            if (!block || ChunkData.isAir(block)) continue;
+            const key = ChunkData.paletteKey(block);
+            if (resolutions.has(key)) continue;
+            const stored = { type: block.type, properties: block.properties ? { ...block.properties } : undefined };
+            const resolved = (async () => {
+                const blockState = await BlockStates.get(AssetKey.parse("blockstates", stored.type));
+                // Fluids and block entities need individual render objects.
+                const perBlock = !blockState || !this.sectionModels || !!getFluidKind(blockState.key, stored.properties)
+                    || !!(blockState.key && BlockEntities.entry(await BlockEntities.getIndex(blockState.key.root), blockState.key.toNamespacedString()));
+                if (!perBlock) await this.sectionModels!.get(blockState!, stored.properties);
+                return { blockState, perBlock };
+            })();
+            resolutions.set(key, resolved);
+            // Later states can reject while placement awaits an earlier state.
+            void resolved.catch(() => undefined);
+        }
+        const positions: Vector3[] = [];
+        let failed = false, failure: unknown;
+        for (const { index, block } of blocks) {
+            this.hiddenBlocks.delete(index);
+            this.data.set(index, block);
+            const readBlock = this.data.snapshot(index);
+            this.renderedBlocks.get(index)?.object?.removeFromScene();
+            if (this.sectionBlocks.delete(index)) this.meshDirty = true;
+            this.renderedBlocks.delete(index);
+            const worldPos = new Vector3(this.x * 16 + index % 16, this.y * 16 + Math.floor(index / 256),
+                this.z * 16 + Math.floor(index / 16) % 16);
+            positions.push(worldPos);
+            let object: BlockObject | undefined;
+            try {
+                if (!readBlock) continue;
+                const stored = readBlock();
+                const key = ChunkData.paletteKey(stored);
+                const { blockState, perBlock } = await resolutions.get(key)!;
+                if (!blockState) {
+                    this.data.set(index, undefined);
+                    continue;
+                }
+                // SectionModels chooses weighted variants separately for each block.
+                const template = perBlock ? undefined : await this.sectionModels!.get(blockState, stored.properties);
+                if (template) {
+                    this.sectionBlocks.set(index, { index, template, cullMask: 0 });
+                    this.meshDirty = true;
+                } else {
+                    object = await this.scene.addBlock(blockState, {
+                        mergeMeshes: true,
+                        instanceMeshes: true,
+                        maxInstanceCount: 2000,
+                        initialState: stored.properties
+                    }) as BlockObject;
+                    object.setPosition(MineRenderWorld.worldToScenePosition(worldPos));
+                }
+                this.renderedBlocks.set(index, { get block() { return readBlock(); }, object } as BlockInfo<SectionMeshing>);
+            } catch (error) {
+                this.data.set(index, undefined);
+                object?.removeFromScene();
+                if (!failed) failure = error;
+                failed = true;
+            }
+        }
+        if (failed) throw failure;
+        return positions;
     }
 
     /** Changes visibility at world block coordinates while preserving the block's data. */
@@ -153,18 +189,30 @@ export class Chunk<SectionMeshing extends boolean = false> {
     }
 
     public isBlockVisibleAt(pos: Vector3): boolean {
-        const index = Chunk.chunkPosToBlockIndex(this.worldPosToChunkPos(pos));
+        return this.isBlockVisibleIndex(Chunk.chunkPosToBlockIndex(this.worldPosToChunkPos(pos)));
+    }
+
+    /** Reports whether a cell has a visible render object or section entry. */
+    public isBlockVisibleIndex(index: number): boolean {
         return this.renderedBlocks.has(index) && !this.hiddenBlocks.has(index);
     }
 
     public isOccludingAt(pos: Vector3): boolean {
-        const index = Chunk.chunkPosToBlockIndex(this.worldPosToChunkPos(pos));
+        return this.isOccludingIndex(Chunk.chunkPosToBlockIndex(this.worldPosToChunkPos(pos)));
+    }
+
+    /** Reports whether a visible cell hides neighboring cube faces. */
+    public isOccludingIndex(index: number): boolean {
         return !this.hiddenBlocks.has(index)
             && (this.sectionBlocks.has(index) || (this.renderedBlocks.get(index)?.object?.isOccluding ?? false));
     }
 
     public async setCullMaskAt(pos: Vector3, mask: number): Promise<void> {
-        const index = Chunk.chunkPosToBlockIndex(this.worldPosToChunkPos(pos));
+        await this.setCullMaskIndex(Chunk.chunkPosToBlockIndex(this.worldPosToChunkPos(pos)), mask);
+    }
+
+    /** Updates hidden faces for a cell's section entry or individual render object. */
+    public async setCullMaskIndex(index: number, mask: number): Promise<void> {
         const entry = this.sectionBlocks.get(index);
         if (entry) {
             if (entry.cullMask !== mask) {
@@ -176,11 +224,17 @@ export class Chunk<SectionMeshing extends boolean = false> {
         }
     }
 
-    public rebuildSectionMesh(): void {
+    /** Rebuilds visible section geometry and discards results superseded by another rebuild or clear. */
+    public async rebuildSectionMesh(): Promise<void> {
         if (!this.meshDirty) return;
-        const next = this.sectionBlocks.size
-            ? SectionMesh.build([...this.sectionBlocks.values()].filter(entry => !this.hiddenBlocks.has(entry.index)),
-                this.sectionModels!.maxAtlasSize) : undefined;
+        this.meshDirty = false;
+        const generation = ++this.meshGeneration;
+        const entries = [...this.sectionBlocks.values()].filter(entry => !this.hiddenBlocks.has(entry.index));
+        const next = entries.length ? await SectionMesh.buildAsync(entries, this.sectionModels!.maxAtlasSize) : undefined;
+        if (generation !== this.meshGeneration) {
+            next?.dispose();
+            return;
+        }
         this.sectionMesh?.dispose();
         this.sectionMesh = next;
         if (next) {
@@ -188,7 +242,6 @@ export class Chunk<SectionMeshing extends boolean = false> {
             this.scene.add(next);
         }
         this.scene.dirty = true;
-        this.meshDirty = false;
     }
 
     /** Removes stored blocks and their render objects, then notifies the owning world of changed positions. */
@@ -198,6 +251,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
         ));
         for (const info of this.renderedBlocks.values()) info.object?.removeFromScene();
         this.sectionBlocks.clear();
+        this.meshGeneration++;
         this.sectionMesh?.dispose();
         this.sectionMesh = undefined;
         this.meshDirty = false;

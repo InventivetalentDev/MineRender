@@ -1,7 +1,10 @@
-import { BufferGeometry, Float32BufferAttribute, Group, Material, Mesh, MeshBasicMaterial, ShaderMaterial, Texture } from "three";
+import { BufferGeometry, Float32BufferAttribute, Group, Material, Mesh, MeshBasicMaterial, ShaderMaterial, Texture, Uint32BufferAttribute } from "three";
 import { createCanvas } from "../canvas/CanvasCompat";
+import { CUBE_FACES } from "../CubeFace";
 import { Materials } from "../Materials";
 import { TextureAtlas } from "../texture/TextureAtlas";
+import { buildSectionGeometry, SectionGeometryInput, SectionGeometryPage, SectionTemplateData } from "./SectionGeometry";
+import { SectionWorker } from "./SectionWorker";
 
 /** Shared cube geometry and atlas data prepared for section merging. */
 export interface SectionMeshTemplate {
@@ -17,20 +20,62 @@ export interface SectionMeshEntry {
     cullMask: number;
 }
 
-interface AtlasPlacement {
-    atlas: TextureAtlas;
-    x: number;
-    y: number;
-}
+const templateCache = new WeakMap<SectionMeshTemplate, SectionTemplateData>();
 
-interface AtlasPage {
-    placements: AtlasPlacement[];
-    entries: SectionMeshEntry[];
-    x: number;
-    y: number;
-    rowHeight: number;
-    width: number;
-    height: number;
+function toInput(entries: readonly SectionMeshEntry[], maxAtlasSize: number): { input: SectionGeometryInput; atlases: TextureAtlas[] } {
+    if (!Number.isInteger(maxAtlasSize) || maxAtlasSize < 1) throw new RangeError("Section atlas size must be a positive integer");
+    const atlases: TextureAtlas[] = [];
+    const atlasIds = new Map<TextureAtlas, number>();
+    const templateIds = new Map<SectionMeshTemplate, number>();
+    const input: SectionGeometryInput = {
+        count: entries.length, indices: new Uint16Array(entries.length), templates: new Uint16Array(entries.length),
+        cullMasks: new Uint8Array(entries.length), templateData: [], atlases: [], maxAtlasSize
+    };
+    for (let i = 0; i < entries.length; i++) {
+        const { index, template, cullMask } = entries[i];
+        let id = templateIds.get(template);
+        if (id === undefined) {
+            let atlas = atlasIds.get(template.atlas);
+            if (atlas === undefined) {
+                atlas = atlases.length;
+                atlasIds.set(template.atlas, atlas);
+                atlases.push(template.atlas);
+                input.atlases.push({ width: template.atlas.image.width, height: template.atlas.image.height });
+            }
+            let data = templateCache.get(template);
+            if (!data) {
+                data = {
+                    positions: new Float32Array(72), normals: new Float32Array(72), uvs: new Float32Array(48),
+                    uvBounds: new Float32Array(96), colors: new Float32Array(72), indices: new Uint16Array(36),
+                    cullFaces: new Uint8Array(template.cullFaces), atlas: 0
+                };
+                const position = template.geometry.getAttribute("position");
+                const normal = template.geometry.getAttribute("normal");
+                const uv = template.geometry.getAttribute("uv");
+                const bounds = template.geometry.getAttribute("uvBounds");
+                const color = template.geometry.getAttribute("color");
+                for (let vertex = 0; vertex < CUBE_FACES.length * 4; vertex++) {
+                    data.positions.set([position.getX(vertex), position.getY(vertex), position.getZ(vertex)], vertex * 3);
+                    data.normals.set([normal.getX(vertex), normal.getY(vertex), normal.getZ(vertex)], vertex * 3);
+                    data.uvs.set([uv.getX(vertex), uv.getY(vertex)], vertex * 2);
+                    data.uvBounds.set([bounds?.getX(vertex) ?? 0, bounds?.getY(vertex) ?? 0,
+                        bounds?.getZ(vertex) ?? 1, bounds?.getW(vertex) ?? 1], vertex * 4);
+                    data.colors.set([color?.getX(vertex) ?? 1, color?.getY(vertex) ?? 1, color?.getZ(vertex) ?? 1], vertex * 3);
+                }
+                const indices = template.geometry.getIndex()!;
+                for (let i = 0; i < data.indices.length; i++) data.indices[i] = indices.getX(i);
+                templateCache.set(template, data);
+            }
+            id = input.templateData.length;
+            templateIds.set(template, id);
+            // Atlas IDs belong to each build; cached buffers can be shared across concurrent builds.
+            input.templateData.push({ ...data, atlas });
+        }
+        input.indices[i] = index;
+        input.templates[i] = id;
+        input.cullMasks[i] = cullMask;
+    }
+    return { input, atlases };
 }
 
 /** Merged terrain geometry and atlas pages for one 16×16×16 section. Owns its generated render resources. */
@@ -40,86 +85,34 @@ export class SectionMesh extends Group {
 
     /** Builds section-local meshes from visible cube faces. `maxAtlasSize` limits each atlas dimension in pixels. */
     public static build(entries: readonly SectionMeshEntry[], maxAtlasSize = 2048): SectionMesh {
-        if (!Number.isInteger(maxAtlasSize) || maxAtlasSize < 1) throw new RangeError("Section atlas size must be a positive integer");
-        const visible = entries.filter(entry => entry.template.cullFaces.some(direction => !(entry.cullMask & direction)));
-        const atlases = [...new Set(visible.map(entry => entry.template.atlas))]
-            .sort((a, b) => b.image.height - a.image.height);
-        const pages: AtlasPage[] = [];
-        const locations = new Map<TextureAtlas, { page: AtlasPage; placement: AtlasPlacement }>();
-        for (const atlas of atlases) {
-            const { width, height } = atlas.image;
-            if (width > maxAtlasSize || height > maxAtlasSize) throw new RangeError("Model atlas exceeds the section atlas size limit");
-            let selected: AtlasPage | undefined;
-            for (const page of pages) {
-                const nextRow = page.x + width > maxAtlasSize;
-                if ((nextRow ? page.y + page.rowHeight : page.y) + height > maxAtlasSize) continue;
-                if (nextRow) {
-                    page.y += page.rowHeight;
-                    page.x = 0;
-                    page.rowHeight = 0;
-                }
-                selected = page;
-                break;
-            }
-            if (!selected) {
-                selected = { placements: [], entries: [], x: 0, y: 0, rowHeight: 0, width: 0, height: 0 };
-                pages.push(selected);
-            }
-            const placement = { atlas, x: selected.x, y: selected.y };
-            selected.placements.push(placement);
-            selected.x += width;
-            selected.rowHeight = Math.max(selected.rowHeight, height);
-            selected.width = Math.max(selected.width, selected.x);
-            selected.height = Math.max(selected.height, selected.y + height);
-            locations.set(atlas, { page: selected, placement });
-        }
-        for (const entry of visible) locations.get(entry.template.atlas)!.page.entries.push(entry);
+        const { input, atlases } = toInput(entries, maxAtlasSize);
+        return this.fromPages(buildSectionGeometry(input), atlases);
+    }
 
+    /** Builds section-local meshes in a browser worker when available, with synchronous fallback. */
+    public static async buildAsync(entries: readonly SectionMeshEntry[], maxAtlasSize = 2048): Promise<SectionMesh> {
+        const { input, atlases } = toInput(entries, maxAtlasSize);
+        const worker = SectionWorker.shared();
+        const pages = worker ? await worker.build(input).catch(() => buildSectionGeometry(input)) : buildSectionGeometry(input);
+        return this.fromPages(pages, atlases);
+    }
+
+    private static fromPages(pages: SectionGeometryPage[], atlases: TextureAtlas[]): SectionMesh {
         const section = new SectionMesh();
         for (const page of pages) {
             const canvas = createCanvas(page.width, page.height);
             const context = canvas.getContext("2d") as CanvasRenderingContext2D;
             for (const { atlas, x, y } of page.placements) {
-                context.drawImage(atlas.image.canvas as CanvasImageSource, x, y);
-            }
-            const positions: number[] = [], normals: number[] = [], uvs: number[] = [], uvBounds: number[] = [], colors: number[] = [], indices: number[] = [];
-            for (const { index, template, cullMask } of page.entries) {
-                const position = template.geometry.getAttribute("position");
-                const normal = template.geometry.getAttribute("normal");
-                const uv = template.geometry.getAttribute("uv");
-                const bounds = template.geometry.getAttribute("uvBounds");
-                const color = template.geometry.getAttribute("color");
-                const sourceIndices = template.geometry.getIndex()!;
-                const placement = locations.get(template.atlas)!.placement;
-                const mapU = (u: number) => (placement.x + u * template.atlas.image.width) / page.width;
-                const mapV = (v: number) => 1 - (placement.y + (1 - v) * template.atlas.image.height) / page.height;
-                const offsetX = (index % 16) * 16;
-                const offsetY = Math.floor(index / 256) * 16;
-                const offsetZ = (Math.floor(index / 16) % 16) * 16;
-                for (let face = 0; face < 6; face++) {
-                    if (cullMask & template.cullFaces[face]) continue;
-                    const start = positions.length / 3;
-                    for (let corner = 0; corner < 4; corner++) {
-                        const vertex = face * 4 + corner;
-                        positions.push(position.getX(vertex) + offsetX, position.getY(vertex) + offsetY, position.getZ(vertex) + offsetZ);
-                        normals.push(normal.getX(vertex), normal.getY(vertex), normal.getZ(vertex));
-                        uvs.push(mapU(uv.getX(vertex)), mapV(uv.getY(vertex)));
-                        uvBounds.push(
-                            mapU(bounds?.getX(vertex) ?? 0), mapV(bounds?.getY(vertex) ?? 0),
-                            mapU(bounds?.getZ(vertex) ?? 1), mapV(bounds?.getW(vertex) ?? 1)
-                        );
-                        colors.push(color?.getX(vertex) ?? 1, color?.getY(vertex) ?? 1, color?.getZ(vertex) ?? 1);
-                    }
-                    for (let corner = 0; corner < 6; corner++) indices.push(start + sourceIndices.getX(face * 6 + corner) - face * 4);
-                }
+                context.drawImage(atlases[atlas].image.canvas as CanvasImageSource, x, y);
             }
             const geometry = new BufferGeometry();
-            geometry.setAttribute("position", new Float32BufferAttribute(positions, 3));
-            geometry.setAttribute("normal", new Float32BufferAttribute(normals, 3));
-            geometry.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
-            geometry.setAttribute("uvBounds", new Float32BufferAttribute(uvBounds, 4));
-            geometry.setAttribute("color", new Float32BufferAttribute(colors, 3));
-            geometry.setIndex(indices);
+            // Passing buffers keeps Three's typed attributes from copying the builder's arrays.
+            geometry.setAttribute("position", new Float32BufferAttribute(page.positions.buffer, 3));
+            geometry.setAttribute("normal", new Float32BufferAttribute(page.normals.buffer, 3));
+            geometry.setAttribute("uv", new Float32BufferAttribute(page.uvs.buffer, 2));
+            geometry.setAttribute("uvBounds", new Float32BufferAttribute(page.uvBounds.buffer, 4));
+            geometry.setAttribute("color", new Float32BufferAttribute(page.colors.buffer, 3));
+            geometry.setIndex(new Uint32BufferAttribute(page.indices.buffer, 1));
             geometry.computeBoundingBox();
             geometry.computeBoundingSphere();
             const material = Materials.createShadedCanvasMaterial(canvas as HTMLCanvasElement, false, false, true);

@@ -1,4 +1,4 @@
-import { AnvilParser, AssetKey, AssetLoader, AssetParser, BatchedExecutor, MineRenderWorld, MultiBlockStructure, NBTAsset, NBTHelper, Renderer, SchematicParser, StructureParser } from "minerender";
+import { AnvilParser, AssetKey, AssetLoader, AssetParser, MineRenderWorld, MultiBlockStructure, NBTAsset, NBTHelper, Renderer, SchematicParser, StructureParser } from "minerender";
 import type { Example, ExampleGroup } from "./types";
 import { esmRenderer, fileControl, statusControl, textControl, toggleControl } from "./shared";
 import { Box3, PerspectiveCamera, Vector3 } from "three";
@@ -80,7 +80,7 @@ const vanilla: Example = {
             await world.clear();
             if (signal.aborted || current !== token) return;
             frameBlocks(renderer, structureBounds(structure));
-            await context.track(world.placeMultiBlock(structure, true, new BatchedExecutor(1, 32)), "Placing blocks…");
+            await context.track(world.placeMultiBlock(structure), "Placing blocks…");
             if (current === token) {
                 const stats = renderer.scene.stats;
                 status.textContent = `${structure.blocks.length} blocks, ${stats.objectCount} objects`;
@@ -183,14 +183,14 @@ const ownFile: Example = {
             if (extension !== "nbt" && extension !== "schematic") throw new Error("Choose an .nbt, .schematic, or .mca file.");
             const nbt = await NBTHelper.fromBuffer(bytes);
             const structure = extension === "schematic" ? await SchematicParser.parse(nbt) : await StructureParser.parse(nbt);
-            await world.placeMultiBlock(structure, true, new BatchedExecutor(1, 32));
+            await world.placeMultiBlock(structure);
             return structureBounds(structure);
         };
 
         fileControl(context, "File", ".nbt,.schematic,.mca", file => void run(file.name, () => showFile(file)));
         await run("igloo/top", async () => {
             const structure = await loadStructure("igloo/top");
-            await world.placeMultiBlock(structure, true, new BatchedExecutor(1, 32));
+            await world.placeMultiBlock(structure);
             return structureBounds(structure);
         });
 

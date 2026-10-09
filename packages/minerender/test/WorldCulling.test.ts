@@ -20,6 +20,8 @@ import { UVMapper } from "../src/UVMapper";
 import { MineRenderWorld, MineRenderWorldOptions } from "../src/world/MineRenderWorld";
 import { ChunkData } from "../src/world/ChunkData";
 import { SectionMesh } from "../src/world/SectionMesh";
+import { buildSectionGeometry, SectionGeometryInput } from "../src/world/SectionGeometry";
+import { SectionWorker } from "../src/world/SectionWorker";
 import type { CanvasImage } from "../src/canvas/CanvasImage";
 import type { CompatCanvas } from "../src/canvas/CanvasCompat";
 
@@ -199,6 +201,134 @@ test.serial("batched adjacent placements settle with consistent shared-face visi
     t.deepEqual([-1, 1].map(x => indexCount(world.getBlockAt(x, 0, 0)!.object)), [36, 36]);
 });
 
+test.serial("default bulk placement yields to the event loop and places every block across four sections", async t => {
+    const { world, scene } = fixture(t, { sectionMeshing: true });
+    const blocks = Array.from({ length: 4 * 4096 }, (_, index) => ({ type: "test:cube",
+        position: [index % 16, Math.floor(index / 256), Math.floor(index / 16) % 16] as TripleArray }));
+    let yielded = false;
+    const timer = setTimeout(() => { yielded = true; }, 0);
+    t.teardown(() => clearTimeout(timer));
+    await world.placeMultiBlock({ size: [16, 64, 16], blocks });
+    t.true(yielded);
+    t.true(blocks.every(block => world.getBlockAt(block.position)?.block.type === block.type));
+    t.is(scene.children.filter(child => child instanceof SectionMesh).length, 4);
+    t.is(scene.children.reduce((sum, section) => sum + section.children.reduce((count, child) =>
+        count + (child as Mesh).geometry.getIndex()!.count, 0), 0), (16 * 16 * 2 + 16 * 64 * 4) * 6);
+});
+
+test.serial("section rebuilds discard stale results and results completed after clearing the world", async t => {
+    const { world, scene, place } = fixture(t, { sectionMeshing: true });
+    const worker = SectionWorker["instance"], initialized = SectionWorker["initialized"];
+    const buildAsync = SectionMesh.buildAsync;
+    const built: { section: SectionMesh; disposals: number }[] = [];
+    SectionMesh.buildAsync = async function (...args) {
+        const section = await buildAsync.apply(this, args);
+        const result = { section, disposals: 0 };
+        for (const child of section.children) {
+            (child as Mesh).geometry.addEventListener("dispose", () => { result.disposals++; });
+        }
+        built.push(result);
+        return section;
+    };
+    const target = new EventTarget(), releases: (() => void)[] = [];
+    let posted!: () => void;
+    const firstPosted = new Promise<void>(resolve => { posted = resolve; });
+    SectionWorker["instance"] = undefined;
+    SectionWorker["initialized"] = false;
+    Env.register({ ...Env.provider, createWorker: () => Object.assign(target, {
+        postMessage({ id, input }: { id: number; input: SectionGeometryInput }) {
+            releases.push(() => target.dispatchEvent(new MessageEvent("message", {
+                data: { id, type: "pages", pages: buildSectionGeometry(input) }
+            })));
+            posted();
+        },
+        terminate() {}
+    }) as unknown as Worker });
+    t.teardown(() => {
+        SectionWorker["instance"]?.terminate();
+        SectionWorker["instance"] = worker;
+        SectionWorker["initialized"] = initialized;
+        SectionMesh.buildAsync = buildAsync;
+    });
+
+    let placed = false;
+    const first = place([0, 0, 0]).then(() => { placed = true; });
+    await firstPosted;
+    t.false(placed);
+    const chunk = world.getChunkAt(new Vector3())!;
+    // The world's culling drain serializes rebuilds; direct chunk edits allow overlapping builds.
+    await chunk.placeBlocks([{ index: 2, block: { type: "test:cube" } }]);
+    const second = chunk.rebuildSectionMesh();
+    t.is(releases.length, 2);
+    releases[1]();
+    await second;
+    t.false(placed);
+    releases[0]();
+    await first;
+    t.deepEqual(scene.children.filter(child => child instanceof SectionMesh), [built[0].section]);
+    const geometry = (built[0].section.children[0] as Mesh).geometry;
+    t.is(geometry.getIndex()!.count, 72);
+    t.deepEqual(geometry.boundingBox!.min.toArray(), [-8, -8, -8]);
+    t.deepEqual(geometry.boundingBox!.max.toArray(), [40, 8, 8]);
+    t.deepEqual(built.map(result => result.disposals), [0, 1]);
+
+    await chunk.placeBlocks([{ index: 4, block: { type: "test:cube" } }]);
+    const pending = chunk.rebuildSectionMesh();
+    t.is(releases.length, 3);
+    await world.clear();
+    releases[2]();
+    await pending;
+    t.is(scene.children.filter(child => child instanceof SectionMesh).length, 0);
+    t.deepEqual(built.map(result => result.disposals), [1, 1, 1]);
+});
+
+test.serial("default bulk placement starts distinct block-state resolutions concurrently", async t => {
+    t.timeout(3000);
+    const { world, scene, addModel } = fixture(t, { sectionMeshing: true });
+    addModel("second");
+    addModel("third");
+    const types = ["test:cube", "test:second", "test:third"], requested: string[] = [];
+    const releases: (() => void)[] = [];
+    const gates = types.map(() => new Promise<void>(resolve => { releases.push(resolve); }));
+    const get = BlockStates.get, getAll = BlockStates.getAll;
+    // Bypass world preloads so this test measures the chunk's resolution pass.
+    BlockStates.getAll = async () => [];
+    BlockStates.get = async key => {
+        const type = key.toNamespacedString();
+        requested.push(type);
+        await gates[types.indexOf(type)];
+        return get(key);
+    };
+    const pending = world.placeMultiBlock({ size: [3, 1, 1], blocks: types.map((type, x) => ({ type, position: [x, 0, 0] })) });
+    t.teardown(async () => {
+        BlockStates.getAll = getAll;
+        for (const release of releases) release();
+        await pending;
+    });
+    await new Promise(resolve => setTimeout(resolve, 0));
+    t.deepEqual(requested, types);
+    t.is(scene.children.length, 0);
+    for (const release of releases) release();
+    await pending;
+    t.true(types.every((type, x) => world.getBlockAt(x, 0, 0)?.block.type === type));
+});
+
+test.serial("default bulk placement selects weighted section templates separately for each block", async t => {
+    const { world, scene, states, addModel } = fixture(t, { sectionMeshing: true });
+    addModel("unculled", { cullable: [] });
+    states.set("test:weighted", { variants: { "": [{ model: "test:block/cube" }, { model: "test:block/unculled" }] } });
+    await world["sectionModels"]!.get(states.get("test:weighted")!);
+    const random = Math.random;
+    let choices = 0;
+    Math.random = () => choices++ % 2 === 0 ? 0 : 0.99;
+    t.teardown(() => { Math.random = random; });
+    await world.placeMultiBlock({ size: [2, 1, 1], blocks: [
+        { position: [0, 0, 0], type: "test:weighted" }, { position: [1, 0, 0], type: "test:weighted" }
+    ] });
+    const section = scene.children.find(child => child instanceof SectionMesh)!;
+    t.is(section.children.reduce((sum, child) => sum + (child as Mesh).geometry.getIndex()!.count, 0), 66);
+});
+
 test.serial("visibility changes preserve the originally selected weighted model", async t => {
     const { world, states, place, addModel } = fixture(t);
     addModel("alternative");
@@ -287,7 +417,7 @@ for (const sectionMeshing of [false, true]) {
 }
 
 
-test.serial("failed bulk placement updates successful writes and neighbors of removed blocks before rejecting", async t => {
+for (const useExecutor of [false, true]) test.serial(`failed bulk placement updates successful writes and neighbors of removed blocks before rejecting (executor=${useExecutor})`, async t => {
     const { world, scene, place } = fixture(t);
     await place([14, 0, 0]);
     await place([15, 0, 0]);
@@ -298,8 +428,8 @@ test.serial("failed bulk placement updates successful writes and neighbors of re
         if (key.path === "failure") throw failure;
         return get(key);
     };
-    const executor = new BatchedExecutor(1, 4);
-    t.teardown(() => { BlockStates.getAll = getAll; executor.stop(); });
+    const executor = useExecutor ? new BatchedExecutor(1, 4) : undefined;
+    t.teardown(() => { BlockStates.getAll = getAll; executor?.stop(); });
     await t.throwsAsync(world.placeMultiBlock({ size: [4, 1, 1], blocks: [
         { position: [15, 0, 0], type: "air" },
         { position: [16, 0, 0], type: "test:cube" },

@@ -99,6 +99,29 @@ test("Anvil decodes dense and padded five-bit palettes across long boundaries wi
     }
 });
 
+for (const [bits, padded] of [[4, true], [5, true], [5, false]] as const) {
+    test(`Anvil decodes every index in a ${padded ? "padded" : "dense"} ${bits}-bit section`, async t => {
+        const palette = Array.from({ length: 1 << bits }, (_, index) => ({ Name: string(`test:block_${index}`) }));
+        const expected = Array.from({ length: 4096 }, (_, index) => (index * 13 + 7) % palette.length);
+        const perLong = Math.floor(64 / bits);
+        const words = Array<bigint>(padded ? Math.ceil(4096 / perLong) : 4096 * bits / 64).fill(0n);
+        for (const [index, value] of expected.entries()) {
+            const word = padded ? Math.floor(index / perLong) : Math.floor(index * bits / 64);
+            const shift = padded ? (index % perLong) * bits : (index * bits) % 64;
+            words[word] |= BigInt(value) << BigInt(shift);
+            if (!padded && shift + bits > 64) words[word + 1] |= BigInt(value) >> BigInt(64 - shift);
+        }
+        const section = padded
+            ? { Y: int(0), block_states: compound({ palette: list(palette), data: longs(words) }) }
+            : { Y: int(0), Palette: list(palette), BlockStates: longs(words) };
+        const parsed = (await AnvilParser.parseChunk(region({ nbt: chunk([section], {
+            modern: padded, version: padded ? 2865 : 2526
+        }) }), 31, 30))!;
+        t.deepEqual(expected.map((_, index) => parsed.sections[0].data.get(index)?.type),
+            expected.map(index => `test:block_${index}`));
+    });
+}
+
 test("Anvil reads vanilla string palettes and mixed palettes with wrapped defaults and lowercase state fields", async t => {
     const palettes = [
         {

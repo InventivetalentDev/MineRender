@@ -29,7 +29,8 @@ export default defineConfig([
     {
         ...shared,
         name: "browser",
-        entry: { index: "src/index.browser.ts" },
+        entry: { index: "src/index.browser.ts", "section.worker": "src/env/browser/section.worker.ts" },
+        dts: { entry: { index: "src/index.browser.ts" } },
         outDir: "dist/browser",
         format: ["esm", "cjs"],
         platform: "browser",

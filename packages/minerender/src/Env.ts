@@ -32,6 +32,9 @@ export interface EnvProvider {
 
     openCache(name: string, version: number): PersistentCache;
 
+    /** Optional worker support; returns undefined where unavailable. Only the browser ESM build ships worker files. */
+    createWorker?(name: "section"): Worker | undefined;
+
 }
 
 /**

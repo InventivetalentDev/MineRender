@@ -4,15 +4,26 @@ import { CanvasImage } from "../src/canvas/CanvasImage";
 import { CompatCanvas } from "../src/canvas/CanvasCompat";
 import { Env, EnvProvider } from "../src/Env";
 import { TextureAtlas } from "../src/texture/TextureAtlas";
+import { buildSectionGeometry, SectionGeometryInput, SectionGeometryPage } from "../src/world/SectionGeometry";
+import { SectionWorker } from "../src/world/SectionWorker";
 import { SectionMesh, SectionMeshTemplate } from "../src/world/SectionMesh";
 
-function fixture(t: ExecutionContext) {
+function fixture(t: ExecutionContext, createWorker?: EnvProvider["createWorker"]) {
     const provider = Env["_provider"];
-    Env.register({ name: "test", createCanvas: (width, height) => ({
+    const worker = SectionWorker["instance"], initialized = SectionWorker["initialized"];
+    SectionWorker["instance"] = undefined;
+    SectionWorker["initialized"] = false;
+    Env.register({ name: "test", createWorker, createCanvas: (width, height) => ({
         width, height, getContext: () => ({ drawImage() {} })
     } as unknown as CompatCanvas) } as EnvProvider);
     const geometries: BoxGeometry[] = [];
-    t.teardown(() => { Env["_provider"] = provider; for (const geometry of geometries) geometry.dispose(); });
+    t.teardown(() => {
+        SectionWorker["instance"]?.terminate();
+        SectionWorker["instance"] = worker;
+        SectionWorker["initialized"] = initialized;
+        Env["_provider"] = provider;
+        for (const geometry of geometries) geometry.dispose();
+    });
     return (): SectionMeshTemplate => {
         const geometry = new BoxGeometry(16, 16, 16);
         geometries.push(geometry);
@@ -84,4 +95,119 @@ test.serial("section atlases page at the size limit, share repeated sources and 
     const empty = SectionMesh.build([{ index: 0, template: templates[0], cullMask: 63 }], 2);
     t.is(empty.children.length, 0);
     empty.dispose();
+});
+
+function geometryData(section: SectionMesh) {
+    return section.children.map(child => {
+        const geometry = (child as Mesh).geometry;
+        return {
+            attributes: Object.fromEntries(Object.entries(geometry.attributes).map(([name, attribute]) => [name, attribute.array])),
+            indices: geometry.getIndex()!.array, box: geometry.boundingBox, sphere: geometry.boundingSphere
+        };
+    });
+}
+
+test.serial("async section builds use the shared worker without copying its geometry buffers", async t => {
+    const target = new EventTarget();
+    const results: SectionGeometryPage[][] = [];
+    let workers = 0;
+    const worker = Object.assign(target, {
+        postMessage({ id, input }: { id: number; input: SectionGeometryInput }) {
+            queueMicrotask(() => {
+                const pages = buildSectionGeometry(input);
+                results.push(pages);
+                target.dispatchEvent(new MessageEvent("message", { data: { id, type: "pages", pages } }));
+            });
+        },
+        terminate() {}
+    }) as unknown as Worker;
+    const create = fixture(t, () => { workers++; return worker; });
+    const first = create(), second = create();
+    first.geometry.applyMatrix4(new Matrix4().makeRotationY(Math.PI / 2));
+    const entries = [{ index: 1, template: first, cullMask: 1 }, { index: 16, template: second, cullMask: 0 }];
+    const expected = [SectionMesh.build(entries, 4), SectionMesh.build([...entries].reverse(), 4)];
+    const actual = await Promise.all([SectionMesh.buildAsync(entries, 4), SectionMesh.buildAsync([...entries].reverse(), 4)]);
+    t.teardown(() => [...expected, ...actual].forEach(section => section.dispose()));
+    t.is(workers, 1);
+    t.deepEqual(actual.map(geometryData), expected.map(geometryData));
+    for (let i = 0; i < actual.length; i++) {
+        const geometry = (actual[i].children[0] as Mesh).geometry;
+        const page = results[i][0];
+        for (const [name, values] of Object.entries({ position: page.positions, normal: page.normals,
+            uv: page.uvs, uvBounds: page.uvBounds, color: page.colors })) {
+            t.is(geometry.getAttribute(name).array.buffer, values.buffer);
+        }
+        t.is(geometry.getIndex()!.array.buffer, page.indices.buffer);
+    }
+});
+
+test.serial("async section builds fall back after a worker error and disable the shared worker", async t => {
+    const target = new EventTarget();
+    let workers = 0, terminations = 0;
+    const worker = Object.assign(target, {
+        postMessage() { queueMicrotask(() => target.dispatchEvent(new Event("error"))); },
+        terminate() { terminations++; }
+    }) as unknown as Worker;
+    const create = fixture(t, () => { workers++; return worker; });
+    const entries = [{ index: 256, template: create(), cullMask: 4 }];
+    const expected = SectionMesh.build(entries);
+    const actual = await SectionMesh.buildAsync(entries);
+    const later = await SectionMesh.buildAsync(entries);
+    t.teardown(() => [expected, actual, later].forEach(section => section.dispose()));
+    t.deepEqual(geometryData(actual), geometryData(expected));
+    t.deepEqual(geometryData(later), geometryData(expected));
+    t.is(SectionWorker.shared(), undefined);
+    t.is(workers, 1);
+    t.is(terminations, 1);
+});
+
+test.serial("async section builds fall back after a message error and disable the shared worker", async t => {
+    const target = new EventTarget();
+    let terminations = 0;
+    const worker = Object.assign(target, {
+        postMessage() { queueMicrotask(() => target.dispatchEvent(new MessageEvent("messageerror", { data: null }))); },
+        terminate() { terminations++; }
+    }) as unknown as Worker;
+    const create = fixture(t, () => worker);
+    const entries = [{ index: 4095, template: create(), cullMask: 2 }];
+    const expected = SectionMesh.build(entries), actual = await SectionMesh.buildAsync(entries);
+    t.teardown(() => [expected, actual].forEach(section => section.dispose()));
+    t.deepEqual(geometryData(actual), geometryData(expected));
+    t.is(SectionWorker.shared(), undefined);
+    t.is(terminations, 1);
+});
+
+test.serial("async section builds fall back for a rejected build without disabling the worker", async t => {
+    const target = new EventTarget();
+    const worker = Object.assign(target, {
+        postMessage({ id }: { id: number }) {
+            queueMicrotask(() => target.dispatchEvent(new MessageEvent("message", {
+                data: { id, type: "error", message: "Build failed" }
+            })));
+        },
+        terminate() {}
+    }) as unknown as Worker;
+    const create = fixture(t, () => worker);
+    const entries = [{ index: 17, template: create(), cullMask: 0 }];
+    const expected = SectionMesh.build(entries), actual = await SectionMesh.buildAsync(entries);
+    t.teardown(() => [expected, actual].forEach(section => section.dispose()));
+    t.deepEqual(geometryData(actual), geometryData(expected));
+    t.not(SectionWorker.shared(), undefined);
+});
+
+test.serial("async section builds match synchronous geometry without a worker and validate before creating one", async t => {
+    const create = fixture(t);
+    const entries = [{ index: 4095, template: create(), cullMask: 16 }];
+    const expected = SectionMesh.build(entries), actual = await SectionMesh.buildAsync(entries);
+    t.teardown(() => [expected, actual].forEach(section => section.dispose()));
+    t.deepEqual(geometryData(actual), geometryData(expected));
+    t.is(SectionWorker.shared(), undefined);
+    let workers = 0;
+    Env.provider.createWorker = () => { workers++; return undefined; };
+    t.is(SectionWorker.shared(), undefined);
+    t.is(workers, 0);
+    SectionWorker["initialized"] = false;
+    await t.throwsAsync(SectionMesh.buildAsync(entries, 0), { instanceOf: RangeError,
+        message: "Section atlas size must be a positive integer" });
+    t.is(workers, 0);
 });
