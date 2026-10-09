@@ -3,17 +3,19 @@ import { writeUncompressed } from "prismarine-nbt";
 import { AnvilWorldSource } from "../src/world/AnvilWorldSource";
 import { NBTHelper } from "../src/nbt/NBTHelper";
 
-function region(x: number, z: number, options: { compression?: number; numeric?: boolean; malformed?: boolean } = {}): Uint8Array {
+function region(x: number, z: number, options: { compression?: number; numeric?: number[]; data?: number[]; malformed?: boolean } = {}): Uint8Array {
     let payload = writeUncompressed({ name: "", type: "compound", value: {
         DataVersion: { type: "int", value: 2865 },
         xPos: { type: "int", value: x }, zPos: { type: "int", value: z },
         sections: { type: "list", value: { type: "compound", value: options.numeric
-            ? [{ Y: { type: "byte", value: 0 }, Blocks: { type: "byteArray", value: [1] } }] : [] } }
+            ? [{ Y: { type: "byte", value: 0 }, Blocks: { type: "byteArray", value: options.numeric },
+                ...(options.data ? { Data: { type: "byteArray", value: options.data } } : {}) }] : [] } }
     } });
     if (options.malformed) payload = payload.subarray(0, 1);
-    const bytes = Buffer.alloc(12288);
+    const count = Math.ceil((payload.length + 5) / 4096);
+    const bytes = Buffer.alloc(8192 + count * 4096);
     const localX = ((x % 32) + 32) % 32, localZ = ((z % 32) + 32) % 32;
-    bytes.writeUInt32BE((2 << 8) | 1, (localX + localZ * 32) * 4);
+    bytes.writeUInt32BE((2 << 8) | count, (localX + localZ * 32) * 4);
     bytes.writeUInt32BE(payload.length + 1, 8192);
     bytes[8196] = options.compression ?? 3;
     bytes.set(payload, 8197);
@@ -56,6 +58,27 @@ test("world sources map signed chunk coordinates to region readers and decode ab
         t.deepEqual(reads, [[Math.floor(x / 32), Math.floor(z / 32)]]);
         t.is(await source.getChunk(x + (x % 32 === 31 ? -1 : 1), z), undefined);
     }
+});
+
+test("world sources apply custom and lenient numeric mappings without changing strict defaults", async t => {
+    const blocks = Array<number>(4096).fill(0), data = Array<number>(2048).fill(0);
+    blocks.splice(0, 3, 1, 1, -3);
+    data[0] = -15;
+    const input = region(-33, 65, { numeric: blocks, data });
+    const strict = new AnvilWorldSource(async () => input);
+    await t.throwsAsync(strict.getChunk(-33, 65), { message: /1:15.*section 0.*index 1/ });
+    let reads = 0;
+    const source = new AnvilWorldSource(async () => { reads++; return input; }, {
+        legacyMappings: Object.freeze({ "1:0": "minecraft:diamond_block" }), lenient: true
+    });
+    for (let i = 0; i < 2; i++) {
+        const parsed = (await source.getChunk(-33, 65))!;
+        t.deepEqual([parsed.x, parsed.z], [-33, 65]);
+        t.deepEqual([0, 1, 2].map(index => parsed.sections[0].data.get(index)?.type), [
+            "minecraft:granite", "minecraft:diamond_block", undefined
+        ]);
+    }
+    t.is(reads, 1);
 });
 
 test("world sources read external chunks at absolute coordinates without retaining their payloads", async t => {
@@ -188,8 +211,8 @@ test("failed region reads and corrupt headers or sectors can be retried", async 
     }
 });
 
-test("unsupported, legacy, malformed and misplaced chunk payloads do not evict neighboring columns", async t => {
-    for (const invalid of [region(0, 0, { compression: 4 }), region(0, 0, { numeric: true }),
+test("unsupported, malformed and misplaced chunk payloads do not evict neighboring columns", async t => {
+    for (const invalid of [region(0, 0, { compression: 4 }), region(0, 0, { numeric: [1] }),
         region(0, 0, { malformed: true }), region(32, 0)]) {
         let reads = 0;
         const source = new AnvilWorldSource(async () => { reads++; return withNeighbor(invalid); });
