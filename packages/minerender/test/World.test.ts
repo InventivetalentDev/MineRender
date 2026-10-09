@@ -1,6 +1,6 @@
 import test, { ExecutionContext } from "ava";
 import { BoxGeometry, InstancedMesh, MeshBasicMaterial, Vector3 } from "three";
-import type { NBT } from "prismarine-nbt";
+import type { Compound, NBT } from "prismarine-nbt";
 import { BlockEntities } from "../src/assets/BlockEntities";
 import { BlockStates } from "../src/assets/BlockStates";
 import { Models } from "../src/assets/Models";
@@ -8,6 +8,7 @@ import { BlockObject } from "../src/model/block/scene/BlockObject";
 import { TripleArray } from "../src/model/Model";
 import { ModelObject } from "../src/model/scene/ModelObject";
 import { SpongeSchematicParser } from "../src/model/multiblock/SpongeSchematicParser";
+import { LitematicaParser } from "../src/model/multiblock/LitematicaParser";
 import { MineRenderScene } from "../src/renderer/MineRenderScene";
 import { ChunkData } from "../src/world/ChunkData";
 import { BatchedExecutor } from "../src/util/BatchedExecutor";
@@ -96,6 +97,39 @@ test.serial("Sponge structures place offset blocks with saved properties and nor
             CustomName: { type: "string", value: "fixture" }, id: { type: "string", value: "test:container" },
             x: { type: "int", value: -16 }, y: { type: "int", value: -1 }, z: { type: "int", value: 16 }
         }
+    } });
+    t.is(scene.stats.instanceCount, 2);
+});
+
+test.serial("individual Litematica regions place signed coordinates with saved properties and NBT", async t => {
+    const { world, scene } = fixture(t);
+    const getIndex = BlockEntities.getIndex;
+    BlockEntities.getIndex = async () => ({});
+    t.teardown(() => { BlockEntities.getIndex = getIndex; });
+    const int = (value: number) => ({ type: "int" as const, value });
+    const position = (x: number, y: number, z: number): Compound => ({ type: "compound", value: { x: int(x), y: int(y), z: int(z) } });
+    const input: NBT = { type: "compound", name: "", value: {
+        Version: int(7), Regions: { type: "compound", value: { Reverse: { type: "compound", value: {
+            Position: position(-16, -1, 16), Size: position(-2, 1, 1),
+            BlockStatePalette: { type: "list", value: { type: "compound", value: [{
+                Name: { type: "string", value: "test:stone" },
+                Properties: { type: "compound", value: { facing: { type: "string", value: "east" } } }
+            }] } },
+            BlockStates: { type: "longArray", value: [[0, 0]] },
+            TileEntities: { type: "list", value: { type: "compound", value: [{
+                id: { type: "string", value: "test:container" }, x: int(1), y: int(0), z: int(0),
+                CustomName: { type: "string", value: "fixture" }
+            }] } }
+        } } } }
+    } };
+    const parsed = await LitematicaParser.parse(input);
+    await world.placeMultiBlock(parsed.regions[0]);
+    t.deepEqual(world.getBlockAt(-17, -1, 16)!.object.state, { facing: "east" });
+    const placed = world.getBlockAt(-16, -1, 16)!;
+    t.deepEqual(placed.object.getPosition().toArray(), [-256, -16, 256]);
+    t.deepEqual(placed.block.nbt, { type: "compound", value: {
+        id: { type: "string", value: "test:container" }, x: int(-16), y: int(-1), z: int(16),
+        CustomName: { type: "string", value: "fixture" }
     } });
     t.is(scene.stats.instanceCount, 2);
 });

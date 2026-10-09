@@ -1,5 +1,5 @@
 import {
-    AnvilParser, AssetKey, AssetLoader, AssetParser, MineRenderWorld, NBTHelper, SchematicParser, SpongeSchematicParser, StructureParser,
+    AnvilParser, AssetKey, AssetLoader, AssetParser, LitematicaParser, MineRenderWorld, NBTHelper, SchematicParser, SpongeSchematicParser, StructureParser,
     type ListAsset, type MultiBlockStructure, type NBTAsset
 } from "minerender";
 import { Box3, Vector3 } from "three";
@@ -93,9 +93,9 @@ const app = new Playground<WorldState>({
                 label += ` · chunk ${chunk.x}, ${chunk.z}`;
                 await world.placeChunk(chunk);
             } else {
-                if (extension !== "nbt" && extension !== "schematic" && extension !== "schem") throw new Error("Choose an .nbt, .schematic, .schem, or .mca file.");
+                if (extension !== "nbt" && extension !== "schematic" && extension !== "schem" && extension !== "litematic") throw new Error("Choose an .nbt, .schematic, .schem, .litematic, or .mca file.");
                 const nbt = await NBTHelper.fromBuffer(sourceFile.bytes);
-                const parser = extension === "schem" ? SpongeSchematicParser : extension === "schematic" ? SchematicParser : StructureParser;
+                const parser = extension === "litematic" ? LitematicaParser : extension === "schem" ? SpongeSchematicParser : extension === "schematic" ? SchematicParser : StructureParser;
                 structure = await parser.parse(nbt);
             }
         } else if (state.source === "preset") {
@@ -146,7 +146,7 @@ app.controls.innerHTML = `
         <label>Built-in structure<input id="structure-name" value="end_city/ship" list="structure-suggestions"></label>
         <datalist id="structure-suggestions"></datalist>
         <button id="structure-load" type="button">Load</button>
-        <label>Local file (.nbt, .schematic, .schem, .mca)<input id="structure-file" type="file" accept=".nbt,.schematic,.schem,.mca"></label>
+        <label>Local file (.nbt, .schematic, .schem, .litematic, .mca)<input id="structure-file" type="file" accept=".nbt,.schematic,.schem,.litematic,.mca"></label>
         <label id="chunk-picker" hidden>Chunk (region-local x, z)<select id="chunk-input"></select></label>
     </details>
     <details open><summary>World rendering</summary>
@@ -305,7 +305,7 @@ function worldCode(state: WorldState): string {
             code += `const chunk = await MineRender.AnvilParser.parseChunk(bytes, ${x || 0}, ${z || 0});\nif (chunk) await world.placeChunk(chunk);\n`;
         } else {
             const extension = state.fileName.split(".").pop()?.toLowerCase();
-            const parser = extension === "schem" ? "SpongeSchematicParser" : extension === "schematic" ? "SchematicParser" : "StructureParser";
+            const parser = extension === "litematic" ? "LitematicaParser" : extension === "schem" ? "SpongeSchematicParser" : extension === "schematic" ? "SchematicParser" : "StructureParser";
             code += `await world.placeMultiBlock(await MineRender.${parser}.parse(await MineRender.NBTHelper.fromBuffer(bytes)));\n`;
         }
     } else if (state.source === "preset" || state.source === "workload") {
