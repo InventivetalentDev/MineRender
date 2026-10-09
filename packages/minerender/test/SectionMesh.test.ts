@@ -1,5 +1,5 @@
 import test, { ExecutionContext } from "ava";
-import { BoxGeometry, DoubleSide, Float32BufferAttribute, FrontSide, Matrix4, Mesh, ShaderMaterial, Texture } from "three";
+import { BoxGeometry, Float32BufferAttribute, FrontSide, Matrix4, Mesh, ShaderMaterial, Texture } from "three";
 import { CanvasImage } from "../src/canvas/CanvasImage";
 import { CompatCanvas } from "../src/canvas/CanvasCompat";
 import { Env, EnvProvider } from "../src/Env";
@@ -107,7 +107,7 @@ test.serial("section materials blend only translucent pages", t => {
     t.is(section.children.length, 2);
     const materials = section.children.map(child => (child as Mesh).material as ShaderMaterial);
     t.deepEqual(materials.map(material => material.transparent), [false, true]);
-    t.deepEqual(materials.map(material => material.side), [FrontSide, DoubleSide]);
+    t.deepEqual(materials.map(material => material.side), [FrontSide, FrontSide]);
 });
 
 test.serial("section meshes copy templates with fewer than six quads", t => {

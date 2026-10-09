@@ -1,4 +1,4 @@
-import { BufferGeometry, Float32BufferAttribute, Group, Material, Mesh, MeshBasicMaterial, ShaderMaterial, Texture, Uint32BufferAttribute } from "three";
+import { BufferGeometry, Float32BufferAttribute, FrontSide, Group, Material, Mesh, MeshBasicMaterial, ShaderMaterial, Texture, Uint32BufferAttribute } from "three";
 import { createCanvas } from "../canvas/CanvasCompat";
 import { Materials } from "../Materials";
 import { TextureAtlas } from "../texture/TextureAtlas";
@@ -121,6 +121,7 @@ export class SectionMesh extends Group {
             geometry.computeBoundingBox();
             geometry.computeBoundingSphere();
             const material = Materials.createShadedCanvasMaterial(canvas as HTMLCanvasElement, page.layer === 1, false, true);
+            material.side = FrontSide;
             material.vertexColors = true;
             const texture = (material as ShaderMaterial).uniforms?.map?.value ?? (material as MeshBasicMaterial).map;
             const mesh = new Mesh(geometry, material);

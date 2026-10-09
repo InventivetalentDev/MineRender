@@ -668,6 +668,61 @@ test.serial("section models omit absent faces from every element", async t => {
     t.deepEqual(geometry.boundingBox!.max.toArray(), [8, 8, 8]);
 });
 
+for (const transform of ["rotated cullface", "uvlock", "element rotation"]) {
+    test.serial(`section templates preserve ${transform} from individual block geometry`, async t => {
+        const { world, scene, states, addModel, place } = fixture(t, { sectionMeshing: true });
+        const individual = new MineRenderWorld(scene);
+        t.teardown(() => individual.clear());
+        const model = addModel("transformed", { height: 8,
+            cullable: transform === "rotated cullface" ? [CubeFace.UP] : undefined });
+        if (transform === "element rotation") {
+            model.elements![0].rotation = { origin: [4, 6, 10], axis: "z", angle: 22.5 };
+        }
+        states.set("test:transformed", { variants: { "": {
+            model: "test:block/transformed", x: transform === "rotated cullface" ? 180 : 90,
+            y: transform === "rotated cullface" ? 0 : 90, uvlock: transform === "uvlock"
+        } } });
+        await place([0, 0, 0], "transformed");
+        const block = (await individual.setBlockAt([0, 0, 0], { type: "test:transformed" }))!.object;
+        const entry = world.getChunkAt(new Vector3())!["sectionBlocks"].get(0)![0];
+        const template = entry.template;
+        const expected = geometryOf(block).clone();
+        t.teardown(() => expected.dispose());
+        expected.applyMatrix4(block["getModelMatrix"](block["_models"][0]).setPosition(0, 0, 0));
+        const values = (geometry: typeof expected, attribute: string) =>
+            Array.from(geometry.getAttribute(attribute).array, value => Math.abs(value) < 1e-6 ? 0 : +value.toFixed(5));
+        for (const attribute of ["position", "normal", "uv", "uvBounds"]) {
+            t.deepEqual(values(template.geometry, attribute), values(expected, attribute), attribute);
+        }
+        t.false(template.occludes);
+        if (transform === "uvlock") {
+            t.notDeepEqual(Array.from(template.geometry.getAttribute("uv").array), model.elements![0].mappedUv);
+        }
+        const section = SectionMesh.build([{ index: 0, template, cullMask: 0 }]);
+        t.teardown(() => section.dispose());
+        const geometry = (section.children[0] as Mesh).geometry;
+        t.deepEqual(values(geometry, "position"), values(expected, "position"));
+        t.deepEqual(values(geometry, "uv"), values(expected, "uv"));
+        if (transform === "rotated cullface") {
+            t.deepEqual(Array.from(template.cullFaces), [0, 0, 8, 0, 0, 0]);
+            for (const y of [1, -1]) {
+                await place([0, y, 0]);
+                await individual.setBlockAt([0, y, 0], { type: "test:cube" });
+                const culled = SectionMesh.build([entry]);
+                t.teardown(() => culled.dispose());
+                const geometry = (culled.children[0] as Mesh).geometry;
+                t.is(entry.cullMask, y === 1 ? 4 : 12);
+                t.is(geometry.getIndex()!.count, y === 1 ? 36 : 30);
+                t.is(geometry.getIndex()!.count, indexCount(block));
+                if (y === -1) {
+                    t.true(Array.from(geometry.getIndex()!.array).every(vertex =>
+                        geometry.getAttribute("normal").getY(vertex) > -0.999));
+                }
+            }
+        }
+    });
+}
+
 test.serial("section meshing puts translucent blocks in a separate transparent mesh", async t => {
     const { scene, place, addModel } = fixture(t, { sectionMeshing: true });
     Materials.createShadedCanvasMaterial = (_canvas, transparent) => new MeshBasicMaterial({ transparent });

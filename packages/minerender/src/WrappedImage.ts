@@ -4,6 +4,8 @@ import type { ExtractableImageData } from "./ExtractableImageData";
 /** Provides pixel and frame access to a canvas-backed image. Simple frame helpers assume a vertical strip of squares. */
 export class WrappedImage {
 
+    private alpha?: { transparency: boolean; translucency: boolean };
+
     constructor(readonly dta: ExtractableImageData) {
     }
 
@@ -24,24 +26,29 @@ export class WrappedImage {
     }
 
     get hasTransparency(): boolean {
-        const data = this.data.data;
-        for (let i = 0; i < data.length; i += 4) {
-            if (data[i + 3] < 255) {
-                return true;
-            }
-        }
-        return false;
+        return this.getAlpha().transparency;
     }
 
     /** Whether any pixel has partial alpha. Binary alpha renders as cutout, not blended. */
     get hasTranslucency(): boolean {
+        return this.getAlpha().translucency;
+    }
+
+    private getAlpha(): { transparency: boolean; translucency: boolean } {
+        if (this.alpha) return this.alpha;
         const data = this.data.data;
-        for (let i = 0; i < data.length; i += 4) {
-            if (data[i + 3] > 0 && data[i + 3] < 255) {
-                return true;
+        let transparency = false;
+        let translucency = false;
+        for (let i = 3; i < data.length; i += 4) {
+            if (data[i] < 255) {
+                transparency = true;
+                if (data[i] > 0) {
+                    translucency = true;
+                    break;
+                }
             }
         }
-        return false;
+        return this.alpha = { transparency, translucency };
     }
 
     /** Whether the dimensions form a vertical strip of square frames, without consulting `.mcmeta`. */
