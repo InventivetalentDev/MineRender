@@ -26,11 +26,21 @@ export interface AnvilChunk {
     x: number;
     z: number;
     dataVersion?: number;
+    /** DataVersion of the separate entity-region record; `dataVersion` belongs to the terrain. */
+    entityDataVersion?: number;
     sections: { y: number; data: ChunkData }[];
     entities?: MultiBlockEntity[];
 }
 
-/** Reads Java 1.13+ paletted `.mca` regions. Entity NBT is preserved without data-version migration. */
+/** Entities decoded from an entity region, with absolute chunk coordinates. */
+export interface AnvilEntityChunk {
+    x: number;
+    z: number;
+    dataVersion?: number;
+    entities: MultiBlockEntity[];
+}
+
+/** Reads Java paletted terrain and entity `.mca` regions without data-version migration. */
 export class AnvilParser {
 
     /** Lists occupied chunk positions within the region, using local coordinates from 0 to 31. */
@@ -53,12 +63,41 @@ export class AnvilParser {
      * @returns The chunk with absolute coordinates, or `undefined` if the region has no chunk there.
      */
     public static async parseChunk(data: RegionInput, localX: number, localZ: number): Promise<AnvilChunk | undefined> {
+        const bytes = this.bytes(data);
+        const location = this.location(bytes, localX, localZ);
+        return location ? this.readChunk(bytes, location) : undefined;
+    }
+
+    /**
+     * Decodes one chunk from an `entities/r.x.z.mca` file without migrating its NBT.
+     * @param localX - Chunk x within the region, from 0 to 31.
+     * @param localZ - Chunk z within the region, from 0 to 31.
+     * @returns The entities with absolute chunk coordinates, or `undefined` if no chunk is stored there.
+     */
+    public static async parseEntityChunk(data: RegionInput, localX: number, localZ: number): Promise<AnvilEntityChunk | undefined> {
+        const bytes = this.bytes(data);
+        const location = this.location(bytes, localX, localZ);
+        if (!location) return undefined;
+        const root = await this.readNBT(bytes, location);
+        const position = root.Position;
+        if (position?.type !== "intArray" || position.value.length !== 2 || !position.value.every(Number.isInteger)) {
+            throw new MineRenderError("Anvil entity chunk Position must contain two integers");
+        }
+        const [x, z] = position.value;
+        if (((x % 32) + 32) % 32 !== localX || ((z % 32) + 32) % 32 !== localZ) {
+            throw new MineRenderError("Anvil entity chunk coordinates do not match its region location");
+        }
+        return {
+            x, z, dataVersion: root.DataVersion?.type === "int" ? root.DataVersion.value : undefined,
+            entities: this.entities(root.Entities)
+        };
+    }
+
+    private static location(data: Uint8Array, localX: number, localZ: number): ChunkLocation | undefined {
         if (![localX, localZ].every(value => Number.isInteger(value) && value >= 0 && value < 32)) {
             throw new RangeError("Region-local chunk coordinates must be integers from 0 to 31");
         }
-        const bytes = this.bytes(data);
-        const location = this.locations(bytes).find(({ x, z }) => x === localX && z === localZ);
-        return location ? this.readChunk(bytes, location) : undefined;
+        return this.locations(data).find(({ x, z }) => x === localX && z === localZ);
     }
 
     private static bytes(data: RegionInput): Uint8Array {
@@ -87,7 +126,7 @@ export class AnvilParser {
         return locations;
     }
 
-    private static async readChunk(data: Uint8Array, location: ChunkLocation): Promise<AnvilChunk> {
+    private static async readNBT(data: Uint8Array, location: ChunkLocation): Promise<CompoundValue> {
         const compression = data[location.offset + 4];
         if (compression & 128) throw new MineRenderError("External Anvil .mcc chunks are not supported");
         if (compression !== 1 && compression !== 2 && compression !== 3) {
@@ -100,7 +139,11 @@ export class AnvilParser {
             payload = new Uint8Array(await new Response(stream).arrayBuffer());
         }
         const nbt = await NBTHelper.fromBuffer(payload, "big");
-        const root = nbt.value;
+        return nbt.value;
+    }
+
+    private static async readChunk(data: Uint8Array, location: ChunkLocation): Promise<AnvilChunk> {
+        const root = await this.readNBT(data, location);
         const level = root.Level?.type === "compound" ? root.Level.value : root;
         const dataVersion = root.DataVersion?.type === "int" ? root.DataVersion.value : undefined;
         const chunk: AnvilChunk = {
@@ -148,18 +191,20 @@ export class AnvilParser {
             const block = section.data.get(index);
             if (block) section.data.set(index, { ...block, nbt: { type: "compound", value: entry } });
         }
-        const entities = this.compounds(level.entities ?? level.Entities, "entities");
-        if (entities.length) {
-            chunk.entities = entities.map(value => {
-                const position = value.Pos;
-                if (position?.type !== "list" || position.value.type !== "double"
-                    || position.value.value.length !== 3 || !position.value.value.every(Number.isFinite)) {
-                    throw new MineRenderError("Anvil entity Pos must contain three coordinates");
-                }
-                return { position: [...position.value.value] as [number, number, number], nbt: { type: "compound", value } };
-            });
-        }
+        const entities = this.entities(level.entities ?? level.Entities);
+        if (entities.length) chunk.entities = entities;
         return chunk;
+    }
+
+    private static entities(tag: NBTTag): MultiBlockEntity[] {
+        return this.compounds(tag, "entities").map(value => {
+            const position = value.Pos;
+            if (position?.type !== "list" || position.value.type !== "double"
+                || position.value.value.length !== 3 || !position.value.value.every(Number.isFinite)) {
+                throw new MineRenderError("Anvil entity Pos must contain three coordinates");
+            }
+            return { position: [...position.value.value] as [number, number, number], nbt: { type: "compound", value } };
+        });
     }
 
     private static compounds(tag: NBTTag, name: string): CompoundValue[] {

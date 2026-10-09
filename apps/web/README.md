@@ -31,7 +31,7 @@ These paths are relative to the development server root:
 
 The sidebar from `src/playground/Playground.ts` provides presets, renderer and camera settings, Minecraft version / hosted root / resource-pack ZIP, exports, and a shareable link or JSON that restores the page state. Local files are not part of shared links and have to be selected again.
 
-The world page uses a separate streaming viewer. Select a world folder or region files, choose a dimension and the matching asset version, then pan or enter chunk coordinates. Local saves start with one chunk; increase the load radius to include neighbors. File contents stay in the browser. Lighting, biome tint, LOD, pre-1.13 numeric chunks, LZ4, and external `.mcc` payloads remain unsupported.
+The world page uses a separate streaming viewer. Select a world folder or region files, choose a dimension and the matching asset version, then pan or enter chunk coordinates. Local saves start with one chunk; increase the load radius to include neighbors. Enable **Render saved mobs** to load supported mobs from embedded records and the dimension's `entities/` folder. Entity regions require a world-folder selection; loose files are treated as terrain. File contents stay in the browser. Lighting, biome tint, LOD, pre-1.13 numeric chunks, LZ4, and external `.mcc` payloads remain unsupported.
 
 ## Adding a page
 

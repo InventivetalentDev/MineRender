@@ -19,10 +19,11 @@
             <label>World folder<input id="world-folder" type="file" webkitdirectory multiple></label>
             <label>Or choose region files<input id="region-files" type="file" accept=".mca" multiple></label>
             <label>Dimension<select id="dimension" disabled><option>Sample terrain</option></select></label>
+            <label class="control-checkbox"><span>Render saved mobs</span><input id="render-entities" type="checkbox"></label>
             <p id="source-info" class="control-note">Procedural terrain with no world download.</p>
             <label>Minecraft asset version<input id="asset-version" value="1.21.11" spellcheck="false"></label>
             <button id="apply-version" type="button">Apply version</button>
-            <p class="control-note">World files stay in your browser. Block models and textures load from the asset CDN. Choose the version used by your world.</p>
+            <p class="control-note">World files stay in your browser. Models and textures load from the asset CDN. Choose the version used by your world.</p>
         </fieldset>
         <fieldset id="view-controls">
             <legend>View center</legend>
@@ -44,8 +45,9 @@
         </fieldset>
         <output id="world-stats" class="playground-stats"></output>
         <details><summary>Supported worlds</summary>
-            <p class="control-note">Java Edition 1.13+ region files. Select a world folder to choose the Overworld, Nether, End, or a custom dimension. Files selected without folders are treated as one dimension.</p>
-            <p class="control-note">Lighting, biome colors, entities, pre-1.13 numeric blocks, LZ4 compression, and external .mcc chunks are not rendered. This viewer streams existing chunks; it does not generate missing terrain.</p>
+            <p class="control-note">Java Edition 1.13+ region files. Select a world folder to choose the Overworld, Nether, End, or a custom dimension. World folders include terrain and entity regions. Files selected without folders are treated as terrain in one dimension.</p>
+            <p class="control-note">Saved mobs use their default appearance and saved position and yaw; equipment, variants, baby sizes, and passengers are not rendered.</p>
+            <p class="control-note">Lighting, biome colors, pre-1.13 numeric blocks, LZ4 compression, and external .mcc chunks are not rendered. This viewer streams existing chunks; it does not generate missing terrain.</p>
         </details>
     </aside>
     <main id="viewport" class="playground-viewport" aria-label="World preview"></main>
