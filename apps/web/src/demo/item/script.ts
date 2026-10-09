@@ -1,4 +1,4 @@
-import { AssetKey, BannerPatterns, DISPLAY_POSITIONS, DisplayPosition, ModelMerger, Models, POTTERY_SHERDS, isInstanceReference, type ItemModelContext } from "minerender";
+import { AssetKey, BannerPatterns, DISPLAY_POSITIONS, DisplayPosition, ModelMerger, Models, isInstanceReference, type ItemModelContext } from "minerender";
 import { Box3 } from "three";
 import { Playground, type DemoContext, type DemoContent } from "../../playground/Playground";
 import { button, field, group, input, note, section, select, suggestions } from "../../playground/controls";
@@ -127,14 +127,16 @@ const potGroup = group(app.controls, "Decorated pot");
 potGroup.hidden = true;
 const potSides = ["Back", "Left", "Right", "Front"];
 const sherdLabel = (id: string) => id.replace(/^minecraft:/, "").replace(/_pottery_sherd$/, "").replace(/_/g, " ").replace(/^./, letter => letter.toUpperCase());
-const sherdOptions: Array<[string, string]> = [["minecraft:brick", "Plain (brick)"], ...POTTERY_SHERDS.map(id => [id, sherdLabel(id)] as [string, string])];
-let potState: ItemSettings | undefined;
+const sherdOptions: Array<[string, string]> = [["minecraft:brick", "Plain (brick)"], ...[
+    "angler", "archer", "arms_up", "blade", "brewer", "burn", "danger", "explorer", "flow", "friend", "guster",
+    "heart", "heartbreak", "howl", "miner", "mourner", "plenty", "prize", "scrape", "sheaf", "shelter", "skull", "snort"
+].map(name => [`minecraft:${name}_pottery_sherd`, sherdLabel(name)] as [string, string])];
+const potGuard = itemControlGuard(potGroup);
 const potControls = potSides.map((side, index) => {
     const control = select(potGroup, side, sherdOptions, "minecraft:brick");
     control.dataset.potSide = side.toLowerCase();
     control.addEventListener("change", () => {
-        if (potGroup.disabled || !potState || app.state.item !== potState.item
-            || JSON.stringify(app.state.components) !== JSON.stringify(potState.components)) return;
+        if (!potGuard.matches()) return;
         const current = app.state.components;
         if (!current || typeof current !== "object" || Array.isArray(current)) return;
         const components = structuredClone(current);
@@ -144,8 +146,7 @@ const potControls = potSides.map((side, index) => {
         while (decorations.length <= index) decorations.push("minecraft:brick");
         decorations[index] = control.value;
         components[id] = decorations;
-        potGroup.disabled = true;
-        void app.update({ components });
+        potGuard.update({ components });
     });
     return control;
 });
@@ -199,6 +200,24 @@ button(addReference, "Add reference", () => {
 });
 const syncModelControls = modelControls(app);
 syncModelControls();
+
+function itemControlGuard(controls: HTMLFieldSetElement, keys: Array<keyof ItemSettings> = ["item", "components"]) {
+    let snapshot: string | undefined;
+    const serialize = (state: ItemSettings) => JSON.stringify(keys.map(key => state[key]));
+    const matches = () => !controls.disabled && snapshot === serialize(app.state);
+    return {
+        sync(state: ItemSettings) {
+            snapshot = serialize(state);
+            controls.disabled = false;
+        },
+        matches,
+        update(patch: Partial<ItemSettings>) {
+            if (!matches()) return;
+            controls.disabled = true;
+            void app.update(patch);
+        }
+    };
+}
 
 function isModelPath(item: string): boolean {
     return /^(?:[a-z0-9_.-]+:)?(?:item|block)\//.test(item.trim());
@@ -371,8 +390,7 @@ async function load(ctx: DemoContext, state: ItemSettings): Promise<DemoContent>
             shulkerOpenness.value = String(state.shulkerOpenness);
             shulkerOpennessValue.value = String(state.shulkerOpenness);
             shulkerOrientation.value = state.shulkerOrientation;
-            potState = state;
-            potGroup.disabled = false;
+            potGuard.sync(state);
             const decorations = state.components.pot_decorations ?? state.components["minecraft:pot_decorations"];
             potGroup.hidden = state.item !== "minecraft:decorated_pot" && state.item !== "decorated_pot" && decorations === undefined;
             potControls.forEach((control, index) => {

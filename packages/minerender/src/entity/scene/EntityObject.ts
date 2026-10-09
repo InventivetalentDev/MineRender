@@ -11,7 +11,7 @@ import { AssetKey, isAssetKey } from "../../assets/AssetKey";
 import { ExtractableImageData } from "../../ExtractableImageData";
 import { Materials } from "../../Materials";
 import { MinecraftCubeTexture } from "../../MinecraftCubeTexture";
-import { CUBE_FACES } from "../../CubeFace";
+import { CUBE_FACES, CubeFace } from "../../CubeFace";
 import { EntityLayer, EntityModel, EntityModelPart } from "../EntityModel";
 import type { DoubleArray } from "../../model/Model";
 import type { Maybe } from "../../util/util";
@@ -228,12 +228,12 @@ export class EntityObject extends SceneObject {
             const group = this.createGroup(`layer:${name}`);
             modelRoot.add(group);
             const inward = !Materials.entityModeCulls(layer.render ?? layer.layer.render);
-            this.createPart("root", layer.layer.root, group, layer.layer.texture, Materials.MISSING_TEXTURE, index, inward);
+            this.createPart("root", layer.layer.root, group, layer.layer.texture, Materials.MISSING_TEXTURE, index, inward, this.options.faces?.[name]);
         });
         this.meshesCreated = true;
     }
 
-    private createPart(name: string, part: EntityModelPart, parent: Object3D, textureSize: DoubleArray, material: Material, renderOrder: number, inward: boolean = true) {
+    private createPart(name: string, part: EntityModelPart, parent: Object3D, textureSize: DoubleArray, material: Material, renderOrder: number, inward: boolean = true, faces?: CubeFace[]) {
         const anchor = this.createGroup(name);
         anchor.position.fromArray(part.pose.offset);
         anchor.rotation.set(...part.pose.rotation, "ZYX");
@@ -252,8 +252,8 @@ export class EntityObject extends SceneObject {
             ).clone();
             this.geometries.add(geometry);
             geometry.translate(cube.origin[0] + width / 2, cube.origin[1] + height / 2, cube.origin[2] + depth / 2);
-            if (cube.faces) {
-                geometry.setIndex(Array.from(geometry.getIndex()!.array).filter((_, index) => cube.faces!.includes(CUBE_FACES[Math.floor(index / 6)])));
+            if (faces) {
+                geometry.setIndex(Array.from(geometry.getIndex()!.array).filter((_, index) => faces.includes(CUBE_FACES[Math.floor(index / 6)])));
                 geometry.clearGroups();
             }
             // Vanilla draws most entity render types without backface culling, e.g. chicken legs are only painted on faces seen from inside.
@@ -268,7 +268,7 @@ export class EntityObject extends SceneObject {
             if (this.options.wireframe) this.disposeWireframes.push(addWireframeToMesh(geometry, mesh));
         }
         for (const [childName, child] of Object.entries(part.children)) {
-            this.createPart(childName, child, anchor, size, material, renderOrder, inward);
+            this.createPart(childName, child, anchor, size, material, renderOrder, inward, faces);
         }
     }
 
@@ -322,6 +322,8 @@ export interface EntityObjectOptions extends SceneObjectOptions {
     flip?: boolean;
     /** Colours for the dataset's tint labels, e.g. `{ wool_color: 0xf9801d }`; a pass whose label is absent stays untinted. */
     tints?: Record<string, ColorRepresentation>;
+    /** Cube faces by layer key; omitted layers draw all six faces. */
+    faces?: Record<string, CubeFace[]>;
 }
 
 export function isEntityObject(obj: any): obj is EntityObject {

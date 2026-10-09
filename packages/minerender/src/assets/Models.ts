@@ -5,7 +5,7 @@ import { ModelMerger } from "../model/ModelMerger";
 import { AssetLoader } from "./AssetLoader";
 import { DEFAULT_NAMESPACE } from "./Assets";
 import { PersistentCache } from "../cache/PersistentCache";
-import { AssetKey, isAssetKey } from "./AssetKey";
+import { AssetKey, isAssetKey, isResourceLocation } from "./AssetKey";
 import { ListAsset } from "../ListAsset";
 import { AssetParser } from "./source/parser/AssetParsers";
 import { DisplayPosition } from "../model/DisplayPosition";
@@ -89,7 +89,7 @@ export class Models {
     }
 
     private static contextIdentifier(id: string): string {
-        if (typeof id !== "string" || !/^(?:[a-z0-9_.-]+:)?[a-z0-9_./-]+$/.test(id)) {
+        if (!isResourceLocation(id)) {
             throw new Error(`Invalid item-preview identifier: ${id}`);
         }
         return id.includes(":") ? id : `minecraft:${id}`;

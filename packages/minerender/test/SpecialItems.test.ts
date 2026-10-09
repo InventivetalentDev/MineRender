@@ -3,7 +3,7 @@ import { Box3, Mesh, MeshBasicMaterial, Vector3 } from "three";
 import { AssetKey, BasicAssetKey } from "../src/assets/AssetKey";
 import { AssetLoader } from "../src/assets/AssetLoader";
 import { BannerPatterns, DYE_COLORS } from "../src/assets/BannerPatterns";
-import { DecoratedPots, POTTERY_SHERDS } from "../src/assets/DecoratedPots";
+import { DecoratedPots } from "../src/assets/DecoratedPots";
 import { Entities, EntityModelOptions } from "../src/assets/Entities";
 import { ModelTextures } from "../src/assets/ModelTextures";
 import { AssetSource } from "../src/assets/source/AssetSource";
@@ -226,7 +226,7 @@ test.serial("decorated pots map component order to outward side planes while ret
     t.true(requests.every(request => (request.key as AssetKey).root === "https://example.test/pack"));
     const bounds = new Box3().setFromObject(object);
     t.deepEqual([coordinates(bounds.min), coordinates(bounds.max)], [[-7, -8, -7], [7, 11.9, 7]]);
-    t.true(Object.values(models[1].layer.root.children).every(child => child.cubes[0].faces === undefined));
+    t.true(Object.values(models[1].layer.root.children).every(child => !("faces" in child.cubes[0])));
     t.deepEqual(models[0].layer.root.children.neck.cubes[0].grow, [-0.1, -0.1, -0.1]);
     let geometriesDisposed = 0, materialsDisposed = 0, texturesDisposed = 0;
     const materials = new Set<MeshBasicMaterial>();
@@ -249,8 +249,6 @@ test.serial("plain and partial pot decorations use fallback sides and reject mal
     const partial = DecoratedPots.getSideTextures(["flow_pottery_sherd", "minecraft:brick", "minecraft:diamond"]);
     t.deepEqual(Object.values(partial).map(key => key.path), ["decorated_pot/flow_pottery_pattern", ...new Array(3).fill("decorated_pot/decorated_pot_side")]);
     t.is(DecoratedPots.getSideTextures(["pack:archer_pottery_sherd"]).back.path, "decorated_pot/decorated_pot_side");
-    t.is(POTTERY_SHERDS.length, 23);
-    t.is(new Set(POTTERY_SHERDS).size, 23);
     const preload = ModelTextures.preload;
     ModelTextures.preload = async key => key.path === "decorated_pot/archer_pottery_pattern" ? undefined : preload(key);
     await t.throwsAsync(SpecialItems.getParts({ type: "decorated_pot" }, undefined, { "minecraft:pot_decorations": ["archer_pottery_sherd"] }),

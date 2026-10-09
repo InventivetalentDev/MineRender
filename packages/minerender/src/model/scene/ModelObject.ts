@@ -87,7 +87,7 @@ export class ModelObject extends SceneObject {
             transform.multiply(new Matrix4().makeTranslation(-8, -8, -8));
             try {
                 for (const part of parts) {
-                    const object = new EntityObject(part.model, { flip: false, wireframe: this.options.wireframe, tints: part.tints });
+                    const object = new EntityObject(part.model, { flip: false, wireframe: this.options.wireframe, tints: part.tints, faces: part.faces });
                     object.matrix.copy(transform).multiply(part.transform);
                     object.matrixWorldNeedsUpdate = true;
                     object.matrixAutoUpdate = false;

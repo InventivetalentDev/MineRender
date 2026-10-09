@@ -17,6 +17,7 @@ export interface SpecialItemPart {
     positions?: Record<string, TripleArray>;
     /** Colors for the entity model's named texture passes. */
     tints?: Record<string, number>;
+    faces?: Record<string, CubeFace[]>;
 }
 
 /** Loads entity geometry and texture passes for supported special item previews. */
@@ -55,7 +56,7 @@ export class SpecialItems {
                     if (!part) throw new Error(`Decorated-pot entity model is missing its ${side} side`);
                     layers[side] = { key: sides.model.key, texture: sideTextures[side], render: "solid", layer: {
                         ...sides.model.layer, root: { ...sides.model.layer.root, cubes: [], children: {
-                            [side]: { ...part, cubes: part.cubes.map(cube => ({ ...cube, faces: [CubeFace.NORTH] })) }
+                            [side]: part
                         } }
                     } };
                 }
@@ -63,6 +64,7 @@ export class SpecialItems {
                     if (!await ModelTextures.preload(key)) throw new Error(`Missing special item texture ${key.toNamespacedString()}`);
                 }));
                 base.model = { ...base.model, ...layers.base, layers };
+                base.faces = { front: [CubeFace.NORTH], back: [CubeFace.NORTH], left: [CubeFace.NORTH], right: [CubeFace.NORTH] };
                 return [base];
             }
             case "minecraft:trident":

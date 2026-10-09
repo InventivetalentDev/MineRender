@@ -144,28 +144,28 @@ test.serial("texture dimensions inherit within each part subtree without leaking
     t.deepEqual(uvs(object, "untextured"), new Array(48).fill(0));
 });
 
-test.serial("entity cube face masks preserve selected UVs and leave shared full-cube geometry unchanged", t => {
+test.serial("entity layer face masks preserve selected UVs and leave shared full-cube geometry unchanged", t => {
     const create = fixture(t);
-    const root = part({ children: {
-        masked: part({ cubes: [{ ...cube, faces: [CubeFace.NORTH, CubeFace.UP] }] }),
-        empty: part({ cubes: [{ ...cube, faces: [] }] }),
-        plane: part({ cubes: [{ origin: [0, 0, 0], size: [14, 16, 0], uv: [1, 0], faces: [CubeFace.NORTH] }] }),
-        ordinary: part({ cubes: [cube] })
-    } });
+    const root = part({ children: { masked: part({ cubes: [cube] }) } });
+    const planeRoot = part({ children: { plane: part({ cubes: [{ origin: [0, 0, 0], size: [14, 16, 0], uv: [1, 0] }] }) } });
     const key = new BasicAssetKey("minecraft", "fixture");
-    const object = create(root, [64, 32], { flip: false }, {
-        solid: { key, layer: { root, texture: [64, 32] }, render: "solid" },
-        cutout: { key, layer: { root, texture: [64, 32] }, render: "cutout" }
+    const layer = { key, layer: { root, texture: [64, 32] as [number, number] } };
+    const object = create(root, [64, 32], { flip: false, faces: {
+        solid: [CubeFace.NORTH, CubeFace.UP], cutout: [CubeFace.NORTH, CubeFace.UP], empty: [], plane: [CubeFace.NORTH]
+    } }, {
+        solid: { ...layer, render: "solid" }, cutout: { ...layer, render: "cutout" }, empty: layer,
+        ordinarySolid: { ...layer, render: "solid" }, ordinaryCutout: layer,
+        plane: { key, layer: { root: planeRoot, texture: [16, 16] }, render: "solid" }
     });
     const masked = object.getMeshByName("masked", "solid")!.geometry;
     t.is(masked.getIndex()!.count, 12);
     t.deepEqual(Array.from(masked.getIndex()!.array).map(index => Math.floor(index / 4)), [...new Array(6).fill(2), ...new Array(6).fill(5)]);
     t.deepEqual(Array.from(masked.getAttribute("uv").array), normalized(vanillaUvs));
     t.is(object.getMeshByName("masked", "cutout")!.geometry.getIndex()!.count, 24);
-    t.is(object.getMeshByName("empty", "solid")!.geometry.getIndex()!.count, 0);
-    t.is(object.getMeshByName("ordinary", "solid")!.geometry.getIndex()!.count, 36);
-    t.is(object.getMeshByName("ordinary", "cutout")!.geometry.getIndex()!.count, 72);
-    const plane = object.getMeshByName("plane", "solid")!;
+    t.is(object.getMeshByName("masked", "empty")!.geometry.getIndex()!.count, 0);
+    t.is(object.getMeshByName("masked", "ordinarySolid")!.geometry.getIndex()!.count, 36);
+    t.is(object.getMeshByName("masked", "ordinaryCutout")!.geometry.getIndex()!.count, 72);
+    const plane = object.getMeshByName("plane", "plane")!;
     object.updateMatrixWorld(true);
     t.is(plane.geometry.getIndex()!.count, 6);
     t.true(new Raycaster(new Vector3(7, 8, -10), new Vector3(0, 0, 1)).intersectObject(plane).length > 0);
