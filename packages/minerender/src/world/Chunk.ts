@@ -11,8 +11,8 @@ import { MineRenderWorld } from "./MineRenderWorld";
 import { isTripleArray, TripleArray } from "../model/Model";
 import { SectionModels } from "./SectionModels";
 import { BlockEntities } from "../assets/BlockEntities";
-import { SectionMesh, SectionMeshEntry } from "./SectionMesh";
-import { getFluidKind } from "../model/fluid/FluidGeometry";
+import { SectionFluids, SectionMesh, SectionMeshEntry } from "./SectionMesh";
+import { FluidKind, getBlockFluidState } from "../model/fluid/FluidGeometry";
 import { BlockState } from "../model/block/BlockState";
 
 /**
@@ -32,6 +32,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
     private readonly renderedBlocks = new Map<number, BlockInfo<SectionMeshing>>();
     private readonly sectionBlocks = new Map<number, SectionMeshEntry[]>();
     private readonly hiddenBlocks = new Set<number>();
+    private readonly fluidCells = new Uint8Array(4096);
     private readonly blockPosition = new Vector3();
     private sectionMesh?: SectionMesh;
     private meshDirty = false;
@@ -39,7 +40,8 @@ export class Chunk<SectionMeshing extends boolean = false> {
 
     constructor(scene: MineRenderScene, x: number, y: number, z: number,
                 private readonly onBlocksChanged?: (positions: Vector3[]) => Promise<void>,
-                private readonly sectionModels?: SectionModels) {
+                private readonly sectionModels?: SectionModels,
+                private readonly neighborCell?: (x: number, y: number, z: number) => number) {
         this.scene = scene;
         this.x = x;
         this.y = y;
@@ -110,10 +112,11 @@ export class Chunk<SectionMeshing extends boolean = false> {
             const stored = { type: block.type, properties: block.properties ? { ...block.properties } : undefined };
             const resolved = (async () => {
                 const blockState = await BlockStates.get(AssetKey.parse("blockstates", stored.type));
-                // Fluids and block entities need individual render objects.
-                const perBlock = !blockState || !this.sectionModels || !!getFluidKind(blockState.key, stored.properties)
+                const perBlock = !blockState || !this.sectionModels
                     || !!(blockState.key && BlockEntities.entry(await BlockEntities.getIndex(blockState.key.root), blockState.key.toNamespacedString()));
-                if (!perBlock) await this.sectionModels!.get(blockState!, stored.properties);
+                if (!perBlock && getBlockFluidState(blockState!.key, stored.properties)?.renderModel !== false) {
+                    await this.sectionModels!.get(blockState!, stored.properties);
+                }
                 return { blockState, perBlock };
             })();
             resolutions.set(key, resolved);
@@ -128,6 +131,8 @@ export class Chunk<SectionMeshing extends boolean = false> {
             const readBlock = this.data.snapshot(index);
             this.renderedBlocks.get(index)?.object?.removeFromScene();
             if (this.sectionBlocks.delete(index)) this.meshDirty = true;
+            if (this.fluidCells[index]) this.meshDirty = true;
+            this.fluidCells[index] = 0;
             this.renderedBlocks.delete(index);
             const worldPos = new Vector3(this.x * 16 + index % 16, this.y * 16 + Math.floor(index / 256),
                 this.z * 16 + Math.floor(index / 16) % 16);
@@ -143,7 +148,13 @@ export class Chunk<SectionMeshing extends boolean = false> {
                     continue;
                 }
                 const variantPosition = worldPos.toArray();
-                const templates = perBlock ? undefined : await this.sectionModels!.get(blockState, stored.properties, variantPosition);
+                const fluid = getBlockFluidState(blockState.key, stored.properties);
+                if (fluid) {
+                    this.fluidCells[index] = (fluid.kind === "water" ? 16 : 32) | Math.min(fluid.level, 8);
+                    this.meshDirty = true;
+                }
+                const templates = perBlock ? undefined : fluid?.renderModel === false ? []
+                    : await this.sectionModels!.get(blockState, stored.properties, variantPosition);
                 if (templates) {
                     this.sectionBlocks.set(index, templates.map(template => ({ index, template, cullMask: 0 })));
                     this.meshDirty = true;
@@ -160,6 +171,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
                 this.renderedBlocks.set(index, { get block() { return readBlock(); }, object } as BlockInfo<SectionMeshing>);
             } catch (error) {
                 this.data.set(index, undefined);
+                this.fluidCells[index] = 0;
                 object?.removeFromScene();
                 if (!failed) failure = error;
                 failed = true;
@@ -182,7 +194,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
             this.hiddenBlocks.add(index);
         }
         block.object?.setVisible(visible);
-        if (this.sectionBlocks.has(index)) {
+        if (this.sectionBlocks.has(index) || this.fluidCells[index]) {
             this.meshDirty = true;
         }
         this.scene.dirty = true;
@@ -196,6 +208,16 @@ export class Chunk<SectionMeshing extends boolean = false> {
     /** Reports whether a cell has a visible render object or section entry. */
     public isBlockVisibleIndex(index: number): boolean {
         return this.renderedBlocks.has(index) && !this.hiddenBlocks.has(index);
+    }
+
+    /** Fluid kind bits and level of a cell, or 0. Hidden cells report 0. */
+    public fluidByteIndex(index: number): number {
+        return this.hiddenBlocks.has(index) ? 0 : this.fluidCells[index];
+    }
+
+    /** Whether the cell holds a fluid, merged or per-block. */
+    public isFluidIndex(index: number): boolean {
+        return this.fluidCells[index] !== 0;
     }
 
     public isOccludingAt(pos: Vector3): boolean {
@@ -215,6 +237,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
 
     /** Updates hidden faces for a cell's section entry or individual render object. */
     public async setCullMaskIndex(index: number, mask: number): Promise<void> {
+        if (this.fluidCells[index]) this.meshDirty = true;
         const entries = this.sectionBlocks.get(index);
         if (entries) {
             for (const entry of entries) {
@@ -230,11 +253,38 @@ export class Chunk<SectionMeshing extends boolean = false> {
 
     /** Rebuilds visible section geometry and discards results superseded by another rebuild or clear. */
     public async rebuildSectionMesh(): Promise<void> {
-        if (!this.meshDirty) return;
+        if (!this.sectionModels || !this.meshDirty) return;
         this.meshDirty = false;
         const generation = ++this.meshGeneration;
         const entries = [...this.sectionBlocks.entries()].flatMap(([index, entries]) => this.hiddenBlocks.has(index) ? [] : entries);
-        const next = entries.length ? await SectionMesh.buildAsync(entries, this.sectionModels!.maxAtlasSize) : undefined;
+        let fluids: SectionFluids | undefined;
+        const origins = new Map<FluidKind, string>();
+        for (const [index, block] of this.renderedBlocks) {
+            const byte = this.fluidByteIndex(index);
+            if (!byte || block.object) continue;
+            const kind = (byte & 48) === 16 ? "water" : "lava";
+            if (!origins.has(kind)) origins.set(kind, block.block.type);
+        }
+        if (origins.size) {
+            fluids = { cells: new Uint8Array(18 * 18 * 18) };
+            for (let y = -1; y <= 16; y++) {
+                for (let z = -1; z <= 16; z++) {
+                    for (let x = -1; x <= 16; x++) {
+                        const index = y * 256 + z * 16 + x;
+                        const inner = x >= 0 && x < 16 && y >= 0 && y < 16 && z >= 0 && z < 16;
+                        fluids.cells[(y + 1) * 324 + (z + 1) * 18 + x + 1] = inner
+                            ? (this.renderedBlocks.get(index)?.object ? 0 : this.fluidByteIndex(index))
+                                | (this.isOccludingIndex(index) ? 64 : 0)
+                            : this.neighborCell?.(this.x * 16 + x, this.y * 16 + y, this.z * 16 + z) ?? 0;
+                    }
+                }
+            }
+            for (const [kind, type] of origins) {
+                const state = await BlockStates.get(AssetKey.parse("blockstates", type));
+                fluids[kind] = await this.sectionModels.fluidAtlas(kind, state?.key?.root);
+            }
+        }
+        const next = entries.length || fluids ? await SectionMesh.buildAsync(entries, this.sectionModels.maxAtlasSize, fluids) : undefined;
         if (generation !== this.meshGeneration) {
             next?.dispose();
             return;
@@ -261,6 +311,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
         this.meshDirty = false;
         this.renderedBlocks.clear();
         this.hiddenBlocks.clear();
+        this.fluidCells.fill(0);
         this.data.clear();
         await onBlocksChanged?.(positions);
     }

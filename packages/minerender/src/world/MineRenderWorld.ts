@@ -329,7 +329,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                         let pending = this.pendingCulling.get(section);
                         if (pending?.has(index)) continue;
                         if (Math.abs(x) + Math.abs(y) + Math.abs(z) > 1
-                            && !section.getBlockAt(neighbor.set(pos.x + x, pos.y + y, pos.z + z))?.object?.fluidKind) continue;
+                            && !section.isFluidIndex(index)) continue;
                         if (!pending) this.pendingCulling.set(section, pending = new Set());
                         pending.add(index);
                     }
@@ -354,9 +354,8 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                                     const section = nx >= 0 && nx < 16 && ny >= 0 && ny < 16 && nz >= 0 && nz < 16 ? chunk
                                         : this._chunks.get(`${chunk.x + Math.floor(nx / 16)}_${chunk.y + Math.floor(ny / 16)}_${chunk.z + Math.floor(nz / 16)}`);
                                     const neighborIndex = (ny & 15) * 256 + (nz & 15) * 16 + (nx & 15);
-                                    const object = section?.isBlockVisibleIndex(neighborIndex)
-                                        ? section.getBlockAt(neighbor.set(wx + x, wy + y, wz + z))?.object : undefined;
-                                    return { fluid: object?.fluidKind, level: object?.fluidLevel,
+                                    const byte = section?.fluidByteIndex(neighborIndex) ?? 0;
+                                    return { fluid: (byte & 48) === 16 ? "water" : (byte & 48) === 32 ? "lava" : undefined, level: byte & 15,
                                         solid: section?.isOccludingIndex(neighborIndex) ?? false };
                                 });
                             }
@@ -384,7 +383,12 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         let chunk = this._chunks.get(key);
         if (typeof chunk === "undefined") {
             chunk = new Chunk<SectionMeshing>(this.scene, Math.floor(pos.x / 16), Math.floor(pos.y / 16), Math.floor(pos.z / 16),
-                positions => this.updateCulling(positions), this.sectionModels);
+                positions => this.updateCulling(positions), this.sectionModels, (x, y, z) => {
+                    const cx = Math.floor(x / 16), cy = Math.floor(y / 16), cz = Math.floor(z / 16);
+                    const section = this._chunks.get(`${cx}_${cy}_${cz}`);
+                    const index = (y - cy * 16) * 256 + (z - cz * 16) * 16 + x - cx * 16;
+                    return (section?.fluidByteIndex(index) ?? 0) | (section?.isOccludingIndex(index) ? 64 : 0);
+                });
             this._chunks.set(key, chunk);
         }
         return chunk;

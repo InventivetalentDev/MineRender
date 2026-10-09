@@ -1,20 +1,21 @@
 import test, { ExecutionContext } from "ava";
-import { BoxGeometry, Float32BufferAttribute, FrontSide, Matrix4, Mesh, ShaderMaterial, Texture } from "three";
+import { BoxGeometry, DoubleSide, Float32BufferAttribute, FrontSide, Group, Matrix4, Mesh, ShaderMaterial, Texture } from "three";
 import { CanvasImage } from "../src/canvas/CanvasImage";
 import { CompatCanvas } from "../src/canvas/CanvasCompat";
 import { Env, EnvProvider } from "../src/Env";
 import { TextureAtlas } from "../src/texture/TextureAtlas";
+import { Ticker } from "../src/Ticker";
 import { buildSectionGeometry, SectionGeometryInput, SectionGeometryPage } from "../src/world/SectionGeometry";
 import { SectionWorker } from "../src/world/SectionWorker";
 import { SectionMesh, SectionMeshTemplate } from "../src/world/SectionMesh";
 
-function fixture(t: ExecutionContext, createWorker?: EnvProvider["createWorker"]) {
+function fixture(t: ExecutionContext, createWorker?: EnvProvider["createWorker"], drawImage = () => {}) {
     const provider = Env["_provider"];
     const worker = SectionWorker["instance"], initialized = SectionWorker["initialized"];
     SectionWorker["instance"] = undefined;
     SectionWorker["initialized"] = false;
     Env.register({ name: "test", createWorker, createCanvas: (width, height) => ({
-        width, height, getContext: () => ({ drawImage() {} })
+        width, height, getContext: () => ({ drawImage })
     } as unknown as CompatCanvas) } as EnvProvider);
     const geometries: BoxGeometry[] = [];
     t.teardown(() => {
@@ -110,6 +111,53 @@ test.serial("section materials blend only translucent pages", t => {
     t.deepEqual(materials.map(material => material.side), [FrontSide, FrontSide]);
 });
 
+for (const transparent of [false, true]) {
+    test.serial(`section fluid materials are double-sided with depth writes ${transparent ? "disabled" : "enabled"}`, t => {
+        fixture(t);
+        const atlas = new TextureAtlas({}, new CanvasImage(4, 2), { still: [2, 2], flow: [2, 2] },
+            { still: [0, 0], flow: [2, 0] }, false, {}, transparent, transparent);
+        const cells = new Uint8Array(18 ** 3);
+        cells[18 * 18 + 18 + 1] = 16;
+        const section = SectionMesh.build([], 4, { cells, water: atlas });
+        t.teardown(() => section.dispose());
+        t.is(section.children.length, 1);
+        const material = (section.children[0] as Mesh).material as ShaderMaterial;
+        t.is(material.transparent, transparent);
+        t.is(material.side, DoubleSide);
+        t.true(material.forceSinglePass);
+        t.is(material.depthWrite, !transparent);
+        t.true(material.vertexColors);
+    });
+}
+
+test.serial("animated section pages redraw once per tick, dirty their scene and unsubscribe on disposal", t => {
+    let draws = 0;
+    const create = fixture(t, undefined, () => { draws++; });
+    const animated = create(), fixed = create();
+    animated.atlas = new TextureAtlas({}, new CanvasImage(2, 2), {}, {}, true, { all: () => true }, false);
+    const section = SectionMesh.build([
+        { index: 0, template: animated, cullMask: 0 },
+        { index: 1, template: fixed, cullMask: 0 },
+        { index: 2, template: animated, cullMask: 0 }
+    ]);
+    t.teardown(() => section.dispose());
+    const scene = Object.assign(new Group(), { isMineRenderScene: true, dirty: false });
+    scene.add(new Group().add(section));
+    t.is(section.children.length, 2);
+    t.is(draws, 2);
+    t.is(fixed.atlas.ticker, undefined);
+    const textures = section.children.map(child => ((child as Mesh).material as ShaderMaterial).uniforms.map.value as Texture);
+    const versions = textures.map(texture => texture.version);
+    const ticker = animated.atlas.ticker!;
+    Ticker.tickers.get(ticker)!();
+    t.is(draws, 3);
+    t.deepEqual(textures.map(texture => texture.version), [versions[0], versions[1] + 1]);
+    t.true(scene.dirty);
+    section.dispose();
+    t.is(animated.atlas.ticker, undefined);
+    t.false(Ticker.tickers.has(ticker));
+});
+
 test.serial("section meshes copy templates with fewer than six quads", t => {
     const template = fixture(t)();
     for (const name of ["position", "normal", "uv"]) {
@@ -165,8 +213,11 @@ test.serial("async section builds use the shared worker without copying its geom
     const first = create(), second = create();
     first.geometry.applyMatrix4(new Matrix4().makeRotationY(Math.PI / 2));
     const entries = [{ index: 1, template: first, cullMask: 1 }, { index: 16, template: second, cullMask: 0 }];
-    const expected = [SectionMesh.build(entries, 4), SectionMesh.build([...entries].reverse(), 4)];
-    const actual = await Promise.all([SectionMesh.buildAsync(entries, 4), SectionMesh.buildAsync([...entries].reverse(), 4)]);
+    const fluids = { cells: new Uint8Array(18 ** 3), water: new TextureAtlas({}, new CanvasImage(2, 2),
+        { still: [1, 2], flow: [1, 2] }, { still: [0, 0], flow: [1, 0] }, false, {}, true, true) };
+    fluids.cells[18 * 18 + 18 + 1] = 16;
+    const expected = [SectionMesh.build(entries, 4, fluids), SectionMesh.build([...entries].reverse(), 4, fluids)];
+    const actual = await Promise.all([SectionMesh.buildAsync(entries, 4, fluids), SectionMesh.buildAsync([...entries].reverse(), 4, fluids)]);
     t.teardown(() => [...expected, ...actual].forEach(section => section.dispose()));
     t.is(workers, 1);
     t.deepEqual(actual.map(geometryData), expected.map(geometryData));

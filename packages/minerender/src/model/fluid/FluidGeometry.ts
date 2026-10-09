@@ -48,10 +48,17 @@ function ownHeight(sample: FluidSample): number {
     return (level === 0 || level >= 8 ? 8 : 8 - level) / 9;
 }
 
-/** Builds centered fluid faces with material groups 0 (still) and 1 (flowing). */
-export function createFluidGeometry(kind: FluidKind, sample: FluidSampler): BufferGeometry {
-    const geometry = new BufferGeometry();
-    const positions: number[] = [], normals: number[] = [], uvs: number[] = [], indices: number[] = [];
+/** Fluid faces as quads centered on the block, four vertices each, in emission order. */
+export interface FluidQuads {
+    positions: number[];
+    normals: number[];
+    uvs: number[];
+    sprites: number[];
+}
+
+/** Builds centered fluid quads with sprite 0 (still) or 1 (flowing). */
+export function buildFluidQuads(kind: FluidKind, sample: FluidSampler): FluidQuads {
+    const positions: number[] = [], normals: number[] = [], uvs: number[] = [], sprites: number[] = [];
     const self = sample(0, 0, 0);
     const height = (x: number, z: number): number => {
         const state = sample(x, 0, z);
@@ -84,14 +91,12 @@ export function createFluidGeometry(kind: FluidKind, sample: FluidSampler): Buff
     const renderBottom = below.fluid !== kind && !below.solid;
     const bottom = renderBottom ? EPSILON : 0;
     const face = (vertices: TripleArray[], uv: DoubleArray[], normal: TripleArray, material: number) => {
-        const start = positions.length / 3;
-        geometry.addGroup(indices.length, 6, material);
+        sprites.push(material);
         for (let i = 0; i < 4; i++) {
             positions.push(...vertices[i].map(value => value * 16 - 8));
             normals.push(...normal);
             uvs.push(uv[i][0], 1 - uv[i][1]);
         }
-        indices.push(start, start + 1, start + 2, start, start + 2, start + 3);
     };
 
     if (renderTop) {
@@ -137,6 +142,19 @@ export function createFluidGeometry(kind: FluidKind, sample: FluidSampler): Buff
         const [[x0, z0], [x1, z1]] = edge;
         face([[x0, h0, z0], [x1, h1, z1], [x1, bottom, z1], [x0, bottom, z0]],
             [[0, (1 - h0) / 2], [0.5, (1 - h1) / 2], [0.5, 0.5], [0, 0.5]], [x, 0, z], 1);
+    }
+    return { positions, normals, uvs, sprites };
+}
+
+/** Builds centered fluid faces with material groups 0 (still) and 1 (flowing). */
+export function createFluidGeometry(kind: FluidKind, sample: FluidSampler): BufferGeometry {
+    const { positions, normals, uvs, sprites } = buildFluidQuads(kind, sample);
+    const geometry = new BufferGeometry();
+    const indices: number[] = [];
+    for (let quad = 0; quad < sprites.length; quad++) {
+        const start = quad * 4;
+        geometry.addGroup(indices.length, 6, sprites[quad]);
+        indices.push(start, start + 1, start + 2, start, start + 2, start + 3);
     }
     geometry.setAttribute("position", new Float32BufferAttribute(positions, 3));
     geometry.setAttribute("normal", new Float32BufferAttribute(normals, 3));
