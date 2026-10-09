@@ -52,7 +52,8 @@ export class ModelObject extends SceneObject {
         super(options);
         this.options = merge({}, ModelObject.DEFAULT_OPTIONS, options ?? {});
         const item = originalModel as ItemModel;
-        this.hasGlint = !item.special && !item.parts && ItemGlint.enabled(item.components);
+        const specialType = item.special?.type.replace(/^minecraft:/, "");
+        this.hasGlint = !item.parts && (!item.special || specialType === "shield" || specialType === "trident") && ItemGlint.enabled(item.components);
         if (item.special || item.parts || this.hasGlint) this.options.instanceMeshes = false;
         if (this.options.tints) this.options.tints = { ...this.options.tints };
         this.addEventListener("added", () => this.updateAnimationSubscription());
@@ -114,6 +115,20 @@ export class ModelObject extends SceneObject {
                     }
                     for (const [name, position] of Object.entries(part.positions ?? {})) {
                         object.getGroupByName(name)?.position.set(...position);
+                    }
+                    if (this.hasGlint) {
+                        const targets: { mesh: Mesh; parent?: Mesh }[] = [];
+                        if (special.type === "shield" || special.type === "minecraft:shield") {
+                            const mesh = object.getMeshByName("plate", "main")!;
+                            const layers = Object.keys(part.model.layers!);
+                            if (part.model.layers!.pattern_base) targets.push({ mesh: object.getMeshByName("handle", "main")! });
+                            // Follow the final plate draw so GUI and composite ordering keeps glint above the patterns.
+                            targets.push({ mesh, parent: object.getMeshByName("plate", layers[layers.length - 1])! });
+                        } else {
+                            object.iterateAllMeshes(mesh => targets.push({ mesh }));
+                        }
+                        const map = (targets[0]?.mesh.material as MeshBasicMaterial | undefined)?.map;
+                        if (map) this.glint = await ItemGlint.create(this, map, this.originalModel.key?.root, targets);
                     }
                 }
             } catch (error) {

@@ -107,8 +107,9 @@ async function visit(url, name) {
             if (JSON.stringify(result.tints) !== JSON.stringify(expectedTints)) problems.add(`Component tint differs: ${JSON.stringify(result.tints)}`);
             if (!result.code.includes(`components: ${JSON.stringify(result.components)}`)) problems.add("Generated code omits the color components.");
         }
-        if (url === "demo/item/?preset=enchanted" && /^Ready/.test(status)) {
-            for (const zoom of [12, 24]) {
+        if (/^demo\/item\/\?preset=enchanted(?:_shield|_trident)?$/.test(url) && /^Ready/.test(status)) {
+            const initialZoom = await page.evaluate(() => window.renderer.camera.zoom);
+            for (const zoom of [initialZoom / 2, initialZoom]) {
                 const frames = await page.evaluate(async zoom => {
                     const images = [];
                     for (const enabled of [false, true]) {
