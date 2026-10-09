@@ -11,6 +11,7 @@ import { OrbitControls } from "../three/OrbitControls";
 import { SceneExporter, SceneGLTFExportOptions } from "../export/SceneExporter";
 import type { PLYExporterOptions } from "three/examples/jsm/exporters/PLYExporter.js";
 import { trimCanvas } from "../canvas/trimCanvas";
+import { VideoExporter, VideoExportOptions } from "../export/VideoExporter";
 
 /**
  * Renders a Minecraft scene with a camera and an optional effects composer.
@@ -79,6 +80,7 @@ export class Renderer implements Disposable {
     private _running: boolean = false;
     private _inAnimationLoop: boolean = false;
     private _disposed: boolean = false;
+    private _videoExporter?: VideoExporter;
     private readonly _frameCallbacks = new Map<FrameCallback, { previous?: number }>();
     private readonly _debugHelpers: Array<GridHelper | AxesHelper> = [];
     private readonly _eventDispatchers = new Map<EventDispatcher<any>, Set<string>>();
@@ -97,6 +99,9 @@ export class Renderer implements Disposable {
             this._inAnimationLoop = true;
             try {
                 this.animate(time);
+            } catch (error) {
+                this._videoExporter?.cancel(error);
+                throw error;
             } finally {
                 this._inAnimationLoop = false;
             }
@@ -375,10 +380,12 @@ export class Renderer implements Disposable {
         if (!this._inAnimationLoop) this.renderer.setAnimationLoop(this._animationLoop);
     }
 
-    /** Pauses rendering and frame callbacks. Call {@link start} to resume. */
+    /** Pauses rendering and frame callbacks, and cancels video export. Call {@link start} to resume. */
     public stop() {
         if (this._disposed) return;
 
+        this._videoExporter?.cancel();
+        this._videoExporter = undefined;
         this._running = false;
         if (this._inAnimationLoop) {
             // Three schedules its next frame after the callback; apply loop changes after that scheduling.
@@ -451,7 +458,7 @@ export class Renderer implements Disposable {
             this._controls.update();
         }
         if (!this._running) return;
-        if (!this.dirty && !this.options.render.renderAlways && !this._frameCallbacks.size) return;
+        if (!this.dirty && !this.options.render.renderAlways && !this._frameCallbacks.size && !this._videoExporter) return;
 
         const interval = this._frameInterval;
         if (interval) {
@@ -483,6 +490,7 @@ export class Renderer implements Disposable {
             this.renderer.render(this.scene, this.camera);
         }
 
+        this._videoExporter?.capture();
         this.dirty = false;
 
         if (this._stats) {
@@ -508,6 +516,37 @@ export class Renderer implements Disposable {
         this.drawFrame();
         const canvas = trim ? trimCanvas(this.renderer.domElement) : this.renderer.domElement;
         return (canvas as HTMLCanvasElement).toDataURL(mime, quality);
+    }
+
+    /**
+     * Records a silent browser video in real time, including frame callbacks and animated textures.
+     * Keep the tab visible; browser scheduling and `render.fpsLimit` limit the capture rate.
+     * The video keeps the initial drawing-buffer size and fills transparent pixels with black.
+     * Temporarily starts a stopped renderer. Stop, disposal, or `options.signal` cancels the export.
+     * Only one export can run at a time. Use the returned Blob's type to select a file extension.
+     */
+    public async toVideo(options: VideoExportOptions): Promise<Blob> {
+        if (this._disposed) throw new Error("Cannot export a video from a disposed renderer");
+        if (this._videoExporter) throw new Error("A video export is already running");
+
+        const exporter = new VideoExporter(this.renderer.domElement, options);
+        const wasRunning = this._running;
+        try {
+            try {
+                if (!wasRunning) this.start();
+                this._videoExporter = exporter;
+                if (this._controls?.enabled) this._controls.update();
+                this.drawFrame();
+            } catch (error) {
+                exporter.cancel(error);
+            }
+            return await exporter.result;
+        } finally {
+            if (this._videoExporter === exporter) {
+                this._videoExporter = undefined;
+                if (!wasRunning) this.stop();
+            }
+        }
     }
 
     /** Exports visible scene meshes as OBJ text, without texture images. */

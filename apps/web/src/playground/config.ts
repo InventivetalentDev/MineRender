@@ -28,11 +28,13 @@ export interface AssetSettings {
 }
 
 export interface ExportSettings {
-    format: "png" | "jpeg" | "obj" | "ply" | "gltf" | "glb";
+    format: "png" | "jpeg" | "video" | "obj" | "ply" | "gltf" | "glb";
     trim: boolean;
     quality: number;
     maxTextureSize: number;
     scope: "scene" | "object";
+    duration: number;
+    fps: number;
 }
 
 export interface PlaygroundConfig<S> {
@@ -90,8 +92,9 @@ export function readConfig<S>(text: string, defaults: PlaygroundConfig<S>): Play
         throw new Error("Use an HTTP or HTTPS asset root.");
     }
     const o = result.output;
-    if (!["png", "jpeg", "obj", "ply", "gltf", "glb"].includes(o.format) || typeof o.trim !== "boolean"
-        || !number(o.quality, 0, 1) || !number(o.maxTextureSize, 16, 8192) || !["scene", "object"].includes(o.scope)) {
+    if (!["png", "jpeg", "video", "obj", "ply", "gltf", "glb"].includes(o.format) || typeof o.trim !== "boolean"
+        || !number(o.quality, 0, 1) || !number(o.maxTextureSize, 16, 8192) || !["scene", "object"].includes(o.scope)
+        || !number(o.duration, 0.1, 120) || !number(o.fps, 1, 60) || !Number.isInteger(o.fps)) {
         throw new Error("Invalid export settings.");
     }
     return result;

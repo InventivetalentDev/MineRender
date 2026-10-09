@@ -95,7 +95,7 @@ export class Playground<S extends object> {
                 axes: r?.debug?.axes ?? false, stats: true, background: "transparent"
             },
             assets: { version: AssetLoader.version, root: "" },
-            output: { format: "png", trim: false, quality: 0.9, maxTextureSize: 2048, scope: "scene" }
+            output: { format: "png", trim: false, quality: 0.9, maxTextureSize: 2048, scope: "scene", duration: 5, fps: 30 }
         };
         this.config = clone(this.defaults);
         const preset = new URLSearchParams(location.search).get("preset");
@@ -513,16 +513,31 @@ export class Playground<S extends object> {
     private exportControls(): void {
         const parent = section(this.settings, "Export");
         const o = this.config.output;
-        const format = select(parent, "Format", [["png", "PNG image"], ["jpeg", "JPEG image"], ["obj", "OBJ"], ["ply", "PLY"], ["gltf", "glTF"], ["glb", "GLB"]], o.format);
+        const format = select(parent, "Format", [["png", "PNG image"], ["jpeg", "JPEG image"], ["video", "Video"], ["obj", "OBJ"], ["ply", "PLY"], ["gltf", "glTF"], ["glb", "GLB"]], o.format);
         const trim = checkbox(parent, "Trim transparent borders", o.trim);
         const quality = input(parent, "JPEG quality (0–1)", o.quality, "number");
         Object.assign(quality, { min: "0", max: "1", step: "0.05" });
         const size = input(parent, "Maximum glTF texture size", o.maxTextureSize, "number");
         Object.assign(size, { min: "16", max: "8192", step: "16" });
         const scope = select(parent, "3D export content", [["scene", "Whole scene"], ["object", "Primary object"]], o.scope);
+        const duration = input(parent, "Duration (seconds)", o.duration, "number");
+        Object.assign(duration, { min: "0.1", max: "120", step: "0.1" });
+        const fps = input(parent, "Video FPS", o.fps, "number");
+        Object.assign(fps, { min: "1", max: "60", step: "1" });
+        const videoNote = note(parent, "Records in real time without audio. Transparent areas become black. Your browser chooses WebM or MP4.");
+        const syncFormat = () => {
+            const image = ["png", "jpeg"].includes(format.value);
+            const video = format.value === "video";
+            trim.parentElement!.hidden = !image;
+            quality.parentElement!.hidden = format.value !== "jpeg";
+            size.parentElement!.hidden = !["gltf", "glb"].includes(format.value);
+            scope.parentElement!.hidden = image || video;
+            duration.parentElement!.hidden = fps.parentElement!.hidden = videoNote.hidden = !video;
+        };
         const save = () => {
+            syncFormat();
             const candidate = clone(this.config);
-            candidate.output = { format: format.value as typeof o.format, trim: trim.checked, quality: quality.valueAsNumber, maxTextureSize: size.valueAsNumber, scope: scope.value as typeof o.scope };
+            candidate.output = { format: format.value as typeof o.format, trim: trim.checked, quality: quality.valueAsNumber, maxTextureSize: size.valueAsNumber, scope: scope.value as typeof o.scope, duration: duration.valueAsNumber, fps: fps.valueAsNumber };
             try {
                 readConfig(JSON.stringify(candidate), this.defaults);
                 this.config.output = candidate.output;
@@ -533,26 +548,45 @@ export class Playground<S extends object> {
                 return false;
             }
         };
-        [format, trim, quality, size, scope].forEach(control => control.addEventListener("change", save));
+        const controls = [format, trim, quality, size, scope, duration, fps];
+        controls.forEach(control => control.addEventListener("change", save));
+        syncFormat();
+        let recording: AbortController | undefined;
         const exportButton = button(parent, "Download", async () => {
             if (!this.active) return this.report("Nothing to export yet.", true);
             if (!save()) return;
             exportButton.disabled = true;
+            controls.forEach(control => { control.disabled = true; });
             try {
                 const output = this.config.output;
                 const preview = this.active;
                 const root = output.scope === "object" ? preview.content.object : preview.renderer.scene;
-                if (!root && !["png", "jpeg"].includes(output.format)) throw new Error("This preview has no single primary object. Choose Whole scene.");
+                if (!root && !["png", "jpeg", "video"].includes(output.format)) throw new Error("This preview has no single primary object. Choose Whole scene.");
                 const name = `minerender-${this.options.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
                 if (output.format === "png" || output.format === "jpeg") {
                     download(preview.renderer.toImage(output.trim, `image/${output.format}`, output.quality), `${name}.${output.format === "jpeg" ? "jpg" : "png"}`);
+                } else if (output.format === "video") {
+                    recording = new AbortController();
+                    cancelButton.hidden = false;
+                    this.report(`Recording ${output.duration} seconds… Keep this tab visible.`);
+                    const video = await preview.renderer.toVideo({ duration: output.duration, fps: output.fps, signal: recording.signal });
+                    download(video, `${name}.${video.type.startsWith("video/mp4") ? "mp4" : "webm"}`);
                 } else if (output.format === "obj") download(SceneExporter.toObj(root!), `${name}.obj`, "text/plain");
                 else if (output.format === "ply") download(SceneExporter.toPLY(root!), `${name}.ply`, "application/octet-stream");
                 else download(await SceneExporter.toGLTF(root!, { binary: output.format === "glb", maxTextureSize: output.maxTextureSize }), `${name}.${output.format}`, output.format === "glb" ? "model/gltf-binary" : "model/gltf+json");
                 this.report("Download ready.");
-            } catch (error) { this.report(`Could not export: ${this.message(error)}`, true); }
-            finally { exportButton.disabled = false; }
+            } catch (error) {
+                if (error instanceof Error && error.name === "AbortError") this.report("Recording cancelled.");
+                else this.report(`Could not export: ${this.message(error)}`, true);
+            } finally {
+                recording = undefined;
+                cancelButton.hidden = true;
+                exportButton.disabled = false;
+                controls.forEach(control => { control.disabled = false; });
+            }
         });
+        const cancelButton = button(parent, "Cancel recording", () => recording?.abort());
+        cancelButton.hidden = true;
     }
 
     private serialize(): string {

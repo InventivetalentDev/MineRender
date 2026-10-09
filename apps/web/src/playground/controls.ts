@@ -84,9 +84,9 @@ export function suggestions(control: HTMLInputElement, values: string[]): void {
     control.after(list);
 }
 
-export function download(data: string | ArrayBuffer | object, name: string, type = "application/json"): void {
+export function download(data: string | ArrayBuffer | Blob | object, name: string, type = "application/json"): void {
     const inline = typeof data === "string" && data.startsWith("data:");
-    const url = inline ? data as string : URL.createObjectURL(new Blob([
+    const url = inline ? data as string : URL.createObjectURL(data instanceof Blob ? data : new Blob([
         typeof data === "string" || data instanceof ArrayBuffer ? data : JSON.stringify(data, null, 2)
     ], { type }));
     const link = document.createElement("a");

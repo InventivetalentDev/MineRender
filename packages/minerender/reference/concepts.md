@@ -30,7 +30,7 @@ World edits such as `setBlockAt`, `placeMultiBlock`, and `clear` also return pro
 
 ## Redrawing after changes
 
-[Renderer](/api/index/classes/Renderer) draws only when the scene is dirty, `render.renderAlways` is enabled, or an `onFrame` subscription is active. Calling `start()` runs this loop; it does not force an unchanged scene to redraw continuously.
+[Renderer](/api/index/classes/Renderer) draws only when the scene is dirty, `render.renderAlways` is enabled, an `onFrame` subscription is active, or a video is recording. Calling `start()` runs this loop; it does not force an unchanged scene to redraw continuously.
 
 MineRender setters such as `setPosition` notify the scene. When you change a three.js property directly, such as a named part's `rotation` or `visible`, call the owning [SceneObject](/api/index/classes/SceneObject)'s `notifyDirty()` or set `renderer.scene.dirty = true`. The loop draws the change on its next eligible frame.
 
@@ -39,6 +39,14 @@ Built-in controls created with `controls.enabled` handle redraw notifications. R
 For continuous animation, use `renderer.onFrame(...)`. Its synchronous callback runs before each draw and keeps rendering active. `render.fpsLimit` caps these draws; its default is `60`, and a nonpositive value disables the cap. The first callback after subscribing or restarting receives `delta: 0`. Call the returned unsubscribe function when the animation ends.
 
 `renderer.toImage()` renders a fresh frame even while stopped. It does not call `onFrame` callbacks, so update the pose first when exporting a specific animation frame.
+
+## Video export
+
+Call `renderer.toVideo({ duration: 5, fps: 30 })` to record five seconds of the current scene, including running animations and camera movements. It returns a silent video `Blob`. The browser selects a supported WebM or MP4 encoder; use `blob.type` to choose the file extension. Set `mimeType` to request a specific supported format, or `videoBitsPerSecond` to request an encoding bitrate.
+
+Recording runs in real time. Keep the tab visible; browser scheduling and `render.fpsLimit` can reduce the frame rate or affect duration. The video keeps the canvas's initial drawing-buffer dimensions, scales later resizes to fit, and fills transparent pixels with black. It does not trim frames or rewind animations.
+
+Only one video can record per renderer. A stopped renderer starts for the recording and stops again afterward. Pass an `AbortSignal` as `signal` to cancel. Calling `stop()`, restarting with `start()`, or disposing the renderer also cancels the recording and rejects its promise.
 
 ## Objects and instance references
 

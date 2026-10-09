@@ -32,9 +32,9 @@ function report(message: string, error = false): void {
     status.classList.toggle("error", error);
 }
 
-function download(data: string | ArrayBuffer | object, filename: string, mime = "application/json"): void {
+function download(data: string | ArrayBuffer | Blob | object, filename: string, mime = "application/json"): void {
     const dataUrl = typeof data === "string" && data.startsWith("data:");
-    const url = dataUrl ? data : URL.createObjectURL(new Blob([
+    const url = dataUrl ? data : URL.createObjectURL(data instanceof Blob ? data : new Blob([
         typeof data === "string" || data instanceof ArrayBuffer ? data : JSON.stringify(data, null, 2)
     ], { type: mime }));
     const link = document.createElement("a");
@@ -72,6 +72,8 @@ async function start(): Promise<void> {
     let cleanupInspector: (() => void) | undefined;
     let unsubscribeAnimation: (() => void) | undefined;
     let busy = false;
+    let capturing = false;
+    let recording: AbortController | undefined;
     let disposed = false;
     let history: string[] = [];
     let historyIndex = -1;
@@ -101,7 +103,8 @@ async function start(): Promise<void> {
         element<HTMLButtonElement>("redo").disabled = busy || loadingObjects.size > 0 || historyIndex >= history.length - 1;
         element<HTMLButtonElement>("duplicate").disabled = busy || !selected();
         element<HTMLButtonElement>("delete").disabled = busy || !selected();
-        for (const id of ["new-scene", "import-scene", "restore-scene", "apply-version"]) element<HTMLButtonElement>(id).disabled = busy;
+        for (const id of ["new-scene", "import-scene", "restore-scene", "apply-version", "export-scene"]) element<HTMLButtonElement>(id).disabled = busy;
+        for (const id of ["export-format", "video-duration", "video-fps", "show-grid", "transparent"]) element<HTMLInputElement | HTMLSelectElement>(id).disabled = busy;
         element("add-form").querySelector<HTMLButtonElement>("button[type=submit]")!.disabled = busy;
     }
 
@@ -156,7 +159,7 @@ async function start(): Promise<void> {
 
     function updateBounds(): void {
         const current = currentObject();
-        selectionBox.visible = !!current && current.root.visible;
+        selectionBox.visible = !capturing && !!current && current.root.visible;
         if (current) {
             bounds.setFromObject(current.root);
             if (bounds.isEmpty()) selectionBox.visible = false;
@@ -785,13 +788,43 @@ async function start(): Promise<void> {
         renderer.scene.background = (event.target as HTMLInputElement).checked ? null : new Color("#19212d"); renderer.scene.dirty = true;
     });
 
+    const videoDuration = element<HTMLInputElement>("video-duration");
+    const videoFps = element<HTMLInputElement>("video-fps");
+    const cancelRecording = element<HTMLButtonElement>("cancel-recording");
+    element("export-format").addEventListener("change", event => {
+        element("video-settings").hidden = (event.target as HTMLSelectElement).value !== "video";
+    });
+    cancelRecording.addEventListener("click", () => recording?.abort());
     element("export-scene").addEventListener("click", () => { void run("Exporting scene…", async () => {
         const format = element<HTMLSelectElement>("export-format").value;
-        if (format === "png") {
+        if (format === "png" || format === "video") {
+            const duration = videoDuration.valueAsNumber, fps = videoFps.valueAsNumber;
+            if (format === "video" && (!Number.isFinite(duration) || duration < 0.1 || duration > 120
+                || !Number.isInteger(fps) || fps < 1 || fps > 60)) {
+                throw new Error("Use a duration of 0.1–120 seconds and a whole-number FPS of 1–60.");
+            }
             const visibility = [grid.visible, selectionBox.visible, transformHelper.visible];
+            capturing = true;
             grid.visible = selectionBox.visible = transformHelper.visible = false;
-            try { download(renderer.toImage(), "scene.png", "image/png"); }
-            finally { [grid.visible, selectionBox.visible, transformHelper.visible] = visibility; renderer.scene.dirty = true; }
+            try {
+                if (format === "png") download(renderer.toImage(), "scene.png", "image/png");
+                else {
+                    recording = new AbortController();
+                    cancelRecording.hidden = false;
+                    report(`Recording ${duration} seconds… Keep this tab visible.`);
+                    const video = await renderer.toVideo({ duration, fps, signal: recording.signal });
+                    download(video, `scene.${video.type.startsWith("video/mp4") ? "mp4" : "webm"}`);
+                }
+            } catch (error) {
+                if (error instanceof Error && error.name === "AbortError") { report("Recording cancelled."); return; }
+                throw error;
+            } finally {
+                recording = undefined;
+                capturing = false;
+                cancelRecording.hidden = true;
+                [grid.visible, selectionBox.visible, transformHelper.visible] = visibility;
+                renderer.scene.dirty = true;
+            }
         } else if (format === "obj") download(SceneExporter.toObj(content), "scene.obj", "text/plain");
         else if (format === "ply") download(SceneExporter.toPLY(content), "scene.ply", "application/octet-stream");
         else download(await SceneExporter.toGLTF(content, { binary: format === "glb" }), `scene.${format}`, format === "glb" ? "model/gltf-binary" : "model/gltf+json");
