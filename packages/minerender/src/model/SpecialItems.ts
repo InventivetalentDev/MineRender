@@ -37,6 +37,17 @@ export class SpecialItems {
             return { model, transform, rotations };
         };
         switch (special.type) {
+            case "minecraft:trident":
+            case "trident":
+            case "minecraft:conduit":
+            case "conduit": {
+                const trident = special.type === "trident" || special.type === "minecraft:trident";
+                const part = await load(trident ? "trident" : "conduit", texture(trident ? "trident" : "conduit/base", ""),
+                    trident ? new Matrix4().makeScale(1, -1, -1) : new Matrix4().makeTranslation(8, 8, 8), {}, trident ? ["main"] : ["shell"]);
+                part.model = { ...part.model, render: "solid", layers: part.model.layers && Object.fromEntries(
+                    Object.entries(part.model.layers).map(([name, layer]) => [name, { ...layer, render: "solid" }])) };
+                return [part];
+            }
             case "minecraft:banner":
             case "banner":
             case "minecraft:shield":
