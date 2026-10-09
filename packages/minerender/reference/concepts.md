@@ -53,8 +53,8 @@ With `sectionMeshing: true`, [MineRenderWorld](/api/index/classes/MineRenderWorl
 Use a dedicated `MineRenderWorld` with `sectionMeshing: true` and a `WorldStreamer` to render nearby chunk columns. This example reads one dimension's `r.<x>.<z>.mca` files at region coordinates:
 
 ```ts
-const source = new AnvilWorldSource(async (x, z) => {
-    const response = await fetch(`/world/region/r.${x}.${z}.mca`);
+const source = new AnvilWorldSource(async (x, z, signal) => {
+    const response = await fetch(`/world/region/r.${x}.${z}.mca`, { signal });
     if (response.status === 404) return undefined;
     if (!response.ok) throw new Error(`Region request failed: ${response.status}`);
     return response.arrayBuffer();
@@ -65,6 +65,8 @@ await stream.updatePosition(renderer.camera.position);
 ```
 
 Call `updatePosition` after the camera or view center moves. It accepts scene units; `update(x, z)` accepts absolute chunk coordinates.
+
+The streamer aborts obsolete reads and active reads during disposal. Source callbacks must forward the optional signal to cancellable I/O to stop that work.
 
 Source errors appear in `failedChunks` while other columns continue loading. Call `await stream.retryFailedChunks()` to retry them. Placement or unloading failures reject the update.
 

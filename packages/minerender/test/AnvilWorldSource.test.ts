@@ -1,23 +1,35 @@
 import test from "ava";
 import { writeUncompressed } from "prismarine-nbt";
+import { AnvilParser } from "../src/world/AnvilParser";
+import type { AnvilChunk } from "../src/world/AnvilParser";
 import { AnvilWorldSource } from "../src/world/AnvilWorldSource";
 
-function region(x: number, z: number): Uint8Array {
-    const payload = writeUncompressed({ name: "", type: "compound", value: {
+function region(x: number, z: number, options: { compression?: number; numeric?: boolean; malformed?: boolean } = {}): Uint8Array {
+    let payload = writeUncompressed({ name: "", type: "compound", value: {
         DataVersion: { type: "int", value: 2865 },
         xPos: { type: "int", value: x }, zPos: { type: "int", value: z },
-        sections: { type: "list", value: { type: "compound", value: [] } }
+        sections: { type: "list", value: { type: "compound", value: options.numeric
+            ? [{ Y: { type: "byte", value: 0 }, Blocks: { type: "byteArray", value: [1] } }] : [] } }
     } });
+    if (options.malformed) payload = payload.subarray(0, 1);
     const bytes = Buffer.alloc(12288);
     const localX = ((x % 32) + 32) % 32, localZ = ((z % 32) + 32) % 32;
     bytes.writeUInt32BE((2 << 8) | 1, (localX + localZ * 32) * 4);
     bytes.writeUInt32BE(payload.length + 1, 8192);
-    bytes[8196] = 3;
+    bytes[8196] = options.compression ?? 3;
     bytes.set(payload, 8197);
     return bytes;
 }
 
-function deferred<T>() {
+function withNeighbor(first: Uint8Array): Uint8Array {
+    const bytes = Buffer.alloc(16384);
+    bytes.set(first);
+    bytes.writeUInt32BE((3 << 8) | 1, 4);
+    bytes.set(region(1, 0).subarray(8192), 12288);
+    return bytes;
+}
+
+function deferred<T = void>() {
     let resolve!: (value: T) => void;
     const promise = new Promise<T>(accept => { resolve = accept; });
     return { promise, resolve };
@@ -76,8 +88,11 @@ test("concurrent requests for one region share the read", async t => {
     t.deepEqual(await Promise.all([first, second]), [undefined, undefined]);
 });
 
-test("failed region reads, malformed regions and misplaced columns can be retried", async t => {
-    for (const invalid of [new Error("read failed"), new Uint8Array(7), region(32, 0)]) {
+test("failed region reads and corrupt headers or sectors can be retried", async t => {
+    const sector = Buffer.from(region(0, 0)), length = Buffer.from(region(0, 0));
+    sector.writeUInt32BE((1 << 8) | 1, 0);
+    length.writeUInt32BE(4096, 8192);
+    for (const invalid of [new Error("read failed"), new Uint8Array(7), sector, length]) {
         let reads = 0;
         const source = new AnvilWorldSource(async () => {
             if (++reads === 1) {
@@ -90,6 +105,30 @@ test("failed region reads, malformed regions and misplaced columns can be retrie
         t.is((await source.getChunk(0, 0))!.x, 0);
         t.is(reads, 2);
     }
+});
+
+test("unsupported, legacy, malformed and misplaced chunk payloads do not evict neighboring columns", async t => {
+    for (const invalid of [region(0, 0, { compression: 4 }), region(0, 0, { numeric: true }),
+        region(0, 0, { malformed: true }), region(32, 0)]) {
+        let reads = 0;
+        const source = new AnvilWorldSource(async () => { reads++; return withNeighbor(invalid); });
+        await t.throwsAsync(source.getChunk(0, 0));
+        t.is((await source.getChunk(1, 0))!.x, 1);
+        await t.throwsAsync(source.getChunk(0, 0));
+        t.is(reads, 1);
+    }
+});
+
+test("corrected chunk payloads replace cached bytes only after explicitly clearing the cache", async t => {
+    let bytes = region(32, 0), reads = 0;
+    const source = new AnvilWorldSource(async () => { reads++; return bytes; });
+    await t.throwsAsync(source.getChunk(0, 0), { message: /do not match requested/ });
+    bytes = region(0, 0);
+    await t.throwsAsync(source.getChunk(0, 0), { message: /do not match requested/ });
+    t.is(reads, 1);
+    source.clearCache();
+    t.is((await source.getChunk(0, 0))!.x, 0);
+    t.is(reads, 2);
 });
 
 test("clearing a cache releases settled entries and prevents older reads replacing newer results", async t => {
@@ -134,4 +173,107 @@ test("invalid source cache limits and coordinates reject before invoking the rea
         }
     }
     t.is(reads, 0);
+});
+
+test("already aborted callers neither start region reads nor consume cached regions", async t => {
+    const controller = new AbortController(), reason = new Error("cancelled");
+    controller.abort(reason);
+    let reads = 0;
+    const source = new AnvilWorldSource(async () => { reads++; return region(0, 0); });
+    await t.throwsAsync(source.getChunk(0, 0, controller.signal), { is: reason });
+    t.is(reads, 0);
+    await source.getChunk(0, 0);
+    await t.throwsAsync(source.getChunk(0, 0, controller.signal), { is: reason });
+    t.is(reads, 1);
+});
+
+test("cancelling one coalesced caller leaves independent callers and the reader active", async t => {
+    t.timeout(3000);
+    for (const cancellableNeighbor of [false, true]) {
+        const gate = deferred<Uint8Array>(), started = deferred();
+        const firstController = new AbortController(), secondController = new AbortController();
+        let signal!: AbortSignal, reads = 0;
+        const source = new AnvilWorldSource(async (_x, _z, readerSignal) => {
+            signal = readerSignal!;
+            reads++;
+            started.resolve();
+            return gate.promise;
+        });
+        t.teardown(() => gate.resolve(withNeighbor(region(0, 0))));
+        const first = source.getChunk(0, 0, firstController.signal);
+        const second = source.getChunk(1, 0, cancellableNeighbor ? secondController.signal : undefined);
+        await started.promise;
+        const reason = new Error("first caller cancelled");
+        firstController.abort(reason);
+        await t.throwsAsync(first, { is: reason });
+        t.false(signal.aborted);
+        gate.resolve(withNeighbor(region(0, 0)));
+        t.is((await second)!.x, 1);
+        t.is((await source.getChunk(0, 0))!.x, 0);
+        t.is(reads, 1);
+        secondController.abort();
+        t.false(signal.aborted);
+    }
+});
+
+test("the last cancelled caller aborts and detaches its read before a replacement starts", async t => {
+    t.timeout(3000);
+    const gate = deferred<Uint8Array>(), started = deferred();
+    const firstController = new AbortController(), secondController = new AbortController();
+    const signals: AbortSignal[] = [];
+    const source = new AnvilWorldSource(async (_x, _z, signal) => {
+        signals.push(signal!);
+        started.resolve();
+        return signals.length === 1 ? gate.promise : region(0, 0);
+    });
+    t.teardown(() => gate.resolve(region(32, 0)));
+    const first = source.getChunk(0, 0, firstController.signal), second = source.getChunk(1, 0, secondController.signal);
+    await started.promise;
+    firstController.abort();
+    t.false(signals[0].aborted);
+    const reason = new Error("last caller cancelled");
+    secondController.abort(reason);
+    t.true(signals[0].aborted);
+    t.is(signals[0].reason, reason);
+    const replacement = source.getChunk(0, 0);
+    await Promise.all([t.throwsAsync(first, { name: "AbortError" }), t.throwsAsync(second, { is: reason })]);
+    t.is((await replacement)!.x, 0);
+    t.is(signals.length, 2);
+    t.false(signals[1].aborted);
+    gate.resolve(region(32, 0));
+    await new Promise<void>(resolve => setImmediate(resolve));
+    t.is((await source.getChunk(0, 0))!.x, 0);
+    t.is(signals.length, 2);
+});
+
+test("cancelling before the reader starts skips its callback and permits a fresh read", async t => {
+    let reads = 0;
+    const source = new AnvilWorldSource(async () => { reads++; return region(0, 0); });
+    const controller = new AbortController();
+    const cancelled = source.getChunk(0, 0, controller.signal);
+    controller.abort();
+    const replacement = source.getChunk(0, 0);
+    await t.throwsAsync(cancelled, { name: "AbortError" });
+    t.is((await replacement)!.x, 0);
+    t.is(reads, 1);
+});
+
+test.serial("aborting during chunk decoding rejects promptly without evicting the raw region", async t => {
+    t.timeout(3000);
+    const gate = deferred<AnvilChunk | undefined>();
+    const started = deferred();
+    const original = AnvilParser.parseChunk;
+    let reads = 0;
+    const source = new AnvilWorldSource(async () => { reads++; return region(0, 0); });
+    AnvilParser.parseChunk = async () => { started.resolve(); return gate.promise; };
+    t.teardown(() => { AnvilParser.parseChunk = original; gate.resolve(undefined); });
+    const controller = new AbortController(), reason = new Error("decode cancelled");
+    const pending = source.getChunk(0, 0, controller.signal);
+    await started.promise;
+    controller.abort(reason);
+    await t.throwsAsync(pending, { is: reason });
+    AnvilParser.parseChunk = original;
+    t.is((await source.getChunk(0, 0))!.x, 0);
+    t.is(reads, 1);
+    gate.resolve(undefined);
 });

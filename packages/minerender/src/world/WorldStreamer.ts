@@ -29,6 +29,7 @@ export class WorldStreamer {
     private readonly failed = new Map<string, ChunkPosition & { error: unknown }>();
     private desired: ChunkPosition[] = [];
     private center?: ChunkPosition;
+    private loading?: { position: ChunkPosition; controller: AbortController };
     private running?: Promise<void>;
     private disposal?: Promise<void>;
     private disposed = false;
@@ -66,6 +67,7 @@ export class WorldStreamer {
      * Source failures are recorded in failedChunks; other columns continue loading. Missing and failed
      * columns are remembered within the retention radius. Call retryFailedChunks to retry source failures.
      * Placement and unload failures reject the drain; call update again to retry those operations.
+     * Reads outside the latest load radius receive an abort signal; placement finishes before unloading.
      * Sources should represent an unchanged world during streaming.
      */
     public async update(x: number, z: number): Promise<void> {
@@ -83,6 +85,9 @@ export class WorldStreamer {
                 }
             }
             this.desired.sort((a, b) => (a.x - x) ** 2 + (a.z - z) ** 2 - (b.x - x) ** 2 - (b.z - z) ** 2);
+            if (this.loading && !this.within(this.loading.position, this.loadRadius)) {
+                this.loading.controller.abort();
+            }
         }
         return this.running ??= Promise.resolve().then(() => this.drain());
     }
@@ -100,11 +105,12 @@ export class WorldStreamer {
         if (this.center) await this.update(this.center.x, this.center.z);
     }
 
-    /** Waits for active work, then unloads all owned columns. Does not dispose the world or source. */
+    /** Aborts source reads, waits for active work, then unloads owned columns. The world and source remain caller-owned. */
     public dispose(): Promise<void> {
         this.disposed = true;
         this.desired = [];
         this.center = undefined;
+        this.loading?.controller.abort();
         return this.disposal ??= Promise.resolve().then(async () => {
             await this.running?.catch(() => undefined);
             let failure: unknown;
@@ -145,16 +151,20 @@ export class WorldStreamer {
                 const position = this.desired.find(position => this.needsLoad(position));
                 if (!position) return;
                 let chunk: AnvilChunk | undefined;
+                const controller = new AbortController();
+                this.loading = { position, controller };
                 try {
-                    chunk = await this.source.getChunk(position.x, position.z);
+                    chunk = await this.source.getChunk(position.x, position.z, controller.signal);
                     if (chunk) this.validateChunk(chunk, position);
                 } catch (error) {
-                    if (!this.disposed && this.within(position, this.loadRadius)) {
+                    if (!controller.signal.aborted && !this.disposed && this.within(position, this.loadRadius)) {
                         this.failed.set(this.key(position), { ...position, error });
                     }
                     continue;
+                } finally {
+                    this.loading = undefined;
                 }
-                if (this.disposed || !this.within(position, this.loadRadius)) continue;
+                if (controller.signal.aborted || this.disposed || !this.within(position, this.loadRadius)) continue;
                 if (!chunk) {
                     this.missing.set(this.key(position), position);
                     continue;

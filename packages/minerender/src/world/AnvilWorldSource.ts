@@ -3,8 +3,11 @@ import { AnvilParser } from "./AnvilParser";
 import type { AnvilChunk } from "./AnvilParser";
 import type { WorldChunkSource } from "./WorldChunkSource";
 
-/** Reads `r.<x>.<z>.mca` at integer region coordinates, or returns `undefined` when absent. */
-export type AnvilRegionReader = (x: number, z: number) => Promise<Uint8Array | ArrayBuffer | undefined>;
+/**
+ * Reads `r.<x>.<z>.mca` at integer region coordinates, or returns `undefined` when absent.
+ * Forward `signal` to file or network I/O; it aborts when every caller waiting for the region cancels.
+ */
+export type AnvilRegionReader = (x: number, z: number, signal?: AbortSignal) => Promise<Uint8Array | ArrayBuffer | undefined>;
 
 /** Cache limits passed to `new AnvilWorldSource(readRegion, options)`. */
 export interface AnvilWorldSourceOptions {
@@ -14,10 +17,32 @@ export interface AnvilWorldSourceOptions {
     maxCachedBytes?: number;
 }
 
+interface PendingRegion {
+    promise: Promise<Uint8Array | undefined>;
+    controller: AbortController;
+    waiters: number;
+    settled: boolean;
+}
+
+async function abortable<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
+    if (!signal) return promise;
+    let abort!: () => void;
+    const cancelled = new Promise<never>((_, reject) => {
+        abort = () => reject(signal.reason);
+        signal.addEventListener("abort", abort, { once: true });
+        if (signal.aborted) abort();
+    });
+    try {
+        return await Promise.race([promise, cancelled]);
+    } finally {
+        signal.removeEventListener("abort", abort);
+    }
+}
+
 /** Reads selected Java Anvil chunk columns and caches raw regions within count and byte limits. */
 export class AnvilWorldSource implements WorldChunkSource {
     private readonly regions = new Map<string, { data?: Uint8Array; size: number }>();
-    private readonly pending = new Map<string, Promise<Uint8Array | undefined>>();
+    private readonly pending = new Map<string, PendingRegion>();
     private readonly maxCachedRegions: number;
     private readonly maxCachedBytes: number;
     private cachedBytes = 0;
@@ -30,29 +55,21 @@ export class AnvilWorldSource implements WorldChunkSource {
         }
     }
 
-    /** Decodes one column at absolute chunk coordinates. Regions contain 32×32 columns. */
-    public async getChunk(x: number, z: number): Promise<AnvilChunk | undefined> {
+    /** Decodes one column at absolute chunk coordinates. Aborting a caller leaves other shared readers active. */
+    public async getChunk(x: number, z: number, signal?: AbortSignal): Promise<AnvilChunk | undefined> {
         if (!Number.isSafeInteger(x) || !Number.isSafeInteger(z)) {
             throw new RangeError("Chunk column coordinates must be safe integers");
         }
         const regionX = Math.floor(x / 32), regionZ = Math.floor(z / 32);
-        const data = await this.getRegion(regionX, regionZ);
+        const data = await this.getRegion(regionX, regionZ, signal);
+        signal?.throwIfAborted();
         if (!data) return undefined;
-        try {
-            const chunk = await AnvilParser.parseChunk(data, x - regionX * 32, z - regionZ * 32);
-            if (chunk && (chunk.x !== x || chunk.z !== z)) {
-                throw new MineRenderError(`Anvil chunk coordinates ${chunk.x},${chunk.z} do not match requested column ${x},${z}`);
-            }
-            return chunk;
-        } catch (error) {
-            const key = `${regionX},${regionZ}`;
-            const cached = this.regions.get(key);
-            if (cached?.data === data) {
-                this.cachedBytes -= cached.size;
-                this.regions.delete(key);
-            }
-            throw error;
+        const chunk = await abortable(AnvilParser.parseChunk(data, x - regionX * 32, z - regionZ * 32), signal);
+        signal?.throwIfAborted();
+        if (chunk && (chunk.x !== x || chunk.z !== z)) {
+            throw new MineRenderError(`Anvil chunk coordinates ${chunk.x},${chunk.z} do not match requested column ${x},${z}`);
         }
+        return chunk;
     }
 
     /** Releases cached regions. Reads already in progress finish without repopulating this cache. */
@@ -62,7 +79,8 @@ export class AnvilWorldSource implements WorldChunkSource {
         this.cachedBytes = 0;
     }
 
-    private getRegion(x: number, z: number): Promise<Uint8Array | undefined> {
+    private getRegion(x: number, z: number, signal?: AbortSignal): Promise<Uint8Array | undefined> {
+        signal?.throwIfAborted();
         const key = `${x},${z}`;
         const cached = this.regions.get(key);
         if (cached) {
@@ -72,18 +90,54 @@ export class AnvilWorldSource implements WorldChunkSource {
         }
         let loading = this.pending.get(key);
         if (!loading) {
-            loading = Promise.resolve().then(() => this.readRegion(x, z)).then(data => {
-                let bytes = data instanceof Uint8Array ? data : data === undefined ? undefined : new Uint8Array(data);
-                // A small view must not retain a backing buffer larger than the cache accounts for.
-                if (bytes && bytes.byteLength !== bytes.buffer.byteLength) bytes = new Uint8Array(bytes);
-                if (this.pending.get(key) === loading) this.cacheRegion(key, bytes);
-                return bytes;
-            }).finally(() => {
-                if (this.pending.get(key) === loading) this.pending.delete(key);
-            });
+            const controller = new AbortController();
+            loading = {
+                controller, waiters: 0, settled: false,
+                promise: Promise.resolve().then(() => {
+                    controller.signal.throwIfAborted();
+                    return this.readRegion(x, z, controller.signal);
+                }).then(data => {
+                    controller.signal.throwIfAborted();
+                    let bytes = data instanceof Uint8Array ? data : data === undefined ? undefined : new Uint8Array(data);
+                    // A small view must not retain a backing buffer larger than the cache accounts for.
+                    if (bytes && bytes.byteLength !== bytes.buffer.byteLength) bytes = new Uint8Array(bytes);
+                    if (bytes) AnvilParser.getChunkList(bytes);
+                    loading!.settled = true;
+                    if (this.pending.get(key) === loading) this.cacheRegion(key, bytes);
+                    return bytes;
+                }).finally(() => {
+                    loading!.settled = true;
+                    if (this.pending.get(key) === loading) this.pending.delete(key);
+                })
+            };
             this.pending.set(key, loading);
         }
-        return loading;
+        const read = loading;
+        read.waiters++;
+        return new Promise((resolve, reject) => {
+            let finished = false;
+            const release = () => {
+                if (finished) return false;
+                finished = true;
+                signal?.removeEventListener("abort", abort);
+                read.waiters--;
+                return true;
+            };
+            const abort = () => {
+                if (!release()) return;
+                if (!read.waiters && !read.settled) {
+                    if (this.pending.get(key) === read) this.pending.delete(key);
+                    read.controller.abort(signal!.reason);
+                }
+                reject(signal!.reason);
+            };
+            signal?.addEventListener("abort", abort, { once: true });
+            read.promise.then(
+                data => { if (release()) resolve(data); },
+                error => { if (release()) reject(error); }
+            );
+            if (signal?.aborted) abort();
+        });
     }
 
     private cacheRegion(key: string, data?: Uint8Array): void {

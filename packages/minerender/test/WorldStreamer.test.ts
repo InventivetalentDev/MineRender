@@ -13,7 +13,7 @@ const chunk = (x: number, z: number): AnvilChunk => ({ x, z, sections: [] });
 const key = (x: number, z: number) => `${x},${z}`;
 
 function fixture(options: { loadRadius?: number; unloadRadius?: number } = { loadRadius: 0, unloadRadius: 0 }, hooks: {
-    get?: (x: number, z: number) => Promise<AnvilChunk | undefined>;
+    get?: (x: number, z: number, signal?: AbortSignal) => Promise<AnvilChunk | undefined>;
     place?: (value: AnvilChunk) => Promise<void>;
     unload?: (x: number, z: number) => Promise<void>;
 } = {}) {
@@ -29,7 +29,7 @@ function fixture(options: { loadRadius?: number; unloadRadius?: number } = { loa
         }
     }
     const source = {
-        getChunk: (x: number, z: number) => operation(`get:${key(x, z)}`, async () => hooks.get ? hooks.get(x, z) : chunk(x, z))
+        getChunk: (x: number, z: number, signal?: AbortSignal) => operation(`get:${key(x, z)}`, async () => hooks.get ? hooks.get(x, z, signal) : chunk(x, z))
     };
     const world = {
         placeChunk: (value: AnvilChunk) => operation(`place:${key(value.x, value.z)}`, async () => {
@@ -116,6 +116,91 @@ test("updates share the active drain and discard decoded chunks outside the late
     t.deepEqual(setup.streamer.loadedChunks, [{ x: 2, z: 0 }]);
     t.is(setup.peak(), 1);
     t.is(setup.streamer.pendingChunks, 0);
+    await setup.streamer.dispose();
+});
+
+test("leaving the load area aborts a cooperative read and advances to a fresh request", async t => {
+    t.timeout(3000);
+    const gate = deferred<AnvilChunk>(), started = deferred();
+    const signals: (AbortSignal | undefined)[] = [];
+    const setup = fixture(undefined, { get: async (x, z, signal) => {
+        signals.push(signal);
+        if (x === 0) {
+            signal?.addEventListener("abort", () => gate.reject(signal.reason), { once: true });
+            started.resolve();
+            return gate.promise;
+        }
+        return chunk(x, z);
+    } });
+    t.teardown(() => gate.resolve(chunk(0, 0)));
+    const first = setup.streamer.update(0, 0);
+    await started.promise;
+    const latest = setup.streamer.update(1, 0);
+    await Promise.all([first, latest]);
+    t.true(signals[0]?.aborted);
+    t.false(signals[1]?.aborted);
+    t.not(signals[0], signals[1]);
+    t.deepEqual(setup.events, ["get:0,0", "get:1,0", "place:1,0"]);
+    t.deepEqual(setup.streamer.loadedChunks, [{ x: 1, z: 0 }]);
+    t.deepEqual(setup.streamer.failedChunks, []);
+    t.is(setup.streamer.pendingChunks, 0);
+    t.is(setup.peak(), 1);
+    await setup.streamer.dispose();
+});
+
+test("moving the center retains an active source read that remains inside the load area", async t => {
+    t.timeout(3000);
+    const gate = deferred<AnvilChunk>(), started = deferred();
+    let activeSignal: AbortSignal | undefined;
+    const setup = fixture({ loadRadius: 1, unloadRadius: 1 }, { get: async (x, z, signal) => {
+        if (x === 0 && z === 0) {
+            activeSignal = signal;
+            started.resolve();
+            return gate.promise;
+        }
+        return chunk(x, z);
+    } });
+    t.teardown(() => gate.resolve(chunk(0, 0)));
+    const first = setup.streamer.update(0, 0);
+    await started.promise;
+    const latest = setup.streamer.update(1, 0);
+    t.false(activeSignal?.aborted);
+    gate.resolve(chunk(0, 0));
+    await Promise.all([first, latest]);
+    t.false(activeSignal?.aborted);
+    t.is(setup.events.filter(value => value === "get:0,0").length, 1);
+    t.true(setup.resident.has("0,0"));
+    t.is(setup.streamer.loadedChunks.length, 9);
+    t.true(setup.streamer.loadedChunks.every(({ x, z }) => Math.abs(x - 1) <= 1 && Math.abs(z) <= 1));
+    t.deepEqual(setup.streamer.failedChunks, []);
+    await setup.streamer.dispose();
+});
+
+test("an ignored aborted result is discarded even when the view returns to its column", async t => {
+    t.timeout(3000);
+    const gate = deferred<AnvilChunk>(), started = deferred();
+    const signals: (AbortSignal | undefined)[] = [];
+    const setup = fixture(undefined, { get: async (x, z, signal) => {
+        signals.push(signal);
+        if (signals.length === 1) {
+            started.resolve();
+            return gate.promise;
+        }
+        return chunk(x, z);
+    } });
+    t.teardown(() => gate.resolve(chunk(0, 0)));
+    const first = setup.streamer.update(0, 0);
+    await started.promise;
+    const away = setup.streamer.update(1, 0), returned = setup.streamer.update(0, 0);
+    gate.resolve(chunk(0, 0));
+    await Promise.all([first, away, returned]);
+    t.true(signals[0]?.aborted);
+    t.false(signals[1]?.aborted);
+    t.not(signals[0], signals[1]);
+    t.deepEqual(setup.events, ["get:0,0", "get:0,0", "place:0,0"]);
+    t.deepEqual(setup.streamer.loadedChunks, [{ x: 0, z: 0 }]);
+    t.deepEqual(setup.streamer.failedChunks, []);
+    t.is(setup.peak(), 1);
     await setup.streamer.dispose();
 });
 
@@ -366,6 +451,33 @@ test("cleanup failures preserve frozen or primitive placement errors as the prim
     }
 });
 
+test("disposal aborts a cooperative source read without waiting for its result", async t => {
+    t.timeout(3000);
+    const gate = deferred<AnvilChunk>(), started = deferred();
+    let activeSignal: AbortSignal | undefined;
+    const setup = fixture({ loadRadius: 0, unloadRadius: 1 }, { get: async (x, z, signal) => {
+        if (x === 1) {
+            activeSignal = signal;
+            signal?.addEventListener("abort", () => gate.reject(signal.reason), { once: true });
+            started.resolve();
+            return gate.promise;
+        }
+        return chunk(x, z);
+    } });
+    t.teardown(() => gate.resolve(chunk(1, 0)));
+    await setup.streamer.update(0, 0);
+    const update = setup.streamer.update(1, 0);
+    await started.promise;
+    await Promise.all([update, setup.streamer.dispose()]);
+    t.true(activeSignal?.aborted);
+    t.deepEqual(setup.events, ["get:0,0", "place:0,0", "get:1,0", "unload:0,0"]);
+    t.deepEqual([...setup.resident], []);
+    t.deepEqual(setup.streamer.failedChunks, []);
+    t.deepEqual(setup.streamer.loadedChunks, []);
+    t.is(setup.streamer.pendingChunks, 0);
+    t.is(setup.peak(), 1);
+});
+
 test("disposal waits for an active decode and removes owned columns without placing the result", async t => {
     t.timeout(3000);
     const gate = deferred<AnvilChunk>(), started = deferred();
@@ -410,6 +522,30 @@ test("disposal waits for an active placement and cleans up the completed column"
     await Promise.all([update, dispose]);
     t.deepEqual(setup.events, ["get:0,0", "place:0,0", "unload:0,0"]);
     t.deepEqual([...setup.resident], []);
+    t.is(setup.peak(), 1);
+});
+
+test("disposal waits for an active unload without starting or repeating world mutations", async t => {
+    t.timeout(3000);
+    const gate = deferred(), started = deferred();
+    const setup = fixture(undefined, { unload: async () => {
+        started.resolve();
+        await gate.promise;
+    } });
+    t.teardown(() => gate.resolve());
+    await setup.streamer.update(0, 0);
+    const update = setup.streamer.update(1, 0);
+    await started.promise;
+    let disposed = false;
+    const dispose = setup.streamer.dispose().then(() => { disposed = true; });
+    await Promise.resolve();
+    t.false(disposed);
+    t.deepEqual([...setup.resident], ["0,0"]);
+    gate.resolve();
+    await Promise.all([update, dispose]);
+    t.deepEqual(setup.events, ["get:0,0", "place:0,0", "unload:0,0"]);
+    t.deepEqual([...setup.resident], []);
+    t.deepEqual(setup.streamer.loadedChunks, []);
     t.is(setup.peak(), 1);
 });
 
