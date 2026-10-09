@@ -2,6 +2,7 @@
 export * from './AssetKey';
 export * from './AssetLoader';
 export * from './Assets';
+export * from './BannerPatterns';
 export * from './BlockEntities';
 export * from './BlockStates';
 export * from './Entities';

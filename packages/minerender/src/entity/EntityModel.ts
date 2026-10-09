@@ -35,7 +35,7 @@ export interface EntityModelFile extends MinecraftAsset {
 
 /** Vanilla render type of a draw; see the dataset README for the mode table. */
 export type EntityRenderMode = "cutout" | "cutout_cull" | "cutout_z_offset" | "solid" | "translucent" | "translucent_emissive"
-    | "eyes" | "energy_swirl" | "breeze_wind" | "water_mask";
+    | "eyes" | "energy_swirl" | "breeze_wind" | "water_mask" | "no_outline";
 
 /** An extra draw of a geometry layer, optionally enabled by an entity-state label. */
 export interface EntityModelPass {
