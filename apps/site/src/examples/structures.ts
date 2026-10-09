@@ -273,5 +273,6 @@ export const structures: ExampleGroup = {
     id: "structures",
     title: "Structures & worlds",
     lead: "Load structure, schematic, and region files or place blocks from code. Sections can be merged into single meshes.",
+    playgrounds: [{ url: "https://beta.minerender.org/demo/structure/", label: "Structure playground" }],
     examples: [vanilla, ownFile, programmatic]
 };

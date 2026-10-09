@@ -1,0 +1,22 @@
+{
+    "$schema": "../../node_modules/wrangler/config-schema.json",
+    "name": "minerender-web",
+    "compatibility_date": "2026-10-08",
+    "routes": [
+        { "pattern": "beta.minerender.org/editor", "zone_name": "minerender.org" },
+        { "pattern": "beta.minerender.org/editor/*", "zone_name": "minerender.org" },
+        { "pattern": "beta.minerender.org/demo", "zone_name": "minerender.org" },
+        { "pattern": "beta.minerender.org/demo/*", "zone_name": "minerender.org" }
+    ],
+    "assets": {
+        "directory": "./dist",
+        "not_found_handling": "none",
+        "html_handling": "force-trailing-slash"
+    },
+    "observability": {
+        "enabled": true,
+        "traces": {
+            "enabled": true
+        }
+    }
+}

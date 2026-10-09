@@ -339,5 +339,6 @@ export const entities: ExampleGroup = {
     id: "entities",
     title: "Entities",
     lead: "Mobs and block entities from a per-version geometry dataset extracted from the game, with texture variants, render passes, and keyframe animations.",
+    playgrounds: [{ url: "https://beta.minerender.org/demo/entity/", label: "Entity playground" }],
     examples: [{ ...mob, title: "Mobs" }, blockEntity, variants, states, animated]
 };

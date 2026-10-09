@@ -1642,6 +1642,7 @@ __metadata:
     puppeteer-core: "npm:^23.11.1"
     three: "npm:^0.186.1"
     typescript: "npm:~5.6.3"
+    wrangler: "npm:^4.147.0"
   languageName: unknown
   linkType: soft
 

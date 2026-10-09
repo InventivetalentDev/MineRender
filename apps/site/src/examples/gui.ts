@@ -220,5 +220,6 @@ export const guis: ExampleGroup = {
     id: "guis",
     title: "GUIs",
     lead: "Inventory screens, HUD elements and crafting recipes built from texture crops and item models, rendered flat with an orthographic camera.",
+    playgrounds: [{ url: "https://beta.minerender.org/demo/gui/", label: "GUI playground" }],
     examples: [chest, hotbar, recipe]
 };

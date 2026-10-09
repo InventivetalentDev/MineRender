@@ -27,7 +27,10 @@ export class Showcase {
                 <h2>${group.title}</h2>
                 <p class="lead">${group.lead}</p>
             </div>
-            <div class="showcase-tabs" role="tablist" aria-label="${group.title} examples"></div>
+            <div class="showcase-tabs-row">
+                <div class="showcase-tabs" role="tablist" aria-label="${group.title} examples"></div>
+                ${group.playgrounds?.length ? `<div class="showcase-playgrounds">${group.playgrounds.map(p => `<a href="${p.url}">${p.label}</a>`).join("")}</div>` : ""}
+            </div>
             <div class="showcase-body">
                 <div class="showcase-stage">
                     <div class="showcase-viewport"></div>

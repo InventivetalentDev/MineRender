@@ -216,6 +216,7 @@ export const items: ExampleGroup = {
     id: "items",
     title: "Items & models",
     lead: "Item definitions, generated item models, block items, and hand-written model JSON all go through the same model pipeline.",
+    playgrounds: [{ url: "https://beta.minerender.org/demo/item/", label: "Item playground" }, { url: "https://beta.minerender.org/demo/custom_model/", label: "Custom model playground" }],
     examples: [{ ...generated, title: "Generated item models" }, poses, blockItem, custom],
     notes: [
         "Item previews use the GUI display context. Composite item renderers (player heads, shields) are not supported."

@@ -246,7 +246,10 @@ button { font: inherit; color: inherit; }
 .showcase + .showcase { margin-top: calc(var(--unit) * 1.5); border-top: 1px solid var(--line); }
 .showcase .section-heading { margin-bottom: 16px; }
 .showcase h2 { font-size: 1.7rem; }
-.showcase-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.showcase-tabs-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 16px; margin-bottom: 14px; }
+.showcase-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.showcase-playgrounds { display: flex; flex-wrap: wrap; gap: 14px; font-size: 0.875rem; }
+.showcase-playgrounds a { color: var(--moss-deep); }
 .chip { padding: 6px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); color: var(--ink-soft); cursor: pointer; font-size: 0.875rem; font-weight: 600; }
 .chip:hover { color: var(--ink); border-color: var(--ink); }
 .chip.is-selected { background: var(--ink); border-color: var(--ink); color: var(--stone); }
