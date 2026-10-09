@@ -27,7 +27,7 @@ function entity(id = "minecraft:zombie", position: TripleArray = [0.5, 1, 0.5], 
 const structure = (...entities: MultiBlockEntity[]): MultiBlockStructure => ({ size: [16, 16, 16], blocks: [], entities });
 
 function fixture(t: ExecutionContext, renderEntities = true, init?: (object: EntityObject) => Promise<void>) {
-    const original = { get: Entities.getEntity, preload: BlockStates.getAll, init: EntityObject.prototype.init,
+    const original = { get: Entities.getEntity, list: Entities.getEntityList, preload: BlockStates.getAll, init: EntityObject.prototype.init,
         dispose: EntityObject.prototype.disposeAndRemoveAllChildren };
     const scene = new MineRenderScene();
     const world = new MineRenderWorld(scene, { renderEntities });
@@ -35,6 +35,7 @@ function fixture(t: ExecutionContext, renderEntities = true, init?: (object: Ent
     const initialized: EntityObject[] = [];
     const disposed: EntityObject[] = [];
     const missing = new Set<string>();
+    Entities.getEntityList = async () => ["zombie", "cow", "pig", "camel_husk", "shulker", "ender_dragon"];
     Entities.getEntity = async key => {
         requests.push(key.toNamespacedString());
         if (missing.has(key.path)) return undefined;
@@ -55,6 +56,7 @@ function fixture(t: ExecutionContext, renderEntities = true, init?: (object: Ent
     t.teardown(async () => {
         await world.clear();
         Entities.getEntity = original.get;
+        Entities.getEntityList = original.list;
         BlockStates.getAll = original.preload;
         EntityObject.prototype.init = original.init;
         EntityObject.prototype.disposeAndRemoveAllChildren = original.dispose;
@@ -99,11 +101,12 @@ test.serial("unsupported, malformed and missing entities are skipped without cha
     const invalidRotation = entity();
     (invalidRotation.nbt as Compound).value.Rotation = { type: "list", value: { type: "float", value: [NaN, 0] } };
     const input = [entity("minecraft:item"), entity("custom:zombie"), { ...entity(), nbt: { id: "minecraft:zombie" } },
-        entity("minecraft:zombie", [Infinity, 0, 0]), invalidRotation, entity("minecraft:pig"), entity("minecraft:cow")];
+        entity("minecraft:zombie", [Infinity, 0, 0]), invalidRotation, entity("minecraft:pig"), entity("minecraft:cow"),
+        entity("minecraft:camel_husk"), entity("minecraft:shulker"), entity("minecraft:ender_dragon")];
     const original = structuredClone(input);
     await world.placeMultiBlock(structure(...input));
-    t.deepEqual(requests, ["minecraft:pig", "minecraft:cow"]);
-    t.deepEqual(objects().map(object => object.entity.id), ["minecraft:cow"]);
+    t.deepEqual(requests, ["minecraft:pig", "minecraft:cow", "minecraft:camel_husk", "minecraft:shulker", "minecraft:ender_dragon"]);
+    t.deepEqual(objects().map(object => object.entity.id), requests.slice(1));
     t.deepEqual(input, original);
 });
 
@@ -148,13 +151,16 @@ test.serial("empty chunk columns replace and own entities independently of their
     t.deepEqual(disposed, [zombie, cow]);
 });
 
-test.serial("an entity initialization failure disposes the whole staged batch and retains previous placements", async t => {
+test.serial("an entity initialization failure skips the failed entity and keeps the rest", async t => {
     t.timeout(3000);
     const gate = deferred(), started = deferred();
     const failure = new Error("texture decode failed");
+    const warn = console.warn, warnings: unknown[][] = [];
+    console.warn = (...args) => { warnings.push(args); };
+    t.teardown(() => { console.warn = warn; });
     const { world, objects, initialized, disposed } = fixture(t, true, async object => {
+        if (object.entity.id === "minecraft:cow") started.resolve();
         if (object.entity.id === "minecraft:pig") {
-            started.resolve();
             await gate.promise;
             throw failure;
         }
@@ -162,13 +168,14 @@ test.serial("an entity initialization failure disposes the whole staged batch an
     t.teardown(() => gate.resolve());
     await world.placeMultiBlock(structure(entity()));
     const previous = objects()[0];
-    const pending = world.placeMultiBlock(structure(entity("minecraft:cow"), entity("minecraft:pig")));
+    const pending = world.placeChunk({ x: -2, z: 3, sections: [], entities: [entity("minecraft:pig"), entity("minecraft:cow")] });
     await started.promise;
-    t.deepEqual(objects(), [previous]);
+    t.deepEqual(initialized.map(object => object.entity.id), ["minecraft:zombie", "minecraft:pig", "minecraft:cow"]);
     gate.resolve();
-    await t.throwsAsync(pending, { is: failure });
-    t.deepEqual(objects(), [previous]);
-    t.deepEqual(disposed, initialized.slice(1));
+    await pending;
+    t.deepEqual(objects(), [previous, initialized[2]]);
+    t.deepEqual(disposed, [initialized[1]]);
+    t.deepEqual(warnings, [["Could not draw saved entity minecraft:pig, skipping it", failure]]);
     t.true(disposed.every(object => object.parent === null && object.children.length === 0));
 });
 

@@ -22,32 +22,30 @@ export class WorldEntities {
             return [{ ...resolved, position, column: key, owner }];
         });
         return async () => {
-            const staged: { object: EntityObject; column: string; owner: Set<EntityObject> }[] = [];
-            try {
-                for (const placement of placements) {
-                    const current = () => this.columns.get(placement.column) === placement.owner;
-                    if (!current()) continue;
+            await Promise.all(placements.map(async placement => {
+                const current = () => this.columns.get(placement.column) === placement.owner;
+                let object: EntityObject | undefined;
+                try {
+                    if (!current()) return;
+                    const models = await Entities.getEntityList();
+                    if (!models.includes(placement.key.path) || !current()) return;
                     const model = await Entities.getEntity(placement.key);
-                    if (!model || !current()) continue;
-                    const object = new EntityObject(model, { instanceMeshes: false });
-                    staged.push({ object, column: placement.column, owner: placement.owner });
+                    if (!model || !current()) return;
+                    object = new EntityObject(model, { instanceMeshes: false });
                     object.scene = this.scene;
                     // Block geometry is centered on integer coordinates; saved positions use block corners.
                     object.position.fromArray(placement.position).multiplyScalar(16).addScalar(-8);
                     object.rotation.y = placement.yaw;
                     await object.init();
-                }
-                for (const { object, column, owner } of staged) {
-                    if (this.columns.get(column) !== owner) continue;
-                    owner.add(object);
+                    if (!current()) return;
+                    placement.owner.add(object);
                     this.scene.add(object);
+                } catch (error) {
+                    console.warn(`Could not draw saved entity ${placement.key.toNamespacedString()}, skipping it`, error);
+                } finally {
+                    if (object && !placement.owner.has(object)) object.dispose();
                 }
-            } finally {
-                // Failed batches and columns unloaded during a fetch never retain render resources.
-                for (const { object, owner } of staged) {
-                    if (!owner.has(object)) object.dispose();
-                }
-            }
+            }));
         };
     }
 
