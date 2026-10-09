@@ -4,8 +4,9 @@ import { WorldStreamer } from "../src/world/WorldStreamer";
 
 function deferred<T = void>() {
     let resolve!: (value: T) => void;
-    const promise = new Promise<T>(yes => { resolve = yes; });
-    return { promise, resolve };
+    let reject!: (error: unknown) => void;
+    const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no; });
+    return { promise, resolve, reject };
 }
 
 const chunk = (x: number, z: number): AnvilChunk => ({ x, z, sections: [] });
@@ -154,29 +155,123 @@ test("missing columns are remembered only while they remain inside the retention
     await setup.streamer.dispose();
 });
 
-test("source and placement failures stop the drain and an explicit update retries after cleanup", async t => {
-    for (const stage of ["get", "place"] as const) {
-        const error = new Error(`${stage} failed`);
-        let fail = true;
-        const setup = fixture(undefined, {
-            [stage]: async (value: number | AnvilChunk, z?: number) => {
-                if (fail) {
-                    fail = false;
-                    throw error;
-                }
-                if (typeof value === "number") return chunk(value, z!);
-            }
-        });
-        await t.throwsAsync(setup.streamer.update(0, 0), { is: error });
-        t.deepEqual([...setup.resident], []);
-        t.deepEqual(setup.streamer.loadedChunks, []);
-        t.is(setup.streamer.pendingChunks, 1);
-        t.deepEqual(setup.events, stage === "get" ? ["get:0,0"] : ["get:0,0", "place:0,0", "unload:0,0"]);
-        await setup.streamer.update(0, 0);
-        t.deepEqual(setup.streamer.loadedChunks, [{ x: 0, z: 0 }]);
-        t.is(setup.streamer.pendingChunks, 0);
-        await setup.streamer.dispose();
-    }
+test("a source failure allows neighboring columns to load and requires explicit retry", async t => {
+    const error = new Error("invalid center chunk");
+    let fail = true;
+    const setup = fixture({ loadRadius: 1, unloadRadius: 1 }, { get: async (x, z) => {
+        if (x === 0 && z === 0 && fail) throw error;
+        return chunk(x, z);
+    } });
+    await setup.streamer.retryFailedChunks();
+    t.deepEqual(setup.events, []);
+    await setup.streamer.update(0, 0);
+    t.is(setup.resident.size, 8);
+    t.false(setup.resident.has("0,0"));
+    t.deepEqual(setup.streamer.failedChunks, [{ x: 0, z: 0, error }]);
+    t.is(setup.streamer.failedChunks[0].error, error);
+    t.is(setup.streamer.pendingChunks, 0);
+    const events = [...setup.events];
+    fail = false;
+    await setup.streamer.update(0, 0);
+    t.deepEqual(setup.events, events);
+    await setup.streamer.retryFailedChunks();
+    t.deepEqual(setup.events.slice(events.length), ["get:0,0", "place:0,0"]);
+    t.is(setup.streamer.loadedChunks.length, 9);
+    t.deepEqual(setup.streamer.failedChunks, []);
+    t.is(setup.streamer.pendingChunks, 0);
+    await setup.streamer.dispose();
+});
+
+test("failed source columns are forgotten outside the retention area and cleared on disposal", async t => {
+    const error = new Error("unreadable chunk");
+    const setup = fixture({ loadRadius: 0, unloadRadius: 1 }, { get: async () => { throw error; } });
+    await setup.streamer.update(0, 0);
+    await setup.streamer.update(1, 0);
+    await setup.streamer.update(0, 0);
+    t.deepEqual(setup.events, ["get:0,0", "get:1,0"]);
+    t.deepEqual(setup.streamer.failedChunks.map(({ x, z }) => ({ x, z })), [{ x: 0, z: 0 }, { x: 1, z: 0 }]);
+    await setup.streamer.update(3, 0);
+    t.deepEqual(setup.streamer.failedChunks, [{ x: 3, z: 0, error }]);
+    await setup.streamer.update(0, 0);
+    t.deepEqual(setup.events, ["get:0,0", "get:1,0", "get:3,0", "get:0,0"]);
+    t.deepEqual(setup.streamer.failedChunks, [{ x: 0, z: 0, error }]);
+    t.is(setup.streamer.pendingChunks, 0);
+    await setup.streamer.dispose();
+    t.deepEqual(setup.streamer.failedChunks, []);
+    await t.throwsAsync(() => setup.streamer.retryFailedChunks());
+});
+
+test("retrying failures during an active drain keeps reads and placements serialized", async t => {
+    t.timeout(3000);
+    const gate = deferred(), started = deferred();
+    let fail = true, firstNeighbor = true;
+    const setup = fixture({ loadRadius: 1, unloadRadius: 1 }, { get: async (x, z) => {
+        if (x === 0 && z === 0 && fail) throw new Error("center failed");
+        if (firstNeighbor) {
+            firstNeighbor = false;
+            started.resolve();
+            await gate.promise;
+        }
+        return chunk(x, z);
+    } });
+    t.teardown(() => gate.resolve());
+    const update = setup.streamer.update(0, 0);
+    await started.promise;
+    t.is(setup.streamer.failedChunks.length, 1);
+    fail = false;
+    const retry = setup.streamer.retryFailedChunks();
+    gate.resolve();
+    await Promise.all([update, retry]);
+    t.is(setup.events.filter(value => value === "get:0,0").length, 2);
+    t.is(setup.streamer.loadedChunks.length, 9);
+    t.deepEqual(setup.streamer.failedChunks, []);
+    t.is(setup.peak(), 1);
+    await setup.streamer.dispose();
+});
+
+test("an obsolete source rejection does not record a failure or block the latest center", async t => {
+    t.timeout(3000);
+    const gate = deferred<AnvilChunk>(), started = deferred();
+    const setup = fixture({ loadRadius: 0, unloadRadius: 2 }, { get: async (x, z) => {
+        if (x === 0) {
+            started.resolve();
+            return gate.promise;
+        }
+        return chunk(x, z);
+    } });
+    t.teardown(() => gate.resolve(chunk(0, 0)));
+    const first = setup.streamer.update(0, 0);
+    await started.promise;
+    const latest = setup.streamer.update(1, 0);
+    gate.reject(new Error("obsolete decode failed"));
+    await Promise.all([first, latest]);
+    t.deepEqual(setup.events, ["get:0,0", "get:1,0", "place:1,0"]);
+    t.deepEqual(setup.streamer.failedChunks, []);
+    t.deepEqual(setup.streamer.loadedChunks, [{ x: 1, z: 0 }]);
+    t.is(setup.streamer.pendingChunks, 0);
+    t.is(setup.peak(), 1);
+    await setup.streamer.dispose();
+});
+
+test("placement failures stop the drain and an explicit update retries after cleanup", async t => {
+    const error = new Error("placement failed");
+    let fail = true;
+    const setup = fixture(undefined, { place: async () => {
+        if (fail) {
+            fail = false;
+            throw error;
+        }
+    } });
+    await t.throwsAsync(setup.streamer.update(0, 0), { is: error });
+    t.deepEqual([...setup.resident], []);
+    t.deepEqual(setup.streamer.loadedChunks, []);
+    t.deepEqual(setup.streamer.failedChunks, []);
+    t.is(setup.streamer.pendingChunks, 1);
+    t.deepEqual(setup.events, ["get:0,0", "place:0,0", "unload:0,0"]);
+    await setup.streamer.update(0, 0);
+    t.deepEqual(setup.streamer.loadedChunks, [{ x: 0, z: 0 }]);
+    t.is(setup.streamer.pendingChunks, 0);
+    await setup.streamer.dispose();
 });
 
 test("failed unloads remain owned and are retried before subsequent loads", async t => {
@@ -198,41 +293,77 @@ test("failed unloads remain owned and are retried before subsequent loads", asyn
     await setup.streamer.dispose();
 });
 
-test("source chunks with mismatched coordinates cannot replace unrelated world columns", async t => {
+test("mismatched source coordinates are recorded while neighboring world columns still load", async t => {
     let mismatched = true;
-    const setup = fixture(undefined, { get: async (x, z) => chunk(mismatched ? x + 1 : x, z) });
-    await t.throwsAsync(setup.streamer.update(-2, 3));
-    t.deepEqual(setup.events, ["get:-2,3"]);
-    t.deepEqual([...setup.resident], []);
+    const setup = fixture({ loadRadius: 1, unloadRadius: 1 }, { get: async (x, z) =>
+        chunk(mismatched && x === -2 && z === 3 ? x + 1 : x, z) });
+    await setup.streamer.update(-2, 3);
+    t.is(setup.events[0], "get:-2,3");
+    t.is(setup.resident.size, 8);
+    t.false(setup.resident.has("-2,3"));
+    t.true(setup.resident.has("-1,3"));
+    t.deepEqual(setup.streamer.failedChunks.map(({ x, z }) => ({ x, z })), [{ x: -2, z: 3 }]);
+    t.true(setup.streamer.failedChunks[0].error instanceof Error);
+    t.is(setup.streamer.pendingChunks, 0);
+    const events = [...setup.events];
     mismatched = false;
     await setup.streamer.update(-2, 3);
-    t.deepEqual(setup.streamer.loadedChunks, [{ x: -2, z: 3 }]);
+    t.deepEqual(setup.events, events);
+    await setup.streamer.retryFailedChunks();
+    t.deepEqual(setup.events.slice(events.length), ["get:-2,3", "place:-2,3"]);
+    t.is(setup.streamer.loadedChunks.length, 9);
+    t.deepEqual(setup.streamer.failedChunks, []);
     await setup.streamer.dispose();
 });
 
 test("failed placement cleanup is retried before reloading the same column", async t => {
     let failPlace = true, failUnload = true;
+    const placementError = new Error("placement failed"), cleanupError = new Error("cleanup failed");
     const setup = fixture(undefined, {
         place: async () => {
             if (failPlace) {
                 failPlace = false;
-                throw new Error("placement failed");
+                throw placementError;
             }
         },
         unload: async () => {
             if (failUnload) {
                 failUnload = false;
-                throw new Error("cleanup failed");
+                throw cleanupError;
             }
         }
     });
-    await t.throwsAsync(setup.streamer.update(0, 0));
+    const error = await t.throwsAsync(setup.streamer.update(0, 0), { is: placementError });
+    t.is((error as Error & { cause?: unknown }).cause, cleanupError);
     t.deepEqual(setup.streamer.loadedChunks, []);
+    t.deepEqual(setup.streamer.failedChunks, []);
     t.deepEqual([...setup.resident], ["0,0"]);
     await setup.streamer.update(0, 0);
     t.deepEqual(setup.events, ["get:0,0", "place:0,0", "unload:0,0", "unload:0,0", "get:0,0", "place:0,0"]);
     t.deepEqual(setup.streamer.loadedChunks, [{ x: 0, z: 0 }]);
     await setup.streamer.dispose();
+});
+
+test("cleanup failures preserve frozen or primitive placement errors as the primary message", async t => {
+    for (const placementError of [Object.freeze(new Error("frozen placement failure")), "primitive placement failure"]) {
+        const cleanupError = new Error("cleanup failed");
+        let failUnload = true;
+        const setup = fixture(undefined, {
+            place: async () => { throw placementError; },
+            unload: async () => {
+                if (failUnload) {
+                    failUnload = false;
+                    throw cleanupError;
+                }
+            }
+        });
+        const error = await t.throwsAsync(setup.streamer.update(0, 0), {
+            message: placementError instanceof Error ? placementError.message : placementError
+        });
+        t.is((error as Error & { cause?: unknown }).cause, cleanupError);
+        await setup.streamer.dispose();
+        t.deepEqual([...setup.resident], []);
+    }
 });
 
 test("disposal waits for an active decode and removes owned columns without placing the result", async t => {
@@ -280,6 +411,26 @@ test("disposal waits for an active placement and cleans up the completed column"
     t.deepEqual(setup.events, ["get:0,0", "place:0,0", "unload:0,0"]);
     t.deepEqual([...setup.resident], []);
     t.is(setup.peak(), 1);
+});
+
+test("a source rejection during disposal does not leave failure records or allow retries", async t => {
+    t.timeout(3000);
+    const gate = deferred<AnvilChunk>(), started = deferred();
+    const setup = fixture(undefined, { get: async () => {
+        started.resolve();
+        return gate.promise;
+    } });
+    t.teardown(() => gate.resolve(chunk(0, 0)));
+    const update = setup.streamer.update(0, 0);
+    await started.promise;
+    const dispose = setup.streamer.dispose();
+    await t.throwsAsync(() => setup.streamer.retryFailedChunks());
+    gate.reject(new Error("decode failed after disposal"));
+    await Promise.all([update, dispose]);
+    t.deepEqual(setup.events, ["get:0,0"]);
+    t.deepEqual(setup.streamer.failedChunks, []);
+    t.deepEqual(setup.streamer.loadedChunks, []);
+    t.is(setup.streamer.pendingChunks, 0);
 });
 
 test("disposal attempts every owned column and can retry failed cleanup", async t => {

@@ -26,6 +26,7 @@ export class WorldStreamer {
     private readonly loaded = new Map<string, ChunkPosition>();
     private readonly owned = new Map<string, ChunkPosition>();
     private readonly missing = new Map<string, ChunkPosition>();
+    private readonly failed = new Map<string, ChunkPosition & { error: unknown }>();
     private desired: ChunkPosition[] = [];
     private center?: ChunkPosition;
     private running?: Promise<void>;
@@ -50,15 +51,22 @@ export class WorldStreamer {
         return [...this.loaded.values()].map(position => ({ ...position }));
     }
 
+    /** Returns source failures retained within the unload radius. Failed columns do not block other loads. */
+    public get failedChunks(): readonly { x: number; z: number; error: unknown }[] {
+        return [...this.failed.values()].map(failure => ({ ...failure }));
+    }
+
     /** Counts desired columns still waiting for a source read or placement, including the active column. */
     public get pendingChunks(): number {
-        return this.desired.filter(position => !this.loaded.has(this.key(position)) && !this.missing.has(this.key(position))).length;
+        return this.desired.filter(position => this.needsLoad(position)).length;
     }
 
     /**
      * Updates the center in absolute chunk coordinates. Repeated calls share the active drain.
-     * A failure rejects the drain; call update again to retry. Missing columns are remembered until
-     * they leave the retention radius. Sources should represent an unchanged world during streaming.
+     * Source failures are recorded in failedChunks; other columns continue loading. Missing and failed
+     * columns are remembered within the retention radius. Call retryFailedChunks to retry source failures.
+     * Placement and unload failures reject the drain; call update again to retry those operations.
+     * Sources should represent an unchanged world during streaming.
      */
     public async update(x: number, z: number): Promise<void> {
         if (this.disposed) throw new Error("WorldStreamer is disposed");
@@ -85,6 +93,13 @@ export class WorldStreamer {
         return this.update(Math.floor(position.x / 256), Math.floor(position.z / 256));
     }
 
+    /** Forgets recorded source failures and retries desired columns at the latest center. */
+    public async retryFailedChunks(): Promise<void> {
+        if (this.disposed) throw new Error("WorldStreamer is disposed");
+        this.failed.clear();
+        if (this.center) await this.update(this.center.x, this.center.z);
+    }
+
     /** Waits for active work, then unloads all owned columns. Does not dispose the world or source. */
     public dispose(): Promise<void> {
         this.disposed = true;
@@ -103,6 +118,7 @@ export class WorldStreamer {
                 }
             }
             this.missing.clear();
+            this.failed.clear();
             if (failed) throw failure;
         }).catch(error => {
             this.disposal = undefined;
@@ -116,6 +132,9 @@ export class WorldStreamer {
                 for (const [key, position] of this.missing) {
                     if (!this.within(position, this.unloadRadius)) this.missing.delete(key);
                 }
+                for (const [key, position] of this.failed) {
+                    if (!this.within(position, this.unloadRadius)) this.failed.delete(key);
+                }
                 // Failed placements remain owned until cleanup succeeds, even inside the retained area.
                 const obsolete = [...this.owned.values()].find(position =>
                     !this.loaded.has(this.key(position)) || !this.within(position, this.unloadRadius));
@@ -123,27 +142,50 @@ export class WorldStreamer {
                     await this.unload(obsolete);
                     continue;
                 }
-                const position = this.desired.find(position => !this.loaded.has(this.key(position)) && !this.missing.has(this.key(position)));
+                const position = this.desired.find(position => this.needsLoad(position));
                 if (!position) return;
-                const chunk = await this.source.getChunk(position.x, position.z);
+                let chunk: AnvilChunk | undefined;
+                try {
+                    chunk = await this.source.getChunk(position.x, position.z);
+                    if (chunk) this.validateChunk(chunk, position);
+                } catch (error) {
+                    if (!this.disposed && this.within(position, this.loadRadius)) {
+                        this.failed.set(this.key(position), { ...position, error });
+                    }
+                    continue;
+                }
                 if (this.disposed || !this.within(position, this.loadRadius)) continue;
                 if (!chunk) {
                     this.missing.set(this.key(position), position);
                     continue;
                 }
-                this.validateChunk(chunk, position);
                 this.owned.set(this.key(position), position);
                 try {
                     await this.world.placeChunk(chunk);
                     this.loaded.set(this.key(position), position);
                 } catch (error) {
-                    await this.unload(position);
+                    try {
+                        await this.unload(position);
+                    } catch (cleanupError) {
+                        const failure = error instanceof Error ? error : new Error(String(error));
+                        try {
+                            Object.defineProperty(failure, "cause", { value: cleanupError, configurable: true });
+                        } catch {
+                            throw Object.assign(new Error(failure.message), { cause: cleanupError });
+                        }
+                        throw failure;
+                    }
                     throw error;
                 }
             }
         } finally {
             this.running = undefined;
         }
+    }
+
+    private needsLoad(position: ChunkPosition): boolean {
+        const key = this.key(position);
+        return !this.loaded.has(key) && !this.missing.has(key) && !this.failed.has(key);
     }
 
     private async unload(position: ChunkPosition): Promise<void> {

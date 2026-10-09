@@ -67,13 +67,14 @@ function runChange(task: () => Promise<void>): void {
     });
 }
 
-async function replaceSource(next: Source, center?: { x: number; z: number; y: number }): Promise<void> {
+async function replaceSource(next: Source, center?: { x: number; z: number; y: number }, version?: string): Promise<void> {
     await streamer?.dispose();
     streamer = undefined;
     await world.clear();
     if (active !== next) active?.clearCache?.();
     active = next;
     if (disposed) { next.clearCache?.(); return; }
+    if (version !== undefined) AssetLoader.setVersion(version);
     streamer = new WorldStreamer(world, next.source, {
         loadRadius: Number(select("load-radius").value),
         unloadRadius: Number(select("load-radius").value) + 1
@@ -83,7 +84,7 @@ async function replaceSource(next: Source, center?: { x: number; z: number; y: n
     await updateWorld(true);
 }
 
-async function updateWorld(force = false): Promise<void> {
+async function updateWorld(force = false, retryFailures = false): Promise<void> {
     const current = streamer;
     if (!current || disposed) return;
     const x = Math.floor(controls.target.x / 256);
@@ -95,10 +96,16 @@ async function updateWorld(force = false): Promise<void> {
     report(`Loading chunks near ${x}, ${z}…`);
     try {
         await current.updatePosition(controls.target);
+        if (retryFailures && id === updateId && current === streamer && !disposed) await current.retryFailedChunks();
         if (id !== updateId || current !== streamer || disposed) return;
-        retryAction = undefined;
         const count = current.loadedChunks.length;
-        report(`Ready · ${active!.label} · ${count} loaded chunks${count ? "" : " · no saved chunks at this location"}`);
+        const failures = current.failedChunks;
+        retryAction = failures.length ? () => void updateWorld(true, true) : undefined;
+        const detail = failures.length
+            ? ` · ${failures.length} failed: ${failures.slice(0, 3).map(({ x, z, error }) =>
+                `chunk ${x}, ${z}: ${error instanceof Error ? error.message : String(error)}`).join("; ")}${failures.length > 3 ? "; more failures outside this list" : ""}`
+            : count ? "" : " · no saved chunks at this location";
+        report(`Ready · ${active!.label} · ${count} loaded chunks${detail}`, failures.length > 0);
     } catch (error) {
         if (id === updateId && current === streamer && !disposed) fail(error, () => void updateWorld(true));
     }
@@ -121,7 +128,7 @@ function updateStats(): void {
     const info = renderer.renderer.info;
     const x = Math.floor(controls.target.x / 256);
     const z = Math.floor(controls.target.z / 256);
-    element("world-stats").textContent = `View center: chunk ${x}, ${z} · ${streamer?.loadedChunks.length ?? 0} loaded · ${streamer?.pendingChunks ?? 0} pending · ${info.render.calls} draw calls · ${info.render.triangles.toLocaleString()} triangles`;
+    element("world-stats").textContent = `View center: chunk ${x}, ${z} · ${streamer?.loadedChunks.length ?? 0} loaded · ${streamer?.pendingChunks ?? 0} pending · ${streamer?.failedChunks.length ?? 0} failed · ${info.render.calls} draw calls · ${info.render.triangles.toLocaleString()} triangles`;
 }
 
 const sample: Source = {
@@ -177,36 +184,50 @@ async function openDimension(id: string): Promise<void> {
     const dimension = dimensions.get(id);
     if (!dimension) throw new Error("Choose a dimension from the selected world.");
     const regions = [...dimension.regions.values()].sort((a, b) => Math.hypot(a.x, a.z) - Math.hypot(b.x, b.z));
-    let initialRegion: { x: number; z: number; bytes: ArrayBuffer } | undefined;
-    const source = new AnvilWorldSource(async (x, z) => {
-        if (initialRegion?.x === x && initialRegion.z === z) {
-            const bytes = initialRegion.bytes;
-            initialRegion = undefined;
-            return bytes;
-        }
-        return dimension.regions.get(`${x},${z}`)?.file.arrayBuffer();
-    }, { maxCachedRegions: 4, maxCachedBytes: 64 * 1024 * 1024 });
     let start: { x: number; z: number; y: number } | undefined;
-    try {
-        for (const region of regions) {
-            const bytes = await region.file.arrayBuffer();
-            initialRegion = { x: region.x, z: region.z, bytes };
-            for (const position of AnvilParser.getChunkList(bytes)) {
-                const x = region.x * 32 + position.x, z = region.z * 32 + position.z;
-                const chunk = await source.getChunk(x, z);
+    let failureCount = 0;
+    let firstFailure: string | undefined;
+    const recordFailure = (location: string, error: unknown) => {
+        failureCount++;
+        firstFailure ??= `${location}: ${error instanceof Error ? error.message : String(error)}`;
+    };
+    for (const region of regions) {
+        let bytes: ArrayBuffer;
+        let positions: { x: number; z: number }[];
+        try {
+            bytes = await region.file.arrayBuffer();
+            positions = AnvilParser.getChunkList(bytes);
+        } catch (error) {
+            recordFailure(region.file.name, error);
+            continue;
+        }
+        for (const position of positions) {
+            const x = region.x * 32 + position.x, z = region.z * 32 + position.z;
+            try {
+                const chunk = await AnvilParser.parseChunk(bytes, position.x, position.z);
+                if (chunk && (chunk.x !== x || chunk.z !== z)) {
+                    throw new Error(`Stored coordinates ${chunk.x}, ${chunk.z} do not match region coordinates ${x}, ${z}.`);
+                }
                 const y = surfaceHeight(chunk);
                 if (y !== undefined) { start = { x, z, y }; break; }
+            } catch (error) {
+                recordFailure(`${region.file.name}, chunk ${x}, ${z}`, error);
             }
-            if (start) break;
         }
-        if (!start) throw new Error(`${dimension.label} has no visible terrain to display.`);
+        if (start) break;
+    }
+    if (!start) {
+        throw new Error(`${dimension.label} has no visible terrain to display.${firstFailure
+            ? ` ${failureCount} region or chunk reads failed. First failure: ${firstFailure}` : ""}`);
+    }
+    const source = new AnvilWorldSource(async (x, z) => dimension.regions.get(`${x},${z}`)?.file.arrayBuffer(),
+        { maxCachedRegions: 4, maxCachedBytes: 64 * 1024 * 1024 });
+    try {
         element("source-info").textContent = `${dimension.label} · ${dimension.regions.size} region files. Regions are read on demand; the region cache holds up to 4 files / 64 MiB.`;
         await replaceSource({ source, label: dimension.label, clearCache: () => source.clearCache() }, start);
     } catch (error) {
         source.clearCache();
         throw error;
-    } finally {
-        initialRegion = undefined;
     }
 }
 
@@ -251,10 +272,7 @@ select("load-radius").addEventListener("change", () => runChange(() => replaceSo
 element("apply-version").addEventListener("click", () => runChange(async () => {
     const version = input("asset-version").value.trim();
     if (!/^[a-zA-Z0-9_.-]+$/.test(version)) throw new Error("Enter a Minecraft version such as 1.21.11.");
-    await streamer?.dispose();
-    streamer = undefined;
-    AssetLoader.setVersion(version);
-    await replaceSource(active!);
+    await replaceSource(active!, undefined, version);
 }));
 function navigate(x: number, z: number, y: number): void {
     try { moveTo(x, z, y); void updateWorld(true); }
