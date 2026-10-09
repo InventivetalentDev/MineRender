@@ -33,7 +33,7 @@ export class ItemGlint {
     }
 
     /** @internal */
-    public static async create(owner: SceneObject, baseMap: Texture, root?: string,
+    public static async create(owner: SceneObject, baseMap?: Texture, root?: string,
                                entityMeshes?: readonly { mesh: Mesh; parent?: Mesh }[]): Promise<ItemGlint> {
         const key = new AssetKey("minecraft", "enchanted_glint_item", "textures", "misc", "assets", ".png", root);
         const assetKey = key.serialize(), textureKey = `item-glint:${assetKey}`;
@@ -57,22 +57,23 @@ export class ItemGlint {
             blending: CustomBlending, blendSrc: SrcColorFactor, blendDst: OneFactor, blendSrcAlpha: ZeroFactor, blendDstAlpha: OneFactor,
             toneMapped: false,
             defines: entityMeshes ? { ENTITY_GLINT: true } : {},
-            uniforms: { baseMap: { value: baseMap }, glintMap: { value: texture }, glintOffset: { value: new Vector2() }, glintAlpha: { value: 0.75 } },
+            uniforms: { ...(!entityMeshes && { baseMap: { value: baseMap } }),
+                glintMap: { value: texture }, glintOffset: { value: new Vector2() }, glintAlpha: { value: 0.75 } },
             vertexShader: `
                 uniform vec2 glintOffset;
-                attribute vec4 uvBounds;
                 #ifndef ENTITY_GLINT
+                attribute vec4 uvBounds;
                 attribute vec2 glintUv;
-                #endif
                 flat out vec4 vUvBounds;
                 centroid out vec2 vUv;
+                #endif
                 varying vec2 vGlintUv;
                 void main() {
-                    vUv = uv;
-                    vUvBounds = uvBounds;
                     #ifdef ENTITY_GLINT
                     vec2 p = vec2(uv.x, 1.0 - uv.y) * 0.5;
                     #else
+                    vUv = uv;
+                    vUvBounds = uvBounds;
                     vec2 p = glintUv * 8.0;
                     #endif
                     float angle = radians(10.0);
@@ -83,11 +84,13 @@ export class ItemGlint {
                 }
             `,
             fragmentShader: `
+                #ifndef ENTITY_GLINT
                 uniform sampler2D baseMap;
-                uniform sampler2D glintMap;
-                uniform float glintAlpha;
                 flat in vec4 vUvBounds;
                 centroid in vec2 vUv;
+                #endif
+                uniform sampler2D glintMap;
+                uniform float glintAlpha;
                 varying vec2 vGlintUv;
                 void main() {
                     #ifndef ENTITY_GLINT
@@ -102,7 +105,7 @@ export class ItemGlint {
                 }
             `
         });
-        Object.assign(material.defaultAttributeValues, { uvBounds: [0, 0, 1, 1] });
+        if (!entityMeshes) Object.assign(material.defaultAttributeValues, { uvBounds: [0, 0, 1, 1] });
         const targets: { mesh: Mesh; parent?: Mesh }[] = entityMeshes ? [...entityMeshes] : [];
         if (!entityMeshes) owner.iterateAllMeshes(mesh => targets.push({ mesh }));
         for (const { mesh: base, parent = base } of targets) {

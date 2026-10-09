@@ -297,7 +297,7 @@ test.serial("shield glint covers the plain plate and the decorated handle once w
         t.is(meshes[meshes.length - 1], platePass);
         t.true(platePass.renderOrder > lastPlate.renderOrder);
         const material = platePass.material as ShaderMaterial;
-        t.is(material.uniforms.baseMap.value, (plate.material as MeshBasicMaterial).map);
+        t.is(material.uniforms.baseMap, undefined);
         t.true(material.defines.ENTITY_GLINT);
         t.is(plate.geometry.getAttribute("glintUv"), undefined);
         const handle = entity.getMeshByName("handle", "main")!;
@@ -307,7 +307,7 @@ test.serial("shield glint covers the plain plate and the decorated handle once w
     }
     t.is(Object.keys((decorated.children[0] as EntityObject).entity.layers!).length, 18);
     const glintRequests = textures.filter(key => key.getFullPath() === "misc/enchanted_glint_item");
-    t.is(glintRequests.length, 4);
+    t.is(glintRequests.length, 1);
     t.true(glintRequests.every(key => key.root === "https://example.test/pack"));
     t.true(models.every(model => !model.layers));
 });
@@ -333,11 +333,36 @@ test.serial("trident glint follows every entity part and keeps other special ren
     const sharedMaterial = passes[0].material as ShaderMaterial;
     t.true(passes.every(pass => pass.material === sharedMaterial));
     t.true(sharedMaterial.defines.ENTITY_GLINT);
+    t.is(sharedMaterial.uniforms.baseMap, undefined);
     t.is(models[0].layer.root.children.pole.pose.rotation[0], 0);
     for (const special of [{ type: "conduit" }, { type: "chest", texture: "normal" }, { type: "trident" }] as const) {
         const object = await create(special, undefined, { enchantment_glint_override: special.type !== "trident" });
         object.iterateAllMeshes(mesh => t.falsy(mesh.userData.minerenderItemGlint));
     }
+});
+
+test.serial("multipart special items share one glint material and ticker and dispose them once", async t => {
+    const { create } = fixture(t);
+    const getParts = SpecialItems.getParts;
+    SpecialItems.getParts = async (...args) => {
+        const parts = await getParts(...args);
+        return [...parts, ...parts];
+    };
+    t.teardown(() => { SpecialItems.getParts = getParts; });
+    const initialTickers = new Set(Ticker.tickers.keys());
+    const trident = await create({ type: "trident" }, undefined, { enchantment_glint_override: true });
+    const passes: Mesh[] = [];
+    trident.iterateAllMeshes(mesh => { if (mesh.userData.minerenderItemGlint) passes.push(mesh); });
+    t.is(trident.children.length, 2);
+    t.is(passes.length, 10);
+    const material = passes[0].material as ShaderMaterial;
+    t.true(passes.every(pass => pass.material === material));
+    t.is(Ticker.tickers.size - initialTickers.size, 1);
+    let disposals = 0;
+    material.addEventListener("dispose", () => disposals++);
+    trident.dispose(); trident.dispose();
+    t.is(disposals, 1);
+    t.deepEqual(new Set(Ticker.tickers.keys()), initialTickers);
 });
 
 test.serial("composite GUI special glint stays below stack overlays and releases only its owned resources", async t => {
@@ -367,8 +392,12 @@ test.serial("composite GUI special glint stays below stack overlays and releases
     t.true(meshes.every(mesh => mesh.renderOrder < 0.5));
     t.is(Ticker.tickers.size - initialTickers.size, 2);
     gui.removeFromParent();
-    t.deepEqual(new Set(Ticker.tickers.keys()), initialTickers);
+    t.is(Ticker.tickers.size - initialTickers.size, 2);
     scene.add(gui);
+    t.is(Ticker.tickers.size - initialTickers.size, 2);
+    item.removeFromParent();
+    t.deepEqual(new Set(Ticker.tickers.keys()), initialTickers);
+    gui.add(item);
     t.is(Ticker.tickers.size - initialTickers.size, 2);
     let geometryDisposals = 0, materialDisposals = 0, glintTextureDisposals = 0, baseTextureDisposals = 0;
     const geometries = new Set(meshes.map(mesh => mesh.geometry));
@@ -377,10 +406,11 @@ test.serial("composite GUI special glint stays below stack overlays and releases
     materials.forEach(material => {
         material.addEventListener("dispose", () => materialDisposals++);
         material.uniforms.glintMap.value.addEventListener("dispose", () => glintTextureDisposals++);
-        material.uniforms.baseMap.value.addEventListener("dispose", () => baseTextureDisposals++);
     });
+    const baseTextures = new Set(meshes.filter(mesh => !mesh.userData.minerenderItemGlint).map(mesh => (mesh.material as MeshBasicMaterial).map!));
+    baseTextures.forEach(texture => texture.addEventListener("dispose", () => baseTextureDisposals++));
     gui.dispose(); gui.dispose();
-    t.deepEqual([geometryDisposals, materialDisposals, glintTextureDisposals, baseTextureDisposals], [geometries.size, 2, 2, 0]);
+    t.deepEqual([geometryDisposals, materialDisposals, glintTextureDisposals, baseTextureDisposals], [geometries.size, 2, 0, 0]);
     t.deepEqual(new Set(Ticker.tickers.keys()), initialTickers);
 });
 

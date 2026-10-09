@@ -92,6 +92,7 @@ export class ModelObject extends SceneObject {
                 ? DisplayTransforms.getMatrix(this.originalModel.display, this.options.displayPosition) : new Matrix4();
             transform.multiply(new Matrix4().makeTranslation(-8, -8, -8));
             try {
+                const targets: { mesh: Mesh; parent?: Mesh }[] = [];
                 for (const part of parts) {
                     const object = new EntityObject(part.model, { flip: false, wireframe: this.options.wireframe, tints: part.tints });
                     object.matrix.copy(transform).multiply(part.transform);
@@ -117,7 +118,6 @@ export class ModelObject extends SceneObject {
                         object.getGroupByName(name)?.position.set(...position);
                     }
                     if (this.hasGlint) {
-                        const targets: { mesh: Mesh; parent?: Mesh }[] = [];
                         if (special.type === "shield" || special.type === "minecraft:shield") {
                             const mesh = object.getMeshByName("plate", "main")!;
                             const layers = Object.keys(part.model.layers!);
@@ -127,9 +127,11 @@ export class ModelObject extends SceneObject {
                         } else {
                             object.iterateAllMeshes(mesh => targets.push({ mesh }));
                         }
-                        const map = (targets[0]?.mesh.material as MeshBasicMaterial | undefined)?.map;
-                        if (map) this.glint = await ItemGlint.create(this, map, this.originalModel.key?.root, targets);
                     }
+                }
+                if (targets.length) {
+                    this.glint = await ItemGlint.create(this, undefined, this.originalModel.key?.root, targets);
+                    this.updateAnimationSubscription();
                 }
             } catch (error) {
                 this.disposeAndRemoveAllChildren();
