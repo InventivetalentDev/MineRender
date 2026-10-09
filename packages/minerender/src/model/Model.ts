@@ -3,6 +3,7 @@ import { DisplayPosition } from "./DisplayPosition";
 import { GuiLight } from "./GuiLight";
 import { MinecraftAsset } from "../MinecraftAsset";
 import { ImageInfo } from "../image/ImageLoader";
+import type { DyeColor } from "../assets/BannerPatterns";
 
 export const ITEM_GENERATED = "item/generated";
 export const BUILTIN_GENERATED = "builtin/generated";
@@ -31,7 +32,7 @@ export interface ItemModel extends Model {
     gui_light?: GuiLight;
     special?: SpecialItemRenderer;
     tints?: ItemTintSource[];
-    /** Stack-component snapshot with namespaced IDs, used to resolve this item's tint sources. */
+    /** Stack-component snapshot with namespaced IDs, used by tint sources and special renderers. */
     components?: Record<string, unknown>;
     /** Ordered composite children, each with its own textures, display pose, and tint sources. */
     parts?: ItemModel[];
@@ -50,6 +51,8 @@ export type ItemTintSource =
 
 /** Supported item definitions that draw entity geometry instead of ordinary model elements. */
 export type SpecialItemRenderer =
+    | { type: "banner" | "minecraft:banner"; color: DyeColor }
+    | { type: "shield" | "minecraft:shield" }
     | { type: "chest" | "minecraft:chest"; texture: string; openness?: number }
     | { type: "shulker_box" | "minecraft:shulker_box"; texture: string; openness?: number;
         orientation?: "down" | "up" | "north" | "south" | "west" | "east" }
