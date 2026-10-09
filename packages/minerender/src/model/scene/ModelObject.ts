@@ -92,7 +92,7 @@ export class ModelObject extends SceneObject {
                     object.matrixWorldNeedsUpdate = true;
                     object.matrixAutoUpdate = false;
                     this.add(object);
-                    await object.init();
+                    await object.init(part.material);
                     object.iterateAllMeshes(mesh => {
                         const source = mesh.material as MeshBasicMaterial;
                         let material = this.specialMaterials.get(source);

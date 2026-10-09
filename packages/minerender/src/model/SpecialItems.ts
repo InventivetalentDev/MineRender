@@ -5,6 +5,7 @@ import { BannerPatterns, DYE_COLORS } from "../assets/BannerPatterns";
 import { DecoratedPots } from "../assets/DecoratedPots";
 import { ModelTextures } from "../assets/ModelTextures";
 import { CubeFace } from "../CubeFace";
+import { PlayerHeadTextures } from "../skin/PlayerHeadTextures";
 import type { EntityLayer, EntityModel, EntityModelLayer } from "../entity/EntityModel";
 import type { SpecialItemRenderer, TripleArray } from "./Model";
 
@@ -18,6 +19,8 @@ export interface SpecialItemPart {
     /** Colors for the entity model's named texture passes. */
     tints?: Record<string, number>;
     faces?: Record<string, CubeFace[]>;
+    /** Shared prepared material; the renderer clones it and retains ownership of only that clone. */
+    material?: MeshBasicMaterial;
 }
 
 /** Loads entity geometry and texture passes for supported special item previews. */
@@ -66,6 +69,16 @@ export class SpecialItems {
                 base.model = { ...base.model, ...layers.base, layers };
                 base.faces = { front: [CubeFace.NORTH], back: [CubeFace.NORTH], left: [CubeFace.NORTH], right: [CubeFace.NORTH] };
                 return [base];
+            }
+            case "minecraft:player_head":
+            case "player_head": {
+                const skin = await PlayerHeadTextures.get(components["minecraft:profile"], root);
+                const part = await load("player_head", skin.texture,
+                    new Matrix4().makeTranslation(8, 0, 8).multiply(new Matrix4().makeScale(-1, -1, 1)), { head: [0, Math.PI, 0] });
+                const main = { ...part.model, texture: skin.texture, render: "translucent" as const };
+                part.model = { ...main, layers: { main } };
+                part.material = skin.material;
+                return [part];
             }
             case "minecraft:trident":
             case "trident":

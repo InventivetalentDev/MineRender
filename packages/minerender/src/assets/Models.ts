@@ -243,6 +243,8 @@ export class Models {
                     case "minecraft:conduit":
                     case "decorated_pot":
                     case "minecraft:decorated_pot":
+                    case "player_head":
+                    case "minecraft:player_head":
                         return { model: node.base, special };
                     case "shulker_box":
                     case "minecraft:shulker_box":

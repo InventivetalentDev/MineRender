@@ -1,5 +1,5 @@
 import test, { ExecutionContext } from "ava";
-import { Box3, Mesh, MeshBasicMaterial, Vector3 } from "three";
+import { Box3, DoubleSide, FrontSide, Mesh, MeshBasicMaterial, Texture, Vector3 } from "three";
 import { AssetKey, BasicAssetKey } from "../src/assets/AssetKey";
 import { AssetLoader } from "../src/assets/AssetLoader";
 import { BannerPatterns, DYE_COLORS } from "../src/assets/BannerPatterns";
@@ -20,6 +20,7 @@ import { ModelObject } from "../src/model/scene/ModelObject";
 import { SpecialItems } from "../src/model/SpecialItems";
 import { MineRenderScene } from "../src/renderer/MineRenderScene";
 import { UVMapper } from "../src/UVMapper";
+import { SkinTextures } from "../src/skin/SkinTextures";
 
 const coordinates = (v: Vector3) => v.toArray().map(value => Math.round(value * 1e6) / 1e6 + 0);
 const part = (children: Record<string, EntityModelPart> = {}, origin?: TripleArray, size: TripleArray = [8, 8, 8]): EntityModelPart => ({
@@ -90,6 +91,9 @@ function fixture(t: ExecutionContext) {
                 front: { offset: [1, 16, 15], rotation: [Math.PI, 0, 0] }
             }).map(([name, pose]) => [name, { ...part({}, [0, 0, 0], [14, 16, 0]), pose,
                 cubes: [{ origin: [0, 0, 0], size: [14, 16, 0], uv: [1, 0] }] } as EntityModelPart])))
+            : id === "player_head" ? part({ head: part({ hat: {
+                ...part({}, [-4, -8, -4]), cubes: [{ origin: [-4, -8, -4], size: [8, 8, 8], uv: [32, 0], grow: [0.25, 0.25, 0.25] }]
+            } }, [-4, -8, -4]) })
             : id.startsWith("bed_") ? part({ main: part({}, [0, 0, 0], [16, 16, 6]) })
             : part({ head: part({ jaw: part(), left_ear: part(), right_ear: part() }, [-4, -8, -4]) });
         const model: EntityModel = { key, id, texture: texture as AssetKey | undefined, transform: [{ translate: [100, 200, 300] }], layer: { texture: [64, 64], root } };
@@ -167,6 +171,58 @@ test.serial("special beds join both halves before applying the inherited item di
     t.deepEqual(textures.map(key => key.toNamespacedString()), ["custom:entity/bed/blue", "custom:entity/bed/blue"]);
     const bounds = new Box3().setFromObject(object);
     t.deepEqual([coordinates(bounds.min), coordinates(bounds.max)], [[-2, 0.5, -8], [6, 3.5, 8]]);
+});
+
+test.serial("player-head items keep the hat, skin materials, inherited display, and composite profiles independent", async t => {
+    const { create, requests, textures, models, objects } = fixture(t);
+    const original = SkinTextures.get;
+    const skins = [new MeshBasicMaterial({ map: new Texture(), transparent: true, alphaTest: 0.1, side: DoubleSide }),
+        new MeshBasicMaterial({ map: new Texture(), transparent: true, alphaTest: 0.1, side: DoubleSide })];
+    SkinTextures.get = async src => ({ material: skins[src.endsWith("second") ? 1 : 0], slim: false, legacy: false });
+    t.teardown(() => { SkinTextures.get = original; skins.forEach(material => { material.map!.dispose(); material.dispose(); }); });
+    const components = (name: string) => ({ "minecraft:profile": { properties: { textures: [Buffer.from(JSON.stringify({
+        textures: { SKIN: { url: `https://textures.minecraft.net/texture/${name}` } }
+    })).toString("base64")] } } });
+    const first = await create({ type: "minecraft:player_head" }, undefined, components("first"));
+    const second = await create({ type: "player_head" }, { gui: { translation: [2, 3, 4], scale: [0.5, 0.5, 0.5] } }, components("second"));
+    t.deepEqual(requests.map(request => [request.key.path, request.options?.layer]), [["player_head", "main"], ["player_head", "main"]]);
+    t.true(requests.every(request => (request.key as AssetKey).root === "https://example.test/pack"));
+    t.deepEqual(textures, []);
+    t.is(first.getGroupByName("head")!.rotation.y, Math.PI);
+    const bounds = [first, second].map(object => new Box3().setFromObject(object));
+    t.deepEqual(bounds.map(box => [coordinates(box.min), coordinates(box.max)]), [
+        [[-4.25, -8.25, -4.25], [4.25, 0.25, 4.25]], [[-0.125, -1.125, 1.875], [4.125, 3.125, 6.125]]
+    ]);
+    for (const [index, object] of [first, second].entries()) {
+        const entity = object.children[0] as EntityObject;
+        const head = entity.getMeshByName("head")!;
+        const hat = entity.getMeshByName("hat")!;
+        const material = head.material as MeshBasicMaterial;
+        t.is(head.material, hat.material);
+        t.not(material, skins[index]);
+        t.is(material.map, skins[index].map);
+        t.deepEqual([material.side, material.transparent, material.alphaTest, material.depthWrite], [FrontSide, true, 0.1, true]);
+        t.is(head.geometry.getIndex()!.count, 72);
+        t.is(hat.geometry.getIndex()!.count, 72);
+        t.is(entity.entity.render, "translucent");
+        t.is(models[index].render, undefined);
+        t.is(models[index].layer.root.children.head.pose.rotation[1], 0);
+        t.false(object.isInstanced);
+    }
+    const composite = new ModelObject({ parts: [first.originalModel, { ...second.originalModel, gui_light: GuiLight.FRONT }] } as ItemModel,
+        { displayPosition: DisplayPosition.GUI, instanceMeshes: true });
+    objects.push(composite);
+    await composite.init();
+    t.deepEqual(composite.children.map(object => ((object as ModelObject).getMeshByName("head")!.material as MeshBasicMaterial).map), skins.map(skin => skin.map));
+    t.is(((composite.children[1] as ModelObject).getMeshByName("head")!.material as MeshBasicMaterial).onBeforeCompile, skins[1].onBeforeCompile);
+    const material = first.getMeshByName("head")!.material as MeshBasicMaterial;
+    let disposedMaterial = 0, disposedTexture = 0, disposedSkin = 0;
+    material.addEventListener("dispose", () => disposedMaterial++);
+    skins[0].map!.addEventListener("dispose", () => disposedTexture++);
+    skins[0].addEventListener("dispose", () => disposedSkin++);
+    first.dispose();
+    t.deepEqual([disposedMaterial, disposedTexture, disposedSkin], [1, 0, 0]);
+    t.is((second.getMeshByName("head")!.material as MeshBasicMaterial).map, skins[1].map);
 });
 
 test.serial("trident and conduit specials select their vanilla layers, solid materials, and transforms", async t => {

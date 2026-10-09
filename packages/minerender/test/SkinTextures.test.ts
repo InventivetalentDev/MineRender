@@ -1,8 +1,13 @@
 import test, { ExecutionContext } from "ava";
-import { DataTexture, DoubleSide, MeshBasicMaterial, NearestFilter, SRGBColorSpace } from "three";
+import { DataTexture, DoubleSide, FrontSide, MeshBasicMaterial, NearestFilter, SRGBColorSpace } from "three";
 import { Caching } from "../src/cache/Caching";
 import { SkinImage } from "../src/skin/SkinImage";
 import { SkinTextures, SkinTexture } from "../src/skin/SkinTextures";
+import { PlayerHeadTextures } from "../src/skin/PlayerHeadTextures";
+import { Skins } from "../src/skin/Skins";
+import { ModelTextures } from "../src/assets/ModelTextures";
+import { AssetKey } from "../src/assets/AssetKey";
+import type { TextureAsset } from "../src/model/Model";
 
 function image(width: number, height: number, alpha = 255): ImageData {
     const data = new Uint8ClampedArray(width * height * 4);
@@ -158,4 +163,94 @@ test.serial("scaled legacy skins retain pixel detail and invalid or forced-moder
     await t.throwsAsync(get("skin", false), { message: /128x64.*non-legacy/ });
     await t.throwsAsync(get("invalid"), { message: /96x96/ });
     await t.throwsAsync(get("short"), { message: /64x16/ });
+});
+
+function profiles(t: ExecutionContext) {
+    const original = { preload: ModelTextures.preload, name: Skins.fromUsername, skin: Skins.fromUuid };
+    const resources: AssetKey[] = [];
+    const lookups: string[] = [];
+    ModelTextures.preload = async key => { resources.push(key); return { key } as TextureAsset; };
+    Skins.fromUsername = async name => { lookups.push(name); return undefined; };
+    Skins.fromUuid = async uuid => { lookups.push(uuid); return `https://textures.minecraft.net/texture/${uuid}`; };
+    t.teardown(() => { ModelTextures.preload = original.preload; Skins.fromUsername = original.name; Skins.fromUuid = original.skin; });
+    return { resources, lookups };
+}
+
+test.serial("player-head profiles preserve vanilla default UUID selection and resource texture overrides", async t => {
+    fixture(t, {});
+    const { resources, lookups } = profiles(t);
+    t.is((await PlayerHeadTextures.get(undefined)).texture.getFullPath(), "entity/player/slim/steve");
+    t.is((await PlayerHeadTextures.get({})).texture.getFullPath(), "entity/player/slim/alex");
+    const names = ["alex", "ari", "efe", "kai", "makena", "noor", "steve", "sunny", "zuri"];
+    for (let index = 0; index < 18; index++) {
+        const result = await PlayerHeadTextures.get({ name: "Static", id: [0, 0, 0, index] });
+        t.is(result.texture.getFullPath(), `entity/player/${index < 9 ? "slim" : "wide"}/${names[index % 9]}`);
+    }
+    t.is((await PlayerHeadTextures.get({ name: "Static", id: [-1, 0, 0, 0] })).texture.getFullPath(), "entity/player/wide/zuri");
+    const patch = await PlayerHeadTextures.get({ name: "Notch", texture: "pack:custom/head.png" }, "https://pack.test/version");
+    t.is(patch.texture.toNamespacedString(), "pack:custom/head.png");
+    t.is(patch.texture.extension, ".png");
+    t.is(patch.texture.root, "https://pack.test/version");
+    t.is(patch.material, undefined);
+    t.deepEqual(lookups, []);
+    t.is(resources.at(-1), patch.texture);
+    ModelTextures.preload = async () => undefined;
+    await t.throwsAsync(PlayerHeadTextures.get({ texture: "pack:missing" }), { message: /Missing player-head texture pack:missing/ });
+    for (const profile of [null, 5, { id: "00000000-0000-0000-0000-000000000000" }, { id: [0, 0, 0, 2147483648] }, { name: "with space" }, { properties: [{ name: "textures", value: 3 }] }]) {
+        await t.throwsAsync(PlayerHeadTextures.get(profile), { message: /[Pp]layer profile/ });
+    }
+});
+
+test.serial("resolved profile skins prepare the hat once, retain shared ownership, and reject untrusted texture payloads", async t => {
+    const url = "https://textures.minecraft.net/texture/resolved";
+    const source = image(64, 64, 128);
+    const get = fixture(t, { [url]: source });
+    const { resources, lookups } = profiles(t);
+    const encoded = (textures: unknown) => Buffer.from(JSON.stringify({ textures })).toString("base64");
+    const value = encoded({ SKIN: { url } });
+    const profile = { properties: [{ name: "textures", value, signature: "unverified" }] };
+    const before = JSON.stringify(profile);
+    const result = await PlayerHeadTextures.get(profile);
+    const second = await PlayerHeadTextures.get({ properties: { textures: [value] } });
+    const skin = await get(url);
+    t.not(result.material, skin.material);
+    t.is(result.material, second.material);
+    t.is(result.material!.map, skin.material.map);
+    t.deepEqual([result.material!.transparent, result.material!.alphaTest, result.material!.side, result.material!.depthWrite], [true, 0.1, FrontSide, true]);
+    t.is(skin.material.side, DoubleSide);
+    t.deepEqual(pixel(pixels(skin), 64, 8, 8), [8, 8, 99, 255]);
+    t.deepEqual(pixel(pixels(skin), 64, 40, 8), [40, 8, 99, 128]);
+    t.is(JSON.stringify(profile), before);
+    t.deepEqual(resources, []);
+    t.deepEqual(lookups, []);
+    result.material!.dispose();
+    for (const invalid of ["not JSON", `${value}!`, encoded({ SKIN: { url: "https://TEXTURES.minecraft.net/skin" } }), encoded({ SKIN: { url: "https://example.test/skin.png" } }),
+        encoded({ SKIN: { url }, CAPE: { url: "https://bugs.mojang.com/skin" } }), encoded({ SKIN: {} })]) {
+        const fallback = await PlayerHeadTextures.get({ properties: { textures: [invalid, value] } });
+        t.is(fallback.material, undefined);
+        t.is(fallback.texture.getFullPath(), "entity/player/slim/alex");
+    }
+});
+
+test.serial("dynamic player profiles retain their input UUID defaults and retry failed lookups and skin loads", async t => {
+    const uuid = "00000000-0000-0000-0000-00000000000a";
+    const url = `https://textures.minecraft.net/texture/${uuid}`;
+    const images: Record<string, ImageData> = {};
+    fixture(t, images);
+    const { lookups } = profiles(t);
+    const offline = await PlayerHeadTextures.get("Notch");
+    t.is(offline.texture.getFullPath(), "entity/player/slim/makena");
+    Skins.fromUsername = async name => { lookups.push(name); return Skins.fromUuid(uuid); };
+    const failed = await PlayerHeadTextures.get("Notch");
+    t.is(failed.texture.getFullPath(), "entity/player/slim/makena");
+    t.is(failed.material, undefined);
+    t.is((await PlayerHeadTextures.get({ id: [0, 0, 0, 10] })).texture.getFullPath(), "entity/player/wide/ari");
+    images[url] = image(64, 32);
+    const loaded = await PlayerHeadTextures.get("Notch");
+    t.truthy(loaded.material);
+    t.deepEqual(lookups, ["Notch", "Notch", uuid, uuid, "Notch", uuid]);
+    t.is((await PlayerHeadTextures.get({ id: [0, 0, 0, 10] })).material, loaded.material);
+    const data = (loaded.material!.map as DataTexture).image.data;
+    t.is(pixel(data, 64, 40, 8)[3], 0);
+    loaded.material!.dispose();
 });
