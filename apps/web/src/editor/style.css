@@ -13,6 +13,10 @@ a { color: #a0dfb4; }
 .brand { color: #fff; font-size: 18px; font-weight: 720; text-decoration: none; white-space: nowrap; }
 .brand span { font-size: 13px; font-weight: 400; color: #a5b0c0; margin-left: 12px; }
 nav, .tool-group, .editor-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+#video-settings { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; width: 100%; }
+#video-settings label { display: flex; align-items: center; gap: 6px; }
+#video-settings input { width: 70px; }
+#video-settings .editor-note { margin: 0; }
 .workspace { display: grid; grid-template-columns: 235px minmax(250px, 1fr) 290px; flex: 1; min-height: 0; }
 aside { background: #191e26; padding: 16px; overflow: auto; }
 .objects-panel { border-right: 1px solid #303742; display: flex; flex-direction: column; gap: 22px; }

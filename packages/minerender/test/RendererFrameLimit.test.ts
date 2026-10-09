@@ -92,6 +92,7 @@ test("late subscriptions and resumed callbacks start with zero delta", t => {
     renderer.onFrame(({ delta }) => first.push(delta));
     renderer.tick(1000);
     renderer.tick(1100);
+    renderer.start();
     renderer.onFrame(({ delta }) => second.push(delta));
     renderer.tick(1200);
     renderer.stop();

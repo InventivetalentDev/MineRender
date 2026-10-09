@@ -30,7 +30,7 @@ World edits such as `setBlockAt`, `placeMultiBlock`, and `clear` also return pro
 
 ## Redrawing after changes
 
-[Renderer](/api/index/classes/Renderer) draws only when the scene is dirty, `render.renderAlways` is enabled, or an `onFrame` subscription is active. Calling `start()` runs this loop; it does not force an unchanged scene to redraw continuously.
+[Renderer](/api/index/classes/Renderer) draws only when the scene is dirty, `render.renderAlways` is enabled, an `onFrame` subscription is active, or a video is recording. Calling `start()` runs this loop; it does not force an unchanged scene to redraw continuously.
 
 MineRender setters such as `setPosition` notify the scene. When you change a three.js property directly, such as a named part's `rotation` or `visible`, call the owning [SceneObject](/api/index/classes/SceneObject)'s `notifyDirty()` or set `renderer.scene.dirty = true`. The loop draws the change on its next eligible frame.
 
@@ -40,6 +40,14 @@ For continuous animation, use `renderer.onFrame(...)`. Its synchronous callback 
 
 `renderer.toImage()` renders a fresh frame even while stopped. It does not call `onFrame` callbacks, so update the pose first when exporting a specific animation frame.
 
+## Video export
+
+Call `renderer.toVideo({ duration: 5, fps: 30 })` to record five seconds of the current scene, including running animations and camera movements. It returns a silent video `Blob`. The browser selects a supported WebM or MP4 encoder; use `blob.type` to choose the file extension. Set `mimeType` to request a specific supported format, or `videoBitsPerSecond` to request an encoding bitrate.
+
+Recording runs in real time. Keep the tab visible; browser scheduling and `render.fpsLimit` can reduce the frame rate or affect duration. The video keeps the canvas's initial drawing-buffer dimensions, scales later resizes to fit, and fills transparent pixels with black. It does not trim frames or rewind animations.
+
+Only one video can record per renderer. A stopped renderer starts for the recording and stops again afterward. Pass an `AbortSignal` as `signal` to cancel. Calling `stop()` or disposing the renderer also cancels the recording and rejects its promise. Calling `start()` while the renderer is running leaves the recording active.
+
 ## Objects and instance references
 
 With model instancing enabled, scene methods can return an [InstanceReference](/api/index/classes/InstanceReference) instead of a separate model object. Use the reference's transform methods to change that placement. Changing the underlying shared object's transform can affect its other instances.
@@ -47,6 +55,32 @@ With model instancing enabled, scene methods can return an [InstanceReference](/
 Calling `removeFromScene()` or `dispose()` on an instance reference releases its slot. A released reference rejects transform access; create another placement to obtain a usable reference.
 
 With `sectionMeshing: true`, [MineRenderWorld](/api/index/classes/MineRenderWorld) merges eligible blocks into section meshes. A merged block has no individual `BlockInfo.object`. Edit it through the world or chunk setters so geometry and neighbor culling update together.
+
+## Streaming a Java world
+
+Use a dedicated `MineRenderWorld` with `sectionMeshing: true` and a `WorldStreamer` to render nearby chunk columns. This example reads one dimension's `r.<x>.<z>.mca` files at region coordinates:
+
+```ts
+const source = new AnvilWorldSource(async (x, z, signal) => {
+    const response = await fetch(`/world/region/r.${x}.${z}.mca`, { signal });
+    if (response.status === 404) return undefined;
+    if (!response.ok) throw new Error(`Region request failed: ${response.status}`);
+    return response.arrayBuffer();
+});
+const world = new MineRenderWorld(renderer.scene, { sectionMeshing: true });
+const stream = new WorldStreamer(world, source, { loadRadius: 1, unloadRadius: 2 });
+await stream.updatePosition(renderer.camera.position);
+```
+
+Call `updatePosition` after the camera or view center moves. It accepts scene units; `update(x, z)` accepts absolute chunk coordinates.
+
+The streamer aborts obsolete reads and active reads during disposal. Source callbacks must forward the optional signal to cancellable I/O to stop that work.
+
+Source errors appear in `failedChunks` while other columns continue loading. Call `await stream.retryFailedChunks()` to retry them. Placement or unloading failures reject the update.
+
+Await `stream.dispose()` before editing or clearing the world; it unloads its columns and leaves the world and source caller-owned.
+
+Java 1.13+ paletted chunks support gzip, zlib, and uncompressed payloads; pre-1.13 numeric chunks, LZ4, external `.mcc` payloads, and DataVersion migration remain unsupported.
 
 ## Ownership and cleanup
 

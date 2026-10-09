@@ -107,6 +107,7 @@ export class MineRenderScene extends Scene {
         // but we also need to get the options that have been merged with the defaults properly
         // so maybe to the option merging _somewhere_ else, not in the object constructor
         const obj = await objectSupplier();
+        if (isModelObject(obj)) obj.options.tints = await ItemTints.get(obj.originalModel, obj.options.tints);
         if (obj?.options?.instanceMeshes && asset.key &&  (<AssetKey>asset.key)?.assetType === "models"/*TODO*/) {
             // Geometry options need separate instance pools while sharing the texture atlas.
             let key = asset.key.serialize();
@@ -147,7 +148,6 @@ export class MineRenderScene extends Scene {
      * @returns The model, or a reference to one placement of a shared model.
      */
     public async addModel(model: Model, options?: Partial<ModelObjectOptions>, parent: Object3D = this): Promise<ModelObject | InstanceReference<ModelObject>> {
-        options = { ...options, tints: await ItemTints.get(model, options?.tints) };
         return this.addSceneObject<Model, ModelObject, ModelObjectOptions>(model, () => new ModelObject(model, options), options, parent);
     }
 

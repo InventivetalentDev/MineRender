@@ -22,7 +22,7 @@ const geometry = (render?: EntityRenderMode, textureLocation?: string): EntityMo
 const textureKey = (path: string) => new AssetKey("minecraft", path, "textures", "entity", "assets", ".png");
 const canvas = {} as HTMLCanvasElement;
 const modes: EntityRenderMode[] = ["cutout", "cutout_cull", "cutout_z_offset", "solid", "translucent", "translucent_emissive",
-    "eyes", "energy_swirl", "breeze_wind", "water_mask"];
+    "eyes", "no_outline", "energy_swirl", "breeze_wind", "water_mask"];
 
 const originalSources = [...AssetLoader["_SOURCES"]];
 const originalGet = ModelTextures.get;
@@ -131,6 +131,7 @@ test("each render mode maps to vanilla's blend, depth and colour state", t => {
     t.deepEqual(state("breeze_wind"), { ...cutout, transparent: true, alphaTest: 0.1 });
     t.deepEqual(state("translucent_emissive"), { ...cutout, transparent: true, alphaTest: 0.1, depthWrite: false });
     t.deepEqual(state("eyes"), { ...cutout, transparent: true, alphaTest: 0, depthWrite: false });
+    t.deepEqual(state("no_outline"), { ...cutout, transparent: true, alphaTest: 0, depthWrite: false });
     t.deepEqual(state("energy_swirl"), { ...cutout, transparent: true, alphaTest: 0.1, blending: CustomBlending });
     t.deepEqual(state("water_mask"), { ...cutout, alphaTest: 0, colorWrite: false });
 

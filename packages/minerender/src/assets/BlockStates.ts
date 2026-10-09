@@ -9,6 +9,7 @@ import { PersistentCache } from "../cache/PersistentCache";
 import { AssetParser } from "./source/parser/AssetParsers";
 import { ListAsset } from "../ListAsset";
 import { MinecraftAsset } from "../MinecraftAsset";
+import defaultBlockStates from "../model/defaultBlockStates.json";
 
 /** Loads blockstate definitions and the property defaults used to select block models. */
 export class BlockStates {
@@ -37,10 +38,7 @@ export class BlockStates {
     }
 
     public static async getDefaultStates(): Promise<Maybe<DefaultBlockStates>> {
-        const key = AssetKey.parse("blockstates", "minerender:defaultBlockStates");
-        return Caching.defaultBlockStatesCache.get(key.serialize(), () => {
-            return AssetLoader.get<DefaultBlockStates>(key, AssetParser.JSON);
-        });
+        return defaultBlockStates as DefaultBlockStates;
     }
 
     /** Looks up vanilla property definitions for the key's block path, or returns `undefined`. */

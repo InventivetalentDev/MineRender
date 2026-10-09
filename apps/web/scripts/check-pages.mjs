@@ -95,6 +95,186 @@ async function visit(url, name) {
             if (/FAIL/.test(status) || status === "(no status)") problems.add(status);
         }
         await page.screenshot({ path: path.join(shots, `${name}.png`) });
+        const tintPresets = {
+            dyed_leather: { 0: 0x3f76e4 }, potion_color: { 0: 0xd557ef }, map_color: { 0: 0xffffff, 1: 0xe0a63a },
+            firework_color: { 0: 0xffffff, 1: 0x7f007f }, custom_model_color: { 0: 0x55ff55 }
+        };
+        const expectedTints = url.startsWith("demo/item/") && tintPresets[new URL(url, base).searchParams.get("preset")];
+        if (expectedTints && /^Ready/.test(status)) {
+            const result = await page.evaluate(() => ({
+                tints: window.item.options.tints, components: window.playground.state.components, code: window.playground.code()
+            }));
+            if (JSON.stringify(result.tints) !== JSON.stringify(expectedTints)) problems.add(`Component tint differs: ${JSON.stringify(result.tints)}`);
+            if (!result.code.includes(`components: ${JSON.stringify(result.components)}`)) problems.add("Generated code omits the color components.");
+        }
+        if (/^demo\/item\/\?preset=(bundle|bow|crossbow|custom_model_data)$/.test(url) && /^Ready/.test(status)) {
+            const inspect = () => {
+                const parts = [];
+                window.item.traverse(object => {
+                    if (!object.isModelObject || object.originalModel.parts) return;
+                    let vertices = 0;
+                    object.traverse(mesh => {
+                        if (!mesh.isMesh) return;
+                        vertices += mesh.geometry.getAttribute("position").count;
+                    });
+                    parts.push({ model: object.originalModel.key?.toNamespacedString(), instanced: object.isInstanced, vertices });
+                });
+                return parts;
+            };
+            const waitReady = async () => {
+                await page.waitForFunction(() => !/^Loading/.test(document.querySelector(".playground-status")?.textContent ?? ""), { timeout: 120000 });
+                const result = await page.$eval(".playground-status", element => element.textContent ?? "");
+                if (!/^Ready/.test(result)) throw new Error(result);
+            };
+            const expectModels = async (...expected) => {
+                const parts = await page.evaluate(inspect);
+                if (JSON.stringify(parts.map(part => part.model)) !== JSON.stringify(expected.map(path => `minecraft:${path}`))
+                    || parts.some(part => !part.vertices || part.instanced)) {
+                    problems.add(`Item preview differs from the selected state: ${JSON.stringify(parts)}`);
+                }
+            };
+            const setControl = async (selector, value) => {
+                await page.$eval(selector, (control, value) => {
+                    control.value = String(value);
+                    control.dispatchEvent(new Event("change", { bubbles: true }));
+                }, value);
+                await waitReady();
+            };
+            const property = id => `[data-item-property="minecraft:${id}"]`;
+            if (url.endsWith("=bundle")) {
+                const reference = '[data-item-reference="minecraft:bundle/selected_item"]';
+                const expectParts = selected => selected ? expectModels("item/bundle_open_back", selected, "item/bundle_open_front") : expectModels("item/bundle");
+                const expectBundleCamera = async () => {
+                    const camera = await page.evaluate(() => ({ orthographic: window.renderer.camera.isOrthographicCamera,
+                        position: window.renderer.camera.position.toArray(), zoom: window.renderer.camera.zoom }));
+                    if (!camera.orthographic || camera.zoom !== 24 || camera.position.some((n, i) => Math.abs(n - [0, 0, 100][i]) > 0.0001)) {
+                        problems.add(`Bundle camera changed its scale or direction: ${JSON.stringify(camera)}`);
+                    }
+                };
+                await expectParts("item/apple");
+                await expectBundleCamera();
+                await setControl(property("bundle/has_selected_item"), false);
+                await expectParts();
+                if (await page.$eval(reference, input => input.value) !== "minecraft:apple") problems.add("Changing a property removed the independent item reference.");
+                await page.screenshot({ path: path.join(shots, `${name}_closed.png`) });
+                await setControl(property("bundle/has_selected_item"), true);
+                await expectParts("item/apple");
+                await setControl(reference, "minecraft:diamond_block");
+                await expectParts("block/diamond_block");
+                await expectBundleCamera();
+                await page.screenshot({ path: path.join(shots, `${name}_diamond_block.png`) });
+                await setControl(reference, "minecraft:apple");
+                await expectParts("item/apple");
+                await setControl(reference, "minecraft:diamond_block");
+                await expectParts("block/diamond_block");
+                for (const pose of ["ground", ""]) {
+                    await setControl("#item-display", pose);
+                    await expectParts();
+                }
+                await setControl("#item-display", "gui");
+                await expectParts("block/diamond_block");
+                await page.select(".playground-panel > label select", "sword");
+                await waitReady();
+                if (await page.$$eval("[data-item-property], [data-item-reference]", controls => controls.length)) problems.add("Preset switch retained item state.");
+                await page.select(".playground-panel > label select", "bundle");
+                await waitReady();
+                await expectParts("item/apple");
+                await expectBundleCamera();
+                await page.$eval(reference, control => control.parentElement.parentElement.querySelector("button").click());
+                await waitReady();
+                await expectModels("item/bundle_open_back", "item/bundle_open_front");
+                await page.evaluate(() => {
+                    const section = [...document.querySelectorAll("summary")].find(summary => summary.textContent === "Add reference").parentElement;
+                    section.open = true;
+                    const inputs = section.querySelectorAll("input");
+                    inputs[0].value = "minecraft:bundle/selected_item";
+                    inputs[1].value = "minecraft:apple";
+                    section.querySelector("button").click();
+                });
+                await waitReady();
+                await expectParts("item/apple");
+                await page.$eval(property("bundle/has_selected_item"), control => control.parentElement.parentElement.querySelector("button").click());
+                await waitReady();
+                await expectParts();
+                await page.evaluate(() => {
+                    const section = [...document.querySelectorAll("summary")].find(summary => summary.textContent === "Add property").parentElement;
+                    section.open = true;
+                    section.querySelector("input").value = "minecraft:bundle/has_selected_item";
+                    section.querySelector("select").value = "boolean";
+                    section.querySelector("button").click();
+                });
+                await waitReady();
+                await expectParts();
+                await setControl(property("bundle/has_selected_item"), true);
+                await expectParts("item/apple");
+                const code = await page.evaluate(() => window.playground.code());
+                if (!code.includes('properties: {"minecraft:bundle/has_selected_item":true}')
+                    || !code.includes('itemReferences: { "minecraft:bundle/selected_item": new MineRender.AssetKey("minecraft", "apple", "models", "item") }')) {
+                    problems.add("Generated code does not reproduce the configured item properties and references.");
+                }
+            } else if (url.endsWith("=bow")) {
+                await expectModels("item/bow_pulling_0");
+                for (const [ticks, model] of [[12, 0], [13, 1], [17, 1], [18, 2], [20, 2], [0, 0]]) {
+                    await setControl(property("use_duration"), ticks);
+                    await expectModels(`item/bow_pulling_${model}`);
+                }
+                await setControl(property("using_item"), false);
+                await expectModels("item/bow");
+                await setControl(property("using_item"), true);
+                await expectModels("item/bow_pulling_0");
+            } else if (url.endsWith("=crossbow")) {
+                await expectModels("item/crossbow_arrow");
+                for (const [charge, model] of [["rocket", "crossbow_firework"], ["none", "crossbow"], ["arrow", "crossbow_arrow"]]) {
+                    await setControl(property("charge_type"), charge);
+                    await expectModels(`item/${model}`);
+                }
+            } else {
+                await expectModels("item/wooden_sword");
+                const initial = await page.$eval("#item-components", textarea => JSON.parse(textarea.value));
+                if (JSON.stringify(initial) !== JSON.stringify({ "minecraft:custom_model_data": { floats: [0, 0] } })) {
+                    problems.add("Custom-model-data components are not shown on initial load.");
+                }
+                for (const [floats, sword] of [[[1, 0], "golden"], [[0, 1], "iron"], [[1, 1], "diamond"], [[1], "golden"], [[0, 0], "wooden"], [[1, 1], "diamond"]]) {
+                    await page.$eval("#item-components", (textarea, floats) => {
+                        textarea.value = JSON.stringify({ "minecraft:custom_model_data": { floats } });
+                        textarea.closest("fieldset").querySelector("button").click();
+                    }, floats);
+                    await waitReady();
+                    await expectModels(`item/${sword}_sword`);
+                }
+                await setControl("#item-count", 3);
+                await expectModels("item/diamond_sword");
+                await page.screenshot({ path: path.join(shots, `${name}_diamond.png`) });
+                const code = await page.evaluate(() => window.playground.code());
+                if (!code.includes('count: 3, components: {"minecraft:custom_model_data":{"floats":[1,1]}}')
+                    || !code.includes("class DemoItemSource extends MineRender.AssetSource") || !code.includes("finally {")) {
+                    problems.add("Generated custom-model-data code omits the item inputs or scoped fixture source.");
+                }
+                const standalone = await browser.newPage();
+                try {
+                    await standalone.goto(base);
+                    await standalone.addScriptTag({ path: path.resolve(root, "../../packages/minerender/dist/bundle.js") });
+                    const result = await standalone.evaluate(async source => {
+                        const run = new Function("MineRender", `return (async () => {${source.replace(/^import \* as MineRender from "minerender";\s*/, "")}\nreturn { model, renderer };})()`);
+                        const { model, renderer } = await run(window.MineRender);
+                        const result = { model: model.key.toNamespacedString(), sources: window.MineRender.AssetLoader._SOURCES.map(entry => entry.key) };
+                        renderer.dispose();
+                        return result;
+                    }, code);
+                    if (result.model !== "minecraft:item/diamond_sword" || result.sources.includes("playground-custom-model-data")) {
+                        problems.add(`Generated CMD code produced the wrong model or retained its source: ${JSON.stringify(result)}`);
+                    }
+                } finally { await standalone.close(); }
+                await page.select(".playground-panel > label select", "sword");
+                await waitReady();
+                await expectModels("item/iron_sword");
+                const state = await page.evaluate(() => window.playground.state);
+                if (state.count !== 1 || Object.keys(state.components).length) problems.add("Preset switch retained stack inputs.");
+                await page.select(".playground-panel > label select", "custom_model_data");
+                await waitReady();
+                await expectModels("item/wooden_sword");
+            }
+        }
     } catch (error) {
         problems.add(`load failed: ${error.message}`);
     }
