@@ -2,10 +2,12 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { ApiError } from "./problem.js";
 import { parseRenderRequest } from "./request.js";
 import { RenderStore, type StoreOptions } from "./store.js";
-import { renderInProcess } from "./worker-process.js";
+import { createRenderPool } from "./worker-process.js";
+import { normalizeAssetOrigins } from "./assets.js";
 
 export interface RenderServerOptions extends Partial<StoreOptions> {
     maxBodyBytes?: number;
+    assetOrigins?: string[];
 }
 
 function json(response: ServerResponse, status: number, value: unknown, head = false): void {
@@ -57,9 +59,12 @@ export function createRenderServer(options: RenderServerOptions = {}) {
     const timeoutMs = positive(options.timeoutMs ?? 45_000, "timeoutMs");
     const cacheTtlMs = positive(options.cacheTtlMs ?? 600_000, "cacheTtlMs");
     if (timeoutMs > 2_147_483_647 || cacheTtlMs > 2_147_483_647) throw new Error("Timeout and cache TTL must not exceed 2147483647 milliseconds");
+    const concurrency = positive(options.concurrency ?? 2, "concurrency");
+    const assetOrigins = normalizeAssetOrigins(options.assetOrigins);
+    const pool = options.render ? undefined : createRenderPool(concurrency, { assetOrigins });
     const store = new RenderStore({
-        render: options.render ?? renderInProcess,
-        concurrency: positive(options.concurrency ?? 2, "concurrency"),
+        render: options.render ?? pool!.render,
+        concurrency,
         maxQueue: positive(options.maxQueue ?? 8, "maxQueue", true),
         timeoutMs,
         cacheBytes: positive(options.cacheBytes ?? 64 * 1024 * 1024, "cacheBytes"),
@@ -152,7 +157,7 @@ export function createRenderServer(options: RenderServerOptions = {}) {
             }));
             const workers = store.close();
             server.closeAllConnections();
-            await Promise.all([stopped, workers]);
+            await Promise.all([stopped, workers, pool?.close()]);
         })();
     } };
 }

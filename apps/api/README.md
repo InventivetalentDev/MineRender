@@ -2,6 +2,8 @@
 
 Create PNGs from MineRender [scene documents](../../packages/minerender/src/scene/SceneDocument.ts) with `POST /v1/renders`. A request can combine skins, blocks, items, models, entities, and GUI layers. Rendering runs in separate Node processes through `NodeRenderer`.
 
+This API deliberately replaces the V1 server contract. It does not implement `GET /render/skin/:texture`, `GET /render/model/:type/:model`, or the `minerender-options` header. Submit a scene once, then use the returned PNG URL in an `<img src>` while the resource remains cached. A GET retrieves an existing image; it does not create a render.
+
 ## Start the server
 
 Use Node.js 22.12 or later and install the [native rendering dependencies](../../packages/minerender/reference/platforms.md). Run these commands from the repository root:
@@ -97,14 +99,19 @@ Set environment variables before starting the server:
 |---|---|---|
 | `HOST` | `127.0.0.1` | Bind address |
 | `PORT` | `3000` | HTTP port |
-| `RENDER_CONCURRENCY` | `2` | Maximum active render processes |
+| `RENDER_CONCURRENCY` | `2` | Maximum worker processes in the render pool |
 | `RENDER_MAX_QUEUE` | `8` | Maximum waiting renders |
 | `RENDER_TIMEOUT_MS` | `45000` | Request deadline, including queue time |
 | `RENDER_CACHE_BYTES` | `67108864` | Maximum cached PNG bytes (64 MiB) |
 | `RENDER_CACHE_TTL_MS` | `600000` | Resource lifetime (10 minutes) |
 | `RENDER_MAX_BODY_BYTES` | `262144` | Maximum JSON request size (256 KiB) |
+| `RENDER_ASSET_ORIGINS` | Empty | Comma-separated trusted HTTPS origins to allow in addition to the defaults |
 
-The cache also holds at most 256 resources. Identical concurrent requests share one render. A disconnected client cancels its render when no other client is waiting for it. Shutdown aborts queued and active renders.
+The PNG cache also holds at most 256 resources. Identical concurrent requests share one render. A disconnected client cancels its render when no other client is waiting for it. Shutdown aborts queued and active renders.
+
+Each worker handles one render at a time and retains the library's memory and disk asset caches between requests. Workers retire after 100 renders. Cancellation or a deadline terminates the active worker, and later work uses a replacement. A worker's asset caches are cleared when it is replaced or the service closes; they do not persist across server restarts. These caches are separate from the bounded PNG cache.
+
+Asset downloads allow `assets.mcasset.cloud`, the `minerender-fallback-assets` repository on `raw.githubusercontent.com`, the skin resolver at `mcproxy.dev`, and textures at `textures.minecraft.net`. To allow additional upstream hosts or redirect destinations, set `RENDER_ASSET_ORIGINS`, or pass `assetOrigins: string[]` to `createRenderServer`. Each entry must be an HTTPS origin, such as `https://assets.example.com`. This setting does not expand the request format to accept arbitrary URLs or add fallback skin resolvers.
 
 This server has no authentication and binds to localhost by default. Add access controls at your deployment boundary before exposing it to other users.
 

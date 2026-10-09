@@ -1,5 +1,5 @@
-import { parseSceneDocument } from "minerender/browser";
-import type { SceneDocument } from "minerender/browser";
+import { parseSceneDocument } from "minerender/node";
+import type { SceneDocument } from "minerender/node";
 import { ApiError } from "./problem.js";
 
 export interface RenderRequest {

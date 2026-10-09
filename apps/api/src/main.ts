@@ -16,7 +16,8 @@ const app = createRenderServer({
     timeoutMs: integer("RENDER_TIMEOUT_MS"),
     cacheBytes: integer("RENDER_CACHE_BYTES"),
     cacheTtlMs: integer("RENDER_CACHE_TTL_MS"),
-    maxBodyBytes: integer("RENDER_MAX_BODY_BYTES")
+    maxBodyBytes: integer("RENDER_MAX_BODY_BYTES"),
+    assetOrigins: process.env.RENDER_ASSET_ORIGINS?.split(",").map(value => value.trim()).filter(Boolean)
 });
 
 app.server.on("error", error => {
