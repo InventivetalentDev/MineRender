@@ -248,20 +248,23 @@ test("missing entity regions or slots preserve embedded entities, and entity-onl
     }
 });
 
-test("terrain and entity regions use separate cache entries within the same count and byte limits", async t => {
-    for (const options of [{ maxCachedRegions: 2 }, { maxCachedRegions: 8, maxCachedBytes: 24576 }]) {
+test("terrain and entity regions have separate count limits and a shared byte limit", async t => {
+    for (const [options, expected] of [
+        [{ maxCachedRegions: 2 }, [0, 1, 2, 1]],
+        [{ maxCachedRegions: 8, maxCachedBytes: 24576 }, [0, 1, 0, 2, 0, 1]]
+    ] as const) {
         const terrainReads: number[] = [], entityReads: number[] = [];
         const source = new AnvilWorldSource(async x => { terrainReads.push(x); return region(x * 32, 0); }, {
             ...options,
             readEntityRegion: async x => { entityReads.push(x); return entityRegion(x * 32, 0); }
         });
-        for (const x of [0, 0, 32, 32, 0]) {
+        for (const x of [0, 32, 0, 64, 0, 32]) {
             const chunk = (await source.getChunk(x, 0))!;
             t.is(chunk.dataVersion, 2865);
             t.is(chunk.entityDataVersion, 4189);
         }
-        t.deepEqual(terrainReads, [0, 1, 0]);
-        t.deepEqual(entityReads, [0, 1, 0]);
+        t.deepEqual(terrainReads, [...expected]);
+        t.deepEqual(entityReads, [...expected]);
     }
 });
 

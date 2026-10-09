@@ -203,10 +203,11 @@ async function openDimension(id: string, preserveCenter = false): Promise<void> 
         maxCachedRegions: 4, maxCachedBytes: 64 * 1024 * 1024
     });
     try {
-        const regions = [...new Map([
-            ...dimension.regions,
-            ...(renderEntities ? dimension.entityRegions : [])
-        ]).values()].sort((a, b) => Math.hypot(a.x, a.z) - Math.hypot(b.x, b.z));
+        const regions = [...new Set([
+            ...dimension.regions.keys(),
+            ...(renderEntities ? dimension.entityRegions.keys() : [])
+        ])].map(key => (renderEntities ? dimension.entityRegions.get(key) : undefined) ?? dimension.regions.get(key)!)
+            .sort((a, b) => Math.hypot(a.x, a.z) - Math.hypot(b.x, b.z));
         let start: { x: number; z: number; y: number } | undefined;
         let failureCount = 0;
         let firstFailure: string | undefined;
@@ -244,7 +245,7 @@ async function openDimension(id: string, preserveCenter = false): Promise<void> 
             throw new Error(`${dimension.label} has no ${renderEntities ? "terrain or saved mobs" : "terrain"} to display.${!renderEntities && dimension.entityRegions.size ? " Enable Render saved mobs to load entity regions." : ""}${firstFailure
                 ? ` ${failureCount} region or chunk reads failed. First failure: ${firstFailure}` : ""}`);
         }
-        element("source-info").textContent = `${dimension.label} · ${dimension.regions.size} terrain / ${dimension.entityRegions.size} entity region files · ${dimension.externalChunks.size} external chunk files. Regions are read on demand; the shared cache holds up to 4 files / 64 MiB.`;
+        element("source-info").textContent = `${dimension.label} · ${dimension.regions.size} terrain / ${dimension.entityRegions.size} entity region files · ${dimension.externalChunks.size} external chunk files. Regions are read on demand; the cache holds up to 4 terrain and 4 entity files, with a shared 64 MiB limit.`;
         await replaceSource({ source, label: dimension.label, dimension, clearCache: () => source.clearCache() }, start);
     } catch (error) {
         source.clearCache();
