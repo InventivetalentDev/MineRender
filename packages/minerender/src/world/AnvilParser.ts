@@ -209,14 +209,17 @@ export class AnvilParser {
         const perLong = Math.floor(64 / bits);
         const expected = padded ? Math.ceil(4096 / perLong) : Math.ceil(4096 * bits / 64);
         if (tag.value.length !== expected) throw new MineRenderError(`Invalid Anvil block-state array length: expected ${expected}`);
-        const words = tag.value.map(([high, low]) => (BigInt(high >>> 0) << 32n) | BigInt(low >>> 0));
-        const mask = (1n << BigInt(bits)) - 1n;
+        const words = tag.value.map(([high, low]) => [high >>> 0, low >>> 0]);
+        const mask = (1 << bits) - 1;
         for (let index = 0; index < 4096; index++) {
-            const word = padded ? Math.floor(index / perLong) : Math.floor(index * bits / 64);
-            const shift = padded ? (index % perLong) * bits : (index * bits) % 64;
-            let value = words[word] >> BigInt(shift);
-            if (!padded && shift + bits > 64) value |= words[word + 1] << BigInt(64 - shift);
-            indices[index] = Number(value & mask);
+            const bitPos = index * bits;
+            const word = padded ? Math.floor(index / perLong) : bitPos >>> 6;
+            const shift = padded ? (index % perLong) * bits : bitPos & 63;
+            const [high, low] = words[word];
+            let value = shift < 32 ? low >>> shift : high >>> (shift - 32);
+            if (shift < 32 && shift + bits > 32) value += high * 2 ** (32 - shift);
+            if (!padded && shift + bits > 64) value += words[word + 1][1] * 2 ** (64 - shift);
+            indices[index] = value & mask;
         }
         return indices;
     }
