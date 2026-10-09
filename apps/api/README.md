@@ -111,7 +111,7 @@ The PNG cache also holds at most 256 resources. Identical concurrent requests sh
 
 Each worker handles one render at a time and retains the library's memory and disk asset caches between requests. Workers retire after 100 renders. Cancellation or a deadline terminates the active worker, and later work uses a replacement. A worker's asset caches are cleared when it is replaced or the service closes; they do not persist across server restarts. These caches are separate from the bounded PNG cache.
 
-Asset downloads allow `assets.mcasset.cloud`, the `minerender-fallback-assets` repository on `raw.githubusercontent.com`, the skin resolver at `mcproxy.dev`, and textures at `textures.minecraft.net`. To allow additional upstream hosts or redirect destinations, set `RENDER_ASSET_ORIGINS`, or pass `assetOrigins: string[]` to `createRenderServer`. Each entry must be an HTTPS origin, such as `https://assets.example.com`. This setting does not expand the request format to accept arbitrary URLs or add fallback skin resolvers.
+Asset downloads allow `assets.mcasset.cloud`, the skin resolver at `mcproxy.dev`, and textures at `textures.minecraft.net`. To allow additional upstream hosts or redirect destinations, set `RENDER_ASSET_ORIGINS`, or pass `assetOrigins: string[]` to `createRenderServer`. Each entry must be an HTTPS origin, such as `https://assets.example.com`. This setting does not expand the request format to accept arbitrary URLs or add fallback skin resolvers.
 
 This server has no authentication and binds to localhost by default. Add access controls at your deployment boundary before exposing it to other users.
 

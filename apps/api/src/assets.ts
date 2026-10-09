@@ -17,8 +17,6 @@ function allowedUrl(url: URL, origins: readonly string[]): boolean {
     if (url.port || url.search) return false;
     switch (url.hostname) {
         case "assets.mcasset.cloud": return true;
-        case "raw.githubusercontent.com":
-            return url.pathname.startsWith("/InventivetalentDev/minerender-fallback-assets/master/");
         case "mcproxy.dev":
             return /^\/(?:uuid|skin|cape)\/[a-zA-Z0-9_-]{1,36}$/.test(url.pathname);
         case "textures.minecraft.net":
