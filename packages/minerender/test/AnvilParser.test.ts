@@ -27,14 +27,14 @@ function chunk(sections: Tags[], options: { x?: number; modern?: boolean; versio
     };
 }
 
-function region(...chunks: { x?: number; nbt: NBT; compression?: number }[]): Buffer {
+function region(...chunks: { x?: number; nbt: NBT; compression?: number; payload?: Buffer }[]): Buffer {
     const header = Buffer.alloc(8192);
     const sectors: Buffer[] = [];
     let sector = 2;
     for (const entry of chunks) {
         const compression = entry.compression ?? 2;
         const raw = writeUncompressed(entry.nbt);
-        const payload = compression === 1 ? gzipSync(raw) : compression === 2 ? deflateSync(raw) : raw;
+        const payload = entry.payload ?? (compression === 1 ? gzipSync(raw) : compression === 2 ? deflateSync(raw) : raw);
         const count = Math.ceil((payload.length + 5) / 4096);
         const data = Buffer.alloc(count * 4096);
         data.writeUInt32BE(payload.length + 1);
@@ -68,6 +68,88 @@ test("Anvil lists local chunks and loads gzip, zlib and raw NBT with signed chun
     const all = await AnvilParser.parse(Uint8Array.from(bytes).buffer);
     t.deepEqual(all.chunks.map(({ x, z }) => [x, z]), [[-32, -2], [-31, -2], [-30, -2]]);
     t.true(all.chunks.every(value => value.sections[0].data.get(0)?.type === "minecraft:stone"));
+});
+
+// Generated with lz4-java 1.8.0 LZ4BlockOutputStream; mixed flushes after seven NBT bytes.
+const lz4Fixtures = {
+    compressed: "TFo0QmxvY2smjwAAAIgCAAA4yukL8hUKAAADAAtEYXRhVmVyc2lvbgAACzEDAAR4UG9z/////wMABHoLAPEg/gkACHNlY3Rpb25zCgAAAAEBAAFZ/AoADGJsb2NrX3N0YXRlcwkAB3BhbGV0dGUjAPANCAAETmFtZQAPbWluZWNyYWZ0OnN0b25lAAAAByoAn2RkaW5nAAACAAEA/+pQAAAAAABMWjRCbG9jaxYAAAAAAAAAAAAAAAA=",
+    raw: "TFo0QmxvY2sWPAAAADwAAAC9LPEDCgAAAwALRGF0YVZlcnNpb24AAAsxAwAEeFBvc/////8DAAR6UG9z/////gkACHNlY3Rpb25zCgAAAAAATFo0QmxvY2sWAAAAAAAAAAAAAAAA",
+    mixed: "TFo0QmxvY2sWBwAAAAcAAABoHccOCgAAAwALRExaNEJsb2NrJogAAACBAgAASmEFAPIOYXRhVmVyc2lvbgAACzEDAAR4UG9z/////wMABHoLAPEg/gkACHNlY3Rpb25zCgAAAAEBAAFZ/AoADGJsb2NrX3N0YXRlcwkAB3BhbGV0dGUjAPANCAAETmFtZQAPbWluZWNyYWZ0OnN0b25lAAAAByoAn2RkaW5nAAACAAEA/+pQAAAAAABMWjRCbG9jaxYAAAAAAAAAAAAAAAA="
+};
+
+function lz4Region(payload: Buffer): Buffer {
+    return region({ nbt: chunk([]), compression: 4, payload });
+}
+
+test("Anvil reads Java LZ4 compressed, raw and mixed blocks across NBT and input-view boundaries", async t => {
+    for (const [name, fixture] of Object.entries(lz4Fixtures)) {
+        const bytes = lz4Region(Buffer.from(fixture, "base64"));
+        const padded = Uint8Array.from(Buffer.concat([Buffer.alloc(7), bytes, Buffer.alloc(3)]));
+        const view = padded.subarray(7, 7 + bytes.length);
+        const parsed = (await AnvilParser.parseChunk(view, 31, 30))!;
+        t.is(parsed.x, -1, name);
+        t.is(parsed.z, -2, name);
+        t.is(parsed.dataVersion, 2865, name);
+        t.is(parsed.sections.length, name === "raw" ? 0 : 1, name);
+        if (name !== "raw") {
+            t.is(parsed.sections[0].y, -4, name);
+            t.deepEqual(parsed.sections[0].data.get(4095), { type: "minecraft:stone" }, name);
+        }
+    }
+});
+
+test("Anvil rejects malformed Java LZ4 headers, checksums and incomplete streams", async t => {
+    const compressed = Buffer.from(lz4Fixtures.compressed, "base64");
+    const raw = Buffer.from(lz4Fixtures.raw, "base64");
+    const mixed = Buffer.from(lz4Fixtures.mixed, "base64");
+    const mutations: [string, Buffer, (value: Buffer) => void][] = [
+        ["magic", compressed, value => { value[0] ^= 1; }],
+        ["method", compressed, value => { value[8] = 0x36; }],
+        ["raw length", raw, value => value.writeUInt32LE(59, 13)],
+        ["block limit", compressed, value => value.writeUInt32LE(65537, 13)],
+        ["zero compressed length", compressed, value => value.writeUInt32LE(0, 9)],
+        ["zero decoded length", compressed, value => value.writeUInt32LE(0, 13)],
+        ["compressed checksum", compressed, value => { value[17] ^= 1; }],
+        ["raw checksum", raw, value => { value[17] ^= 1; }],
+        ["second block checksum", mixed, value => { value[45] ^= 1; }],
+        ["end checksum", compressed, value => { value[value.length - 4] = 1; }],
+        ["end length", compressed, value => { value[value.length - 12] = 1; }]
+    ];
+    for (const [name, original, change] of mutations) {
+        const payload = Buffer.from(original);
+        change(payload);
+        await t.throwsAsync(() => AnvilParser.parse(lz4Region(payload)), { message: /Anvil LZ4/ }, name);
+    }
+    for (const payload of [
+        compressed.subarray(0, 8),
+        compressed.subarray(0, compressed.length - 22),
+        compressed.subarray(0, compressed.length - 21),
+        compressed.subarray(0, compressed.length - 1),
+        Buffer.concat([compressed, Buffer.of(0)])
+    ]) {
+        await t.throwsAsync(() => AnvilParser.parse(lz4Region(payload)), { message: /Anvil LZ4/ });
+    }
+});
+
+test("Anvil rejects invalid LZ4 literal lengths, match offsets and output overruns before checking the checksum", async t => {
+    const fixture = Buffer.from(lz4Fixtures.compressed, "base64");
+    const invalid = [
+        [0xf0],
+        [0xf0, 0xff],
+        [0x50, 1, 2],
+        [0x10, 1, 0, 0, 0x50, 0, 0, 0, 0, 0],
+        [0x10, 1, 2, 0, 0x50, 0, 0, 0, 0, 0],
+        [0x1f, 1, 1, 0],
+        [0x1f, 1, 1, 0, 0xff, 0, 0x50, 0, 0, 0, 0, 0]
+    ];
+    for (const tokens of invalid) {
+        const header = Buffer.from(fixture.subarray(0, 21));
+        header.writeUInt32LE(tokens.length, 9);
+        header.writeUInt32LE(64, 13);
+        const payload = Buffer.concat([header, Buffer.from(tokens), fixture.subarray(-21)]);
+        const error = await t.throwsAsync(() => AnvilParser.parse(lz4Region(payload)), { message: /Anvil LZ4/ });
+        t.notRegex(error!.message, /checksum/i);
+    }
 });
 
 test("Anvil decodes dense and padded five-bit palettes across long boundaries without losing signed high bits", async t => {
@@ -175,10 +257,10 @@ test("Anvil rejects truncated sectors, invalid lengths and unsupported compressi
     const badLength = Buffer.from(valid);
     badLength.writeUInt32BE(4093, 8192);
     await t.throwsAsync(() => AnvilParser.parse(badLength), { message: /payload length/ });
-    for (const compression of [4, 99, 130]) {
+    for (const compression of [99, 130, 132]) {
         const bytes = Buffer.from(valid);
         bytes[8196] = compression;
-        await t.throwsAsync(() => AnvilParser.parse(bytes), { message: compression === 130 ? /External.*mcc/ : /Unsupported.*compression/ });
+        await t.throwsAsync(() => AnvilParser.parse(bytes), { message: compression & 128 ? /External.*mcc/ : /Unsupported.*compression/ });
     }
     await t.throwsAsync(() => AnvilParser.parseChunk(valid, -1, 0), { instanceOf: RangeError });
 });
