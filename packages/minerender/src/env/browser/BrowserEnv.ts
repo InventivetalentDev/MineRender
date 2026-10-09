@@ -41,14 +41,14 @@ export class BrowserEnv implements EnvProvider {
     }
 
     createWorker(name: "section"): Worker | undefined {
-        if (typeof Worker === "undefined") return undefined;
-        let url: URL;
+        if (name !== "section" || typeof Worker === "undefined") return undefined;
         try {
-            url = new URL(`./${name}.worker.mjs`, import.meta.url);
+            // Keep the literal URL so bundlers emit the worker file next to the entry.
+            return new Worker(new URL("./section.worker.mjs", import.meta.url), { type: "module" });
         } catch {
+            // No import.meta.url outside ESM, or a cross-origin module worker.
             return undefined;
         }
-        return new Worker(url, { type: "module" });
     }
 
 }

@@ -23,12 +23,9 @@ export class SectionWorker {
             if (reply.type === "pages") pending.resolve(reply.pages);
             else pending.reject(new Error(reply.message));
         });
-        worker!.addEventListener("error", event => {
-            const error = new Error(event.message || "Section worker failed");
-            for (const pending of this.pending.values()) pending.reject(error);
-            this.pending.clear();
-            this.terminate();
-        });
+        // A failed worker or an undeliverable message leaves the pending builds unanswerable, so stop using it.
+        worker!.addEventListener("error", event => this.fail(event.message || "Section worker failed"));
+        worker!.addEventListener("messageerror", () => this.fail("Section worker message could not be deserialized"));
     }
 
     /** The shared worker, or undefined when the environment has none or a previous worker failed. */
@@ -53,7 +50,12 @@ export class SectionWorker {
 
     /** Rejects pending builds, terminates the worker, and makes shared() return undefined. */
     public terminate(): void {
-        for (const pending of this.pending.values()) pending.reject(new Error("Section worker terminated"));
+        this.fail("Section worker terminated");
+    }
+
+    private fail(message: string): void {
+        const error = new Error(message);
+        for (const pending of this.pending.values()) pending.reject(error);
         this.pending.clear();
         this.worker?.terminate();
         this.worker = undefined;

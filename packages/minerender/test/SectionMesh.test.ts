@@ -161,6 +161,22 @@ test.serial("async section builds fall back after a worker error and disable the
     t.is(terminations, 1);
 });
 
+test.serial("async section builds fall back after a message error and disable the shared worker", async t => {
+    const target = new EventTarget();
+    let terminations = 0;
+    const worker = Object.assign(target, {
+        postMessage() { queueMicrotask(() => target.dispatchEvent(new MessageEvent("messageerror", { data: null }))); },
+        terminate() { terminations++; }
+    }) as unknown as Worker;
+    const create = fixture(t, () => worker);
+    const entries = [{ index: 4095, template: create(), cullMask: 2 }];
+    const expected = SectionMesh.build(entries), actual = await SectionMesh.buildAsync(entries);
+    t.teardown(() => [expected, actual].forEach(section => section.dispose()));
+    t.deepEqual(geometryData(actual), geometryData(expected));
+    t.is(SectionWorker.shared(), undefined);
+    t.is(terminations, 1);
+});
+
 test.serial("async section builds fall back for a rejected build without disabling the worker", async t => {
     const target = new EventTarget();
     const worker = Object.assign(target, {
