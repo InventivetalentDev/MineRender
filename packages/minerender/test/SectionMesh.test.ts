@@ -9,13 +9,14 @@ import { buildSectionGeometry, SectionGeometryInput, SectionGeometryPage } from 
 import { SectionWorker } from "../src/world/SectionWorker";
 import { SectionMesh, SectionMeshTemplate } from "../src/world/SectionMesh";
 
-function fixture(t: ExecutionContext, createWorker?: EnvProvider["createWorker"], drawImage = () => {}) {
+function fixture(t: ExecutionContext, createWorker?: EnvProvider["createWorker"], drawImage = () => {},
+                 clearRect: (x: number, y: number, width: number, height: number) => void = () => {}) {
     const provider = Env["_provider"];
     const worker = SectionWorker["instance"], initialized = SectionWorker["initialized"];
     SectionWorker["instance"] = undefined;
     SectionWorker["initialized"] = false;
     Env.register({ name: "test", createWorker, createCanvas: (width, height) => ({
-        width, height, getContext: () => ({ drawImage })
+        width, height, getContext: () => ({ drawImage, clearRect })
     } as unknown as CompatCanvas) } as EnvProvider);
     const geometries: BoxGeometry[] = [];
     t.teardown(() => {
@@ -132,7 +133,9 @@ for (const transparent of [false, true]) {
 
 test.serial("animated section pages redraw once per tick, dirty their scene and unsubscribe on disposal", t => {
     let draws = 0;
-    const create = fixture(t, undefined, () => { draws++; });
+    const calls: (string | number)[][] = [];
+    const create = fixture(t, undefined, () => { draws++; calls.push(["drawImage"]); },
+        (...rectangle) => { calls.push(["clearRect", ...rectangle]); });
     const animated = create(), fixed = create();
     animated.atlas = new TextureAtlas({}, new CanvasImage(2, 2), {}, {}, true, { all: () => true }, false);
     const section = SectionMesh.build([
@@ -149,10 +152,15 @@ test.serial("animated section pages redraw once per tick, dirty their scene and 
     const textures = section.children.map(child => ((child as Mesh).material as ShaderMaterial).uniforms.map.value as Texture);
     const versions = textures.map(texture => texture.version);
     const ticker = animated.atlas.ticker!;
-    Ticker.tickers.get(ticker)!();
-    t.is(draws, 3);
-    t.deepEqual(textures.map(texture => texture.version), [versions[0], versions[1] + 1]);
-    t.true(scene.dirty);
+    for (let tick = 1; tick <= 2; tick++) {
+        calls.length = 0;
+        scene.dirty = false;
+        Ticker.tickers.get(ticker)!();
+        t.deepEqual(calls, [["clearRect", 0, 0, 2, 2], ["drawImage"]]);
+        t.is(draws, 2 + tick);
+        t.deepEqual(textures.map(texture => texture.version), [versions[0], versions[1] + tick]);
+        t.true(scene.dirty);
+    }
     section.dispose();
     t.is(animated.atlas.ticker, undefined);
     t.false(Ticker.tickers.has(ticker));

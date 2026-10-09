@@ -13,6 +13,7 @@ import { SectionModels } from "./SectionModels";
 import { BlockEntities } from "../assets/BlockEntities";
 import { SectionFluids, SectionMesh, SectionMeshEntry } from "./SectionMesh";
 import { FluidKind, getBlockFluidState } from "../model/fluid/FluidGeometry";
+import { fluidKindOf } from "../model/fluid/FluidQuads";
 import { BlockState } from "../model/block/BlockState";
 
 /**
@@ -259,11 +260,11 @@ export class Chunk<SectionMeshing extends boolean = false> {
         const entries = [...this.sectionBlocks.entries()].flatMap(([index, entries]) => this.hiddenBlocks.has(index) ? [] : entries);
         let fluids: SectionFluids | undefined;
         const origins = new Map<FluidKind, string>();
-        for (const [index, block] of this.renderedBlocks) {
-            const byte = this.fluidByteIndex(index);
-            if (!byte || block.object) continue;
-            const kind = (byte & 48) === 16 ? "water" : "lava";
-            if (!origins.has(kind)) origins.set(kind, block.block.type);
+        for (let index = 0; index < this.fluidCells.length; index++) {
+            const kind = fluidKindOf(this.fluidCells[index]);
+            if (!kind || origins.has(kind) || this.hiddenBlocks.has(index)) continue;
+            const block = this.renderedBlocks.get(index);
+            if (block && !block.object) origins.set(kind, block.block.type);
         }
         if (origins.size) {
             fluids = { cells: new Uint8Array(18 * 18 * 18) };

@@ -164,6 +164,7 @@ export class SectionMesh extends Group {
                 const atlas = atlases[id];
                 if (!atlas.hasAnimation) continue;
                 unsubscribe.push(atlas.subscribe(() => {
+                    context.clearRect(x, y, atlas.image.width, atlas.image.height);
                     context.drawImage(atlas.image.canvas as CanvasImageSource, x, y);
                     texture.needsUpdate = true;
                     section.traverseAncestors(parent => {

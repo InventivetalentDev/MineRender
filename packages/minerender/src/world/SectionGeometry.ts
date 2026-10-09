@@ -1,5 +1,5 @@
-import { buildFluidQuads } from "../model/fluid/FluidGeometry";
-import type { FluidKind, FluidQuads } from "../model/fluid/FluidGeometry";
+import { buildFluidQuads, fluidKindOf } from "../model/fluid/FluidQuads";
+import type { FluidKind, FluidQuads } from "../model/fluid/FluidQuads";
 
 /** Static model geometry as quads: four vertices per quad, in quad order. */
 export interface SectionTemplateData {
@@ -130,15 +130,13 @@ export function buildSectionGeometry(input: SectionGeometryInput): SectionGeomet
         const fluidPages = new Map<FluidKind, (typeof pages)[number]>();
         for (let y = 0; y < 16; y++) for (let z = 0; z < 16; z++) for (let x = 0; x < 16; x++) {
             const byte = fluids.cells[(y + 1) * 324 + (z + 1) * 18 + x + 1];
-            const kind = (byte >> 4) & 3;
-            if (!kind) continue;
-            const fluid = kind === 1 ? "water" : "lava";
+            const fluid = fluidKindOf(byte);
+            if (!fluid) continue;
             const data = fluids[fluid];
             if (!data) throw new RangeError("Section fluid input lacks the atlas for a present fluid");
             const quads = buildFluidQuads(fluid, (dx, dy, dz) => {
                 const cell = fluids.cells[(y + 1 + dy) * 324 + (z + 1 + dz) * 18 + x + 1 + dx];
-                const kind = (cell >> 4) & 3;
-                return { fluid: kind ? kind === 1 ? "water" : "lava" : undefined, level: cell & 15, solid: !!(cell & 64) };
+                return { fluid: fluidKindOf(cell), level: cell & 15, solid: !!(cell & 64) };
             });
             if (!quads.sprites.length) continue;
             if (!fluidPages.has(fluid)) {

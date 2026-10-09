@@ -13,6 +13,7 @@ import { CUBE_FACE_OFFSETS } from "../CubeFace";
 import type { AnvilChunk } from "./AnvilParser";
 import { SectionModels } from "./SectionModels";
 import { WorldEntities } from "./_entities/WorldEntities";
+import { fluidKindOf } from "../model/fluid/FluidQuads";
 
 //TODO: maybe make this an Object3D to add children
 /**
@@ -355,7 +356,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                                         : this._chunks.get(`${chunk.x + Math.floor(nx / 16)}_${chunk.y + Math.floor(ny / 16)}_${chunk.z + Math.floor(nz / 16)}`);
                                     const neighborIndex = (ny & 15) * 256 + (nz & 15) * 16 + (nx & 15);
                                     const byte = section?.fluidByteIndex(neighborIndex) ?? 0;
-                                    return { fluid: (byte & 48) === 16 ? "water" : (byte & 48) === 32 ? "lava" : undefined, level: byte & 15,
+                                    return { fluid: fluidKindOf(byte), level: byte & 15,
                                         solid: section?.isOccludingIndex(neighborIndex) ?? false };
                                 });
                             }
