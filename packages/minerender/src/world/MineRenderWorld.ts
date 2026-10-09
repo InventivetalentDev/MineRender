@@ -51,6 +51,17 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         return this.getChunkAt(posOrX)?.getBlockAt(posOrX);
     }
 
+    /** Returns the saved 4-block biome sample at integer world block coordinates, or `undefined` if absent. */
+    public getBiomeAt(x: number, y: number, z: number): Maybe<string>;
+    public getBiomeAt(pos: Vector3): Maybe<string>;
+    public getBiomeAt(pos: TripleArray): Maybe<string>;
+    public getBiomeAt(posOrX: number | Vector3 | TripleArray, y?: number, z?: number): Maybe<string> {
+        if (typeof posOrX === "number") return this.getBiomeAt(new Vector3(posOrX, y, z));
+        if (isTripleArray(posOrX)) return this.getBiomeAt(new Vector3(...posOrX));
+        this.validatePosBounds(posOrX);
+        return this.getChunkAt(posOrX)?.getBiomeAt(posOrX);
+    }
+
     /**
      * Places or replaces a block and refreshes neighboring faces.
      * Pass `undefined` or an air block to remove the block at these world block coordinates.
@@ -192,7 +203,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
     }
 
 
-    /** Replaces a chunk column's blocks and, with `renderEntities`, its supported saved mobs. */
+    /** Replaces a chunk column's blocks and biomes and, with `renderEntities`, its supported saved mobs. */
     public async placeChunk(chunk: AnvilChunk, executor?: BatchedExecutor): Promise<void> {
         this.entities?.clearColumn(chunk.x, chunk.z);
         const placeEntities = this.entities?.prepare(chunk.entities, [chunk.x, chunk.z]);
@@ -201,6 +212,11 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
             await this.clearChunkColumn(chunk.x, chunk.z, changes);
             const groups = new Map<Chunk<SectionMeshing>, { index: number; block: Maybe<Block> }[]>();
             for (const section of chunk.sections) {
+                if (section.biomes) {
+                    const position = new Vector3(chunk.x * 16, section.y * 16, chunk.z * 16);
+                    this.validatePosBounds(position);
+                    this.getOrCreateChunkAt(position).setBiomes(section.biomes);
+                }
                 if (!executor) {
                     const blocks: { index: number; block: Maybe<Block> }[] = [];
                     for (let index = 0; index < 4096; index++) {

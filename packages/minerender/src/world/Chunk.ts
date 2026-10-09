@@ -29,6 +29,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
     public readonly z: number;
 
     private readonly data = new ChunkData();
+    private biomes?: readonly string[];
     private readonly renderedBlocks = new Map<number, BlockInfo<SectionMeshing>>();
     private readonly sectionBlocks = new Map<number, SectionMeshEntry[]>();
     private readonly hiddenBlocks = new Set<number>();
@@ -59,6 +60,27 @@ export class Chunk<SectionMeshing extends boolean = false> {
         const pos = this.blockPosition.set(posOrX.x - this.x * 16, posOrX.y - this.y * 16, posOrX.z - this.z * 16);
         const index = Chunk.chunkPosToBlockIndex(pos);
         return this.renderedBlocks.get(index);
+    }
+
+    /** Returns the saved 4-block biome sample at integer world block coordinates, or `undefined` if absent. */
+    public getBiomeAt(x: number, y: number, z: number): Maybe<string>;
+    public getBiomeAt(pos: Vector3): Maybe<string>;
+    public getBiomeAt(pos: TripleArray): Maybe<string>;
+    public getBiomeAt(posOrX: number | Vector3 | TripleArray, y?: number, z?: number): Maybe<string> {
+        if (typeof posOrX === "number") return this.getBiomeAt(new Vector3(posOrX, y, z));
+        if (isTripleArray(posOrX)) return this.getBiomeAt(new Vector3(...posOrX));
+        const pos = this.worldPosToChunkPos(posOrX);
+        Chunk.chunkPosToBlockIndex(pos);
+        return this.biomes?.[Math.floor(pos.x / 4) + Math.floor(pos.z / 4) * 4 + Math.floor(pos.y / 4) * 16];
+    }
+
+    /** Copies 64 biome IDs in x + z * 4 + y * 16 order. Omit the array to clear biome data. */
+    public setBiomes(biomes?: readonly string[]): void {
+        const copy = biomes ? [...biomes] : undefined;
+        if (copy && (copy.length !== 64 || !copy.every(id => typeof id === "string" && id.length > 0))) {
+            throw new RangeError("Section biomes must contain 64 nonempty biome IDs");
+        }
+        this.biomes = copy;
     }
 
     /**
@@ -262,6 +284,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
         this.renderedBlocks.clear();
         this.hiddenBlocks.clear();
         this.data.clear();
+        this.biomes = undefined;
         await onBlocksChanged?.(positions);
     }
 
