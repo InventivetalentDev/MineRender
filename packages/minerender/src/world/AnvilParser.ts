@@ -26,7 +26,12 @@ export interface AnvilChunk {
     x: number;
     z: number;
     dataVersion?: number;
-    sections: { y: number; data: ChunkData }[];
+    sections: {
+        y: number;
+        data: ChunkData;
+        /** 64 saved biome IDs, indexed by x + z * 4 + y * 16 at 4-block resolution. */
+        biomes?: readonly string[];
+    }[];
     entities?: MultiBlockEntity[];
 }
 
@@ -135,7 +140,8 @@ export class AnvilParser {
                 throw new MineRenderError("Anvil section has block states without a palette");
             }
             if (chunk.sections.some(section => section.y === y)) throw new MineRenderError(`Duplicate Anvil section Y ${y}`);
-            chunk.sections.push({ y, data });
+            const biomes = this.biomes(section.biomes);
+            chunk.sections.push({ y, data, ...(biomes ? { biomes } : {}) });
         }
         for (const entry of this.compounds(level.block_entities ?? level.TileEntities, "block entities")) {
             const x = this.integer(entry.x, "block entity x") - chunk.x * 16;
@@ -160,6 +166,38 @@ export class AnvilParser {
             });
         }
         return chunk;
+    }
+
+    private static biomes(tag: NBTTag): string[] | undefined {
+        if (!tag) return undefined;
+        if (tag.type !== "compound") throw new MineRenderError("Anvil biomes must be a compound");
+        const { palette, data } = tag.value;
+        if (palette?.type !== "list" || palette.value.type !== "string"
+            || palette.value.value.length < 1 || palette.value.value.length > 64
+            || !palette.value.value.every(id => typeof id === "string" && id.length > 0)) {
+            throw new MineRenderError("Anvil biome palette must contain 1 to 64 nonempty biome IDs");
+        }
+        const ids = palette.value.value as string[];
+        if (ids.length === 1 && (!data || (data.type === "longArray" && data.value.length === 0))) {
+            return Array<string>(64).fill(ids[0]);
+        }
+        if (data?.type !== "longArray") throw new MineRenderError("Anvil biomes are missing their long array");
+        const bits = Math.max(1, Math.ceil(Math.log2(ids.length)));
+        const perLong = Math.floor(64 / bits);
+        const expected = ids.length === 1 ? 0 : Math.ceil(64 / perLong);
+        if (data.value.length !== expected) throw new MineRenderError(`Invalid Anvil biome array length: expected ${expected}`);
+        const mask = (1 << bits) - 1;
+        const biomes: string[] = [];
+        for (let index = 0; index < 64; index++) {
+            const [high, low] = data.value[Math.floor(index / perLong)];
+            const shift = (index % perLong) * bits;
+            let value = shift < 32 ? low >>> shift : high >>> (shift - 32);
+            if (shift < 32 && shift + bits > 32) value += (high >>> 0) * 2 ** (32 - shift);
+            const id = value & mask;
+            if (id >= ids.length) throw new MineRenderError(`Anvil biome palette index ${id} is out of range`);
+            biomes.push(ids[id]);
+        }
+        return biomes;
     }
 
     private static compounds(tag: NBTTag, name: string): CompoundValue[] {

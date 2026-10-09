@@ -95,6 +95,79 @@ const indexCount = (block: BlockObject, index = 0) => {
     return geometry.index?.count ?? geometry.getAttribute("position")?.count ?? 0;
 };
 
+for (const sectionMeshing of [false, true]) {
+    for (const batched of [false, true]) {
+        test.serial(`biomes survive air-only placement and block edits, then clear with their column (sectionMeshing=${sectionMeshing}, batched=${batched})`, async t => {
+            const { world, place } = fixture(t, { sectionMeshing });
+            const executor = batched ? new BatchedExecutor(1, 1) : undefined;
+            t.teardown(() => executor?.stop());
+            const biomes = Array.from({ length: 64 }, (_, index) => `test:biome_${index}`);
+            const expected = [...biomes], data = new ChunkData();
+            const blocks = new ChunkData();
+            blocks.set(0, { type: "test:cube" });
+            const column = { x: -2, z: -1, sections: [
+                { y: -1, data, biomes },
+                { y: 0, data: blocks, biomes: Array(64).fill("minecraft:plains") }
+            ] };
+            await world.placeChunk(column, executor);
+            const section = world.getChunkAt(new Vector3(-32, -16, -16))!;
+            t.truthy(section);
+            t.is(world.getBlockAt(-32, -16, -16), undefined);
+            biomes[0] = "test:changed";
+            for (let index = 0; index < 64; index++) {
+                const pos = new Vector3(-32 + index % 4 * 4, -16 + Math.floor(index / 16) * 4,
+                    -16 + Math.floor(index / 4) % 4 * 4);
+                t.is(world.getBiomeAt(pos), expected[index]);
+                t.is(section.getBiomeAt(pos.x, pos.y, pos.z), expected[index]);
+                t.is(world.getBiomeAt(pos.addScalar(3).toArray()), expected[index]);
+            }
+            t.is(section.getBiomeAt([-17, -1, -1]), expected[63]);
+            t.is(world.getBiomeAt(-32, 0, -16), "minecraft:plains");
+            t.is(world.getBlockAt(-32, 0, -16)?.block.type, "test:cube");
+            t.is(world.getBiomeAt(-33, -1, -1), undefined);
+            t.is(world.getBiomeAt(-17, -17, -1), undefined);
+            t.is(world.getBiomeAt(-17, -1, 0), undefined);
+            for (const pos of [new Vector3(-32.5, -16, -16), new Vector3(NaN, 0, 0)]) {
+                t.throws(() => world.getBiomeAt(pos), { instanceOf: RangeError });
+                t.throws(() => section.getBiomeAt(pos), { instanceOf: RangeError });
+            }
+            t.throws(() => section.getBiomeAt(-33, -16, -16), { instanceOf: RangeError });
+            await place([-32, -16, -16]);
+            await world.setBlockVisibleAt([-32, -16, -16], false);
+            t.is(world.getBiomeAt(-32, -16, -16), expected[0]);
+            await world.setBlockAt(-32, -16, -16, undefined);
+            t.is(world.getBiomeAt(-32, -16, -16), expected[0]);
+            const replacement = Array(64).fill("test:replacement");
+            section.setBiomes(replacement);
+            replacement[0] = "test:changed";
+            t.is(section.getBiomeAt(-32, -16, -16), "test:replacement");
+            for (const invalid of [Array(63).fill("test:biome"), Array(65).fill("test:biome"), Array(64).fill(""), Array<string>(64)]) {
+                t.throws(() => section.setBiomes(invalid));
+                t.is(section.getBiomeAt(-32, -16, -16), "test:replacement");
+            }
+            section.setBiomes(undefined);
+            t.is(world.getBiomeAt(-32, -16, -16), undefined);
+            section.setBiomes(expected);
+            await section.clear();
+            t.is(world.getBiomeAt(-32, -16, -16), undefined);
+            await world.placeChunk(column, executor);
+            await world.placeChunk({ x: -2, z: -1, sections: [{ y: -1, data }] }, executor);
+            t.is(world.getBiomeAt(-32, -16, -16), undefined);
+            t.is(world.getBiomeAt(-32, 0, -16), undefined);
+            await world.placeChunk(column, executor);
+            const unloaded = world.getChunkAt(new Vector3(-32, -16, -16))!;
+            await world.unloadChunkColumn(-2, -1);
+            t.is(world.getBiomeAt(-32, -16, -16), undefined);
+            t.is(unloaded.getBiomeAt(-32, -16, -16), undefined);
+            await world.placeChunk(column, executor);
+            const cleared = world.getChunkAt(new Vector3(-32, -16, -16))!;
+            await world.clear();
+            t.is(world.getBiomeAt(-32, -16, -16), undefined);
+            t.is(cleared.getBiomeAt(-32, -16, -16), undefined);
+        });
+    }
+}
+
 test.serial("opaque neighbors cull shared faces across signed chunk borders and restore them when cleared or replaced", async t => {
     const { world, place, addModel } = fixture(t);
     addModel("partial", { height: 8 });
