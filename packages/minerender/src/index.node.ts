@@ -7,4 +7,5 @@ import "./env/node/register";
 export * from "./index";
 export { NodeEnv, registerNodeEnv } from "./env/node/NodeEnv";
 export { NodeCache } from "./env/node/NodeCache";
-export { NodeRenderer, NodeRendererOptions, NodeImageOptions } from "./env/node/NodeRenderer";
+export { NodeRenderer } from "./env/node/NodeRenderer";
+export type { NodeRendererOptions, NodeImageOptions } from "./env/node/NodeRenderer";
