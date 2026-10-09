@@ -1,8 +1,7 @@
 import test from "ava";
 import { writeUncompressed } from "prismarine-nbt";
-import { AnvilParser } from "../src/world/AnvilParser";
-import type { AnvilChunk } from "../src/world/AnvilParser";
 import { AnvilWorldSource } from "../src/world/AnvilWorldSource";
+import { NBTHelper } from "../src/nbt/NBTHelper";
 
 function region(x: number, z: number, options: { compression?: number; numeric?: boolean; malformed?: boolean } = {}): Uint8Array {
     let payload = writeUncompressed({ name: "", type: "compound", value: {
@@ -342,20 +341,20 @@ test("cancelling before the reader starts skips its callback and permits a fresh
 
 test.serial("aborting during chunk decoding rejects promptly without evicting the raw region", async t => {
     t.timeout(3000);
-    const gate = deferred<AnvilChunk | undefined>();
+    const gate = deferred();
     const started = deferred();
-    const original = AnvilParser.parseChunk;
+    const original = NBTHelper.fromBuffer;
     let reads = 0;
     const source = new AnvilWorldSource(async () => { reads++; return region(0, 0); });
-    AnvilParser.parseChunk = async () => { started.resolve(); return gate.promise; };
-    t.teardown(() => { AnvilParser.parseChunk = original; gate.resolve(undefined); });
+    NBTHelper.fromBuffer = async (...args) => { started.resolve(); await gate.promise; return original(...args); };
+    t.teardown(() => { NBTHelper.fromBuffer = original; gate.resolve(); });
     const controller = new AbortController(), reason = new Error("decode cancelled");
     const pending = source.getChunk(0, 0, controller.signal);
     await started.promise;
     controller.abort(reason);
     await t.throwsAsync(pending, { is: reason });
-    AnvilParser.parseChunk = original;
+    NBTHelper.fromBuffer = original;
     t.is((await source.getChunk(0, 0))!.x, 0);
     t.is(reads, 1);
-    gate.resolve(undefined);
+    gate.resolve();
 });

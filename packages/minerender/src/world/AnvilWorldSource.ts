@@ -68,9 +68,9 @@ export class AnvilWorldSource implements WorldChunkSource {
         const data = await this.getRegion(regionX, regionZ, signal);
         signal?.throwIfAborted();
         if (!data) return undefined;
-        const chunk = await abortable(AnvilParser.parseChunk(data, x - regionX * 32, z - regionZ * 32, {
+        const chunk = await AnvilParser.parseChunk(data, x - regionX * 32, z - regionZ * 32, {
             region: { x: regionX, z: regionZ }, readExternalChunk: this.readExternalChunk, signal
-        }), signal);
+        });
         signal?.throwIfAborted();
         if (chunk && (chunk.x !== x || chunk.z !== z)) {
             throw new MineRenderError(`Anvil chunk coordinates ${chunk.x},${chunk.z} do not match requested column ${x},${z}`);
@@ -101,7 +101,7 @@ export class AnvilWorldSource implements WorldChunkSource {
                 controller, waiters: 0, settled: false,
                 promise: Promise.resolve().then(() => {
                     controller.signal.throwIfAborted();
-                    return this.readRegion(x, z, controller.signal);
+                    return abortable(this.readRegion(x, z, controller.signal), controller.signal);
                 }).then(data => {
                     controller.signal.throwIfAborted();
                     let bytes = data instanceof Uint8Array ? data : data === undefined ? undefined : new Uint8Array(data);

@@ -147,9 +147,6 @@ test("Anvil validates external stubs, compression and region coordinates before 
         await t.throwsAsync(() => AnvilParser.parse(bytes, { region, readExternalChunk }), { instanceOf: RangeError, message: /safe integers/ });
     }
     const options = { region: { x: -1, z: -1 }, readExternalChunk };
-    const both = Buffer.from(bytes);
-    both.writeUInt32BE(2, 8192);
-    await t.throwsAsync(() => AnvilParser.parse(both, options), { message: /payload length of 1/ });
     for (const compression of [0, 4, 99, 127]) {
         const unsupported = Buffer.from(bytes);
         unsupported[8196] = compression | 128;
@@ -158,6 +155,16 @@ test("Anvil validates external stubs, compression and region coordinates before 
     t.is(reads, 0);
     await t.throwsAsync(() => AnvilParser.parse(bytes, options), { message: /c\.-1\.-2\.mcc is missing/ });
     t.is(reads, 1);
+});
+
+test("Anvil reads the external payload when a chunk has both internal and external streams", async t => {
+    const bytes = region({ nbt: chunk([uniform("minecraft:dirt")]) });
+    bytes[8196] |= 128;
+    const parsed = await AnvilParser.parse(bytes, {
+        region: { x: -1, z: -1 },
+        readExternalChunk: async () => deflateSync(writeUncompressed(chunk([uniform()])))
+    });
+    t.is(parsed.chunks[0].sections[0].data.get(0)?.type, "minecraft:stone");
 });
 
 test("Anvil rejects external payloads for a different absolute chunk even when the region-local coordinates match", async t => {

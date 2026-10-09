@@ -129,7 +129,6 @@ export class AnvilParser {
         let payload = data.subarray(location.offset + 5, location.offset + 4 + location.length);
         let expected: { x: number; z: number } | undefined;
         if (external) {
-            if (location.length !== 1) throw new MineRenderError("External Anvil .mcc chunk must have a payload length of 1");
             if (!options.region || !options.readExternalChunk) {
                 throw new MineRenderError("External Anvil .mcc chunks require region coordinates and readExternalChunk");
             }
@@ -140,10 +139,10 @@ export class AnvilParser {
             if (![expected.x, expected.z].every(Number.isSafeInteger)) {
                 throw new RangeError("External Anvil chunk coordinates must be safe integers");
             }
-            const data = await options.readExternalChunk(expected.x, expected.z, options.signal);
+            const externalData = await options.readExternalChunk(expected.x, expected.z, options.signal);
             options.signal?.throwIfAborted();
-            if (data === undefined) throw new MineRenderError(`External Anvil chunk c.${expected.x}.${expected.z}.mcc is missing`);
-            payload = this.bytes(data);
+            if (externalData === undefined) throw new MineRenderError(`External Anvil chunk c.${expected.x}.${expected.z}.mcc is missing`);
+            payload = this.bytes(externalData);
         }
         if (compression !== 3) {
             const stream = new Blob([payload]).stream()
