@@ -33,7 +33,7 @@ export interface PlaygroundOptions<S> {
     title: string;
     defaults: S;
     renderer?: DeepPartial<RendererOptions>;
-    presets?: Record<string, { label: string; state: Partial<S> }>;
+    presets?: Record<string, { label: string; state: Partial<S>; view?: Partial<ViewSettings> }>;
     load(context: DemoContext, state: S): Promise<DemoContent | void>;
     /** Content part of the "Copy code" snippet; `renderer` is already set up. */
     code?: (state: S) => string;
@@ -99,7 +99,11 @@ export class Playground<S extends object> {
         };
         this.config = clone(this.defaults);
         const preset = new URLSearchParams(location.search).get("preset");
-        if (preset && options.presets?.[preset]) Object.assign(this.config.content, clone(options.presets[preset].state));
+        if (preset && options.presets?.[preset]) {
+            const chosen = options.presets[preset];
+            Object.assign(this.config.content, clone(chosen.state));
+            Object.assign(this.config.view, clone(chosen.view ?? {}));
+        }
         let configError: string | undefined;
         try {
             const text = new URLSearchParams(location.hash.slice(1)).get("config");
@@ -130,6 +134,10 @@ export class Playground<S extends object> {
                 if (!chosen) return;
                 this.config.content = { ...clone(options.defaults), ...clone(chosen.state) };
                 delete this.config.view.camera;
+                if (chosen.view) {
+                    Object.assign(this.config.view, clone(chosen.view));
+                    this.renderSettings();
+                }
                 void this.reload(false);
             });
         }

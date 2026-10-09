@@ -97,6 +97,29 @@ test.serial("GUI items preserve their display pose, tint, and source key within 
     t.is(JSON.stringify([layers, model]), original);
 });
 
+test.serial("GUI item contexts keep component colors separate and preserve explicit overrides", async t => {
+    const { scene, model } = fixture(t);
+    model.tints = [{ type: "minecraft:dye", default: 0x0000ff }];
+    Models.getMerged = async (_key, context) => {
+        t.is(context?.displayContext, "gui");
+        return { ...model, components: context?.components };
+    };
+    const context = { components: { "minecraft:dyed_color": 0xff0000 }, properties: { display_context: "ground" } };
+    const layers = [
+        { name: "red", item: "test:item/front", context },
+        { name: "black", item: "test:item/front", context, tints: { 0: 0 } },
+        { name: "default", item: "test:item/front" }
+    ];
+    const original = JSON.stringify(layers);
+    const gui = await scene.addGui(layers);
+    for (const [name, expected] of [["red", [1, 0, 0]], ["black", [0, 0, 0]], ["default", [0, 0, 1]]] as const) {
+        const color = gui.getMeshByName(name)!.geometry.getAttribute("color");
+        t.deepEqual([color.getX(0), color.getY(0), color.getZ(0)], [...expected]);
+    }
+    t.is(JSON.stringify(layers), original);
+    t.is(model.components, undefined);
+});
+
 test.serial("GUI disposal releases item resources and subscriptions while retaining the shared atlas", async t => {
     const { scene, model, atlas, imageDisposals } = fixture(t);
     const sharedGeometry = Geometries.getBox({ width: 16, height: 16, depth: 16, uv: model.elements![0].mappedUv });

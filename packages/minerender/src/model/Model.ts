@@ -3,6 +3,7 @@ import { DisplayPosition } from "./DisplayPosition";
 import { GuiLight } from "./GuiLight";
 import { MinecraftAsset } from "../MinecraftAsset";
 import { ImageInfo } from "../image/ImageLoader";
+import type { DyeColor } from "../assets/BannerPatterns";
 
 export const ITEM_GENERATED = "item/generated";
 export const BUILTIN_GENERATED = "builtin/generated";
@@ -31,12 +32,16 @@ export interface ItemModel extends Model {
     gui_light?: GuiLight;
     special?: SpecialItemRenderer;
     tints?: ItemTintSource[];
+    /** Stack-component snapshot with namespaced IDs, used by tint sources and special renderers. */
+    components?: Record<string, unknown>;
+    /** Ordered composite children, each with its own textures, display pose, and tint sources. */
+    parts?: ItemModel[];
 }
 
 /** An sRGB packed `0xRRGGBB` value or an RGB triple with components from 0 to 1. */
 export type ItemTintColor = number | TripleArray;
 
-/** A vanilla item color source. Gameplay-dependent sources use their declared default color. */
+/** A vanilla item color source. Missing component values and unsupported gameplay state use the declared default. */
 export type ItemTintSource =
     | { type: "constant" | "minecraft:constant"; value: ItemTintColor }
     | { type: "grass" | "minecraft:grass"; temperature: number; downfall: number }
@@ -46,7 +51,12 @@ export type ItemTintSource =
 
 /** Supported item definitions that draw entity geometry instead of ordinary model elements. */
 export type SpecialItemRenderer =
+    | { type: "banner" | "minecraft:banner"; color: DyeColor }
+    | { type: "shield" | "minecraft:shield" }
+    | { type: "trident" | "minecraft:trident" | "conduit" | "minecraft:conduit" }
     | { type: "chest" | "minecraft:chest"; texture: string; openness?: number }
+    | { type: "shulker_box" | "minecraft:shulker_box"; texture: string; openness?: number;
+        orientation?: "down" | "up" | "north" | "south" | "west" | "east" }
     | { type: "bed" | "minecraft:bed"; texture: string }
     | { type: "head" | "minecraft:head"; kind: string; texture?: string; animation?: number };
 
