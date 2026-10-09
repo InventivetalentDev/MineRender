@@ -10,12 +10,7 @@ import { ListAsset } from "../ListAsset";
 import { AssetParser } from "./source/parser/AssetParsers";
 import { DisplayPosition } from "../model/DisplayPosition";
 import { DYE_COLORS } from "./BannerPatterns";
-
-// Vanilla 1.21.11 items whose default enchantment_glint_override component is true.
-const DEFAULT_GLINT_ITEMS = new Set([
-    "enchanted_golden_apple", "experience_bottle", "written_book", "nether_star",
-    "enchanted_book", "end_crystal", "debug_stick"
-]);
+import itemGlintDefaults from "../model/itemGlintDefaults.json";
 
 /** Caller-supplied item-preview state passed to {@link Models.getMerged}. */
 export interface ItemModelContext {
@@ -139,7 +134,8 @@ export class Models {
             if (Object.prototype.hasOwnProperty.call(components, component)) throw new Error(`Duplicate item-preview component: ${component}`);
             components[component] = this.snapshotJson(value);
         }
-        if (key.type === "item" && key.namespace === DEFAULT_NAMESPACE && DEFAULT_GLINT_ITEMS.has(key.path)
+        // Vanilla items whose default enchantment_glint_override component is true; the list has not changed across versions.
+        if (key.type === "item" && key.namespace === DEFAULT_NAMESPACE && itemGlintDefaults.includes(key.path)
             && !Object.prototype.hasOwnProperty.call(components, "minecraft:enchantment_glint_override")) {
             components["minecraft:enchantment_glint_override"] = true;
         }

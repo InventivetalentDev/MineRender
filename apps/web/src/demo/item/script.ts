@@ -1,4 +1,4 @@
-import { AssetKey, BannerPatterns, DISPLAY_POSITIONS, DisplayPosition, ModelMerger, Models, isGuiObject, isInstanceReference, type GuiObject, type ItemModelContext } from "minerender";
+import { AssetKey, BannerPatterns, DISPLAY_POSITIONS, DisplayPosition, ItemGlint, ModelMerger, Models, isGuiObject, isInstanceReference, isModelObject, type GuiObject, type ItemModel, type ItemModelContext } from "minerender";
 import { Box3, OrthographicCamera, PerspectiveCamera, Vector2 } from "three";
 import { Playground, type DemoContext, type DemoContent } from "../../playground/Playground";
 import { button, field, group, input, note, section, select, suggestions } from "../../playground/controls";
@@ -45,8 +45,6 @@ const app = new Playground<ItemSettings>({
         enchanted: { label: "Inventory slot: enchanted pickaxe", state: { item: "minecraft:diamond_pickaxe", preview: "slot",
             components: { "minecraft:enchantments": { "minecraft:efficiency": 3 } } }, view: guiView },
         nether_star: { label: "Inventory slot: nether star", state: { item: "minecraft:nether_star", preview: "slot" }, view: guiView },
-        enchanted_golden_apple: { label: "Inventory slot: enchanted golden apple", state: { item: "minecraft:enchanted_golden_apple", preview: "slot" }, view: guiView },
-        enchanted_book: { label: "Inventory slot: enchanted book", state: { item: "minecraft:enchanted_book", preview: "slot" }, view: guiView },
         potion: { label: "Potion (tinted)", state: { item: "minecraft:potion", tints: { 0: 0xd557ef } } },
         dyed_leather: { label: "Dyed leather (blue component)", state: { item: "minecraft:leather_chestplate", display: DisplayPosition.GUI,
             components: { "minecraft:dyed_color": 0x3f76e4 } }, view: guiView },
@@ -416,11 +414,19 @@ async function load(ctx: DemoContext, state: ItemSettings): Promise<DemoContent>
     if (!model) throw new Error(`Model not found: ${state.item}`);
     const object = isGuiObject(model) ? model : await loadModel(ctx, model, { ...modelOptions(state), displayPosition: state.display || undefined });
     const visual = isInstanceReference(object) ? object.instanceable : object;
+    let hasGlint = false;
+    visual.traverse(child => {
+        if (!isModelObject(child)) return;
+        const item = child.originalModel as ItemModel;
+        const special = item.special?.type.replace(/^minecraft:/, "");
+        if (!item.parts && (!special || special === "shield" || special === "trident")) hasGlint ||= ItemGlint.enabled(item.components);
+    });
     return {
         object: visual,
         bounds: new Box3().setFromObject(visual),
         fit: isGuiObject(object) ? () => fitSlot(ctx, object) : undefined,
         activate() {
+            app.status.dataset.glint = String(hasGlint);
             itemInput.value = state.item;
             suggestions(itemInput, list);
             preview.value = state.preview;

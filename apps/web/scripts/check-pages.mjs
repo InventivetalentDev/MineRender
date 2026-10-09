@@ -107,7 +107,7 @@ async function visit(url, name) {
             if (JSON.stringify(result.tints) !== JSON.stringify(expectedTints)) problems.add(`Component tint differs: ${JSON.stringify(result.tints)}`);
             if (!result.code.includes(`components: ${JSON.stringify(result.components)}`)) problems.add("Generated code omits the color components.");
         }
-        if (/^demo\/item\/\?preset=(enchanted(?:_shield|_trident)?|nether_star|enchanted_golden_apple|enchanted_book)$/.test(url) && /^Ready/.test(status)) {
+        if (/^Ready/.test(status) && await page.$('[data-glint="true"]')) {
             const initialZoom = await page.evaluate(() => window.renderer.camera.zoom);
             for (const zoom of [initialZoom / 2, initialZoom]) {
                 const frames = await page.evaluate(async zoom => {
