@@ -203,13 +203,16 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         const changes = new Map<string, Vector3>();
         try {
             await this.clearChunkColumn(chunk.x, chunk.z, changes);
-            const groups = new Map<Chunk<SectionMeshing>, { index: number; block: Maybe<Block> }[]>();
+            // Tall plants can sample the section below, so install biome data before placing any blocks.
             for (const section of chunk.sections) {
                 if (section.biomes) {
                     const position = new Vector3(chunk.x * 16, section.y * 16, chunk.z * 16);
                     this.validatePosBounds(position);
-                    this.getOrCreateChunkAt(position).setBiomes(section.biomes);
+                    await this.getOrCreateChunkAt(position).setBiomes(section.biomes);
                 }
+            }
+            const groups = new Map<Chunk<SectionMeshing>, { index: number; block: Maybe<Block> }[]>();
+            for (const section of chunk.sections) {
                 if (!executor) {
                     const blocks: { index: number; block: Maybe<Block> }[] = [];
                     for (let index = 0; index < 4096; index++) {
@@ -354,8 +357,14 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         const key = this.worldPosToChunkKey(pos);
         let chunk = this._chunks.get(key);
         if (typeof chunk === "undefined") {
-            chunk = new Chunk<SectionMeshing>(this.scene, Math.floor(pos.x / 16), Math.floor(pos.y / 16), Math.floor(pos.z / 16),
-                positions => this.updateCulling(positions), this.sectionModels);
+            const x = Math.floor(pos.x / 16), y = Math.floor(pos.y / 16), z = Math.floor(pos.z / 16);
+            chunk = new Chunk<SectionMeshing>(this.scene, x, y, z,
+                positions => this.updateCulling(positions), this.sectionModels, (x, y, z) => this.getBiomeAt(x, y, z), async () => {
+                    if (this._chunks.get(key) !== chunk) return;
+                    await chunk!.refreshBiomes();
+                    // Upper tall-plant halves at the boundary sample the section below.
+                    await this._chunks.get(`${x}_${y + 1}_${z}`)?.refreshBiomes();
+                });
             this._chunks.set(key, chunk);
         }
         return chunk;

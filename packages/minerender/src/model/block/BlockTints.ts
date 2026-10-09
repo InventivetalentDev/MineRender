@@ -3,18 +3,32 @@ import { Colormaps } from "../../texture/Colormaps";
 import type { Model } from "../Model";
 import type { BlockStateProperties } from "./BlockStateProperties";
 import blockTints from "./blockTints.json";
+import { Biomes } from "../../assets/Biomes";
+import type { TripleArray } from "../Model";
 
 type BlockTintRule = ({ source: "constant"; color: number } |
-    { source: "grass" | "redstone" | "stem" }) & { untinted?: number[] };
+    { source: "grass" | "redstone" | "stem" }) & { untinted?: number[]; biome?: "foliage" | "dry_foliage" | "water" | "grass" };
 
 const rules = blockTints as Record<string, BlockTintRule>;
 
 /** Supplies block-preview tint colors from block properties and the active resource pack. */
 export class BlockTints {
 
-    /** Resolves block preview colors without biome context; explicit tints take precedence. */
+    /** Returns the biome color used by a vanilla block, leaving fixed-color blocks unchanged. */
+    public static biomeSource(key?: AssetKey): "grass" | "foliage" | "dry_foliage" | "water" | undefined {
+        const rule = key && rules[key.toNamespacedString()];
+        return rule ? rule.biome ?? (rule.source === "grass" ? "grass" : undefined) : undefined;
+    }
+
+    /** Resolves one block's biome tint at world block coordinates, without biome blending. */
+    public static async getBiomeColor(key?: AssetKey, biome?: string, position?: Readonly<TripleArray>): Promise<number | undefined> {
+        const source = this.biomeSource(key);
+        return biome && source ? Biomes.getColor(biome, source, key, position?.[0], position?.[2]) : undefined;
+    }
+
+    /** Resolves used tint indices from biome or preview colors; explicit tints take precedence. */
     public static async get(key: AssetKey | undefined, state: BlockStateProperties, model: Model,
-                            tints?: Record<number, number>): Promise<Record<number, number> | undefined> {
+                            tints?: Record<number, number>, biomeColor?: number | (() => Promise<number | undefined>)): Promise<Record<number, number> | undefined> {
         const rule = key && rules[key.toNamespacedString()];
         if (!key || !rule) return tints;
 
@@ -29,8 +43,11 @@ export class BlockTints {
         }
         if (!indices.size) return tints;
 
+        const biome = typeof biomeColor === "function" ? await biomeColor() : biomeColor;
         let color: number;
-        switch (rule.source) {
+        if (biome !== undefined && this.biomeSource(key)) {
+            color = biome;
+        } else switch (rule.source) {
             case "constant":
                 color = rule.color;
                 break;
