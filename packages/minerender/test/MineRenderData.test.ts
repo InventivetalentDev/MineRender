@@ -141,6 +141,26 @@ test.serial("active versions, explicit roots, and added sources have separate ca
     t.deepEqual(await MineRenderData.get("itemDefaults", custom), { "minecraft:test": { override: true } });
 });
 
+test.serial("block tint datasets accept optional biome sources and reject unknown kinds", async t => {
+    let rule: Record<string, unknown> = { source: "constant", color: 0x48b518 };
+    AssetLoader.addSource("data", new DataSource("biome-tints", key => key.path === "manifest"
+        ? mineRenderDataManifest() : { "minecraft:oak_leaves": rule }));
+    const load = () => MineRenderData.get("blockTints", "https://assets.example/1.21.11");
+    t.deepEqual(await load(), { "minecraft:oak_leaves": rule });
+    for (const biome of ["grass", "foliage", "dry_foliage", "water"]) {
+        Caching.clear();
+        rule = { ...rule, biome };
+        t.deepEqual(await load(), { "minecraft:oak_leaves": rule });
+    }
+    Caching.clear();
+    for (const biome of ["unknown", null, 1]) {
+        rule = { ...rule, biome };
+        await t.throwsAsync(load(), { message: /Invalid MineRender blockTints data/ });
+    }
+    rule = { ...rule, biome: "foliage" };
+    t.deepEqual(await load(), { "minecraft:oak_leaves": rule });
+});
+
 test.serial("declared unavailable datasets reject without selecting another version", async t => {
     const manifest = mineRenderDataManifest();
     delete manifest.datasets.fluids;

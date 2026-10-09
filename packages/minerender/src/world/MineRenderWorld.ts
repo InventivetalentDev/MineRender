@@ -231,7 +231,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         }
         try {
             await this.clearChunkColumn(chunk.x, chunk.z);
-            let sliceStart = performance.now();
+            // Tall plants can sample the section below, so install all biomes before rendering.
             for (const section of chunk.sections) {
                 if (section.biomes) {
                     const position = new Vector3(chunk.x * 16, section.y * 16, chunk.z * 16);
@@ -245,6 +245,9 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                     if (!column) this.biomes.set(key, column = new Map());
                     column.set(section.y, copy);
                 }
+            }
+            let sliceStart = performance.now();
+            for (const section of chunk.sections) {
                 if (!executor) {
                     if (!occupiedSections.has(section.y)) continue;
                     const position = new Vector3(chunk.x * 16, section.y * 16, chunk.z * 16);
@@ -416,12 +419,27 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         const key = this.worldPosToChunkKey(pos);
         let chunk = this._chunks.get(key);
         if (typeof chunk === "undefined") {
-            chunk = new Chunk<SectionMeshing>(this.scene, Math.floor(pos.x / 16), Math.floor(pos.y / 16), Math.floor(pos.z / 16),
+            const x = Math.floor(pos.x / 16), y = Math.floor(pos.y / 16), z = Math.floor(pos.z / 16);
+            chunk = new Chunk<SectionMeshing>(this.scene, x, y, z,
                 positions => this.updateCulling(positions), this.sectionModels, (x, y, z) => {
                     const cx = Math.floor(x / 16), cy = Math.floor(y / 16), cz = Math.floor(z / 16);
                     const section = this._chunks.get(`${cx}_${cy}_${cz}`);
                     const index = (y - cy * 16) * 256 + (z - cz * 16) * 16 + x - cx * 16;
                     return (section?.fluidByteIndex(index) ?? 0) | (section?.isOccludingIndex(index) ? 64 : 0);
+                }, (x, y, z) => this.getBiomeAt(x, y, z), async biomes => {
+                    if (this._chunks.get(key) !== chunk) return;
+                    const columnKey = `${x}_${z}`;
+                    let column = this.biomes.get(columnKey);
+                    if (biomes) {
+                        if (!column) this.biomes.set(columnKey, column = new Map());
+                        column.set(y, biomes);
+                    } else {
+                        column?.delete(y);
+                        if (!column?.size) this.biomes.delete(columnKey);
+                    }
+                    await chunk!.refreshBiomes();
+                    // Upper tall-plant halves at the boundary sample the section below.
+                    await this._chunks.get(`${x}_${y + 1}_${z}`)?.refreshBiomes();
                 });
             this._chunks.set(key, chunk);
         }
