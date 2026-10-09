@@ -1,7 +1,6 @@
-import { CUBE_FACES } from "../CubeFace";
-
-/** One cube template with four vertices per face in `CUBE_FACES` order. */
+/** Static model geometry as quads: four vertices per quad, in quad order. */
 export interface SectionTemplateData {
+    quads: number;
     positions: Float32Array;
     normals: Float32Array;
     uvs: Float32Array;
@@ -10,6 +9,7 @@ export interface SectionTemplateData {
     indices: Uint16Array;
     cullFaces: Uint8Array;
     atlas: number;
+    layer: number;
 }
 
 /** The pixel dimensions of a template atlas. */
@@ -18,7 +18,7 @@ export interface SectionAtlasSize {
     height: number;
 }
 
-/** Section placements and their shared cube templates, ready for geometry building. */
+/** Section placements and their shared templates, ready for geometry building. */
 export interface SectionGeometryInput {
     count: number;
     indices: Uint16Array;
@@ -29,8 +29,9 @@ export interface SectionGeometryInput {
     maxAtlasSize: number;
 }
 
-/** Merged cube faces and source-atlas placements for one atlas page. */
+/** Merged quads and source-atlas placements for one atlas page. */
 export interface SectionGeometryPage {
+    layer: number;
     width: number;
     height: number;
     placements: { atlas: number; x: number; y: number }[];
@@ -42,51 +43,63 @@ export interface SectionGeometryPage {
     indices: Uint32Array;
 }
 
-/** Builds section-local geometry from visible cube faces, with bounded atlas pages. */
+/** Builds section-local geometry from visible quads, with bounded atlas pages per layer. */
 export function buildSectionGeometry(input: SectionGeometryInput): SectionGeometryPage[] {
     const { count, indices, templates, cullMasks, templateData, atlases, maxAtlasSize } = input;
     if (!Number.isInteger(maxAtlasSize) || maxAtlasSize < 1) throw new RangeError("Section atlas size must be a positive integer");
     if (count > indices.length || count > templates.length || count > cullMasks.length) throw new RangeError("Section entry count exceeds its arrays");
+    for (const template of templateData) {
+        const { quads } = template;
+        if (template.positions.length !== quads * 12 || template.normals.length !== quads * 12 ||
+            template.uvs.length !== quads * 8 || template.uvBounds.length !== quads * 16 ||
+            template.colors.length !== quads * 12 || template.indices.length !== quads * 6 || template.cullFaces.length !== quads) {
+            throw new RangeError("Section template arrays do not match its quad count");
+        }
+    }
     const visible: number[] = [];
-    const visibleAtlases = new Set<number>();
+    const visibleAtlases = new Map<number, Set<number>>();
     for (let entry = 0; entry < count; entry++) {
         const template = templateData[templates[entry]];
         if (!template.cullFaces.some(direction => !(cullMasks[entry] & direction))) continue;
         visible.push(entry);
-        visibleAtlases.add(template.atlas);
+        if (!visibleAtlases.has(template.layer)) visibleAtlases.set(template.layer, new Set());
+        visibleAtlases.get(template.layer)!.add(template.atlas);
     }
     const pages: {
-        placements: SectionGeometryPage["placements"]; entries: number[];
+        layer: number; placements: SectionGeometryPage["placements"]; entries: number[];
         x: number; y: number; rowHeight: number; width: number; height: number;
     }[] = [];
     const locations = new Map<number, { page: number; x: number; y: number }>();
-    for (const atlas of [...visibleAtlases].sort((a, b) => atlases[b].height - atlases[a].height)) {
-        const { width, height } = atlases[atlas];
-        if (width > maxAtlasSize || height > maxAtlasSize) throw new RangeError("Model atlas exceeds the section atlas size limit");
-        let selected = -1;
-        for (let i = 0; i < pages.length; i++) {
-            const page = pages[i];
-            const nextRow = page.x + width > maxAtlasSize;
-            if ((nextRow ? page.y + page.rowHeight : page.y) + height > maxAtlasSize) continue;
-            if (nextRow) {
-                page.y += page.rowHeight;
-                page.x = 0;
-                page.rowHeight = 0;
+    for (const [layer, layerAtlases] of [...visibleAtlases].sort(([a], [b]) => a - b)) {
+        const firstPage = pages.length;
+        for (const atlas of [...layerAtlases].sort((a, b) => atlases[b].height - atlases[a].height)) {
+            const { width, height } = atlases[atlas];
+            if (width > maxAtlasSize || height > maxAtlasSize) throw new RangeError("Model atlas exceeds the section atlas size limit");
+            let selected = -1;
+            for (let i = firstPage; i < pages.length; i++) {
+                const page = pages[i];
+                const nextRow = page.x + width > maxAtlasSize;
+                if ((nextRow ? page.y + page.rowHeight : page.y) + height > maxAtlasSize) continue;
+                if (nextRow) {
+                    page.y += page.rowHeight;
+                    page.x = 0;
+                    page.rowHeight = 0;
+                }
+                selected = i;
+                break;
             }
-            selected = i;
-            break;
+            if (selected < 0) {
+                selected = pages.length;
+                pages.push({ layer, placements: [], entries: [], x: 0, y: 0, rowHeight: 0, width: 0, height: 0 });
+            }
+            const page = pages[selected];
+            page.placements.push({ atlas, x: page.x, y: page.y });
+            locations.set(atlas, { page: selected, x: page.x, y: page.y });
+            page.x += width;
+            page.rowHeight = Math.max(page.rowHeight, height);
+            page.width = Math.max(page.width, page.x);
+            page.height = Math.max(page.height, page.y + height);
         }
-        if (selected < 0) {
-            selected = pages.length;
-            pages.push({ placements: [], entries: [], x: 0, y: 0, rowHeight: 0, width: 0, height: 0 });
-        }
-        const page = pages[selected];
-        page.placements.push({ atlas, x: page.x, y: page.y });
-        locations.set(atlas, { page: selected, x: page.x, y: page.y });
-        page.x += width;
-        page.rowHeight = Math.max(page.rowHeight, height);
-        page.width = Math.max(page.width, page.x);
-        page.height = Math.max(page.height, page.y + height);
     }
     for (const entry of visible) pages[locations.get(templateData[templates[entry]].atlas)!.page].entries.push(entry);
 
@@ -94,8 +107,8 @@ export function buildSectionGeometry(input: SectionGeometryInput): SectionGeomet
         let faces = 0;
         for (const entry of page.entries) {
             const template = templateData[templates[entry]];
-            for (let face = 0; face < CUBE_FACES.length; face++) {
-                if (!(cullMasks[entry] & template.cullFaces[face])) faces++;
+            for (let quad = 0; quad < template.quads; quad++) {
+                if (!(cullMasks[entry] & template.cullFaces[quad])) faces++;
             }
         }
         const positions = new Float32Array(faces * 12), normals = new Float32Array(faces * 12);
@@ -111,11 +124,11 @@ export function buildSectionGeometry(input: SectionGeometryInput): SectionGeomet
             const offsetX = (indices[entry] % 16) * 16;
             const offsetY = Math.floor(indices[entry] / 256) * 16;
             const offsetZ = (Math.floor(indices[entry] / 16) % 16) * 16;
-            for (let face = 0; face < CUBE_FACES.length; face++) {
-                if (cullMasks[entry] & template.cullFaces[face]) continue;
+            for (let quad = 0; quad < template.quads; quad++) {
+                if (cullMasks[entry] & template.cullFaces[quad]) continue;
                 const start = vertex;
                 for (let corner = 0; corner < 4; corner++, vertex++) {
-                    const source = face * 4 + corner;
+                    const source = quad * 4 + corner;
                     positions[vertex * 3] = template.positions[source * 3] + offsetX;
                     positions[vertex * 3 + 1] = template.positions[source * 3 + 1] + offsetY;
                     positions[vertex * 3 + 2] = template.positions[source * 3 + 2] + offsetZ;
@@ -132,10 +145,10 @@ export function buildSectionGeometry(input: SectionGeometryInput): SectionGeomet
                     colors[vertex * 3 + 1] = template.colors[source * 3 + 1];
                     colors[vertex * 3 + 2] = template.colors[source * 3 + 2];
                 }
-                for (let corner = 0; corner < 6; corner++) outputIndices[indexOffset++] = start + template.indices[face * 6 + corner] - face * 4;
+                for (let corner = 0; corner < 6; corner++) outputIndices[indexOffset++] = start + template.indices[quad * 6 + corner];
             }
         }
-        return { width: page.width, height: page.height, placements: page.placements, positions, normals, uvs, uvBounds, colors, indices: outputIndices };
+        return { layer: page.layer, width: page.width, height: page.height, placements: page.placements, positions, normals, uvs, uvBounds, colors, indices: outputIndices };
     });
 }
 

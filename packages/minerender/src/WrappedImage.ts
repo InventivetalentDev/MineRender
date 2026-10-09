@@ -33,6 +33,17 @@ export class WrappedImage {
         return false;
     }
 
+    /** Whether any pixel has partial alpha. Binary alpha renders as cutout, not blended. */
+    get hasTranslucency(): boolean {
+        const data = this.data.data;
+        for (let i = 0; i < data.length; i += 4) {
+            if (data[i + 3] > 0 && data[i + 3] < 255) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** Whether the dimensions form a vertical strip of square frames, without consulting `.mcmeta`. */
     get animated(): boolean {
         return this.height > this.width && this.height % this.width === 0;
