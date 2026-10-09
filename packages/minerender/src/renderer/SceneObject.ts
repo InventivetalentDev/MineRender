@@ -55,7 +55,6 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
         this.options = mergeAssetOptions(SceneObject.DEFAULT_OPTIONS, options);
         this._assets = this.options.assets;
         this._assets?.bind(this);
-        console.log("SceneObject options", this.options);
     }
 
     public set scene(scene: MineRenderScene) {

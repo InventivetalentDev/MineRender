@@ -1,6 +1,8 @@
 import test, { type ExecutionContext } from "ava";
 import { AssetContext } from "../src/assets/AssetContext";
+import { AssetLoader } from "../src/assets/AssetLoader";
 import { GuiObject } from "../src/gui/scene/GuiObject";
+import { MineRenderScene } from "../src/renderer/MineRenderScene";
 import { AssetKey } from "../src/assets/AssetKey";
 import { Fonts, type BitmapGlyph } from "../src/assets/Fonts";
 import { GuiHelper } from "../src/gui/GuiHelper";
@@ -53,6 +55,26 @@ test.serial("wrapped tooltip text retains run styles and positions body lines be
 });
 
 
+test.serial("tooltip measurements leave unconfigured layers free to inherit their scene context", async t => {
+    fixture(t);
+    const fontAssets = new AssetContext(), scene = new MineRenderScene({ assets: new AssetContext() });
+    const font = fontAssets.bind(new AssetKey("test", "tooltip", "font"));
+    const get = Fonts.prototype.get;
+    const loaders: Fonts[] = [];
+    Fonts.prototype.get = async function(key) { loaders.push(this); return get.call(this, key); };
+    for (const options of [Object.freeze({}), Object.freeze({ font })]) {
+        const layers = await GuiHelper.tooltip(["A"], options);
+        t.is(AssetContext.origin(layers), undefined);
+        t.true(layers.every(layer => !("assets" in layer)));
+        t.false("assets" in options);
+        const gui = new GuiObject(layers);
+        t.teardown(() => gui.dispose());
+        gui.scene = scene;
+        t.is(gui.assets, scene.assets);
+    }
+    t.deepEqual(loaders, [AssetLoader.context.fonts, fontAssets.fonts]);
+});
+
 test.serial("tooltip measurements and generated layers retain the supplied font context", async t => {
     fixture(t);
     const assets = new AssetContext();
@@ -62,6 +84,9 @@ test.serial("tooltip measurements and generated layers retain the supplied font 
     const layers = await GuiHelper.tooltip(["A", "B"], { assets });
     const gui = new GuiObject(layers);
     t.teardown(() => gui.dispose());
+    gui.scene = new MineRenderScene({ assets: new AssetContext() });
     t.deepEqual(loaders, [assets.fonts, assets.fonts]);
+    t.is(AssetContext.origin(layers), assets);
+    t.true(layers.slice(2).every(layer => (layer as GuiTextLayer).assets === assets));
     t.is(gui.assets, assets);
 });

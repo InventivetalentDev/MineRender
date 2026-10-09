@@ -51,6 +51,10 @@ test.serial("preloaded models retain their context and use separate instance poo
     t.is(b.instanceable.assets, second);
     t.not(a.instanceable, b.instanceable);
     t.is(repeated.instanceable, b.instanceable);
+    const overridden = second.bind(model());
+    const explicit = await scene.addModel(overridden, { assets: first }) as InstanceReference<ModelObject>;
+    t.is(explicit.instanceable, a.instanceable);
+    t.is(AssetContext.origin(overridden), second);
     t.is(scene.children.length, 2);
 });
 
@@ -87,7 +91,7 @@ test("unbound render objects inherit the scene assigned after construction", t =
     }
 });
 
-test("object provenance takes precedence over options and options take precedence over the scene", t => {
+test("explicit object options take precedence over provenance and the scene", t => {
     const origin = new AssetContext(), explicit = new AssetContext();
     const scene = new MineRenderScene({ assets: new AssetContext() });
     const model = origin.bind({ elements: [] });
@@ -101,8 +105,34 @@ test("object provenance takes precedence over options and options take precedenc
         new EntityObject({ ...entity }, { assets: explicit }), new GuiObject([], { assets: explicit }), new SkinObject({ assets: explicit })];
     t.teardown(() => [...loaded, ...supplied].forEach(object => object.dispose()));
     for (const object of [...loaded, ...supplied]) object.scene = scene;
-    t.true(loaded.every(object => object.assets === origin && object.options.assets === origin));
+    t.true(loaded.every(object => object.assets === explicit && object.options.assets === explicit));
     t.true(supplied.every(object => object.assets === explicit && object.options.assets === explicit));
     t.is(AssetContext.origin(model), origin);
     t.is(AssetContext.origin(state), origin);
+});
+
+
+test.serial("scene add methods honor explicit assets without rebinding the supplied data", async t => {
+    const origin = new AssetContext(), explicit = new AssetContext();
+    const scene = new MineRenderScene({ assets: new AssetContext() });
+    for (const prototype of [ModelObject.prototype, BlockObject.prototype, EntityObject.prototype, GuiObject.prototype]) {
+        const init = prototype.init;
+        prototype.init = async () => {};
+        t.teardown(() => { prototype.init = init; });
+    }
+    const model = origin.bind({ elements: [] });
+    const state = origin.bind({ variants: {} });
+    const entity = origin.bind({ id: "test:entity", key: new AssetKey("test", "entity"),
+        layer: { texture: [16, 16] as [number, number], root: {
+            pose: { offset: [0, 0, 0] as [number, number, number], rotation: [0, 0, 0] as [number, number, number] }, cubes: [], children: {} } } });
+    const layers = origin.bind([]);
+    const options = { assets: explicit, instanceMeshes: false };
+    const objects = await Promise.all([scene.addModel(model, options), scene.addBlock(state, options),
+        scene.addEntity(entity, options), scene.addGui(layers, options)]);
+    t.teardown(() => objects.forEach(object => object.dispose()));
+    for (const object of objects as SceneObject[]) {
+        t.is(object.assets, explicit);
+        t.is(AssetContext.origin(object), explicit);
+    }
+    for (const value of [model, state, entity, layers]) t.is(AssetContext.origin(value), origin);
 });

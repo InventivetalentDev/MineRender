@@ -8,6 +8,6 @@ export function mergeAssetOptions<T extends { assets?: AssetContext }>(defaults:
     const { assets: defaultAssets, ...defaultValues } = defaults;
     const { assets, ...values } = options ?? {};
     const merged = merge({}, defaultValues, values) as T;
-    merged.assets = AssetContext.origin(origin) ?? assets ?? defaultAssets;
+    merged.assets = assets ?? AssetContext.origin(origin) ?? defaultAssets;
     return merged;
 }

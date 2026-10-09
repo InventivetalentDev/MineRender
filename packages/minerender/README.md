@@ -83,7 +83,8 @@ Configure source objects before constructing the context. Its version and source
 stack stay fixed; create another context and reload objects to change them.
 Context-bound `blockStates`, `modelTextures`, `entities`, and `fonts` loaders use
 the same configuration. Loaded assets retain their context when added to another
-scene. Objects created from raw data inherit their scene's context when attached.
+scene unless the object's `options.assets` explicitly overrides it. Objects created
+from raw data inherit their scene's context when attached.
 Worlds and scene documents inherit their scene's context.
 
 Without an explicit context, renderers and static loaders use `AssetLoader`'s

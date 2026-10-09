@@ -28,7 +28,7 @@ export class FluidModelObject extends ModelObject {
 
     constructor(readonly kind: FluidKind, private readonly sample: FluidSampler,
                 origin?: AssetKey, options?: Partial<ModelObjectOptions>) {
-        const assets = AssetContext.origin(origin) ?? options?.assets;
+        const assets = options?.assets ?? AssetContext.origin(origin);
         super({
             key: new AssetKey("minecraft", kind, "models", "fluid", "assets", ".json", origin?.root),
             textures: { still: `minecraft:block/${kind}_still`, flow: `minecraft:block/${kind}_flow` },

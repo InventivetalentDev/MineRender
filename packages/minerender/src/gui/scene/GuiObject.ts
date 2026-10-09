@@ -27,7 +27,7 @@ export class GuiObject extends SceneObject {
     private initialized = false;
 
     constructor(readonly textureLayers: readonly GuiLayer[], options?: Partial<GuiObjectOptions>) {
-        super({ ...options, assets: AssetContext.origin(textureLayers) ?? options?.assets, instanceMeshes: false, mergeMeshes: false });
+        super({ ...options, assets: options?.assets ?? AssetContext.origin(textureLayers), instanceMeshes: false, mergeMeshes: false });
     }
 
     public async init(): Promise<void> {

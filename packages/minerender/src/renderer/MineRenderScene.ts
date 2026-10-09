@@ -116,7 +116,7 @@ export class MineRenderScene extends Scene {
         //TODO: we need a way to call objectSupplier in the instance supplier below
         // but we also need to get the options that have been merged with the defaults properly
         // so maybe to the option merging _somewhere_ else, not in the object constructor
-        const assets = AssetContext.for(asset, _options?.assets ?? this.assets);
+        const assets = _options?.assets ?? AssetContext.for(asset, this.assets);
         const obj = await objectSupplier();
         AssetContext.for(obj, assets).bind(obj);
         obj.scene = this;
@@ -159,7 +159,7 @@ export class MineRenderScene extends Scene {
      * @returns The model, or a reference to one placement of a shared model.
      */
     public async addModel(model: Model, options?: Partial<ModelObjectOptions>, parent: Object3D = this): Promise<ModelObject | InstanceReference<ModelObject>> {
-        options = { ...options, assets: AssetContext.for(model, options?.assets ?? this.assets) };
+        options = { ...options, assets: options?.assets ?? AssetContext.for(model, this.assets) };
         return this.addSceneObject<Model, ModelObject, ModelObjectOptions>(model, () => new ModelObject(model, options), options, parent);
     }
 
@@ -169,7 +169,7 @@ export class MineRenderScene extends Scene {
      * Use the returned object's `setPosition` method to move all of its model parts.
      */
     public async addBlock(blockState: BlockState, options?: Partial<BlockObjectOptions>, parent: Object3D = this): Promise<BlockObject | InstanceReference<BlockObject>> {
-        options = { ...options, assets: AssetContext.for(blockState, options?.assets ?? this.assets) };
+        options = { ...options, assets: options?.assets ?? AssetContext.for(blockState, this.assets) };
         return this.addSceneObject<BlockState, BlockObject, BlockObjectOptions>(blockState, () => new BlockObject(blockState, options), options, parent);
     }
 
@@ -183,7 +183,7 @@ export class MineRenderScene extends Scene {
      */
     public async addSkin(skin?: string, options?: Partial<SkinObjectOptions>, parent: Object3D = this): Promise<SkinObject> {
         this.dirty = true;
-        const obj = new SkinObject({ ...options, assets: options?.assets ?? this.assets });
+        const obj = new SkinObject(options);
         obj.scene = this;
         if (skin) {
             await obj.setSkinTexture(skin);
@@ -195,7 +195,7 @@ export class MineRenderScene extends Scene {
 
     /** Adds an entity loaded with {@link Entities.getEntity}, using its selected layers and textures. */
     public async addEntity(entity: EntityModel, options?: Partial<EntityObjectOptions>, parent: Object3D = this): Promise<EntityObject | InstanceReference<EntityObject>> {
-        options = { ...options, assets: AssetContext.for(entity, options?.assets ?? this.assets) };
+        options = { ...options, assets: options?.assets ?? AssetContext.for(entity, this.assets) };
         return this.addSceneObject<EntityModel, EntityObject, EntityObjectOptions>(entity, () => new EntityObject(entity, options), options, parent);
     }
 
@@ -204,7 +204,7 @@ export class MineRenderScene extends Scene {
      * Layer positions start at the top left, with positive GUI y pointing down.
      */
     public async addGui(layers: readonly GuiLayer[], options?: Partial<GuiObjectOptions>, parent: Object3D = this): Promise<GuiObject> {
-        const obj = new GuiObject(layers, { ...options, assets: AssetContext.for(layers, options?.assets ?? this.assets) });
+        const obj = new GuiObject(layers, { ...options, assets: options?.assets ?? AssetContext.for(layers, this.assets) });
         obj.scene = this;
         await obj.init();
         parent.add(obj);

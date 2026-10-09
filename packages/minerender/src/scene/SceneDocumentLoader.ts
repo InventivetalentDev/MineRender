@@ -136,7 +136,7 @@ export class SceneDocumentLoader {
         try {
             switch (definition.type) {
                 case "skin": {
-                    const skin = new SkinObject({ ...definition.options, assets, instanceMeshes: false });
+                    const skin = new SkinObject({ ...definition.options, instanceMeshes: false });
                     object = skin;
                     const texture = definition.skin ? await skinTexture(definition.skin)
                         : `${assets.root}/assets/minecraft/textures/entity/player/${definition.options?.slim ? "slim/alex" : "wide/steve"}.png`;
@@ -188,7 +188,7 @@ export class SceneDocumentLoader {
                     break;
                 }
                 case "gui":
-                    object = await content.initialize(new GuiObject(definition.layers, { assets }));
+                    object = await content.initialize(new GuiObject(definition.layers));
                     break;
             }
             let disposed = false;
