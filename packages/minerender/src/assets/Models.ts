@@ -56,10 +56,10 @@ export class Models {
         const preview = this.snapshotContext(key, context);
         const itemKey = new AssetKey(key.namespace, key.path, "items", undefined, key.rootType, ".json", key.root);
         const cacheKey = itemKey.serialize() + this.contextKey(preview);
-        const model = await this.PERSISTENT_CACHE.getOrLoad(`item-v3:${AssetLoader.persistentKey(cacheKey)}`, async () => {
+        const model = await this.PERSISTENT_CACHE.getOrLoad(`item-v4:${AssetLoader.persistentKey(cacheKey)}`, async () => {
             const result = await AssetLoader.getFirst<Model & { model?: ItemModelNode }>([itemKey, key], AssetParser.JSON);
             if (!result) return undefined;
-            if (result.key.assetType !== "items") return { ...result.asset, key } as ItemModel;
+            if (result.key.assetType !== "items") return { ...result.asset, key, components: preview.components } as ItemModel;
 
             const load = async (selected: SelectedItemModel): Promise<ItemModel> => {
                 if ("parts" in selected) {
@@ -76,7 +76,7 @@ export class Models {
                 const model = await this.getRaw(modelKey);
                 if (!model) throw new Error(`Item ${key.toNamespacedString()} references missing model ${selected.model}`);
                 // Relative texture paths belong to the referenced model's namespace.
-                return { ...model, ...(selected.special && { special: selected.special }), ...(selected.tints && { tints: selected.tints }) } as ItemModel;
+                return { ...model, components: preview.components, ...(selected.special && { special: selected.special }), ...(selected.tints && { tints: selected.tints }) } as ItemModel;
             };
             return load(this.selectItemModel(result.asset.model, key, preview));
         });
@@ -136,7 +136,7 @@ export class Models {
 
     private static contextKey(context: Required<ItemModelContext>): string {
         const itemReferences = Object.fromEntries(Object.entries(context.itemReferences).map(([id, key]) => [id, key.serialize()]));
-        return `|item-v3:${JSON.stringify(this.snapshotJson({ ...context, itemReferences }))}`;
+        return `|item-v4:${JSON.stringify(this.snapshotJson({ ...context, itemReferences }))}`;
     }
 
     private static snapshotJson(value: unknown, ancestors = new Set<object>()): unknown {

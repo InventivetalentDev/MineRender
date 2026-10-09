@@ -4,6 +4,7 @@ import { Playground, type DemoContext, type DemoContent } from "../../playground
 import { button, field, group, input, note, section, select, suggestions } from "../../playground/controls";
 import { assetKey, loadModel, modelControls, modelDefaults, modelOptions, selectModel, type ModelSettings } from "../../playground/models";
 import { CUSTOM_MODEL_DATA_ITEM, customModelDataCode, loadCustomModelData } from "./customModelData";
+import type { ViewSettings } from "../../playground/config";
 
 interface ItemSettings extends ModelSettings {
     /** An item ID (`minecraft:apple`) or a model path (`minecraft:item/apple`, `minecraft:block/stone`). */
@@ -16,6 +17,9 @@ interface ItemSettings extends ModelSettings {
 }
 
 const defaults: ItemSettings = { ...modelDefaults, item: "minecraft:iron_sword", display: "", properties: {}, itemReferences: {}, components: {}, count: 1 };
+const guiView: Partial<ViewSettings> = {
+    projection: "orthographic", antialias: false, camera: { position: [0, 0, 100], target: [0, 0, 0], zoom: 24 }
+};
 const app = new Playground<ItemSettings>({
     title: "Items and models",
     defaults,
@@ -25,13 +29,21 @@ const app = new Playground<ItemSettings>({
         sapling: { label: "Oak sapling (cutout)", state: { item: "minecraft:oak_sapling" } },
         apple: { label: "Apple in GUI pose", state: { item: "minecraft:apple", display: DisplayPosition.GUI } },
         potion: { label: "Potion (tinted)", state: { item: "minecraft:potion", tints: { 0: 0xd557ef } } },
+        dyed_leather: { label: "Dyed leather (blue component)", state: { item: "minecraft:leather_chestplate", display: DisplayPosition.GUI,
+            components: { "minecraft:dyed_color": 0x3f76e4 } }, view: guiView },
+        potion_color: { label: "Potion (custom color component)", state: { item: "minecraft:potion", display: DisplayPosition.GUI,
+            components: { "minecraft:potion_contents": { custom_color: 0xd557ef } } }, view: guiView },
+        map_color: { label: "Map (gold color component)", state: { item: "minecraft:filled_map", display: DisplayPosition.GUI,
+            components: { "minecraft:map_color": 0xe0a63a } }, view: guiView },
+        firework_color: { label: "Firework star (red and blue colors)", state: { item: "minecraft:firework_star", display: DisplayPosition.GUI,
+            components: { "minecraft:firework_explosion": { shape: "small_ball", colors: [0xff0000, 0x0000ff] } } }, view: guiView },
         block: { label: "Block model: diamond ore", state: { item: "minecraft:block/diamond_ore", display: DisplayPosition.GUI } },
         bundle: {
             label: "Bundle with a selected item",
             state: { item: "minecraft:bundle", display: DisplayPosition.GUI,
                 properties: { "minecraft:bundle/has_selected_item": true },
                 itemReferences: { "minecraft:bundle/selected_item": "minecraft:apple" } },
-            view: { projection: "orthographic", antialias: false, camera: { position: [0, 0, 100], target: [0, 0, 0], zoom: 24 } }
+            view: guiView
         },
         bow: { label: "Bow pulling (duration in ticks)", state: { item: "minecraft:bow", display: DisplayPosition.GUI,
             properties: { "minecraft:using_item": true, "minecraft:use_duration": 0 } } },
@@ -39,6 +51,8 @@ const app = new Playground<ItemSettings>({
             properties: { "minecraft:charge_type": "arrow" } } },
         custom_model_data: { label: "Custom model data: two float indices", state: { item: CUSTOM_MODEL_DATA_ITEM, display: DisplayPosition.GUI,
             components: { "minecraft:custom_model_data": { floats: [0, 0] } } } },
+        custom_model_color: { label: "Custom model data: color index 1", state: { item: CUSTOM_MODEL_DATA_ITEM, display: DisplayPosition.GUI,
+            components: { "minecraft:custom_model_data": { floats: [0, 1], colors: [0xff0000, 0x55ff55] } } }, view: guiView },
         legacy: { label: "Model path: item/iron_sword", state: { item: "minecraft:item/iron_sword" } }
     },
     load,

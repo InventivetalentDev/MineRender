@@ -1,5 +1,5 @@
 import test from "ava";
-import { AssetKey, AssetLoader, AssetSource, Caching, DisplayPosition, Models, PersistentCache, shutdown } from "../src";
+import { AssetKey, AssetLoader, AssetSource, Caching, DisplayPosition, ItemTints, Models, PersistentCache, shutdown } from "../src";
 import type { ItemModel, ItemModelContext, ItemTintSource, MinecraftAsset, Maybe, SpecialItemRenderer } from "../src";
 
 class MemoryCache extends PersistentCache<Map<string, string>> {
@@ -137,6 +137,55 @@ test.serial("item aliases retain texture origins and per-item tints without chan
     }
     t.is(source.calls.filter(key => key.assetType === "items").length, 2);
     t.true(source.calls.every(call => call.root === key.root));
+});
+
+test.serial("item tint components survive snapshots, composites, legacy parents, and persistent cache hits", async t => {
+    const dye: ItemTintSource[] = [{ type: "dye", default: 0xffffff }];
+    const source = new FixtureSource({
+        "items/colored": { model: { type: "composite", models: [
+            { ...reference("item/base"), tints: [{ type: "custom_model_data", default: 0xffffff }] },
+            { type: "composite", models: [
+                { ...reference("item/base"), tints: [{ type: "custom_model_data", index: 1, default: 0xffffff }] },
+                { type: "bundle/selected_item" }
+            ] }
+        ] } },
+        "items/selected": { model: { ...reference("item/base"), tints: dye } },
+        "models/item/base": { parent: "item/parent", components: { "minecraft:dyed_color": 0x123456 }, textures: { layer0: "item/base" } },
+        "models/item/parent": { components: { "custom:unrelated": true, "minecraft:dyed_color": 0xabcdef } },
+        "models/item/legacy": { parent: "item/parent", tints: dye, components: { "minecraft:dyed_color": 0x123456 } }
+    });
+    AssetLoader.addSource("test-items", source);
+    const key = itemKey("colored");
+    const components = { custom_model_data: { colors: [0xff0000, 0x0000ff] }, dyed_color: 0x00ff00 };
+    const context = { components, itemReferences: { "bundle/selected_item": itemKey("selected") } };
+    const previousKey = new AssetKey(key.namespace, key.path, "items").serialize()
+        + Models["contextKey"](Models["snapshotContext"](key, context)).replace("|item-v4:", "|item-v3:");
+    await Models["_persistentCache"]!.put(`item-v3:${AssetLoader.persistentKey(previousKey)}`, { key, textures: { layer0: "stale" } });
+    const pending = Models.getMerged(key, context);
+    components.custom_model_data.colors[0] = 0xffff00;
+    const first = (await pending)! as ItemModel;
+    const canonical = { components: { "minecraft:dyed_color": 0x00ff00,
+        "minecraft:custom_model_data": { colors: [0xff0000, 0x0000ff] } }, itemReferences: context.itemReferences };
+    t.is(await Models.getMerged(key, canonical), first);
+    const palette = async (model: ItemModel) => Promise.all([
+        ItemTints.get(model.parts![0]), ItemTints.get(model.parts![1].parts![0]), ItemTints.get(model.parts![1].parts![1])
+    ]);
+    t.deepEqual(await palette(first), [{ 0: 0xff0000 }, { 0: 0x0000ff }, { 0: 0xffffff }]);
+    t.deepEqual(first.parts![0].components, canonical.components);
+    t.deepEqual(first.parts![1].parts![1].components, {});
+    const changed = (await Models.getMerged(key, context))! as ItemModel;
+    t.deepEqual(await palette(changed), [{ 0: 0xffff00 }, { 0: 0x0000ff }, { 0: 0xffffff }]);
+    const legacy = (await Models.getMerged(itemKey("legacy"), context))! as ItemModel;
+    t.deepEqual(await ItemTints.get(legacy), { 0: 0x00ff00 });
+    t.deepEqual(legacy.components, changed.parts![0].components);
+    t.deepEqual(await ItemTints.get((await Models.getMerged(itemKey("legacy")))!), { 0: 0xffffff });
+    t.deepEqual(((await Models.getRaw(itemKey("base")))! as ItemModel).components, { "minecraft:dyed_color": 0x123456 });
+    const calls = source.calls.length;
+    Caching.clear();
+    t.deepEqual(await palette((await Models.getMerged(key, canonical))! as ItemModel), await palette(first));
+    t.deepEqual(await palette((await Models.getMerged(key, context))! as ItemModel), await palette(changed));
+    t.deepEqual(await ItemTints.get((await Models.getMerged(itemKey("legacy"), context))!), { 0: 0x00ff00 });
+    t.is(source.calls.length, calls);
 });
 
 test.serial("static item previews resolve idle, GUI, fallback, and zero-threshold branches", async t => {

@@ -24,6 +24,7 @@ export class ModelMerger {
         }
         merged.hierarchy = models.map(m => m.parent).filter(p => `${p}`) as string[];
         merged.hierarchy.push(`${merged.parent}`);
+        if ((model as ItemModel).components) (merged as ItemModel).components = (model as ItemModel).components;
         // delete merged.parent;
         return merged;
     }

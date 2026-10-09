@@ -31,6 +31,8 @@ export interface ItemModel extends Model {
     gui_light?: GuiLight;
     special?: SpecialItemRenderer;
     tints?: ItemTintSource[];
+    /** Stack-component snapshot with namespaced IDs, used to resolve this item's tint sources. */
+    components?: Record<string, unknown>;
     /** Ordered composite children, each with its own textures, display pose, and tint sources. */
     parts?: ItemModel[];
 }
@@ -38,7 +40,7 @@ export interface ItemModel extends Model {
 /** An sRGB packed `0xRRGGBB` value or an RGB triple with components from 0 to 1. */
 export type ItemTintColor = number | TripleArray;
 
-/** A vanilla item color source. Gameplay-dependent sources use their declared default color. */
+/** A vanilla item color source. Missing component values and unsupported gameplay state use the declared default. */
 export type ItemTintSource =
     | { type: "constant" | "minecraft:constant"; value: ItemTintColor }
     | { type: "grass" | "minecraft:grass"; temperature: number; downfall: number }
