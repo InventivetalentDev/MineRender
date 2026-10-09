@@ -50,12 +50,6 @@ legacy website cleanup is a separate task.
 
 ## Continuation plan (ordered)
 
-### Integration checkpoint (2026-10-09)
-
-Finish the existing PRs before starting overlapping implementations. Integrate native Node rendering [#257](https://github.com/InventivetalentDev/MineRender/pull/257) before the rendering API [#262](https://github.com/InventivetalentDev/MineRender/pull/262), Sponge imports [#266](https://github.com/InventivetalentDev/MineRender/pull/266) before Litematica [#267](https://github.com/InventivetalentDev/MineRender/pull/267), and external chunks [#273](https://github.com/InventivetalentDev/MineRender/pull/273) before numeric Anvil [#276](https://github.com/InventivetalentDev/MineRender/pull/276).
-
-After integration, verify external chunks combined with LZ4 [#270](https://github.com/InventivetalentDev/MineRender/pull/270), and independent asset contexts [#258](https://github.com/InventivetalentDev/MineRender/pull/258) combined with native rendering. Native rendering already has runtime CI in #257; also check real-asset renders on the deployment host before deploying the API.
-
 ### 1–4. Build and platform support
 
 - ~~Build tooling, package exports, import-time initialization, and browser/Node providers.~~
@@ -113,7 +107,7 @@ Decoding and mesh construction run on the main thread; worker-based preparation 
 ~~Render sloped water/lava surfaces with still/flow textures and waterlogged blocks.~~ ~~Cover intrinsic water in kelp, seagrass, and bubble columns.~~ For remaining fluid parity, obtain vanilla block-state fluid definitions, face-occlusion shapes, and solidity/flow-blocking flags; add water overlays against glass/leaves. Keep 1 block = 16 units.
 
 ### 12. Node headless rendering entry point — high
-Make `Renderer` constructible without DOM: injectable canvas + WebGL 2 context, `renderOnce()`/`renderToBuffer()` bypassing the animation loop, and encoded image buffers in Node. The Node environment provider supports asset loading and 2D texture preparation; it does not supply a WebGL context or DOM-free renderer. `InventivetalentDev/MineRenderServer` is the reference contract — it faked headless rendering against V1 and reached into `_scene`/`_camera`; V2 already exposes them publicly. The pending API in [#262](https://github.com/InventivetalentDev/MineRender/pull/262) uses `POST /v1/renders` with metadata and image GET endpoints. Compatibility with the V1 `GET /render/skin/:texture`, `GET /render/model/:type/:model`, and `minerender-options` header would require a separate adapter.
+Make `Renderer` constructible without DOM: injectable canvas + WebGL 2 context, `renderOnce()`/`renderToBuffer()` bypassing the animation loop, and encoded image buffers in Node. The Node environment provider supports asset loading and 2D texture preparation; it does not supply a WebGL context or DOM-free renderer. `InventivetalentDev/MineRenderServer` is the reference contract — it faked headless rendering against V1 and reached into `_scene`/`_camera`; V2 already exposes them publicly. Compatibility with the V1 `GET /render/skin/:texture`, `GET /render/model/:type/:model`, and `minerender-options` header would require a separate adapter.
 
 ### 13. Anvil region (.mca) + schematic loaders — high
 ~~Add a world-format layer feeding chunk storage: `.mca` sector tables, section palettes and DataVersion; preserve NBT type/compression metadata; implement legacy `.schematic` ID/metadata and AddBlocks conversion; retain structure entities and DataVersion.~~ ~~Support custom legacy schematic mappings and opt-in lenient parsing.~~ Pre-1.13 numeric Anvil chunks, LZ4 and external `.mcc` payloads, Sponge `.schem`, Litematica, rendering ordinary entities from saved NBT, and DataVersion-based migration remain.
@@ -126,4 +120,4 @@ Make `Renderer` constructible without DOM: injectable canvas + WebGL 2 context, 
 
 ~~Build the V2 website with live examples.~~ ~~Rework the demos into configurable playgrounds.~~ ~~Add portable scene documents and a browser scene editor.~~ ~~Add TypeDoc/VitePress reference tooling and library API JSDoc.~~
 
-Playground/editor hosting is pending in [PR #252](https://github.com/InventivetalentDev/MineRender/pull/252). Iframe embeds remain. Remove unused V1 website files from the V2 tree while preserving V1 delivery URLs. Extend existing regression coverage as remaining model and blockstate features land; keep the consumer API contract in AGENTS.md as the beta compatibility baseline.
+Iframe embeds remain. Remove unused V1 website files from the V2 tree while preserving V1 delivery URLs. Extend existing regression coverage as remaining model and blockstate features land; keep the consumer API contract in AGENTS.md as the beta compatibility baseline.
