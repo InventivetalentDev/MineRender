@@ -2,7 +2,7 @@ import { MineRenderScene } from "../renderer/MineRenderScene";
 import { Block } from "../model/block/Block";
 import { Vector3 } from "three";
 import { isTripleArray, TripleArray } from "../model/Model";
-import { Maybe } from "../util/util";
+import { Maybe, yieldToEventLoop } from "../util/util";
 import { Chunk } from "./Chunk";
 import { BlockInfo } from "./BlockInfo";
 import { MultiBlockBlock, MultiBlockStructure } from "../model/multiblock/MultiBlockStructure";
@@ -25,7 +25,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
 
     private readonly _chunks: Map<string, Chunk<SectionMeshing>> = new Map();
     private readonly sectionModels?: SectionModels;
-    private readonly pendingCulling = new Map<string, Vector3>();
+    private readonly pendingCulling = new Map<Chunk<SectionMeshing>, Set<number>>();
     private culling?: Promise<void>;
 
     constructor(scene: MineRenderScene, options: MineRenderWorldOptions<SectionMeshing> = {}) {
@@ -95,7 +95,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
      * Places a structure's blocks at their stored positions, then refreshes neighboring faces.
      * Entity NBT is retained by the structure but is not rendered.
      *
-     * @param useBatches - Uses bounded batches by default. Set to `false` for sequential placement.
+     * @param useBatches - Yields between chunks by default. Set to `false` for sequential placement.
      * @param executor - Optional queue for batched placement. The caller remains responsible for stopping it.
      */
     public async placeMultiBlock(multiblock: MultiBlockStructure, useBatches: boolean = true, executor?: BatchedExecutor): Promise<void> {
@@ -114,8 +114,10 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         };
         const place = (block: MultiBlockBlock) => this.placeBlock(new Vector3(...block.position), block, collect);
         const keys = new Map<string, AssetKey>();
+        const types = new Set<string>();
         for (const block of multiblock.blocks) {
-            if (Chunk.isAir(block)) continue;
+            if (Chunk.isAir(block) || types.has(block.type)) continue;
+            types.add(block.type);
             const key = AssetKey.parse("blockstates", block.type);
             keys.set(key.serialize(), key);
         }
@@ -123,6 +125,24 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
 
         if (!useBatches) {
             for (const block of multiblock.blocks) await place(block);
+            return;
+        }
+
+        if (!executor) {
+            const groups = new Map<Chunk<SectionMeshing>, { index: number; block: Maybe<Block> }[]>();
+            const position = new Vector3();
+            for (const block of multiblock.blocks) {
+                const [x, y, z] = block.position;
+                this.validatePosBounds(position.set(x, y, z));
+                const cx = Math.floor(x / 16), cy = Math.floor(y / 16), cz = Math.floor(z / 16);
+                const key = `${cx}_${cy}_${cz}`;
+                const chunk = this._chunks.get(key) ?? (Chunk.isAir(block) ? undefined : this.getOrCreateChunkAt(position));
+                if (!chunk) continue;
+                let group = groups.get(chunk);
+                if (!group) groups.set(chunk, group = []);
+                group.push({ index: (y - cy * 16) * 256 + (z - cz * 16) * 16 + x - cx * 16, block });
+            }
+            await this.placeChunkGroups(groups, changes);
             return;
         }
 
@@ -135,19 +155,34 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
             else positions.set(key, [block]);
         }
         const groups = [...positions.values()];
-        const queue = executor ?? new BatchedExecutor();
-        try {
-            for (let i = 0; i < groups.length; i += queue.batch) {
-                const results = await Promise.allSettled(groups.slice(i, i + queue.batch).map(blocks =>
-                    queue.submit(async () => {
-                        for (const block of blocks) await place(block);
-                    })
-                ));
-                const failure = results.find(result => result.status === "rejected");
-                if (failure?.status === "rejected") throw failure.reason;
+        for (let i = 0; i < groups.length; i += executor.batch) {
+            const results = await Promise.allSettled(groups.slice(i, i + executor.batch).map(blocks =>
+                executor.submit(async () => {
+                    for (const block of blocks) await place(block);
+                })
+            ));
+            const failure = results.find(result => result.status === "rejected");
+            if (failure?.status === "rejected") throw failure.reason;
+        }
+    }
+
+    private async placeChunkGroups(groups: Map<Chunk<SectionMeshing>, { index: number; block: Maybe<Block> }[]>,
+                                   changes: Map<string, Vector3>): Promise<void> {
+        let sliceStart = performance.now();
+        for (const [chunk, blocks] of groups) {
+            let positions: Vector3[] | undefined;
+            try {
+                positions = await chunk.placeBlocks(blocks);
+            } finally {
+                // Failed groups still clear cells and place their remaining blocks.
+                positions ??= blocks.map(({ index }) => new Vector3(chunk.x * 16 + index % 16,
+                    chunk.y * 16 + Math.floor(index / 256), chunk.z * 16 + Math.floor(index / 16) % 16));
+                for (const pos of positions) changes.set(`${pos.x},${pos.y},${pos.z}`, pos);
             }
-        } finally {
-            if (!executor) queue.stop();
+            if (performance.now() - sliceStart > 8) {
+                await yieldToEventLoop();
+                sliceStart = performance.now();
+            }
         }
     }
 
@@ -157,7 +192,24 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         const changes = new Map<string, Vector3>();
         try {
             await this.clearChunkColumn(chunk.x, chunk.z, changes);
+            const groups = new Map<Chunk<SectionMeshing>, { index: number; block: Maybe<Block> }[]>();
             for (const section of chunk.sections) {
+                if (!executor) {
+                    const blocks: { index: number; block: Maybe<Block> }[] = [];
+                    for (let index = 0; index < 4096; index++) {
+                        const block = section.data.get(index);
+                        if (block) blocks.push({ index, block });
+                    }
+                    if (blocks.length) {
+                        const position = new Vector3(chunk.x * 16, section.y * 16, chunk.z * 16);
+                        this.validatePosBounds(position);
+                        const target = this.getOrCreateChunkAt(position);
+                        const previous = groups.get(target);
+                        if (previous) previous.push(...blocks);
+                        else groups.set(target, blocks);
+                    }
+                    continue;
+                }
                 const blocks: MultiBlockBlock[] = [];
                 for (let index = 0; index < 4096; index++) {
                     const block = section.data.get(index);
@@ -170,6 +222,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                 }
                 await this.placeBlocks({ size: [16, 16, 16], blocks }, true, executor, changes);
             }
+            if (!executor) await this.placeChunkGroups(groups, changes);
         } finally {
             await this.updateCulling([...changes.values()]);
         }
@@ -214,20 +267,26 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
     }
 
     private updateCulling(positions: Vector3[]): Promise<void> {
+        const neighbor = new Vector3();
         for (const pos of positions) {
-            this.pendingCulling.set(pos.toArray().join(","), pos.clone());
-            for (const offset of CUBE_FACE_OFFSETS) {
-                const neighbor = pos.clone().add(new Vector3(...offset));
-                this.pendingCulling.set(neighbor.toArray().join(","), neighbor);
-            }
+            const cx = Math.floor(pos.x / 16), cy = Math.floor(pos.y / 16), cz = Math.floor(pos.z / 16);
+            const chunk = this._chunks.get(`${cx}_${cy}_${cz}`);
+            const lx = pos.x - cx * 16, ly = pos.y - cy * 16, lz = pos.z - cz * 16;
             // Fluid corner heights and flow also depend on diagonal neighbors and their vertical neighbors.
             for (let y = -1; y <= 1; y++) {
                 for (let z = -1; z <= 1; z++) {
                     for (let x = -1; x <= 1; x++) {
-                        const neighbor = pos.clone().add(new Vector3(x, y, z));
-                        if (this.getBlockAt(neighbor)?.object?.fluidKind) {
-                            this.pendingCulling.set(neighbor.toArray().join(","), neighbor);
-                        }
+                        const nx = lx + x, ny = ly + y, nz = lz + z;
+                        const section = nx >= 0 && nx < 16 && ny >= 0 && ny < 16 && nz >= 0 && nz < 16 ? chunk
+                            : this._chunks.get(`${cx + Math.floor(nx / 16)}_${cy + Math.floor(ny / 16)}_${cz + Math.floor(nz / 16)}`);
+                        if (!section) continue;
+                        const index = (ny & 15) * 256 + (nz & 15) * 16 + (nx & 15);
+                        let pending = this.pendingCulling.get(section);
+                        if (pending?.has(index)) continue;
+                        if (Math.abs(x) + Math.abs(y) + Math.abs(z) > 1
+                            && !section.getBlockAt(neighbor.set(pos.x + x, pos.y + y, pos.z + z))?.object?.fluidKind) continue;
+                        if (!pending) this.pendingCulling.set(section, pending = new Set());
+                        pending.add(index);
                     }
                 }
             }
@@ -236,36 +295,38 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         return this.culling ??= Promise.resolve().then(async () => {
             try {
                 while (this.pendingCulling.size) {
-                    const batch = [...this.pendingCulling.values()];
+                    const batch = [...this.pendingCulling];
                     this.pendingCulling.clear();
-                    const changed = new Set<Chunk<SectionMeshing>>();
-                    for (const pos of batch) {
-                        const chunk = this.getChunkAt(pos);
-                        if (!chunk) continue;
-                        changed.add(chunk);
-                        const block = chunk.getBlockAt(pos);
-                        if (!block || !chunk.isBlockVisibleAt(pos)) {
-                            continue;
-                        }
-                        if (block.object?.fluidKind) {
-                            await block.object.updateFluid((x, y, z) => {
-                                const neighbor = pos.clone().add(new Vector3(x, y, z));
-                                const section = this.getChunkAt(neighbor);
-                                const object = section?.isBlockVisibleAt(neighbor) ? section.getBlockAt(neighbor)?.object : undefined;
-                                return { fluid: object?.fluidKind, level: object?.fluidLevel,
-                                    solid: section?.isOccludingAt(neighbor) ?? false };
-                            });
-                        }
-                        let mask = 0;
-                        for (const [face, offset] of CUBE_FACE_OFFSETS.entries()) {
-                            const neighbor = pos.clone().add(new Vector3(...offset));
-                            if (this.getChunkAt(neighbor)?.isOccludingAt(neighbor)) {
-                                mask |= 1 << face;
+                    for (const [chunk, indices] of batch) {
+                        for (const index of indices) {
+                            if (!chunk.isBlockVisibleIndex(index)) continue;
+                            const lx = index % 16, ly = Math.floor(index / 256), lz = Math.floor(index / 16) % 16;
+                            const wx = chunk.x * 16 + lx, wy = chunk.y * 16 + ly, wz = chunk.z * 16 + lz;
+                            const block = chunk.getBlockAt(neighbor.set(wx, wy, wz))!;
+                            if (block.object?.fluidKind) {
+                                await block.object.updateFluid((x, y, z) => {
+                                    const nx = lx + x, ny = ly + y, nz = lz + z;
+                                    const section = nx >= 0 && nx < 16 && ny >= 0 && ny < 16 && nz >= 0 && nz < 16 ? chunk
+                                        : this._chunks.get(`${chunk.x + Math.floor(nx / 16)}_${chunk.y + Math.floor(ny / 16)}_${chunk.z + Math.floor(nz / 16)}`);
+                                    const neighborIndex = (ny & 15) * 256 + (nz & 15) * 16 + (nx & 15);
+                                    const object = section?.isBlockVisibleIndex(neighborIndex)
+                                        ? section.getBlockAt(neighbor.set(wx + x, wy + y, wz + z))?.object : undefined;
+                                    return { fluid: object?.fluidKind, level: object?.fluidLevel,
+                                        solid: section?.isOccludingIndex(neighborIndex) ?? false };
+                                });
                             }
+                            let mask = 0;
+                            for (let face = 0; face < CUBE_FACE_OFFSETS.length; face++) {
+                                const offset = CUBE_FACE_OFFSETS[face];
+                                const nx = lx + offset[0], ny = ly + offset[1], nz = lz + offset[2];
+                                const section = nx >= 0 && nx < 16 && ny >= 0 && ny < 16 && nz >= 0 && nz < 16 ? chunk
+                                    : this._chunks.get(`${chunk.x + Math.floor(nx / 16)}_${chunk.y + Math.floor(ny / 16)}_${chunk.z + Math.floor(nz / 16)}`);
+                                if (section?.isOccludingIndex((ny & 15) * 256 + (nz & 15) * 16 + (nx & 15))) mask |= 1 << face;
+                            }
+                            await chunk.setCullMaskIndex(index, mask);
                         }
-                        await chunk.setCullMaskAt(pos, mask);
                     }
-                    for (const chunk of changed) chunk.rebuildSectionMesh();
+                    for (const [chunk] of batch) chunk.rebuildSectionMesh();
                 }
             } finally {
                 this.culling = undefined;
