@@ -56,16 +56,17 @@ export class Models {
 
     private static async getItemModel(key: AssetKey, context: ItemModelContext = {}): Promise<Maybe<Model>> {
         const preview = this.snapshotContext(key, context);
+        const itemId = `${key.namespace}:${key.path}`;
         const itemKey = new AssetKey(key.namespace, key.path, "items", undefined, key.rootType, ".json", key.root);
         const cacheKey = itemKey.serialize() + this.contextKey(preview);
-        const model = await this.PERSISTENT_CACHE.getOrLoad(`item-v5:${AssetLoader.persistentKey(cacheKey)}`, async () => {
+        const model = await this.PERSISTENT_CACHE.getOrLoad(`item-v6:${AssetLoader.persistentKey(cacheKey)}`, async () => {
             const result = await AssetLoader.getFirst<Model & { model?: ItemModelNode }>([itemKey, key], AssetParser.JSON);
             if (!result) return undefined;
-            if (result.key.assetType !== "items") return { ...result.asset, key, components: preview.components } as ItemModel;
+            if (result.key.assetType !== "items") return { ...result.asset, key, itemId, components: preview.components } as ItemModel;
 
             const load = async (selected: SelectedItemModel): Promise<ItemModel> => {
                 if ("parts" in selected) {
-                    return { key, parts: await Promise.all(selected.parts.map(load)) };
+                    return { key, itemId, parts: await Promise.all(selected.parts.map(load)) };
                 }
                 if ("item" in selected) {
                     // Referenced items start with their own default stack state and references.
@@ -78,7 +79,7 @@ export class Models {
                 const model = await this.getRaw(modelKey);
                 if (!model) throw new Error(`Item ${key.toNamespacedString()} references missing model ${selected.model}`);
                 // Relative texture paths belong to the referenced model's namespace.
-                return { ...model, components: preview.components, ...(selected.special && { special: selected.special }), ...(selected.tints && { tints: selected.tints }) } as ItemModel;
+                return { ...model, itemId, components: preview.components, ...(selected.special && { special: selected.special }), ...(selected.tints && { tints: selected.tints }) } as ItemModel;
             };
             return load(this.selectItemModel(result.asset.model, key, preview));
         });
@@ -154,7 +155,7 @@ export class Models {
 
     private static contextKey(context: Required<ItemModelContext>): string {
         const itemReferences = Object.fromEntries(Object.entries(context.itemReferences).map(([id, key]) => [id, key.serialize()]));
-        return `|item-v5:${JSON.stringify(this.snapshotJson({ ...context, itemReferences }))}`;
+        return `|item-v6:${JSON.stringify(this.snapshotJson({ ...context, itemReferences }))}`;
     }
 
     private static snapshotJson(value: unknown, ancestors = new Set<object>()): unknown {

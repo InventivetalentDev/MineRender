@@ -28,6 +28,8 @@ export interface BlockModel extends Model {
 
 /** Item preview data, including GUI lighting, tint sources, and supported special renderers. */
 export interface ItemModel extends Model {
+    /** Original item ID, retained when resource packs select a different model. */
+    itemId?: string;
     textures?: ItemModelTextures;
     gui_light?: GuiLight;
     special?: SpecialItemRenderer;

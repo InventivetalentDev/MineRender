@@ -81,6 +81,83 @@ test("item glint uses nonempty enchantment objects and explicit boolean override
     }
 });
 
+test("lodestone tracking enables glint only for normal compasses and respects explicit overrides", t => {
+    for (const id of ["lodestone_tracker", "minecraft:lodestone_tracker"]) {
+        t.true(ItemGlint.enabled({ [id]: {} }, "minecraft:compass"));
+        t.false(ItemGlint.enabled({ [id]: {}, enchantment_glint_override: false }, "minecraft:compass"));
+        for (const itemId of [undefined, "minecraft:recovery_compass", "minecraft:clock", "custom:compass"]) {
+            t.false(ItemGlint.enabled({ [id]: {} }, itemId));
+        }
+    }
+    t.false(ItemGlint.enabled({}, "minecraft:compass"));
+    t.true(ItemGlint.enabled({ enchantments: { unbreaking: 1 } }, "minecraft:recovery_compass"));
+    t.true(ItemGlint.enabled({ enchantment_glint_override: true }, "minecraft:clock"));
+});
+
+test.serial("item identity survives model replacements and legacy packs without changing raw models", async t => {
+    AssetLoader.addSource("test-items", new FixtureSource({
+        "items/compass": { model: reference("minecraft:item/compass_16") },
+        "items/recovery_compass": { model: reference("minecraft:item/recovery_compass_16") },
+        "items/clock": { model: reference("minecraft:item/clock_00") },
+        "items/alias": { model: reference("minecraft:item/compass_16") },
+        "models/item/compass_16": { textures: { layer0: "item/compass_16" } }
+    }));
+    AssetLoader.addSource("test-pack", new FixtureSource({
+        "items/compass": { model: reference("custom:item/replacement") },
+        "models/item/replacement": { textures: { layer0: "custom:item/replacement" } },
+        "models/item/recovery_compass": { textures: { layer0: "custom:item/recovery" } },
+        "models/item/clock": { textures: { layer0: "custom:item/clock" } }
+    }));
+    const compass = (await Models.getMerged(itemKey("compass"), { components: { lodestone_tracker: {} } }))! as ItemModel;
+    t.is(compass.itemId, "minecraft:compass");
+    t.is(compass.key?.toNamespacedString(), "custom:item/replacement");
+    t.true(ItemGlint.enabled(compass.components, compass.itemId));
+    t.false(Object.hasOwn(compass.components!, "minecraft:enchantment_glint_override"));
+    for (const id of ["recovery_compass", "clock"]) {
+        const legacy = (await Models.getMerged(itemKey(id)))! as ItemModel;
+        t.is(legacy.itemId, `minecraft:${id}`);
+        t.is(legacy.textures?.layer0, id === "clock" ? "custom:item/clock" : "custom:item/recovery");
+    }
+    const alias = (await Models.getMerged(new AssetKey("custom", "alias", "models", "item"), {
+        components: { lodestone_tracker: {} }
+    }))! as ItemModel;
+    t.is(alias.itemId, "custom:alias");
+    t.false(ItemGlint.enabled(alias.components, alias.itemId));
+    t.is(((await Models.getRaw(compass.key!))! as ItemModel).itemId, undefined);
+});
+
+test.serial("composite item identities and referenced defaults survive persistent cache reloads", async t => {
+    const source = new FixtureSource({
+        "items/compass": { model: { type: "composite", models: [reference("item/frame"),
+            { type: "composite", models: [reference("item/frame"), { type: "bundle/selected_item" }] }] } },
+        "items/clock": { model: reference("item/frame") },
+        "items/carrier": { model: { type: "bundle/selected_item" } },
+        "models/item/frame": { textures: { layer0: "item/frame" } }
+    });
+    AssetLoader.addSource("test-items", source);
+    const context = { components: { lodestone_tracker: {} }, itemReferences: { "bundle/selected_item": itemKey("clock") } };
+    const model = (await Models.getMerged(itemKey("compass"), context))! as ItemModel;
+    t.is(model.itemId, "minecraft:compass");
+    t.is(model.parts![0].itemId, "minecraft:compass");
+    t.is(model.parts![1].parts![0].itemId, "minecraft:compass");
+    t.is(model.parts![1].parts![1].itemId, "minecraft:clock");
+    t.deepEqual(model.parts![1].parts![1].components, {});
+    const calls = source.calls.length;
+    Caching.clear();
+    t.deepEqual(await Models.getMerged(itemKey("compass"), context), model);
+    t.is(source.calls.length, calls);
+
+    const key = itemKey("carrier");
+    const oldContext = Models["contextKey"](Models["snapshotContext"](key, context)).replace("|item-v6:", "|item-v5:");
+    const oldKey = new AssetKey(key.namespace, key.path, "items").serialize() + oldContext;
+    await Models["_persistentCache"]!.put(`item-v5:${AssetLoader.persistentKey(oldKey)}`, {
+        key: itemKey("frame"), components: {}, textures: { layer0: "stale" }
+    });
+    const referenced = (await Models.getMerged(key, context))! as ItemModel;
+    t.is(referenced.itemId, "minecraft:clock");
+    t.is(referenced.textures?.layer0, "item/frame");
+});
+
 test.serial("natural glint defaults belong to the seven vanilla item IDs and allow explicit suppression", async t => {
     const ids = ["enchanted_golden_apple", "experience_bottle", "written_book", "nether_star", "enchanted_book", "end_crystal", "debug_stick"];
     const source = new FixtureSource({
@@ -162,7 +239,7 @@ test.serial("composite children and selectors see item defaults while referenced
     const carrier = itemKey("carrier");
     const context = { itemReferences: { "bundle/selected_item": itemKey("enchanted_book") } };
     const oldKey = new AssetKey(carrier.namespace, carrier.path, "items").serialize()
-        + Models["contextKey"](Models["snapshotContext"](carrier, context)).replace("|item-v5:", "|item-v4:");
+        + Models["contextKey"](Models["snapshotContext"](carrier, context)).replace("|item-v6:", "|item-v4:");
     await Models["_persistentCache"]!.put(`item-v4:${AssetLoader.persistentKey(oldKey)}`, {
         key: itemKey("plain"), components: {}, textures: { layer0: "stale" }
     });
@@ -302,7 +379,7 @@ test.serial("item tint components survive snapshots, composites, legacy parents,
     const components = { custom_model_data: { colors: [0xff0000, 0x0000ff] }, dyed_color: 0x00ff00 };
     const context = { components, itemReferences: { "bundle/selected_item": itemKey("selected") } };
     const previousKey = new AssetKey(key.namespace, key.path, "items").serialize()
-        + Models["contextKey"](Models["snapshotContext"](key, context)).replace("|item-v5:", "|item-v3:");
+        + Models["contextKey"](Models["snapshotContext"](key, context)).replace("|item-v6:", "|item-v3:");
     await Models["_persistentCache"]!.put(`item-v3:${AssetLoader.persistentKey(previousKey)}`, { key, textures: { layer0: "stale" } });
     const pending = Models.getMerged(key, context);
     components.custom_model_data.colors[0] = 0xffff00;

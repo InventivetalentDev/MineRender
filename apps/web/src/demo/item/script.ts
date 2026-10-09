@@ -48,6 +48,15 @@ const app = new Playground<ItemSettings>({
         enchanted: { label: "Inventory slot: enchanted pickaxe", state: { item: "minecraft:diamond_pickaxe", preview: "slot",
             components: { "minecraft:enchantments": { "minecraft:efficiency": 3 } } }, view: guiView },
         nether_star: { label: "Inventory slot: nether star", state: { item: "minecraft:nether_star", preview: "slot" }, view: guiView },
+        compass: { label: "Compass (direction 0–1)", state: { item: "minecraft:compass", preview: "slot",
+            properties: { "minecraft:compass": 0 } }, view: guiView },
+        lodestone_compass: { label: "Lodestone compass (direction 0–1)", state: { item: "minecraft:compass", preview: "slot",
+            properties: { "minecraft:compass": 0 }, components: { "minecraft:lodestone_tracker": {} } }, view: guiView },
+        recovery_compass: { label: "Recovery compass (direction 0–1)", state: { item: "minecraft:recovery_compass", preview: "slot",
+            properties: { "minecraft:compass": 0 }, components: { "minecraft:enchantment_glint_override": true } }, view: guiView },
+        clock: { label: "Clock (time 0–1)", state: { item: "minecraft:clock", preview: "slot",
+            properties: { "minecraft:time": 0, "minecraft:context_dimension": "minecraft:overworld" },
+            components: { "minecraft:enchantment_glint_override": true } }, view: guiView },
         potion: { label: "Potion (tinted)", state: { item: "minecraft:potion", tints: { 0: 0xd557ef } } },
         dyed_leather: { label: "Dyed leather (blue component)", state: { item: "minecraft:leather_chestplate", display: DisplayPosition.GUI,
             components: { "minecraft:dyed_color": 0x3f76e4 } }, view: guiView },
@@ -250,7 +259,7 @@ glint.addEventListener("change", () => {
     glint.disabled = true;
     void app.update({ components: next });
 });
-note(stackGroup, "Auto follows the item's default glint and supplied enchantments. On and Off override the shimmer without changing enchantments.");
+note(stackGroup, "Auto follows the item and its components. On and Off override the shimmer without changing enchantments.");
 const damageFields = (["damage", "max_damage"] as const).map(name => {
     const control = input(stackGroup, name === "damage" ? "Damage (optional)" : "Maximum damage (optional)", "", "number");
     control.id = `item-${name.replace(/_/g, "-")}`;
@@ -535,7 +544,7 @@ async function load(ctx: DemoContext, state: ItemSettings): Promise<DemoContent>
         if (!isModelObject(child)) return;
         const item = child.originalModel as ItemModel;
         const special = item.special?.type.replace(/^minecraft:/, "");
-        if (!item.parts && (!special || special === "shield" || special === "trident")) hasGlint ||= ItemGlint.enabled(item.components);
+        if (!item.parts && (!special || special === "shield" || special === "trident")) hasGlint ||= ItemGlint.enabled(item.components, item.itemId);
     });
     return {
         object: visual,
