@@ -21,6 +21,7 @@ import { SpecialItems } from "../SpecialItems";
 import { EntityObject } from "../../entity/scene/EntityObject";
 import { GuiLight } from "../GuiLight";
 import { ItemTints } from "../ItemTints";
+import { ItemGlint } from "../ItemGlint";
 
 
 const p = prefix("ModelObject");
@@ -40,6 +41,8 @@ export class ModelObject extends SceneObject {
     private unsubscribeAtlas?: () => void;
     private readonly specialMaterials = new Map<Material, Material>();
     private readonly geometries = new Set<BufferGeometry>();
+    private readonly hasGlint: boolean;
+    private glint?: ItemGlint;
 
     public blockParent: Maybe<BlockObject>;
 
@@ -48,7 +51,9 @@ export class ModelObject extends SceneObject {
     constructor(readonly originalModel: Model, options?: Partial<ModelObjectOptions>) {
         super(options);
         this.options = merge({}, ModelObject.DEFAULT_OPTIONS, options ?? {});
-        if ((originalModel as ItemModel).special || (originalModel as ItemModel).parts) this.options.instanceMeshes = false;
+        const item = originalModel as ItemModel;
+        this.hasGlint = !item.special && !item.parts && ItemGlint.enabled(item.components);
+        if (item.special || item.parts || this.hasGlint) this.options.instanceMeshes = false;
         if (this.options.tints) this.options.tints = { ...this.options.tints };
         this.addEventListener("added", () => this.updateAnimationSubscription());
         this.addEventListener("removed", () => this.updateAnimationSubscription());
@@ -118,10 +123,16 @@ export class ModelObject extends SceneObject {
             this.notifyDirty();
             return;
         }
-        // load textures first so we have the updated UV coordinates from the atlas
-        await this.loadTextures();
-        this.createMeshes();
-        this.applyTextures();
+        try {
+            // Load the atlas before creating geometry so every pass uses the mapped UVs.
+            await this.loadTextures();
+            this.createMeshes();
+            this.applyTextures();
+            if (this.hasGlint && this.atlasTexture) this.glint = await ItemGlint.create(this, this.atlasTexture, this.originalModel.key?.root);
+        } catch (error) {
+            this.disposeAndRemoveAllChildren();
+            throw error;
+        }
     }
 
     public get textureAtlas(): Maybe<TextureAtlas> {
@@ -166,6 +177,7 @@ export class ModelObject extends SceneObject {
                         UVMapper.lockUvs(elGeo, el.faces, this.atlas!, new Euler(...this.options.uvLockRotation));
                     }
                     UVMapper.setAtlasUvBounds(elGeo, el.faces, this.atlas!);
+                    if (this.hasGlint) ItemGlint.mapUvs(elGeo, el.faces, this.atlas!);
                     if (this.options.tints) {
                         const colors = new Float32Array(elGeo.getAttribute("position").count * 3).fill(1);
                         for (const [faceIndex, faceName] of CUBE_FACES.entries()) {
@@ -306,6 +318,8 @@ export class ModelObject extends SceneObject {
     }
 
     public disposeAndRemoveAllChildren(): void {
+        this.glint?.dispose();
+        this.glint = undefined;
         this.unsubscribeAtlas?.();
         this.unsubscribeAtlas = undefined;
         this.atlasTexture?.dispose();

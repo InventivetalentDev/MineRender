@@ -32,7 +32,7 @@ export interface ItemModel extends Model {
     gui_light?: GuiLight;
     special?: SpecialItemRenderer;
     tints?: ItemTintSource[];
-    /** Stack-component snapshot with namespaced IDs, used by tint sources and special renderers. */
+    /** Stack-component snapshot with namespaced IDs, used by tint sources, glint, and special renderers. */
     components?: Record<string, unknown>;
     /** Ordered composite children, each with its own textures, display pose, and tint sources. */
     parts?: ItemModel[];
