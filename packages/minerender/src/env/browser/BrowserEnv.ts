@@ -40,6 +40,17 @@ export class BrowserEnv implements EnvProvider {
         }));
     }
 
+    createWorker(name: "section"): Worker | undefined {
+        if (typeof Worker === "undefined") return undefined;
+        let url: URL;
+        try {
+            url = new URL(`./${name}.worker.mjs`, import.meta.url);
+        } catch {
+            return undefined;
+        }
+        return new Worker(url, { type: "module" });
+    }
+
 }
 
 /** Installs the browser provider. The browser package entry calls this automatically. */
