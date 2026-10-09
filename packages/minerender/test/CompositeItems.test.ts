@@ -131,7 +131,8 @@ test.serial("composite GUI layers retain child order and bounds and dispose each
     sharedEntityMaterial.map!.addEventListener("dispose", () => sharedDisposals++);
     const gui = await scene.addGui([
         { name: "background", texture: "test:gui/background", position: [10, 20], size: [32, 16] },
-        { name: "composite", item: "test:item/composite", position: [10, 20], size: [32, 16], tints: { 0: 0x00ff00 } },
+        { name: "composite", item: "test:item/composite", position: [10, 20], size: [32, 16], tints: { 0: 0x00ff00 },
+            context: { components: { damage: 25, max_damage: 100 } } },
         { name: "overlay", texture: "test:gui/overlay", position: [10, 20], size: [32, 16] }
     ]);
     const item = gui.getGroupByName("composite")! as ModelObject;
@@ -139,6 +140,11 @@ test.serial("composite GUI layers retain child order and bounds and dispose each
     const background = gui.getMeshByName("background")!, overlay = gui.getMeshByName("overlay")!;
     t.true(background.renderOrder < drawn[0].renderOrder && drawn[2].renderOrder < overlay.renderOrder);
     t.true(drawn[0].renderOrder < drawn[1].renderOrder && drawn[1].renderOrder < drawn[2].renderOrder);
+    const bar = gui.getMeshByName("composite:durability-background")!, fill = gui.getMeshByName("composite:durability-fill")!;
+    t.true(drawn[2].renderOrder < bar.renderOrder && bar.renderOrder < fill.renderOrder && fill.renderOrder < overlay.renderOrder);
+    gui.updateMatrixWorld(true);
+    t.true(new Box3().setFromObject(item).max.z < new Box3().setFromObject(bar).min.z);
+    t.true(new Box3().setFromObject(fill).max.z < overlay.position.z);
     t.deepEqual([gui.bounds.min.toArray(), gui.bounds.max.toArray()], [[-6, 20], [54, 36]]);
     for (const mesh of drawn.slice(0, 2)) {
         const color = mesh.geometry.getAttribute("color");

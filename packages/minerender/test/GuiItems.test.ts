@@ -1,5 +1,5 @@
 import test, { ExecutionContext } from "ava";
-import { Box3, Matrix4, MeshBasicMaterial, ShaderMaterial } from "three";
+import { Box3, Color, Matrix4, Mesh, MeshBasicMaterial, ShaderMaterial } from "three";
 import { AssetKey } from "../src/assets/AssetKey";
 import { Entities } from "../src/assets/Entities";
 import { Models } from "../src/assets/Models";
@@ -17,6 +17,8 @@ import { UVMapper } from "../src/UVMapper";
 import type { CanvasImage } from "../src/canvas/CanvasImage";
 import type { ExtractableImageData } from "../src/ExtractableImageData";
 import type { ItemModel, TextureAsset } from "../src/model/Model";
+import { Fonts, type BitmapGlyph } from "../src/assets/Fonts";
+import type { CompatCanvas } from "../src/canvas/CanvasCompat";
 
 function fixture(t: ExecutionContext) {
     const originals = { merged: Models.getMerged, atlas: UVMapper.getAtlas, image: Materials.getImage,
@@ -55,6 +57,120 @@ function fixture(t: ExecutionContext) {
     });
     return { scene, model, atlas, requests, imageDisposals: () => imageDisposals };
 }
+
+function countFont(t: ExecutionContext) {
+    const original = Fonts.get;
+    const image = { width: 64, height: 16 } as CompatCanvas;
+    const glyphs = new Map<string, BitmapGlyph>([..."0123456789"].map((character, index) => [character,
+        { image, x: index * 6, y: 0, width: 5, height: 8, scale: 1, ascent: 7, advance: 6.25 }]));
+    const requests: unknown[] = [];
+    Fonts.get = async key => { requests.push(key); return { glyphs }; };
+    t.teardown(() => { Fonts.get = original; });
+    return { image, requests };
+}
+
+test.serial("GUI count labels and durability bars scale with slots and draw above models before later layers", async t => {
+    const { scene } = fixture(t);
+    const { image, requests } = countFont(t);
+    const layers = [
+        { name: "background", texture: "test:gui/background", position: [10, 20] as [number, number], size: [32, 24] as [number, number] },
+        { name: "item", item: "test:item/front", position: [10, 20] as [number, number], size: [32, 24] as [number, number],
+            context: { count: 64, components: { damage: 50, max_damage: 100 } } },
+        { name: "later", texture: "test:gui/overlay", position: [10, 20] as [number, number] }
+    ];
+    const before = JSON.stringify(layers);
+    const gui = await scene.addGui(layers);
+    gui.updateMatrixWorld(true);
+    const item = gui.getGroupByName("item")!, overlays = gui.getGroupByName("item:overlays")!;
+    const count = gui.getGroupByName("item:count")!;
+    const background = gui.getMeshByName("item:durability-background")!, fill = gui.getMeshByName("item:durability-fill")!;
+    const later = gui.getMeshByName("later")!, text = count.children as Mesh[];
+    t.deepEqual(overlays.scale.toArray(), [2, 1.5, 1]);
+    t.deepEqual(count.position.toArray(), [4, -9, 0]);
+    const boxes = [background, fill].map(mesh => new Box3().setFromObject(mesh));
+    t.deepEqual(boxes.map(box => [box.min.x, box.min.y, box.max.x, box.max.y]), [[14, -42.5, 40, -39.5], [14, -41, 28, -39.5]]);
+    const colors = fill.geometry.getAttribute("color");
+    t.deepEqual([colors.getX(0), colors.getY(0), colors.getZ(0)], [1, 1, 0]);
+    const ordered = [gui.getMeshByName("item")!, background, fill, ...text, later];
+    t.true(ordered.every((mesh, index) => index === 0 || mesh.renderOrder > ordered[index - 1].renderOrder));
+    t.true(new Box3().setFromObject(item).max.z < boxes[0].min.z);
+    t.true(boxes[0].max.z < later.position.z);
+    t.is(later.position.z, 0);
+    const textMaterial = text[0].material as MeshBasicMaterial, barMaterial = background.material as MeshBasicMaterial;
+    t.is(text[1].material, textMaterial);
+    t.is(fill.material, barMaterial);
+    t.is(textMaterial.map!.image, image);
+    t.true([textMaterial, barMaterial].every(material => material.transparent && material.vertexColors && !material.depthWrite && !material.toneMapped));
+    t.deepEqual(requests, [undefined]);
+    t.is(JSON.stringify(layers), before);
+    let geometries = 0, materials = 0, textures = 0;
+    for (const mesh of [background, fill, ...text]) mesh.geometry.addEventListener("dispose", () => geometries++);
+    for (const material of [textMaterial, barMaterial]) material.addEventListener("dispose", () => materials++);
+    textMaterial.map!.addEventListener("dispose", () => textures++);
+    gui.dispose(); gui.dispose();
+    t.deepEqual([geometries, materials, textures], [4, 2, 1]);
+});
+
+test.serial("GUI durability uses supplied component presence, clamped widths, and vanilla colors without loading fonts", async t => {
+    const { scene, requests } = fixture(t);
+    const font = countFont(t);
+    for (const [components, expected] of [
+        [{ damage: 25, max_damage: 100 }, [10, 0x7fff00]],
+        [{ "minecraft:damage": 75, "minecraft:max_damage": 100 }, [3, 0xff7f00]],
+        [{ damage: 13, max_damage: 15 }, [2, 0xff4300]],
+        [{ damage: 8388608, max_damage: 16777217 }, [7, 0xffff00]],
+        [{ damage: 100, max_damage: 100 }, [0, 0]], [{ damage: 101, max_damage: 100 }, [0, 0]],
+        [{ damage: 5e299, max_damage: 1e300 }, [7, 0xffff00]],
+        [{ damage: -1, max_damage: 100 }, undefined], [{ damage: 0, max_damage: 100 }, undefined],
+        [{ damage: 50 }, undefined], [{ max_damage: 100 }, undefined], [{ damage: 50, max_damage: 0 }, undefined],
+        [{ damage: 50, max_damage: 100, unbreakable: {} }, undefined],
+        [{ damage: 50, max_damage: 100, "minecraft:unbreakable": false }, undefined]
+    ] as const) {
+        const gui = await scene.addGui([{ name: "item", item: "test:item/front", context: { components } }]);
+        const background = gui.getMeshByName("item:durability-background"), fill = gui.getMeshByName("item:durability-fill");
+        t.is(!!background, expected !== undefined);
+        t.is(!!fill, !!expected?.[0]);
+        if (fill && expected) {
+            fill.geometry.computeBoundingBox();
+            t.is(fill.geometry.boundingBox!.max.x - fill.geometry.boundingBox!.min.x, expected[0]);
+            const color = fill.geometry.getAttribute("color"), rgb = new Color(expected[1]).toArray();
+            t.true([color.getX(0), color.getY(0), color.getZ(0)].every((value, index) => Math.abs(value - rgb[index]) < 1e-6));
+        }
+        t.is(gui.getGroupByName("item:count"), undefined);
+    }
+    t.deepEqual(font.requests, []);
+    const before = requests.length;
+    const empty = await scene.addGui([{ name: "empty", item: "test:item/missing", position: [10, 20], size: [32, 24], context: { count: 0 } }]);
+    t.deepEqual([empty.bounds.min.toArray(), empty.bounds.max.toArray()], [[10, 20], [42, 44]]);
+    t.deepEqual(empty.getGroupByName("empty")!.position.toArray(), [26, -32, 0]);
+    t.is(empty.getGroupByName("empty")!.children.length, 0);
+    t.is(requests.length, before);
+    for (const count of [-1, 0.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1, null]) {
+        await t.throwsAsync(scene.addGui([{ item: "test:item/front", context: { count: count as number } }]), { message: /nonnegative safe integer/ });
+    }
+    for (const components of [{ damage: 1, max_damage: -1 }, { damage: "bad", max_damage: 100 }, { damage: 1, max_damage: null },
+        { damage: 1, "minecraft:damage": 2, max_damage: 100 }]) {
+        await t.throwsAsync(scene.addGui([{ item: "test:item/front", context: { components } }]));
+    }
+    t.is(requests.length, before);
+});
+
+test.serial("GUI overlays snapshot stack inputs before loading and include wide count labels in local bounds", async t => {
+    const { scene, model } = fixture(t);
+    countFont(t);
+    model.display = {};
+    const context = { count: 1000, components: { damage: 50, max_damage: 100 } };
+    Models.getMerged = async () => { context.count = 1; context.components.damage = 0; return model; };
+    const gui = new GuiObject([{ name: "item", item: "test:item/front", position: [10, 20], size: [32, 24], context }]);
+    gui.position.set(200, 100, 30);
+    gui.rotation.z = Math.PI / 2;
+    gui.scale.setScalar(2);
+    scene.add(gui);
+    await gui.init();
+    t.deepEqual(gui.getGroupByName("item:count")!.position.toArray(), [-8, -9, 0]);
+    t.truthy(gui.getMeshByName("item:durability-fill"));
+    t.deepEqual([gui.bounds.min.toArray(), gui.bounds.max.toArray()].map(point => point.map(value => Math.round(value * 1e6) / 1e6)), [[-6, 20], [43.5, 47]]);
+});
 
 test.serial("GUI items preserve their display pose, tint, and source key within ordered pixel layers", async t => {
     const { scene, model, requests } = fixture(t);

@@ -142,7 +142,7 @@ export class GuiHelper {
         return [origin[0] + column * offset[0], origin[1] + row * offset[1]];
     }
 
-    /** Creates crafting-table layers for ingredients and the result; stack counts are not drawn. */
+    /** Creates crafting-table layers for ingredients and the result, including its stack count. */
     public static recipe(recipe: GuiRecipe, options: GuiRecipeOptions = {}): GuiLayer[] {
         const layout = GUI_CONTAINER_LAYOUTS.crafting_table;
         const layers: GuiLayer[] = [
@@ -197,7 +197,7 @@ export class GuiHelper {
                 throw new Error(`Unsupported crafting recipe type: ${(recipe as { type: string }).type}`);
         }
         layers.push({ name: "result", item: itemKey("id" in recipe.result ? recipe.result.id : recipe.result.item),
-            position: [...layout.resultPosition] });
+            position: [...layout.resultPosition], ...(recipe.result.count !== undefined && { context: { count: recipe.result.count } }) });
         return layers;
     }
 

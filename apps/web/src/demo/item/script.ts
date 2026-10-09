@@ -1,10 +1,10 @@
-import { AssetKey, BannerPatterns, DISPLAY_POSITIONS, DisplayPosition, ModelMerger, Models, isInstanceReference, type ItemModelContext } from "minerender";
-import { Box3 } from "three";
+import { AssetKey, BannerPatterns, DISPLAY_POSITIONS, DisplayPosition, ModelMerger, Models, isGuiObject, isInstanceReference, type GuiObject, type ItemModelContext } from "minerender";
+import { Box3, OrthographicCamera, PerspectiveCamera, Vector2 } from "three";
 import { Playground, type DemoContext, type DemoContent } from "../../playground/Playground";
 import { button, field, group, input, note, section, select, suggestions } from "../../playground/controls";
 import { assetKey, loadModel, modelControls, modelDefaults, modelOptions, selectModel, type ModelSettings } from "../../playground/models";
-import { CUSTOM_MODEL_DATA_ITEM, customModelDataCode, loadCustomModelData } from "./customModelData";
-import { SHULKER_DIRECTIONS, loadShulkerPreview, shulkerPreviewCode, type ShulkerDirection } from "./shulkerPreview";
+import { CUSTOM_MODEL_DATA_ITEM, customModelDataCode, loadCustomModelData, withCustomModelData } from "./customModelData";
+import { SHULKER_DIRECTIONS, loadShulkerPreview, shulkerPreviewCode, withShulkerPreview, type ShulkerDirection } from "./shulkerPreview";
 import { bannerControls, hasBannerControls } from "./bannerControls";
 import type { ViewSettings } from "../../playground/config";
 
@@ -12,6 +12,7 @@ interface ItemSettings extends ModelSettings {
     /** An item ID (`minecraft:apple`) or a model path (`minecraft:item/apple`, `minecraft:block/stone`). */
     item: string;
     display: DisplayPosition | "";
+    preview: "model" | "slot";
     properties: Record<string, boolean | string | number>;
     itemReferences: Record<string, string>;
     components: Record<string, unknown>;
@@ -20,7 +21,7 @@ interface ItemSettings extends ModelSettings {
     shulkerOrientation: ShulkerDirection;
 }
 
-const defaults: ItemSettings = { ...modelDefaults, item: "minecraft:iron_sword", display: "", properties: {}, itemReferences: {}, components: {}, count: 1,
+const defaults: ItemSettings = { ...modelDefaults, item: "minecraft:iron_sword", display: "", preview: "model", properties: {}, itemReferences: {}, components: {}, count: 1,
     shulkerOpenness: 0, shulkerOrientation: "up" };
 const shulkerItems: Array<[string, string]> = [
     ["minecraft:shulker_box", "Undyed"],
@@ -38,6 +39,9 @@ const app = new Playground<ItemSettings>({
         sword: { label: "Iron sword (flat item)", state: {} },
         sapling: { label: "Oak sapling (cutout)", state: { item: "minecraft:oak_sapling" } },
         apple: { label: "Apple in GUI pose", state: { item: "minecraft:apple", display: DisplayPosition.GUI } },
+        stack: { label: "Inventory slot: 64 apples", state: { item: "minecraft:apple", preview: "slot", count: 64 }, view: guiView },
+        damaged: { label: "Inventory slot: damaged pickaxe", state: { item: "minecraft:diamond_pickaxe", preview: "slot",
+            components: { "minecraft:damage": 781, "minecraft:max_damage": 1561 } }, view: guiView },
         potion: { label: "Potion (tinted)", state: { item: "minecraft:potion", tints: { 0: 0xd557ef } } },
         dyed_leather: { label: "Dyed leather (blue component)", state: { item: "minecraft:leather_chestplate", display: DisplayPosition.GUI,
             components: { "minecraft:dyed_color": 0x3f76e4 } }, view: guiView },
@@ -79,11 +83,16 @@ const app = new Playground<ItemSettings>({
         const key = modelKey(state.item);
         const context = itemContext(state);
         const references = Object.entries(context.itemReferences ?? {}).map(([id, key]) => `${JSON.stringify(id)}: ${keyCode(key)}`);
-        const contextCode = `{ displayContext: ${JSON.stringify(context.displayContext)}`
-            + `, count: ${context.count}`
+        const contextCode = `{ ${state.preview === "slot" ? "" : `displayContext: ${JSON.stringify(context.displayContext)}, `}count: ${context.count}`
             + (Object.keys(context.components ?? {}).length ? `, components: ${JSON.stringify(context.components)}` : "")
             + (Object.keys(context.properties ?? {}).length ? `, properties: ${JSON.stringify(context.properties)}` : "")
             + (references.length ? `, itemReferences: { ${references.join(", ")} }` : "") + " }";
+        if (state.preview === "slot") {
+            const load = `renderer.scene.addGui([{ name: "item", item: ${keyCode(key)}, position: [-8, -8], context: ${contextCode}, tints: ${JSON.stringify(state.tints)} }])`;
+            if (state.count === 0) return `const gui = await ${load};\n`;
+            return state.item === CUSTOM_MODEL_DATA_ITEM ? customModelDataCode(load, "gui")
+                : hasShulkerPreview(state) ? shulkerPreviewCode(key, state.shulkerOpenness, state.shulkerOrientation, load, "gui") : `const gui = await ${load};\n`;
+        }
         const load = isModelPath(state.item) ? `MineRender.ModelMerger.mergeWithParents(await MineRender.Models.getRaw(${keyCode(key)}))` : `MineRender.Models.getMerged(${keyCode(key)}, ${contextCode})`;
         const modelCode = state.item === CUSTOM_MODEL_DATA_ITEM ? customModelDataCode(load)
             : hasShulkerPreview(state) ? shulkerPreviewCode(key, state.shulkerOpenness, state.shulkerOrientation, load) : `const model = await ${load};\n`;
@@ -98,6 +107,13 @@ itemInput.id = "item-input";
 itemInput.addEventListener("change", () => void app.update({ item: itemInput.value.trim() }));
 button(itemGroup, "Load", () => void app.update({ item: itemInput.value.trim() }));
 note(itemGroup, "minecraft:apple loads the item definition; minecraft:item/apple or minecraft:block/stone loads that model file.");
+const preview = select(itemGroup, "Preview", [["model", "Model"], ["slot", "Inventory slot"]], app.state.preview);
+preview.id = "item-preview";
+preview.addEventListener("change", async () => {
+    const previous = app.renderer;
+    await app.update({ preview: preview.value as ItemSettings["preview"] });
+    if (app.renderer !== previous) app.fit();
+});
 const display = select(itemGroup, "Display pose", [["", "None"], ...DISPLAY_POSITIONS], app.state.display);
 display.id = "item-display";
 display.addEventListener("change", () => void app.update({ display: display.value as ItemSettings["display"] }));
@@ -126,6 +142,34 @@ const count = input(stackGroup, "Count", app.state.count, "number");
 count.id = "item-count";
 Object.assign(count, { min: "0", max: String(Number.MAX_SAFE_INTEGER), step: "1" });
 count.addEventListener("change", () => void app.update({ count: count.valueAsNumber }));
+let stackState: ItemSettings | undefined;
+const damageFields = (["damage", "max_damage"] as const).map(name => {
+    const control = input(stackGroup, name === "damage" ? "Damage (optional)" : "Maximum damage (optional)", "", "number");
+    control.id = `item-${name.replace(/_/g, "-")}`;
+    control.placeholder = "Not supplied";
+    Object.assign(control, { min: name === "damage" ? "0" : "1", max: "2147483647", step: "1" });
+    control.addEventListener("change", () => {
+        if (control.disabled || !stackState || app.state.item !== stackState.item
+            || JSON.stringify(app.state.components) !== JSON.stringify(stackState.components)) return;
+        const current = app.state.components;
+        if (!current || typeof current !== "object" || Array.isArray(current)) return;
+        const next = structuredClone(current);
+        const id = Object.prototype.hasOwnProperty.call(next, name) ? name : `minecraft:${name}`;
+        if (control.value === "") delete next[id];
+        else {
+            const value = control.valueAsNumber;
+            if (!Number.isInteger(value) || value < Number(control.min) || value > Number(control.max)) {
+                app.report(`${name === "damage" ? "Damage" : "Maximum damage"} must be a whole number from ${control.min} to ${control.max}.`, true);
+                return;
+            }
+            next[id] = value;
+        }
+        damageFields.forEach(({ control }) => { control.disabled = true; });
+        void app.update({ components: next });
+    });
+    return { name, control };
+});
+const slotNote = note(stackGroup, "Count 0 leaves the slot empty. A durability bar needs both damage values and no unbreakable component. Blank fields remove damage values.");
 const componentColors = document.createElement("div");
 stackGroup.append(componentColors);
 const components = field(stackGroup, "Components (JSON)", document.createElement("textarea"));
@@ -168,6 +212,7 @@ button(addReference, "Add reference", () => {
     } catch (error) { app.report((error as Error).message, true); }
 });
 const syncModelControls = modelControls(app);
+const modelOptionsGroup = Array.from(app.controls.querySelectorAll("fieldset")).find(group => group.querySelector("legend")?.textContent === "Model options")!;
 syncModelControls();
 
 function isModelPath(item: string): boolean {
@@ -258,7 +303,14 @@ function syncComponentColors(state: ItemSettings): void {
 }
 
 function syncStateControls(state: ItemSettings, items: string[]): void {
+    stackState = state;
     count.value = String(state.count);
+    for (const { name, control } of damageFields) {
+        const value = state.components[name] ?? state.components[`minecraft:${name}`];
+        control.value = value === undefined ? "" : String(value);
+        control.disabled = false;
+    }
+    slotNote.hidden = state.preview !== "slot";
     syncComponentColors(state);
     components.value = JSON.stringify(state.components, null, 2);
     propertyEntries.replaceChildren();
@@ -299,7 +351,7 @@ function syncStateControls(state: ItemSettings, items: string[]): void {
 
 function itemContext(state: ItemSettings): ItemModelContext {
     if (!Number.isSafeInteger(state.count) || state.count < 0) throw new Error("Item count must be a nonnegative safe integer.");
-    const context: ItemModelContext = { displayContext: state.display || "none", properties: {}, itemReferences: {}, components: {}, count: state.count };
+    const context: ItemModelContext = { displayContext: state.preview === "slot" ? DisplayPosition.GUI : state.display || "none", properties: {}, itemReferences: {}, components: {}, count: state.count };
     for (const entries of [state.properties, state.itemReferences, state.components]) {
         if (!entries || typeof entries !== "object" || Array.isArray(entries)) throw new Error("Item properties, references, and components must be objects keyed by ID.");
         const ids = Object.keys(entries).map(stateId);
@@ -317,25 +369,36 @@ function itemContext(state: ItemSettings): ItemModelContext {
 }
 
 async function load(ctx: DemoContext, state: ItemSettings): Promise<DemoContent> {
+    if (state.preview !== "model" && state.preview !== "slot") throw new Error("Choose Model or Inventory slot preview.");
     if (state.display !== "" && !DISPLAY_POSITIONS.includes(state.display)) throw new Error("Choose a supported display pose.");
     const key = modelKey(state.item);
     const direct = isModelPath(state.item);
+    if (state.preview === "slot" && direct) throw new Error("Inventory slots need an item ID, such as minecraft:apple. Use Model preview for model paths.");
     const context = itemContext(state);
     const previewShulker = hasShulkerPreview(state);
-    const [loaded, list, patterns] = await Promise.all([direct ? Models.getRaw(key) : state.item === CUSTOM_MODEL_DATA_ITEM
+    const loadSlot = () => ctx.renderer.scene.addGui([{ name: "item", item: key, position: [-8, -8], context, tints: modelOptions(state).tints }]);
+    const pending = state.preview === "slot" ? state.count === 0 ? loadSlot() : state.item === CUSTOM_MODEL_DATA_ITEM
+        ? withCustomModelData(loadSlot) : previewShulker ? withShulkerPreview(key, state.shulkerOpenness, state.shulkerOrientation, loadSlot) : loadSlot()
+        : direct ? Models.getRaw(key) : state.item === CUSTOM_MODEL_DATA_ITEM
         ? loadCustomModelData(key, context) : previewShulker ? loadShulkerPreview(key, context, state.shulkerOpenness, state.shulkerOrientation)
-            : Models.getMerged(key, context), Models.getItemList().catch(() => []), hasBannerControls(state) ? BannerPatterns.getList().catch(() => []) : []]);
-    const model = direct && loaded ? await ModelMerger.mergeWithParents(loaded) : loaded;
+            : Models.getMerged(key, context);
+    const [loaded, list, patterns] = await Promise.all([pending, Models.getItemList().catch(() => []), hasBannerControls(state) ? BannerPatterns.getList().catch(() => []) : []]);
+    if (loaded && isGuiObject(loaded)) ctx.onCleanup(() => { loaded.removeFromScene(); loaded.dispose(); });
+    const model = direct && loaded && !isGuiObject(loaded) ? await ModelMerger.mergeWithParents(loaded) : loaded;
     if (!model) throw new Error(`Model not found: ${state.item}`);
-    const object = await loadModel(ctx, model, { ...modelOptions(state), displayPosition: state.display || undefined });
+    const object = isGuiObject(model) ? model : await loadModel(ctx, model, { ...modelOptions(state), displayPosition: state.display || undefined });
     const visual = isInstanceReference(object) ? object.instanceable : object;
     return {
         object: visual,
         bounds: new Box3().setFromObject(visual),
+        fit: isGuiObject(object) ? () => fitSlot(ctx, object) : undefined,
         activate() {
             itemInput.value = state.item;
             suggestions(itemInput, list);
-            display.value = state.display;
+            preview.value = state.preview;
+            display.value = state.preview === "slot" ? DisplayPosition.GUI : state.display;
+            display.disabled = state.preview === "slot";
+            modelOptionsGroup.disabled = state.preview === "slot";
             shulkerGroup.hidden = !shulkerItem(state.item);
             shulkerColor.value = shulkerItem(state.item) ?? "";
             shulkerOpenness.value = String(state.shulkerOpenness);
@@ -344,10 +407,31 @@ async function load(ctx: DemoContext, state: ItemSettings): Promise<DemoContent>
             syncBannerControls(state, patterns);
             syncStateControls(state, list);
             syncModelControls();
-            selectModel(app, object);
+            if (isGuiObject(object)) app.inspector?.selectObject(object);
+            else selectModel(app, object);
             Object.assign(window, { item: object });
         }
     };
+}
+
+function fitSlot(ctx: DemoContext, gui: GuiObject): void {
+    const center = gui.bounds.getCenter(new Vector2());
+    const size = gui.bounds.getSize(new Vector2());
+    const camera = ctx.renderer.camera;
+    const canvas = ctx.renderer.renderer.domElement;
+    let distance = 100;
+    if (camera instanceof OrthographicCamera) camera.zoom = Math.min(canvas.clientWidth / (size.x + 16), canvas.clientHeight / (size.y + 16));
+    else if (camera instanceof PerspectiveCamera) {
+        const tangent = Math.tan(camera.fov * Math.PI / 360);
+        distance = Math.max((size.y + 16) / (2 * tangent), (size.x + 16) / (2 * tangent * camera.aspect));
+        camera.zoom = 1;
+    }
+    camera.position.set(center.x, -center.y, distance);
+    camera.lookAt(center.x, -center.y, 0);
+    if (camera instanceof OrthographicCamera || camera instanceof PerspectiveCamera) camera.updateProjectionMatrix();
+    ctx.renderer.controls?.target.set(center.x, -center.y, 0);
+    ctx.renderer.controls?.update();
+    ctx.renderer.dirty = true;
 }
 
 Object.assign(window, { setItem: (item: string, display = app.state.display) => app.update({ item, display }) });
