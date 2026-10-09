@@ -2,7 +2,9 @@ import { Euler, Matrix4, MeshBasicMaterial } from "three";
 import { AssetKey } from "../assets/AssetKey";
 import { Entities } from "../assets/Entities";
 import { BannerPatterns, DYE_COLORS } from "../assets/BannerPatterns";
+import { DecoratedPots } from "../assets/DecoratedPots";
 import { ModelTextures } from "../assets/ModelTextures";
+import { CubeFace } from "../CubeFace";
 import type { EntityLayer, EntityModel, EntityModelLayer } from "../entity/EntityModel";
 import type { SpecialItemRenderer, TripleArray } from "./Model";
 
@@ -37,6 +39,32 @@ export class SpecialItems {
             return { model, transform, rotations };
         };
         switch (special.type) {
+            case "minecraft:decorated_pot":
+            case "decorated_pot": {
+                const sideTextures = DecoratedPots.getSideTextures(components["minecraft:pot_decorations"], root);
+                const baseTexture = texture("decorated_pot_base", "decorated_pot");
+                const [base, sides] = await Promise.all([
+                    load("decorated_pot_base", baseTexture, new Matrix4()),
+                    load("decorated_pot_sides", texture("decorated_pot_side", "decorated_pot"), new Matrix4())
+                ]);
+                const layers: Record<string, EntityLayer> = {
+                    base: { key: base.model.key, texture: baseTexture, layer: base.model.layer, render: "solid" }
+                };
+                for (const side of ["front", "back", "left", "right"] as const) {
+                    const part = sides.model.layer.root.children[side];
+                    if (!part) throw new Error(`Decorated-pot entity model is missing its ${side} side`);
+                    layers[side] = { key: sides.model.key, texture: sideTextures[side], render: "solid", layer: {
+                        ...sides.model.layer, root: { ...sides.model.layer.root, cubes: [], children: {
+                            [side]: { ...part, cubes: part.cubes.map(cube => ({ ...cube, faces: [CubeFace.NORTH] })) }
+                        } }
+                    } };
+                }
+                await Promise.all([...new Map(Object.values(layers).map(layer => [layer.texture!.serialize(), layer.texture!])).values()].map(async key => {
+                    if (!await ModelTextures.preload(key)) throw new Error(`Missing special item texture ${key.toNamespacedString()}`);
+                }));
+                base.model = { ...base.model, ...layers.base, layers };
+                return [base];
+            }
             case "minecraft:trident":
             case "trident":
             case "minecraft:conduit":

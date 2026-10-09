@@ -1,5 +1,6 @@
 import type { AssetKey, BasicAssetKey } from "../assets/AssetKey";
 import type { MinecraftAsset } from "../MinecraftAsset";
+import type { CubeFace } from "../CubeFace";
 
 /** One selected draw, combining geometry, texture, and material settings. */
 export interface EntityLayer {
@@ -87,4 +88,6 @@ export interface EntityModelCube {
     uv: [number, number];
     grow?: [number, number, number];
     mirror?: boolean;
+    /** Cube faces to draw; omitted means all six faces. */
+    faces?: CubeFace[];
 }

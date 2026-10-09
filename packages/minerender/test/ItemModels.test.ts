@@ -418,6 +418,8 @@ test.serial("special items retain their renderer and inherit the base pose throu
         { type: "minecraft:trident" },
         { type: "conduit" },
         { type: "minecraft:conduit" },
+        { type: "decorated_pot" },
+        { type: "minecraft:decorated_pot" },
         { type: "minecraft:head", kind: "dragon", texture: "pack:dragon", animation: 0.25 }
     ];
     const display = { gui: { rotation: [30, 45, 0], scale: [0.625, 0.625, 0.625] } };
@@ -542,6 +544,33 @@ test.serial("empty composites remain empty and a missing child rejects the compl
     assets["models/item/missing"] = { textures: { layer0: "item/recovered" } };
     const recovered = (await Models.getMerged(itemKey("broken")))! as ItemModel;
     t.deepEqual(recovered.parts!.map(part => part.textures?.layer0), ["item/first", "item/recovered"]);
+});
+
+test.serial("decorated-pot components survive composite snapshots and persistent caches without leaking into referenced items", async t => {
+    const pot = { type: "special", base: "item/pot", model: { type: "decorated_pot" } };
+    const source = new FixtureSource({
+        "items/pot": { model: pot },
+        "items/composite_pot": { model: { type: "composite", models: [pot, { type: "bundle/selected_item" }] } },
+        "models/item/pot": { parent: "builtin/entity" }
+    });
+    AssetLoader.addSource("test-items", source);
+    const decorations = ["archer_pottery_sherd", "brick", "prize_pottery_sherd", "skull_pottery_sherd"];
+    const context = { components: { pot_decorations: decorations }, itemReferences: { "bundle/selected_item": itemKey("pot") } };
+    const pending = Models.getMerged(itemKey("composite_pot"), context);
+    decorations[0] = "flow_pottery_sherd";
+    const first = (await pending)! as ItemModel;
+    t.deepEqual(first.parts![0].components, { "minecraft:pot_decorations": ["archer_pottery_sherd", "brick", "prize_pottery_sherd", "skull_pottery_sherd"] });
+    t.deepEqual(first.parts![1].special, { type: "decorated_pot" });
+    t.deepEqual(first.parts![1].components, {});
+    const second = (await Models.getMerged(itemKey("composite_pot"), context))! as ItemModel;
+    t.deepEqual(second.parts![0].components, { "minecraft:pot_decorations": decorations });
+    t.not(first, second);
+    const calls = source.calls.length;
+    Caching.clear();
+    t.deepEqual((await Models.getMerged(itemKey("composite_pot"), context))! as ItemModel, second);
+    decorations[0] = "archer_pottery_sherd";
+    t.deepEqual((await Models.getMerged(itemKey("composite_pot"), context))! as ItemModel, first);
+    t.is(source.calls.length, calls);
 });
 
 test.serial("bundle properties and references stay independent through display-context and persistent cache changes", async t => {
@@ -696,9 +725,9 @@ test.serial("unsupported or broken definitions reject instead of using lower-pri
     AssetLoader.addSource("test-pack", new FixtureSource({ "items/missing": { model: reference("item/missing_reference") } }));
     await t.throwsAsync(Models.getMerged(itemKey("missing")), { message: /references missing model item\/missing_reference/ });
     AssetLoader.addSource("test-pack", new FixtureSource({ "items/invalid": { model: {
-        type: "minecraft:special", base: "item/base", model: { type: "minecraft:decorated_pot" }
+        type: "minecraft:special", base: "item/base", model: { type: "minecraft:standing_sign" }
     } } }));
-    await t.throwsAsync(Models.getMerged(itemKey("invalid")), { message: /Unsupported special item renderer minecraft:decorated_pot/ });
+    await t.throwsAsync(Models.getMerged(itemKey("invalid")), { message: /Unsupported special item renderer minecraft:standing_sign/ });
     for (const color of [undefined, null, "rainbow", "toString", 0xff0000]) {
         AssetLoader.addSource("test-pack", new FixtureSource({ "items/invalid": { model: {
             type: "special", base: "item/base", model: { type: "banner", color }

@@ -11,6 +11,7 @@ import { AssetKey, isAssetKey } from "../../assets/AssetKey";
 import { ExtractableImageData } from "../../ExtractableImageData";
 import { Materials } from "../../Materials";
 import { MinecraftCubeTexture } from "../../MinecraftCubeTexture";
+import { CUBE_FACES } from "../../CubeFace";
 import { EntityLayer, EntityModel, EntityModelPart } from "../EntityModel";
 import type { DoubleArray } from "../../model/Model";
 import type { Maybe } from "../../util/util";
@@ -251,6 +252,10 @@ export class EntityObject extends SceneObject {
             ).clone();
             this.geometries.add(geometry);
             geometry.translate(cube.origin[0] + width / 2, cube.origin[1] + height / 2, cube.origin[2] + depth / 2);
+            if (cube.faces) {
+                geometry.setIndex(Array.from(geometry.getIndex()!.array).filter((_, index) => cube.faces!.includes(CUBE_FACES[Math.floor(index / 6)])));
+                geometry.clearGroups();
+            }
             // Vanilla draws most entity render types without backface culling, e.g. chicken legs are only painted on faces seen from inside.
             // Zero-thickness cubes keep one face per side, as their coplanar faces would z-fight.
             if (inward && Math.min(width + growX * 2, height + growY * 2, depth + growZ * 2) > 0) {

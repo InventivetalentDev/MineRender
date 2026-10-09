@@ -241,6 +241,8 @@ export class Models {
                     case "minecraft:trident":
                     case "conduit":
                     case "minecraft:conduit":
+                    case "decorated_pot":
+                    case "minecraft:decorated_pot":
                         return { model: node.base, special };
                     case "shulker_box":
                     case "minecraft:shulker_box":
