@@ -1,9 +1,10 @@
 import { AssetKey, BasicAssetKey, BlockStates, Entities, SceneExporter } from "minerender";
+import type { Object3D } from "three";
 import type { Example, ExampleGroup } from "./types";
 import { STEVE_TEXTURE, buttonControl, download, esmRenderer, standOn, statusControl } from "./shared";
 import { pose } from "./skins";
 
-async function buildScene(context: Parameters<Example["setup"]>[0]): Promise<void> {
+async function buildScene(context: Parameters<Example["setup"]>[0]): Promise<Object3D | undefined> {
     const { renderer, signal } = context;
     const scene = renderer.scene;
     const grass = await BlockStates.get(AssetKey.parse("blockstates", "grass_block"));
@@ -28,6 +29,7 @@ async function buildScene(context: Parameters<Example["setup"]>[0]): Promise<voi
     pig.rotation.y = -0.9;
     standOn(pig);
     renderer.dirty = true;
+    return pig;
 }
 
 const EXPORT_RENDERER = {
@@ -125,10 +127,69 @@ const skinOnly = SceneExporter.toObj(skin);`
     }
 };
 
+const video: Example = {
+    id: "export-video",
+    title: "Video",
+    description: "toVideo records the canvas in real time, including frame callbacks and camera movement, and resolves a WebM or MP4 blob depending on the browser. Orbit while it records.",
+    renderer: EXPORT_RENDERER,
+    placeholder: "/placeholder-block.png",
+    async setup(context) {
+        const { renderer, signal } = context;
+        const pig = await buildScene(context);
+        const stopSpin = pig ? renderer.onFrame(({ delta }) => { pig.rotation.y += delta * 0.8; }) : undefined;
+        const status = statusControl(context);
+        let recording: AbortController | undefined;
+        const record = buttonControl(context, "Record 4 seconds", () => void context.track((async () => {
+            if (recording) return;
+            recording = new AbortController();
+            record.disabled = true;
+            status.textContent = "Recording…";
+            try {
+                const blob = await renderer.toVideo({ duration: 4, fps: 30, signal: recording.signal });
+                const extension = blob.type.startsWith("video/mp4") ? "mp4" : "webm";
+                download(`minerender.${extension}`, blob, blob.type);
+                status.textContent = `Saved ${Math.round(blob.size / 1024)} KB as ${extension.toUpperCase()}.`;
+            } catch (error) {
+                console.warn(error);
+                status.textContent = error instanceof Error ? error.message : "Could not record a video.";
+            } finally {
+                recording = undefined;
+                record.disabled = false;
+            }
+        })(), "Recording…"));
+        context.controls.appendChild(status);
+        signal.addEventListener("abort", () => recording?.abort());
+        return () => stopSpin?.();
+    },
+    code: {
+        esm: `${esmRenderer()}
+
+// ... add content and start animations
+
+// Four seconds in real time; the browser picks WebM or MP4
+const blob = await renderer.toVideo({ duration: 4, fps: 30 });
+const extension = blob.type.startsWith("video/mp4") ? "mp4" : "webm";
+const url = URL.createObjectURL(blob);
+
+// Request a format or bitrate, or cancel through an AbortSignal
+const controller = new AbortController();
+const long = renderer.toVideo({
+    duration: 30,
+    mimeType: "video/webm;codecs=vp9",
+    videoBitsPerSecond: 8_000_000,
+    signal: controller.signal
+});
+controller.abort();   // rejects the pending recording`
+    }
+};
+
 export const exports: ExampleGroup = {
     id: "export",
     title: "Export",
-    lead: "Save a frame as an image or the scene as a 3D model.",
+    lead: "Save a frame as an image, record a video, or export the scene as a 3D model.",
     playgrounds: [{ url: "https://beta.minerender.org/demo/exports/", label: "Export playground" }],
-    examples: [screenshot, model3d]
+    examples: [screenshot, video, model3d],
+    notes: [
+        "Video recording needs canvas captureStream and MediaRecorder. It keeps the canvas size at the start, fills transparent pixels with black and records without audio."
+    ]
 };

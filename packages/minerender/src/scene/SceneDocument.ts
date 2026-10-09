@@ -43,10 +43,21 @@ export interface SceneBlockDefinition extends SceneObjectDefinitionBase {
     options?: { wireframe?: boolean; tints?: Record<number, number> };
 }
 
+/** Supplied item state; see ItemModelContext. Item references are item IDs such as minecraft:apple. */
+export interface SceneItemContext {
+    displayContext?: DisplayPosition | "none";
+    properties?: Record<string, boolean | string | number>;
+    components?: Record<string, unknown>;
+    count?: number;
+    itemReferences?: Record<string, string>;
+}
+
 export interface SceneModelDefinition extends SceneObjectDefinitionBase {
     type: "item" | "model";
     asset: string;
     options?: { wireframe?: boolean; displayPosition?: DisplayPosition; tints?: Record<number, number> };
+    /** Item state for `type: "item"` definitions only. */
+    context?: SceneItemContext;
 }
 
 export interface SceneEntityDefinition extends SceneObjectDefinitionBase {
@@ -61,7 +72,7 @@ export interface SceneEntityDefinition extends SceneObjectDefinitionBase {
 }
 
 export type SceneGuiLayer = (Omit<GuiTextureLayer, "texture"> & { texture: string })
-    | (Omit<GuiItemLayer, "item"> & { item: string })
+    | (Omit<GuiItemLayer, "item" | "context"> & { item: string; context?: Omit<SceneItemContext, "displayContext"> })
     | (Omit<GuiTextLayer, "font"> & { font?: string });
 
 export interface SceneGuiDefinition extends SceneObjectDefinitionBase {
@@ -153,6 +164,23 @@ const enumeration = (values: readonly string[]): Validator => (value, path) => {
     if (!values.includes(value as string)) fail(path, `expected one of: ${values.join(", ")}`);
 };
 const textStyle = { color, bold: boolean, italic: boolean };
+const jsonValue: Validator = (value, path) => {
+    if (value === null || typeof value === "boolean" || typeof value === "string") return;
+    if (typeof value === "number") number(value, path);
+    else if (Array.isArray(value)) list(jsonValue)(value, path);
+    else dictionary(jsonValue)(value, path);
+};
+const propertyValue: Validator = (value, path) => {
+    if (typeof value === "boolean" || typeof value === "string") return;
+    if (typeof value !== "number" || !Number.isFinite(value)) fail(path, "expected a boolean, string, or finite number");
+};
+const itemContext = (withDisplayContext: boolean): Validator => (value, path) => {
+    fields(value, path, {
+        ...(withDisplayContext ? { displayContext: enumeration([...DISPLAY_POSITIONS, "none"]) } : {}),
+        properties: dictionary(propertyValue), components: dictionary(jsonValue), itemReferences: dictionary(asset),
+        count: (value, path) => { if (!Number.isInteger(value) || (value as number) < 0) fail(path, "expected a nonnegative integer"); }
+    });
+};
 
 function guiLayer(value: unknown, path: string): void {
     const layer = object(value, path);
@@ -168,7 +196,7 @@ function guiLayer(value: unknown, path: string): void {
             positive(width, `${path}[2]`); positive(height, `${path}[3]`);
         } });
     } else if (layer.item !== undefined) {
-        fields(value, path, { ...layout, item: asset, tints: dictionary(color, true) });
+        fields(value, path, { ...layout, item: asset, context: itemContext(false), tints: dictionary(color, true) });
     } else {
         fields(value, path, { ...layout, ...textStyle, font: asset, shadow: boolean, maxWidth: positive, lineHeight: positive,
             text: (value, path) => {
@@ -203,7 +231,7 @@ function validateObject(value: unknown, path: string): void {
             break;
         case "item":
         case "model":
-            fields(value, path, { ...common, asset,
+            fields(value, path, { ...common, asset, ...(input.type === "item" ? { context: itemContext(true) } : {}),
                 options: (value, path) => { fields(value, path, { ...renderOptions, displayPosition: enumeration(DISPLAY_POSITIONS), tints: dictionary(color, true) }); }
             }, [...required, "asset"]);
             break;

@@ -5,7 +5,7 @@ import { AssetLoader } from "../src/assets/AssetLoader";
 import { BlockEntities } from "../src/assets/BlockEntities";
 import { BlockStates } from "../src/assets/BlockStates";
 import { Entities } from "../src/assets/Entities";
-import { Models } from "../src/assets/Models";
+import { ItemModelContext, Models } from "../src/assets/Models";
 import { Caching } from "../src/cache/Caching";
 import { EntityObject } from "../src/entity/scene/EntityObject";
 import { Materials } from "../src/Materials";
@@ -15,6 +15,8 @@ import { MineRenderScene } from "../src/renderer/MineRenderScene";
 import { SceneDocument, SceneObjectDefinition, SceneSkinDefinition } from "../src/scene/SceneDocument";
 import { SceneDocumentLoader } from "../src/scene/SceneDocumentLoader";
 import { SkinTextures } from "../src/skin/SkinTextures";
+import { GuiObject } from "../src/gui/scene/GuiObject";
+import type { GuiItemLayer } from "../src/gui/GuiLayer";
 
 function document(objects: SceneObjectDefinition[] = []): SceneDocument {
     return { format: "minerender-scene", version: 1, objects };
@@ -37,8 +39,11 @@ test("scene documents round-trip portable options and copy the caller's data", t
         { id: "player", type: "skin", skin: "data:image/png;base64,AA==", hiddenParts: ["hat", "leftSleeve"], options: { slim: true }, pose: { head: [0.2, -0.4, 0], cape: [0, 0.3, 0] } },
         { id: "block", type: "block", asset: "minecraft:oak_stairs", state: { facing: "east" }, position: [16, 0, 0] },
         { id: "item", type: "item", asset: "minecraft:diamond", options: { tints: { 0: 0xff0000 } } },
+        { id: "bundle", type: "item", asset: "minecraft:bundle", context: { displayContext: "none", count: 3, properties: { "minecraft:bundle/has_selected_item": true },
+            components: { "minecraft:bundle_contents": [{ id: "minecraft:apple", count: 1 }] }, itemReferences: { "minecraft:bundle/selected_item": "minecraft:apple" } } },
         { id: "entity", type: "entity", asset: "minecraft:bat", layers: ["main"], animation: { name: "flying", paused: true, speed: 2 } },
-        { id: "gui", type: "gui", layers: [{ text: [{ text: "Hello", color: 0xff0000 }], position: [0, 9] }, { item: "minecraft:item/diamond" }] }
+        { id: "gui", type: "gui", layers: [{ text: [{ text: "Hello", color: 0xff0000 }], position: [0, 9] },
+            { item: "minecraft:item/diamond" }, { item: "minecraft:leather_helmet", context: { components: { "minecraft:dyed_color": 0x3f76e4 } } }] }
     ]);
     input.camera = { position: [60, 40, 60], target: [0, 16, 0] };
     const parsed = SceneDocumentLoader.parse(JSON.stringify(input));
@@ -63,6 +68,11 @@ test("scene validation reports the malformed field before requesting assets", t 
         [{ ...document(), objects: [{ id: "bad", type: "skin", pose: [] }] }, /pose/],
         [document([{ id: "bad", type: "block", asset: "../secret" }]), /asset/],
         [document([{ id: "bad", type: "entity", asset: "pig", animation: { name: "walk", speed: -1 } }]), /animation.speed/],
+        [document([{ id: "bad", type: "item", asset: "minecraft:bundle", context: { count: -1 } }]), /context.count/],
+        [document([{ id: "bad", type: "item", asset: "minecraft:bundle", context: { components: { "minecraft:dyed_color": NaN } } }]), /context.components.minecraft:dyed_color/],
+        [document([{ id: "bad", type: "item", asset: "minecraft:bundle", context: { itemReferences: { "minecraft:bundle/selected_item": "../apple" } } }]), /itemReferences/],
+        [document([{ id: "bad", type: "model", asset: "minecraft:block/stone", context: {} }]), /context: unsupported/],
+        [{ ...document(), objects: [{ id: "bad", type: "gui", layers: [{ item: "minecraft:item/diamond", context: { displayContext: "gui" } }] }] }, /context.displayContext/],
         [{ ...document(), objects: [{ id: "bad", type: "skin", options: { instanceMeshes: true } }] }, /options.instanceMeshes/],
         [{ ...document(), objects: [{ id: "bad", type: "skin", options: { wireframe: true } }] }, /options.wireframe/],
         [{ ...document(), objects: [{ id: "bad", type: "gui", layers: [], options: { wireframe: true } }] }, /objects\[0\].options/],
@@ -226,6 +236,30 @@ test.serial("short item IDs select item models and GUI display without changing 
     await t.throwsAsync(SceneDocumentLoader.load(scene, { ...document(), minecraftVersion: "different-version" }), { message: /AssetLoader.setVersion/ });
     t.is(AssetLoader.ROOT, originalRoot);
     t.deepEqual(scene.children, [loaded.root]);
+});
+
+test.serial("item definitions and GUI item layers pass their item state with item-model references", async t => {
+    const { created } = modelFixture(t);
+    const contexts: unknown[] = [];
+    stub(t, Models, "getMerged", async (key, context) => { contexts.push(context); return { key, elements: [], textures: {} }; });
+    const guiLayers: unknown[] = [];
+    stub(t, GuiObject.prototype, "init", async function () { guiLayers.push(...this.textureLayers); this.add(new Object3D()); });
+    const scene = new MineRenderScene();
+    const loaded = await SceneDocumentLoader.load(scene, document([
+        { id: "bundle", type: "item", asset: "minecraft:bundle", context: { count: 2, properties: { "minecraft:bundle/has_selected_item": true },
+            itemReferences: { "minecraft:bundle/selected_item": "minecraft:apple" } } },
+        { id: "plain", type: "item", asset: "minecraft:diamond" },
+        { id: "gui", type: "gui", layers: [{ item: "minecraft:item/bundle", context: { itemReferences: { "minecraft:bundle/selected_item": "minecraft:item/apple" } } }] }
+    ]));
+    t.teardown(() => loaded.dispose());
+    t.is(created.length, 2);
+    const [bundle, plain] = contexts as ItemModelContext[];
+    t.is(bundle.count, 2);
+    t.deepEqual(bundle.properties, { "minecraft:bundle/has_selected_item": true });
+    t.is(bundle.itemReferences!["minecraft:bundle/selected_item"].toNamespacedString(), "minecraft:item/apple");
+    t.deepEqual(plain, {});
+    const layer = guiLayers[0] as GuiItemLayer;
+    t.is(layer.context!.itemReferences!["minecraft:bundle/selected_item"].toNamespacedString(), "minecraft:item/apple");
 });
 
 test.serial("entity animations load by name, start at saved time, and respect pause and disposal", async t => {

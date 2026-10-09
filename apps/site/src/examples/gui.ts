@@ -1,4 +1,4 @@
-import { GuiHelper, GuiLayer, GuiObject, GuiRecipe } from "minerender";
+import { GUI_CONTAINER_LAYOUTS, GuiHelper, GuiLayer, GuiObject, GuiRecipe } from "minerender";
 import { OrthographicCamera, Vector2 } from "three";
 import type { Example, ExampleContext, ExampleGroup } from "./types";
 import { esmRenderer, selectControl } from "./shared";
@@ -216,10 +216,99 @@ const gui = await renderer.scene.addGui(GuiHelper.recipe(recipe, {
     }
 };
 
+const LAYOUTS: Record<string, { label: string; build: () => Promise<GuiLayer[]> }> = {
+    tooltip: {
+        label: "Tooltip",
+        build: () => GuiHelper.tooltip([
+            [{ text: "Diamond Pickaxe", color: 0x55ffff }],
+            [{ text: "Efficiency IV", color: 0xaaaaaa }],
+            [{ text: "Unbreaking III", color: 0xaaaaaa }],
+            "",
+            [{ text: "When in Main Hand:", color: 0xaaaaaa }],
+            [{ text: " 5 Attack Damage", color: 0x5555ff }]
+        ])
+    },
+    bossbar: { label: "Boss bar", build: () => GuiHelper.bossBar({ color: "purple", progress: 0.65 }) },
+    book: {
+        label: "Book page",
+        build: () => GuiHelper.book({ previous: "normal", next: "hover", text: "Dear diary,\n\nToday the scene rendered a book. Text wraps at the page width, and the arrows take hidden, normal or hover states." })
+    },
+    crafting: {
+        label: "Crafting table",
+        build: async () => {
+            const layout = GUI_CONTAINER_LAYOUTS.crafting_table;
+            const grid = ["oak_planks", "oak_planks", "", "oak_planks", "oak_planks"];
+            return [
+                ...await GuiHelper.container("crafting_table"),
+                ...grid.flatMap((item, slot): GuiLayer[] => item ? [{
+                    item: `minecraft:item/${item}`,
+                    position: GuiHelper.inventorySlot(slot, layout.slotOrigin, layout.slotOffset, layout.rowSize)
+                }] : []),
+                { item: "minecraft:item/crafting_table", position: [...layout.resultPosition] }
+            ];
+        }
+    }
+};
+
+const layouts: Example = {
+    id: "gui-layouts",
+    title: "Tooltips, boss bars and books",
+    description: "GuiHelper builds the layer lists for common screens from the active resource pack: tooltips sized around bitmap text, boss bars, book pages with arrows, and container backgrounds with their slot layout.",
+    renderer: GUI_RENDERER,
+    placeholder: "/placeholder-block.png",
+    async setup(context) {
+        const { renderer, signal } = context;
+        let current: GuiObject | undefined;
+        let token = 0;
+        const show = async (id: string) => {
+            const run = ++token;
+            const next = await renderer.scene.addGui(await LAYOUTS[id].build());
+            if (signal.aborted || run !== token) {
+                next.removeFromScene();
+                next.dispose();
+                return;
+            }
+            current?.removeFromScene();
+            current?.dispose();
+            current = next;
+            fitGui(context, next);
+        };
+        selectControl(context, "Layout", Object.entries(LAYOUTS).map(([id, { label }]) => [id, label]), "tooltip", id => {
+            context.track(show(id)).catch(console.warn);
+        });
+        await show("tooltip");
+    },
+    code: {
+        esm: `${esmRenderer("GUI_CONTAINER_LAYOUTS", "GuiHelper")}
+
+// Each helper returns layers for scene.addGui; combine or position them as you like
+const tooltip = await GuiHelper.tooltip([
+    [{ text: "Diamond Pickaxe", color: 0x55ffff }],   // the first line is the title
+    [{ text: "Efficiency IV", color: 0xaaaaaa }]
+]);
+const bossBar = await GuiHelper.bossBar({ color: "purple", progress: 0.65, position: [0, 60] });
+const page = await GuiHelper.book({ previous: "normal", next: "hover", text: "Dear diary, ..." });
+
+// Container backgrounds come with their slot layout
+const layout = GUI_CONTAINER_LAYOUTS.crafting_table;
+const table = await renderer.scene.addGui([
+    ...await GuiHelper.container("crafting_table"),
+    { item: "minecraft:item/oak_planks", position: GuiHelper.inventorySlot(0, layout.slotOrigin, layout.slotOffset, layout.rowSize) },
+    { item: "minecraft:item/crafting_table", position: layout.resultPosition }
+]);
+
+// Text layers take literal strings or styled runs, with shadow, wrapping and a font
+await renderer.scene.addGui([{ text: [{ text: "Bold", bold: true }, { text: " and plain" }], maxWidth: 100, shadow: true }]);`
+    }
+};
+
 export const guis: ExampleGroup = {
     id: "guis",
     title: "GUIs",
-    lead: "Inventory screens, HUD elements and crafting recipes built from texture crops and item models, rendered flat with an orthographic camera.",
+    lead: "Inventory screens, HUD elements, tooltips and crafting recipes built from texture crops, bitmap text and item models, rendered flat with an orthographic camera.",
     playgrounds: [{ url: "https://beta.minerender.org/demo/gui/", label: "GUI playground" }],
-    examples: [chest, hotbar, recipe]
+    examples: [chest, hotbar, recipe, layouts],
+    notes: [
+        "Text uses the resource pack's bitmap fonts. Unihex and TrueType providers, translations and right-to-left shaping are not supported; missing glyphs draw as boxes."
+    ]
 };

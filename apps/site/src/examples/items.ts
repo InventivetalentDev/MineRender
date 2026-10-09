@@ -1,6 +1,6 @@
-import { AssetKey, DisplayPosition, ModelObject, Models } from "minerender";
+import { AssetKey, DisplayPosition, ModelObject, Models, type ItemModelContext } from "minerender";
 import type { Example, ExampleGroup } from "./types";
-import { esmRenderer, fillList, scriptSnippet, selectControl, textControl } from "./shared";
+import { esmRenderer, fillList, frameObject, scriptSnippet, selectControl, textControl } from "./shared";
 
 export const ITEM_RENDERER = {
     camera: {
@@ -212,13 +212,90 @@ await renderer.scene.addModel(chair);`
     }
 };
 
+/** Item state presets: label, item, and the context passed to Models.getMerged. */
+const ITEM_STATES: Array<[string, string, ItemModelContext]> = [
+    ["Dyed leather chestplate", "leather_chestplate", { components: { "minecraft:dyed_color": 0x3f76e4 } }],
+    ["Shield with a pattern", "shield", { components: {
+        "minecraft:base_color": "blue",
+        "minecraft:banner_patterns": [{ pattern: "minecraft:stripe_center", color: "white" }]
+    } }],
+    ["Banner with patterns", "red_banner", { components: {
+        "minecraft:banner_patterns": [{ pattern: "minecraft:stripe_bottom", color: "white" }, { pattern: "minecraft:cross", color: "black" }]
+    } }],
+    ["Potion with a custom color", "potion", { components: { "minecraft:potion_contents": { custom_color: 0xd557ef } } }],
+    ["Bundle with a selected item", "bundle", {
+        properties: { "minecraft:bundle/has_selected_item": true },
+        itemReferences: { "minecraft:bundle/selected_item": itemKey("apple") }
+    }],
+    ["Crossbow loaded with an arrow", "crossbow", { properties: { "minecraft:charge_type": "arrow" } }],
+    ["Shulker box", "purple_shulker_box", {}]
+];
+
+const components: Example = {
+    id: "item-components",
+    title: "Item state",
+    description: "Item definitions choose their model and colors from data components, item-model properties and stack counts, the way the game does. Banners, shields, shulker boxes and bundles draw through the same path.",
+    renderer: ITEM_RENDERER,
+    placeholder: "/placeholder-block.png",
+    async setup(context) {
+        const { renderer, signal } = context;
+        let current: ModelObject | undefined;
+        let token = 0;
+        const show = async (label: string) => {
+            const run = ++token;
+            const [, name, state] = ITEM_STATES.find(entry => entry[0] === label)!;
+            const model = await Models.getMerged(itemKey(name), state);
+            if (!model) throw new Error(`Unknown item "${name}"`);
+            if (signal.aborted || run !== token) return;
+            const next = await renderer.scene.addModel(model, { instanceMeshes: false, displayPosition: DisplayPosition.GUI }) as ModelObject;
+            if (signal.aborted || run !== token) {
+                next.removeFromScene();
+                return;
+            }
+            current?.removeFromScene();
+            current?.disposeAndRemoveAllChildren();
+            current = next;
+            frameObject(renderer, next, 1.6);
+        };
+        selectControl(context, "Item", ITEM_STATES.map(([label]) => [label, label]), ITEM_STATES[0][0], label => {
+            context.track(show(label)).catch(console.warn);
+        });
+        await show(ITEM_STATES[0][0]);
+    },
+    code: {
+        esm: `${esmRenderer("AssetKey", "DisplayPosition", "Models")}
+
+const item = (name: string) => new AssetKey("minecraft", name, "models", "item", "assets");
+
+// Data components select the model and its colors
+const shield = await Models.getMerged(item("shield"), {
+    components: {
+        "minecraft:base_color": "blue",
+        "minecraft:banner_patterns": [{ pattern: "minecraft:stripe_center", color: "white" }]
+    }
+});
+await renderer.scene.addModel(shield!, { displayPosition: DisplayPosition.GUI });
+
+// Dyed armor, potion colors, and item-model properties work the same way
+await Models.getMerged(item("leather_chestplate"), { components: { "minecraft:dyed_color": 0x3f76e4 } });
+await Models.getMerged(item("crossbow"), { properties: { "minecraft:charge_type": "arrow" } });
+
+// Nodes that draw another item take it through itemReferences
+await Models.getMerged(item("bundle"), {
+    properties: { "minecraft:bundle/has_selected_item": true },
+    itemReferences: { "minecraft:bundle/selected_item": item("apple") }
+});`
+    }
+};
+
 export const items: ExampleGroup = {
     id: "items",
     title: "Items & models",
-    lead: "Item definitions, generated item models, block items, and hand-written model JSON all go through the same model pipeline.",
+    lead: "Item definitions with their components, generated item models, block items, and hand-written model JSON all go through the same model pipeline.",
     playgrounds: [{ url: "https://beta.minerender.org/demo/item/", label: "Item playground" }, { url: "https://beta.minerender.org/demo/custom_model/", label: "Custom model playground" }],
-    examples: [{ ...generated, title: "Generated item models" }, poses, blockItem, custom],
+    examples: [{ ...generated, title: "Generated item models" }, poses, components, blockItem, custom],
     notes: [
-        "Item previews use the GUI display context. Composite item renderers (player heads, shields) are not supported."
+        "Item previews default to the GUI display context. Chests, beds, mob heads, shulker boxes, banners, shields, tridents and conduits use their special renderers; player heads with profiles do not.",
+        "Item registry defaults are not loaded, so supply the components a selector reads. Explicit tints override the automatic colors."
     ]
 };
