@@ -1,7 +1,7 @@
 import { GuiObject } from "minerender";
 import { OrthographicCamera, PerspectiveCamera, Vector2 } from "three";
 import { Playground } from "../../playground/Playground";
-import { asGuiLayers, defaults, layersFor, validateLayers, type EditableLayer, type GuiState } from "./config";
+import { asGuiLayers, codeFor, defaults, layersFor, validateLayers, type EditableLayer, type GuiState } from "./config";
 
 const app = new Playground<GuiState>({
     title: "GUI layers",
@@ -14,11 +14,13 @@ const app = new Playground<GuiState>({
     presets: {
         chest: { label: "Chest", state: {} },
         shaped: { label: "Shaped recipe", state: { mode: "shaped" } },
-        shapeless: { label: "Shapeless recipe", state: { mode: "shapeless", ingredients: ["blue_dye", "red_dye", "", "", "", "", "", "", ""], result: "purple_dye" } }
+        shapeless: { label: "Shapeless recipe", state: { mode: "shapeless", ingredients: ["blue_dye", "red_dye", "", "", "", "", "", "", ""], result: "purple_dye" } },
+        bossbar: { label: "Boss bar", state: { mode: "bossbar" } },
+        book: { label: "Book", state: { mode: "book" } }
     },
-    code: state => `const gui = await renderer.scene.addGui(${JSON.stringify(layersFor(state), null, 2)});\n`,
+    code: codeFor,
     load: async (ctx, state) => {
-        const layers = layersFor(state);
+        const layers = await layersFor(state);
         const gui = new GuiObject(asGuiLayers(layers));
         gui.scene = ctx.renderer.scene;
         ctx.onCleanup(() => { gui.removeFromScene(); gui.dispose(); });
@@ -54,7 +56,7 @@ const app = new Playground<GuiState>({
 });
 
 app.controls.innerHTML = `
-    <label>Layout<select id="gui-mode"><option value="chest">Chest</option><option value="shaped">Shaped recipe</option><option value="shapeless">Shapeless recipe</option><option value="custom">Custom layers</option></select></label>
+    <label>Layout<select id="gui-mode"><option value="chest">Chest</option><option value="shaped">Shaped recipe</option><option value="shapeless">Shapeless recipe</option><option value="bossbar">Boss bar</option><option value="book">Book</option><option value="custom">Custom layers</option></select></label>
     <label>Scale<select id="gui-scale"><option value="fit">Fit</option><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option></select></label>
     <fieldset id="chest-editor"><legend>Chest slot</legend>
         <label>Slot (0–53)<input id="slot-index" type="number" min="0" max="53" value="0"></label>
@@ -67,13 +69,29 @@ app.controls.innerHTML = `
         <label>Result<input id="recipe-result"></label>
         <button id="recipe-apply" type="button">Apply</button>
     </fieldset>
+    <fieldset id="bossbar-editor"><legend>Boss bar</legend>
+        <label>Color<select id="bossbar-color">${["pink", "blue", "red", "green", "yellow", "purple", "white"].map(color => `<option value="${color}">${color[0].toUpperCase()}${color.slice(1)}</option>`).join("")}</select></label>
+        <label>Progress (0–100%)<input id="bossbar-progress" type="number" min="0" max="100" step="1"></label>
+        <button id="bossbar-apply" type="button">Apply</button>
+    </fieldset>
+    <fieldset id="book-editor"><legend>Book</legend>
+        <label>Previous button<select id="book-previous"><option value="hidden">Hidden</option><option value="normal">Normal</option><option value="hover">Hover</option></select></label>
+        <label>Next button<select id="book-next"><option value="hidden">Hidden</option><option value="normal">Normal</option><option value="hover">Hover</option></select></label>
+        <label>Page text<textarea id="book-text" rows="5"></textarea></label>
+        <button id="book-apply" type="button">Apply</button>
+    </fieldset>
     <details open><summary>Layers</summary>
         <p class="control-note">Later layers draw on top. Editing a layer switches the layout to Custom layers.</p>
         <select id="layer-list" size="6" aria-label="Layers"></select>
         <div class="playground-actions"><button id="layer-up" type="button">Move up</button><button id="layer-down" type="button">Move down</button><button id="layer-remove" type="button">Remove</button></div>
-        <label>Type<select id="layer-kind"><option value="item">Item</option><option value="texture">Texture</option></select></label>
+        <label>Type<select id="layer-kind"><option value="item">Item</option><option value="texture">Texture</option><option value="text">Text</option></select></label>
         <label>Name<input id="layer-name"></label>
-        <label>Asset ID<input id="layer-asset" placeholder="minecraft:item/diamond"></label>
+        <label id="asset-label">Asset ID<input id="layer-asset" placeholder="minecraft:item/diamond"></label>
+        <div id="text-editor">
+            <label>Text format<select id="layer-text-format"><option value="plain">Plain text</option><option value="runs">Styled runs (JSON)</option></select></label>
+            <label>Text<textarea id="layer-text" rows="4"></textarea></label>
+            <label>Text style JSON<input id="layer-text-style" placeholder='{"color": 0, "shadow": false}'></label>
+        </div>
         <label>Position (x, y)<input id="layer-position" placeholder="0, 0"></label>
         <label>Size (width, height)<input id="layer-size" placeholder="16, 16"></label>
         <label id="crop-label">Crop (x, y, width, height)<input id="layer-crop" placeholder="0, 0, 176, 222"></label>
@@ -88,7 +106,9 @@ app.controls.innerHTML = `
 
 const input = (id: string) => document.getElementById(id) as HTMLInputElement;
 const select = (id: string) => document.getElementById(id) as HTMLSelectElement;
+const textarea = (id: string) => document.getElementById(id) as HTMLTextAreaElement;
 const json = document.getElementById("layers-json") as HTMLTextAreaElement;
+const textStyleKeys = ["font", "color", "bold", "italic", "shadow", "maxWidth", "lineHeight"] as const;
 let displayedLayers: EditableLayer[] = [];
 let selectedLayer = 0;
 const recipeInputs: HTMLInputElement[] = [];
@@ -112,10 +132,17 @@ function syncControls(layers: EditableLayer[]) {
     select("gui-scale").value = app.state.scale;
     document.getElementById("chest-editor")!.hidden = app.state.mode !== "chest";
     document.getElementById("recipe-editor")!.hidden = !["shaped", "shapeless"].includes(app.state.mode);
+    document.getElementById("bossbar-editor")!.hidden = app.state.mode !== "bossbar";
+    document.getElementById("book-editor")!.hidden = app.state.mode !== "book";
     syncSlot();
     recipeInputs.forEach((field, index) => field.value = app.state.ingredients[index] ?? "");
     input("recipe-result").value = app.state.result;
-    select("layer-list").replaceChildren(...layers.map((layer, index) => new Option(`${index + 1}. ${layer.name || layer.item || layer.texture}`, String(index))));
+    select("bossbar-color").value = app.state.bossBarColor;
+    input("bossbar-progress").value = String(app.state.bossBarProgress * 100);
+    select("book-previous").value = app.state.bookPrevious;
+    select("book-next").value = app.state.bookNext;
+    textarea("book-text").value = app.state.bookText;
+    select("layer-list").replaceChildren(...layers.map((layer, index) => new Option(`${index + 1}. ${layer.name || layer.item || layer.texture || "Text"}`, String(index))));
     selectedLayer = Math.max(0, Math.min(selectedLayer, layers.length - 1));
     select("layer-list").value = String(selectedLayer);
     json.value = JSON.stringify(layers, null, 2);
@@ -131,26 +158,38 @@ function syncSlot() {
 function syncLayer() {
     const layer = displayedLayers[selectedLayer];
     if (!layer) return;
-    select("layer-kind").value = layer.item ? "item" : "texture";
+    select("layer-kind").value = layer.item ? "item" : layer.texture ? "texture" : "text";
     input("layer-name").value = layer.name ?? "";
     input("layer-asset").value = layer.item ?? layer.texture ?? "";
     input("layer-position").value = (layer.position ?? [0, 0]).join(", ");
     input("layer-size").value = layer.size?.join(", ") ?? "";
     input("layer-crop").value = layer.crop?.join(", ") ?? "";
     input("layer-tints").value = layer.tints ? JSON.stringify(layer.tints) : "";
+    select("layer-text-format").value = Array.isArray(layer.text) ? "runs" : "plain";
+    textarea("layer-text").value = typeof layer.text === "string" ? layer.text : layer.text ? JSON.stringify(layer.text, null, 2) : "";
+    input("layer-text-style").value = JSON.stringify(Object.fromEntries(textStyleKeys.filter(key => layer[key] !== undefined).map(key => [key, layer[key]])));
     syncKind();
 }
 
 function syncKind() {
-    const isItem = select("layer-kind").value === "item";
-    document.getElementById("crop-label")!.hidden = isItem;
-    document.getElementById("tint-label")!.hidden = !isItem;
+    const kind = select("layer-kind").value;
+    document.getElementById("asset-label")!.hidden = kind === "text";
+    document.getElementById("text-editor")!.hidden = kind !== "text";
+    document.getElementById("crop-label")!.hidden = kind !== "texture";
+    document.getElementById("tint-label")!.hidden = kind !== "item";
 }
 
 function readLayer(): EditableLayer {
     const layer: Record<string, unknown> = { name: input("layer-name").value };
     const kind = select("layer-kind").value;
-    layer[kind] = input("layer-asset").value.trim();
+    if (kind === "text") {
+        layer.text = select("layer-text-format").value === "runs" ? JSON.parse(textarea("layer-text").value) : textarea("layer-text").value;
+        const style = JSON.parse(input("layer-text-style").value.trim() || "{}");
+        if (!style || typeof style !== "object" || Array.isArray(style)) throw new Error("Text style must be a JSON object.");
+        Object.assign(layer, Object.fromEntries(textStyleKeys.filter(key => style[key] !== undefined).map(key => [key, style[key]])));
+    } else {
+        layer[kind] = input("layer-asset").value.trim();
+    }
     for (const key of ["position", "size", ...(kind === "texture" ? ["crop"] : [])]) {
         const value = input(`layer-${key}`).value.trim();
         if (value) layer[key] = value.split(",").map(Number);
@@ -183,6 +222,12 @@ document.getElementById("slot-apply")!.addEventListener("click", () => guard(() 
     return app.update({ slots, slotTints });
 }));
 document.getElementById("recipe-apply")!.addEventListener("click", () => guard(() => app.update({ ingredients: recipeInputs.map(field => field.value.trim()), result: input("recipe-result").value.trim() })));
+document.getElementById("bossbar-apply")!.addEventListener("click", () => guard(() => app.update({
+    bossBarColor: select("bossbar-color").value as GuiState["bossBarColor"], bossBarProgress: Number(input("bossbar-progress").value) / 100
+})));
+document.getElementById("book-apply")!.addEventListener("click", () => guard(() => app.update({
+    bookPrevious: select("book-previous").value as GuiState["bookPrevious"], bookNext: select("book-next").value as GuiState["bookNext"], bookText: textarea("book-text").value
+})));
 select("layer-list").addEventListener("change", () => { selectedLayer = Number(select("layer-list").value); syncLayer(); });
 select("layer-kind").addEventListener("change", syncKind);
 document.getElementById("layer-apply")!.addEventListener("click", () => guard(() => {
