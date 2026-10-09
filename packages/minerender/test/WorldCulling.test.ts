@@ -20,6 +20,8 @@ import { UVMapper } from "../src/UVMapper";
 import { MineRenderWorld, MineRenderWorldOptions } from "../src/world/MineRenderWorld";
 import { ChunkData } from "../src/world/ChunkData";
 import { SectionMesh } from "../src/world/SectionMesh";
+import { buildSectionGeometry, SectionGeometryInput } from "../src/world/SectionGeometry";
+import { SectionWorker } from "../src/world/SectionWorker";
 import type { CanvasImage } from "../src/canvas/CanvasImage";
 import type { CompatCanvas } from "../src/canvas/CanvasCompat";
 
@@ -212,6 +214,72 @@ test.serial("default bulk placement yields to the event loop and places every bl
     t.is(scene.children.filter(child => child instanceof SectionMesh).length, 4);
     t.is(scene.children.reduce((sum, section) => sum + section.children.reduce((count, child) =>
         count + (child as Mesh).geometry.getIndex()!.count, 0), 0), (16 * 16 * 2 + 16 * 64 * 4) * 6);
+});
+
+test.serial("section rebuilds discard stale results and results completed after clearing the world", async t => {
+    const { world, scene, place } = fixture(t, { sectionMeshing: true });
+    const worker = SectionWorker["instance"], initialized = SectionWorker["initialized"];
+    const buildAsync = SectionMesh.buildAsync;
+    const built: { section: SectionMesh; disposals: number }[] = [];
+    SectionMesh.buildAsync = async function (...args) {
+        const section = await buildAsync.apply(this, args);
+        const result = { section, disposals: 0 };
+        for (const child of section.children) {
+            (child as Mesh).geometry.addEventListener("dispose", () => { result.disposals++; });
+        }
+        built.push(result);
+        return section;
+    };
+    const target = new EventTarget(), releases: (() => void)[] = [];
+    let posted!: () => void;
+    const firstPosted = new Promise<void>(resolve => { posted = resolve; });
+    SectionWorker["instance"] = undefined;
+    SectionWorker["initialized"] = false;
+    Env.register({ ...Env.provider, createWorker: () => Object.assign(target, {
+        postMessage({ id, input }: { id: number; input: SectionGeometryInput }) {
+            releases.push(() => target.dispatchEvent(new MessageEvent("message", {
+                data: { id, type: "pages", pages: buildSectionGeometry(input) }
+            })));
+            posted();
+        },
+        terminate() {}
+    }) as unknown as Worker });
+    t.teardown(() => {
+        SectionWorker["instance"]?.terminate();
+        SectionWorker["instance"] = worker;
+        SectionWorker["initialized"] = initialized;
+        SectionMesh.buildAsync = buildAsync;
+    });
+
+    let placed = false;
+    const first = place([0, 0, 0]).then(() => { placed = true; });
+    await firstPosted;
+    t.false(placed);
+    const chunk = world.getChunkAt(new Vector3())!;
+    // The world's culling drain serializes rebuilds; direct chunk edits allow overlapping builds.
+    await chunk.placeBlocks([{ index: 2, block: { type: "test:cube" } }]);
+    const second = chunk.rebuildSectionMesh();
+    t.is(releases.length, 2);
+    releases[1]();
+    await second;
+    t.false(placed);
+    releases[0]();
+    await first;
+    t.deepEqual(scene.children.filter(child => child instanceof SectionMesh), [built[0].section]);
+    const geometry = (built[0].section.children[0] as Mesh).geometry;
+    t.is(geometry.getIndex()!.count, 72);
+    t.deepEqual(geometry.boundingBox!.min.toArray(), [-8, -8, -8]);
+    t.deepEqual(geometry.boundingBox!.max.toArray(), [40, 8, 8]);
+    t.deepEqual(built.map(result => result.disposals), [0, 1]);
+
+    await chunk.placeBlocks([{ index: 4, block: { type: "test:cube" } }]);
+    const pending = chunk.rebuildSectionMesh();
+    t.is(releases.length, 3);
+    await world.clear();
+    releases[2]();
+    await pending;
+    t.is(scene.children.filter(child => child instanceof SectionMesh).length, 0);
+    t.deepEqual(built.map(result => result.disposals), [1, 1, 1]);
 });
 
 test.serial("default bulk placement starts distinct block-state resolutions concurrently", async t => {

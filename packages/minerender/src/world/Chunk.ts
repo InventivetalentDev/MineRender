@@ -35,6 +35,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
     private readonly blockPosition = new Vector3();
     private sectionMesh?: SectionMesh;
     private meshDirty = false;
+    private meshGeneration = 0;
 
     constructor(scene: MineRenderScene, x: number, y: number, z: number,
                 private readonly onBlocksChanged?: (positions: Vector3[]) => Promise<void>,
@@ -223,11 +224,17 @@ export class Chunk<SectionMeshing extends boolean = false> {
         }
     }
 
-    public rebuildSectionMesh(): void {
+    /** Rebuilds visible section geometry and discards results superseded by another rebuild or clear. */
+    public async rebuildSectionMesh(): Promise<void> {
         if (!this.meshDirty) return;
-        const next = this.sectionBlocks.size
-            ? SectionMesh.build([...this.sectionBlocks.values()].filter(entry => !this.hiddenBlocks.has(entry.index)),
-                this.sectionModels!.maxAtlasSize) : undefined;
+        this.meshDirty = false;
+        const generation = ++this.meshGeneration;
+        const entries = [...this.sectionBlocks.values()].filter(entry => !this.hiddenBlocks.has(entry.index));
+        const next = entries.length ? await SectionMesh.buildAsync(entries, this.sectionModels!.maxAtlasSize) : undefined;
+        if (generation !== this.meshGeneration) {
+            next?.dispose();
+            return;
+        }
         this.sectionMesh?.dispose();
         this.sectionMesh = next;
         if (next) {
@@ -235,7 +242,6 @@ export class Chunk<SectionMeshing extends boolean = false> {
             this.scene.add(next);
         }
         this.scene.dirty = true;
-        this.meshDirty = false;
     }
 
     /** Removes stored blocks and their render objects, then notifies the owning world of changed positions. */
@@ -245,6 +251,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
         ));
         for (const info of this.renderedBlocks.values()) info.object?.removeFromScene();
         this.sectionBlocks.clear();
+        this.meshGeneration++;
         this.sectionMesh?.dispose();
         this.sectionMesh = undefined;
         this.meshDirty = false;

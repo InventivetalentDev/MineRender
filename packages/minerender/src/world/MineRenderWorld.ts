@@ -326,7 +326,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                             await chunk.setCullMaskIndex(index, mask);
                         }
                     }
-                    for (const [chunk] of batch) chunk.rebuildSectionMesh();
+                    await Promise.all(batch.map(([chunk]) => chunk.rebuildSectionMesh()));
                 }
             } finally {
                 this.culling = undefined;
