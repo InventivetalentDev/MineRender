@@ -19,7 +19,7 @@ export class ItemGlint {
         this.updateTime();
     }
 
-    /** Supplied enchantments enable glint unless a boolean component overrides them. Registry defaults are not inferred. */
+    /** Enables glint for enchantments unless a boolean component overrides them. */
     public static enabled(components: Record<string, unknown> = {}): boolean {
         const override = Models.componentValue(components, "enchantment_glint_override");
         if (override !== undefined) {

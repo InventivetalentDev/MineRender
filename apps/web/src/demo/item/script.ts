@@ -44,6 +44,9 @@ const app = new Playground<ItemSettings>({
             components: { "minecraft:damage": 781, "minecraft:max_damage": 1561 } }, view: guiView },
         enchanted: { label: "Inventory slot: enchanted pickaxe", state: { item: "minecraft:diamond_pickaxe", preview: "slot",
             components: { "minecraft:enchantments": { "minecraft:efficiency": 3 } } }, view: guiView },
+        nether_star: { label: "Inventory slot: nether star", state: { item: "minecraft:nether_star", preview: "slot" }, view: guiView },
+        enchanted_golden_apple: { label: "Inventory slot: enchanted golden apple", state: { item: "minecraft:enchanted_golden_apple", preview: "slot" }, view: guiView },
+        enchanted_book: { label: "Inventory slot: enchanted book", state: { item: "minecraft:enchanted_book", preview: "slot" }, view: guiView },
         potion: { label: "Potion (tinted)", state: { item: "minecraft:potion", tints: { 0: 0xd557ef } } },
         dyed_leather: { label: "Dyed leather (blue component)", state: { item: "minecraft:leather_chestplate", display: DisplayPosition.GUI,
             components: { "minecraft:dyed_color": 0x3f76e4 } }, view: guiView },
@@ -164,7 +167,7 @@ glint.addEventListener("change", () => {
     glint.disabled = true;
     void app.update({ components: next });
 });
-note(stackGroup, "Auto uses the supplied enchantments. On and Off override the shimmer without changing enchantments.");
+note(stackGroup, "Auto follows the item's default glint and supplied enchantments. On and Off override the shimmer without changing enchantments.");
 const damageFields = (["damage", "max_damage"] as const).map(name => {
     const control = input(stackGroup, name === "damage" ? "Damage (optional)" : "Maximum damage (optional)", "", "number");
     control.id = `item-${name.replace(/_/g, "-")}`;

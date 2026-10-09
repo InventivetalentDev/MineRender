@@ -81,6 +81,135 @@ test("item glint uses nonempty enchantment objects and explicit boolean override
     }
 });
 
+test.serial("natural glint defaults belong to the seven vanilla item IDs and allow explicit suppression", async t => {
+    const ids = ["enchanted_golden_apple", "experience_bottle", "written_book", "nether_star", "enchanted_book", "end_crystal", "debug_stick"];
+    const source = new FixtureSource({
+        ...Object.fromEntries([...ids, "apple", "book"].map(id => [`items/${id}`, { model: reference("item/shared") }])),
+        "models/item/shared": { textures: { layer0: "item/shared" } }
+    });
+    AssetLoader.addSource("test-items", source);
+    for (const [index, id] of ids.entries()) {
+        const model = (await Models.getMerged(itemKey(id)))! as ItemModel;
+        t.true(ItemGlint.enabled(model.components), id);
+        const component = index % 2 ? "enchantment_glint_override" : "minecraft:enchantment_glint_override";
+        const disabled = (await Models.getMerged(itemKey(id), { components: { [component]: false } }))! as ItemModel;
+        t.false(ItemGlint.enabled(disabled.components), id);
+    }
+    const emptyBook = (await Models.getMerged(itemKey("enchanted_book"), { components: { stored_enchantments: {} } }))! as ItemModel;
+    t.true(ItemGlint.enabled(emptyBook.components));
+    for (const key of [itemKey("apple"), itemKey("book"), new AssetKey("custom", "nether_star", "models", "item")]) {
+        t.false(ItemGlint.enabled(((await Models.getMerged(key))! as ItemModel).components));
+    }
+});
+
+test.serial("item glint defaults survive pack model replacements without leaking into raw models or aliases", async t => {
+    AssetLoader.addSource("test-items", new FixtureSource({
+        "items/nether_star": { model: reference("minecraft:item/nether_star") },
+        "items/custom_star": { model: reference("minecraft:item/nether_star") },
+        "items/experience_bottle": { model: reference("minecraft:item/experience_bottle") },
+        "models/item/nether_star": { textures: { layer0: "item/nether_star" } },
+        "models/item/experience_bottle": { textures: { layer0: "item/experience_bottle" } }
+    }));
+    AssetLoader.addSource("test-pack", new FixtureSource({
+        "items/nether_star": { model: reference("custom:item/pack_shape") },
+        "models/item/pack_shape": { textures: { layer0: "custom:item/pack_shape" } },
+        "models/item/experience_bottle": { textures: { layer0: "custom:item/legacy_shape" } }
+    }));
+    const starKey = itemKey("nether_star");
+    starKey.root = "https://pack.example/custom-assets";
+    const star = (await Models.getMerged(starKey))! as ItemModel;
+    t.is(star.key?.toNamespacedString(), "custom:item/pack_shape");
+    t.is(star.key?.root, starKey.root);
+    t.true(ItemGlint.enabled(star.components));
+    const legacy = (await Models.getMerged(itemKey("experience_bottle")))! as ItemModel;
+    t.is(legacy.textures?.layer0, "custom:item/legacy_shape");
+    t.true(ItemGlint.enabled(legacy.components));
+    const alias = (await Models.getMerged(itemKey("custom_star")))! as ItemModel;
+    t.is(alias.key?.toNamespacedString(), "minecraft:item/nether_star");
+    t.false(ItemGlint.enabled(alias.components));
+    t.is(((await Models.getRaw(itemKey("nether_star")))! as ItemModel).components, undefined);
+    t.is(((await Models.getRaw(star.key!))! as ItemModel).components, undefined);
+});
+
+test.serial("composite children and selectors see item defaults while referenced items resolve their own defaults", async t => {
+    AssetLoader.addSource("test-items", new FixtureSource({
+        "items/nether_star": { model: { type: "composite", models: [
+            { type: "select", property: "component", component: "enchantment_glint_override",
+                cases: [{ when: true, model: reference("item/shiny") }], fallback: reference("item/plain") },
+            { type: "composite", models: [reference("item/secondary"), { type: "bundle/selected_item" }] }
+        ] } },
+        "items/apple": { model: reference("item/plain") },
+        "items/enchanted_book": { model: reference("item/plain") },
+        "items/carrier": { model: { type: "bundle/selected_item" } },
+        ...Object.fromEntries(["shiny", "plain", "secondary"].map(name => [`models/item/${name}`, { textures: { layer0: `item/${name}` } }]))
+    }));
+    const first = (await Models.getMerged(itemKey("nether_star"), {
+        itemReferences: { "bundle/selected_item": itemKey("apple") }
+    }))! as ItemModel;
+    t.is(first.parts![0].key?.path, "shiny");
+    t.true(ItemGlint.enabled(first.parts![0].components));
+    t.true(ItemGlint.enabled(first.parts![1].parts![0].components));
+    t.false(ItemGlint.enabled(first.parts![1].parts![1].components));
+    const off = (await Models.getMerged(itemKey("nether_star"), {
+        components: { enchantment_glint_override: false },
+        itemReferences: { "minecraft:bundle/selected_item": itemKey("enchanted_book") }
+    }))! as ItemModel;
+    t.is(off.parts![0].key?.path, "plain");
+    t.false(ItemGlint.enabled(off.parts![0].components));
+    t.false(ItemGlint.enabled(off.parts![1].parts![0].components));
+    t.true(ItemGlint.enabled(off.parts![1].parts![1].components));
+
+    const carrier = itemKey("carrier");
+    const context = { itemReferences: { "bundle/selected_item": itemKey("enchanted_book") } };
+    const oldKey = new AssetKey(carrier.namespace, carrier.path, "items").serialize()
+        + Models["contextKey"](Models["snapshotContext"](carrier, context)).replace("|item-v5:", "|item-v4:");
+    await Models["_persistentCache"]!.put(`item-v4:${AssetLoader.persistentKey(oldKey)}`, {
+        key: itemKey("plain"), components: {}, textures: { layer0: "stale" }
+    });
+    const restored = (await Models.getMerged(carrier, context))! as ItemModel;
+    t.true(ItemGlint.enabled(restored.components));
+    t.is(restored.textures?.layer0, "item/plain");
+});
+
+test.serial("default and overridden glint cache independently without mutating supplied component state", async t => {
+    const source = new FixtureSource({
+        "items/end_crystal": { model: reference("item/crystal") },
+        "models/item/crystal": { textures: { layer0: "item/crystal" } }
+    });
+    AssetLoader.addSource("test-items", source);
+    const key = itemKey("end_crystal");
+    const components = { custom_data: { nested: [1, 2] } };
+    const before = JSON.stringify(components);
+    const automatic = (await Models.getMerged(key, { components }))! as ItemModel;
+    t.is(JSON.stringify(components), before);
+    const edited: ItemModelContext = { components: { ...components, enchantment_glint_override: false } };
+    const off = (await Models.getMerged(key, edited))! as ItemModel;
+    t.not(off, automatic);
+    t.false(ItemGlint.enabled(off.components));
+    t.is(edited.components!.enchantment_glint_override, false);
+    delete edited.components!.enchantment_glint_override;
+    t.is(await Models.getMerged(key, edited), automatic);
+    t.is(await Models.getMerged(key, { components: { "minecraft:custom_data": { nested: [1, 2] } } }), automatic);
+
+    const mutable = { custom_data: { nested: [3] } };
+    const pending = Models.getMerged(key, { components: mutable });
+    mutable.custom_data.nested.push(4);
+    const snapshot = (await pending)! as ItemModel;
+    t.deepEqual(snapshot.components?.["minecraft:custom_data"], { nested: [3] });
+    t.true(ItemGlint.enabled(snapshot.components));
+    const requests = source.calls.length;
+    Caching.clear();
+    const cached = (await Models.getMerged(key, { components }))! as ItemModel;
+    const cachedOff = (await Models.getMerged(key, { components: { ...components, "minecraft:enchantment_glint_override": false } }))! as ItemModel;
+    t.not(cached, automatic);
+    t.deepEqual(cached.components, automatic.components);
+    t.true(ItemGlint.enabled(cached.components));
+    t.deepEqual(cachedOff.components, off.components);
+    t.false(ItemGlint.enabled(cachedOff.components));
+    t.is(source.calls.length, requests);
+    t.is(JSON.stringify(components), before);
+});
+
 test.serial("modern definitions win within a source, while higher-priority legacy packs still override", async t => {
     const source = new FixtureSource({
         "items/stone": { model: reference("minecraft:block/stone") },
@@ -173,7 +302,7 @@ test.serial("item tint components survive snapshots, composites, legacy parents,
     const components = { custom_model_data: { colors: [0xff0000, 0x0000ff] }, dyed_color: 0x00ff00 };
     const context = { components, itemReferences: { "bundle/selected_item": itemKey("selected") } };
     const previousKey = new AssetKey(key.namespace, key.path, "items").serialize()
-        + Models["contextKey"](Models["snapshotContext"](key, context)).replace("|item-v4:", "|item-v3:");
+        + Models["contextKey"](Models["snapshotContext"](key, context)).replace("|item-v5:", "|item-v3:");
     await Models["_persistentCache"]!.put(`item-v3:${AssetLoader.persistentKey(previousKey)}`, { key, textures: { layer0: "stale" } });
     const pending = Models.getMerged(key, context);
     components.custom_model_data.colors[0] = 0xffff00;
