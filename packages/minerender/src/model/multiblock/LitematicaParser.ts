@@ -78,7 +78,7 @@ function readRegion(tags: Compound["value"], name: string, dataVersion: number |
             !pair.every(value => Number.isInteger(value) && value >= -2147483648 && value <= 4294967295)) {
             throw new MineRenderError(`Litematica region ${name} has an invalid BlockStates long`);
         }
-        return (BigInt(pair[0] >>> 0) << 32n) | BigInt(pair[1] >>> 0);
+        return [pair[0] >>> 0, pair[1] >>> 0];
     });
     const blockEntities = new Map<number, Compound>();
     for (const tile of compounds(tags.TileEntities, "TileEntities")) {
@@ -93,14 +93,16 @@ function readRegion(tags: Compound["value"], name: string, dataVersion: number |
         blockEntities.set(index, { type: "compound", value });
     }
     const blocks: MultiBlockBlock[] = [];
-    const mask = (1n << BigInt(bits)) - 1n;
+    const mask = 2 ** bits - 1;
     for (let index = 0; index < volume; index++) {
         const word = Math.floor(index * bits / 64);
         const shift = index * bits % 64;
-        let value = words[word] >> BigInt(shift);
+        const [high, low] = words[word];
+        let value = shift < 32 ? low >>> shift : high >>> (shift - 32);
+        if (shift < 32 && shift + bits > 32) value |= high << (32 - shift);
         // Litematica packs continuously, so an index can span two longs.
-        if (shift + bits > 64) value |= words[word + 1] << BigInt(64 - shift);
-        const id = Number(value & mask);
+        if (shift + bits > 64) value |= words[word + 1][1] << (64 - shift);
+        const id = (value & mask) >>> 0;
         const state = palette[id];
         if (!state) throw new MineRenderError(`Litematica region ${name} palette index ${id} does not exist`);
         const pos: TripleArray = [index % width + min[0], Math.floor(index / (width * length)) + min[1],

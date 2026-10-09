@@ -57,6 +57,28 @@ test("Litematica v5–7 decode gzip palettes across signed long boundaries in x/
     }
 });
 
+test("Litematica decodes varied index widths across 32-bit halves with signed or unsigned words", async t => {
+    for (let bits = 2; bits <= 10; bits++) {
+        const palette = Array.from({ length: 2 ** bits }, (_, index) => ({ Name: string(`example:block_${index}`) }));
+        const indices = Array.from({ length: 129 }, (_, index) => index * 37 % palette.length);
+        const words = Array<bigint>(Math.ceil(indices.length * bits / 64)).fill(0n);
+        for (const [index, id] of indices.entries()) {
+            const word = Math.floor(index * bits / 64);
+            const shift = BigInt(index * bits % 64);
+            words[word] |= BigInt.asUintN(64, BigInt(id) << shift);
+            if (shift + BigInt(bits) > 64n) words[word + 1] |= BigInt(id) >> (64n - shift);
+        }
+        for (const unsigned of [false, true]) {
+            const main = region({ size: [indices.length, 1, 1], palette, words });
+            if (unsigned && main.value.BlockStates.type === "longArray") {
+                main.value.BlockStates.value = main.value.BlockStates.value.map(([high, low]) => [high >>> 0, low >>> 0]);
+            }
+            const parsed = await LitematicaParser.parse(schematic({ Main: main }));
+            t.deepEqual(parsed.blocks.map(block => block.type), indices.map(id => `example:block_${id}`));
+        }
+    }
+});
+
 test("Litematica preserves named signed regions and computes bounds from complete region boxes", async t => {
     const parsed = await LitematicaParser.parse(schematic({
         West: region({ size: [-2, -2, -2], pos: [-3, 5, 7], words: [1n | (1n << 14n)] }),
