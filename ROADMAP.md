@@ -100,7 +100,7 @@ Immediate fixes: ~~fix `getChunkAt` to use `Map.get(key)`~~; ~~remove the 4×4×
 
 For biome tint, first preserve biome data during import and in chunk storage, then apply it to grass, foliage, and water in both rendering modes. Follow with saved light data and ambient occlusion. Measure real-world decoding, placement, frame stalls, and retained memory before choosing further worker or LOD work.
 
-~~Seed weighted blockstate alternatives by world position so unloading and reloading a chunk preserves its appearance.~~ Individual blocks and section meshes share deterministic selection from absolute block coordinates. Standalone previews remain random unless given `variantPosition`; selections are stable but do not reproduce vanilla's exact random sequence.
+~~Seed weighted blockstate alternatives by world position so unloading and reloading a chunk preserves its appearance.~~ Individual blocks and section meshes share vanilla-identical weighted selection from absolute block coordinates. Standalone previews remain random unless given `variantPosition`.
 
 Decoding and mesh construction run on the main thread; worker-based preparation and faster bulk placement remain scale improvements.
 

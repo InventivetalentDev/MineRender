@@ -47,6 +47,7 @@ export class BlockStateResolver {
     /** Selects matching models. Supply `choose` to control selection within each alternatives array. */
     public static select(blockState: BlockState, state: BlockStateProperties,
                          choose: (variants: BlockStateVariant | BlockStateVariant[]) => BlockStateVariant = this.choose): BlockStateVariant[] {
+        // Passing choose directly would make Array.map supply its index as the position.
         return this.matching(blockState, state).map(variants => choose(variants));
     }
 
@@ -86,7 +87,7 @@ export class BlockStateResolver {
             }
             return sum + weight;
         }, 0);
-        let choice = (position === undefined ? Math.random() : BlockStateResolver.positionSample(position)) * total;
+        let choice = position === undefined ? Math.random() * total : BlockStateResolver.positionSample(position, total);
         for (const variant of variants) {
             choice -= variant.weight ?? 1;
             if (choice < 0) return variant;
@@ -94,13 +95,22 @@ export class BlockStateResolver {
         return variants[variants.length - 1];
     }
 
-    private static positionSample(position: Readonly<TripleArray>): number {
-        // Mix signed coordinates with 32-bit arithmetic so load order and platform cannot change the sample.
-        let hash = 0x811c9dc5;
-        for (const coordinate of position) hash = Math.imul(hash ^ coordinate, 0x01000193);
-        hash = Math.imul(hash ^ (hash >>> 16), 0x85ebca6b);
-        hash = Math.imul(hash ^ (hash >>> 13), 0xc2b2ae35);
-        return ((hash ^ (hash >>> 16)) >>> 0) / 0x100000000;
+    private static positionSample(position: Readonly<TripleArray>, bound: number): number {
+        if (bound > 0x7fffffff) {
+            throw new MineRenderError("Position-based blockstate variant total weight must not exceed 2147483647");
+        }
+        // Mth.getSeed multiplies x as an int before widening it to a long.
+        let mixed = BigInt(Math.imul(position[0], 3129871)) ^ BigInt(position[2]) * 116129781n ^ BigInt(position[1]);
+        mixed = BigInt.asIntN(64, mixed * mixed * 42317861n + mixed * 11n) >> 16n;
+        let seed = (mixed ^ 0x5deece66dn) & 0xffffffffffffn;
+        let bits: number, value: number;
+        do {
+            seed = (seed * 0x5deece66dn + 11n) & 0xffffffffffffn;
+            bits = Number(seed >> 17n);
+            if ((bound & (bound - 1)) === 0) return Number(BigInt(bound) * BigInt(bits) >> 31n);
+            value = bits % bound;
+        } while ((bits - value + bound - 1 | 0) < 0);
+        return value;
     }
 
     /** Converts blockstate rotations in degrees into the Euler rotation used by model rendering. */
