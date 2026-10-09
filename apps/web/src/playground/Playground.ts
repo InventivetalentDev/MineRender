@@ -300,7 +300,7 @@ export class Playground<S extends object> {
             const center = bounds.getCenter(new Vector3());
             const radius = Math.max(1, bounds.getSize(new Vector3()).length() / 2);
             const camera = preview.renderer.camera as PerspectiveCamera | OrthographicCamera;
-            const direction = camera.position.clone().sub(preview.renderer.controls?.target ?? center);
+            const direction = camera.position.clone().sub(preview.renderer.orbitControls?.target ?? center);
             if (direction.lengthSq() < 0.01) direction.set(1, 0.75, 1);
             direction.normalize();
             let distance = radius * 3;
@@ -316,8 +316,8 @@ export class Playground<S extends object> {
             camera.far = Math.max(this.config.view.far, distance + radius * 4);
             camera.lookAt(center);
             camera.updateProjectionMatrix();
-            preview.renderer.controls?.target.copy(center);
-            preview.renderer.controls?.update();
+            preview.renderer.orbitControls?.target.copy(center);
+            preview.renderer.orbitControls?.update();
         }
         preview.renderer.dirty = true;
         this.captureCamera();
@@ -357,7 +357,7 @@ export class Playground<S extends object> {
         if (!r) return;
         const c = r.camera as PerspectiveCamera | OrthographicCamera;
         this.config.view.camera = {
-            position: c.position.toArray(), target: (r.controls?.target ?? new Vector3()).toArray(), zoom: c.zoom
+            position: c.position.toArray(), target: (r.orbitControls?.target ?? new Vector3()).toArray(), zoom: c.zoom
         };
         if (this.committed) this.committed.view.camera = clone(this.config.view.camera);
     }
@@ -368,8 +368,8 @@ export class Playground<S extends object> {
         c.position.fromArray(state.position);
         c.zoom = state.zoom;
         c.lookAt(...state.target);
-        r.controls?.target.fromArray(state.target);
-        r.controls?.update();
+        r.orbitControls?.target.fromArray(state.target);
+        r.orbitControls?.update();
         c.updateProjectionMatrix();
         r.dirty = true;
     }

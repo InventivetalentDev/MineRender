@@ -47,8 +47,8 @@ const app = new Playground<GuiState>({
                 }
                 camera.lookAt(center.x, -center.y, 0);
                 if (camera instanceof OrthographicCamera || camera instanceof PerspectiveCamera) camera.updateProjectionMatrix();
-                ctx.renderer.controls?.target.set(center.x, -center.y, 0);
-                ctx.renderer.controls?.update();
+                ctx.renderer.orbitControls?.target.set(center.x, -center.y, 0);
+                ctx.renderer.orbitControls?.update();
                 ctx.renderer.dirty = true;
             }
         };
