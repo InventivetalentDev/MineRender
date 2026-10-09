@@ -20,7 +20,8 @@ class FakeTarget {
         this.listeners.get(type)?.delete(listener);
     }
     emit(type: string, event: object = {}): void {
-        for (const listener of [...(this.listeners.get(type) ?? [])]) listener({ type, preventDefault() {}, ...event });
+        const target = (this as { activeElement?: object }).activeElement;
+        for (const listener of [...(this.listeners.get(type) ?? [])]) listener({ type, preventDefault() {}, target, ...event });
     }
     get listenerCount(): number {
         return [...this.listeners.values()].reduce((sum, set) => sum + set.size, 0);
@@ -30,8 +31,12 @@ class FakeTarget {
 class FakeElement extends FakeTarget {
     readonly ownerDocument: FakeDocument;
     readonly style: Record<string, string> = {};
+    tabIndex = -1;
     lockRequests = 0;
     remove(): void {}
+    focus(): void { this.ownerDocument.activeElement = this; }
+    blur(): void { this.ownerDocument.activeElement = null; this.emit("blur"); }
+    getBoundingClientRect() { return { left: 100, top: 0, width: 400, height: 300 }; }
     constructor(document: FakeDocument) {
         super();
         this.ownerDocument = document;
@@ -45,6 +50,7 @@ class FakeElement extends FakeTarget {
 
 class FakeDocument extends FakeTarget {
     pointerLockElement: FakeElement | null = null;
+    activeElement: object | null = null;
     readonly defaultView = new FakeTarget();
     exitPointerLock(): void {
         this.pointerLockElement = null;
@@ -59,12 +65,15 @@ function fixture(position = new Vector3(0, 0, 0)) {
     camera.position.copy(position);
     const controls = new FlyControls(camera, element as unknown as HTMLElement);
     controls.enableDamping = false;
+    element.focus();
     let changes = 0;
     controls.addEventListener("change", () => changes++);
     return { document, element, camera, controls, changes: () => changes };
 }
 
-const key = (code: string, target?: object) => ({ code, target });
+const key = (code: string, target?: object) => target ? { code, target } : { code };
+const touch = (type: string, pointerId: number, clientX: number, clientY: number) =>
+    ({ type, pointerId, pointerType: "touch", button: 0, clientX, clientY });
 
 test.after.always(() => shutdown());
 
@@ -128,7 +137,7 @@ test("clicking requests pointer lock, unlocking releases held keys, and dispose 
     t.true(controls.yaw < 0, "locked mouse look needs no drag");
 
     document.emit("keydown", key("KeyW", { tagName: "INPUT" }));
-    t.true(controls.isPressed("forward"), "editable targets are ignored only while unlocked");
+    t.true(controls.isPressed("forward"), "other focus targets are ignored only while unlocked");
     document.exitPointerLock();
     t.false(controls.locked);
     t.false(controls.isPressed("forward"));
@@ -137,8 +146,13 @@ test("clicking requests pointer lock, unlocking releases held keys, and dispose 
     document.emit("keydown", key("KeyW", { tagName: "INPUT" }));
     t.false(controls.isPressed("forward"));
     document.emit("keydown", key("KeyW"));
+    t.true(controls.isPressed("forward"), "the focused element receives keys");
     document.defaultView.emit("blur");
     t.false(controls.isPressed("forward"), "window blur releases keys");
+    document.emit("keydown", key("KeyW"));
+    element.blur();
+    t.false(controls.isPressed("forward"), "element blur releases keys");
+    t.is(element.tabIndex, 0, "the element became focusable");
 
     controls.pointerLock = false;
     element.emit("pointerdown", { pointerId: 2, pointerType: "mouse", button: 0 });
@@ -148,6 +162,41 @@ test("clicking requests pointer lock, unlocking releases held keys, and dispose 
     controls.dispose();
     t.is(element.listenerCount + document.listenerCount + document.defaultView.listenerCount, 0);
     t.deepEqual(camera.position.toArray(), [0, 0, 0]);
+});
+
+test("the wheel scales the speed within its range and touch uses a left joystick and right look", t => {
+    const { element, camera, controls } = fixture();
+    controls.movementSpeed = 100;
+    controls.speedRange = [50, 400];
+    element.emit("wheel", { deltaY: -100, deltaMode: 0 });
+    t.true(Math.abs(controls.movementSpeed - 115) < 1e-9);
+    element.emit("wheel", { deltaY: 3, deltaMode: 1 });
+    t.true(Math.abs(controls.movementSpeed - 115 / Math.pow(1.15, 3)) < 1e-9, "line deltas count as steps");
+    element.emit("wheel", { deltaY: -2000, deltaMode: 0 });
+    t.is(controls.movementSpeed, 400);
+    controls.enableWheelSpeed = false;
+    element.emit("wheel", { deltaY: 100, deltaMode: 0 });
+    t.is(controls.movementSpeed, 400);
+
+    controls.movementSpeed = 10;
+    controls.joystickRadius = 50;
+    element.emit("pointerdown", touch("pointerdown", 1, 150, 150));
+    element.emit("pointermove", touch("pointermove", 1, 175, 100));
+    controls.update(1);
+    t.true(camera.position.distanceTo(new Vector3(0.5, 0, -1).normalize().multiplyScalar(10)) < 1e-6, "joystick offset sets forward and strafe");
+    element.emit("pointermove", touch("pointermove", 1, 150, 400));
+    controls.update(1);
+    const afterClamp = new Vector3(0.5, 0, -1).normalize().multiplyScalar(10).add(new Vector3(0, 0, 10));
+    t.true(camera.position.distanceTo(afterClamp) < 1e-6, "joystick travel clamps to full speed");
+
+    element.emit("pointerdown", { ...touch("pointerdown", 2, 400, 150), movementX: 0, movementY: 0 });
+    element.emit("pointermove", { ...touch("pointermove", 2, 400, 150), movementX: 100, movementY: 0 });
+    t.true(controls.yaw < 0, "a second touch on the right half looks around");
+    element.emit("pointerup", touch("pointerup", 1, 150, 400));
+    element.emit("pointerup", touch("pointerup", 2, 400, 150));
+    controls.update(1);
+    t.true(camera.position.distanceTo(afterClamp) < 1e-6, "releasing the joystick stops movement");
+    t.is(element.lockRequests, 0);
 });
 
 test("damping eases toward the target velocity independent of frame rate", t => {
@@ -224,6 +273,7 @@ test("renderer fly controls keep drawing while a key is held and switch modes in
     const document = new FakeDocument();
     const element = new FakeElement(document);
     const renderer = new ControlsRenderer(element, "fly");
+    element.focus();
     const fly = renderer.controls;
     t.true(isFlyControls(fly));
     t.is(renderer.controlsMode, "fly");

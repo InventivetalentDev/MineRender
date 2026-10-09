@@ -28,8 +28,9 @@ const _targetVelocity = new Vector3();
  * move up and down, control sprints, and the mouse turns the camera (pointer lock, or drag).
  *
  * Call {@link FlyControls.update} with the elapsed seconds once per frame; the `change` event marks the
- * renderer dirty while keys are held. Speeds use scene units (16 per block). Keyboard events are read
- * from the element's document and ignored while an editable element has focus, unless the pointer is locked.
+ * renderer dirty while keys are held. Speeds use scene units (16 per block). The element becomes focusable
+ * and keys apply while it has focus or the pointer is locked. The wheel changes the speed, as in vanilla
+ * spectator mode. Touch input uses the left half of the element as a joystick and the right half for looking.
  */
 export class FlyControls extends Controls<FlyControlsEventMap, Camera> {
     public readonly isFlyControls: true = true;
@@ -46,6 +47,12 @@ export class FlyControls extends Controls<FlyControlsEventMap, Camera> {
     public dampingFactor: number = 0.25;
     /** Capture the pointer on click so the mouse turns the camera without dragging; dragging works regardless. */
     public pointerLock: boolean = true;
+    /** Scroll the wheel to change `movementSpeed` within `speedRange`. */
+    public enableWheelSpeed: boolean = true;
+    /** Minimum and maximum `movementSpeed` reachable with the wheel. */
+    public speedRange: [number, number] = [16, 16 * 500];
+    /** Touch joystick travel in CSS pixels for full speed. */
+    public joystickRadius: number = 64;
     /** Key bindings by `KeyboardEvent.code`. */
     public keys: Record<FlyAction, string[]> = {
         forward: ["KeyW", "ArrowUp"],
@@ -65,6 +72,7 @@ export class FlyControls extends Controls<FlyControlsEventMap, Camera> {
     private _quaternion0 = new Quaternion();
     private _dragPointer?: number;
     private _dragMoved = false;
+    private _joystick?: { id: number; originX: number; originY: number; x: number; y: number };
     private _locked = false;
     private _lastTime?: number;
 
@@ -75,6 +83,7 @@ export class FlyControls extends Controls<FlyControlsEventMap, Camera> {
     private readonly _onPointerUp = (event: PointerEvent) => this.handlePointerUp(event);
     private readonly _onPointerLockChange = () => this.handlePointerLockChange();
     private readonly _onContextMenu = (event: Event) => event.preventDefault();
+    private readonly _onWheel = (event: WheelEvent) => this.handleWheel(event);
     private readonly _onBlur = () => this.releaseKeys();
 
     constructor(camera: Camera, domElement?: HTMLElement | null) {
@@ -97,7 +106,10 @@ export class FlyControls extends Controls<FlyControlsEventMap, Camera> {
         element.addEventListener("pointerup", this._onPointerUp);
         element.addEventListener("pointercancel", this._onPointerUp);
         element.addEventListener("contextmenu", this._onContextMenu);
+        element.addEventListener("wheel", this._onWheel, { passive: false });
+        element.addEventListener("blur", this._onBlur);
         element.style.touchAction = "none";
+        if (element.tabIndex < 0) element.tabIndex = 0;
     }
 
     public disconnect(): void {
@@ -113,10 +125,13 @@ export class FlyControls extends Controls<FlyControlsEventMap, Camera> {
         element.removeEventListener("pointerup", this._onPointerUp);
         element.removeEventListener("pointercancel", this._onPointerUp);
         element.removeEventListener("contextmenu", this._onContextMenu);
+        element.removeEventListener("wheel", this._onWheel);
+        element.removeEventListener("blur", this._onBlur);
         element.style.touchAction = "auto";
         this.unlock();
         this.releaseKeys();
         this._dragPointer = undefined;
+        this._joystick = undefined;
     }
 
     public dispose(): void {
@@ -213,9 +228,15 @@ export class FlyControls extends Controls<FlyControlsEventMap, Camera> {
 
     private move(delta: number): void {
         const camera = this.object;
-        const forward = (this._pressed.has("forward") ? 1 : 0) - (this._pressed.has("back") ? 1 : 0);
-        const strafe = (this._pressed.has("right") ? 1 : 0) - (this._pressed.has("left") ? 1 : 0);
+        let forward = (this._pressed.has("forward") ? 1 : 0) - (this._pressed.has("back") ? 1 : 0);
+        let strafe = (this._pressed.has("right") ? 1 : 0) - (this._pressed.has("left") ? 1 : 0);
         const climb = (this._pressed.has("up") ? 1 : 0) - (this._pressed.has("down") ? 1 : 0);
+        const joystick = this._joystick;
+        if (joystick) {
+            const radius = Math.max(this.joystickRadius, 1);
+            forward = MathUtils.clamp(forward + (joystick.originY - joystick.y) / radius, -1, 1);
+            strafe = MathUtils.clamp(strafe + (joystick.x - joystick.originX) / radius, -1, 1);
+        }
 
         _euler.setFromQuaternion(camera.quaternion);
         const yaw = _euler.y;
@@ -260,7 +281,7 @@ export class FlyControls extends Controls<FlyControlsEventMap, Camera> {
         if (!this.enabled) return;
         const action = this.actionFor(event.code);
         if (!action) return;
-        if (down && !this._locked && isEditable(event.target)) return;
+        if (down && !this._locked && event.target !== this.domElement) return;
         if (down) this._pressed.add(action);
         else this._pressed.delete(action);
         event.preventDefault();
@@ -274,16 +295,35 @@ export class FlyControls extends Controls<FlyControlsEventMap, Camera> {
     }
 
     private handlePointerDown(event: PointerEvent): void {
-        if (!this.enabled || this._locked || this._dragPointer !== undefined) return;
+        const element = this.domElement;
+        if (!this.enabled || !element) return;
+        element.focus?.({ preventScroll: true });
+        if (this._locked) return;
+        if (event.pointerType === "touch" && !this._joystick && this.onJoystickSide(event)) {
+            this._joystick = { id: event.pointerId, originX: event.clientX, originY: event.clientY, x: event.clientX, y: event.clientY };
+            element.setPointerCapture?.(event.pointerId);
+            return;
+        }
+        if (this._dragPointer !== undefined) return;
         if (event.pointerType === "mouse" && event.button !== 0 && event.button !== 2) return;
         this._dragPointer = event.pointerId;
         this._dragMoved = false;
-        this.domElement?.setPointerCapture?.(event.pointerId);
-        this.domElement?.focus?.({ preventScroll: true });
+        element.setPointerCapture?.(event.pointerId);
+    }
+
+    private onJoystickSide(event: PointerEvent): boolean {
+        const rect = this.domElement?.getBoundingClientRect?.();
+        return !!rect && event.clientX < rect.left + rect.width / 2;
     }
 
     private handlePointerMove(event: PointerEvent): void {
         if (!this.enabled) return;
+        const joystick = this._joystick;
+        if (joystick && event.pointerId === joystick.id) {
+            joystick.x = event.clientX;
+            joystick.y = event.clientY;
+            return;
+        }
         if (!this._locked && event.pointerId !== this._dragPointer) return;
         const dx = event.movementX ?? 0;
         const dy = event.movementY ?? 0;
@@ -293,12 +333,26 @@ export class FlyControls extends Controls<FlyControlsEventMap, Camera> {
     }
 
     private handlePointerUp(event: PointerEvent): void {
+        if (this._joystick?.id === event.pointerId) {
+            this._joystick = undefined;
+            this.domElement?.releasePointerCapture?.(event.pointerId);
+            return;
+        }
         if (event.pointerId !== this._dragPointer) return;
         this._dragPointer = undefined;
         this.domElement?.releasePointerCapture?.(event.pointerId);
         if (this.enabled && this.pointerLock && !this._dragMoved && event.pointerType === "mouse" && event.button === 0) {
             this.lock();
         }
+    }
+
+    private handleWheel(event: WheelEvent): void {
+        if (!this.enabled || !this.enableWheelSpeed) return;
+        event.preventDefault();
+        // Lines and pages scroll in larger units than pixels.
+        const steps = event.deltaMode === 0 ? event.deltaY / 100 : event.deltaY;
+        const [min, max] = this.speedRange;
+        this.movementSpeed = MathUtils.clamp(this.movementSpeed * Math.pow(1.15, -steps), Math.min(min, max), Math.max(min, max));
     }
 
     private handlePointerLockChange(): void {
@@ -318,13 +372,6 @@ export class FlyControls extends Controls<FlyControlsEventMap, Camera> {
         this.object.quaternion.setFromEuler(_euler);
         this.notifyChange();
     }
-}
-
-function isEditable(target: EventTarget | null): boolean {
-    const element = target as HTMLElement | null;
-    if (!element || typeof element.tagName !== "string") return false;
-    const tag = element.tagName.toUpperCase();
-    return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || element.isContentEditable === true;
 }
 
 export function isFlyControls(obj: any): obj is FlyControls {
