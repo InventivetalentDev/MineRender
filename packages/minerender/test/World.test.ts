@@ -1,10 +1,13 @@
 import test, { ExecutionContext } from "ava";
 import { BoxGeometry, InstancedMesh, MeshBasicMaterial, Vector3 } from "three";
+import type { NBT } from "prismarine-nbt";
+import { BlockEntities } from "../src/assets/BlockEntities";
 import { BlockStates } from "../src/assets/BlockStates";
 import { Models } from "../src/assets/Models";
 import { BlockObject } from "../src/model/block/scene/BlockObject";
 import { TripleArray } from "../src/model/Model";
 import { ModelObject } from "../src/model/scene/ModelObject";
+import { SpongeSchematicParser } from "../src/model/multiblock/SpongeSchematicParser";
 import { MineRenderScene } from "../src/renderer/MineRenderScene";
 import { ChunkData } from "../src/world/ChunkData";
 import { BatchedExecutor } from "../src/util/BatchedExecutor";
@@ -64,6 +67,37 @@ test.serial("world coordinates cross signed chunk boundaries through every overl
     t.is(owners[0].children.length, 1);
     t.is(owners[0].children[0].children.length, 0);
     t.is(scene.stats.instanceCount, positions.length);
+});
+
+test.serial("Sponge structures place offset blocks with saved properties and normalized NBT", async t => {
+    const { world, scene } = fixture(t);
+    const getIndex = BlockEntities.getIndex;
+    BlockEntities.getIndex = async () => ({});
+    t.teardown(() => { BlockEntities.getIndex = getIndex; });
+    const input: NBT = { type: "compound", name: "", value: { Schematic: { type: "compound", value: {
+        Version: { type: "int", value: 3 }, DataVersion: { type: "int", value: 4671 },
+        Width: { type: "short", value: 2 }, Height: { type: "short", value: 1 }, Length: { type: "short", value: 1 },
+        Offset: { type: "intArray", value: [-17, -1, 16] },
+        Blocks: { type: "compound", value: {
+            Palette: { type: "compound", value: { "test:stone[facing=east]": { type: "int", value: 0 } } },
+            Data: { type: "byteArray", value: [0, 0] },
+            BlockEntities: { type: "list", value: { type: "compound", value: [{
+                Id: { type: "string", value: "test:container" }, Pos: { type: "intArray", value: [1, 0, 0] },
+                Data: { type: "compound", value: { CustomName: { type: "string", value: "fixture" } } }
+            }] } }
+        } }
+    } } } };
+    await world.placeMultiBlock(await SpongeSchematicParser.parse(input));
+    t.deepEqual(world.getBlockAt(-17, -1, 16)!.object.state, { facing: "east" });
+    const placed = world.getBlockAt(-16, -1, 16)!;
+    t.deepEqual(placed.object.getPosition().toArray(), [-256, -16, 256]);
+    t.deepEqual(placed.block, { type: "test:stone", properties: { facing: "east" }, nbt: {
+        type: "compound", value: {
+            CustomName: { type: "string", value: "fixture" }, id: { type: "string", value: "test:container" },
+            x: { type: "int", value: -16 }, y: { type: "int", value: -1 }, z: { type: "int", value: 16 }
+        }
+    } });
+    t.is(scene.stats.instanceCount, 2);
 });
 
 test.serial("invalid world and local coordinates cannot alias another block", async t => {
