@@ -87,7 +87,7 @@ export class GuiObject extends SceneObject {
                         this.bounds.expandByPoint(new Vector2(bounds.max.x, -bounds.min.y));
                     }
                     depth += 0.01;
-                    if (overlay.bar || overlay.count > 1) {
+                    if (layer.decorations !== false && (overlay.bar || overlay.count > 1)) {
                         await this.createItemOverlay(overlay, `${layer.name ?? index}`, index, [x, y], [width, height], depth);
                         depth += 0.01;
                     }
@@ -153,20 +153,15 @@ export class GuiObject extends SceneObject {
         const count = context?.count === undefined ? 1 : context.count;
         if (!Number.isSafeInteger(count) || count < 0) throw new Error("Item-preview count must be a nonnegative safe integer");
         const components = context?.components ?? {};
-        const component = (id: string): unknown => {
-            if (Object.prototype.hasOwnProperty.call(components, id) && Object.prototype.hasOwnProperty.call(components, `minecraft:${id}`)) {
-                throw new Error(`Duplicate item-preview component: minecraft:${id}`);
-            }
-            return Object.prototype.hasOwnProperty.call(components, id) ? components[id] : components[`minecraft:${id}`];
-        };
-        const maximum = component("max_damage"), suppliedDamage = component("damage");
-        component("unbreakable");
+        const maximum = Models.componentValue(components, "max_damage"), suppliedDamage = Models.componentValue(components, "damage");
+        const unbreakable = Models.componentValue(components, "unbreakable");
         if (count === 0 || maximum === undefined || suppliedDamage === undefined
-            || Object.prototype.hasOwnProperty.call(components, "unbreakable") || Object.prototype.hasOwnProperty.call(components, "minecraft:unbreakable")) return { count };
+            || unbreakable !== undefined) return { count };
         if (typeof maximum !== "number" || !Number.isFinite(maximum) || maximum < 0
             || typeof suppliedDamage !== "number" || !Number.isFinite(suppliedDamage)) throw new Error("GUI item durability requires finite damage and a nonnegative max_damage");
         const damage = Math.max(0, Math.min(maximum, suppliedDamage));
         if (!damage) return { count };
+        // Match the float arithmetic in Minecraft's Item.getBarColor.
         let width = Math.fround(13 - Math.fround(Math.fround(Math.fround(damage) * 13) / Math.fround(maximum)));
         let remaining = Math.fround(Math.fround(Math.fround(maximum) - Math.fround(damage)) / Math.fround(maximum));
         if (!Number.isFinite(width) || !Number.isFinite(remaining)) {

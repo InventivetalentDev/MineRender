@@ -95,6 +95,17 @@ export class Models {
         return id.includes(":") ? id : `minecraft:${id}`;
     }
 
+    /** @internal */
+    public static componentValue(components: Record<string, unknown>, id: string): unknown {
+        const normalized = this.contextIdentifier(id);
+        const short = normalized.replace(/^minecraft:/, "");
+        if (short !== normalized && Object.prototype.hasOwnProperty.call(components, short)
+            && Object.prototype.hasOwnProperty.call(components, normalized)) {
+            throw new Error(`Duplicate item-preview component: ${normalized}`);
+        }
+        return Object.prototype.hasOwnProperty.call(components, short) ? components[short] : components[normalized];
+    }
+
     private static snapshotContext(key: AssetKey, context: ItemModelContext): Required<ItemModelContext> {
         const displayContext = context.displayContext ?? DisplayPosition.GUI;
         if (displayContext !== "none" && !Object.values(DisplayPosition).includes(displayContext)) {

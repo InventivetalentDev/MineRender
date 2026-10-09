@@ -26,6 +26,8 @@ export interface GuiItemLayer extends GuiLayerLayout {
     item: AssetKey | string;
     /** Supplied item state, count label, and damage bar. Count zero leaves an empty slot; models always use the GUI display context. */
     context?: Omit<ItemModelContext, "displayContext">;
+    /** Draw count labels and durability bars. Defaults to true. */
+    decorations?: boolean;
     /** sRGB 0xRRGGBB colors by face tint index, overriding the item's automatic preview colors. */
     tints?: Record<number, number>;
 }

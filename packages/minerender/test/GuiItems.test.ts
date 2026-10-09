@@ -155,6 +155,20 @@ test.serial("GUI durability uses supplied component presence, clamped widths, an
     t.is(requests.length, before);
 });
 
+test.serial("GUI item decorations can be disabled without changing stack state or empty slots", async t => {
+    const { scene, requests } = fixture(t);
+    const font = countFont(t);
+    const gui = await scene.addGui([
+        { name: "item", item: "test:item/front", decorations: false, context: { count: 64, components: { damage: 50, max_damage: 100 } } },
+        { name: "empty", item: "test:item/missing", decorations: false, context: { count: 0 } }
+    ]);
+    t.truthy(gui.getMeshByName("item"));
+    t.is(gui.getGroupByName("item:overlays"), undefined);
+    t.is(gui.getGroupByName("empty")!.children.length, 0);
+    t.is(requests.length, 1);
+    t.deepEqual(font.requests, []);
+});
+
 test.serial("GUI overlays snapshot stack inputs before loading and include wide count labels in local bounds", async t => {
     const { scene, model } = fixture(t);
     countFont(t);
