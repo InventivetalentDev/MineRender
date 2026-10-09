@@ -16,7 +16,6 @@ const entityLayer = { key: entityKey, texture: new AssetKey("minecraft", "pig", 
 
 const cases = [
     { name: "blockstate list", load: () => BlockStates.getList(), asset: { directories: [], files: ["stone"] }, expected: ["stone"], missing: [] },
-    { name: "default blockstates", load: () => BlockStates.getDefaultStates(), asset: { "minecraft:stone": {} }, expected: { "minecraft:stone": {} }, missing: undefined },
     { name: "entity model files", load: () => Entities.getEntity(entityKey, entityKey), asset: { id: "minecraft:pig", layers: { main } }, expected: { ...entityLayer, id: "minecraft:pig", layers: { main: entityLayer } }, missing: undefined },
     { name: "entity list", load: () => Entities.getEntityList(), asset: { directories: [], files: ["pig.json"] }, expected: ["pig"], missing: [] }
 ];

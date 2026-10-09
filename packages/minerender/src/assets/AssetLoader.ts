@@ -18,8 +18,6 @@ import { Caching } from "../cache/Caching";
 const p = prefix("AssetLoader");
 
 
-const FALLBACK_ROOT = "https://raw.githubusercontent.com/InventivetalentDev/minerender-fallback-assets/master";
-
 /** Loads assets from a shared, ordered registry of hosted sources and resource packs. */
 export class AssetLoader {
 
@@ -49,7 +47,7 @@ export class AssetLoader {
     }
 
     /**
-     * Scope for persistent cache keys. Empty with only the default vanilla sources, so their
+     * Scope for persistent cache keys. Empty with only the default vanilla source, so its
      * entries stay valid across sessions; otherwise it names every added source (resource packs,
      * mirrors) so their results never masquerade as vanilla assets after a reload.
      */
@@ -58,7 +56,6 @@ export class AssetLoader {
         for (const { key, source } of this._SOURCES) {
             const id = source.cacheId;
             if (key === "mcassets" && id === `hosted:${this.ROOT}`) continue;
-            if (key === "mcassets-fallback" && id === `hosted:${FALLBACK_ROOT}`) continue;
             if (id === undefined) return this.SESSION_SCOPE;
             parts.push(`${key}=${id}`);
         }
@@ -103,7 +100,6 @@ export class AssetLoader {
     }
 
     static {
-        this.addSource("mcassets-fallback", new HostedAssetSource(FALLBACK_ROOT, { retryDefaults: false }));
         this.addSource("mcassets", new HostedAssetSource(this.ROOT, { retryDefaults: false }));
     }
 
