@@ -214,6 +214,37 @@ test.serial("default bulk placement yields to the event loop and places every bl
         count + (child as Mesh).geometry.getIndex()!.count, 0), 0), (16 * 16 * 2 + 16 * 64 * 4) * 6);
 });
 
+test.serial("default bulk placement starts distinct block-state resolutions concurrently", async t => {
+    t.timeout(3000);
+    const { world, scene, addModel } = fixture(t, { sectionMeshing: true });
+    addModel("second");
+    addModel("third");
+    const types = ["test:cube", "test:second", "test:third"], requested: string[] = [];
+    const releases: (() => void)[] = [];
+    const gates = types.map(() => new Promise<void>(resolve => { releases.push(resolve); }));
+    const get = BlockStates.get, getAll = BlockStates.getAll;
+    // Bypass world preloads so this test measures the chunk's resolution pass.
+    BlockStates.getAll = async () => [];
+    BlockStates.get = async key => {
+        const type = key.toNamespacedString();
+        requested.push(type);
+        await gates[types.indexOf(type)];
+        return get(key);
+    };
+    const pending = world.placeMultiBlock({ size: [3, 1, 1], blocks: types.map((type, x) => ({ type, position: [x, 0, 0] })) });
+    t.teardown(async () => {
+        BlockStates.getAll = getAll;
+        for (const release of releases) release();
+        await pending;
+    });
+    await new Promise(resolve => setTimeout(resolve, 0));
+    t.deepEqual(requested, types);
+    t.is(scene.children.length, 0);
+    for (const release of releases) release();
+    await pending;
+    t.true(types.every((type, x) => world.getBlockAt(x, 0, 0)?.block.type === type));
+});
+
 test.serial("default bulk placement selects weighted section templates separately for each block", async t => {
     const { world, scene, states, addModel } = fixture(t, { sectionMeshing: true });
     addModel("unculled", { cullable: [] });
@@ -221,7 +252,7 @@ test.serial("default bulk placement selects weighted section templates separatel
     await world["sectionModels"]!.get(states.get("test:weighted")!);
     const random = Math.random;
     let choices = 0;
-    Math.random = () => choices++ === 0 ? 0 : 0.99;
+    Math.random = () => choices++ % 2 === 0 ? 0 : 0.99;
     t.teardown(() => { Math.random = random; });
     await world.placeMultiBlock({ size: [2, 1, 1], blocks: [
         { position: [0, 0, 0], type: "test:weighted" }, { position: [1, 0, 0], type: "test:weighted" }

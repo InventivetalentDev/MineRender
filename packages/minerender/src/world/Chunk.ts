@@ -102,6 +102,23 @@ export class Chunk<SectionMeshing extends boolean = false> {
     public async placeBlocks(blocks: readonly { index: number; block: Maybe<Block> }[]): Promise<Vector3[]> {
         type Resolved = { blockState: Maybe<BlockState>; perBlock: boolean };
         const resolutions = new Map<string, Promise<Resolved>>();
+        for (const { block } of blocks) {
+            if (!block || ChunkData.isAir(block)) continue;
+            const key = ChunkData.paletteKey(block);
+            if (resolutions.has(key)) continue;
+            const stored = { type: block.type, properties: block.properties ? { ...block.properties } : undefined };
+            const resolved = (async () => {
+                const blockState = await BlockStates.get(AssetKey.parse("blockstates", stored.type));
+                // Fluids and block entities need individual render objects.
+                const perBlock = !blockState || !this.sectionModels || !!getFluidKind(blockState.key, stored.properties)
+                    || !!(blockState.key && BlockEntities.entry(await BlockEntities.getIndex(blockState.key.root), blockState.key.toNamespacedString()));
+                if (!perBlock) await this.sectionModels!.get(blockState!, stored.properties);
+                return { blockState, perBlock };
+            })();
+            resolutions.set(key, resolved);
+            // Later states can reject while placement awaits an earlier state.
+            void resolved.catch(() => undefined);
+        }
         const positions: Vector3[] = [];
         let failed = false, failure: unknown;
         for (const { index, block } of blocks) {
@@ -119,18 +136,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
                 if (!readBlock) continue;
                 const stored = readBlock();
                 const key = ChunkData.paletteKey(stored);
-                let resolved = resolutions.get(key);
-                if (!resolved) {
-                    resolved = (async () => {
-                        const blockState = await BlockStates.get(AssetKey.parse("blockstates", stored.type));
-                        // Fluids and block entities need individual render objects.
-                        const perBlock = !blockState || !this.sectionModels || !!getFluidKind(blockState.key, stored.properties)
-                            || !!(blockState.key && BlockEntities.entry(await BlockEntities.getIndex(blockState.key.root), blockState.key.toNamespacedString()));
-                        return { blockState, perBlock };
-                    })();
-                    resolutions.set(key, resolved);
-                }
-                const { blockState, perBlock } = await resolved;
+                const { blockState, perBlock } = await resolutions.get(key)!;
                 if (!blockState) {
                     this.data.set(index, undefined);
                     continue;
