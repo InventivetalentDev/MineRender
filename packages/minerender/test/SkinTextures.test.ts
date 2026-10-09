@@ -1,5 +1,5 @@
 import test, { ExecutionContext } from "ava";
-import { DataTexture, DoubleSide, FrontSide, MeshBasicMaterial, NearestFilter, SRGBColorSpace } from "three";
+import { DataTexture, DoubleSide, MeshBasicMaterial, NearestFilter, SRGBColorSpace } from "three";
 import { Caching } from "../src/cache/Caching";
 import { SkinImage } from "../src/skin/SkinImage";
 import { SkinTextures, SkinTexture } from "../src/skin/SkinTextures";
@@ -203,8 +203,9 @@ test.serial("player-head profiles preserve vanilla default UUID selection and re
 
 test.serial("resolved profile skins prepare the hat once, retain shared ownership, and reject untrusted texture payloads", async t => {
     const url = "https://textures.minecraft.net/texture/resolved";
+    const uppercaseUrl = "https://TEXTURES.minecraft.net/texture/resolved";
     const source = image(64, 64, 128);
-    const get = fixture(t, { [url]: source });
+    const get = fixture(t, { [url]: source, [uppercaseUrl]: source });
     const { resources, lookups } = profiles(t);
     const encoded = (textures: unknown) => Buffer.from(JSON.stringify({ textures })).toString("base64");
     const value = encoded({ SKIN: { url } });
@@ -213,18 +214,18 @@ test.serial("resolved profile skins prepare the hat once, retain shared ownershi
     const result = await PlayerHeadTextures.get(profile);
     const second = await PlayerHeadTextures.get({ properties: { textures: [value] } });
     const skin = await get(url);
-    t.not(result.material, skin.material);
+    t.is(result.material, skin.material);
     t.is(result.material, second.material);
     t.is(result.material!.map, skin.material.map);
-    t.deepEqual([result.material!.transparent, result.material!.alphaTest, result.material!.side, result.material!.depthWrite], [true, 0.1, FrontSide, true]);
+    t.deepEqual([result.material!.transparent, result.material!.alphaTest, result.material!.side, result.material!.depthWrite], [true, 0.1, DoubleSide, true]);
     t.is(skin.material.side, DoubleSide);
     t.deepEqual(pixel(pixels(skin), 64, 8, 8), [8, 8, 99, 255]);
     t.deepEqual(pixel(pixels(skin), 64, 40, 8), [40, 8, 99, 128]);
     t.is(JSON.stringify(profile), before);
     t.deepEqual(resources, []);
     t.deepEqual(lookups, []);
-    result.material!.dispose();
-    for (const invalid of ["not JSON", `${value}!`, encoded({ SKIN: { url: "https://TEXTURES.minecraft.net/skin" } }), encoded({ SKIN: { url: "https://example.test/skin.png" } }),
+    t.is((await PlayerHeadTextures.get({ properties: { textures: [encoded({ SKIN: { url: uppercaseUrl } })] } })).material, (await get(uppercaseUrl)).material);
+    for (const invalid of ["not JSON", `${value}!`, encoded({ SKIN: { url: "https://textures.minecraft.net@example.test/skin.png" } }), encoded({ SKIN: { url: "https://example.test/skin.png" } }),
         encoded({ SKIN: { url }, CAPE: { url: "https://bugs.mojang.com/skin" } }), encoded({ SKIN: {} })]) {
         const fallback = await PlayerHeadTextures.get({ properties: { textures: [invalid, value] } });
         t.is(fallback.material, undefined);
@@ -236,7 +237,7 @@ test.serial("dynamic player profiles retain their input UUID defaults and retry 
     const uuid = "00000000-0000-0000-0000-00000000000a";
     const url = `https://textures.minecraft.net/texture/${uuid}`;
     const images: Record<string, ImageData> = {};
-    fixture(t, images);
+    const get = fixture(t, images);
     const { lookups } = profiles(t);
     const offline = await PlayerHeadTextures.get("Notch");
     t.is(offline.texture.getFullPath(), "entity/player/slim/makena");
@@ -247,10 +248,9 @@ test.serial("dynamic player profiles retain their input UUID defaults and retry 
     t.is((await PlayerHeadTextures.get({ id: [0, 0, 0, 10] })).texture.getFullPath(), "entity/player/wide/ari");
     images[url] = image(64, 32);
     const loaded = await PlayerHeadTextures.get("Notch");
-    t.truthy(loaded.material);
+    t.is(loaded.material, (await get(url)).material);
     t.deepEqual(lookups, ["Notch", "Notch", uuid, uuid, "Notch", uuid]);
     t.is((await PlayerHeadTextures.get({ id: [0, 0, 0, 10] })).material, loaded.material);
     const data = (loaded.material!.map as DataTexture).image.data;
     t.is(pixel(data, 64, 40, 8)[3], 0);
-    loaded.material!.dispose();
 });

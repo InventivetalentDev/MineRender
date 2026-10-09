@@ -110,10 +110,9 @@ profileGroup.hidden = true;
 const player = input(profileGroup, "Username or UUID", "");
 player.id = "item-profile-player";
 player.placeholder = "Enter a player name or UUID";
-let profileState: ItemSettings | undefined;
+const profileGuard = itemControlGuard(profileGroup);
 function applyPlayer(value: string): void {
-    if (profileGroup.disabled || !profileState || app.state.item !== profileState.item
-        || JSON.stringify(app.state.components) !== JSON.stringify(profileState.components)) return;
+    if (!profileGuard.matches()) return;
     const current = app.state.components;
     if (!current || typeof current !== "object" || Array.isArray(current)) return;
     const next = structuredClone(current);
@@ -127,8 +126,7 @@ function applyPlayer(value: string): void {
         app.report("Enter a username of up to 16 letters, numbers, or underscores, or a UUID.", true);
         return;
     }
-    profileGroup.disabled = true;
-    void app.update({ components: next });
+    profileGuard.update({ components: next });
 }
 button(profileGroup, "Apply player", () => applyPlayer(player.value.trim()));
 button(profileGroup, "Clear profile", () => applyPlayer(""));
@@ -337,8 +335,7 @@ function syncComponentColors(state: ItemSettings): void {
 }
 
 function syncStateControls(state: ItemSettings, items: string[]): void {
-    profileState = state;
-    profileGroup.disabled = false;
+    profileGuard.sync(state);
     const profile = state.components.profile ?? state.components["minecraft:profile"];
     profileGroup.hidden = !["player_head", "minecraft:player_head"].includes(state.item) && profile === undefined;
     let identity = typeof profile === "string" ? profile : "";

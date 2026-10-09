@@ -4,7 +4,7 @@ import { Materials } from "../../Materials";
 import { Maybe, toRadians } from "../../util/util";
 import { UVMapper } from "../../UVMapper";
 import { TextureAtlas } from "../../texture/TextureAtlas";
-import { BoxGeometry, BoxHelper, BufferAttribute, Color, EdgesGeometry, Euler, InstancedMesh, LineBasicMaterial, LineSegments, Material, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, ShaderMaterial } from "three";
+import { BoxGeometry, BoxHelper, BufferAttribute, Color, EdgesGeometry, Euler, FrontSide, InstancedMesh, LineBasicMaterial, LineSegments, Material, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, ShaderMaterial } from "three";
 import { mergeBufferGeometries } from "../../three/BufferGeometryUtils";
 import { SceneObjectOptions } from "../../renderer/SceneObjectOptions";
 import { addBox3WireframeToObject, addWireframeToMesh, addWireframeToObject, applyElementRotation } from "../../util/model";
@@ -100,6 +100,8 @@ export class ModelObject extends SceneObject {
                             const front = this.options.displayPosition === DisplayPosition.GUI &&
                                 (this.originalModel as ItemModel).gui_light === GuiLight.FRONT;
                             material = SpecialItems.createMaterial(source, !front);
+                            // Entity geometry already contains the inward faces used by vanilla's translucent draw.
+                            if (part.material) material.side = FrontSide;
                             this.specialMaterials.set(source, material);
                         }
                         mesh.material = material;

@@ -1,8 +1,7 @@
 import { Buffer } from "buffer";
-import { FrontSide, MeshBasicMaterial } from "three";
-import { AssetKey } from "../assets/AssetKey";
+import { MeshBasicMaterial } from "three";
+import { AssetKey, isResourceLocation } from "../assets/AssetKey";
 import { ModelTextures } from "../assets/ModelTextures";
-import { Caching } from "../cache/Caching";
 import { md5 } from "../util/util";
 import { Skins } from "./Skins";
 import { SkinTextures } from "./SkinTextures";
@@ -40,13 +39,7 @@ export class PlayerHeadTextures {
         if (src) {
             try {
                 const skin = await SkinTextures.get(src);
-                const material = Caching.materialCache.get(`player-head:${skin.material.uuid}`, () => {
-                    const prepared = skin.material.clone();
-                    // Entity geometry already contains the inward faces used by vanilla's translucent draw.
-                    prepared.side = FrontSide;
-                    return prepared;
-                }) as MeshBasicMaterial;
-                return { texture, material };
+                return { texture, material: skin.material };
             } catch {
                 // A missing or invalid downloaded skin uses the profile's default, without caching the failure.
             }
@@ -76,7 +69,7 @@ export class PlayerHeadTextures {
             result.id = [...input.id];
         }
         if (input.texture !== undefined) {
-            if (typeof input.texture !== "string" || !/^(?:[a-z0-9_.-]+:)?[a-z0-9/._-]+$/.test(input.texture)) throw new Error("Invalid player profile texture identifier");
+            if (!isResourceLocation(input.texture)) throw new Error("Invalid player profile texture identifier");
             result.texture = input.texture;
         }
         const supplied = input.properties;
@@ -104,9 +97,6 @@ export class PlayerHeadTextures {
                 if (!texture || typeof texture.url !== "string" || !/^https?:\/\//.test(texture.url)) return undefined;
                 const url = new URL(texture.url);
                 const host = url.hostname;
-                const authority = texture.url.slice(texture.url.indexOf("://") + 3).split(/[/?#]/, 1)[0];
-                const suppliedHost = authority.slice(authority.lastIndexOf("@") + 1).split(":", 1)[0];
-                if (suppliedHost !== host) return undefined;
                 if (!host.endsWith(".minecraft.net") && !host.endsWith(".mojang.com")
                     || ["bugs.mojang.com", "education.minecraft.net", "feedback.minecraft.net"].some(blocked => host.endsWith(blocked))) return undefined;
             }
