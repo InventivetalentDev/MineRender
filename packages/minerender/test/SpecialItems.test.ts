@@ -67,9 +67,20 @@ function fixture(t: ExecutionContext) {
             })
             : id === "shield" ? part({ handle: part({}, [-1, -3, -1], [2, 6, 6]), plate: part({}, [-6, -11, -2], [12, 22, 1]) })
             : id === "standing_banner" ? part({ pole: part({}, [-1, -42, -1], [2, 42, 2]), bar: part({}, [-10, -44, -1], [20, 2, 2]) })
+            : id === "trident" ? part({ pole: part({
+                base: part({}, [-1.5, 0, -0.5], [3, 2, 1]),
+                left_spike: part({}, [-2.5, -3, -0.5], [1, 4, 1]),
+                middle_spike: part({}, [-0.5, -4, -0.5], [1, 4, 1]),
+                right_spike: part({}, [1.5, -3, -0.5], [1, 4, 1])
+            }, [-0.5, 2, -0.5], [1, 25, 1]) })
+            : id === "conduit" ? part({ shell: part({}, [-3, -3, -3], [6, 6, 6]) })
             : id.startsWith("bed_") ? part({ main: part({}, [0, 0, 0], [16, 16, 6]) })
             : part({ head: part({ jaw: part(), left_ear: part(), right_ear: part() }, [-4, -8, -4]) });
         const model: EntityModel = { key, id, texture: texture as AssetKey | undefined, transform: [{ translate: [100, 200, 300] }], layer: { texture: [64, 64], root } };
+        if (id === "trident" || id === "conduit") {
+            model.layer.texture = id === "trident" ? [32, 32] : [32, 16];
+            model.layers = { [options?.layer ?? "main"]: { key, texture: texture as AssetKey, layer: model.layer } };
+        }
         if (id === "standing_banner") model.layers = {
             main: { key, texture: texture as AssetKey, layer: model.layer },
             flag: { key, texture: options?.textures?.flag as AssetKey, layer: { texture: [64, 64], root: part({
@@ -139,6 +150,34 @@ test.serial("special beds join both halves before applying the inherited item di
     t.deepEqual(textures.map(key => key.toNamespacedString()), ["custom:entity/bed/blue", "custom:entity/bed/blue"]);
     const bounds = new Box3().setFromObject(object);
     t.deepEqual([coordinates(bounds.min), coordinates(bounds.max)], [[-2, 0.5, -8], [6, 3.5, 8]]);
+});
+
+test.serial("trident and conduit specials select their vanilla layers, solid materials, and transforms", async t => {
+    const { create, requests, textures, models } = fixture(t);
+    const trident = await create({ type: "minecraft:trident" });
+    const conduit = await create({ type: "conduit" });
+    t.deepEqual(requests.map(({ key, options }) => [key.path, options?.layer]), [["trident", "main"], ["conduit", "shell"]]);
+    t.deepEqual(textures.map(key => key.toNamespacedString()), ["minecraft:entity/trident", "minecraft:entity/conduit/base"]);
+    t.true(requests.every(request => (request.key as AssetKey).root === "https://example.test/pack"));
+    t.true(textures.every(key => key.root === "https://example.test/pack"));
+    const entities = [trident, conduit].map(object => object.children[0] as EntityObject);
+    t.deepEqual(entities.map(entity => Object.keys(entity.entity.layers!)), [["main"], ["shell"]]);
+    t.deepEqual(entities.map(entity => coordinates(new Vector3(1, 2, 3).applyMatrix4(entity.matrix))), [[-7, -10, -11], [1, 2, 3]]);
+    const bounds = [trident, conduit].map(object => new Box3().setFromObject(object));
+    t.deepEqual(bounds.map(box => [coordinates(box.min), coordinates(box.max)]), [
+        [[-10.5, -35, -8.5], [-5.5, -4, -7.5]], [[-3, -3, -3], [3, 3, 3]]
+    ]);
+    for (const [index, object] of [trident, conduit].entries()) {
+        t.false(object.isInstanced);
+        t.is(entities[index].entity.render, "solid");
+        t.true(Object.values(entities[index].entity.layers!).every(layer => layer.render === "solid"));
+        object.iterateAllMeshes(mesh => t.is(mesh.geometry.getIndex()!.count, 36));
+        t.is(models[index].render, undefined);
+        t.true(Object.values(models[index].layers!).every(layer => layer.render === undefined));
+    }
+    const displayed = await create({ type: "minecraft:conduit" }, { gui: { translation: [2, 3, 4], scale: [0.5, 0.5, 0.5] } });
+    const displayedBounds = new Box3().setFromObject(displayed);
+    t.deepEqual([coordinates(displayedBounds.min), coordinates(displayedBounds.max)], [[0.5, 1.5, 2.5], [3.5, 4.5, 5.5]]);
 });
 
 test.serial("banner patterns use registry asset IDs, namespaces, directory indexes, and the first 16 ordered layers", async t => {

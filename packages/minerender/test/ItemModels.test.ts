@@ -414,6 +414,10 @@ test.serial("special items retain their renderer and inherit the base pose throu
         { type: "minecraft:banner", color: "black" },
         { type: "shield" },
         { type: "minecraft:shield" },
+        { type: "trident" },
+        { type: "minecraft:trident" },
+        { type: "conduit" },
+        { type: "minecraft:conduit" },
         { type: "minecraft:head", kind: "dragon", texture: "pack:dragon", animation: 0.25 }
     ];
     const display = { gui: { rotation: [30, 45, 0], scale: [0.625, 0.625, 0.625] } };
@@ -489,6 +493,41 @@ test.serial("composite items retain ordered nested parts, independent inheritanc
     }
     t.is(source.calls.filter(call => call.assetType === "items").length, 1);
     t.true(source.calls.every(call => call.root === key.root));
+});
+
+test.serial("trident item definitions keep flat display contexts and select held or throwing poses", async t => {
+    const held = { rotation: [0, 60, 0], translation: [11, 17, -2], scale: [1, 1, 1] };
+    const throwing = { rotation: [0, 90, 180], translation: [8, -17, 9], scale: [1, 1, 1] };
+    AssetLoader.addSource("test-items", new FixtureSource({
+        "items/trident": { model: {
+            type: "minecraft:select", property: "minecraft:display_context",
+            cases: [{ when: ["gui", "ground", "fixed", "on_shelf"], model: reference("minecraft:item/trident") }],
+            fallback: { type: "minecraft:condition", property: "minecraft:using_item",
+                on_false: { type: "minecraft:special", base: "minecraft:item/trident_in_hand", model: { type: "minecraft:trident" } },
+                on_true: { type: "minecraft:special", base: "minecraft:item/trident_throwing", model: { type: "minecraft:trident" } }
+            }
+        } },
+        "models/item/trident": { textures: { layer0: "item/trident" } },
+        "models/item/trident_in_hand": { gui_light: "front", display: { thirdperson_righthand: held } },
+        "models/item/trident_throwing": { gui_light: "front", display: { thirdperson_righthand: throwing } }
+    }));
+    const key = itemKey("trident");
+    t.is(((await Models.getMerged(key))! as ItemModel).special, undefined);
+    for (const displayContext of [DisplayPosition.GUI, DisplayPosition.GROUND, DisplayPosition.FIXED, DisplayPosition.ON_SHELF]) {
+        const model = (await Models.getMerged(key, { displayContext, properties: { using_item: true } }))! as ItemModel;
+        t.is(model.special, undefined);
+        t.is(model.textures?.layer0, "item/trident");
+    }
+    for (const displayContext of [DisplayPosition.THIRDPERSON_RIGHTHAND, DisplayPosition.THIRDPERSON_LEFTHAND,
+        DisplayPosition.FIRSTPERSON_RIGHTHAND, DisplayPosition.FIRSTPERSON_LEFTHAND, DisplayPosition.HEAD, "none"] as const) {
+        for (const usingItem of [false, true]) {
+            const model = (await Models.getMerged(key, { displayContext, properties: { "minecraft:using_item": usingItem } }))! as ItemModel;
+            t.deepEqual(model.special, { type: "minecraft:trident" });
+            t.is(model.key?.path, usingItem ? "trident_throwing" : "trident_in_hand");
+            t.deepEqual(model.display?.thirdperson_righthand, usingItem ? throwing : held);
+            t.is(model.gui_light, "front");
+        }
+    }
 });
 
 test.serial("empty composites remain empty and a missing child rejects the complete item", async t => {
@@ -657,9 +696,9 @@ test.serial("unsupported or broken definitions reject instead of using lower-pri
     AssetLoader.addSource("test-pack", new FixtureSource({ "items/missing": { model: reference("item/missing_reference") } }));
     await t.throwsAsync(Models.getMerged(itemKey("missing")), { message: /references missing model item\/missing_reference/ });
     AssetLoader.addSource("test-pack", new FixtureSource({ "items/invalid": { model: {
-        type: "minecraft:special", base: "item/base", model: { type: "minecraft:trident" }
+        type: "minecraft:special", base: "item/base", model: { type: "minecraft:decorated_pot" }
     } } }));
-    await t.throwsAsync(Models.getMerged(itemKey("invalid")), { message: /Unsupported special item renderer minecraft:trident/ });
+    await t.throwsAsync(Models.getMerged(itemKey("invalid")), { message: /Unsupported special item renderer minecraft:decorated_pot/ });
     for (const color of [undefined, null, "rainbow", "toString", 0xff0000]) {
         AssetLoader.addSource("test-pack", new FixtureSource({ "items/invalid": { model: {
             type: "special", base: "item/base", model: { type: "banner", color }

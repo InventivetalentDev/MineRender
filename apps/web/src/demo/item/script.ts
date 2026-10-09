@@ -54,6 +54,9 @@ const app = new Playground<ItemSettings>({
         shield: { label: "Shield with a colored pattern", state: { item: "minecraft:shield", display: DisplayPosition.GUI,
             properties: { "minecraft:using_item": false }, components: { "minecraft:base_color": "blue",
                 "minecraft:banner_patterns": [{ pattern: "minecraft:stripe_center", color: "white" }] } }, view: guiView },
+        trident: { label: "Trident (held or throwing)", state: { item: "minecraft:trident", display: DisplayPosition.THIRDPERSON_RIGHTHAND,
+            properties: { "minecraft:using_item": false } }, view: { camera: { position: [40, 24, 70], target: [0, 0, 0], zoom: 1 } } },
+        conduit: { label: "Conduit in GUI pose", state: { item: "minecraft:conduit", display: DisplayPosition.GUI }, view: guiView },
         bundle: {
             label: "Bundle with a selected item",
             state: { item: "minecraft:bundle", display: DisplayPosition.GUI,

@@ -237,6 +237,10 @@ export class Models {
                         break;
                     case "shield":
                     case "minecraft:shield":
+                    case "trident":
+                    case "minecraft:trident":
+                    case "conduit":
+                    case "minecraft:conduit":
                         return { model: node.base, special };
                     case "shulker_box":
                     case "minecraft:shulker_box":
