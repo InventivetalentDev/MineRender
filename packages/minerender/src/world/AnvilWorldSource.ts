@@ -13,7 +13,7 @@ export type AnvilRegionReader = (x: number, z: number, signal?: AbortSignal) => 
 export interface AnvilWorldSourceOptions {
     /** Reads a dimension's separate `entities/r.<x>.<z>.mca` files. Omit to use embedded entities only. */
     readEntityRegion?: AnvilRegionReader;
-    /** Maximum cached terrain and entity regions, including missing regions. Defaults to 4; 0 disables caching. */
+    /** Maximum cached regions per kind (terrain and entities), including missing regions. Defaults to 4 each; 0 disables caching. */
     maxCachedRegions?: number;
     /** Maximum retained bytes across both region types. Defaults to 64 MiB; larger regions are read without caching. */
     maxCachedBytes?: number;
@@ -175,8 +175,10 @@ export class AnvilWorldSource implements WorldChunkSource {
         if (!this.maxCachedRegions || size > this.maxCachedBytes) return;
         this.regions.set(key, { data, size });
         this.cachedBytes += size;
-        while (this.regions.size > this.maxCachedRegions || this.cachedBytes > this.maxCachedBytes) {
-            const oldest = this.regions.keys().next().value!;
+        const prefix = `${key.split(":")[0]}:`;
+        const sameKind = [...this.regions.keys()].filter(cachedKey => cachedKey.startsWith(prefix));
+        while (sameKind.length > this.maxCachedRegions || this.cachedBytes > this.maxCachedBytes) {
+            const oldest = sameKind.length > this.maxCachedRegions ? sameKind.shift()! : this.regions.keys().next().value!;
             this.cachedBytes -= this.regions.get(oldest)!.size;
             this.regions.delete(oldest);
         }
