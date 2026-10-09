@@ -82,7 +82,11 @@ Await `stream.dispose()` before editing or clearing the world; it unloads its co
 
 Java 1.13+ paletted chunks support gzip, zlib, and uncompressed payloads; pre-1.13 numeric chunks, LZ4, external `.mcc` payloads, and DataVersion migration remain unsupported.
 
-Modern Anvil sections retain their biome palettes as 64 IDs in `section.biomes`, ordered by `x + z * 4 + y * 16`. Each sample covers 4×4×4 blocks. `placeChunk` copies these samples, including in air-only sections. Call `world.getBiomeAt(x, y, z)` with integer world block coordinates to read the saved ID, or `undefined` when biome data is absent. Custom biome IDs are retained without registry lookup. Block edits preserve samples; replacing or unloading the column removes its previous biome data. Older numeric `Biomes` arrays, biome blending, and biome-based rendering colors are not supported.
+Modern Anvil sections retain their biome palettes as 64 IDs in `section.biomes`, ordered by `x + z * 4 + y * 16`. Each sample covers 4×4×4 blocks. `placeChunk` copies these samples, including in air-only sections. Call `world.getBiomeAt(x, y, z)` with integer world block coordinates to read the saved ID, or `undefined` when biome data is absent. Block edits preserve samples; replacing or unloading the column removes its previous biome data.
+
+World blocks use these samples for grass, foliage, dry foliage, and water colors in both rendering modes. Biome definitions come from the selected version's `data/<namespace>/worldgen/biome/` directory, with colors sampled from resource-pack colormaps or explicit biome effects. Grass colors include dark forest and swamp modifiers; swamp colors use world block coordinates. Waterlogged blocks keep separate model and water colors. Missing biome data or definitions retain preview colors; source errors reject placement. Older numeric `Biomes` arrays, biome blending, and world-seed-based biome sampling remain unsupported.
+
+Await `chunk.setBiomes(samples)` to replace a section's samples and refresh its placed blocks, including tall-plant halves in the section above. Hidden blocks remain hidden. For standalone previews, pass `biome` and optional `biomePosition: [x, y, z]` to `scene.addBlock`; explicit `tints` still take precedence.
 
 ## Ownership and cleanup
 

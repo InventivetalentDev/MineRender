@@ -14,6 +14,8 @@ import { BlockEntities } from "../assets/BlockEntities";
 import { SectionMesh, SectionMeshEntry } from "./SectionMesh";
 import { getFluidKind } from "../model/fluid/FluidGeometry";
 import { BlockState } from "../model/block/BlockState";
+import { BlockTints } from "../model/block/BlockTints";
+import { Biomes } from "../assets/Biomes";
 
 /**
  * A 16×16×16 block section and its render objects.
@@ -40,7 +42,9 @@ export class Chunk<SectionMeshing extends boolean = false> {
 
     constructor(scene: MineRenderScene, x: number, y: number, z: number,
                 private readonly onBlocksChanged?: (positions: Vector3[]) => Promise<void>,
-                private readonly sectionModels?: SectionModels) {
+                private readonly sectionModels?: SectionModels,
+                private readonly biomeAt?: (x: number, y: number, z: number) => Maybe<string>,
+                private readonly onBiomesChanged?: () => Promise<void>) {
         this.scene = scene;
         this.x = x;
         this.y = y;
@@ -74,13 +78,37 @@ export class Chunk<SectionMeshing extends boolean = false> {
         return this.biomes?.[Math.floor(pos.x / 4) + Math.floor(pos.z / 4) * 4 + Math.floor(pos.y / 4) * 16];
     }
 
-    /** Copies 64 biome IDs in x + z * 4 + y * 16 order. Omit the array to clear biome data. */
-    public setBiomes(biomes?: readonly string[]): void {
+    /** Copies 64 biome IDs in x + z * 4 + y * 16 order and refreshes placed blocks. Omit the array to clear biome data. */
+    public setBiomes(biomes?: readonly string[]): Promise<void> {
         const copy = biomes ? [...biomes] : undefined;
         if (copy && (copy.length !== 64 || !copy.every(id => typeof id === "string" && id.length > 0))) {
             throw new RangeError("Section biomes must contain 64 nonempty biome IDs");
         }
         this.biomes = copy;
+        return this.onBiomesChanged ? this.onBiomesChanged() : this.refreshBiomes();
+    }
+
+    /** Rebuilds placed blocks from their biome samples while preserving hidden blocks. */
+    public async refreshBiomes(): Promise<void> {
+        const blocks = [...this.renderedBlocks.keys()].map(index => ({ index, block: this.data.get(index) }))
+            .filter(({ block }) => {
+                const key = block && AssetKey.parse("blockstates", block.type);
+                return BlockTints.biomeSource(key) || getFluidKind(key, block?.properties) === "water";
+            });
+        if (!blocks.length) return;
+        const hidden = new Set(this.hiddenBlocks);
+        try {
+            await this.placeBlocks(blocks);
+        } finally {
+            for (const index of hidden) {
+                this.hiddenBlocks.add(index);
+                this.renderedBlocks.get(index)?.object?.setVisible(false);
+            }
+            const positions = blocks.map(({ index }) => this.chunkPosToWorldPos(
+                new Vector3(index % 16, Math.floor(index / 256), Math.floor(index / 16) % 16)));
+            if (this.onBlocksChanged) await this.onBlocksChanged(positions);
+            else await this.rebuildSectionMesh();
+        }
     }
 
     /**
@@ -125,6 +153,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
     public async placeBlocks(blocks: readonly { index: number; block: Maybe<Block> }[]): Promise<Vector3[]> {
         type Resolved = { blockState: Maybe<BlockState>; perBlock: boolean };
         const resolutions = new Map<string, Promise<Resolved>>();
+        const biomes = new Map<string, Promise<boolean>>();
         for (const { block } of blocks) {
             if (!block || ChunkData.isAir(block)) continue;
             const key = ChunkData.paletteKey(block);
@@ -135,7 +164,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
                 // Fluids and block entities need individual render objects.
                 const perBlock = !blockState || !this.sectionModels || !!getFluidKind(blockState.key, stored.properties)
                     || !!(blockState.key && BlockEntities.entry(await BlockEntities.getIndex(blockState.key.root), blockState.key.toNamespacedString()));
-                if (!perBlock) await this.sectionModels!.get(blockState!, stored.properties);
+                if (!perBlock && !this.biomes) await this.sectionModels!.get(blockState!, stored.properties);
                 return { blockState, perBlock };
             })();
             resolutions.set(key, resolved);
@@ -164,8 +193,27 @@ export class Chunk<SectionMeshing extends boolean = false> {
                     this.data.set(index, undefined);
                     continue;
                 }
+                const biomePosition = worldPos.toArray();
+                const name = blockState.key?.toNamespacedString();
+                if (stored.properties?.half === "upper" && (name === "minecraft:tall_grass" || name === "minecraft:large_fern")) {
+                    biomePosition[1]--;
+                }
+                let biome: string | undefined;
+                if (BlockTints.biomeSource(blockState.key) || getFluidKind(blockState.key, stored.properties) === "water") {
+                    biome = this.biomeAt ? this.biomeAt(...biomePosition)
+                        : biomePosition[1] >= this.y * 16 ? this.getBiomeAt(biomePosition) : undefined;
+                    if (biome) {
+                        const key = JSON.stringify([biome, blockState.key?.root]);
+                        let found = biomes.get(key);
+                        if (!found) {
+                            found = Biomes.get(biome, blockState.key).then(value => value !== undefined);
+                            biomes.set(key, found);
+                        }
+                        if (!await found) biome = undefined;
+                    }
+                }
                 // SectionModels chooses weighted variants separately for each block.
-                const template = perBlock ? undefined : await this.sectionModels!.get(blockState, stored.properties);
+                const template = perBlock ? undefined : await this.sectionModels!.get(blockState, stored.properties, biomePosition, biome);
                 if (template) {
                     this.sectionBlocks.set(index, { index, template, cullMask: 0 });
                     this.meshDirty = true;
@@ -174,7 +222,8 @@ export class Chunk<SectionMeshing extends boolean = false> {
                         mergeMeshes: true,
                         instanceMeshes: true,
                         maxInstanceCount: 2000,
-                        initialState: stored.properties
+                        initialState: stored.properties,
+                        biome, biomePosition
                     }) as BlockObject;
                     object.setPosition(MineRenderWorld.worldToScenePosition(worldPos));
                 }
@@ -282,6 +331,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
         this.data.clear();
         this.biomes = undefined;
         await onBlocksChanged?.(positions);
+        await this.onBiomesChanged?.();
     }
 
     public async dispose(): Promise<void> {
