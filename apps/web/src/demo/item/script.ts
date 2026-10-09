@@ -4,6 +4,7 @@ import { Playground, type DemoContext, type DemoContent } from "../../playground
 import { button, field, group, input, note, section, select, suggestions } from "../../playground/controls";
 import { assetKey, loadModel, modelControls, modelDefaults, modelOptions, selectModel, type ModelSettings } from "../../playground/models";
 import { CUSTOM_MODEL_DATA_ITEM, customModelDataCode, loadCustomModelData } from "./customModelData";
+import type { ViewSettings } from "../../playground/config";
 
 interface ItemSettings extends ModelSettings {
     /** An item ID (`minecraft:apple`) or a model path (`minecraft:item/apple`, `minecraft:block/stone`). */
@@ -16,6 +17,9 @@ interface ItemSettings extends ModelSettings {
 }
 
 const defaults: ItemSettings = { ...modelDefaults, item: "minecraft:iron_sword", display: "", properties: {}, itemReferences: {}, components: {}, count: 1 };
+const guiView: Partial<ViewSettings> = {
+    projection: "orthographic", antialias: false, camera: { position: [0, 0, 100], target: [0, 0, 0], zoom: 24 }
+};
 const app = new Playground<ItemSettings>({
     title: "Items and models",
     defaults,
@@ -25,13 +29,21 @@ const app = new Playground<ItemSettings>({
         sapling: { label: "Oak sapling (cutout)", state: { item: "minecraft:oak_sapling" } },
         apple: { label: "Apple in GUI pose", state: { item: "minecraft:apple", display: DisplayPosition.GUI } },
         potion: { label: "Potion (tinted)", state: { item: "minecraft:potion", tints: { 0: 0xd557ef } } },
+        dyed_leather: { label: "Dyed leather (blue component)", state: { item: "minecraft:leather_chestplate", display: DisplayPosition.GUI,
+            components: { "minecraft:dyed_color": 0x3f76e4 } }, view: guiView },
+        potion_color: { label: "Potion (custom color component)", state: { item: "minecraft:potion", display: DisplayPosition.GUI,
+            components: { "minecraft:potion_contents": { custom_color: 0xd557ef } } }, view: guiView },
+        map_color: { label: "Map (gold color component)", state: { item: "minecraft:filled_map", display: DisplayPosition.GUI,
+            components: { "minecraft:map_color": 0xe0a63a } }, view: guiView },
+        firework_color: { label: "Firework star (red and blue colors)", state: { item: "minecraft:firework_star", display: DisplayPosition.GUI,
+            components: { "minecraft:firework_explosion": { shape: "small_ball", colors: [0xff0000, 0x0000ff] } } }, view: guiView },
         block: { label: "Block model: diamond ore", state: { item: "minecraft:block/diamond_ore", display: DisplayPosition.GUI } },
         bundle: {
             label: "Bundle with a selected item",
             state: { item: "minecraft:bundle", display: DisplayPosition.GUI,
                 properties: { "minecraft:bundle/has_selected_item": true },
                 itemReferences: { "minecraft:bundle/selected_item": "minecraft:apple" } },
-            view: { projection: "orthographic", antialias: false, camera: { position: [0, 0, 100], target: [0, 0, 0], zoom: 24 } }
+            view: guiView
         },
         bow: { label: "Bow pulling (duration in ticks)", state: { item: "minecraft:bow", display: DisplayPosition.GUI,
             properties: { "minecraft:using_item": true, "minecraft:use_duration": 0 } } },
@@ -39,6 +51,8 @@ const app = new Playground<ItemSettings>({
             properties: { "minecraft:charge_type": "arrow" } } },
         custom_model_data: { label: "Custom model data: two float indices", state: { item: CUSTOM_MODEL_DATA_ITEM, display: DisplayPosition.GUI,
             components: { "minecraft:custom_model_data": { floats: [0, 0] } } } },
+        custom_model_color: { label: "Custom model data: color index 1", state: { item: CUSTOM_MODEL_DATA_ITEM, display: DisplayPosition.GUI,
+            components: { "minecraft:custom_model_data": { floats: [0, 1], colors: [0xff0000, 0x55ff55] } } }, view: guiView },
         legacy: { label: "Model path: item/iron_sword", state: { item: "minecraft:item/iron_sword" } }
     },
     load,
@@ -71,6 +85,8 @@ const count = input(stackGroup, "Count", app.state.count, "number");
 count.id = "item-count";
 Object.assign(count, { min: "0", max: String(Number.MAX_SAFE_INTEGER), step: "1" });
 count.addEventListener("change", () => void app.update({ count: count.valueAsNumber }));
+const componentColors = document.createElement("div");
+stackGroup.append(componentColors);
 const components = field(stackGroup, "Components (JSON)", document.createElement("textarea"));
 components.id = "item-components";
 components.rows = 6;
@@ -141,8 +157,55 @@ function referenceKey(value: unknown): AssetKey {
     return modelKey(stateId(value.trim()));
 }
 
+function syncComponentColors(state: ItemSettings): void {
+    componentColors.replaceChildren();
+    const add = (id: string, title: string, value: unknown, path: Array<string | number> = [], allowTriple = false) => {
+        let rgb: number;
+        if (typeof value === "number" && Number.isInteger(value) && value >= -2147483648 && value <= 2147483647) rgb = value & 0xffffff;
+        else if (allowTriple && Array.isArray(value) && value.length === 3 && value.every(channel => typeof channel === "number" && Number.isFinite(channel))) {
+            const [red, green, blue] = value.map(channel => Math.floor(Math.fround(Math.fround(channel) * 255)) & 255);
+            rgb = red << 16 | green << 8 | blue;
+        } else return;
+        const picker = input(componentColors, title, `#${rgb.toString(16).padStart(6, "0")}`, "color");
+        picker.dataset.itemColor = id;
+        const index = path[path.length - 1];
+        if (typeof index === "number") picker.dataset.colorIndex = String(index);
+        picker.addEventListener("change", () => {
+            const current = app.state.components;
+            if (!current || typeof current !== "object" || Array.isArray(current)) return;
+            const next = structuredClone(current);
+            const keys = [id, ...path];
+            let target: Record<string | number, unknown> = next;
+            for (const key of keys.slice(0, -1)) {
+                const value = target[key];
+                if (!value || typeof value !== "object") return;
+                target = value as Record<string | number, unknown>;
+            }
+            const key = keys[keys.length - 1];
+            if (!Object.prototype.hasOwnProperty.call(target, key)) return;
+            target[key] = parseInt(picker.value.slice(1), 16);
+            void app.update({ components: next });
+        });
+    };
+    for (const [id, value] of Object.entries(state.components)) {
+        const name = id.replace(/^minecraft:/, "");
+        if (name === "dyed_color") add(id, "Dye color", value, [], true);
+        else if (name === "map_color") add(id, "Map color", value);
+        else if (value && typeof value === "object" && !Array.isArray(value)) {
+            const data = value as Record<string, unknown>;
+            if (name === "potion_contents") add(id, "Potion color", data.custom_color, ["custom_color"]);
+            else if ((name === "firework_explosion" || name === "custom_model_data") && Array.isArray(data.colors)) {
+                data.colors.forEach((color, index) => add(id,
+                    name === "firework_explosion" ? `Firework color ${index + 1}` : `Custom model color (index ${index})`,
+                    color, ["colors", index], name === "custom_model_data"));
+            }
+        }
+    }
+}
+
 function syncStateControls(state: ItemSettings, items: string[]): void {
     count.value = String(state.count);
+    syncComponentColors(state);
     components.value = JSON.stringify(state.components, null, 2);
     propertyEntries.replaceChildren();
     for (const [id, value] of Object.entries(state.properties)) {

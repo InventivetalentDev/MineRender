@@ -128,7 +128,7 @@ export class GuiObject extends SceneObject {
 
     private async createItem(layer: GuiItemLayer, index: number): Promise<ModelObject> {
         const key = typeof layer.item === "string" ? AssetKey.parse("models", layer.item) : layer.item;
-        const model = await Models.getMerged(key);
+        const model = await Models.getMerged(key, { ...layer.context, displayContext: DisplayPosition.GUI });
         if (!model) throw new Error(`Could not load GUI item ${key.toNamespacedString()}`);
         const item = new ModelObject(model, {
             displayPosition: DisplayPosition.GUI, tints: layer.tints, instanceMeshes: false, mergeMeshes: true

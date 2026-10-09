@@ -2,8 +2,9 @@ import { AssetKey, AssetLoader, AssetParser, AssetSource, Caching, Models, type 
 
 export const CUSTOM_MODEL_DATA_ITEM = "minerender_demo:custom_model_data";
 const SOURCE_NAME = "playground-custom-model-data";
-const SOURCE_CACHE_ID = "minerender-custom-model-data-demo-v1";
-const model = (name: string) => ({ type: "minecraft:model", model: `minecraft:item/${name}_sword` });
+const SOURCE_CACHE_ID = "minerender-custom-model-data-demo-v2";
+const model = (name: string) => ({ type: "minecraft:model", model: `minecraft:item/${name}_sword`,
+    tints: [{ type: "minecraft:custom_model_data", index: 1, default: 0xffffff }] });
 const secondFloat = (fallback: string, selected: string) => ({
     type: "minecraft:range_dispatch", property: "minecraft:custom_model_data", index: 1,
     fallback: model(fallback), entries: [{ threshold: 1, model: model(selected) }]

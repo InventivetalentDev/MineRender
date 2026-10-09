@@ -40,7 +40,7 @@ function fixture(t: ExecutionContext) {
     const front: ItemModel = {
         key: AssetKey.parse("models", "test:item/front"), gui_light: GuiLight.FRONT,
         display: { gui: { translation: [-12, 0, 0], scale: [0.5, 0.5, 0.5] } },
-        tints: [{ type: "minecraft:constant", value: 0xff0000 }],
+        tints: [{ type: "minecraft:dye", default: 0xffffff }], components: { "minecraft:dyed_color": 0xff0000 },
         elements: [{ from: [0, 0, 0], to: [16, 16, 16],
             faces: Object.fromEntries(CUBE_FACES.map(face => [face, { texture: "#side", tintindex: 0 }])),
             mappedUv: CUBE_FACES.flatMap(() => [0, 1, 1, 1, 0, 0, 1, 0]) }]
