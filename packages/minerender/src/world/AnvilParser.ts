@@ -2,7 +2,7 @@ import type { Compound, Tags, TagType } from "prismarine-nbt";
 import { MineRenderError } from "../error/MineRenderError";
 import { Block } from "../model/block/Block";
 import { MultiBlockEntity } from "../model/multiblock/MultiBlockStructure";
-import { resolveLegacyBlock } from "../model/multiblock/_legacy/LegacyBlocks";
+import { resolveLegacyBlock } from "../model/multiblock/LegacyBlocks";
 import { NBTHelper } from "../nbt/NBTHelper";
 import { ChunkData } from "./ChunkData";
 
@@ -170,6 +170,7 @@ export class AnvilParser {
         if (expected && (chunk.x !== expected.x || chunk.z !== expected.z)) {
             throw new MineRenderError(`Anvil chunk coordinates do not match external file c.${expected.x}.${expected.z}.mcc`);
         }
+        const numericStates = new Map<number, Block | undefined>();
         for (const section of this.compounds(level.sections ?? level.Sections, "sections")) {
             const y = this.integer(section.Y, "section Y");
             let data: ChunkData;
@@ -177,7 +178,7 @@ export class AnvilParser {
                 if (section.Palette || section.BlockStates || section.block_states) {
                     throw new MineRenderError(`Anvil section ${y} mixes numeric and paletted block states`);
                 }
-                data = this.numericSection(section, y, options);
+                data = this.numericSection(section, y, options, numericStates);
             } else {
                 if (section.block_states && section.block_states.type !== "compound") {
                     throw new MineRenderError("Anvil block_states must be a compound");
@@ -227,7 +228,7 @@ export class AnvilParser {
         return chunk;
     }
 
-    private static numericSection(section: CompoundValue, y: number, options: AnvilParseOptions): ChunkData {
+    private static numericSection(section: CompoundValue, y: number, options: AnvilParseOptions, states: Map<number, Block | undefined>): ChunkData {
         const bytes = (name: string, length: number, optional = false): number[] | undefined => {
             const tag = section[name];
             if (!tag && optional) return undefined;
@@ -240,7 +241,6 @@ export class AnvilParser {
         const metadata = bytes("Data", 2048, true);
         const extra = bytes("Add", 2048, true);
         const data = new ChunkData();
-        const states = new Map<number, Block | undefined>();
         for (let index = 0; index < 4096; index++) {
             // Anvil stores metadata and extended IDs in low-nibble-first pairs, in x/z/y order.
             const shift = (index & 1) * 4;

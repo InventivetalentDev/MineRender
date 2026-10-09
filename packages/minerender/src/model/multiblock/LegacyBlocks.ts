@@ -1,5 +1,5 @@
-import type { Block } from "../../block/Block";
-import legacyBlocks from "../legacyBlocks.json";
+import type { Block } from "../block/Block";
+import legacyBlocks from "./legacyBlocks.json";
 
 export function resolveLegacyBlock(id: number, metadata: number,
                                    customMappings: Readonly<Record<string, string>> = {}, lenient = false): Block | undefined {

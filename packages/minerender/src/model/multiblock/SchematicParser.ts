@@ -2,7 +2,7 @@ import type { Compound, NBT } from "prismarine-nbt";
 import { MineRenderError } from "../../error/MineRenderError";
 import { TripleArray } from "../Model";
 import { MultiBlockBlock, MultiBlockStructure } from "./MultiBlockStructure";
-import { resolveLegacyBlock } from "./_legacy/LegacyBlocks";
+import { resolveLegacyBlock } from "./LegacyBlocks";
 
 /** Converts legacy Alpha `.schematic` NBT with numeric block IDs into modern block names and properties. */
 export class SchematicParser {
