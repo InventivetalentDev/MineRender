@@ -33,7 +33,7 @@ legacy website cleanup is a separate task.
 | Animated textures | frametime honored | Frame grids, sequences, durations, RGBA interpolation, and stationary-camera redraw | complete |
 | Entity rendering | 76 hosted models, mirror, inheritance | Versioned dataset, nested parts, mirrored UVs, conditional passes, render-mode materials, scrolling effects, and dataset transforms; runtime gameplay state selection remains | high |
 | GUI / inventory / recipes | full GuiRender + Positions + recipe() | Texture/item layers, container presets, recipes, sprite scaling, styled bitmap text, supplied-text tooltips, boss bars, and book layouts; extended fonts and translations remain | medium |
-| Structure (.nbt) loading | works via ModelConverter | Bounded placement, signed coordinates, slot cleanup, DataVersion and entity NBT preservation; supported block entities render, with opt-in default appearances for saved mobs | high |
+| Structure (.nbt) loading | works via ModelConverter | Bounded placement, signed coordinates, slot cleanup, DataVersion and entity NBT preservation; supported block entities render, with opt-in saved mobs and selected appearance fields | high |
 | Legacy .schematic | full incl. AddBlocks nibbles | Numeric block IDs, metadata, AddBlocks, custom mappings, and block/entity NBT parsed; strict by default, with opt-in lenient fallback | complete |
 | Combined multi-renderer scene | CombinedRender wrapper | Superseded by design (one scene hosts all types) — **at parity** | — |
 | Screenshots & 3D export | toImage(trim,mime), toObj/toGLTF/toPLY | Fresh captures with trim/MIME/quality; static OBJ/PLY and textured browser glTF/GLB snapshots | complete |

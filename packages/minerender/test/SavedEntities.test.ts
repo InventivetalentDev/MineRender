@@ -1,8 +1,11 @@
 import test, { ExecutionContext } from "ava";
 import { Object3D, Vector3 } from "three";
 import type { Compound } from "prismarine-nbt";
+import { AssetKey } from "../src/assets/AssetKey";
 import { BlockStates } from "../src/assets/BlockStates";
 import { Entities } from "../src/assets/Entities";
+import { Caching } from "../src/cache/Caching";
+import type { EntityModelFile } from "../src/entity/EntityModel";
 import { EntityObject } from "../src/entity/scene/EntityObject";
 import type { TripleArray } from "../src/model/Model";
 import type { MultiBlockEntity, MultiBlockStructure } from "../src/model/multiblock/MultiBlockStructure";
@@ -26,6 +29,12 @@ function entity(id = "minecraft:zombie", position: TripleArray = [0.5, 1, 0.5], 
 
 const structure = (...entities: MultiBlockEntity[]): MultiBlockStructure => ({ size: [16, 16, 16], blocks: [], entities });
 
+function appearance(id: string, tags: Compound["value"] = {}): MultiBlockEntity {
+    const saved = entity(id);
+    Object.assign((saved.nbt as Compound).value, tags);
+    return saved;
+}
+
 function fixture(t: ExecutionContext, renderEntities = true, init?: (object: EntityObject) => Promise<void>) {
     const original = { get: Entities.getEntity, list: Entities.getEntityList, preload: BlockStates.getAll, init: EntityObject.prototype.init,
         dispose: EntityObject.prototype.disposeAndRemoveAllChildren };
@@ -35,7 +44,7 @@ function fixture(t: ExecutionContext, renderEntities = true, init?: (object: Ent
     const initialized: EntityObject[] = [];
     const disposed: EntityObject[] = [];
     const missing = new Set<string>();
-    Entities.getEntityList = async () => ["zombie", "cow", "pig", "camel_husk", "shulker", "ender_dragon"];
+    Entities.getEntityList = async () => ["zombie", "cow", "pig", "camel_husk", "shulker", "ender_dragon", "sheep", "fox", "axolotl", "parrot"];
     Entities.getEntity = async key => {
         requests.push(key.toNamespacedString());
         if (missing.has(key.path)) return undefined;
@@ -64,6 +73,105 @@ function fixture(t: ExecutionContext, renderEntities = true, init?: (object: Ent
     const objects = () => scene.children.filter((child): child is EntityObject => (child as EntityObject).isEntityObject);
     return { world, scene, requests, initialized, disposed, missing, objects };
 }
+
+async function appearanceFixture(t: ExecutionContext) {
+    const getEntity = Entities.getEntity;
+    const result = fixture(t);
+    Entities.getEntity = getEntity;
+    Caching.clear();
+    t.teardown(() => Caching.clear());
+    for (const model of ["sheep", "fox", "axolotl", "parrot"]) {
+        const layers = model === "sheep" ? ["main", "wool_undercoat", "wool"] : ["main"];
+        const file: EntityModelFile = {
+            id: `minecraft:${model}`,
+            layers: Object.fromEntries(layers.map(layer => [layer, {
+                texture: [64, 64], textureLocation: `minecraft:entity/${model}/${layer}.png`,
+                root: { pose: { offset: [0, 0, 0], rotation: [0, 0, 0] }, cubes: [], children: {} }
+            }])),
+            ...(model === "sheep" && { passes: [
+                { layer: "wool_undercoat", tint: "wool_color", when: "dyed" },
+                { layer: "wool", tint: "wool_color", when: "not_sheared" }
+            ] })
+        };
+        const key = new AssetKey("minecraft", model, undefined, undefined, "entity-models", ".json");
+        await Caching.entityModelCache.get(key.serialize(), async () => file);
+    }
+    return result;
+}
+
+test.serial("saved sheep colors and shearing select their dataset passes across unloading and reloading", async t => {
+    const { world, objects, disposed } = await appearanceFixture(t);
+    const colors = [0xe6e6e6, 0xba6015, 0x953a8d, 0x2b86a3, 0xbea22d, 0x609517, 0xb6687f, 0x353b3d,
+        0x757571, 0x107575, 0x66258a, 0x2d337f, 0x623f25, 0x465d10, 0x84221c, 0x151518];
+    const saved = colors.map((_, value) => appearance("minecraft:sheep", { Color: { type: "byte", value } }));
+    saved.push(...[0, 14].map(value => appearance("minecraft:sheep", {
+        Color: { type: "byte", value }, Sheared: { type: "byte", value: 1 }
+    })));
+    const original = structuredClone(saved);
+    const column = { x: -2, z: 3, sections: [], entities: saved };
+    await world.placeChunk(column);
+    const placed = objects();
+    t.deepEqual(placed.map(object => object.options.tints?.wool_color), [...colors, colors[0], colors[14]]);
+    t.deepEqual(placed.map(object => Object.keys(object.entity.layers!)), [
+        ["main", "wool"], ...colors.slice(1).map(() => ["main", "wool_undercoat", "wool"]),
+        ["main"], ["main", "wool_undercoat"]
+    ]);
+    await world.unloadChunkColumn(-2, 3);
+    t.deepEqual(objects(), []);
+    t.deepEqual(disposed, placed);
+    await world.placeChunk({ ...column, entities: [saved[17]] });
+    t.not(objects()[0], placed[17]);
+    t.is(objects()[0].options.tints?.wool_color, 0x84221c);
+    t.deepEqual(Object.keys(objects()[0].entity.layers!), ["main", "wool_undercoat"]);
+    t.deepEqual(saved, original);
+});
+
+test.serial("saved fox, axolotl and parrot variants override the first layer texture", async t => {
+    const { world, objects } = await appearanceFixture(t);
+    const cases = [
+        ...["red", "snow"].map(value => ({ id: "fox", tags: { Type: { type: "string" as const, value } },
+            texture: `fox/${value === "red" ? "fox" : "snow_fox"}` })),
+        ...["lucy", "wild", "gold", "cyan", "blue"].map((variant, value) => ({ id: "axolotl",
+            tags: { Variant: { type: "int" as const, value } }, texture: `axolotl/axolotl_${variant}` })),
+        ...["red_blue", "blue", "green", "yellow_blue", "grey"].map((variant, value) => ({ id: "parrot",
+            tags: { Variant: { type: "int" as const, value } }, texture: `parrot/parrot_${variant}` }))
+    ];
+    const saved = cases.map(({ id, tags }) => appearance(id, tags));
+    const original = structuredClone(saved);
+    await world.placeMultiBlock(structure(...saved));
+    t.deepEqual(objects().map(object => object.entity.texture?.getFullPath()), cases.map(({ texture }) => `entity/${texture}`));
+    t.true(objects().every(object => object.entity.texture?.extension === ".png"));
+    t.deepEqual(saved, original);
+});
+
+test.serial("missing and malformed saved appearance uses defaults while parrot IDs clamp to their endpoints", async t => {
+    const { world, objects } = await appearanceFixture(t);
+    const defaults = [appearance("sheep"), appearance("fox"), appearance("axolotl"), appearance("parrot")];
+    const malformed = [
+        appearance("sheep", { Color: { type: "byte", value: 16 }, Sheared: { type: "int", value: 1 } }),
+        appearance("sheep", { Color: { type: "int", value: 14 }, Sheared: { type: "string", value: "true" } }),
+        appearance("fox", { Type: { type: "string", value: "unknown" } }),
+        appearance("fox", { Type: { type: "byte", value: 1 } }),
+        ...[-1, 5, 1.5, NaN].map(value => appearance("axolotl", { Variant: { type: "int", value } })),
+        appearance("axolotl", { Variant: { type: "byte", value: 4 } }),
+        ...[-1, 5, NaN].map(value => appearance("parrot", { Variant: { type: "int", value } }))
+    ];
+    const saved = [...defaults, ...malformed];
+    const original = structuredClone(saved);
+    await world.placeMultiBlock(structure(...saved));
+    const placed = objects();
+    t.is(placed.length, saved.length);
+    for (const object of placed.filter(object => object.entity.id === "minecraft:sheep")) {
+        t.is(object.options.tints?.wool_color, 0xe6e6e6);
+        t.deepEqual(Object.keys(object.entity.layers!), ["main", "wool"]);
+    }
+    t.deepEqual(placed.filter(object => object.entity.id !== "minecraft:sheep").map(object => object.entity.texture?.getFullPath()), [
+        "entity/fox/fox", "entity/axolotl/axolotl_lucy", "entity/parrot/parrot_red_blue",
+        "entity/fox/fox", "entity/fox/fox", ...Array(5).fill("entity/axolotl/axolotl_lucy"),
+        "entity/parrot/parrot_red_blue", "entity/parrot/parrot_grey", "entity/parrot/parrot_red_blue"
+    ]);
+    t.deepEqual(saved, original);
+});
 
 test.serial("saved entities remain data only unless rendering is enabled", async t => {
     const { scene, requests } = fixture(t, false);

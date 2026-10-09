@@ -96,7 +96,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
 
     /**
      * Places a structure's blocks at their stored positions, then refreshes neighboring faces.
-     * With `renderEntities`, also places supported saved mobs with their default appearance.
+     * With `renderEntities`, also places supported saved mobs and applies supported appearance fields.
      *
      * @param useBatches - Yields between chunks by default. Set to `false` for sequential placement.
      * @param executor - Optional queue for batched placement. The caller remains responsible for stopping it.
@@ -397,7 +397,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
 
 /** Settings passed as the second argument to `new MineRenderWorld(scene, options)`. */
 export interface MineRenderWorldOptions<SectionMeshing extends boolean = boolean> {
-    /** Render supported saved mobs at their position and yaw with default appearances. Defaults to false. */
+    /** Render supported saved mobs at their position and yaw, including supported appearance fields. Defaults to false. */
     renderEntities?: boolean;
     /** Merge static opaque cubes into section meshes. Merged blocks have no individual object. */
     sectionMeshing?: SectionMeshing;
