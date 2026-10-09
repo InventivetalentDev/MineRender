@@ -29,6 +29,15 @@ function withNeighbor(first: Uint8Array): Uint8Array {
     return bytes;
 }
 
+function external(x: number, z: number): { stub: Buffer; payload: Buffer } {
+    const stub = Buffer.from(region(x, z));
+    const payload = Buffer.from(stub.subarray(8197, 8196 + stub.readUInt32BE(8192)));
+    stub.fill(0, 8192);
+    stub.writeUInt32BE(1, 8192);
+    stub[8196] = 128 | 3;
+    return { stub, payload };
+}
+
 function deferred<T = void>() {
     let resolve!: (value: T) => void;
     const promise = new Promise<T>(accept => { resolve = accept; });
@@ -48,6 +57,79 @@ test("world sources map signed chunk coordinates to region readers and decode ab
         t.deepEqual(reads, [[Math.floor(x / 32), Math.floor(z / 32)]]);
         t.is(await source.getChunk(x + (x % 32 === 31 ? -1 : 1), z), undefined);
     }
+});
+
+test("world sources read external chunks at absolute coordinates without retaining their payloads", async t => {
+    for (const [x, z] of [[31, 32], [-1, -32], [-33, 65]]) {
+        const { stub, payload } = external(x, z);
+        const regions: number[][] = [], chunks: number[][] = [];
+        const controller = new AbortController();
+        const source = new AnvilWorldSource(async (x, z) => { regions.push([x, z]); return stub; }, {
+            readExternalChunk: async (x, z, signal) => {
+                chunks.push([x, z]);
+                t.is(signal, controller.signal);
+                return payload;
+            }
+        });
+        for (let i = 0; i < 2; i++) {
+            const chunk = (await source.getChunk(x, z, controller.signal))!;
+            t.deepEqual([chunk.x, chunk.z], [x, z]);
+        }
+        t.deepEqual(regions, [[Math.floor(x / 32), Math.floor(z / 32)]]);
+        t.deepEqual(chunks, [[x, z], [x, z]]);
+    }
+});
+
+test("missing and invalid external chunks retry without evicting a region or blocking its neighbors", async t => {
+    const { stub, payload } = external(0, 0);
+    for (const invalid of [undefined, new Error("external read failed"), new Uint8Array([0]), external(32, 0).payload]) {
+        let regionReads = 0, chunkReads = 0;
+        const source = new AnvilWorldSource(async () => { regionReads++; return withNeighbor(stub); }, {
+            readExternalChunk: async () => {
+                if (++chunkReads === 1) {
+                    if (invalid instanceof Error) throw invalid;
+                    return invalid;
+                }
+                return payload;
+            }
+        });
+        await t.throwsAsync(source.getChunk(0, 0));
+        t.is((await source.getChunk(1, 0))!.x, 1);
+        t.is(chunkReads, 1);
+        t.is((await source.getChunk(0, 0))!.x, 0);
+        t.is(regionReads, 1);
+        t.is(chunkReads, 2);
+    }
+});
+
+test("cancelling an external chunk read leaves another caller and the cached region usable", async t => {
+    t.timeout(3000);
+    const { stub, payload } = external(0, 0);
+    const firstRead = deferred<Uint8Array>(), secondRead = deferred<Uint8Array>(), started = deferred();
+    const firstController = new AbortController(), secondController = new AbortController();
+    const signals: (AbortSignal | undefined)[] = [];
+    let regionReads = 0;
+    const source = new AnvilWorldSource(async () => { regionReads++; return stub; }, {
+        readExternalChunk: async (_x, _z, signal) => {
+            signals.push(signal);
+            if (signals.length === 2) started.resolve();
+            return signals.length === 1 ? firstRead.promise : secondRead.promise;
+        }
+    });
+    t.teardown(() => { firstRead.resolve(payload); secondRead.resolve(payload); });
+    const first = source.getChunk(0, 0, firstController.signal);
+    const second = source.getChunk(0, 0, secondController.signal);
+    await started.promise;
+    const reason = new Error("external read cancelled");
+    firstController.abort(reason);
+    await t.throwsAsync(first, { is: reason });
+    t.true(signals[0]!.aborted);
+    t.false(signals[1]!.aborted);
+    secondRead.resolve(payload);
+    t.is((await second)!.x, 0);
+    t.is((await source.getChunk(0, 0))!.x, 0);
+    t.is(regionReads, 1);
+    firstRead.resolve(payload);
 });
 
 test("region cache uses access order and limits retained bytes as well as region count", async t => {

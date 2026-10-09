@@ -3,6 +3,7 @@ import type { Compound, NBT } from "prismarine-nbt";
 import { writeUncompressed } from "prismarine-nbt";
 import { deflateSync, gzipSync } from "node:zlib";
 import { AnvilParser } from "../src/world/AnvilParser";
+import { NBTHelper } from "../src/nbt/NBTHelper";
 
 type Tags = Compound["value"];
 const int = (value: number) => ({ type: "int" as const, value });
@@ -13,10 +14,10 @@ const longs = (words: bigint[]) => ({ type: "longArray" as const, value: words.m
     Number(BigInt.asIntN(32, word >> 32n)), Number(BigInt.asIntN(32, word))
 ] as [number, number]) });
 
-function chunk(sections: Tags[], options: { x?: number; modern?: boolean; version?: number | null; extra?: Tags } = {}): NBT {
+function chunk(sections: Tags[], options: { x?: number; z?: number; modern?: boolean; version?: number | null; extra?: Tags } = {}): NBT {
     const modern = options.modern ?? true;
     const level: Tags = {
-        xPos: int(options.x ?? -1), zPos: int(-2),
+        xPos: int(options.x ?? -1), zPos: int(options.z ?? -2),
         [modern ? "sections" : "Sections"]: list(sections), ...options.extra
     };
     return {
@@ -27,20 +28,20 @@ function chunk(sections: Tags[], options: { x?: number; modern?: boolean; versio
     };
 }
 
-function region(...chunks: { x?: number; nbt: NBT; compression?: number }[]): Buffer {
+function region(...chunks: { x?: number; z?: number; nbt: NBT; compression?: number; external?: boolean }[]): Buffer {
     const header = Buffer.alloc(8192);
     const sectors: Buffer[] = [];
     let sector = 2;
     for (const entry of chunks) {
         const compression = entry.compression ?? 2;
         const raw = writeUncompressed(entry.nbt);
-        const payload = compression === 1 ? gzipSync(raw) : compression === 2 ? deflateSync(raw) : raw;
+        const payload = entry.external ? Buffer.alloc(0) : compression === 1 ? gzipSync(raw) : compression === 2 ? deflateSync(raw) : raw;
         const count = Math.ceil((payload.length + 5) / 4096);
         const data = Buffer.alloc(count * 4096);
         data.writeUInt32BE(payload.length + 1);
-        data[4] = compression;
+        data[4] = compression | (entry.external ? 128 : 0);
         payload.copy(data, 5);
-        header.writeUInt32BE((sector << 8) | count, ((entry.x ?? 31) + 30 * 32) * 4);
+        header.writeUInt32BE((sector << 8) | count, ((entry.x ?? 31) + (entry.z ?? 30) * 32) * 4);
         sectors.push(data);
         sector += count;
     }
@@ -68,6 +69,154 @@ test("Anvil lists local chunks and loads gzip, zlib and raw NBT with signed chun
     const all = await AnvilParser.parse(Uint8Array.from(bytes).buffer);
     t.deepEqual(all.chunks.map(({ x, z }) => [x, z]), [[-32, -2], [-31, -2], [-30, -2]]);
     t.true(all.chunks.every(value => value.sections[0].data.get(0)?.type === "minecraft:stone"));
+});
+
+test("Anvil reads external gzip, zlib and raw payloads at absolute signed chunk coordinates", async t => {
+    const fixtures = [
+        { compression: 1, x: -64, z: 95, localX: 0, localZ: 31 },
+        { compression: 2, x: -1, z: -2, localX: 31, localZ: 30 },
+        { compression: 3, x: 65, z: -32, localX: 1, localZ: 0 }
+    ];
+    for (const { compression, x, z, localX, localZ } of fixtures) {
+        const nbt = chunk([uniform()], { x, z });
+        const raw = writeUncompressed(nbt);
+        const compressed = compression === 1 ? gzipSync(raw) : compression === 2 ? deflateSync(raw) : raw;
+        const padded = Buffer.concat([Buffer.alloc(7), compressed, Buffer.alloc(3)]);
+        const bytes = region({ nbt, x: localX, z: localZ, compression, external: true });
+        const signal = new AbortController().signal;
+        let reads = 0;
+        const options = {
+            region: { x: Math.floor(x / 32), z: Math.floor(z / 32) }, signal,
+            readExternalChunk: async (readX: number, readZ: number, readSignal?: AbortSignal) => {
+                reads++;
+                t.deepEqual([readX, readZ], [x, z]);
+                t.is(readSignal, signal);
+                return compression === 3 ? Uint8Array.from(compressed).buffer : padded.subarray(7, 7 + compressed.length);
+            }
+        };
+        t.deepEqual(AnvilParser.getChunkList(bytes), [{ x: localX, z: localZ }]);
+        t.is(await AnvilParser.parseChunk(bytes, (localX + 1) % 32, localZ, options), undefined);
+        t.is(reads, 0);
+        const parsed = (await AnvilParser.parseChunk(bytes, localX, localZ, options))!;
+        t.deepEqual([parsed.x, parsed.z, parsed.dataVersion], [x, z, 2865]);
+        t.deepEqual(parsed.sections[0].data.get(4095), { type: "minecraft:stone" });
+        t.is(reads, 1);
+    }
+});
+
+test("Anvil parses regions with internal and external chunks without requiring a reader for internal payloads", async t => {
+    const external = chunk([uniform("minecraft:dirt")], { x: -2 });
+    const bytes = region({ nbt: chunk([uniform()]) }, { x: 30, nbt: external, external: true });
+    const reads: number[][] = [];
+    const options = {
+        region: { x: -1, z: -1 },
+        readExternalChunk: async (x: number, z: number) => {
+            reads.push([x, z]);
+            return deflateSync(writeUncompressed(external));
+        }
+    };
+    const parsed = await AnvilParser.parse(bytes, options);
+    t.deepEqual(parsed.chunks.map(value => [value.x, value.z, value.sections[0].data.get(0)?.type]), [
+        [-2, -2, "minecraft:dirt"], [-1, -2, "minecraft:stone"]
+    ]);
+    t.deepEqual(reads, [[-2, -2]]);
+    const internal = (await AnvilParser.parseChunk(bytes, 31, 30))!;
+    t.is(internal.sections[0].data.get(0)?.type, "minecraft:stone");
+});
+
+test("Anvil reads external payloads larger than the region sector limit", async t => {
+    const nbt = chunk([uniform()], { extra: { padding: { type: "byteArray", value: Array<number>(1024 * 1024).fill(0) } } });
+    const payload = writeUncompressed(nbt);
+    t.true(payload.byteLength > 1024 * 1024);
+    const bytes = region({ nbt, compression: 3, external: true });
+    t.is(bytes.byteLength, 3 * 4096);
+    const parsed = await AnvilParser.parse(bytes, {
+        region: { x: -1, z: -1 }, readExternalChunk: async () => payload
+    });
+    t.is(parsed.chunks[0].sections[0].data.get(4095)?.type, "minecraft:stone");
+});
+
+test("Anvil validates external stubs, compression and region coordinates before reading a file", async t => {
+    const bytes = region({ nbt: chunk([uniform()]), external: true });
+    let reads = 0;
+    const readExternalChunk = async () => { reads++; return undefined; };
+    await t.throwsAsync(() => AnvilParser.parse(bytes), { message: /require region coordinates and readExternalChunk/ });
+    await t.throwsAsync(() => AnvilParser.parse(bytes, { region: { x: -1, z: -1 } }), { message: /readExternalChunk/ });
+    await t.throwsAsync(() => AnvilParser.parse(bytes, { readExternalChunk }), { message: /region coordinates/ });
+    for (const region of [{ x: NaN, z: 0 }, { x: 0, z: 0.5 }, { x: Infinity, z: 0 }, { x: Number.MAX_SAFE_INTEGER, z: 0 }]) {
+        await t.throwsAsync(() => AnvilParser.parse(bytes, { region, readExternalChunk }), { instanceOf: RangeError, message: /safe integers/ });
+    }
+    const options = { region: { x: -1, z: -1 }, readExternalChunk };
+    const both = Buffer.from(bytes);
+    both.writeUInt32BE(2, 8192);
+    await t.throwsAsync(() => AnvilParser.parse(both, options), { message: /payload length of 1/ });
+    for (const compression of [0, 4, 99, 127]) {
+        const unsupported = Buffer.from(bytes);
+        unsupported[8196] = compression | 128;
+        await t.throwsAsync(() => AnvilParser.parse(unsupported, options), { message: new RegExp(`Unsupported Anvil compression ${compression}`) });
+    }
+    t.is(reads, 0);
+    await t.throwsAsync(() => AnvilParser.parse(bytes, options), { message: /c\.-1\.-2\.mcc is missing/ });
+    t.is(reads, 1);
+});
+
+test("Anvil rejects external payloads for a different absolute chunk even when the region-local coordinates match", async t => {
+    const bytes = region({ nbt: chunk([uniform()]), compression: 3, external: true });
+    for (const coordinates of [{ x: 31, z: -2 }, { x: -1, z: 30 }]) {
+        await t.throwsAsync(() => AnvilParser.parse(bytes, {
+            region: { x: -1, z: -1 },
+            readExternalChunk: async () => writeUncompressed(chunk([uniform()], coordinates))
+        }), { message: /coordinates do not match external file c\.-1\.-2\.mcc/ });
+    }
+    const failure = new Error("file read failed");
+    await t.throwsAsync(() => AnvilParser.parse(bytes, {
+        region: { x: -1, z: -1 }, readExternalChunk: async () => { throw failure; }
+    }), { is: failure });
+});
+
+test.serial("Anvil aborts pending external reads and ignores their late payloads", async t => {
+    t.timeout(3000);
+    const bytes = region({ nbt: chunk([uniform()]), external: true });
+    const controller = new AbortController(), reason = new Error("external read cancelled");
+    let finish!: (data: Uint8Array) => void;
+    let reads = 0, decodes = 0;
+    const original = NBTHelper.fromBuffer;
+    NBTHelper.fromBuffer = async (...args) => { decodes++; return original(...args); };
+    t.teardown(() => { NBTHelper.fromBuffer = original; });
+    const options = {
+        region: { x: -1, z: -1 }, signal: controller.signal,
+        readExternalChunk: (_x: number, _z: number, signal?: AbortSignal) => {
+            reads++;
+            t.is(signal, controller.signal);
+            return new Promise<Uint8Array>(resolve => { finish = resolve; });
+        }
+    };
+    const pending = AnvilParser.parse(bytes, options);
+    controller.abort(reason);
+    await t.throwsAsync(pending, { is: reason });
+    t.is(reads, 1);
+    finish(deflateSync(writeUncompressed(chunk([uniform()]))));
+    await new Promise(resolve => setImmediate(resolve));
+    t.is(decodes, 0);
+    await t.throwsAsync(() => AnvilParser.parse(bytes, options), { is: reason });
+    await t.throwsAsync(() => AnvilParser.parseChunk(bytes, 31, 30, options), { is: reason });
+    t.is(reads, 1);
+});
+
+test.serial("Anvil checks cancellation after NBT decoding", async t => {
+    const bytes = region({ nbt: chunk([uniform()]), compression: 3, external: true });
+    const controller = new AbortController(), reason = new Error("decode cancelled");
+    const original = NBTHelper.fromBuffer;
+    NBTHelper.fromBuffer = async (...args) => {
+        const nbt = await original(...args);
+        controller.abort(reason);
+        return nbt;
+    };
+    t.teardown(() => { NBTHelper.fromBuffer = original; });
+    await t.throwsAsync(() => AnvilParser.parseChunk(bytes, 31, 30, {
+        region: { x: -1, z: -1 }, signal: controller.signal,
+        readExternalChunk: async () => writeUncompressed(chunk([uniform()]))
+    }), { is: reason });
 });
 
 test("Anvil decodes dense and padded five-bit palettes across long boundaries without losing signed high bits", async t => {

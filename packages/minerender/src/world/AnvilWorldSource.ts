@@ -1,6 +1,6 @@
 import { MineRenderError } from "../error/MineRenderError";
 import { AnvilParser } from "./AnvilParser";
-import type { AnvilChunk } from "./AnvilParser";
+import type { AnvilChunk, AnvilExternalChunkReader } from "./AnvilParser";
 import type { WorldChunkSource } from "./WorldChunkSource";
 
 /**
@@ -9,8 +9,10 @@ import type { WorldChunkSource } from "./WorldChunkSource";
  */
 export type AnvilRegionReader = (x: number, z: number, signal?: AbortSignal) => Promise<Uint8Array | ArrayBuffer | undefined>;
 
-/** Cache limits passed to `new AnvilWorldSource(readRegion, options)`. */
+/** Readers and cache limits passed to `new AnvilWorldSource(readRegion, options)`. */
 export interface AnvilWorldSourceOptions {
+    /** Reads external `c.<x>.<z>.mcc` payloads at absolute chunk coordinates in the same dimension. */
+    readExternalChunk?: AnvilExternalChunkReader;
     /** Maximum cached regions, including missing regions. Defaults to 4; 0 disables caching. */
     maxCachedRegions?: number;
     /** Maximum retained region bytes. Defaults to 64 MiB; larger regions are read without caching. */
@@ -45,11 +47,13 @@ export class AnvilWorldSource implements WorldChunkSource {
     private readonly pending = new Map<string, PendingRegion>();
     private readonly maxCachedRegions: number;
     private readonly maxCachedBytes: number;
+    private readonly readExternalChunk?: AnvilExternalChunkReader;
     private cachedBytes = 0;
 
     constructor(private readonly readRegion: AnvilRegionReader, options: AnvilWorldSourceOptions = {}) {
         this.maxCachedRegions = options.maxCachedRegions ?? 4;
         this.maxCachedBytes = options.maxCachedBytes ?? 64 * 1024 * 1024;
+        this.readExternalChunk = options.readExternalChunk;
         for (const [name, value] of Object.entries({ maxCachedRegions: this.maxCachedRegions, maxCachedBytes: this.maxCachedBytes })) {
             if (!Number.isSafeInteger(value) || value < 0) throw new RangeError(`${name} must be a nonnegative safe integer`);
         }
@@ -64,7 +68,9 @@ export class AnvilWorldSource implements WorldChunkSource {
         const data = await this.getRegion(regionX, regionZ, signal);
         signal?.throwIfAborted();
         if (!data) return undefined;
-        const chunk = await abortable(AnvilParser.parseChunk(data, x - regionX * 32, z - regionZ * 32), signal);
+        const chunk = await abortable(AnvilParser.parseChunk(data, x - regionX * 32, z - regionZ * 32, {
+            region: { x: regionX, z: regionZ }, readExternalChunk: this.readExternalChunk, signal
+        }), signal);
         signal?.throwIfAborted();
         if (chunk && (chunk.x !== x || chunk.z !== z)) {
             throw new MineRenderError(`Anvil chunk coordinates ${chunk.x},${chunk.z} do not match requested column ${x},${z}`);
