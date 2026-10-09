@@ -9,6 +9,7 @@ import { AssetKey, isAssetKey } from "./AssetKey";
 import { ListAsset } from "../ListAsset";
 import { AssetParser } from "./source/parser/AssetParsers";
 import { DisplayPosition } from "../model/DisplayPosition";
+import { DYE_COLORS } from "./BannerPatterns";
 
 /** Caller-supplied item-preview state passed to {@link Models.getMerged}. */
 export interface ItemModelContext {
@@ -230,6 +231,13 @@ export class Models {
                 if (!node.base || !node.model || typeof node.model !== "object") break;
                 const special = node.model;
                 switch (special.type) {
+                    case "banner":
+                    case "minecraft:banner":
+                        if (typeof special.color === "string" && Object.prototype.hasOwnProperty.call(DYE_COLORS, special.color)) return { model: node.base, special };
+                        break;
+                    case "shield":
+                    case "minecraft:shield":
+                        return { model: node.base, special };
                     case "shulker_box":
                     case "minecraft:shulker_box":
                         if (typeof special.texture === "string" && special.texture

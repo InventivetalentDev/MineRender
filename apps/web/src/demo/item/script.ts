@@ -1,10 +1,11 @@
-import { AssetKey, DISPLAY_POSITIONS, DisplayPosition, ModelMerger, Models, isInstanceReference, type ItemModelContext } from "minerender";
+import { AssetKey, BannerPatterns, DISPLAY_POSITIONS, DisplayPosition, ModelMerger, Models, isInstanceReference, type ItemModelContext } from "minerender";
 import { Box3 } from "three";
 import { Playground, type DemoContext, type DemoContent } from "../../playground/Playground";
 import { button, field, group, input, note, section, select, suggestions } from "../../playground/controls";
 import { assetKey, loadModel, modelControls, modelDefaults, modelOptions, selectModel, type ModelSettings } from "../../playground/models";
 import { CUSTOM_MODEL_DATA_ITEM, customModelDataCode, loadCustomModelData } from "./customModelData";
 import { SHULKER_DIRECTIONS, loadShulkerPreview, shulkerPreviewCode, type ShulkerDirection } from "./shulkerPreview";
+import { bannerControls, hasBannerControls } from "./bannerControls";
 import type { ViewSettings } from "../../playground/config";
 
 interface ItemSettings extends ModelSettings {
@@ -48,6 +49,11 @@ const app = new Playground<ItemSettings>({
             components: { "minecraft:firework_explosion": { shape: "small_ball", colors: [0xff0000, 0x0000ff] } } }, view: guiView },
         block: { label: "Block model: diamond ore", state: { item: "minecraft:block/diamond_ore", display: DisplayPosition.GUI } },
         shulker: { label: "Shulker box (color and opening)", state: { item: "minecraft:shulker_box", display: DisplayPosition.GUI }, view: guiView },
+        banner: { label: "Banner with ordered patterns", state: { item: "minecraft:red_banner", display: DisplayPosition.GUI,
+            components: { "minecraft:banner_patterns": [{ pattern: "minecraft:stripe_bottom", color: "white" }, { pattern: "minecraft:cross", color: "black" }] } }, view: guiView },
+        shield: { label: "Shield with a colored pattern", state: { item: "minecraft:shield", display: DisplayPosition.GUI,
+            properties: { "minecraft:using_item": false }, components: { "minecraft:base_color": "blue",
+                "minecraft:banner_patterns": [{ pattern: "minecraft:stripe_center", color: "white" }] } }, view: guiView },
         bundle: {
             label: "Bundle with a selected item",
             state: { item: "minecraft:bundle", display: DisplayPosition.GUI,
@@ -111,6 +117,7 @@ const shulkerOrientation = select(shulkerGroup, "Direction", SHULKER_DIRECTIONS.
 shulkerOrientation.id = "item-shulker-orientation";
 shulkerOrientation.addEventListener("change", () => void app.update({ shulkerOrientation: shulkerOrientation.value as ShulkerDirection }));
 note(shulkerGroup, "Preview the lid opening and direction.");
+const syncBannerControls = bannerControls(app.controls, () => app.state, patch => { void app.update(patch); });
 const stackGroup = group(app.controls, "Item stack");
 const count = input(stackGroup, "Count", app.state.count, "number");
 count.id = "item-count";
@@ -312,9 +319,9 @@ async function load(ctx: DemoContext, state: ItemSettings): Promise<DemoContent>
     const direct = isModelPath(state.item);
     const context = itemContext(state);
     const previewShulker = hasShulkerPreview(state);
-    const [loaded, list] = await Promise.all([direct ? Models.getRaw(key) : state.item === CUSTOM_MODEL_DATA_ITEM
+    const [loaded, list, patterns] = await Promise.all([direct ? Models.getRaw(key) : state.item === CUSTOM_MODEL_DATA_ITEM
         ? loadCustomModelData(key, context) : previewShulker ? loadShulkerPreview(key, context, state.shulkerOpenness, state.shulkerOrientation)
-            : Models.getMerged(key, context), Models.getItemList().catch(() => [])]);
+            : Models.getMerged(key, context), Models.getItemList().catch(() => []), hasBannerControls(state) ? BannerPatterns.getList().catch(() => []) : []]);
     const model = direct && loaded ? await ModelMerger.mergeWithParents(loaded) : loaded;
     if (!model) throw new Error(`Model not found: ${state.item}`);
     const object = await loadModel(ctx, model, { ...modelOptions(state), displayPosition: state.display || undefined });
@@ -331,6 +338,7 @@ async function load(ctx: DemoContext, state: ItemSettings): Promise<DemoContent>
             shulkerOpenness.value = String(state.shulkerOpenness);
             shulkerOpennessValue.value = String(state.shulkerOpenness);
             shulkerOrientation.value = state.shulkerOrientation;
+            syncBannerControls(state, patterns);
             syncStateControls(state, list);
             syncModelControls();
             selectModel(app, object);

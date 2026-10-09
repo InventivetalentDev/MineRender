@@ -81,13 +81,13 @@ export class ModelObject extends SceneObject {
         this.options.tints = await ItemTints.get(this.originalModel, this.options.tints);
         const special = (this.originalModel as ItemModel).special;
         if (special) {
-            const parts = await SpecialItems.getParts(special, this.originalModel.key?.root);
+            const parts = await SpecialItems.getParts(special, this.originalModel.key?.root, (this.originalModel as ItemModel).components);
             const transform = this.options.displayPosition
                 ? DisplayTransforms.getMatrix(this.originalModel.display, this.options.displayPosition) : new Matrix4();
             transform.multiply(new Matrix4().makeTranslation(-8, -8, -8));
             try {
                 for (const part of parts) {
-                    const object = new EntityObject(part.model, { flip: false, wireframe: this.options.wireframe });
+                    const object = new EntityObject(part.model, { flip: false, wireframe: this.options.wireframe, tints: part.tints });
                     object.matrix.copy(transform).multiply(part.transform);
                     object.matrixWorldNeedsUpdate = true;
                     object.matrixAutoUpdate = false;

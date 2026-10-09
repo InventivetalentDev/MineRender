@@ -410,6 +410,10 @@ test.serial("special items retain their renderer and inherit the base pose throu
         { type: "minecraft:bed", texture: "minecraft:red" },
         { type: "shulker_box", texture: "shulker" },
         { type: "minecraft:shulker_box", texture: "pack:shulker_blue", openness: 1.5, orientation: "west" },
+        { type: "banner", color: "light_blue" },
+        { type: "minecraft:banner", color: "black" },
+        { type: "shield" },
+        { type: "minecraft:shield" },
         { type: "minecraft:head", kind: "dragon", texture: "pack:dragon", animation: 0.25 }
     ];
     const display = { gui: { rotation: [30, 45, 0], scale: [0.625, 0.625, 0.625] } };
@@ -421,12 +425,14 @@ test.serial("special items retain their renderer and inherit the base pose throu
         "models/item/template": { parent: "minecraft:builtin/entity", display, gui_light: "front" }
     });
     AssetLoader.addSource("test-items", source);
+    const components = { banner_patterns: [{ pattern: "cross", color: "white" }], base_color: "red" };
     for (let index = 0; index < renderers.length; index++) {
         const key = itemKey(`special_${index}`);
         key.root = "https://assets.example/1.21.11";
         for (let attempt = 0; attempt < 2; attempt++) {
-            const model = (await Models.getMerged(key))! as ItemModel;
+            const model = (await Models.getMerged(key, { components }))! as ItemModel;
             t.deepEqual(model.special, renderers[index]);
+            t.deepEqual(model.components, { "minecraft:banner_patterns": components.banner_patterns, "minecraft:base_color": "red" });
             t.deepEqual(model.display?.gui, display.gui);
             t.is(model.gui_light, "front");
             t.is(model.key?.toNamespacedString(), "pack:item/base");
@@ -596,6 +602,8 @@ test.serial("referenced items retain display context but start with their own st
     const source = new FixtureSource({
         ...bundleAssets(),
         "items/selected_only": { model: { type: "bundle/selected_item" } },
+        "items/shield": { model: { type: "special", base: "item/shield", model: { type: "shield" } } },
+        "models/item/shield": { parent: "builtin/entity" },
         "items/contextual": { model: {
             type: "minecraft:condition", property: "minecraft:using_item", on_true: reference("item/wrong"),
             on_false: { type: "condition", property: "custom_model_data", on_true: reference("item/wrong"), on_false: {
@@ -624,6 +632,12 @@ test.serial("referenced items retain display context but start with their own st
         itemReferences: { "bundle/selected_item": itemKey("contextual") }
     });
     t.is(ground?.textures?.layer0, "ground");
+    const shield = (await Models.getMerged(itemKey("selected_only"), {
+        components: { base_color: "red", banner_patterns: [{ pattern: "cross", color: "black" }] },
+        itemReferences: { "bundle/selected_item": itemKey("shield") }
+    }))! as ItemModel;
+    t.deepEqual(shield.special, { type: "shield" });
+    t.deepEqual(shield.components, {});
     t.deepEqual(((await Models.getMerged(itemKey("selected_only"), {
         itemReferences: { "bundle/selected_item": itemKey("selected_only") }
     }))! as ItemModel).parts, []);
@@ -643,9 +657,15 @@ test.serial("unsupported or broken definitions reject instead of using lower-pri
     AssetLoader.addSource("test-pack", new FixtureSource({ "items/missing": { model: reference("item/missing_reference") } }));
     await t.throwsAsync(Models.getMerged(itemKey("missing")), { message: /references missing model item\/missing_reference/ });
     AssetLoader.addSource("test-pack", new FixtureSource({ "items/invalid": { model: {
-        type: "minecraft:special", base: "item/base", model: { type: "minecraft:shield" }
+        type: "minecraft:special", base: "item/base", model: { type: "minecraft:trident" }
     } } }));
-    await t.throwsAsync(Models.getMerged(itemKey("invalid")), { message: /Unsupported special item renderer minecraft:shield/ });
+    await t.throwsAsync(Models.getMerged(itemKey("invalid")), { message: /Unsupported special item renderer minecraft:trident/ });
+    for (const color of [undefined, null, "rainbow", "toString", 0xff0000]) {
+        AssetLoader.addSource("test-pack", new FixtureSource({ "items/invalid": { model: {
+            type: "special", base: "item/base", model: { type: "banner", color }
+        } } }));
+        await t.throwsAsync(Models.getMerged(itemKey("invalid")), { message: /Unsupported special item renderer banner/ });
+    }
     for (const options of [{ texture: "" }, { orientation: "sideways" }, { openness: "1" }, { openness: null }]) {
         AssetLoader.addSource("test-pack", new FixtureSource({ "items/invalid": { model: {
             type: "special", base: "item/base", model: { type: "minecraft:shulker_box", texture: "shulker", ...options }
