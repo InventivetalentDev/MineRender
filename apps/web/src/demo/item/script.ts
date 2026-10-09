@@ -186,17 +186,10 @@ const potControls = potSides.map((side, index) => {
 note(potGroup, "Rotate the preview to see each side.");
 const statueGroup = group(app.controls, "Copper golem statue");
 statueGroup.hidden = true;
-let statueState: ItemSettings | undefined;
-const updateStatue = (patch: Partial<ItemSettings>) => {
-    if (statueGroup.disabled || !statueState || app.state.item !== statueState.item
-        || JSON.stringify(app.state.components) !== JSON.stringify(statueState.components)
-        || JSON.stringify(app.state.properties) !== JSON.stringify(statueState.properties)) return;
-    statueGroup.disabled = true;
-    void app.update(patch);
-};
+const statueGuard = itemControlGuard(statueGroup, ["item", "components", "properties"]);
 const statueVariant = select(statueGroup, "Variant", statueItems, app.state.item);
 statueVariant.id = "item-statue-variant";
-statueVariant.addEventListener("change", () => updateStatue({ item: statueVariant.value }));
+statueVariant.addEventListener("change", () => statueGuard.update({ item: statueVariant.value }));
 const statuePose = select(statueGroup, "Pose", statuePoses.map(pose => [pose, pose.replace(/^./, letter => letter.toUpperCase())]), "standing");
 statuePose.id = "item-statue-pose";
 const statuePoseNote = note(statueGroup, "Pose is set by block_state in Item properties.");
@@ -210,7 +203,7 @@ statuePose.addEventListener("change", () => {
     const blockState = components[id];
     if (blockState !== undefined && (!blockState || typeof blockState !== "object" || Array.isArray(blockState))) return;
     components[id] = { ...(blockState as Record<string, unknown> ?? {}), copper_golem_pose: statuePose.value };
-    updateStatue({ components });
+    statueGuard.update({ components });
 });
 const syncBannerControls = bannerControls(app.controls, () => app.state, patch => { void app.update(patch); });
 const stackGroup = group(app.controls, "Item stack");
@@ -474,8 +467,7 @@ async function load(ctx: DemoContext, state: ItemSettings): Promise<DemoContent>
                 if (!sherdOptions.some(([value]) => value === id)) control.append(new Option(`${sherdLabel(id)} (plain)`, id));
                 control.value = id;
             });
-            statueState = state;
-            statueGroup.disabled = false;
+            statueGuard.sync(state);
             const statueItem = statueItems.find(([id]) => id === (state.item.includes(":") ? state.item : `minecraft:${state.item}`))?.[0];
             statueGroup.hidden = !statueItem;
             statueVariant.value = statueItem ?? "";

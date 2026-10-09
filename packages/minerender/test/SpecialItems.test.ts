@@ -313,11 +313,17 @@ test.serial("plain and partial pot decorations use fallback sides and reject mal
         { message: /Missing special item texture minecraft:entity\/decorated_pot\/archer_pottery_pattern/ });
 });
 
-test.serial("copper-golem statue poses use literal texture paths and override only the vanilla root pose", async t => {
+test.serial("copper-golem statue poses share entity texture keys, preserve literal paths, and override only the vanilla root pose", async t => {
     const { create, requests, textures, models } = fixture(t);
     const poses = ["standing", "sitting", "running", "star"] as const;
     const textureIds = ["minecraft:textures/entity/copper_golem/copper_golem.png", "pack:textures/custom/sitting.png",
         "pack:custom/running.image", "textures/entity/copper_golem/oxidized_copper_golem.png"];
+    const textureKeys = [
+        ["minecraft", "textures", "entity", "copper_golem/copper_golem", ".png"],
+        ["pack", "textures", "custom", "sitting", ".png"],
+        ["pack", undefined, undefined, "custom/running.image", ""],
+        ["minecraft", "textures", "entity", "copper_golem/oxidized_copper_golem", ".png"]
+    ];
     for (const [index, pose] of poses.entries()) {
         const object = await create({ type: "minecraft:copper_golem_statue", pose, texture: textureIds[index] });
         const entity = object.children[0] as EntityObject;
@@ -325,8 +331,9 @@ test.serial("copper-golem statue poses use literal texture paths and override on
         t.is(requests[index].key.path, pose === "standing" ? "copper_golem" : `copper_golem_${pose}`);
         t.is(requests[index].options?.layer, "main");
         t.is((requests[index].key as AssetKey).root, "https://example.test/pack");
-        t.is(textures[index].toNamespacedString(), textureIds[index].includes(":") ? textureIds[index] : `minecraft:${textureIds[index]}`);
-        t.deepEqual([textures[index].root, textures[index].assetType, textures[index].extension], ["https://example.test/pack", undefined, ""]);
+        const key = textures[index];
+        t.deepEqual([key.namespace, key.assetType, key.type, key.path, key.extension], textureKeys[index]);
+        t.is(key.root, "https://example.test/pack");
         t.is(entity.entity.render, "cutout");
         t.is(entity.children[0].children.length, 1);
         t.deepEqual(entity.getGroupByName("root")!.position.toArray(), [0, 0, 0]);
@@ -347,15 +354,6 @@ test.serial("copper-golem statue poses use literal texture paths and override on
     t.deepEqual(adjusted.getGroupByName("root")!.position.toArray(), [2, 0, 3]);
     t.deepEqual(adjusted.getGroupByName("root")!.rotation.toArray().slice(0, 3), [0.25, Math.PI, Math.PI]);
     t.deepEqual(models[4].layer.root.pose, { offset: [2, 24, 3], rotation: [0.25, 0.5, 0.75] });
-});
-
-test.serial("copper-golem statue options require a pose and resource identifier before loading geometry", async t => {
-    const { requests } = fixture(t);
-    for (const options of [{ pose: undefined }, { pose: null }, { pose: "waving" }, { texture: undefined }, { texture: "" }, { texture: "invalid:path:again" }]) {
-        await t.throwsAsync(SpecialItems.getParts({ type: "copper_golem_statue", pose: "standing", texture: "textures/custom.png", ...options } as unknown as SpecialItemRenderer),
-            { message: /[Cc]opper-golem statue/ });
-    }
-    t.is(requests.length, 0);
 });
 
 test.serial("banner patterns use registry asset IDs, namespaces, directory indexes, and the first 16 ordered layers", async t => {

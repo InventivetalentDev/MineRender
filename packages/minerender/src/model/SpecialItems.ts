@@ -1,5 +1,5 @@
 import { Euler, Matrix4, MeshBasicMaterial } from "three";
-import { AssetKey } from "../assets/AssetKey";
+import { AssetKey, isResourceLocation } from "../assets/AssetKey";
 import { Entities } from "../assets/Entities";
 import { BannerPatterns, DYE_COLORS } from "../assets/BannerPatterns";
 import { DecoratedPots } from "../assets/DecoratedPots";
@@ -82,11 +82,13 @@ export class SpecialItems {
             }
             case "minecraft:copper_golem_statue":
             case "copper_golem_statue": {
-                if (!["standing", "sitting", "running", "star"].includes(special.pose)) throw new Error(`Unsupported copper-golem statue pose ${special.pose}`);
-                const location = typeof special.texture === "string" && /^(?:([a-z0-9_.-]+):)?([a-z0-9_./-]+)$/.exec(special.texture);
-                if (!location) throw new Error("Copper-golem statue texture must be a resource identifier");
-                // This renderer names a complete resource path, including any file extension.
-                const key = new AssetKey(location[1] ?? "minecraft", location[2], undefined, undefined, "assets", "", root);
+                if (!isResourceLocation(special.texture)) throw new Error("Copper-golem statue texture must be a resource identifier");
+                const [namespace, path] = special.texture.includes(":") ? special.texture.split(":") : ["minecraft", special.texture];
+                const literal = new AssetKey(namespace, path, undefined, undefined, "assets", "", root);
+                const key = path.startsWith("textures/") && path.endsWith(".png")
+                    ? path.startsWith("textures/entity/") ? texture(`${namespace}:${path.slice("textures/entity/".length)}`, "")
+                        : AssetKey.parse("textures", `${namespace}:${path.slice("textures/".length)}`, literal)
+                    : literal;
                 const statue = await load(special.pose === "standing" ? "copper_golem" : `copper_golem_${special.pose}`, key,
                     new Matrix4().makeTranslation(8, 24, 8).multiply(new Matrix4().makeScale(-1, -1, 1)));
                 const pose = statue.model.layer.root.pose;

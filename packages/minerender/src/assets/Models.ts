@@ -233,7 +233,7 @@ export class Models {
                 switch (special.type) {
                     case "copper_golem_statue":
                     case "minecraft:copper_golem_statue":
-                        if (typeof special.texture === "string" && /^(?:[a-z0-9_.-]+:)?[a-z0-9_./-]+$/.test(special.texture)
+                        if (isResourceLocation(special.texture)
                             && ["standing", "sitting", "running", "star"].includes(special.pose)) return { model: node.base, special };
                         break;
                     case "banner":
