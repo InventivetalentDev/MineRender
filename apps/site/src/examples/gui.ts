@@ -21,10 +21,11 @@ function fitGui(context: ExampleContext, gui: GuiObject, margin = 24): void {
     camera.position.set(center.x, -center.y, 100);
     camera.zoom = Math.min(canvas.clientWidth / (size.x + margin * 2), canvas.clientHeight / (size.y + margin * 2));
     camera.updateProjectionMatrix();
-    if (renderer.controls) {
-        renderer.controls.target.set(center.x, -center.y, 0);
-        renderer.controls.update();
-        renderer.controls.saveState();
+    const controls = renderer.orbitControls;
+    if (controls) {
+        controls.target.set(center.x, -center.y, 0);
+        controls.update();
+        controls.saveState();
     }
     renderer.dirty = true;
 }

@@ -15,13 +15,14 @@ export function frameObject(renderer: Renderer, object: Object3D, padding = 1.3)
     const camera = renderer.camera;
     const fov = camera instanceof PerspectiveCamera ? camera.fov : 50;
     const distance = radius * padding / Math.tan((fov / 2) * Math.PI / 180);
-    const direction = camera.position.clone().sub(renderer.controls?.target ?? new Vector3()).normalize();
+    const controls = renderer.orbitControls;
+    const direction = camera.position.clone().sub(controls?.target ?? new Vector3()).normalize();
     camera.position.copy(center).add(direction.multiplyScalar(distance));
     camera.lookAt(center);
-    if (renderer.controls) {
-        renderer.controls.target.copy(center);
-        renderer.controls.update();
-        renderer.controls.saveState();
+    if (controls) {
+        controls.target.copy(center);
+        controls.update();
+        controls.saveState();
     }
     renderer.dirty = true;
 }

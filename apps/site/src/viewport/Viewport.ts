@@ -156,9 +156,9 @@ export class Viewport implements Pooled {
         this.controlsHost.innerHTML = "";
         this.setState("loading", "Loading assets…");
         renderer.appendTo(this.surface);
-        if (renderer.controls) {
-            renderer.controls.enableDamping = true;
-            renderer.controls.dampingFactor = 0.12;
+        if (renderer.orbitControls) {
+            renderer.orbitControls.enableDamping = true;
+            renderer.orbitControls.dampingFactor = 0.12;
         }
         renderer.start();
 

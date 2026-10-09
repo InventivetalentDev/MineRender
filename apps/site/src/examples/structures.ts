@@ -36,15 +36,16 @@ function frameBlocks(renderer: Renderer, bounds: Box3): void {
     const vertical = camera.fov * Math.PI / 360;
     const horizontal = Math.atan(Math.tan(vertical) * camera.aspect);
     const distance = radius / Math.sin(Math.min(vertical, horizontal)) * 1.15;
-    const direction = camera.position.clone().sub(renderer.controls?.target ?? new Vector3()).normalize();
+    const controls = renderer.orbitControls;
+    const direction = camera.position.clone().sub(controls?.target ?? new Vector3()).normalize();
     camera.position.copy(center).addScaledVector(direction, distance);
     camera.far = Math.max(camera.far, distance + radius * 4);
     camera.lookAt(center);
     camera.updateProjectionMatrix();
-    if (renderer.controls) {
-        renderer.controls.target.copy(center);
-        renderer.controls.update();
-        renderer.controls.saveState();
+    if (controls) {
+        controls.target.copy(center);
+        controls.update();
+        controls.saveState();
     }
     renderer.dirty = true;
 }
@@ -304,7 +305,7 @@ const streaming: Example = {
         const world = new MineRenderWorld(renderer.scene, { sectionMeshing: true });
         const streamer = new WorldStreamer(world, terrain, { loadRadius: 2, unloadRadius: 3 });
         const status = statusControl(context);
-        const center = () => renderer.controls?.target ?? renderer.camera.position;
+        const center = () => renderer.orbitControls?.target ?? renderer.camera.position;
         let chunk = "";
         let running = false, queued = false;
         const update = async () => {
@@ -355,8 +356,8 @@ const world = new MineRenderWorld(renderer.scene, { sectionMeshing: true });
 const streamer = new WorldStreamer(world, terrain, { loadRadius: 2, unloadRadius: 3 });
 
 // Load the columns around the orbit target, nearest first; call again whenever it moves
-await streamer.updatePosition(renderer.controls!.target);
-renderer.controls!.addEventListener("change", () => void streamer.updatePosition(renderer.controls!.target));
+await streamer.updatePosition(renderer.orbitControls!.target);
+renderer.orbitControls!.addEventListener("change", () => void streamer.updatePosition(renderer.orbitControls!.target));
 
 streamer.loadedChunks;              // what is on screen
 await streamer.retryFailedChunks(); // after source errors (listed in streamer.failedChunks)

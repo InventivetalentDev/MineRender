@@ -8,6 +8,7 @@ import {isTripleArray, TripleArray} from "../model/Model";
 import {isOrthographicCamera, isPerspectiveCamera} from "../util/three";
 import { Disposable } from "../Disposable";
 import { OrbitControls } from "../three/OrbitControls";
+import { FlyControls, isFlyControls } from "./FlyControls";
 import { SceneExporter, SceneGLTFExportOptions } from "../export/SceneExporter";
 import type { PLYExporterOptions } from "three/examples/jsm/exporters/PLYExporter.js";
 import { trimCanvas } from "../canvas/trimCanvas";
@@ -51,7 +52,8 @@ export class Renderer implements Disposable {
             enabled: true
         },
         controls: {
-            enabled: false
+            enabled: false,
+            mode: "orbit"
         },
         debug: {
             grid: false,
@@ -66,7 +68,9 @@ export class Renderer implements Disposable {
     protected _camera: Camera;
     protected _renderer: WebGLRenderer;
     protected _composer?: EffectComposer;
-    protected _controls?: OrbitControls;
+    protected _controls?: RendererControls;
+    private _controlsTime?: number;
+    private _orbitDistance?: number;
 
     protected _stats?: Stats;
 
@@ -214,24 +218,82 @@ export class Renderer implements Disposable {
         return composer;
     }
 
-    protected createControls(): Maybe<OrbitControls> {
+    protected createControls(): Maybe<RendererControls> {
         if (!this.options.controls?.enabled) return undefined;
+        return this.createControlsFor(this.options.controls.mode ?? "orbit", this.initialTarget());
+    }
 
-        // OrbitControls updates the camera around the origin during construction.
-        const position = this.camera.position.clone();
-        const controls = new OrbitControls(this.camera, this.renderer.domElement);
-        this.camera.position.copy(position);
-
+    private initialTarget(): Vector3 {
         const target = this.options.camera.lookingAt;
-        if (isVector3(target)) {
+        if (isVector3(target)) return target.clone();
+        if (isTripleArray(target)) return new Vector3(target[0], target[1], target[2]);
+        return new Vector3();
+    }
+
+    private createControlsFor(mode: ControlsMode, target: Vector3): RendererControls {
+        let controls: RendererControls;
+        if (mode === "fly") {
+            controls = new FlyControls(this.camera, this.renderer.domElement);
+            controls.lookAt(target);
+            controls.saveState();
+        } else {
+            // OrbitControls updates the camera around the origin during construction.
+            const position = this.camera.position.clone();
+            controls = new OrbitControls(this.camera, this.renderer.domElement);
+            this.camera.position.copy(position);
             controls.target.copy(target);
-        } else if (isTripleArray(target)) {
-            controls.target.set(target[0], target[1], target[2]);
+            controls.update();
+            controls.saveState();
         }
-        controls.update();
-        controls.saveState();
+        this._controlsTime = undefined;
         this.registerEventDispatcher(controls);
         return controls;
+    }
+
+    /**
+     * Replaces renderer-owned controls with the selected mode, keeping the camera where it is.
+     * Switching to orbit controls targets the point the camera looks at, at the previous orbit distance.
+     * Returns the new controls, or undefined when controls were disabled at construction or after disposal.
+     */
+    public setControlsMode(mode: ControlsMode): Maybe<RendererControls> {
+        const current = this._controls;
+        if (this._disposed || !current) return undefined;
+        if (this.controlsMode === mode) return current;
+
+        let target: Vector3;
+        if (isFlyControls(current)) {
+            const distance = this._orbitDistance ?? (this.camera.position.distanceTo(this.initialTarget()) || 1);
+            target = new Vector3(0, 0, -distance).applyQuaternion(this.camera.quaternion).add(this.camera.position);
+        } else {
+            target = current.target.clone();
+            this._orbitDistance = this.camera.position.distanceTo(target);
+        }
+        const enabled = current.enabled;
+        this.disposeControls(current);
+        this._controls = this.createControlsFor(mode, target);
+        this._controls.enabled = enabled;
+        this.dirty = true;
+        return this._controls;
+    }
+
+    private disposeControls(controls: RendererControls): void {
+        this._controls = undefined;
+        this.unregisterEventDispatcher(controls);
+        controls.enabled = false;
+        controls.dispose();
+    }
+
+    /** Advances owned controls; without a frame time, flight movement does not progress. */
+    private updateControls(time?: number): void {
+        const controls = this._controls;
+        if (!controls?.enabled) return;
+        if (!isFlyControls(controls)) {
+            controls.update();
+            return;
+        }
+        const previous = this._controlsTime;
+        if (time !== undefined) this._controlsTime = time;
+        controls.update(time === undefined || previous === undefined ? 0 : (time - previous) / 1000);
     }
 
     //</editor-fold>
@@ -324,6 +386,13 @@ export class Renderer implements Disposable {
 
         events.add(changeEvent);
         dispatcher.addEventListener(changeEvent, this._changeListener);
+    }
+
+    private unregisterEventDispatcher(dispatcher: EventDispatcher<any>): void {
+        const events = this._eventDispatchers.get(dispatcher);
+        if (!events) return;
+        for (const event of events) dispatcher.removeEventListener(event, this._changeListener);
+        this._eventDispatchers.delete(dispatcher);
     }
 
     /** Updates the camera and canvas size. Width and height are in CSS pixels. */
@@ -429,10 +498,7 @@ export class Renderer implements Disposable {
         this._element = undefined;
 
         if (this._controls) {
-            const controls = this._controls;
-            this._controls = undefined;
-            controls.enabled = false;
-            controls.dispose();
+            this.disposeControls(this._controls);
         }
 
         this.scene.clear();
@@ -453,10 +519,8 @@ export class Renderer implements Disposable {
     private animate(t: number = performance.now()): void {
         if (!this._running) return;
 
-        // Damping and auto-rotation can make a previously clean scene need another frame.
-        if (this._controls?.enabled) {
-            this._controls.update();
-        }
+        // Damping, auto-rotation, and held movement keys can make a previously clean scene need another frame.
+        this.updateControls(t);
         if (!this._running) return;
         if (!this.dirty && !this.options.render.renderAlways && !this._frameCallbacks.size && !this._videoExporter) return;
 
@@ -508,9 +572,7 @@ export class Renderer implements Disposable {
      */
     public toImage(trim: boolean = false, mime: string = "image/png", quality?: number): string {
         if (this._disposed) throw new Error("Cannot export an image from a disposed renderer");
-        if (this._controls?.enabled) {
-            this._controls.update();
-        }
+        this.updateControls();
 
         // Read the drawing buffer in the same task as the draw, before WebGL can clear it.
         this.drawFrame();
@@ -535,7 +597,7 @@ export class Renderer implements Disposable {
             try {
                 if (!wasRunning) this.start();
                 this._videoExporter = exporter;
-                if (this._controls?.enabled) this._controls.update();
+                this.updateControls();
                 this.drawFrame();
             } catch (error) {
                 exporter.cancel(error);
@@ -595,8 +657,24 @@ export class Renderer implements Disposable {
     }
 
     /** Renderer-owned controls, or undefined when disabled at construction or after disposal. */
-    public get controls(): Maybe<OrbitControls> {
+    public get controls(): Maybe<RendererControls> {
         return this._controls;
+    }
+
+    /** Renderer-owned OrbitControls, or undefined in fly mode or without controls. */
+    public get orbitControls(): Maybe<OrbitControls> {
+        return this._controls && !isFlyControls(this._controls) ? this._controls : undefined;
+    }
+
+    /** Renderer-owned {@link FlyControls}, or undefined in orbit mode or without controls. */
+    public get flyControls(): Maybe<FlyControls> {
+        return isFlyControls(this._controls) ? this._controls : undefined;
+    }
+
+    /** The active renderer-owned controls mode, or undefined without controls. */
+    public get controlsMode(): Maybe<ControlsMode> {
+        if (!this._controls) return undefined;
+        return isFlyControls(this._controls) ? "fly" : "orbit";
     }
 
     ///
@@ -664,9 +742,17 @@ export interface ComposerOptions {
     enabled: boolean;
 }
 
-/** Set `controls: { enabled: true }` in the Renderer constructor to create owned OrbitControls. */
+/** Renderer-owned camera controls: orbiting around a target, or creative-style flight. */
+export type ControlsMode = "orbit" | "fly";
+
+/** Controls created through `controls.enabled`; narrow with `isFlyControls` or {@link Renderer.controlsMode}. */
+export type RendererControls = OrbitControls | FlyControls;
+
+/** Set `controls: { enabled: true }` in the Renderer constructor to create owned controls. */
 export interface ControlsOptions {
     enabled: boolean;
+    /** `orbit` (default) creates OrbitControls; `fly` creates {@link FlyControls}. */
+    mode?: ControlsMode;
 }
 
 /** Scene helpers enabled through `debug` in the Renderer constructor options. */

@@ -21,8 +21,9 @@ const renderer = new Renderer({
 });
 renderer.scene.background = new Color("#8ebbe0");
 renderer.appendTo(viewport);
-const controls = renderer.controls!;
-controls.screenSpacePanning = false;
+renderer.orbitControls!.screenSpacePanning = false;
+/** The point the streamer loads around: the orbit target, or the camera itself while flying. */
+const viewCenter = (): Vector3 => renderer.orbitControls?.target ?? renderer.camera.position;
 const world = new MineRenderWorld(renderer.scene, { sectionMeshing: true });
 let active: Source | undefined;
 let streamer: WorldStreamer | undefined;
@@ -87,15 +88,16 @@ async function replaceSource(next: Source, center?: { x: number; z: number; y: n
 async function updateWorld(force = false, retryFailures = false): Promise<void> {
     const current = streamer;
     if (!current || disposed) return;
-    const x = Math.floor(controls.target.x / 256);
-    const z = Math.floor(controls.target.z / 256);
+    const center = viewCenter();
+    const x = Math.floor(center.x / 256);
+    const z = Math.floor(center.z / 256);
     const key = `${x},${z}`;
     if (!force && requestedCenter === key) return;
     requestedCenter = key;
     const id = ++updateId;
     report(`Loading chunks near ${x}, ${z}…`);
     try {
-        await current.updatePosition(controls.target);
+        await current.updatePosition(viewCenter());
         if (retryFailures && id === updateId && current === streamer && !disposed) await current.retryFailedChunks();
         if (id !== updateId || current !== streamer || disposed) return;
         const count = current.loadedChunks.length;
@@ -115,9 +117,14 @@ async function updateWorld(force = false, retryFailures = false): Promise<void> 
 function moveTo(x: number, z: number, y: number): void {
     if (![x, z, y].every(Number.isSafeInteger)) throw new Error("Enter integer chunk coordinates and a block height.");
     const target = new Vector3(x * 256 + 128, y * 16, z * 256 + 128);
-    renderer.camera.position.add(target.clone().sub(controls.target));
-    controls.target.copy(target);
-    controls.update();
+    const orbit = renderer.orbitControls;
+    if (orbit) {
+        renderer.camera.position.add(target.clone().sub(orbit.target));
+        orbit.target.copy(target);
+        orbit.update();
+    } else {
+        renderer.camera.position.copy(target);
+    }
     renderer.scene.dirty = true;
     input("chunk-x").value = String(x);
     input("chunk-z").value = String(z);
@@ -126,8 +133,9 @@ function moveTo(x: number, z: number, y: number): void {
 
 function updateStats(): void {
     const info = renderer.renderer.info;
-    const x = Math.floor(controls.target.x / 256);
-    const z = Math.floor(controls.target.z / 256);
+    const center = viewCenter();
+    const x = Math.floor(center.x / 256);
+    const z = Math.floor(center.z / 256);
     element("world-stats").textContent = `View center: chunk ${x}, ${z} · ${streamer?.loadedChunks.length ?? 0} loaded · ${streamer?.pendingChunks ?? 0} pending · ${streamer?.failedChunks.length ?? 0} failed · ${info.render.calls} draw calls · ${info.render.triangles.toLocaleString()} triangles`;
 }
 
@@ -280,9 +288,17 @@ function navigate(x: number, z: number, y: number): void {
 }
 element("jump").addEventListener("click", () => navigate(input("chunk-x").valueAsNumber, input("chunk-z").valueAsNumber, input("block-y").valueAsNumber));
 document.querySelectorAll<HTMLButtonElement>("[data-step-x], [data-step-z]").forEach(button => button.addEventListener("click", () => {
-    navigate(Math.floor(controls.target.x / 256) + Number(button.dataset.stepX ?? 0),
-        Math.floor(controls.target.z / 256) + Number(button.dataset.stepZ ?? 0), Math.round(controls.target.y / 16));
+    const center = viewCenter();
+    navigate(Math.floor(center.x / 256) + Number(button.dataset.stepX ?? 0),
+        Math.floor(center.z / 256) + Number(button.dataset.stepZ ?? 0), Math.round(center.y / 16));
 }));
+select("camera-mode").addEventListener("change", () => {
+    const mode = select("camera-mode").value as "orbit" | "fly";
+    renderer.setControlsMode(mode);
+    element("fly-note").hidden = mode !== "fly";
+    if (renderer.orbitControls) renderer.orbitControls.screenSpacePanning = false;
+    void updateWorld(true);
+});
 input("follow").addEventListener("change", () => { if (input("follow").checked) void updateWorld(true); });
 retry.addEventListener("click", () => retryAction?.());
 element("panel-toggle").addEventListener("click", () => {
