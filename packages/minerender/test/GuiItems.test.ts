@@ -1,5 +1,5 @@
 import test, { ExecutionContext } from "ava";
-import { Box3, ClampToEdgeWrapping, Color, CustomBlending, EqualDepth, LinearFilter, Matrix4, Mesh, MeshBasicMaterial, NearestFilter, OneFactor, RepeatWrapping, ShaderMaterial, SrcColorFactor, ZeroFactor } from "three";
+import { Box3, ClampToEdgeWrapping, Color, CustomBlending, EqualDepth, LinearFilter, Matrix4, Mesh, MeshBasicMaterial, NearestFilter, OneFactor, Raycaster, RepeatWrapping, ShaderMaterial, SrcColorFactor, Vector3, ZeroFactor } from "three";
 import { AssetKey } from "../src/assets/AssetKey";
 import { Entities } from "../src/assets/Entities";
 import { Models } from "../src/assets/Models";
@@ -72,7 +72,7 @@ function countFont(t: ExecutionContext) {
     return { image, requests };
 }
 
-test.serial("item glint separates instances and owns its animated pass while sharing base geometry and atlas pixels", async t => {
+test.serial("item glint separates instances and owns its animated pass while sharing cached textures and base geometry", async t => {
     const { scene, model, atlas } = fixture(t);
     model.key!.root = "glint-pack";
     const textureKeys: AssetKey[] = [];
@@ -119,6 +119,12 @@ test.serial("item glint separates instances and owns its animated pass while sha
     t.false(Ticker.tickers.has(ticker));
     scene.add(object);
     t.is(Ticker.tickers.size, before.size + 1);
+    const shared = await scene.addModel(glintModel) as ModelObject;
+    const sharedMaterial = (shared.getObjectByName(pass.name) as Mesh).material as ShaderMaterial;
+    t.not(sharedMaterial, material);
+    t.is(sharedMaterial.uniforms.glintMap.value, texture);
+    t.is(textureKeys.length, 1);
+    shared.dispose();
     let geometries = 0, materials = 0, textures = 0, atlasImages = 0;
     base.geometry.addEventListener("dispose", () => geometries++);
     material.addEventListener("dispose", () => materials++);
@@ -127,16 +133,53 @@ test.serial("item glint separates instances and owns its animated pass while sha
     atlas.image.dispose = () => { atlasImages++; };
     object.dispose(); object.dispose();
     atlas.image.dispose = dispose;
-    t.deepEqual([geometries, materials, textures, atlasImages], [1, 1, 1, 0]);
+    t.deepEqual([geometries, materials, textures, atlasImages], [1, 1, 0, 0]);
     t.is(Ticker.tickers.size, before.size);
     ModelTextures.getMeta = async () => ({ texture: { clamp: true } });
-    const clamped = await scene.addModel(glintModel) as ModelObject;
+    const clamped = await scene.addModel({ ...glintModel,
+        key: new AssetKey("test", "front", "models", "item", "assets", ".json", "clamped-glint-pack") }) as ModelObject;
     let clampedMaterial: ShaderMaterial | undefined;
     clamped.iterateAllMeshes(mesh => { if (mesh.userData.minerenderItemGlint) clampedMaterial = mesh.material as ShaderMaterial; });
     const clampedTexture = clampedMaterial!.uniforms.glintMap.value;
+    t.not(clampedTexture, texture);
+    t.deepEqual(textureKeys.map(key => key.root), ["glint-pack", "clamped-glint-pack"]);
     t.deepEqual([clampedTexture.wrapS, clampedTexture.wrapT, clampedTexture.minFilter, clampedTexture.magFilter],
         [ClampToEdgeWrapping, ClampToEdgeWrapping, NearestFilter, NearestFilter]);
     clamped.dispose();
+    Caching.clear();
+    let metadataLoads = 0;
+    ModelTextures.getMeta = async () => {
+        if (++metadataLoads === 1) { Caching.clear(); return { texture: { clamp: true } }; }
+        return { texture: { blur: true } };
+    };
+    const refreshed = await scene.addModel(glintModel) as ModelObject;
+    const refreshedTexture = ((refreshed.getObjectByName(pass.name) as Mesh).material as ShaderMaterial).uniforms.glintMap.value;
+    t.is(metadataLoads, 2);
+    t.not(refreshedTexture, texture);
+    t.deepEqual([refreshedTexture.wrapS, refreshedTexture.magFilter], [RepeatWrapping, LinearFilter]);
+    refreshed.dispose();
+});
+
+test.serial("GUI glint keeps its pass name and draw order without intercepting item picking", async t => {
+    const { scene, model } = fixture(t);
+    model.components = { enchantment_glint_override: true };
+    const gui = await scene.addGui([
+        { name: "background", texture: "test:gui/background" },
+        { name: "item", item: "test:item/front", context: { components: { damage: 50, max_damage: 100 } } },
+        { name: "cover", texture: "test:gui/overlay" }
+    ]);
+    const item = gui.getGroupByName("item")!;
+    const base = gui.getMeshByName("item")!, pass = base.children[0] as Mesh;
+    t.true(pass.userData.minerenderItemGlint);
+    t.true(pass.name.endsWith(":glint"));
+    const ordered = [gui.getMeshByName("background")!, base, pass, gui.getMeshByName("item:durability-background")!, gui.getMeshByName("cover")!];
+    t.true(ordered.every((mesh, index) => index === 0 || mesh.renderOrder > ordered[index - 1].renderOrder));
+    gui.updateMatrixWorld(true);
+    const bounds = new Box3().setFromObject(item), origin = bounds.getCenter(new Vector3());
+    origin.z = bounds.max.z + 1;
+    const hits = new Raycaster(origin, new Vector3(0, 0, -1)).intersectObject(item, true);
+    t.true(hits.length > 0);
+    t.true(hits.every(hit => hit.object === base));
 });
 
 test.serial("glint UV density ignores atlas packing and texture resolution while retaining cropped face orientation", t => {
@@ -159,7 +202,10 @@ test.serial("glint UV density ignores atlas packing and texture resolution while
 
 test.serial("missing glint textures reject cleanly after releasing the ordinary item's owned resources", async t => {
     const { scene, model } = fixture(t);
-    ModelTextures.get = async () => undefined;
+    ModelTextures.get = async key => {
+        await Caching.textureAssetCache.get(key.serialize(), async () => undefined);
+        return undefined;
+    };
     const create = Materials.createShadedCanvasMaterial;
     let materials = 0, textures = 0;
     Materials.createShadedCanvasMaterial = (...args) => {

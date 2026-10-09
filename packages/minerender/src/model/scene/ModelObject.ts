@@ -128,7 +128,10 @@ export class ModelObject extends SceneObject {
             await this.loadTextures();
             this.createMeshes();
             this.applyTextures();
-            if (this.hasGlint && this.atlasTexture) this.glint = await ItemGlint.create(this, this.atlasTexture, this.originalModel.key?.root);
+            if (this.hasGlint && this.atlasTexture) {
+                this.glint = await ItemGlint.create(this, this.atlasTexture, this.originalModel.key?.root);
+                this.updateAnimationSubscription();
+            }
         } catch (error) {
             this.disposeAndRemoveAllChildren();
             throw error;
@@ -286,6 +289,7 @@ export class ModelObject extends SceneObject {
         let root: ModelObject = this;
         while (root.parent && isModelObject(root.parent)) root = root.parent;
         const active = !!root.parent && (!this.isInstanced || this.instanceCounter > 0);
+        this.glint?.updateSubscription(active);
         if (active && this.atlas?.hasAnimation && this.atlasTexture) {
             if (!this.unsubscribeAtlas) {
                 this.atlasTexture.needsUpdate = true;

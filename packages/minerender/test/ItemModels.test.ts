@@ -67,14 +67,16 @@ test.afterEach.always(() => {
 });
 test.after.always(() => shutdown());
 
-test("item glint uses native enchantment maps and explicit boolean overrides", t => {
+test("item glint uses nonempty enchantment objects and explicit boolean overrides", t => {
     for (const components of [{}, { enchantments: {} }, { stored_enchantments: { sharpness: 1 } },
         { enchantments: { sharpness: 1 }, enchantment_glint_override: false }]) t.false(ItemGlint.enabled(components));
     for (const components of [{ enchantments: { "minecraft:sharpness": 1 } }, { "minecraft:enchantments": { sharpness: 255 } },
-        { "minecraft:enchantment_glint_override": true }, { enchantment_glint_override: true, enchantments: "unused" }]) t.true(ItemGlint.enabled(components));
-    for (const components of [{ enchantment_glint_override: 1 }, { enchantments: null }, { enchantments: { levels: { sharpness: 1 } } },
+        { enchantments: { levels: { sharpness: 1 } } },
         { enchantments: { sharpness: 0 } }, { enchantments: { sharpness: 256 } }, { enchantments: { sharpness: 1.5 } },
-        { enchantments: { sharpness: 1, "minecraft:sharpness": 2 } }, { enchantments: {}, "minecraft:enchantments": {} }]) {
+        { enchantments: { sharpness: 1, "minecraft:sharpness": 2 } },
+        { "minecraft:enchantment_glint_override": true }, { enchantment_glint_override: true, enchantments: "unused" }]) t.true(ItemGlint.enabled(components));
+    for (const components of [{ enchantment_glint_override: 1 }, { enchantments: null }, { enchantments: [] }, { enchantments: "bad" },
+        { enchantments: {}, "minecraft:enchantments": {} }]) {
         t.throws(() => ItemGlint.enabled(components));
     }
 });

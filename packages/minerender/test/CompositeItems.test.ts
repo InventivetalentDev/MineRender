@@ -164,7 +164,7 @@ test.serial("composite GUI layers retain child order and bounds and dispose each
     t.is(frontAtlas.ticker, undefined);
 });
 
-test.serial("composite GUI glint preserves leaf order and pauses when any containing GUI or group detaches", async t => {
+test.serial("composite GUI glint preserves leaf order and shares atlas attachment behavior", async t => {
     const { scene, front, side, composite, frontAtlas } = fixture(t);
     front.components = { ...front.components, enchantment_glint_override: true };
     side.components = { ...side.components, enchantments: { sharpness: 1 }, enchantment_glint_override: false };
@@ -188,27 +188,31 @@ test.serial("composite GUI glint preserves leaf order and pauses when any contai
     t.true(drawn.at(-1)!.renderOrder < bar.renderOrder && bar.renderOrder < count[0].renderOrder && count.at(-1)!.renderOrder < cover.renderOrder);
     t.true([bar, ...count, cover].every(mesh => !mesh.userData.minerenderItemGlint));
     const glintTicker = () => [...Ticker.tickers.keys()].find(key => key !== frontAtlas.ticker)!;
-    let ticker = glintTicker();
+    const ticker = glintTicker(), atlasTicker = frontAtlas.ticker;
     t.true(Ticker.tickers.has(ticker));
+    t.true(Ticker.tickers.has(atlasTicker!));
     scene.dirty = false;
     Ticker.tickers.get(ticker)!();
     t.true(scene.dirty);
     gui.removeFromParent();
-    t.false(Ticker.tickers.has(ticker));
-    scene.add(gui);
-    ticker = glintTicker();
     t.true(Ticker.tickers.has(ticker));
+    t.is(frontAtlas.ticker, atlasTicker);
+    scene.add(gui);
+    t.true(Ticker.tickers.has(ticker));
+    t.is(frontAtlas.ticker, atlasTicker);
     item.removeFromParent();
     t.false(Ticker.tickers.has(ticker));
+    t.is(frontAtlas.ticker, undefined);
     gui.add(item);
     t.true(Ticker.tickers.has(glintTicker()));
+    t.true(Ticker.tickers.has(frontAtlas.ticker!));
     const material = passes[0].material as ShaderMaterial;
     let materialDisposals = 0, textureDisposals = 0, geometryDisposals = 0;
     material.addEventListener("dispose", () => materialDisposals++);
     material.uniforms.glintMap.value.addEventListener("dispose", () => textureDisposals++);
     passes[0].geometry.addEventListener("dispose", () => geometryDisposals++);
     gui.dispose(); gui.dispose();
-    t.deepEqual([materialDisposals, textureDisposals, geometryDisposals], [1, 1, 1]);
+    t.deepEqual([materialDisposals, textureDisposals, geometryDisposals], [1, 0, 1]);
     t.is(Ticker.tickers.size, 0);
 });
 

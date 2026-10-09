@@ -1,7 +1,9 @@
 import { ClampToEdgeWrapping, CustomBlending, DoubleSide, EqualDepth, Float32BufferAttribute, LinearFilter, Mesh, OneFactor, RepeatWrapping, ShaderMaterial, SrcColorFactor, Vector2, ZeroFactor } from "three";
-import type { BufferGeometry, Object3D, Texture } from "three";
+import type { BufferGeometry, Texture } from "three";
 import { AssetKey } from "../assets/AssetKey";
+import { Models } from "../assets/Models";
 import { ModelTextures } from "../assets/ModelTextures";
+import { Caching } from "../cache/Caching";
 import type { SceneObject } from "../renderer/SceneObject";
 import { Textures } from "../texture/Textures";
 import { Ticker } from "../Ticker";
@@ -9,50 +11,46 @@ import { CUBE_FACES } from "../CubeFace";
 import type { ModelFaces } from "./ModelElement";
 import type { TextureAtlas } from "../texture/TextureAtlas";
 
-/** An owned glint pass over ordinary item geometry; the base atlas and geometry retain their owners. */
+/** An owned glint material over ordinary item geometry; textures and geometry retain their owners. */
 export class ItemGlint {
     private ticker?: number;
-    private readonly ancestors = new Set<Object3D>();
 
-    private constructor(private readonly owner: SceneObject, readonly material: ShaderMaterial, private readonly texture: Texture) {
+    private constructor(private readonly owner: SceneObject, readonly material: ShaderMaterial) {
         this.updateTime();
-        this.updateSubscription();
     }
 
     /** Supplied enchantments enable glint unless a boolean component overrides them. Registry defaults are not inferred. */
     public static enabled(components: Record<string, unknown> = {}): boolean {
-        const component = (id: string): unknown => {
-            if (Object.prototype.hasOwnProperty.call(components, id) && Object.prototype.hasOwnProperty.call(components, `minecraft:${id}`)) {
-                throw new Error(`Duplicate item-preview component: minecraft:${id}`);
-            }
-            return Object.prototype.hasOwnProperty.call(components, id) ? components[id] : components[`minecraft:${id}`];
-        };
-        const override = component("enchantment_glint_override");
+        const override = Models.componentValue(components, "enchantment_glint_override");
         if (override !== undefined) {
             if (typeof override !== "boolean") throw new Error("Item enchantment_glint_override must be a boolean");
             return override;
         }
-        const enchantments = component("enchantments");
+        const enchantments = Models.componentValue(components, "enchantments");
         if (enchantments === undefined) return false;
-        if (!enchantments || typeof enchantments !== "object" || Array.isArray(enchantments)) throw new Error("Item enchantments must be an object keyed by enchantment identifier");
-        const entries = Object.entries(enchantments);
-        const ids = new Set<string>();
-        for (const [id, level] of entries) {
-            const normalized = id.includes(":") ? id : `minecraft:${id}`;
-            if (!/^[a-z0-9_.-]+:[a-z0-9_./-]+$/.test(normalized) || ids.has(normalized)) throw new Error(`Invalid or duplicate item enchantment: ${id}`);
-            if (!Number.isInteger(level) || level < 1 || level > 255) throw new Error("Item enchantment levels must be integers from 1 to 255");
-            ids.add(normalized);
-        }
-        return entries.length > 0;
+        if (!enchantments || typeof enchantments !== "object" || Array.isArray(enchantments)) throw new Error("Item enchantments must be an object");
+        return Object.keys(enchantments).length > 0;
     }
 
+    /** @internal */
     public static async create(owner: SceneObject, baseMap: Texture, root?: string): Promise<ItemGlint> {
         const key = new AssetKey("minecraft", "enchanted_glint_item", "textures", "misc", "assets", ".png", root);
-        const [image, metadata] = await Promise.all([ModelTextures.get(key), ModelTextures.getMeta(key)]);
-        if (!image) throw new Error(`Missing item glint texture ${key.toNamespacedString()}`);
-        const texture = Textures.createCanvasTexture((image.data as CanvasRenderingContext2D).canvas);
-        texture.wrapS = texture.wrapT = metadata?.texture?.clamp ? ClampToEdgeWrapping : RepeatWrapping;
-        if (metadata?.texture?.blur) texture.magFilter = texture.minFilter = LinearFilter;
+        const assetKey = key.serialize(), textureKey = `item-glint:${assetKey}`;
+        let texture = Caching.textureCache.getIfPresent(textureKey);
+        if (!texture) {
+            const pending = ModelTextures.get(key);
+            const cachedAsset = Caching.textureAssetCache.getIfPresent(assetKey);
+            const [image, metadata] = await Promise.all([pending, ModelTextures.getMeta(key)]);
+            if (!image) throw new Error(`Missing item glint texture ${key.toNamespacedString()}`);
+            // A cache clear during decoding must not restore an older source's texture.
+            if (cachedAsset && Caching.textureAssetCache.getIfPresent(assetKey) !== cachedAsset) return this.create(owner, baseMap, root);
+            texture = Caching.textureCache.get(textureKey, () => {
+                const texture = Textures.createCanvasTexture((image.data as CanvasRenderingContext2D).canvas);
+                texture.wrapS = texture.wrapT = metadata?.texture?.clamp ? ClampToEdgeWrapping : RepeatWrapping;
+                if (metadata?.texture?.blur) texture.magFilter = texture.minFilter = LinearFilter;
+                return texture;
+            });
+        }
         const material = new ShaderMaterial({
             name: "item-glint", transparent: true, depthWrite: false, depthFunc: EqualDepth, side: DoubleSide, forceSinglePass: true,
             blending: CustomBlending, blendSrc: SrcColorFactor, blendDst: OneFactor, blendSrcAlpha: ZeroFactor, blendDstAlpha: OneFactor,
@@ -88,8 +86,9 @@ export class ItemGlint {
                     if (texture2D(baseMap, mapUv).a < 0.01) discard;
                     vec4 color = texture2D(glintMap, vec2(vGlintUv.x, 1.0 - vGlintUv.y));
                     if (color.a < 0.1) discard;
-                    gl_FragColor = vec4(color.rgb * glintAlpha, color.a);
+                    gl_FragColor = color;
                     #include <colorspace_fragment>
+                    gl_FragColor.rgb *= glintAlpha;
                 }
             `
         });
@@ -100,13 +99,17 @@ export class ItemGlint {
             const pass = new Mesh(base.geometry, material);
             pass.name = `${base.name}:glint`;
             pass.userData.minerenderItemGlint = true;
+            pass.raycast = () => {};
             pass.renderOrder = base.renderOrder + 0.5;
             base.add(pass);
         }
-        return new ItemGlint(owner, material, texture);
+        return new ItemGlint(owner, material);
     }
 
-    /** Uses a fixed sprite span and local phase to approximate glint density without Minecraft's shared item atlas. */
+    /**
+     * Uses a fixed sprite span and local phase to approximate glint density without Minecraft's shared item atlas.
+     * @internal
+     */
     public static mapUvs(geometry: BufferGeometry, faces: ModelFaces, atlas: TextureAtlas): void {
         const uv = geometry.getAttribute("uv");
         const mapped = new Float32Array(uv.count * 2);
@@ -128,45 +131,20 @@ export class ItemGlint {
         (this.material.uniforms.glintOffset.value as Vector2).set(-(time % 110000) / 110000, (time % 30000) / 30000);
     }
 
-    private readonly updateSubscription = (): void => {
-        const current = new Set<Object3D>();
-        let attached = false;
-        for (let node: Object3D | null = this.owner; node; node = node.parent) {
-            current.add(node);
-            if ((node as { isScene?: boolean }).isScene) attached = true;
-        }
-        for (const node of this.ancestors) {
-            if (!current.has(node)) {
-                node.removeEventListener("added", this.updateSubscription);
-                node.removeEventListener("removed", this.updateSubscription);
-            }
-        }
-        for (const node of current) {
-            if (!this.ancestors.has(node)) {
-                node.addEventListener("added", this.updateSubscription);
-                node.addEventListener("removed", this.updateSubscription);
-            }
-        }
-        this.ancestors.clear();
-        for (const node of current) this.ancestors.add(node);
-        if (attached && this.ticker === undefined) {
+    /** @internal */
+    public updateSubscription(active: boolean): void {
+        if (active && this.ticker === undefined) {
             this.updateTime();
             this.ticker = Ticker.add(() => { this.updateTime(); this.owner.notifyDirty(); });
-        } else if (!attached) {
+        } else if (!active) {
             Ticker.remove(this.ticker);
             this.ticker = undefined;
         }
-    };
+    }
 
     public dispose(): void {
         Ticker.remove(this.ticker);
         this.ticker = undefined;
-        for (const node of this.ancestors) {
-            node.removeEventListener("added", this.updateSubscription);
-            node.removeEventListener("removed", this.updateSubscription);
-        }
-        this.ancestors.clear();
         this.material.dispose();
-        this.texture.dispose();
     }
 }
