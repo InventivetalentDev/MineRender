@@ -2,6 +2,18 @@ import { AssetKey } from "../assets/AssetKey";
 import { Block } from "../model/block/Block";
 import { Maybe } from "../util/util";
 
+const blockKeys = new Map<string, AssetKey>();
+
+function blockKey(type: string): AssetKey {
+    let key = blockKeys.get(type);
+    if (!key) {
+        key = AssetKey.parse("blockstates", type);
+        if (blockKeys.size >= 4096) blockKeys.clear();
+        blockKeys.set(type, key);
+    }
+    return key;
+}
+
 type PaletteState = Readonly<Pick<Block, "type" | "properties">>;
 
 interface PaletteEntry {
@@ -41,12 +53,12 @@ export class ChunkData {
         let key: string | undefined;
         let nbt: unknown;
         if (block && !ChunkData.isAir(block)) {
-            const type = AssetKey.parse("blockstates", block.type).toNamespacedString();
+            const type = blockKey(block.type).toNamespacedString();
             const properties = Object.fromEntries(Object.keys(block.properties ?? {}).sort()
                 .map(name => [name, block.properties![name]]));
             state = Object.freeze(Object.keys(properties).length
                 ? { type, properties: Object.freeze(properties) } : { type });
-            key = JSON.stringify([type, properties]);
+            key = ChunkData.paletteKey(block);
             if (block.nbt !== undefined) nbt = structuredClone(block.nbt);
         }
 
@@ -87,8 +99,15 @@ export class ChunkData {
 
     static isAir(block: Maybe<Block>): boolean {
         if (typeof block === "undefined" || typeof block.type === "undefined") return true;
-        const key = AssetKey.parse("blockstates", block.type);
+        const key = blockKey(block.type);
         return key.namespace === "minecraft" && !key.type && ["air", "cave_air", "void_air"].includes(key.path);
+    }
+
+    /** Identifies a normalized block type and its sorted properties, excluding per-cell NBT. */
+    static paletteKey(block: Block): string {
+        const properties = Object.fromEntries(Object.keys(block.properties ?? {}).sort()
+            .map(name => [name, block.properties![name]]));
+        return JSON.stringify([blockKey(block.type).toNamespacedString(), properties]);
     }
 
     private static copyBlock(state: PaletteState, nbt: unknown): Block {

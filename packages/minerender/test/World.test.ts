@@ -187,3 +187,44 @@ test.serial("parsed chunk columns replace old sections and preserve signed posit
     t.is(scene.stats.instanceCount, 1);
     t.is(await executor.submit(() => "reusable"), "reusable");
 });
+
+test.serial("default bulk placement keeps repeated writes ordered within signed chunks", async t => {
+    const { world, scene } = fixture(t);
+    await world.placeMultiBlock({ size: [17, 1, 1], blocks: [
+        { position: [-1, 0, 0], type: "test:first" },
+        { position: [16, 0, 0], type: "test:neighbor" },
+        { position: [-1, 0, 0], type: "air" },
+        { position: [-1, 0, 0], type: "test:last", properties: { facing: "north" }, nbt: { items: [1] } }
+    ] });
+    t.deepEqual(world.getBlockAt(-1, 0, 0)!.block,
+        { type: "test:last", properties: { facing: "north" }, nbt: { items: [1] } });
+    t.deepEqual(world.getBlockAt(-1, 0, 0)!.object.state, { facing: "north" });
+    t.is(world.getBlockAt(16, 0, 0)!.block.type, "test:neighbor");
+    t.is(scene.stats.instanceCount, 2);
+});
+
+test.serial("Chunk.placeBlocks clears failed cells and places the remaining cells before rejecting", async t => {
+    const { world, scene, loads } = fixture(t);
+    const previous = (await world.setBlockAt(0, 0, 0, block))!;
+    const chunk = world.getChunkAt(new Vector3())!;
+    const get = BlockStates.get, failure = new Error("block asset failed");
+    let failedLoads = 0;
+    loads.length = 0;
+    BlockStates.get = async key => {
+        if (key.path === "failure") { failedLoads++; throw failure; }
+        return get(key);
+    };
+    await t.throwsAsync(chunk.placeBlocks([
+        { index: 0, block: { type: "test:failure" } },
+        { index: 1, block }, { index: 2, block },
+        { index: 3, block: { type: "test:failure" } }
+    ]), { is: failure });
+    t.is(world.getBlockAt(0, 0, 0), undefined);
+    t.is(chunk["data"].get(0), undefined);
+    t.is(chunk["data"].get(3), undefined);
+    t.deepEqual([world.getBlockAt(1, 0, 0)!.block, world.getBlockAt(2, 0, 0)!.block], [block, block]);
+    t.is(previous.object.instanceCounter, 0);
+    t.is(scene.stats.instanceCount, 2);
+    t.is(failedLoads, 1);
+    t.deepEqual(loads, ["test:stone"]);
+});

@@ -54,6 +54,25 @@ export async function sleep(timeout: number): Promise<void> {
     });
 }
 
+/** Yields to the next macrotask without timer clamping when the platform supports it. */
+export function yieldToEventLoop(): Promise<void> {
+    const scheduler = (globalThis as typeof globalThis & { scheduler?: { yield?: () => Promise<void> } }).scheduler;
+    if (scheduler?.yield) return scheduler.yield();
+    return new Promise(resolve => {
+        if (typeof MessageChannel !== "undefined") {
+            const channel = new MessageChannel();
+            channel.port1.onmessage = () => {
+                channel.port1.close();
+                channel.port2.close();
+                resolve();
+            };
+            channel.port2.postMessage(undefined);
+        } else {
+            setTimeout(resolve, 0);
+        }
+    });
+}
+
 /** Reduces an angle modulo 360, retaining a negative sign for negative inputs. */
 export function clampRotationDegrees(deg: number): number {
     return deg % 360;
