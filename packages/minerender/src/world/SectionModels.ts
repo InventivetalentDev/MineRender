@@ -6,7 +6,7 @@ import { BlockState, BlockStateVariant } from "../model/block/BlockState";
 import { BlockStateProperties } from "../model/block/BlockStateProperties";
 import { BlockStateResolver } from "../model/block/BlockStateResolver";
 import { BlockTints } from "../model/block/BlockTints";
-import { Model } from "../model/Model";
+import { Model, TripleArray } from "../model/Model";
 import { ModelCulling } from "../model/ModelCulling";
 import { ModelObject } from "../model/scene/ModelObject";
 import { UVMapper } from "../UVMapper";
@@ -69,13 +69,14 @@ export class SectionModels {
     }
 
     /** Returns templates for the matched parts, or `undefined` when the block needs an individual render object. */
-    public async get(blockState: BlockState, properties: BlockStateProperties = {}): Promise<SectionMeshTemplate[] | undefined> {
+    public async get(blockState: BlockState, properties: BlockStateProperties = {}, position?: Readonly<TripleArray>): Promise<SectionMeshTemplate[] | undefined> {
+        const variantPosition: TripleArray | undefined = position ? [...position] : undefined;
         let states = this.states.get(blockState);
         if (!states) this.states.set(blockState, states = new Map());
         const key = JSON.stringify(Object.entries(properties).sort(([a], [b]) => a.localeCompare(b)));
         const prepared = await cached(states, key, () => this.prepare(blockState, properties));
         if (!prepared) return undefined;
-        return prepared.groups.map(group => prepared.templates.get(BlockStateResolver.choose(group))!);
+        return prepared.groups.map(group => prepared.templates.get(BlockStateResolver.choose(group, variantPosition))!);
     }
 
     private async prepare(blockState: BlockState, properties: BlockStateProperties): Promise<PreparedState | undefined> {

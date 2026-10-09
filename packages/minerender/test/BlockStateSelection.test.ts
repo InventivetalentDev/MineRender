@@ -4,6 +4,9 @@ import type { BlockStateVariant } from "../src/model/block/BlockState";
 import type { BlockStateProperties } from "../src/model/block/BlockStateProperties";
 import { AssetKey } from "../src/assets/AssetKey";
 import { BlockStates } from "../src/assets/BlockStates";
+import { BlockStateResolver } from "../src/model/block/BlockStateResolver";
+import type { TripleArray } from "../src/model/Model";
+import { Vector3 } from "three";
 
 class SelectionBlock extends BlockObject {
     selected: BlockStateVariant[] = [];
@@ -96,9 +99,58 @@ test.serial("default and state-specific variants select weighted intervals with 
         Math.random = () => roll;
         t.deepEqual(await defaults.select({}), [choices[index]]);
         t.deepEqual(await states.select({ facing: "north", powered: "true" }), [choices[index]]);
+        t.deepEqual(BlockStateResolver.select({ variants: { "": choices } }, {}), [choices[index]]);
     }
     t.deepEqual(await states.select({ facing: "north" }), []);
     t.deepEqual(await states.select({ facing: "south", powered: "true" }), []);
+});
+
+test.serial("position-based choices are repeatable, order-independent and vary along each signed axis", t => {
+    const originalRandom = Math.random;
+    t.teardown(() => { Math.random = originalRandom; });
+    Math.random = () => { throw new Error("Position-based selection must not use Math.random"); };
+    const choices = [{ model: "test:block/a" }, { model: "test:block/b", weight: 3 }, { model: "test:block/c" }];
+    for (const axis of [0, 1, 2]) {
+        const positions = Array.from({ length: 128 }, (_, index) => {
+            const position: TripleArray = [-17, -32, -49];
+            position[axis] = index - 64;
+            return position;
+        });
+        const selected = positions.map(position => BlockStateResolver.choose(choices, position));
+        t.is(new Set(selected.slice(0, 64)).size, choices.length);
+        t.notDeepEqual(selected.slice(0, 64), selected.slice(64));
+        t.deepEqual(positions.reverse().map(position => BlockStateResolver.choose(choices, position)), selected.reverse());
+    }
+});
+
+test.serial("block choices snapshot the supplied position and do not change when moved or rebuilt", async t => {
+    const choices = Array.from({ length: 16 }, (_, index) => ({ model: `test:block/${index}` }));
+    const position: TripleArray = [-17, 32, -49];
+    const block = new SelectionBlock({ variants: { "": choices } }, { variantPosition: position });
+    await block.init();
+    const selected = block.selected;
+    const alternative = Array.from({ length: 64 }, (_, x) => [x, 32, -49] as TripleArray)
+        .find(value => BlockStateResolver.choose(choices, value) !== selected[0])!;
+    t.truthy(alternative);
+    position.splice(0, 3, ...alternative);
+    block.options.variantPosition!.splice(0, 3, ...alternative);
+    block.setPosition(new Vector3(...alternative));
+    await block.setState({ powered: "true" });
+    t.deepEqual(block.selected, selected);
+});
+
+test.serial("multipart choices remain stable when an unrelated earlier part starts matching", async t => {
+    const earlier = [{ model: "test:block/earlier_a" }, { model: "test:block/earlier_b", weight: 3 }];
+    const retained = [{ model: "test:block/retained_a" }, { model: "test:block/retained_b", weight: 3 }];
+    const block = new SelectionBlock({ multipart: [
+        { when: { enabled: "true" }, apply: earlier },
+        { apply: retained }
+    ] }, { variantPosition: [-17, -32, -49] });
+    const original = await block.select({ enabled: "false" });
+    const expanded = await block.select({ enabled: "true" });
+    t.deepEqual(expanded.slice(1), original);
+    t.is(earlier.indexOf(expanded[0]), retained.indexOf(original[0]));
+    t.deepEqual(await block.select({ enabled: "false" }), original);
 });
 
 test.serial("multipart apply arrays choose one weighted model per matching part", async t => {
@@ -117,8 +169,10 @@ test.serial("multipart apply arrays choose one weighted model per matching part"
 
     Math.random = () => 0;
     t.deepEqual(await block.select(state), [base, north[0], south[0]]);
+    t.deepEqual(BlockStateResolver.select(block.blockState, state), [base, north[0], south[0]]);
     Math.random = () => 0.75;
     t.deepEqual(await block.select(state), [base, north[1], south[1]]);
+    t.deepEqual(BlockStateResolver.select(block.blockState, state), [base, north[1], south[1]]);
 });
 
 test.serial("empty variant arrays and nonpositive or noninteger weights reject clearly", async t => {

@@ -19,6 +19,7 @@ import { BatchedExecutor } from "../src/util/BatchedExecutor";
 import { UVMapper } from "../src/UVMapper";
 import { MineRenderWorld, MineRenderWorldOptions } from "../src/world/MineRenderWorld";
 import { ChunkData } from "../src/world/ChunkData";
+import { Chunk } from "../src/world/Chunk";
 import { SectionMesh } from "../src/world/SectionMesh";
 import { buildSectionGeometry, SectionGeometryInput } from "../src/world/SectionGeometry";
 import { SectionWorker } from "../src/world/SectionWorker";
@@ -95,6 +96,11 @@ const indexCount = (block: BlockObject, index = 0) => {
     const geometry = geometryOf(block, index);
     return geometry.index?.count ?? geometry.getAttribute("position")?.count ?? 0;
 };
+
+function templateOf(world: MineRenderWorld<boolean>, position: TripleArray) {
+    const point = new Vector3(...position), chunk = world.getChunkAt(point)!;
+    return chunk["sectionBlocks"].get(Chunk.chunkPosToBlockIndex(chunk.worldPosToChunkPos(point)))![0].template;
+}
 
 test.serial("opaque neighbors cull shared faces across signed chunk borders and restore them when cleared or replaced", async t => {
     const { world, place, addModel } = fixture(t);
@@ -314,32 +320,58 @@ test.serial("default bulk placement starts distinct block-state resolutions conc
     t.true(types.every((type, x) => world.getBlockAt(x, 0, 0)?.block.type === type));
 });
 
-test.serial("default bulk placement selects weighted section templates separately for each block", async t => {
+test.serial("weighted models and rotations agree across rendering modes and reversed chunk reloads", async t => {
     const { world, scene, states, addModel } = fixture(t, { sectionMeshing: true });
-    addModel("unculled", { cullable: [] });
-    states.set("test:weighted", { variants: { "": [{ model: "test:block/cube" }, { model: "test:block/unculled" }] } });
-    await world["sectionModels"]!.get(states.get("test:weighted")!);
-    const random = Math.random;
-    let choices = 0;
-    Math.random = () => choices++ % 2 === 0 ? 0 : 0.99;
-    t.teardown(() => { Math.random = random; });
-    await world.placeMultiBlock({ size: [2, 1, 1], blocks: [
-        { position: [0, 0, 0], type: "test:weighted" }, { position: [1, 0, 0], type: "test:weighted" }
-    ] });
-    const section = scene.children.find(child => child instanceof SectionMesh)!;
-    t.is(section.children.reduce((sum, child) => sum + (child as Mesh).geometry.getIndex()!.count, 0), 66);
+    const individual = new MineRenderWorld(scene);
+    t.teardown(() => individual.clear());
+    addModel("alternative");
+    states.set("test:weighted", { variants: { "": [
+        { model: "test:block/cube" }, { model: "test:block/alternative", x: 90, y: 90, uvlock: true, weight: 3 },
+        { model: "test:block/alternative", y: 180, weight: 2 }
+    ] } });
+    const positions = Array.from({ length: 32 }, (_, index) =>
+        [index - 20, -17 + index % 3 * 16, -33 + index % 5 * 16] as TripleArray);
+    const blocks = positions.map(position => ({ position, type: "test:weighted" }));
+    const vertices = (geometry: ReturnType<typeof geometryOf>) =>
+        Array.from(geometry.getAttribute("position").array, value => Math.abs(value) < 1e-6 ? 0 : +value.toFixed(5));
+    const sectionSelection = (position: TripleArray) => {
+        const template = templateOf(world, position);
+        return { model: template.atlas.model.key!.toNamespacedString(), vertices: vertices(template.geometry) };
+    };
+    const individualSelection = (position: TripleArray) => {
+        const block = individual.getBlockAt(position)!.object;
+        const geometry = geometryOf(block).clone();
+        geometry.applyMatrix4(block["getModelMatrix"](block["_models"][0]).setPosition(0, 0, 0));
+        const selection = { model: modelOf(block).originalModel.key!.toNamespacedString(), vertices: vertices(geometry) };
+        geometry.dispose();
+        return selection;
+    };
+    await world.placeMultiBlock({ size: [32, 48, 80], blocks });
+    await individual.placeMultiBlock({ size: [32, 48, 80], blocks: [...blocks].reverse() });
+    const selected = positions.map(sectionSelection);
+    t.deepEqual(positions.map(individualSelection), selected);
+    t.true(new Set(selected.map(selection => JSON.stringify(selection))).size > 1);
+    const position = [...positions[0]] as TripleArray, expected = templateOf(world, position);
+    const different = positions.find(value => templateOf(world, value) !== expected)!;
+    const pending = world["sectionModels"]!.get(states.get("test:weighted")!, {}, position);
+    position.splice(0, 3, ...different);
+    t.is((await pending)![0], expected);
+    for (const [x, , z] of positions) {
+        await world.unloadChunkColumn(Math.floor(x / 16), Math.floor(z / 16));
+        await individual.unloadChunkColumn(Math.floor(x / 16), Math.floor(z / 16));
+    }
+    await world.placeMultiBlock({ size: [32, 48, 80], blocks: [...blocks].reverse() });
+    await individual.placeMultiBlock({ size: [32, 48, 80], blocks });
+    t.deepEqual(positions.map(sectionSelection), selected);
+    t.deepEqual(positions.map(individualSelection), selected);
 });
 
 test.serial("visibility changes preserve the originally selected weighted model", async t => {
     const { world, states, place, addModel } = fixture(t);
     addModel("alternative");
     states.set("test:weighted", { variants: { "": [{ model: "test:block/cube" }, { model: "test:block/alternative" }] } });
-    const random = Math.random;
-    t.teardown(() => { Math.random = random; });
-    Math.random = () => 0;
     const weighted = (await place([0, 0, 0], "weighted"))!;
     const selected = modelOf(weighted.object).originalModel;
-    Math.random = () => 0.99;
     await place([1, 0, 0]);
     t.is(indexCount(weighted.object), 30);
     t.is(modelOf(weighted.object).originalModel, selected);
@@ -352,15 +384,13 @@ test.serial("visibility changes preserve the originally selected weighted model"
 for (const sectionMeshing of [false, true]) {
     test.serial(`hidden blocks retain their data and reveal neighboring faces across chunk borders (sectionMeshing=${sectionMeshing})`, async t => {
         const { world, scene, states, addModel, place } = fixture(t, { sectionMeshing });
-        addModel("unculled", { cullable: [] });
-        states.set("test:weighted", { variants: { "": [{ model: "test:block/cube" }, { model: "test:block/unculled" }] } });
-        const random = Math.random;
-        t.teardown(() => { Math.random = random; });
-        Math.random = () => 0;
+        addModel("alternative");
+        states.set("test:weighted", { variants: { "": [{ model: "test:block/cube" }, { model: "test:block/alternative" }] } });
         const value = { type: "test:weighted", properties: { axis: "x" }, nbt: { items: [1] } };
         const left = (await world.setBlockAt([-17, -1, -1], value))!;
         const right = (await place([-16, -1, -1]))!;
         const object = left.object, model = object?.["_models"][0];
+        const template = sectionMeshing ? templateOf(world, [-17, -1, -1]) : undefined;
         const count = (x: number) => {
             if (!sectionMeshing) {
                 const block = world.getBlockAt(x, -1, -1)?.object;
@@ -370,7 +400,6 @@ for (const sectionMeshing of [false, true]) {
             return section?.children.reduce((sum, child) => sum + (child as Mesh).geometry.getIndex()!.count, 0) ?? 0;
         };
         t.deepEqual([count(-17), count(-16)], [30, 30]);
-        Math.random = () => 0.99;
         scene.dirty = false;
         await world.setBlockVisibleAt([-17, -1, -1], false);
         t.true(scene.dirty);
@@ -381,6 +410,7 @@ for (const sectionMeshing of [false, true]) {
         await world.setBlockVisibleAt(new Vector3(-17, -1, -1), true);
         t.deepEqual([count(-17), count(-16)], [30, 30]);
         t.is(left.object?.["_models"][0], model);
+        if (sectionMeshing) t.is(templateOf(world, [-17, -1, -1]), template);
         t.is(world.getBlockAt(-16, -1, -1), right);
 
         await world.setBlockVisibleAt(-17, -1, -1, false);
@@ -572,13 +602,11 @@ test.serial("standalone edits finish culling while another bulk placement is wai
 
 test.serial("section meshes restore border faces without changing block snapshots or weighted selections", async t => {
     const { world, scene, states, place, addModel } = fixture(t, { sectionMeshing: true });
-    addModel("unculled", { cullable: [] });
-    states.set("test:weighted", { variants: { "": [{ model: "test:block/cube" }, { model: "test:block/unculled" }] } });
-    const random = Math.random;
-    t.teardown(() => { Math.random = random; });
-    Math.random = () => 0;
+    addModel("alternative");
+    states.set("test:weighted", { variants: { "": [{ model: "test:block/cube" }, { model: "test:block/alternative" }] } });
     const value = { type: "test:weighted", properties: { axis: "x" }, nbt: { items: [1] } };
     const left = (await world.setBlockAt([-17, -1, -1], value))!;
+    const template = templateOf(world, [-17, -1, -1]);
     t.is(left.object, undefined);
     left.block.properties!.axis = "z";
     left.block.nbt.items[0] = 9;
@@ -587,13 +615,13 @@ test.serial("section meshes restore border faces without changing block snapshot
         const group = scene.children.find(child => child instanceof SectionMesh && child.position.x === x) as SectionMesh | undefined;
         return group?.children.reduce((sum, child) => sum + (child as Mesh).geometry.getIndex()!.count, 0) ?? 0;
     };
-    Math.random = () => 0.99;
     const right = (await place([-16, -1, -1]))!;
     t.is(right.object, undefined);
     t.deepEqual([count(-512), count(-256)], [30, 30]);
     t.is(scene.stats.instanceCount, 0);
     await world.getChunkAt(new Vector3(-16, -1, -1))!.clear();
     t.deepEqual([count(-512), count(-256)], [36, 0]);
+    t.is(templateOf(world, [-17, -1, -1]), template);
     t.is(world.getBlockAt(-17, -1, -1), left);
     await world.clear();
     t.is(scene.children.length, 0);

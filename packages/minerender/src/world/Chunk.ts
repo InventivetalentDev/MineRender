@@ -142,8 +142,8 @@ export class Chunk<SectionMeshing extends boolean = false> {
                     this.data.set(index, undefined);
                     continue;
                 }
-                // SectionModels chooses weighted variants separately for each block.
-                const templates = perBlock ? undefined : await this.sectionModels!.get(blockState, stored.properties);
+                const variantPosition = worldPos.toArray();
+                const templates = perBlock ? undefined : await this.sectionModels!.get(blockState, stored.properties, variantPosition);
                 if (templates) {
                     this.sectionBlocks.set(index, templates.map(template => ({ index, template, cullMask: 0 })));
                     this.meshDirty = true;
@@ -152,7 +152,8 @@ export class Chunk<SectionMeshing extends boolean = false> {
                         mergeMeshes: true,
                         instanceMeshes: true,
                         maxInstanceCount: 2000,
-                        initialState: stored.properties
+                        initialState: stored.properties,
+                        variantPosition
                     }) as BlockObject;
                     object.setPosition(MineRenderWorld.worldToScenePosition(worldPos));
                 }

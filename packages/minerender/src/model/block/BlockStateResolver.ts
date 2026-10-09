@@ -4,6 +4,7 @@ import { MineRenderError } from "../../error/MineRenderError";
 import { clampRotationDegrees, toRadians } from "../../util/util";
 import { BlockState, BlockStateVariant, MultipartCondition } from "./BlockState";
 import { BlockStateProperties } from "./BlockStateProperties";
+import type { TripleArray } from "../Model";
 
 function matchesCondition(condition: MultipartCondition, state: BlockStateProperties): boolean {
     return Object.entries(condition).every(([key, value]) => {
@@ -46,7 +47,7 @@ export class BlockStateResolver {
     /** Selects matching models. Supply `choose` to control selection within each alternatives array. */
     public static select(blockState: BlockState, state: BlockStateProperties,
                          choose: (variants: BlockStateVariant | BlockStateVariant[]) => BlockStateVariant = this.choose): BlockStateVariant[] {
-        return this.matching(blockState, state).map(choose);
+        return this.matching(blockState, state).map(variants => choose(variants));
     }
 
     /** Returns matching model groups before choosing weighted alternatives. */
@@ -74,8 +75,8 @@ export class BlockStateResolver {
         return out;
     }
 
-    /** Selects a random alternative using positive integer weights, each defaulting to 1. */
-    public static choose(variants: BlockStateVariant | BlockStateVariant[]): BlockStateVariant {
+    /** Selects by positive integer weights (default 1); world block coordinates make the choice repeatable. */
+    public static choose(variants: BlockStateVariant | BlockStateVariant[], position?: Readonly<TripleArray>): BlockStateVariant {
         if (!Array.isArray(variants)) return variants;
         if (!variants.length) throw new MineRenderError("Blockstate variant arrays must not be empty");
         const total = variants.reduce((sum, variant) => {
@@ -85,12 +86,21 @@ export class BlockStateResolver {
             }
             return sum + weight;
         }, 0);
-        let choice = Math.random() * total;
+        let choice = (position === undefined ? Math.random() : BlockStateResolver.positionSample(position)) * total;
         for (const variant of variants) {
             choice -= variant.weight ?? 1;
             if (choice < 0) return variant;
         }
         return variants[variants.length - 1];
+    }
+
+    private static positionSample(position: Readonly<TripleArray>): number {
+        // Mix signed coordinates with 32-bit arithmetic so load order and platform cannot change the sample.
+        let hash = 0x811c9dc5;
+        for (const coordinate of position) hash = Math.imul(hash ^ coordinate, 0x01000193);
+        hash = Math.imul(hash ^ (hash >>> 16), 0x85ebca6b);
+        hash = Math.imul(hash ^ (hash >>> 13), 0xc2b2ae35);
+        return ((hash ^ (hash >>> 16)) >>> 0) / 0x100000000;
     }
 
     /** Converts blockstate rotations in degrees into the Euler rotation used by model rendering. */
