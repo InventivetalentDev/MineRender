@@ -27,6 +27,9 @@ const shulkerItems: Array<[string, string]> = [
     ...["white", "orange", "magenta", "light_blue", "yellow", "lime", "pink", "gray", "light_gray", "cyan", "purple", "blue", "brown", "green", "red", "black"]
         .map(color => [`minecraft:${color}_shulker_box`, color.replace(/_/g, " ").replace(/^./, letter => letter.toUpperCase())] as [string, string])
 ];
+const statueItems: Array<[string, string]> = ["copper", "exposed_copper", "weathered_copper", "oxidized_copper"].flatMap(stage =>
+    ["", "waxed_"].map(wax => [`minecraft:${wax}${stage}_golem_statue`, `${wax}${stage}`.replace(/_/g, " ").replace(/^./, letter => letter.toUpperCase())] as [string, string]));
+const statuePoses = ["standing", "sitting", "running", "star"];
 const guiView: Partial<ViewSettings> = {
     projection: "orthographic", antialias: false, camera: { position: [0, 0, 100], target: [0, 0, 0], zoom: 24 }
 };
@@ -61,6 +64,8 @@ const app = new Playground<ItemSettings>({
             components: { "minecraft:pot_decorations": ["minecraft:angler_pottery_sherd", "minecraft:archer_pottery_sherd",
                 "minecraft:arms_up_pottery_sherd", "minecraft:blade_pottery_sherd"] } }, view: guiView },
         player_head: { label: "Player head", state: { item: "minecraft:player_head", display: DisplayPosition.GUI }, view: guiView },
+        copper_statue: { label: "Copper golem statue (variant and pose)", state: { item: "minecraft:copper_golem_statue", display: DisplayPosition.GUI,
+            components: { "minecraft:block_state": { copper_golem_pose: "standing" } } }, view: guiView },
         bundle: {
             label: "Bundle with a selected item",
             state: { item: "minecraft:bundle", display: DisplayPosition.GUI,
@@ -179,6 +184,34 @@ const potControls = potSides.map((side, index) => {
     return control;
 });
 note(potGroup, "Rotate the preview to see each side.");
+const statueGroup = group(app.controls, "Copper golem statue");
+statueGroup.hidden = true;
+let statueState: ItemSettings | undefined;
+const updateStatue = (patch: Partial<ItemSettings>) => {
+    if (statueGroup.disabled || !statueState || app.state.item !== statueState.item
+        || JSON.stringify(app.state.components) !== JSON.stringify(statueState.components)
+        || JSON.stringify(app.state.properties) !== JSON.stringify(statueState.properties)) return;
+    statueGroup.disabled = true;
+    void app.update(patch);
+};
+const statueVariant = select(statueGroup, "Variant", statueItems, app.state.item);
+statueVariant.id = "item-statue-variant";
+statueVariant.addEventListener("change", () => updateStatue({ item: statueVariant.value }));
+const statuePose = select(statueGroup, "Pose", statuePoses.map(pose => [pose, pose.replace(/^./, letter => letter.toUpperCase())]), "standing");
+statuePose.id = "item-statue-pose";
+const statuePoseNote = note(statueGroup, "Pose is set by block_state in Item properties.");
+statuePoseNote.hidden = true;
+statuePose.addEventListener("change", () => {
+    if (statuePose.disabled) return;
+    const current = app.state.components;
+    if (!current || typeof current !== "object" || Array.isArray(current)) return;
+    const components = structuredClone(current);
+    const id = Object.prototype.hasOwnProperty.call(components, "block_state") ? "block_state" : "minecraft:block_state";
+    const blockState = components[id];
+    if (blockState !== undefined && (!blockState || typeof blockState !== "object" || Array.isArray(blockState))) return;
+    components[id] = { ...(blockState as Record<string, unknown> ?? {}), copper_golem_pose: statuePose.value };
+    updateStatue({ components });
+});
 const syncBannerControls = bannerControls(app.controls, () => app.state, patch => { void app.update(patch); });
 const stackGroup = group(app.controls, "Item stack");
 const count = input(stackGroup, "Count", app.state.count, "number");
@@ -441,6 +474,17 @@ async function load(ctx: DemoContext, state: ItemSettings): Promise<DemoContent>
                 if (!sherdOptions.some(([value]) => value === id)) control.append(new Option(`${sherdLabel(id)} (plain)`, id));
                 control.value = id;
             });
+            statueState = state;
+            statueGroup.disabled = false;
+            const statueItem = statueItems.find(([id]) => id === (state.item.includes(":") ? state.item : `minecraft:${state.item}`))?.[0];
+            statueGroup.hidden = !statueItem;
+            statueVariant.value = statueItem ?? "";
+            const blockState = state.components.block_state ?? state.components["minecraft:block_state"];
+            const override = state.properties["minecraft:block_state"] ?? state.properties.block_state;
+            const pose = override ?? (blockState && typeof blockState === "object" && !Array.isArray(blockState) ? (blockState as Record<string, unknown>).copper_golem_pose : undefined);
+            statuePose.value = typeof pose === "string" && statuePoses.includes(pose) ? pose : "standing";
+            statuePose.disabled = override !== undefined;
+            statuePoseNote.hidden = override === undefined;
             syncBannerControls(state, patterns);
             syncStateControls(state, list);
             syncModelControls();

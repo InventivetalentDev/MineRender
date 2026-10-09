@@ -94,6 +94,8 @@ function fixture(t: ExecutionContext) {
             : id === "player_head" ? part({ head: part({ hat: {
                 ...part({}, [-4, -8, -4]), cubes: [{ origin: [-4, -8, -4], size: [8, 8, 8], uv: [32, 0], grow: [0.25, 0.25, 0.25] }]
             } }, [-4, -8, -4]) })
+            : id.startsWith("copper_golem") ? { ...part({ body: part({}, [-4, -12, -3], [8, 12, 6]) }),
+                pose: { offset: [0, id === "copper_golem" ? 24 : 0, 0] as TripleArray, rotation: [0, 0, 0] as TripleArray } }
             : id.startsWith("bed_") ? part({ main: part({}, [0, 0, 0], [16, 16, 6]) })
             : part({ head: part({ jaw: part(), left_ear: part(), right_ear: part() }, [-4, -8, -4]) });
         const model: EntityModel = { key, id, texture: texture as AssetKey | undefined, transform: [{ translate: [100, 200, 300] }], layer: { texture: [64, 64], root } };
@@ -309,6 +311,51 @@ test.serial("plain and partial pot decorations use fallback sides and reject mal
     ModelTextures.preload = async key => key.path === "decorated_pot/archer_pottery_pattern" ? undefined : preload(key);
     await t.throwsAsync(SpecialItems.getParts({ type: "decorated_pot" }, undefined, { "minecraft:pot_decorations": ["archer_pottery_sherd"] }),
         { message: /Missing special item texture minecraft:entity\/decorated_pot\/archer_pottery_pattern/ });
+});
+
+test.serial("copper-golem statue poses use literal texture paths and override only the vanilla root pose", async t => {
+    const { create, requests, textures, models } = fixture(t);
+    const poses = ["standing", "sitting", "running", "star"] as const;
+    const textureIds = ["minecraft:textures/entity/copper_golem/copper_golem.png", "pack:textures/custom/sitting.png",
+        "pack:custom/running.image", "textures/entity/copper_golem/oxidized_copper_golem.png"];
+    for (const [index, pose] of poses.entries()) {
+        const object = await create({ type: "minecraft:copper_golem_statue", pose, texture: textureIds[index] });
+        const entity = object.children[0] as EntityObject;
+        t.false(object.isInstanced);
+        t.is(requests[index].key.path, pose === "standing" ? "copper_golem" : `copper_golem_${pose}`);
+        t.is(requests[index].options?.layer, "main");
+        t.is((requests[index].key as AssetKey).root, "https://example.test/pack");
+        t.is(textures[index].toNamespacedString(), textureIds[index].includes(":") ? textureIds[index] : `minecraft:${textureIds[index]}`);
+        t.deepEqual([textures[index].root, textures[index].assetType, textures[index].extension], ["https://example.test/pack", undefined, ""]);
+        t.is(entity.entity.render, "cutout");
+        t.is(entity.children[0].children.length, 1);
+        t.deepEqual(entity.getGroupByName("root")!.position.toArray(), [0, 0, 0]);
+        t.deepEqual(entity.getGroupByName("root")!.rotation.toArray().slice(0, 3), [0, Math.PI, Math.PI]);
+        t.deepEqual(coordinates(new Vector3(1, 2, 3).applyMatrix4(entity.matrix)), [-1, 14, 3]);
+        const bounds = new Box3().setFromObject(object);
+        t.deepEqual([coordinates(bounds.min), coordinates(bounds.max)], [[-4, 4, -3], [4, 16, 3]]);
+        t.is(object.getMeshByName("body")!.geometry.getIndex()!.count, 72);
+        t.deepEqual(models[index].layer.root.pose, { offset: [0, pose === "standing" ? 24 : 0, 0], rotation: [0, 0, 0] });
+    }
+    const original = Entities.getEntity;
+    Entities.getEntity = async (...args) => {
+        const model = (await original(...args))!;
+        model.layer.root.pose = { offset: [2, 24, 3], rotation: [0.25, 0.5, 0.75] };
+        return model;
+    };
+    const adjusted = await create({ type: "copper_golem_statue", pose: "standing", texture: "pack:textures/custom/statue.png" });
+    t.deepEqual(adjusted.getGroupByName("root")!.position.toArray(), [2, 0, 3]);
+    t.deepEqual(adjusted.getGroupByName("root")!.rotation.toArray().slice(0, 3), [0.25, Math.PI, Math.PI]);
+    t.deepEqual(models[4].layer.root.pose, { offset: [2, 24, 3], rotation: [0.25, 0.5, 0.75] });
+});
+
+test.serial("copper-golem statue options require a pose and resource identifier before loading geometry", async t => {
+    const { requests } = fixture(t);
+    for (const options of [{ pose: undefined }, { pose: null }, { pose: "waving" }, { texture: undefined }, { texture: "" }, { texture: "invalid:path:again" }]) {
+        await t.throwsAsync(SpecialItems.getParts({ type: "copper_golem_statue", pose: "standing", texture: "textures/custom.png", ...options } as unknown as SpecialItemRenderer),
+            { message: /[Cc]opper-golem statue/ });
+    }
+    t.is(requests.length, 0);
 });
 
 test.serial("banner patterns use registry asset IDs, namespaces, directory indexes, and the first 16 ordered layers", async t => {

@@ -80,6 +80,21 @@ export class SpecialItems {
                 part.material = skin.material;
                 return [part];
             }
+            case "minecraft:copper_golem_statue":
+            case "copper_golem_statue": {
+                if (!["standing", "sitting", "running", "star"].includes(special.pose)) throw new Error(`Unsupported copper-golem statue pose ${special.pose}`);
+                const location = typeof special.texture === "string" && /^(?:([a-z0-9_.-]+):)?([a-z0-9_./-]+)$/.exec(special.texture);
+                if (!location) throw new Error("Copper-golem statue texture must be a resource identifier");
+                // This renderer names a complete resource path, including any file extension.
+                const key = new AssetKey(location[1] ?? "minecraft", location[2], undefined, undefined, "assets", "", root);
+                const statue = await load(special.pose === "standing" ? "copper_golem" : `copper_golem_${special.pose}`, key,
+                    new Matrix4().makeTranslation(8, 24, 8).multiply(new Matrix4().makeScale(-1, -1, 1)));
+                const pose = statue.model.layer.root.pose;
+                statue.rotations.root = [pose.rotation[0], Math.PI, Math.PI];
+                statue.positions = { root: [pose.offset[0], 0, pose.offset[2]] };
+                statue.model = { ...statue.model, texture: key, render: "cutout", layers: undefined };
+                return [statue];
+            }
             case "minecraft:trident":
             case "trident":
             case "minecraft:conduit":

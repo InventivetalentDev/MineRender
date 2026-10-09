@@ -422,6 +422,8 @@ test.serial("special items retain their renderer and inherit the base pose throu
         { type: "minecraft:decorated_pot" },
         { type: "player_head" },
         { type: "minecraft:player_head" },
+        { type: "copper_golem_statue", texture: "textures/entity/copper_golem/copper_golem.png", pose: "standing" },
+        { type: "minecraft:copper_golem_statue", texture: "pack:custom/statue.png", pose: "star" },
         { type: "minecraft:head", kind: "dragon", texture: "pack:dragon", animation: 0.25 }
     ];
     const display = { gui: { rotation: [30, 45, 0], scale: [0.625, 0.625, 0.625] } };
@@ -558,6 +560,36 @@ test.serial("trident item definitions keep flat display contexts and select held
             t.is(model.gui_light, "front");
         }
     }
+});
+
+test.serial("copper-golem statue definitions select poses from block-state components and preserve cached defaults", async t => {
+    const texture = "minecraft:textures/entity/copper_golem/weathered_copper_golem.png";
+    const special = (pose: string) => ({ type: "minecraft:special", base: "minecraft:item/template_copper_golem_statue",
+        model: { type: "minecraft:copper_golem_statue", pose, texture } });
+    const display = { gui: { rotation: [30, 45, 0], scale: [0.5, 0.5, 0.5] } };
+    const source = new FixtureSource({
+        "items/weathered_copper_golem_statue": { model: { type: "minecraft:select", property: "minecraft:block_state", block_state_property: "copper_golem_pose",
+            cases: ["sitting", "running", "star"].map(pose => ({ when: pose, model: special(pose) })), fallback: special("standing") } },
+        "models/item/template_copper_golem_statue": { display, gui_light: "side" }
+    });
+    AssetLoader.addSource("test-items", source);
+    const key = itemKey("weathered_copper_golem_statue");
+    const context = { components: { block_state: { copper_golem_pose: "sitting", facing: "east" } } };
+    const pending = Models.getMerged(key, context);
+    context.components.block_state.copper_golem_pose = "running";
+    t.is(((await pending)! as ItemModel).special?.type, "minecraft:copper_golem_statue");
+    t.deepEqual(((await pending)! as ItemModel).special, special("sitting").model);
+    for (const pose of [undefined, "standing", "sitting", "running", "star", "unknown"]) {
+        const model = (await Models.getMerged(key, pose === undefined ? {} : { components: { "minecraft:block_state": { copper_golem_pose: pose } } }))! as ItemModel;
+        t.deepEqual(model.special, special(pose === undefined || pose === "unknown" ? "standing" : pose).model);
+        t.deepEqual(model.display?.gui, display.gui);
+        t.is(model.gui_light, "side");
+    }
+    const calls = source.calls.length;
+    Caching.clear();
+    t.deepEqual(((await Models.getMerged(key))! as ItemModel).special, special("standing").model);
+    t.deepEqual(((await Models.getMerged(key, { components: { block_state: { copper_golem_pose: "star" } } }))! as ItemModel).special, special("star").model);
+    t.is(source.calls.length, calls);
 });
 
 test.serial("empty composites remain empty and a missing child rejects the complete item", async t => {
@@ -761,6 +793,12 @@ test.serial("unsupported or broken definitions reject instead of using lower-pri
             type: "special", base: "item/base", model: { type: "banner", color }
         } } }));
         await t.throwsAsync(Models.getMerged(itemKey("invalid")), { message: /Unsupported special item renderer banner/ });
+    }
+    for (const options of [{ pose: undefined }, { pose: null }, { pose: "waving" }, { texture: undefined }, { texture: "" }, { texture: "invalid:path:again" }]) {
+        AssetLoader.addSource("test-pack", new FixtureSource({ "items/invalid": { model: {
+            type: "special", base: "item/base", model: { type: "minecraft:copper_golem_statue", pose: "standing", texture: "textures/custom.png", ...options }
+        } } }));
+        await t.throwsAsync(Models.getMerged(itemKey("invalid")), { message: /Unsupported special item renderer minecraft:copper_golem_statue/ });
     }
     for (const options of [{ texture: "" }, { orientation: "sideways" }, { openness: "1" }, { openness: null }]) {
         AssetLoader.addSource("test-pack", new FixtureSource({ "items/invalid": { model: {
