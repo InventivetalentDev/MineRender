@@ -1,4 +1,4 @@
-import { BUILTIN_ENTITY, Model } from "./Model";
+import { BUILTIN_ENTITY, ItemModel, Model } from "./Model";
 import { Models } from "../assets/Models";
 import merge from "ts-deepmerge";
 import { Assets } from "../assets/Assets";
@@ -10,6 +10,8 @@ export class ModelMerger {
 
     /** Loads the parent chain and returns a merged model without modifying the supplied definition. */
     public static async mergeWithParents(model: Model): Promise<Model> {
+        const parts = (model as ItemModel).parts;
+        if (parts) return { ...model, parts: await Promise.all(parts.map(part => this.mergeWithParents(part))) } as ItemModel;
         const models = await this.collectAllParents(model);
         let merged: Model = {};
         for (const source of [...models, model]) {

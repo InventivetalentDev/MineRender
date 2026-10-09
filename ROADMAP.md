@@ -28,7 +28,7 @@ legacy website cleanup is a separate task.
 | Skins — classic 64×64 | full, named toggleable parts | Vanilla dimensions, UVs, pivots, base opacity, and translucent overlays; model detection and named parts | complete |
 | Skins — slim + legacy 64×32 | auto-detected, dedicated UVs | Classic/slim UVs and detection; legacy skins normalized with mirrored limbs and transparency rules | complete |
 | Capes (vanilla/OptiFine/LabyMod) | full, 3 layouts, capes.dev | All three static layouts and capes.dev lookup; animated capes remain | medium |
-| Block/item model rendering | full incl. tint, display transforms | UV locking, explicit per-index tints, automatic block preview colors, display poses, and chest/bed/mob-head item previews | high |
+| Block/item model rendering | full incl. tint, display transforms | UV locking, explicit per-index tints, automatic block preview colors, display poses, nested composite items, and chest/bed/mob-head item previews | high |
 | Blockstate resolution | variants + weighted random + multipart AND/OR | Default states and model initialization awaited; multipart AND/OR and weighted alternatives supported; placement preserves rotations | complete |
 | Animated textures | frametime honored | Frame grids, sequences, durations, RGBA interpolation, and stationary-camera redraw | complete |
 | Entity rendering | 76 hosted models, mirror, inheritance | Versioned dataset, nested parts, mirrored UVs, conditional passes, render-mode materials, scrolling effects, and dataset transforms; runtime gameplay state selection remains | high |
@@ -74,7 +74,7 @@ legacy website cleanup is a separate task.
 - ~~Default to 1.21.11 with static item definitions, animal texture paths, structure directory aliases, and versioned cache keys.~~
 - ~~Add an asset-version selection API.~~
 - ~~Read ZIP pack metadata, select version-applicable overlays, and filter lower-priority resources.~~
-- ~~Support chest, bed, and mob-head special item models.~~ ~~Resolve static/default item tint sources.~~ Other special renderers, composite models, component-driven tint colors, and gameplay-dependent item selection remain.
+- ~~Support chest, bed, and mob-head special item models.~~ ~~Resolve static/default item tint sources.~~ ~~Render nested composite items with each child's textures, display pose, lighting, and tints.~~ ~~Evaluate item properties from supplied data components, stack counts, display contexts, and overrides, with shared playground controls and bundle, bow, crossbow, and indexed custom-model-data presets.~~ Composite items do not use instancing. Other special renderers, component-driven tint colors, item registry defaults, and automatic calculation of world/player state remain.
 - ~~Fix `WrappedImage` frame math.~~
 
 ### 7. Model/blockstate correctness — complete

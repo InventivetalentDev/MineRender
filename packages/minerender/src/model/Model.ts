@@ -31,6 +31,8 @@ export interface ItemModel extends Model {
     gui_light?: GuiLight;
     special?: SpecialItemRenderer;
     tints?: ItemTintSource[];
+    /** Ordered composite children, each with its own textures, display pose, and tint sources. */
+    parts?: ItemModel[];
 }
 
 /** An sRGB packed `0xRRGGBB` value or an RGB triple with components from 0 to 1. */
