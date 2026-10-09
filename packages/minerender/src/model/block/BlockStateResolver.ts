@@ -1,5 +1,5 @@
 import { Euler } from "three";
-import { BlockStates } from "../../assets/BlockStates";
+import { AssetContext } from "../../assets/AssetContext";
 import { MineRenderError } from "../../error/MineRenderError";
 import { clampRotationDegrees, toRadians } from "../../util/util";
 import { BlockState, BlockStateVariant, MultipartCondition } from "./BlockState";
@@ -21,7 +21,8 @@ export class BlockStateResolver {
 
     /** Loads vanilla property defaults, falling back to preview values inferred from the blockstate file. */
     public static async defaults(blockState: BlockState): Promise<BlockStateProperties> {
-        const defaults = blockState.key ? await BlockStates.getDefaultState(blockState.key) : undefined;
+        const assets = AssetContext.for(blockState);
+        const defaults = blockState.key ? await assets.blockStates.getDefaultState(blockState.key) : undefined;
         const state = {};
         if (defaults && Object.keys(defaults).length > 0) {
             for (const key in defaults) state[key] = defaults[key].default;

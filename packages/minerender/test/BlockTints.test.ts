@@ -32,13 +32,13 @@ function cube(indices: Array<number | undefined> = [0]): Model {
 }
 
 function colormap(t: ExecutionContext) {
-    const original = ModelTextures.get;
+    const original = ModelTextures.prototype.get;
     const calls: AssetKey[] = [];
     const samples: number[][] = [];
     const fixture = { color: 0x123456, mode: "present" };
     Caching.clear();
-    t.teardown(() => { ModelTextures.get = original; Caching.clear(); });
-    ModelTextures.get = async assetKey => {
+    t.teardown(() => { ModelTextures.prototype.get = original; Caching.clear(); });
+    ModelTextures.prototype.get = async assetKey => {
         calls.push(assetKey);
         if (fixture.mode === "missing") return undefined;
         return {
@@ -123,12 +123,12 @@ test.serial("redstone power and stem age choose state-dependent colors", async t
 });
 
 test.serial("changing block state updates automatic colors without recoloring another shared instance", async t => {
-    const originals = { model: Models.getMerged, atlas: UVMapper.getAtlas, material: Materials.getImage, shaded: Materials.createShadedCanvasMaterial };
+    const originals = { model: Models.prototype.getMerged, atlas: UVMapper.getAtlas, material: Materials.getImage, shaded: Materials.createShadedCanvasMaterial };
     const material = new MeshBasicMaterial();
     const scene = new MineRenderScene();
     Caching.clear();
     t.teardown(() => {
-        Models.getMerged = originals.model;
+        Models.prototype.getMerged = originals.model;
         UVMapper.getAtlas = originals.atlas;
         Materials.getImage = originals.material;
         Materials.createShadedCanvasMaterial = originals.shaded;
@@ -139,7 +139,7 @@ test.serial("changing block state updates automatic colors without recoloring an
     const model = cube();
     const image = { width: 16, height: 16, canvas: {} } as CanvasImage;
     const atlas = new TextureAtlas(model, image, { side: [16, 16] }, { side: [0, 0] }, false, {}, false);
-    Models.getMerged = async () => model;
+    Models.prototype.getMerged = async () => model;
     UVMapper.getAtlas = async () => atlas;
     Materials.getImage = Materials.createShadedCanvasMaterial = () => material;
     const blockstate = { key: key("redstone_wire"), variants: {

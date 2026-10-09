@@ -31,7 +31,7 @@ test.serial("the highest-priority defined asset wins without loading or merging 
     const winner = { textures: { all: "custom" } };
     AssetLoader.addSource("test-low", new StubSource(async () => { lowerCalls++; return { elements: [] }; }));
     AssetLoader.addSource("test-high", new StubSource(async () => winner));
-    t.is(await lookup(), winner);
+    t.deepEqual(await lookup(), winner);
     t.is(lowerCalls, 0);
     t.deepEqual(winner, { textures: { all: "custom" } });
 });
@@ -69,8 +69,8 @@ test.serial("source changes apply to the next lookup, not one already waiting", 
     AssetLoader.removeSource("test-low");
     AssetLoader.addSource("test-added", new StubSource(async () => replacement));
     release();
-    t.is(await pending, original);
-    t.is(await lookup(), replacement);
+    t.deepEqual(await pending, original);
+    t.deepEqual(await lookup(), replacement);
 });
 
 test.serial("structure directory aliases preserve resource-pack priority", async t => {
@@ -85,19 +85,19 @@ test.serial("structure directory aliases preserve resource-pack priority", async
     }));
     AssetLoader.addSource("test-high", new StubSource(async key => key.assetType === "structures" ? packed : undefined));
 
-    t.is(await AssetLoader.get(modern, AssetParser.NBT), packed);
-    t.is(await AssetLoader.get(legacy, AssetParser.NBT), packed);
+    t.deepEqual(await AssetLoader.get(modern, AssetParser.NBT), packed);
+    t.deepEqual(await AssetLoader.get(legacy, AssetParser.NBT), packed);
     t.is(lowerCalls, 0);
     t.deepEqual(await AssetLoader.getFirst([modern, legacy], AssetParser.NBT), { key: legacy, asset: packed });
 
     AssetLoader.removeSource("test-high");
-    t.is(await AssetLoader.get(legacy, AssetParser.NBT), hosted);
+    t.deepEqual(await AssetLoader.get(legacy, AssetParser.NBT), hosted);
 });
 
 test.serial("a missing filtered asset never loads from lower sources", async t => {
     let lowerCalls = 0;
     AssetLoader.addSource("test-low", new StubSource(async () => { lowerCalls++; return {}; }));
-    AssetLoader.addSource("test-high", new StubSource(async () => undefined, async blocked => blocked === key));
+    AssetLoader.addSource("test-high", new StubSource(async () => undefined, async blocked => blocked.serialize() === key.serialize()));
 
     t.is(await lookup(), undefined);
     t.is(lowerCalls, 0);
@@ -109,7 +109,7 @@ test.serial("a source can supply the same asset it filters from lower sources", 
     AssetLoader.addSource("test-low", new StubSource(async () => { lowerCalls++; return {}; }));
     AssetLoader.addSource("test-high", new StubSource(async () => winner, () => true));
 
-    t.is(await lookup(), winner);
+    t.deepEqual(await lookup(), winner);
     t.is(lowerCalls, 0);
 });
 
@@ -125,7 +125,7 @@ test.serial("alias filters apply after trying the current source and preserve un
     }));
     AssetLoader.addSource("test-high", new StubSource(async key => {
         calls.push(`high:${key.assetType}`);
-        return key === legacy ? packed : undefined;
+        return key.assetType === legacy.assetType ? packed : undefined;
     }, () => true));
 
     t.deepEqual(await AssetLoader.getFirst([modern, legacy], AssetParser.NBT), { key: legacy, asset: packed });
@@ -135,7 +135,7 @@ test.serial("alias filters apply after trying the current source and preserve un
     AssetLoader.addSource("test-high", new StubSource(async key => {
         calls.push(`high:${key.assetType}`);
         return undefined;
-    }, key => key === modern));
+    }, key => key.assetType === modern.assetType));
 
     t.deepEqual(await AssetLoader.getFirst([modern, legacy], AssetParser.NBT), { key: legacy, asset: hosted });
     t.deepEqual(calls, ["high:structure", "high:structures", "low:structures"]);

@@ -1,10 +1,6 @@
 import { Group } from "three";
 import type { Object3D } from "three";
 import { AssetKey } from "../assets/AssetKey";
-import { AssetLoader } from "../assets/AssetLoader";
-import { BlockStates } from "../assets/BlockStates";
-import { Entities } from "../assets/Entities";
-import { Models } from "../assets/Models";
 import type { BasicMinecraftAsset } from "../MinecraftAsset";
 import { DisplayPosition } from "../model/DisplayPosition";
 import { MineRenderScene } from "../renderer/MineRenderScene";
@@ -85,8 +81,9 @@ export class SceneDocumentLoader {
      */
     public static async load(scene: MineRenderScene, value: unknown, parent: Object3D = scene): Promise<LoadedSceneDocument> {
         const definition = this.parse(value);
-        if (definition.minecraftVersion !== undefined && definition.minecraftVersion !== AssetLoader.version) {
-            throw new Error(`Scene requires Minecraft ${definition.minecraftVersion}; call AssetLoader.setVersion("${definition.minecraftVersion}") before loading it`);
+        const assets = scene.assets;
+        if (definition.minecraftVersion !== undefined && definition.minecraftVersion !== assets.version) {
+            throw new Error(`Scene requires Minecraft ${definition.minecraftVersion}; configure the scene asset context for that version before loading it`);
         }
         const root = new Group();
         root.name = "MineRender scene document";
@@ -105,7 +102,7 @@ export class SceneDocumentLoader {
             }
         };
         try {
-            const results = await Promise.allSettled(definition.objects.map(object => this.loadValidatedObject(scene, object)));
+            const results = await Promise.allSettled(definition.objects.map(object => this.loadValidatedObject(scene, object, undefined, assets)));
             for (const result of results) if (result.status === "fulfilled") objects.push(result.value);
             const failure = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
             if (failure) throw failure.reason;
@@ -125,7 +122,7 @@ export class SceneDocumentLoader {
         return this.loadValidatedObject(scene, definition, parent);
     }
 
-    private static async loadValidatedObject(scene: MineRenderScene, definition: SceneObjectDefinition, parent?: Object3D): Promise<LoadedSceneObject> {
+    private static async loadValidatedObject(scene: MineRenderScene, definition: SceneObjectDefinition, parent?: Object3D, assets = scene.assets): Promise<LoadedSceneObject> {
         const root = new Group();
         root.name = definition.name ?? definition.id;
         root.userData.sceneObjectId = definition.id;
@@ -133,7 +130,7 @@ export class SceneDocumentLoader {
         root.rotation.set(...(definition.rotation ?? [0, 0, 0]));
         root.scale.fromArray(definition.scale ?? [1, 1, 1]);
         root.visible = definition.visible ?? true;
-        const content = new DocumentObjectScene();
+        const content = new DocumentObjectScene({ assets });
         root.add(content);
         let object: SceneObject | undefined;
         try {
@@ -142,7 +139,7 @@ export class SceneDocumentLoader {
                     const skin = new SkinObject({ ...definition.options, instanceMeshes: false });
                     object = skin;
                     const texture = definition.skin ? await skinTexture(definition.skin)
-                        : `${AssetLoader.ROOT}/assets/minecraft/textures/entity/player/${definition.options?.slim ? "slim/alex" : "wide/steve"}.png`;
+                        : `${assets.root}/assets/minecraft/textures/entity/player/${definition.options?.slim ? "slim/alex" : "wide/steve"}.png`;
                     await skin.setSkinTexture(texture);
                     await content.initialize(skin);
                     if (definition.cape) await skin.setCapeTexture(await skinTexture(definition.cape.texture, true), definition.cape.layout);
@@ -156,7 +153,7 @@ export class SceneDocumentLoader {
                     break;
                 }
                 case "block": {
-                    const state = await BlockStates.get(AssetKey.parse("blockstates", definition.asset));
+                    const state = await assets.blockStates.get(AssetKey.parse("blockstates", definition.asset));
                     if (!state) throw new Error(`Could not load block ${definition.asset}`);
                     object = await content.addBlock(state, { ...definition.options, initialState: definition.state, instanceMeshes: false }) as SceneObject;
                     break;
@@ -167,7 +164,7 @@ export class SceneDocumentLoader {
                     if (definition.type === "item" && key.type !== "item") {
                         key = new AssetKey(key.namespace, key.getFullPath(), "models", "item");
                     }
-                    const model = await Models.getMerged(key);
+                    const model = await assets.models.getMerged(key);
                     if (!model) throw new Error(`Could not load ${definition.type} ${definition.asset}`);
                     object = await content.addModel(model, { ...(definition.type === "item" ? { displayPosition: DisplayPosition.GUI } : {}),
                         ...definition.options, instanceMeshes: false }) as SceneObject;
@@ -175,7 +172,7 @@ export class SceneDocumentLoader {
                 }
                 case "entity": {
                     const key = AssetKey.parse("entity-models", definition.asset);
-                    const model = await Entities.getEntity(key, definition.texture ? AssetKey.parse("textures", definition.texture) : undefined, {
+                    const model = await assets.entities.getEntity(key, definition.texture ? AssetKey.parse("textures", definition.texture) : undefined, {
                         layers: definition.layers, when: definition.when,
                         textures: definition.textures && Object.fromEntries(Object.entries(definition.textures).map(([name, texture]) => [name, AssetKey.parse("textures", texture)]))
                     });
@@ -183,7 +180,7 @@ export class SceneDocumentLoader {
                     const entity = await content.addEntity(model, { ...definition.options, instanceMeshes: false }) as EntityObject;
                     object = entity;
                     if (definition.animation) {
-                        const animations = await Entities.getAnimations(key);
+                        const animations = await assets.entities.getAnimations(key);
                         const clip = animations?.[definition.animation.name];
                         if (!clip) throw new Error(`Entity ${definition.asset} has no animation "${definition.animation.name}"`);
                         entity.playAnimation(clip, definition.animation);

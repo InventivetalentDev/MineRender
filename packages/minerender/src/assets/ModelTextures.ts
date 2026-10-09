@@ -1,8 +1,8 @@
 import { Maybe } from "../util/util";
 import { TextureAsset } from "../model/Model";
 import { Caching } from "../cache/Caching";
+import type { AssetContext } from "./AssetContext";
 import { AssetLoader } from "./AssetLoader";
-import { CompatImage } from "../canvas/CanvasCompat";
 import { ImageLoader } from "../image/ImageLoader";
 import { ExtractableImageData } from "../ExtractableImageData";
 import { MinecraftTextureMeta } from "../MinecraftTextureMeta";
@@ -13,6 +13,25 @@ import { AssetParser } from "./source/parser/AssetParsers";
 /** Loads texture pixels and `.mcmeta` files through the active asset sources. */
 export class ModelTextures {
 
+    constructor(private readonly assets: AssetContext) {
+    }
+
+    public static get(key: AssetKey): Promise<Maybe<ExtractableImageData>> {
+        return AssetLoader.context.modelTextures.get(key);
+    }
+
+    public static preload(key: AssetKey): Promise<Maybe<TextureAsset>> {
+        return AssetLoader.context.modelTextures.preload(key);
+    }
+
+    public static getMeta(key: AssetKey): Promise<Maybe<MinecraftTextureMeta>> {
+        return AssetLoader.context.modelTextures.getMeta(key);
+    }
+
+    public static clearCache() {
+        return AssetLoader.context.modelTextures.clearCache();
+    }
+
     private static _persistentMetaCache: PersistentCache | undefined;
 
     private static get PERSISTENT_META_CACHE(): PersistentCache {
@@ -20,14 +39,14 @@ export class ModelTextures {
     }
 
     /** Loads and decodes a texture into a readable canvas, or returns `undefined` when missing. */
-    public static async get(key: AssetKey): Promise<Maybe<ExtractableImageData>> {
-        const keyStr = key.serialize();
+    public async get(key: AssetKey): Promise<Maybe<ExtractableImageData>> {
+        const keyStr = this.assets.cacheKey(key);
         const pending = this.preload(key);
         const cached = Caching.textureAssetCache.getIfPresent(keyStr);
         try {
             const asset = await pending;
             if (asset) {
-                return await ImageLoader.infoToCanvasData(asset);
+                return this.assets.bind(await ImageLoader.infoToCanvasData(asset));
             }
             return undefined;
         } catch (err) {
@@ -40,39 +59,31 @@ export class ModelTextures {
     }
 
     /** Fetches and caches encoded texture bytes without decoding the pixels. */
-    public static async preload(key: AssetKey): Promise<Maybe<TextureAsset>> {
-        const keyStr = key.serialize();
-        return Caching.textureAssetCache.get(keyStr, k => {
-            return AssetLoader.get<TextureAsset>(key, AssetParser.IMAGE).then(asset => {
-                if (asset)
-                    asset.key = key;
-                return asset;
-            })
-        })
+    public async preload(key: AssetKey): Promise<Maybe<TextureAsset>> {
+        key = this.assets.bind(Object.assign(new AssetKey("", ""), key));
+        return Caching.textureAssetCache.get(this.assets.cacheKey(key), async () => {
+            const asset = await this.assets.get<TextureAsset>(key, AssetParser.IMAGE);
+            return asset ? this.assets.bind({ ...asset, key }) : undefined;
+        });
     }
 
     /** Loads a texture's `.mcmeta` file, or returns `undefined` when no metadata file exists. */
-    public static async getMeta(key: AssetKey): Promise<Maybe<MinecraftTextureMeta>> {
+    public async getMeta(key: AssetKey): Promise<Maybe<MinecraftTextureMeta>> {
+        key = this.assets.bind(Object.assign(new AssetKey("", ""), key));
         if (!key.extension || !key.extension.endsWith(".mcmeta")) {
-            key = Object.assign(new AssetKey("", ""), key);
             key.extension += ".mcmeta";
         }
-        const keyStr = key.serialize();
-
-        return Caching.textureMetaCache.get(keyStr, k => {
-            return this.PERSISTENT_META_CACHE.getOrLoad(AssetLoader.persistentKey(keyStr), k1 => {
-                return AssetLoader.get<MinecraftTextureMeta>(key, AssetParser.META).then(asset => {
-                    if (asset)
-                        asset.key = key;
-                    return asset;
-                })
-            })
-        })
+        return Caching.textureMetaCache.get(this.assets.cacheKey(key), async () => {
+            const asset = await ModelTextures.PERSISTENT_META_CACHE.getOrLoad(this.assets.persistentKey(key), () => {
+                return this.assets.get<MinecraftTextureMeta>(key, AssetParser.META);
+            });
+            return asset ? this.assets.bind({ ...asset, key }) : undefined;
+        });
     }
 
     /** Clears persisted texture metadata. Use {@link Caching.clear} to discard in-memory textures and metadata. */
-    public static async clearCache() {
-        await this.PERSISTENT_META_CACHE.clear();
+    public async clearCache() {
+        await ModelTextures.PERSISTENT_META_CACHE.clear();
     }
 
 }

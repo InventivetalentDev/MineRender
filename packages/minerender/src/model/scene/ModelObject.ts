@@ -6,6 +6,7 @@ import { UVMapper } from "../../UVMapper";
 import { TextureAtlas } from "../../texture/TextureAtlas";
 import { BoxGeometry, BoxHelper, BufferAttribute, Color, EdgesGeometry, Euler, InstancedMesh, LineBasicMaterial, LineSegments, Material, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, ShaderMaterial } from "three";
 import { mergeBufferGeometries } from "../../three/BufferGeometryUtils";
+import { mergeAssetOptions } from "../../renderer/mergeAssetOptions";
 import { SceneObjectOptions } from "../../renderer/SceneObjectOptions";
 import { addBox3WireframeToObject, addWireframeToMesh, addWireframeToObject, applyElementRotation } from "../../util/model";
 import merge from "ts-deepmerge";
@@ -32,7 +33,7 @@ export class ModelObject extends SceneObject {
     public readonly isModelObject: true = true;
 
     public static readonly DEFAULT_OPTIONS: ModelObjectOptions = merge({}, SceneObject.DEFAULT_OPTIONS, <ModelObjectOptions>{});
-    public readonly options: ModelObjectOptions;
+    declare public readonly options: ModelObjectOptions;
 
     protected atlas?: TextureAtlas;
     private atlasMaterial?: Material;
@@ -46,8 +47,7 @@ export class ModelObject extends SceneObject {
     private meshesCreated: boolean = false;
 
     constructor(readonly originalModel: Model, options?: Partial<ModelObjectOptions>) {
-        super(options);
-        this.options = merge({}, ModelObject.DEFAULT_OPTIONS, options ?? {});
+        super(mergeAssetOptions(ModelObject.DEFAULT_OPTIONS, options, originalModel));
         if ((originalModel as ItemModel).special || (originalModel as ItemModel).parts) this.options.instanceMeshes = false;
         if (this.options.tints) this.options.tints = { ...this.options.tints };
         this.addEventListener("added", () => this.updateAnimationSubscription());
@@ -59,7 +59,7 @@ export class ModelObject extends SceneObject {
         if (parts) {
             try {
                 for (const part of parts) {
-                    const object = new ModelObject(part, { ...this.options, instanceMeshes: false });
+                    const object = new ModelObject(part, { ...this.options, assets: this.assets, instanceMeshes: false });
                     this.add(object);
                     await object.init();
                 }
@@ -78,16 +78,17 @@ export class ModelObject extends SceneObject {
             this.notifyDirty();
             return;
         }
-        this.options.tints = await ItemTints.get(this.originalModel, this.options.tints);
+        this.options.tints = await ItemTints.get(this.assets.bind({ ...this.originalModel }), this.options.tints);
+
         const special = (this.originalModel as ItemModel).special;
         if (special) {
-            const parts = await SpecialItems.getParts(special, this.originalModel.key?.root, (this.originalModel as ItemModel).components);
+            const parts = await SpecialItems.getParts(this.assets.bind({ ...special }), this.originalModel.key?.root, (this.originalModel as ItemModel).components);
             const transform = this.options.displayPosition
                 ? DisplayTransforms.getMatrix(this.originalModel.display, this.options.displayPosition) : new Matrix4();
             transform.multiply(new Matrix4().makeTranslation(-8, -8, -8));
             try {
                 for (const part of parts) {
-                    const object = new EntityObject(part.model, { flip: false, wireframe: this.options.wireframe, tints: part.tints });
+                    const object = new EntityObject(part.model, { flip: false, wireframe: this.options.wireframe, tints: part.tints, assets: this.assets });
                     object.matrix.copy(transform).multiply(part.transform);
                     object.matrixWorldNeedsUpdate = true;
                     object.matrixAutoUpdate = false;
@@ -135,7 +136,7 @@ export class ModelObject extends SceneObject {
     //TODO: support for replacing textures
 
     protected async loadTextures(): Promise<void> {
-        this.atlas = await UVMapper.getAtlas(this.originalModel);
+        this.atlas = await UVMapper.getAtlas(this.assets.bind({ ...this.originalModel }));
     }
 
 

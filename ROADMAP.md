@@ -37,7 +37,7 @@ legacy website cleanup is a separate task.
 | Legacy .schematic | full incl. AddBlocks nibbles | Numeric block IDs, metadata, AddBlocks, custom mappings, and block/entity NBT parsed; strict by default, with opt-in lenient fallback | complete |
 | Combined multi-renderer scene | CombinedRender wrapper | Superseded by design (one scene hosts all types) — **at parity** | — |
 | Screenshots & 3D export | toImage(trim,mime), toObj/toGLTF/toPLY | Fresh captures with trim/MIME/quality; static OBJ/PLY and textured browser glTF/GLB snapshots | complete |
-| Asset loading & resource packs | swappable assetRoot, fallback | Ordered source selection, ZIP pack overlays and filters, failure-evicting caches, and contextual errors; defaults to 1.21.11, ZIPs browser-only | high |
+| Asset loading & resource packs | swappable assetRoot, fallback | Independent per-scene asset contexts, ordered source selection, ZIP pack overlays and filters, failure-evicting caches, and contextual errors; defaults to 1.21.11, ZIPs browser-only | high |
 | Per-frame animation API | `<type>Render` CustomEvents | `onFrame` subscriptions with time/delta, FPS limiting, pause/resume, and disposal | complete |
 | Entity keyframe animations | none | Native and sampled procedural clips with synchronized, layer-specific playback and caller-driven time; runtime state selection, blending, visibility, and animated renderer transforms remain | partial |
 | Scene documents & editor | n/a | Versioned scene JSON, atomic document loading, and a browser editor with transforms, import, and export | complete |
@@ -73,6 +73,7 @@ legacy website cleanup is a separate task.
 - ~~Propagate hosted/archive and model initialization errors with source context.~~
 - ~~Default to 1.21.11 with static item definitions, animal texture paths, structure directory aliases, and versioned cache keys.~~
 - ~~Add an asset-version selection API.~~
+- ~~Support independent scene asset contexts, including resource-pack stacks and cache isolation.~~
 - ~~Read ZIP pack metadata, select version-applicable overlays, and filter lower-priority resources.~~
 - ~~Support chest, bed, mob-head, and shulker-box special item models, including shulker textures, openness, and six orientations.~~ ~~Render banner and shield items with supplied base colors and ordered banner patterns.~~ ~~Render held and throwing trident poses and static conduit items.~~ ~~Resolve static/default item tint sources.~~ ~~Render nested composite items with each child's textures, display pose, lighting, and tints.~~ ~~Evaluate item properties from supplied data components, stack counts, display contexts, and overrides, with shared playground controls and bundle, bow, crossbow, and indexed custom-model-data presets.~~ ~~Resolve supplied dye, map, firework, potion custom-color, and indexed custom-model-data tints, including GUI item contexts and editable playground presets.~~ Composite items do not use instancing. Other special renderers, potion effect-derived and team colors, item registry defaults, and automatic calculation of world/player state remain.
 - ~~Fix `WrappedImage` frame math.~~

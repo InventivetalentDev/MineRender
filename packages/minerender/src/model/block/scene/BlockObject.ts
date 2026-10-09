@@ -1,22 +1,21 @@
 import { SceneObject } from "../../../renderer/SceneObject";
 import { BlockState, BlockStateVariant } from "../BlockState";
+import { mergeAssetOptions } from "../../../renderer/mergeAssetOptions";
 import { SceneObjectOptions } from "../../../renderer/SceneObjectOptions";
 import { isModelObject, ModelObject, ModelObjectOptions } from "../../scene/ModelObject";
 import { Caching } from "../../../cache/Caching";
-import { Models } from "../../../assets/Models";
 import merge from "ts-deepmerge";
 import { Euler, Matrix4, Quaternion, Vector3 } from "three";
 import { Maybe } from "../../../util/util";
 import { MineRenderError } from "../../../error/MineRenderError";
 import { BlockStateProperties, BlockStatePropertyDefaults } from "../BlockStateProperties";
 import { InstanceReference, isInstanceReference } from "../../../instance/InstanceReference";
-import { AssetKey, BasicAssetKey } from "../../../assets/AssetKey";
+import { AssetKey } from "../../../assets/AssetKey";
 import { BlockTints } from "../BlockTints";
 import { ModelCulling } from "../../ModelCulling";
 import { BlockStateResolver } from "../BlockStateResolver";
 import { FluidKind, FluidSampler, getBlockFluidState, getFluidKind } from "../../fluid/FluidGeometry";
 import { BlockEntities, ResolvedBlockEntity } from "../../../assets/BlockEntities";
-import { Entities } from "../../../assets/Entities";
 import type { EntityObject } from "../../../entity/scene/EntityObject";
 
 /** Controls the model parts selected by a blockstate. Create it through {@link MineRenderScene.addBlock}. */
@@ -27,7 +26,7 @@ export class BlockObject extends SceneObject {
     public static readonly DEFAULT_OPTIONS: BlockObjectOptions = merge({}, ModelObject.DEFAULT_OPTIONS, <BlockObjectOptions>{
         applyDefaultState: true
     });
-    public readonly options: BlockObjectOptions;
+    declare public readonly options: BlockObjectOptions;
 
     private _previousState: BlockStateProperties = {};
     private _state: BlockStateProperties = {};
@@ -48,14 +47,13 @@ export class BlockObject extends SceneObject {
     private _entityGeneration = 0;
 
     constructor(readonly blockState: BlockState, options?: Partial<BlockObjectOptions>) {
-        super(options);
-        this.options = merge({}, BlockObject.DEFAULT_OPTIONS, options ?? {});
+        super(mergeAssetOptions(BlockObject.DEFAULT_OPTIONS, options, blockState));
         //TODO
     }
 
     async init(): Promise<void> {
         if (this.options.applyDefaultState) {
-            this._setState(await BlockStateResolver.defaults(this.blockState));
+            this._setState(await BlockStateResolver.defaults(this.assets.bind({ ...this.blockState })));
         }
         if (this.options.initialState !== undefined) this._setState(this.options.initialState);
         await this.recreateModels();
@@ -128,16 +126,17 @@ export class BlockObject extends SceneObject {
         const created: EntityObject[] = [];
         let resolved: Maybe<ResolvedBlockEntity>;
         try {
-            resolved = BlockEntities.resolve(await BlockEntities.getIndex(key.root), key.toNamespacedString(), this.state);
+            resolved = BlockEntities.resolve(await this.assets.blockEntities.getIndex(key.root), key.toNamespacedString(), this.state);
             if (!resolved) return false;
             for (const part of resolved.parts) {
                 const [namespace, path] = part.model.includes(":") ? part.model.split(":") : [key.namespace, part.model];
                 const texture = part.textureLocation === undefined ? undefined
                     : AssetKey.parse("textures", part.textureLocation.replace(/^([^:]+:)?textures\//, "$1"));
                 if (texture) texture.root = key.root;
-                const entity = await Entities.getEntity(new BasicAssetKey(namespace, path), texture, { layer: part.layer });
+                const entityKey = new AssetKey(namespace, path, undefined, undefined, "entity-models", ".json", key.root);
+                const entity = await this.assets.entities.getEntity(entityKey, texture, { layer: part.layer });
                 if (!entity) throw new MineRenderError(`Missing entity model ${part.model}`);
-                created.push(await this.scene.addEntity(entity, { wireframe: this.options.wireframe }) as EntityObject);
+                created.push(await this.scene.addEntity(entity, { wireframe: this.options.wireframe, assets: this.assets }) as EntityObject);
             }
         } catch (error) {
             console.warn(`Could not draw block entity ${key.toNamespacedString()}, using its block model`, error);
@@ -257,7 +256,7 @@ export class BlockObject extends SceneObject {
             ? { fluid: kind, level: this.fluidLevel } : sample?.(x, y, z) ?? {});
         if (this._fluidKey === surface.key) return;
         const key = new AssetKey("minecraft", `${kind}/${surface.key}`, "models", "fluid", "assets", ".json", this.blockState.key?.root);
-        const replacement = await this.scene.addSceneObject({ key },
+        const replacement = await this.scene.addSceneObject(this.assets.bind({ key }),
             () => new FluidModelObject(kind, surface.sample, this.blockState.key, this.options));
         const previous = this._fluidModel;
         const matrix = previous ? this.getModelMatrix(previous) : new Matrix4().makeTranslation(...this.position.toArray());
@@ -343,7 +342,7 @@ export class BlockObject extends SceneObject {
     private async hasGeometry(variant: BlockStateVariant): Promise<boolean> {
         const modelKey = AssetKey.parse("models", variant.model!);
         modelKey.root = this.blockState.key?.root;
-        return !!(await Models.getMerged(modelKey))?.elements?.length;
+        return !!(await this.assets.models.getMerged(modelKey))?.elements?.length;
     }
 
     protected getSingleVariant(variants: BlockStateVariant | BlockStateVariant[]): BlockStateVariant {
@@ -362,10 +361,10 @@ export class BlockObject extends SceneObject {
         // The model and its textures must come from the same asset root as the blockstate.
         const modelKey = AssetKey.parse("models", variant.model!);
         modelKey.root = this.blockState.key?.root;
-        const model = await Models.getMerged(modelKey);
+        const model = await this.assets.models.getMerged(modelKey);
         const options: Partial<ModelObjectOptions> = {
             ...this.options,
-            tints: model ? await BlockTints.get(this.blockState.key, this.state, model, this.options.tints) : this.options.tints,
+            tints: model ? await BlockTints.get(this.blockState.key && this.assets.bind(Object.assign(new AssetKey("", ""), this.blockState.key)), this.state, model, this.options.tints) : this.options.tints,
             uvLockRotation: variant.uvlock && (rotation.x !== 0 || rotation.y !== 0)
                 ? [rotation.x, rotation.y, rotation.z] : undefined,
             cullMask: this.options.displayPosition ? 0 : ModelCulling.toLocalMask(this._cullMask, rotation)

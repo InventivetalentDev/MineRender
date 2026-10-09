@@ -18,10 +18,10 @@ const structure = (blocks: MultiBlockBlock[]): MultiBlockStructure => ({ size: [
 const block = (x: number, type = "stone"): MultiBlockBlock => ({ position: [x, 0, 0], type });
 
 function fixture(t: ExecutionContext, place: (block: MultiBlockBlock) => Promise<void>) {
-    const original = BlockStates.getAll;
+    const original = BlockStates.prototype.getAll;
     const preloads: AssetKey[][] = [];
-    BlockStates.getAll = async keys => { preloads.push([...keys]); return []; };
-    t.teardown(() => { BlockStates.getAll = original; });
+    BlockStates.prototype.getAll = async keys => { preloads.push([...keys]); return []; };
+    t.teardown(() => { BlockStates.prototype.getAll = original; });
     const world = new MineRenderWorld(new MineRenderScene());
     world["placeBlock"] = async (position: Vector3, value: Block) => {
         await place({ ...value, position: position.toArray() });

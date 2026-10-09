@@ -1,4 +1,6 @@
+import { AssetKey } from "../assets/AssetKey";
 import { MineRenderError } from "../error/MineRenderError";
+import { AssetContext } from "../assets/AssetContext";
 import { Colormaps } from "../texture/Colormaps";
 import type { ItemModel, ItemTintColor, Model } from "./Model";
 
@@ -7,6 +9,7 @@ export class ItemTints {
 
     /** Resolves preview colors from item definitions; explicit per-index colors take precedence. */
     public static async get(model: Model, tints?: Record<number, number>): Promise<Record<number, number> | undefined> {
+        const assets = AssetContext.for(model);
         const sources = (model as ItemModel).tints;
         if (!sources?.length) return tints;
         const components = (model as ItemModel).components ?? {};
@@ -20,7 +23,7 @@ export class ItemTints {
                     break;
                 case "grass":
                 case "minecraft:grass":
-                    colors[index] = await Colormaps.grassColor(model.key, source.temperature, source.downfall);
+                    colors[index] = await Colormaps.grassColor(assets.bind(AssetKey.parse("textures", "minecraft:colormap/grass", model.key)), source.temperature, source.downfall);
                     break;
                 case "dye":
                 case "minecraft:dye":

@@ -1,19 +1,20 @@
 import test from "ava";
 import type { Camera, WebGLRenderer } from "three";
 import { Renderer, RendererFrame } from "../src/renderer/Renderer";
-import type { MineRenderScene } from "../src/renderer/MineRenderScene";
+import { GuiObject } from "../src/gui/scene/GuiObject";
+import { AssetContext } from "../src/assets/AssetContext";
+import { AssetLoader } from "../src/assets/AssetLoader";
 import { shutdown } from "../src/shutdown";
 
 class FrameRenderer extends Renderer {
     frames = 0;
     loop?: (time: number) => void;
 
-    constructor(fpsLimit: number, renderAlways = true) {
-        super({ render: { fpsLimit, renderAlways }, composer: { enabled: false } });
+    constructor(fpsLimit: number, renderAlways = true, assets?: AssetContext) {
+        super({ assets, render: { fpsLimit, renderAlways }, composer: { enabled: false } });
         this.start();
     }
 
-    protected createScene(): MineRenderScene { return { dirty: false, clear() {} } as MineRenderScene; }
     protected createCamera(): Camera { return {} as Camera; }
     protected createComposer(): undefined { return undefined; }
     protected createRenderer(): WebGLRenderer {
@@ -145,4 +146,29 @@ test("callbacks can unsubscribe, add updates for the next frame, and stop or dis
             t.is(stopped["_frameCallbacks"].size, 0);
         }
     }
+});
+
+
+test.serial("renderer contexts keep references while default renderers follow subsequent global changes", async t => {
+    const root = AssetLoader.ROOT;
+    t.teardown(() => { AssetLoader.ROOT = root; });
+    const assets = new AssetContext({ version: "context-version" });
+    const explicit = new FrameRenderer(0, false, assets), defaults = new FrameRenderer(0, false);
+    t.teardown(() => { explicit.dispose(); defaults.dispose(); });
+    const previous = defaults.assets;
+    const unattached = new GuiObject([]);
+    t.teardown(() => unattached.dispose());
+    const object = await defaults.scene.addGui([]);
+    t.teardown(() => object.dispose());
+    t.is(explicit.assets, assets);
+    t.is(explicit.options.assets, assets);
+    t.is(explicit.scene.assets, assets);
+    t.is(explicit.scene.options.assets, assets);
+    AssetLoader.ROOT = "https://assets.example.test/another-version";
+    t.not(defaults.assets, previous);
+    t.is(unattached.assets, defaults.assets);
+    t.is(defaults.scene.assets, defaults.assets);
+    t.is(object.assets, previous);
+    t.is(explicit.assets, assets);
+    t.is(explicit.scene.assets, assets);
 });

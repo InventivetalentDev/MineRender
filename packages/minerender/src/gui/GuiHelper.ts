@@ -127,7 +127,7 @@ export class GuiHelper {
             layers.push({ ...textOptions, name: `tooltip-line-${index}`, text, position: [position[0], y] });
             y += layouts[index].height + (index === 0 ? titleGap : 0);
         });
-        return layers;
+        return options.assets?.bind(layers) ?? layers;
     }
 
     /**

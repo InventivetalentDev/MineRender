@@ -18,8 +18,8 @@ import type { Model } from "../src/model/Model";
 
 async function fixture(t: ExecutionContext, face: Partial<ElementFace> = {}) {
     const originals = {
-        provider: Env["_provider"], model: Models.getMerged, texture: ModelTextures.get,
-        meta: ModelTextures.getMeta,
+        provider: Env["_provider"], model: Models.prototype.getMerged, texture: ModelTextures.prototype.get,
+        meta: ModelTextures.prototype.getMeta,
         material: Materials.getImage, shaded: Materials.createShadedCanvasMaterial
     };
     const material = new MeshBasicMaterial();
@@ -27,9 +27,9 @@ async function fixture(t: ExecutionContext, face: Partial<ElementFace> = {}) {
     Caching.clear();
     t.teardown(() => {
         Env["_provider"] = originals.provider;
-        Models.getMerged = originals.model;
-        ModelTextures.get = originals.texture;
-        ModelTextures.getMeta = originals.meta;
+        Models.prototype.getMerged = originals.model;
+        ModelTextures.prototype.get = originals.texture;
+        ModelTextures.prototype.getMeta = originals.meta;
         Materials.getImage = originals.material;
         Materials.createShadedCanvasMaterial = originals.shaded;
         scene.traverse(object => { if ((object as Mesh).isMesh) (object as Mesh).geometry.dispose(); });
@@ -46,8 +46,8 @@ async function fixture(t: ExecutionContext, face: Partial<ElementFace> = {}) {
             }), toDataURL: () => ""
         } as unknown as CompatCanvas)
     } as EnvProvider);
-    ModelTextures.get = async () => ({ width: 16, height: 16, data: { getImageData: () => pixels } } as ExtractableImageData);
-    ModelTextures.getMeta = async () => undefined;
+    ModelTextures.prototype.get = async () => ({ width: 16, height: 16, data: { getImageData: () => pixels } } as ExtractableImageData);
+    ModelTextures.prototype.getMeta = async () => undefined;
     Materials.getImage = Materials.createShadedCanvasMaterial = () => material;
     const model: Model = {
         key: new AssetKey("test", "cube", "models", "block"),
@@ -57,7 +57,7 @@ async function fixture(t: ExecutionContext, face: Partial<ElementFace> = {}) {
             faces: Object.fromEntries(CUBE_FACES.map(name => [name, { texture: "#side", ...face }]))
         }]
     };
-    Models.getMerged = async () => model;
+    Models.prototype.getMerged = async () => model;
     const atlas = (await UVMapper.getAtlas(model))!;
     const add = (variant: Partial<BlockStateVariant>, instanceMeshes = true) => scene.addBlock({
         variants: { "": { model: "test:block/cube", ...variant } }

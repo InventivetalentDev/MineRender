@@ -6,15 +6,15 @@ import { createGuiTextGeometry, layoutGuiText } from "../src/gui/GuiText";
 import { MineRenderScene } from "../src/renderer/MineRenderScene";
 
 function fixture(t: ExecutionContext) {
-    const get = Fonts.get;
+    const get = Fonts.prototype.get;
     const image = { width: 64, height: 32 } as CompatCanvas;
     const glyphs = new Map<string, BitmapGlyph>();
     for (const [character, advance] of [["W", 7], ["i", 2], [" ", 4], ["😀", 5]] as const) {
         glyphs.set(character, { image: character === " " ? undefined : image,
             x: 16, y: 8, width: 8, height: 8, scale: 1, ascent: 7, advance });
     }
-    Fonts.get = async () => ({ glyphs });
-    t.teardown(() => { Fonts.get = get; });
+    Fonts.prototype.get = async () => ({ glyphs });
+    t.teardown(() => { Fonts.prototype.get = get; });
     return { image, glyphs };
 }
 

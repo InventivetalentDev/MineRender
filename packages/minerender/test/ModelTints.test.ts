@@ -15,12 +15,12 @@ import type { CanvasImage } from "../src/canvas/CanvasImage";
 import type { ItemModel, Model } from "../src/model/Model";
 
 function fixture(t: ExecutionContext) {
-    const originals = { model: Models.getMerged, atlas: UVMapper.getAtlas, material: Materials.getImage, shaded: Materials.createShadedCanvasMaterial };
+    const originals = { model: Models.prototype.getMerged, atlas: UVMapper.getAtlas, material: Materials.getImage, shaded: Materials.createShadedCanvasMaterial };
     const material = new MeshBasicMaterial();
     const scene = new MineRenderScene();
     Caching.clear();
     t.teardown(() => {
-        Models.getMerged = originals.model;
+        Models.prototype.getMerged = originals.model;
         UVMapper.getAtlas = originals.atlas;
         Materials.getImage = originals.material;
         Materials.createShadedCanvasMaterial = originals.shaded;
@@ -40,7 +40,7 @@ function fixture(t: ExecutionContext) {
     };
     const image = { width: 16, height: 16, canvas: {} } as CanvasImage;
     const atlas = new TextureAtlas(model, image, { side: [16, 16] }, { side: [0, 0] }, false, {}, false);
-    Models.getMerged = async () => model;
+    Models.prototype.getMerged = async () => model;
     UVMapper.getAtlas = async () => atlas;
     Materials.getImage = Materials.createShadedCanvasMaterial = () => material;
     return { scene, model, atlas };

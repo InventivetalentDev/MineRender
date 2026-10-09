@@ -10,11 +10,11 @@ import type { ExtractableImageData } from "../src/ExtractableImageData";
 import type { ExecutionContext } from "ava";
 
 function stubTextures(t: ExecutionContext): void {
-    const originals = { provider: Env["_provider"], get: ModelTextures.get, meta: ModelTextures.getMeta };
+    const originals = { provider: Env["_provider"], get: ModelTextures.prototype.get, meta: ModelTextures.prototype.getMeta };
     t.teardown(() => {
         Env["_provider"] = originals.provider;
-        ModelTextures.get = originals.get;
-        ModelTextures.getMeta = originals.meta;
+        ModelTextures.prototype.get = originals.get;
+        ModelTextures.prototype.getMeta = originals.meta;
     });
     const pixels = { width: 16, height: 16, data: new Uint8ClampedArray(16 * 16 * 4).fill(255) };
     Env.register({
@@ -28,8 +28,8 @@ function stubTextures(t: ExecutionContext): void {
             toDataURL: () => ""
         } as unknown as CompatCanvas)
     } as EnvProvider);
-    ModelTextures.get = async () => ({ width: 16, height: 16, data: { getImageData: () => pixels } } as ExtractableImageData);
-    ModelTextures.getMeta = async () => undefined;
+    ModelTextures.prototype.get = async () => ({ width: 16, height: 16, data: { getImageData: () => pixels } } as ExtractableImageData);
+    ModelTextures.prototype.getMeta = async () => undefined;
 }
 
 test.serial("faces without texture references keep fallback UVs while textured faces map normally", async t => {

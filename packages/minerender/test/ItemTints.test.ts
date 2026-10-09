@@ -132,11 +132,11 @@ test.serial("component colors separate instance palettes through both scene mode
 });
 
 test.serial("grass tints sample each definition's climate and cache by pixel and asset root", async t => {
-    const original = ModelTextures.get;
+    const original = ModelTextures.prototype.get;
     Caching.clear();
-    t.teardown(() => { ModelTextures.get = original; Caching.clear(); });
+    t.teardown(() => { ModelTextures.prototype.get = original; Caching.clear(); });
     const keys: AssetKey[] = [], samples: number[][] = [];
-    ModelTextures.get = async key => {
+    ModelTextures.prototype.get = async key => {
         keys.push(key);
         return { width: 256, height: 256, data: { getImageData: (x: number, y: number) => {
             samples.push([x, y]);

@@ -1,6 +1,6 @@
 import { Matrix4, Mesh, Vector3 } from "three";
 import { AssetKey } from "../assets/AssetKey";
-import { Models } from "../assets/Models";
+import { AssetContext } from "../assets/AssetContext";
 import { CUBE_FACES, CUBE_FACE_OFFSETS } from "../CubeFace";
 import { BlockState, BlockStateVariant } from "../model/block/BlockState";
 import { BlockStateProperties } from "../model/block/BlockStateProperties";
@@ -33,7 +33,7 @@ function cached<T>(map: Map<string, Promise<T>>, key: string, load: () => Promis
 
 /** Prepares and caches static opaque cube geometry for merged world sections. */
 export class SectionModels {
-    private states = new WeakMap<BlockState, Map<string, Promise<PreparedState | undefined>>>();
+    private states = new WeakMap<AssetContext, WeakMap<BlockState, Map<string, Promise<PreparedState | undefined>>>>();
     private models = new WeakMap<Model, Map<string, Promise<SectionMeshTemplate>>>();
     private readonly templates = new Set<SectionMeshTemplate>();
 
@@ -42,18 +42,21 @@ export class SectionModels {
     }
 
     /** Returns a cube template, or `undefined` when the block requires an individual render object. */
-    public async get(blockState: BlockState, properties: BlockStateProperties = {}): Promise<SectionMeshTemplate | undefined> {
+    public async get(blockState: BlockState, properties: BlockStateProperties = {}, assets?: AssetContext): Promise<SectionMeshTemplate | undefined> {
+        const context = AssetContext.for(blockState, assets);
         if (!blockState.variants || blockState.multipart) return undefined;
-        let states = this.states.get(blockState);
-        if (!states) this.states.set(blockState, states = new Map());
+        let contextStates = this.states.get(context);
+        if (!contextStates) this.states.set(context, contextStates = new WeakMap());
+        let states = contextStates.get(blockState);
+        if (!states) contextStates.set(blockState, states = new Map());
         const key = JSON.stringify(Object.entries(properties).sort(([a], [b]) => a.localeCompare(b)));
-        const prepared = await cached(states, key, () => this.prepare(blockState, properties));
+        const prepared = await cached(states, key, () => this.prepare(blockState, properties, context));
         if (!prepared) return undefined;
         return prepared.templates.get(BlockStateResolver.choose(prepared.variants));
     }
 
-    private async prepare(blockState: BlockState, properties: BlockStateProperties): Promise<PreparedState | undefined> {
-        const state = { ...await BlockStateResolver.defaults(blockState), ...properties };
+    private async prepare(blockState: BlockState, properties: BlockStateProperties, assets: AssetContext): Promise<PreparedState | undefined> {
+        const state = { ...await BlockStateResolver.defaults(assets.bind({ ...blockState })), ...properties };
         const groups = BlockStateResolver.matching(blockState, state);
         if (groups.length !== 1) return undefined;
         const variants = groups[0];
@@ -61,7 +64,8 @@ export class SectionModels {
         if (!choices.length) return undefined;
         const templates = new Map<BlockStateVariant, SectionMeshTemplate>();
         for (const variant of choices) {
-            const model = await Models.getMerged(AssetKey.parse("models", variant.model!));
+            const modelKey = AssetKey.parse("models", variant.model!, blockState.key);
+            const model = await assets.models.getMerged(modelKey);
             if (!model) return undefined;
             const atlas = await UVMapper.getAtlas(model);
             const rotation = BlockStateResolver.rotation(variant);
@@ -74,6 +78,7 @@ export class SectionModels {
             const key = JSON.stringify([rotation.x, rotation.y, rotation.z, variant.uvlock, tints]);
             const template = await cached(models, key, async () => {
                 const object = new SectionModel(model, {
+                    assets,
                     instanceMeshes: false, mergeMeshes: false, tints,
                     uvLockRotation: variant.uvlock && (rotation.x !== 0 || rotation.y !== 0)
                         ? [rotation.x, rotation.y, rotation.z] : undefined

@@ -1,7 +1,7 @@
 import { AssetKey } from "./AssetKey";
 import { AssetLoader } from "./AssetLoader";
+import type { AssetContext } from "./AssetContext";
 import { AssetParser } from "./source/parser/AssetParsers";
-import { ModelTextures } from "./ModelTextures";
 import { Caching } from "../cache/Caching";
 import type { CompatCanvas } from "../canvas/CanvasCompat";
 import type { MinecraftAsset } from "../MinecraftAsset";
@@ -57,22 +57,29 @@ interface FontAsset extends MinecraftAsset {
 /** Loads Minecraft bitmap, space, and reference font providers for GUI text. */
 export class Fonts {
 
-    /** Combines font definitions in source-priority order. Unsupported Unihex and TrueType providers are skipped. */
-    public static async get(key: AssetKey | string = "minecraft:default"): Promise<BitmapFont> {
-        const fontKey = typeof key === "string" ? AssetKey.parse("font", key) : key;
-        return (await Caching.fontCache.get(fontKey.serialize(), () => this.load(fontKey, [])))!;
+    constructor(private readonly assets: AssetContext) {
     }
 
-    private static relatedKey(assetType: string, id: string, origin: AssetKey): AssetKey {
+    public static get(key: AssetKey | string = "minecraft:default"): Promise<BitmapFont> {
+        return AssetLoader.context.fonts.get(key);
+    }
+
+    /** Combines font definitions in source-priority order. Unsupported Unihex and TrueType providers are skipped. */
+    public async get(key: AssetKey | string = "minecraft:default"): Promise<BitmapFont> {
+        const fontKey = this.assets.bind(typeof key === "string" ? AssetKey.parse("font", key) : Object.assign(new AssetKey("", ""), key));
+        return (await Caching.fontCache.get(this.assets.cacheKey(fontKey), () => this.load(fontKey, [])))!;
+    }
+
+    private relatedKey(assetType: string, id: string, origin: AssetKey): AssetKey {
         const key = AssetKey.parse(assetType, id);
         key.root = origin.root;
         return key;
     }
 
-    private static async load(key: AssetKey, parents: string[]): Promise<BitmapFont> {
-        const serialized = key.serialize();
+    private async load(key: AssetKey, parents: string[]): Promise<BitmapFont> {
+        const serialized = this.assets.cacheKey(key);
         if (parents.includes(serialized)) throw new Error(`Cyclic font reference: ${key.toNamespacedString()}`);
-        const stack = await AssetLoader.getAll<FontAsset>(key, AssetParser.JSON);
+        const stack = await this.assets.getAll<FontAsset>(key, AssetParser.JSON);
         if (stack.length === 0) throw new Error(`Could not load font ${key.toNamespacedString()}`);
         const glyphs = new Map<string, BitmapGlyph>();
         for (const asset of stack) {
@@ -98,17 +105,17 @@ export class Fonts {
                 }
             }
         }
-        return { glyphs };
+        return this.assets.bind({ glyphs });
     }
 
-    private static async bitmap(provider: BitmapProvider, fontKey: AssetKey): Promise<Map<string, BitmapGlyph>> {
+    private async bitmap(provider: BitmapProvider, fontKey: AssetKey): Promise<Map<string, BitmapGlyph>> {
         const rows = provider.chars.map(row => [...row]);
         const columns = rows[0]?.length;
         if (!columns || rows.some(row => row.length !== columns)) {
             throw new Error(`Invalid character grid in font ${fontKey.toNamespacedString()}`);
         }
         const key = this.relatedKey("textures", provider.file, fontKey);
-        const image = await ModelTextures.get(key);
+        const image = await this.assets.modelTextures.get(key);
         if (!image) throw new Error(`Could not load font texture ${key.toNamespacedString()}`);
         const width = Math.floor(image.width / columns), height = Math.floor(image.height / rows.length);
         if (!width || !height) throw new Error(`Font texture ${key.toNamespacedString()} is smaller than its character grid`);

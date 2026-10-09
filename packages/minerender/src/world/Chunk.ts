@@ -5,7 +5,6 @@ import { Maybe } from "../util/util";
 import { BlockInfo } from "./BlockInfo";
 import { ChunkData } from "./ChunkData";
 import { MineRenderScene } from "../renderer/MineRenderScene";
-import { BlockStates } from "../assets/BlockStates";
 import { AssetKey } from "../assets/AssetKey";
 import { MineRenderWorld } from "./MineRenderWorld";
 import { isTripleArray, TripleArray } from "../model/Model";
@@ -85,14 +84,14 @@ export class Chunk<SectionMeshing extends boolean = false> {
      * Places a block at integer chunk-local coordinates from 0 to 15.
      */
     public async setBlockInChunkAt(pos: Vector3, block?: Block, worldPos?: Vector3,
-                                   onBlocksChanged = this.onBlocksChanged): Promise<Maybe<BlockInfo<SectionMeshing>>> {
+                                   onBlocksChanged = this.onBlocksChanged, assets = this.scene.assets): Promise<Maybe<BlockInfo<SectionMeshing>>> {
         if (typeof worldPos === "undefined") {
             worldPos = this.chunkPosToWorldPos(pos);
         }
 
         const index = Chunk.chunkPosToBlockIndex(pos);
         try {
-            await this.placeBlocks([{ index, block }]);
+            await this.placeBlocks([{ index, block }], assets);
             return this.renderedBlocks.get(index);
         } finally {
             await onBlocksChanged?.([worldPos]);
@@ -100,7 +99,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
     }
 
     /** Places cells in input order and returns changed world positions without refreshing neighbors. */
-    public async placeBlocks(blocks: readonly { index: number; block: Maybe<Block> }[]): Promise<Vector3[]> {
+    public async placeBlocks(blocks: readonly { index: number; block: Maybe<Block> }[], assets = this.scene.assets): Promise<Vector3[]> {
         type Resolved = { blockState: Maybe<BlockState>; perBlock: boolean };
         const resolutions = new Map<string, Promise<Resolved>>();
         for (const { block } of blocks) {
@@ -109,11 +108,11 @@ export class Chunk<SectionMeshing extends boolean = false> {
             if (resolutions.has(key)) continue;
             const stored = { type: block.type, properties: block.properties ? { ...block.properties } : undefined };
             const resolved = (async () => {
-                const blockState = await BlockStates.get(AssetKey.parse("blockstates", stored.type));
+                const blockState = await assets.blockStates.get(AssetKey.parse("blockstates", stored.type));
                 // Fluids and block entities need individual render objects.
                 const perBlock = !blockState || !this.sectionModels || !!getFluidKind(blockState.key, stored.properties)
-                    || !!(blockState.key && BlockEntities.entry(await BlockEntities.getIndex(blockState.key.root), blockState.key.toNamespacedString()));
-                if (!perBlock) await this.sectionModels!.get(blockState!, stored.properties);
+                    || !!(blockState.key && BlockEntities.entry(await assets.blockEntities.getIndex(blockState.key.root), blockState.key.toNamespacedString()));
+                if (!perBlock) await this.sectionModels!.get(blockState!, stored.properties, assets);
                 return { blockState, perBlock };
             })();
             resolutions.set(key, resolved);
@@ -143,12 +142,13 @@ export class Chunk<SectionMeshing extends boolean = false> {
                     continue;
                 }
                 // SectionModels chooses weighted variants separately for each block.
-                const template = perBlock ? undefined : await this.sectionModels!.get(blockState, stored.properties);
+                const template = perBlock ? undefined : await this.sectionModels!.get(blockState, stored.properties, assets);
                 if (template) {
                     this.sectionBlocks.set(index, { index, template, cullMask: 0 });
                     this.meshDirty = true;
                 } else {
                     object = await this.scene.addBlock(blockState, {
+                        assets,
                         mergeMeshes: true,
                         instanceMeshes: true,
                         maxInstanceCount: 2000,

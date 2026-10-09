@@ -1,13 +1,16 @@
 import test from "ava";
 import { AssetKey } from "../src/assets/AssetKey";
-import { Models } from "../src/assets/Models";
+import { AssetLoader } from "../src/assets/AssetLoader";
 import { BlockObject } from "../src/model/block/scene/BlockObject";
 import type { BlockState } from "../src/model/block/BlockState";
 
 async function modelKeyFor(blockState: BlockState): Promise<AssetKey> {
-    const original = Models.getMerged;
+    const assets = AssetLoader.context;
+    const original = assets.models.getMerged;
+    const originalIndex = assets.blockEntities.getIndex;
+    assets.blockEntities.getIndex = async () => ({});
     const keys: AssetKey[] = [];
-    Models.getMerged = async key => {
+    assets.models.getMerged = async key => {
         keys.push(key);
         throw new Error("stop after resolving the key");
     };
@@ -15,7 +18,8 @@ async function modelKeyFor(blockState: BlockState): Promise<AssetKey> {
         const block = new BlockObject(blockState, { applyDefaultState: false });
         await block.init().catch(() => undefined);
     } finally {
-        Models.getMerged = original;
+        assets.models.getMerged = original;
+        assets.blockEntities.getIndex = originalIndex;
     }
     return keys[0];
 }

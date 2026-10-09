@@ -1,5 +1,6 @@
 import test, { ExecutionContext } from "ava";
 import { Box3, Matrix4, MeshBasicMaterial, ShaderMaterial } from "three";
+import { AssetLoader } from "../src/assets/AssetLoader";
 import { AssetKey } from "../src/assets/AssetKey";
 import { Entities } from "../src/assets/Entities";
 import { Models } from "../src/assets/Models";
@@ -19,8 +20,8 @@ import type { ExtractableImageData } from "../src/ExtractableImageData";
 import type { ItemModel, TextureAsset } from "../src/model/Model";
 
 function fixture(t: ExecutionContext) {
-    const originals = { merged: Models.getMerged, atlas: UVMapper.getAtlas, image: Materials.getImage,
-        texture: ModelTextures.get, meta: ModelTextures.getMeta, shaded: Materials.createShadedCanvasMaterial };
+    const originals = { merged: Models.prototype.getMerged, atlas: UVMapper.getAtlas, image: Materials.getImage,
+        texture: ModelTextures.prototype.get, meta: ModelTextures.prototype.getMeta, shaded: Materials.createShadedCanvasMaterial };
     const scene = new MineRenderScene(), placeholder = new MeshBasicMaterial();
     const requests: AssetKey[] = [];
     let imageDisposals = 0;
@@ -37,19 +38,19 @@ function fixture(t: ExecutionContext) {
     const atlas = new TextureAtlas(model, image, { side: [16, 16] }, { side: [0, 0] }, true, { side: () => true }, false);
     const sideAtlas = new TextureAtlas(side, image, atlas.sizes, atlas.positions, false, {}, false);
     Caching.clear();
-    ModelTextures.getMeta = async () => undefined;
-    Models.getMerged = async key => { requests.push(key); return key.path === "missing" ? undefined : key.path === "side" ? side : model; };
-    UVMapper.getAtlas = async value => value === side ? sideAtlas : atlas;
+    ModelTextures.prototype.getMeta = async () => undefined;
+    Models.prototype.getMerged = async key => { requests.push(key); return key.path === "missing" ? undefined : key.path === "side" ? side : model; };
+    UVMapper.getAtlas = async value => value.gui_light === GuiLight.SIDE ? sideAtlas : atlas;
     Materials.getImage = () => placeholder;
-    ModelTextures.get = async key => {
-        Caching.textureAssetCache.get(key.serialize(), async () => ({ key } as TextureAsset));
+    ModelTextures.prototype.get = async key => {
+        Caching.textureAssetCache.get(AssetLoader.context.cacheKey(key), async () => ({ key } as TextureAsset));
         return { width: 16, height: 16, data: { canvas: image.canvas } } as unknown as ExtractableImageData;
     };
     t.teardown(() => {
         for (const object of [...scene.children]) { (object as GuiObject).dispose(); object.removeFromParent(); }
-        Models.getMerged = originals.merged; UVMapper.getAtlas = originals.atlas;
-        Materials.getImage = originals.image; ModelTextures.get = originals.texture;
-        ModelTextures.getMeta = originals.meta;
+        Models.prototype.getMerged = originals.merged; UVMapper.getAtlas = originals.atlas;
+        Materials.getImage = originals.image; ModelTextures.prototype.get = originals.texture;
+        ModelTextures.prototype.getMeta = originals.meta;
         Materials.createShadedCanvasMaterial = originals.shaded;
         atlas.dispose(); sideAtlas.dispose(); placeholder.dispose(); Caching.clear();
     });
@@ -100,7 +101,7 @@ test.serial("GUI items preserve their display pose, tint, and source key within 
 test.serial("GUI item contexts keep component colors separate and preserve explicit overrides", async t => {
     const { scene, model } = fixture(t);
     model.tints = [{ type: "minecraft:dye", default: 0x0000ff }];
-    Models.getMerged = async (_key, context) => {
+    Models.prototype.getMerged = async (_key, context) => {
         t.is(context?.displayContext, "gui");
         return { ...model, components: context?.components };
     };
@@ -165,8 +166,8 @@ test.serial("special GUI items include nested poses in local bounds and own only
     model.special = { type: "minecraft:chest", texture: "minecraft:normal" };
     model.display = {};
     const texture = AssetKey.parse("textures", "minecraft:entity/chest/normal");
-    const original = Entities.getEntity;
-    Entities.getEntity = async key => ({
+    const original = Entities.prototype.getEntity;
+    Entities.prototype.getEntity = async key => ({
         key, texture, id: "chest", layer: { texture: [16, 16], root: {
             pose: { offset: [30, 0, 0], rotation: [0, 0, Math.PI / 2] }, cubes: [], children: {
                 cube: { pose: { offset: [4, 0, 0], rotation: [0, 0, 0] }, children: {},
@@ -174,9 +175,9 @@ test.serial("special GUI items include nested poses in local bounds and own only
             }
         } }
     });
-    t.teardown(() => { Entities.getEntity = original; });
+    t.teardown(() => { Entities.prototype.getEntity = original; });
     const shared = Materials.createEntityCanvasMaterial({ width: 16, height: 16 } as HTMLCanvasElement, "solid");
-    Caching.materialCache.get(`entity:solid::${texture.serialize()}`, () => shared);
+    Caching.materialCache.get(`entity:solid::${AssetLoader.context.cacheKey(texture)}`, () => shared);
     const gui = new GuiObject([
         { name: "background", texture: "test:gui/background", position: [10, 20] },
         { name: "item", item: "minecraft:item/chest", position: [10, 20] },

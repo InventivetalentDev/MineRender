@@ -11,11 +11,13 @@ import { InstanceReference } from "../instance/InstanceReference";
 import { MineRenderError } from "../error/MineRenderError";
 import { isMesh } from "../util/three";
 import { Disposable, isDisposable } from "../Disposable";
+import { mergeAssetOptions } from "./mergeAssetOptions";
 import { SceneObjectOptions } from "./SceneObjectOptions";
 import merge from "ts-deepmerge";
 import { Instanceable } from "../instance/Instanceable";
 import type { MineRenderScene } from "./MineRenderScene";
 import { Transformable } from "../Transformable";
+import { AssetContext } from "../assets/AssetContext";
 import { prefix } from "../util/log";
 
 const p = prefix("SceneObject");
@@ -37,6 +39,7 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
     public readonly options: SceneObjectOptions;
 
     private _scene: Maybe<MineRenderScene>;
+    private _assets?: AssetContext;
 
     private materialCallbacks: { [key: string]: Array<(mat: Material, key: string) => void>; } = {};
 
@@ -49,13 +52,24 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
 
     constructor(options?: Partial<SceneObjectOptions>) {
         super();
-        this.options = merge({}, SceneObject.DEFAULT_OPTIONS, options ?? {});
-        console.log("SceneObject options", this.options);
+        this.options = mergeAssetOptions(SceneObject.DEFAULT_OPTIONS, options);
+        this._assets = this.options.assets;
+        this._assets?.bind(this);
     }
 
     public set scene(scene: MineRenderScene) {
         if (!!this._scene) throw new MineRenderError("Scene already set");
         this._scene = scene;
+        this._assets ??= AssetContext.for(this, scene.assets);
+        this._assets.bind(this);
+    }
+
+    public get assets(): AssetContext {
+        if (!this._assets) {
+            this._assets = AssetContext.for(this, this._scene?.assets);
+            this._assets.bind(this);
+        }
+        return this._assets;
     }
 
     public get scene(): MineRenderScene {

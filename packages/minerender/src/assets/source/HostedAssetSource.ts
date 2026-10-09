@@ -8,9 +8,10 @@ import { ImageLoader } from "../../image";
 import { ListAsset } from "../../ListAsset";
 import { MinecraftAsset } from "../../MinecraftAsset";
 import { AssetKey } from "../AssetKey";
-import { DEFAULT_NAMESPACE } from "../Assets";
+import { DEFAULT_NAMESPACE } from "../AssetDefaults";
 import { RequestError, Requests } from "../../request";
 import { AssetLoader } from "../AssetLoader";
+import type { AssetContext } from "../AssetContext";
 import { AssetParser } from "./parser";
 import { ResponseParser } from "./parser";
 import merge from "ts-deepmerge";
@@ -88,8 +89,8 @@ export class HostedAssetSource extends AssetSource {
     ]);
 
     /** Retries missing assets with the `minecraft` namespace and default root. Other failures reject. */
-    public async loadOrRetryWithDefaults<T extends MinecraftAsset>(key: AssetKey, parser: ResponseParser<T>): Promise<Maybe<T>> {
-        const direct = await this.load<T>(key, parser);
+    public async loadOrRetryWithDefaults<T extends MinecraftAsset>(key: AssetKey, parser: ResponseParser<T>, assets: AssetContext = AssetLoader.context): Promise<Maybe<T>> {
+        const direct = await this.load<T>(key, parser, assets);
         if (typeof direct !== "undefined") {
             return direct;
         }
@@ -97,24 +98,24 @@ export class HostedAssetSource extends AssetSource {
             console.info(p, "Retrying", key, "with default namespace");
             // Try on the same host but with default minecraft: namespace
             const namespaceKey = new AssetKey(DEFAULT_NAMESPACE, key.path, key.assetType, key.type, key.rootType, key.extension, key.root);
-            const namespaced = await this.load<T>(namespaceKey, parser);
+            const namespaced = await this.load<T>(namespaceKey, parser, assets);
             if (typeof namespaced !== "undefined") {
                 return namespaced;
             }
-            if ((typeof key.root !== "undefined" && key.root !== AssetLoader.ROOT) || (typeof this.root !== "undefined" && this.root !== AssetLoader.ROOT)) {
+            if ((typeof key.root !== "undefined" && key.root !== assets.root) || (typeof this.root !== "undefined" && this.root !== assets.root)) {
                 console.info(p, "Retrying", key, "with default root+namespace");
                 // Try both defaults
-                const namespacedRootedKey = new AssetKey(DEFAULT_NAMESPACE, key.path, key.assetType, key.type, key.rootType, key.extension, AssetLoader.ROOT);
-                const namespacedRooted = await this.load<T>(namespacedRootedKey, parser);
+                const namespacedRootedKey = new AssetKey(DEFAULT_NAMESPACE, key.path, key.assetType, key.type, key.rootType, key.extension, assets.root);
+                const namespacedRooted = await this.load<T>(namespacedRootedKey, parser, assets);
                 if (typeof namespacedRooted !== "undefined") {
                     return namespacedRooted;
                 }
             }
-        } else if ((typeof key.root !== "undefined" && key.root !== AssetLoader.ROOT) || (typeof this.root !== "undefined" && this.root !== AssetLoader.ROOT)) {
+        } else if ((typeof key.root !== "undefined" && key.root !== assets.root) || (typeof this.root !== "undefined" && this.root !== assets.root)) {
             console.info(p, "Retrying", key, "with default root");
             // Try on default root
-            const rootKey = new AssetKey(key.namespace, key.path, key.assetType, key.type, key.rootType, key.extension, AssetLoader.ROOT);
-            const rooted = await this.load<T>(rootKey, parser);
+            const rootKey = new AssetKey(key.namespace, key.path, key.assetType, key.type, key.rootType, key.extension, assets.root);
+            const rooted = await this.load<T>(rootKey, parser, assets);
             if (typeof rooted !== "undefined") {
                 return rooted;
             }
@@ -123,9 +124,9 @@ export class HostedAssetSource extends AssetSource {
     }
 
 
-    protected async load<T extends MinecraftAsset>(key: AssetKey, parser: ResponseParser<T>): Promise<Maybe<T>> {
+    protected async load<T extends MinecraftAsset>(key: AssetKey, parser: ResponseParser<T>, assets: AssetContext = AssetLoader.context): Promise<Maybe<T>> {
         console.info(p, "Loading", key);
-        const url = `${ this.assetBasePath(key) }${ key.type !== undefined ? key.type + '/' : '' }${ key.path }${ key.extension }`;
+        const url = `${ this.assetBasePath(key, assets) }${ key.type !== undefined ? key.type + '/' : '' }${ key.path }${ key.extension }`;
         console.debug(p, url);
         const request: RequestConfig = { url };
         try {
@@ -149,8 +150,8 @@ export class HostedAssetSource extends AssetSource {
         }
     }
 
-    public assetBasePath(key: AssetKey) {
-        return `${ key.root ?? this.root ?? AssetLoader.ROOT }/${ key.rootType !== undefined ? key.rootType + '/' : '' }${ key.namespace !== undefined ? key.namespace + '/' : '' }${ key.assetType !== undefined ? key.assetType + '/' : '' }`;
+    public assetBasePath(key: AssetKey, assets: AssetContext = AssetLoader.context) {
+        return `${ key.root ?? this.root ?? assets.root }/${ key.rootType !== undefined ? key.rootType + '/' : '' }${ key.namespace !== undefined ? key.namespace + '/' : '' }${ key.assetType !== undefined ? key.assetType + '/' : '' }`;
     }
 
     private readonly _root: string;
@@ -174,16 +175,20 @@ export class HostedAssetSource extends AssetSource {
         return `hosted:${this._root}`;
     }
 
+    public getCacheId(assets: AssetContext): string {
+        return this.options.retryDefaults ? `${this.cacheId}:retry-defaults:${assets.root}` : this.cacheId;
+    }
+
     public get options(): HostedAssetSourceOptions {
         return this._options;
     }
 
-    public get<T extends MinecraftAsset>(key: AssetKey, parser: AssetParser): Promise<Maybe<T>> {
+    public get<T extends MinecraftAsset>(key: AssetKey, parser: AssetParser, assets: AssetContext = AssetLoader.context): Promise<Maybe<T>> {
         const responseParser = HostedAssetSource.PARSER_MAP.get(parser) as ResponseParser<T>;
         if (this.options.retryDefaults) {
-            return this.loadOrRetryWithDefaults(key, responseParser);
+            return this.loadOrRetryWithDefaults(key, responseParser, assets);
         }
-        return this.load(key, responseParser);
+        return this.load(key, responseParser, assets);
     }
 
 }

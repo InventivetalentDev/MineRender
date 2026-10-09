@@ -1,5 +1,6 @@
 import { BufferAttribute, BufferGeometry, Color, DoubleSide, ShaderMaterial } from "three";
 import { AssetKey } from "../../assets/AssetKey";
+import { AssetContext } from "../../assets/AssetContext";
 import { Materials } from "../../Materials";
 import { ModelObject, ModelObjectOptions } from "../scene/ModelObject";
 import { createFluidGeometry, FluidKind, FluidSampler } from "./FluidGeometry";
@@ -27,11 +28,12 @@ export class FluidModelObject extends ModelObject {
 
     constructor(readonly kind: FluidKind, private readonly sample: FluidSampler,
                 origin?: AssetKey, options?: Partial<ModelObjectOptions>) {
+        const assets = options?.assets ?? AssetContext.origin(origin);
         super({
             key: new AssetKey("minecraft", kind, "models", "fluid", "assets", ".json", origin?.root),
             textures: { still: `minecraft:block/${kind}_still`, flow: `minecraft:block/${kind}_flow` },
             elements: []
-        }, options);
+        }, { ...options, assets });
     }
 
     protected createMeshes(): void {

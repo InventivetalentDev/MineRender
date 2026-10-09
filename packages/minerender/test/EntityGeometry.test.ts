@@ -1,5 +1,6 @@
 import test, { ExecutionContext } from "ava";
 import { Box3, Euler, LineSegments, Mesh, MeshBasicMaterial, Raycaster, Vector3 } from "three";
+import { AssetLoader } from "../src/assets/AssetLoader";
 import { AssetKey, BasicAssetKey } from "../src/assets/AssetKey";
 import { ModelTextures } from "../src/assets/ModelTextures";
 import { Caching } from "../src/cache/Caching";
@@ -195,24 +196,24 @@ test.serial("entity layers keep independent textures, UVs and poses under one sh
     const wool: EntityLayer = {
         ...main, texture: AssetKey.parse("textures", "custom:entity/overlay"), layer: { texture: [128, 64], root }
     };
-    const originalGet = ModelTextures.get;
+    const originalGet = ModelTextures.prototype.get;
     const originalMaterial = Materials.createBasicCanvasMaterial;
     const canvases = [{}, {}] as HTMLCanvasElement[];
     const materials = [new MeshBasicMaterial({ color: 0xff0000 }), new MeshBasicMaterial({ color: 0x0000ff })];
     const requested: string[] = [];
-    ModelTextures.get = async key => {
+    ModelTextures.prototype.get = async key => {
         requested.push(key.getFullPath());
         return { width: 1, height: 1, data: { canvas: canvases[key === main.texture ? 0 : 1] } as CanvasRenderingContext2D };
     };
     Materials.createBasicCanvasMaterial = canvas => materials[canvases.indexOf(canvas)];
     t.teardown(() => {
-        ModelTextures.get = originalGet;
+        ModelTextures.prototype.get = originalGet;
         Materials.createBasicCanvasMaterial = originalMaterial;
         materials.forEach(material => material.dispose());
     });
     const layers = { main, wool };
     for (const texture of [main.texture!, wool.texture!]) {
-        await Caching.textureAssetCache.get(texture.serialize(), async () => ({
+        await Caching.textureAssetCache.get(AssetLoader.context.cacheKey(texture), async () => ({
             width: 1, height: 1, type: "png", data: Buffer.from([1])
         }));
     }

@@ -86,11 +86,11 @@ test("every face of a layer uses that layer's texture and tint index", t => {
 });
 
 test.serial("layered models outline each layer from the first animation frame and map side faces into the atlas", async t => {
-    const originals = { provider: Env["_provider"], get: ModelTextures.get, meta: ModelTextures.getMeta };
+    const originals = { provider: Env["_provider"], get: ModelTextures.prototype.get, meta: ModelTextures.prototype.getMeta };
     t.teardown(() => {
         Env["_provider"] = originals.provider;
-        ModelTextures.get = originals.get;
-        ModelTextures.getMeta = originals.meta;
+        ModelTextures.prototype.get = originals.get;
+        ModelTextures.prototype.getMeta = originals.meta;
     });
     Env.register({
         name: "test",
@@ -106,7 +106,7 @@ test.serial("layered models outline each layer from the first animation frame an
     // layer0 is a 2x2 sprite with two frames: one texel, then fully opaque. layer1 is a static full sprite.
     const strip = mask("#.", "..", "##", "##");
     const sections: number[][] = [];
-    ModelTextures.get = async key => (key.path.endsWith("animated") ? {
+    ModelTextures.prototype.get = async key => (key.path.endsWith("animated") ? {
         width: 2, height: 4,
         data: {
             getImageData: (sx: number, sy: number, sw: number, sh: number) => {
@@ -115,7 +115,7 @@ test.serial("layered models outline each layer from the first animation frame an
             }
         }
     } : { width: 2, height: 2, data: { getImageData: () => mask("##", "##") } }) as unknown as ExtractableImageData;
-    ModelTextures.getMeta = async key => key.path.endsWith("animated") ? { animation: {} } as any : undefined;
+    ModelTextures.prototype.getMeta = async key => key.path.endsWith("animated") ? { animation: {} } as any : undefined;
 
     const atlas = (await UVMapper.createAtlas({ textures: { layer0: "item/animated", layer1: "item/overlay" } }))!;
     const elements = atlas.model.elements!;

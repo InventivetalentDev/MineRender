@@ -13,28 +13,28 @@ import { MineRenderWorld } from "../src/world/MineRenderWorld";
 const block = { type: "test:stone" };
 
 function fixture(t: ExecutionContext) {
-    const originals = { state: BlockStates.get, defaults: BlockStates.getDefaultState, model: Models.getMerged, init: ModelObject.prototype.init };
+    const originals = { state: BlockStates.prototype.get, defaults: BlockStates.prototype.getDefaultState, model: Models.prototype.getMerged, init: ModelObject.prototype.init };
     const geometry = new BoxGeometry(16, 16, 16);
     const material = new MeshBasicMaterial();
     const scene = new MineRenderScene();
     const world = new MineRenderWorld(scene);
     const loads: string[] = [];
     const owners: ModelObject[] = [];
-    BlockStates.get = async key => {
+    BlockStates.prototype.get = async key => {
         loads.push(key.toNamespacedString());
         return { key, variants: { "": { model: "test:block/shared" } } };
     };
-    BlockStates.getDefaultState = async () => undefined;
-    Models.getMerged = async key => ({ key });
+    BlockStates.prototype.getDefaultState = async () => undefined;
+    Models.prototype.getMerged = async key => ({ key });
     ModelObject.prototype.init = async function () {
         this.add(this["createInstancedMesh"](undefined, geometry, material, this.options.maxInstanceCount));
         owners.push(this);
     };
     t.teardown(async () => {
         await world.clear();
-        BlockStates.get = originals.state;
-        BlockStates.getDefaultState = originals.defaults;
-        Models.getMerged = originals.model;
+        BlockStates.prototype.get = originals.state;
+        BlockStates.prototype.getDefaultState = originals.defaults;
+        Models.prototype.getMerged = originals.model;
         ModelObject.prototype.init = originals.init;
         for (const owner of owners) owner.dispose();
         geometry.dispose();
@@ -167,10 +167,10 @@ test.serial("world placement snapshots block data without changing BlockInfo or 
 
 test.serial("parsed chunk columns replace old sections and preserve signed positions, properties and block NBT", async t => {
     const { world, scene } = fixture(t);
-    const preload = BlockStates.getAll;
-    BlockStates.getAll = async () => [];
+    const preload = BlockStates.prototype.getAll;
+    BlockStates.prototype.getAll = async () => [];
     const executor = new BatchedExecutor(1, 4);
-    t.teardown(() => { BlockStates.getAll = preload; executor.stop(); });
+    t.teardown(() => { BlockStates.prototype.getAll = preload; executor.stop(); });
     await world.setBlockAt(-32, 100, 48, block);
     const neighbor = await world.setBlockAt(-16, 100, 48, block);
     const data = new ChunkData();
@@ -207,10 +207,10 @@ test.serial("Chunk.placeBlocks clears failed cells and places the remaining cell
     const { world, scene, loads } = fixture(t);
     const previous = (await world.setBlockAt(0, 0, 0, block))!;
     const chunk = world.getChunkAt(new Vector3())!;
-    const get = BlockStates.get, failure = new Error("block asset failed");
+    const get = BlockStates.prototype.get, failure = new Error("block asset failed");
     let failedLoads = 0;
     loads.length = 0;
-    BlockStates.get = async key => {
+    BlockStates.prototype.get = async key => {
         if (key.path === "failure") { failedLoads++; throw failure; }
         return get(key);
     };

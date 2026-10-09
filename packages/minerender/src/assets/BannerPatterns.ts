@@ -1,5 +1,6 @@
 import { AssetKey } from "./AssetKey";
 import { AssetLoader } from "./AssetLoader";
+import type { AssetContext } from "./AssetContext";
 import { AssetParser } from "./source/parser/AssetParsers";
 import { Caching } from "../cache/Caching";
 import type { MinecraftAsset } from "../MinecraftAsset";
@@ -30,11 +31,11 @@ export interface BannerPatternDraw {
 export class BannerPatterns {
 
     /** Lists namespaced pattern IDs from the selected namespace's data directory. */
-    public static async getList(namespace = "minecraft", root?: string): Promise<string[]> {
+    public static async getList(namespace = "minecraft", root?: string, assets: AssetContext = AssetLoader.context): Promise<string[]> {
         const collect = async (path: string): Promise<string[]> => {
             const prefix = path ? `${path}/` : "";
             const key = new AssetKey(namespace, `${prefix}_list`, "banner_pattern", undefined, "data", ".json", root);
-            const list = await Caching.listAssetCache.get(key.serialize(), () => AssetLoader.get<ListAsset>(key, AssetParser.LIST));
+            const list = await Caching.listAssetCache.get(assets.cacheKey(key), () => assets.get<ListAsset>(key, AssetParser.LIST));
             if (!list) return [];
             const files = list.files.filter(file => file.endsWith(".json") && file !== "_list.json")
                 .map(file => `${namespace}:${prefix}${file.slice(0, -5)}`);
@@ -51,7 +52,7 @@ export class BannerPatterns {
     }
 
     /** Resolves the first 16 layers of a `banner_patterns` component, preserving their order. */
-    public static async getLayers(value: unknown, target: "banner" | "shield", root?: string): Promise<BannerPatternDraw[]> {
+    public static async getLayers(value: unknown, target: "banner" | "shield", root?: string, assets: AssetContext = AssetLoader.context): Promise<BannerPatternDraw[]> {
         if (value === undefined) return [];
         if (!Array.isArray(value)) throw new Error("banner_patterns must be an array");
         return Promise.all(value.slice(0, 16).map(async layer => {
@@ -61,7 +62,7 @@ export class BannerPatterns {
             if (typeof pattern === "string") {
                 const id = this.identifier(pattern);
                 const key = new AssetKey(id.namespace, id.getFullPath(), "banner_pattern", undefined, "data", ".json", root);
-                pattern = await Caching.bannerPatternCache.get(key.serialize(), () => AssetLoader.get<BannerPattern>(key, AssetParser.JSON));
+                pattern = await Caching.bannerPatternCache.get(assets.cacheKey(key), () => assets.get<BannerPattern>(key, AssetParser.JSON));
                 if (!pattern) throw new Error(`Missing banner pattern ${layer.pattern}`);
             }
             if (!pattern || typeof pattern !== "object" || Array.isArray(pattern)
