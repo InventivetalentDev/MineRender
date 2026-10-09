@@ -419,6 +419,70 @@ test("Anvil attaches typed block-entity NBT to the correct negative-height cell 
     }
 });
 
+test("Anvil reads entity regions with gzip, zlib and raw NBT while preserving typed entity data", async t => {
+    const entity = {
+        id: string("minecraft:pig"),
+        Pos: { type: "list" as const, value: { type: "double" as const, value: [-15.5, -62, -30] } },
+        Rotation: { type: "list" as const, value: { type: "float" as const, value: [90, -20] } },
+        CustomName: string("fixture"), UUID: { type: "intArray" as const, value: [1, -2, 3, -4] }
+    };
+    for (const compression of [1, 2, 3]) {
+        const nbt: NBT = { name: "", type: "compound", value: {
+            Position: { type: "intArray", value: [-1, -2] }, DataVersion: int(4325), Entities: list([entity])
+        } };
+        const bytes = region({ nbt, compression });
+        const padded = Buffer.concat([Buffer.alloc(7), bytes, Buffer.alloc(3)]);
+        const input = compression === 3 ? Uint8Array.from(bytes).buffer : padded.subarray(7, 7 + bytes.length);
+        t.deepEqual(AnvilParser.getChunkList(input), [{ x: 31, z: 30 }]);
+        t.is(await AnvilParser.parseEntityChunk(input, 0, 30), undefined);
+        t.deepEqual(await AnvilParser.parseEntityChunk(input, 31, 30), {
+            x: -1, z: -2, dataVersion: 4325,
+            entities: [{ position: [-15.5, -62, -30], nbt: compound(entity) }]
+        });
+    }
+});
+
+test("Anvil entity regions allow missing or empty entity lists and missing data versions", async t => {
+    for (const extra of [{}, { Entities: list([]) }]) {
+        const nbt: NBT = { name: "", type: "compound", value: {
+            Position: { type: "intArray", value: [63, 94] }, ...extra
+        } };
+        t.deepEqual(await AnvilParser.parseEntityChunk(region({ nbt }), 31, 30), {
+            x: 63, z: 94, dataVersion: undefined, entities: []
+        });
+    }
+});
+
+test("Anvil entity regions reject malformed positions, entity lists and mismatched chunk locations", async t => {
+    const position = { type: "intArray" as const, value: [-1, -2] };
+    const invalid: { value: Tags; message: RegExp }[] = [
+        { value: {}, message: /Position must contain two integers/ },
+        { value: { Position: string("-1,-2") }, message: /Position must contain two integers/ },
+        { value: { Position: { ...position, value: [-1] } }, message: /Position must contain two integers/ },
+        { value: { Position: { ...position, value: [-1, -2, 0] } }, message: /Position must contain two integers/ },
+        { value: { Position: { ...position, value: [0, -2] } }, message: /coordinates do not match/ },
+        { value: { Position: { ...position, value: [-1, 0] } }, message: /coordinates do not match/ },
+        { value: { Position: position, Entities: int(1) }, message: /entities must be a compound list/ },
+        { value: { Position: position, Entities: { type: "list", value: { type: "string", value: ["pig"] } } },
+            message: /entities must be a compound list/ }
+    ];
+    for (const Pos of [undefined, int(1),
+        { type: "list" as const, value: { type: "float" as const, value: [0, 1, 2] } },
+        ...[[0, 1], [0, 1, 2, 3], [0, NaN, 2], [0, 1, Infinity]].map(value => ({
+            type: "list" as const, value: { type: "double" as const, value }
+        }))]) {
+        invalid.push({ value: { Position: position, Entities: list([{ id: string("minecraft:pig"), ...(Pos ? { Pos } : {}) }]) },
+            message: /entity Pos must contain three coordinates/ });
+    }
+    for (const { value, message } of invalid) {
+        const nbt: NBT = { name: "", type: "compound", value };
+        await t.throwsAsync(() => AnvilParser.parseEntityChunk(region({ nbt }), 31, 30), { message });
+    }
+    for (const [x, z] of [[-1, 0], [0, 32], [0.5, 0], [0, NaN]]) {
+        await t.throwsAsync(() => AnvilParser.parseEntityChunk(new Uint8Array(8192), x, z), { instanceOf: RangeError });
+    }
+});
+
 test("Anvil rejects truncated sectors, invalid lengths and unsupported compression without reading adjacent payloads", async t => {
     t.throws(() => AnvilParser.getChunkList(new Uint8Array(8191)), { message: /header is truncated/ });
     const valid = region({ nbt: chunk([uniform()]) });
@@ -429,10 +493,14 @@ test("Anvil rejects truncated sectors, invalid lengths and unsupported compressi
     const badLength = Buffer.from(valid);
     badLength.writeUInt32BE(4093, 8192);
     await t.throwsAsync(() => AnvilParser.parse(badLength), { message: /payload length/ });
+    await t.throwsAsync(() => AnvilParser.parseEntityChunk(badLength, 31, 30), { message: /payload length/ });
     for (const compression of [99, 130, 132]) {
         const bytes = Buffer.from(valid);
         bytes[8196] = compression;
         await t.throwsAsync(() => AnvilParser.parse(bytes), { message: compression & 128 ? /External.*mcc/ : /Unsupported.*compression/ });
+        await t.throwsAsync(() => AnvilParser.parseEntityChunk(bytes, 31, 30), {
+            message: compression & 128 ? /External.*mcc/ : /Unsupported.*compression/
+        });
     }
     await t.throwsAsync(() => AnvilParser.parseChunk(valid, -1, 0), { instanceOf: RangeError });
 });

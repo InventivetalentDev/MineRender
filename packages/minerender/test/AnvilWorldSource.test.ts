@@ -1,12 +1,18 @@
 import test from "ava";
 import { writeUncompressed } from "prismarine-nbt";
+import type { Compound } from "prismarine-nbt";
+import { AnvilParser } from "../src/world/AnvilParser";
+import type { AnvilChunk } from "../src/world/AnvilParser";
 import { AnvilWorldSource } from "../src/world/AnvilWorldSource";
 import { NBTHelper } from "../src/nbt/NBTHelper";
 
-function region(x: number, z: number, options: { compression?: number; numeric?: number[]; data?: number[]; malformed?: boolean } = {}): Uint8Array {
+function region(x: number, z: number, options: {
+    compression?: number; numeric?: number[]; data?: number[]; malformed?: boolean; entities?: Compound["value"][];
+} = {}): Uint8Array {
     let payload = writeUncompressed({ name: "", type: "compound", value: {
         DataVersion: { type: "int", value: 2865 },
         xPos: { type: "int", value: x }, zPos: { type: "int", value: z },
+        entities: { type: "list", value: { type: "compound", value: options.entities ?? [] } },
         sections: { type: "list", value: { type: "compound", value: options.numeric
             ? [{ Y: { type: "byte", value: 0 }, Blocks: { type: "byteArray", value: options.numeric },
                 ...(options.data ? { Data: { type: "byteArray", value: options.data } } : {}) }] : [] } }
@@ -18,6 +24,26 @@ function region(x: number, z: number, options: { compression?: number; numeric?:
     bytes.writeUInt32BE((2 << 8) | count, (localX + localZ * 32) * 4);
     bytes.writeUInt32BE(payload.length + 1, 8192);
     bytes[8196] = options.compression ?? 3;
+    bytes.set(payload, 8197);
+    return bytes;
+}
+
+function entity(id: string, x: number, z: number): Compound["value"] {
+    return {
+        id: { type: "string", value: id },
+        Pos: { type: "list", value: { type: "double", value: [x * 16 + 0.5, 64, z * 16 + 0.5] } },
+        UUID: { type: "intArray", value: [1, 2, 3, 4] }
+    };
+}
+
+function entityRegion(x: number, z: number, entities = [entity("minecraft:pig", x, z)]): Uint8Array {
+    const payload = writeUncompressed({ name: "", type: "compound", value: {
+        DataVersion: { type: "int", value: 4189 },
+        Position: { type: "intArray", value: [x, z] },
+        Entities: { type: "list", value: { type: "compound", value: entities } }
+    } });
+    const bytes = Buffer.from(region(x, z));
+    bytes.writeUInt32BE(payload.length + 1, 8192);
     bytes.set(payload, 8197);
     return bytes;
 }
@@ -67,18 +93,44 @@ test("world sources apply custom and lenient numeric mappings without changing s
     const input = region(-33, 65, { numeric: blocks, data });
     const strict = new AnvilWorldSource(async () => input);
     await t.throwsAsync(strict.getChunk(-33, 65), { message: /1:15.*section 0.*index 1/ });
-    let reads = 0;
-    const source = new AnvilWorldSource(async () => { reads++; return input; }, {
-        legacyMappings: Object.freeze({ "1:0": "minecraft:diamond_block" }), lenient: true
-    });
-    for (let i = 0; i < 2; i++) {
-        const parsed = (await source.getChunk(-33, 65))!;
-        t.deepEqual([parsed.x, parsed.z], [-33, 65]);
-        t.deepEqual([0, 1, 2].map(index => parsed.sections[0].data.get(index)?.type), [
-            "minecraft:granite", "minecraft:diamond_block", undefined
-        ]);
+    for (const useExternal of [false, true]) {
+        const stub = Buffer.from(input), payload = Buffer.from(input.subarray(8197));
+        if (useExternal) {
+            stub.fill(0, 8192);
+            stub.writeUInt32BE(1, 8192);
+            stub[8196] = 128 | 3;
+        }
+        let reads = 0, externalReads = 0;
+        const source = new AnvilWorldSource(async () => { reads++; return stub; }, {
+            legacyMappings: Object.freeze({ "1:0": "minecraft:diamond_block" }), lenient: true,
+            readExternalChunk: async (x, z) => {
+                t.deepEqual([x, z], [-33, 65]);
+                externalReads++;
+                return payload;
+            },
+            readEntityRegion: async () => entityRegion(-33, 65)
+        });
+        for (let i = 0; i < 2; i++) {
+            const parsed = (await source.getChunk(-33, 65))!;
+            t.deepEqual([parsed.x, parsed.z], [-33, 65]);
+            t.deepEqual([0, 1, 2].map(index => parsed.sections[0].data.get(index)?.type), [
+                "minecraft:granite", "minecraft:diamond_block", undefined
+            ]);
+            t.is(parsed.entityDataVersion, 4189);
+            t.is(parsed.entities?.length, 1);
+        }
+        t.is(reads, 1);
+        t.is(externalReads, useExternal ? 2 : 0);
     }
-    t.is(reads, 1);
+    const entityStub = Buffer.from(entityRegion(-33, 65));
+    entityStub[8196] |= 128;
+    let terrainExternalReads = 0;
+    const wrongDirectory = new AnvilWorldSource(async () => undefined, {
+        readEntityRegion: async () => entityStub,
+        readExternalChunk: async () => { terrainExternalReads++; return undefined; }
+    });
+    await t.throwsAsync(wrongDirectory.getChunk(-33, 65), { message: /readExternalChunk/ });
+    t.is(terrainExternalReads, 0);
 });
 
 test("world sources read external chunks at absolute coordinates without retaining their payloads", async t => {
@@ -89,7 +141,8 @@ test("world sources read external chunks at absolute coordinates without retaini
         const source = new AnvilWorldSource(async (x, z) => { regions.push([x, z]); return stub; }, {
             readExternalChunk: async (x, z, signal) => {
                 chunks.push([x, z]);
-                t.is(signal, controller.signal);
+                t.truthy(signal);
+                t.false(signal!.aborted);
                 return payload;
             }
         });
@@ -152,6 +205,116 @@ test("cancelling an external chunk read leaves another caller and the cached reg
     t.is((await source.getChunk(0, 0))!.x, 0);
     t.is(regionReads, 1);
     firstRead.resolve(payload);
+});
+
+test("entity regions replace embedded entities and retain their own data version", async t => {
+    const x = -33, z = 65, embedded = entity("minecraft:cow", x, z), saved = entity("minecraft:pig", x, z);
+    for (const entities of [[saved], []]) {
+        const reads: number[][] = [];
+        const source = new AnvilWorldSource(async () => region(x, z, { entities: [embedded] }), {
+            readEntityRegion: async (regionX, regionZ) => {
+                reads.push([regionX, regionZ]);
+                return new Uint8Array(entityRegion(x, z, entities)).buffer;
+            }
+        });
+        const chunk = (await source.getChunk(x, z))!;
+        t.deepEqual([chunk.x, chunk.z], [x, z]);
+        t.is(chunk.dataVersion, 2865);
+        t.is(chunk.entityDataVersion, 4189);
+        t.deepEqual(chunk.entities, entities.map(nbt => ({
+            position: [x * 16 + 0.5, 64, z * 16 + 0.5], nbt: { type: "compound", value: nbt }
+        })));
+        t.deepEqual(reads, [[-2, 2]]);
+    }
+});
+
+test("missing entity regions or slots preserve embedded entities, and entity-only columns remain loadable", async t => {
+    const saved = entity("minecraft:cow", 0, 0);
+    for (const absent of [undefined, new Uint8Array(8192)]) {
+        const fallback = new AnvilWorldSource(async () => region(0, 0, { entities: [saved] }), {
+            readEntityRegion: async () => absent
+        });
+        const chunk = (await fallback.getChunk(0, 0))!;
+        t.deepEqual(chunk.entities?.map(entity => entity.nbt.value), [saved]);
+        t.is(chunk.entityDataVersion, undefined);
+
+        const entities = new AnvilWorldSource(async () => absent, { readEntityRegion: async () => entityRegion(0, 0) });
+        const entityOnly = (await entities.getChunk(0, 0))!;
+        t.deepEqual([entityOnly.x, entityOnly.z, entityOnly.sections], [0, 0, []]);
+        t.is(entityOnly.dataVersion, undefined);
+        t.is(entityOnly.entityDataVersion, 4189);
+        t.is(entityOnly.entities?.length, 1);
+        t.is(await entities.getChunk(1, 0), undefined);
+    }
+});
+
+test("terrain and entity regions use separate cache entries within the same count and byte limits", async t => {
+    for (const options of [{ maxCachedRegions: 2 }, { maxCachedRegions: 8, maxCachedBytes: 24576 }]) {
+        const terrainReads: number[] = [], entityReads: number[] = [];
+        const source = new AnvilWorldSource(async x => { terrainReads.push(x); return region(x * 32, 0); }, {
+            ...options,
+            readEntityRegion: async x => { entityReads.push(x); return entityRegion(x * 32, 0); }
+        });
+        for (const x of [0, 0, 32, 32, 0]) {
+            const chunk = (await source.getChunk(x, 0))!;
+            t.is(chunk.dataVersion, 2865);
+            t.is(chunk.entityDataVersion, 4189);
+        }
+        t.deepEqual(terrainReads, [0, 1, 0]);
+        t.deepEqual(entityReads, [0, 1, 0]);
+    }
+});
+
+test("failed entity region reads and headers can retry without rereading retained terrain", async t => {
+    const sector = Buffer.from(entityRegion(0, 0));
+    sector.writeUInt32BE((1 << 8) | 1, 0);
+    for (const invalid of [new Error("entity read failed"), new Uint8Array(7), sector]) {
+        let terrainReads = 0, entityReads = 0;
+        const source = new AnvilWorldSource(async () => { terrainReads++; return region(0, 0); }, {
+            readEntityRegion: async () => {
+                if (++entityReads === 1) {
+                    if (invalid instanceof Error) throw invalid;
+                    return invalid;
+                }
+                return entityRegion(0, 0);
+            }
+        });
+        await t.throwsAsync(source.getChunk(0, 0));
+        t.is((await source.getChunk(0, 0))!.entities?.length, 1);
+        t.is(terrainReads, 1);
+        t.is(entityReads, 2);
+    }
+});
+
+test("a failed terrain read cancels this caller's pending entity read", async t => {
+    t.timeout(3000);
+    const gate = deferred<Uint8Array>(), started = deferred(), reason = new Error("terrain read failed");
+    let entitySignal!: AbortSignal;
+    const source = new AnvilWorldSource(async () => { await started.promise; throw reason; }, {
+        readEntityRegion: async (_x, _z, signal) => {
+            entitySignal = signal!;
+            started.resolve();
+            return gate.promise;
+        }
+    });
+    t.teardown(() => gate.resolve(entityRegion(0, 0)));
+    await t.throwsAsync(source.getChunk(0, 0), { is: reason });
+    t.true(entitySignal.aborted);
+    t.is(entitySignal.reason, reason);
+});
+
+test("misplaced entity chunks reject until corrected region bytes replace the cache", async t => {
+    let bytes = entityRegion(32, 0), reads = 0;
+    const source = new AnvilWorldSource(async () => region(0, 0), {
+        readEntityRegion: async () => { reads++; return bytes; }
+    });
+    await t.throwsAsync(source.getChunk(0, 0), { message: /do not match requested/ });
+    bytes = entityRegion(0, 0);
+    await t.throwsAsync(source.getChunk(0, 0), { message: /do not match requested/ });
+    t.is(reads, 1);
+    source.clearCache();
+    t.is((await source.getChunk(0, 0))!.entityDataVersion, 4189);
+    t.is(reads, 2);
 });
 
 test("region cache uses access order and limits retained bytes as well as region count", async t => {
@@ -317,6 +480,49 @@ test("cancelling one coalesced caller leaves independent callers and the reader 
         t.is(reads, 1);
         secondController.abort();
         t.false(signal.aborted);
+    }
+});
+
+test("coalesced terrain and entity reads cancel only after their last caller leaves", async t => {
+    t.timeout(3000);
+    for (const cancelRemaining of [false, true]) {
+        const terrainGate = deferred<Uint8Array>(), entityGate = deferred<Uint8Array>();
+        const terrainStarted = deferred(), entityStarted = deferred();
+        const terrainSignals: AbortSignal[] = [], entitySignals: AbortSignal[] = [];
+        const source = new AnvilWorldSource(async (_x, _z, signal) => {
+            terrainSignals.push(signal!);
+            terrainStarted.resolve();
+            return terrainSignals.length === 1 ? terrainGate.promise : region(0, 0);
+        }, {
+            readEntityRegion: async (_x, _z, signal) => {
+                entitySignals.push(signal!);
+                entityStarted.resolve();
+                return entitySignals.length === 1 ? entityGate.promise : entityRegion(0, 0);
+            }
+        });
+        t.teardown(() => { terrainGate.resolve(region(0, 0)); entityGate.resolve(entityRegion(0, 0)); });
+        const firstController = new AbortController(), secondController = new AbortController();
+        const first = source.getChunk(0, 0, firstController.signal);
+        const second = source.getChunk(0, 0, secondController.signal);
+        await Promise.all([terrainStarted.promise, entityStarted.promise]);
+        firstController.abort();
+        await t.throwsAsync(first, { name: "AbortError" });
+        t.false(terrainSignals[0].aborted);
+        t.false(entitySignals[0].aborted);
+        if (cancelRemaining) {
+            const reason = new Error("last caller cancelled");
+            secondController.abort(reason);
+            await t.throwsAsync(second, { is: reason });
+            t.is(terrainSignals[0].reason, reason);
+            t.is(entitySignals[0].reason, reason);
+            t.is((await source.getChunk(0, 0))!.entityDataVersion, 4189);
+        }
+        terrainGate.resolve(region(0, 0));
+        entityGate.resolve(entityRegion(0, 0));
+        if (!cancelRemaining) t.is((await second)!.entityDataVersion, 4189);
+        t.is((await source.getChunk(0, 0))!.entities?.length, 1);
+        t.is(terrainSignals.length, cancelRemaining ? 2 : 1);
+        t.is(entitySignals.length, cancelRemaining ? 2 : 1);
     }
 });
 

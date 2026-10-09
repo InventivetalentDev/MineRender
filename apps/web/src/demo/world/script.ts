@@ -5,8 +5,8 @@ import {
 import { Color, Vector3 } from "three";
 
 interface RegionFile { x: number; z: number; file: File }
-interface Dimension { label: string; regions: Map<string, RegionFile>; externalChunks: Map<string, File> }
-interface Source { source: WorldChunkSource; label: string; clearCache?: () => void }
+interface Dimension { label: string; regions: Map<string, RegionFile>; entityRegions: Map<string, RegionFile>; externalChunks: Map<string, File> }
+interface Source { source: WorldChunkSource; label: string; dimension?: Dimension; clearCache?: () => void }
 
 const element = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const input = (id: string) => element<HTMLInputElement>(id);
@@ -23,7 +23,7 @@ renderer.scene.background = new Color("#8ebbe0");
 renderer.appendTo(viewport);
 const controls = renderer.controls!;
 controls.screenSpacePanning = false;
-const world = new MineRenderWorld(renderer.scene, { sectionMeshing: true });
+let world = new MineRenderWorld(renderer.scene, { sectionMeshing: true });
 let active: Source | undefined;
 let streamer: WorldStreamer | undefined;
 let dimensions = new Map<string, Dimension>();
@@ -71,6 +71,7 @@ async function replaceSource(next: Source, center?: { x: number; z: number; y: n
     await streamer?.dispose();
     streamer = undefined;
     await world.clear();
+    world = new MineRenderWorld(renderer.scene, { sectionMeshing: true, renderEntities: input("render-entities").checked });
     if (active !== next) active?.clearCache?.();
     active = next;
     if (disposed) { next.clearCache?.(); return; }
@@ -161,7 +162,9 @@ function collectDimensions(files: File[]): Map<string, Dimension> {
         const x = Number(match[1]), z = Number(match[2]);
         if (![x, z].every(Number.isSafeInteger)) throw new Error(`Invalid ${external ? "chunk" : "region"} coordinates: ${file.name}`);
         const path = file.webkitRelativePath.replace(/\\/g, "/").split("/").slice(0, -1);
-        if (path.length && path[path.length - 1] !== "region") continue;
+        const directory = path[path.length - 1];
+        if (path.length && directory !== "region" && directory !== "entities") continue;
+        if (external && directory === "entities") continue;
         let id = "minecraft:overworld", label = "Overworld";
         if (path[path.length - 2] === "DIM-1") { id = "minecraft:the_nether"; label = "Nether"; }
         else if (path[path.length - 2] === "DIM1") { id = "minecraft:the_end"; label = "End"; }
@@ -173,69 +176,76 @@ function collectDimensions(files: File[]): Map<string, Dimension> {
             }
         }
         let dimension = result.get(id);
-        if (!dimension) result.set(id, dimension = { label, regions: new Map(), externalChunks: new Map() });
+        if (!dimension) result.set(id, dimension = { label, regions: new Map(), entityRegions: new Map(), externalChunks: new Map() });
         const key = `${x},${z}`;
         if (external) {
             if (dimension.externalChunks.has(key)) throw new Error(`Duplicate external chunk ${file.name} in ${label}. Select files from one world.`);
             dimension.externalChunks.set(key, file);
         } else {
-            if (dimension.regions.has(key)) throw new Error(`Duplicate region ${file.name} in ${label}. Select files from one world.`);
-            dimension.regions.set(key, { x, z, file });
+            const regions = directory === "entities" ? dimension.entityRegions : dimension.regions;
+            if (regions.has(key)) throw new Error(`Duplicate ${directory === "entities" ? "entity " : ""}region ${file.name} in ${label}. Select files from one world.`);
+            regions.set(key, { x, z, file });
         }
     }
-    for (const [id, dimension] of result) if (!dimension.regions.size) result.delete(id);
+    for (const [id, dimension] of result) if (!dimension.regions.size && !dimension.entityRegions.size) result.delete(id);
     if (!result.size) throw new Error("No region files found. Select a Java world folder or r.x.z.mca files.");
     return result;
 }
 
-async function openDimension(id: string): Promise<void> {
+async function openDimension(id: string, preserveCenter = false): Promise<void> {
     const dimension = dimensions.get(id);
     if (!dimension) throw new Error("Choose a dimension from the selected world.");
     const readExternalChunk: AnvilExternalChunkReader = async (x, z) => dimension.externalChunks.get(`${x},${z}`)?.arrayBuffer();
-    const regions = [...dimension.regions.values()].sort((a, b) => Math.hypot(a.x, a.z) - Math.hypot(b.x, b.z));
-    let start: { x: number; z: number; y: number } | undefined;
-    let failureCount = 0;
-    let firstFailure: string | undefined;
-    const recordFailure = (location: string, error: unknown) => {
-        failureCount++;
-        firstFailure ??= `${location}: ${error instanceof Error ? error.message : String(error)}`;
-    };
-    for (const region of regions) {
-        let bytes: ArrayBuffer;
-        let positions: { x: number; z: number }[];
-        try {
-            bytes = await region.file.arrayBuffer();
-            positions = AnvilParser.getChunkList(bytes);
-        } catch (error) {
-            recordFailure(region.file.name, error);
-            continue;
-        }
-        for (const position of positions) {
-            const x = region.x * 32 + position.x, z = region.z * 32 + position.z;
-            try {
-                const chunk = await AnvilParser.parseChunk(bytes, position.x, position.z, {
-                    region: { x: region.x, z: region.z }, readExternalChunk
-                });
-                if (chunk && (chunk.x !== x || chunk.z !== z)) {
-                    throw new Error(`Stored coordinates ${chunk.x}, ${chunk.z} do not match region coordinates ${x}, ${z}.`);
-                }
-                const y = surfaceHeight(chunk);
-                if (y !== undefined) { start = { x, z, y }; break; }
-            } catch (error) {
-                recordFailure(`${region.file.name}, chunk ${x}, ${z}`, error);
-            }
-        }
-        if (start) break;
-    }
-    if (!start) {
-        throw new Error(`${dimension.label} has no visible terrain to display.${firstFailure
-            ? ` ${failureCount} region or chunk reads failed. First failure: ${firstFailure}` : ""}`);
-    }
-    const source = new AnvilWorldSource(async (x, z) => dimension.regions.get(`${x},${z}`)?.file.arrayBuffer(),
-        { readExternalChunk, maxCachedRegions: 4, maxCachedBytes: 64 * 1024 * 1024 });
+    const renderEntities = input("render-entities").checked;
+    const source = new AnvilWorldSource(async (x, z) => dimension.regions.get(`${x},${z}`)?.file.arrayBuffer(), {
+        readExternalChunk,
+        readEntityRegion: renderEntities ? async (x, z) => dimension.entityRegions.get(`${x},${z}`)?.file.arrayBuffer() : undefined,
+        maxCachedRegions: 4, maxCachedBytes: 64 * 1024 * 1024
+    });
     try {
-        element("source-info").textContent = `${dimension.label} · ${dimension.regions.size} region files · ${dimension.externalChunks.size} external chunk files. Files are read on demand; the region cache holds up to 4 files / 64 MiB.`;
-        await replaceSource({ source, label: dimension.label, clearCache: () => source.clearCache() }, start);
+        const regions = [...new Map([
+            ...dimension.regions,
+            ...(renderEntities ? dimension.entityRegions : [])
+        ]).values()].sort((a, b) => Math.hypot(a.x, a.z) - Math.hypot(b.x, b.z));
+        let start: { x: number; z: number; y: number } | undefined;
+        let failureCount = 0;
+        let firstFailure: string | undefined;
+        const recordFailure = (location: string, error: unknown) => {
+            failureCount++;
+            firstFailure ??= `${location}: ${error instanceof Error ? error.message : String(error)}`;
+        };
+        const keepCenter = preserveCenter && active?.dimension === dimension;
+        for (const region of keepCenter ? [] : regions) {
+            const key = `${region.x},${region.z}`;
+            const positions = new Map<string, { x: number; z: number }>();
+            for (const file of [dimension.regions.get(key)?.file, renderEntities ? dimension.entityRegions.get(key)?.file : undefined]) {
+                if (!file) continue;
+                try {
+                    for (const position of AnvilParser.getChunkList(await file.arrayBuffer())) {
+                        positions.set(`${position.x},${position.z}`, position);
+                    }
+                } catch (error) {
+                    recordFailure(file.webkitRelativePath || file.name, error);
+                }
+            }
+            for (const position of positions.values()) {
+                const x = region.x * 32 + position.x, z = region.z * 32 + position.z;
+                try {
+                    const chunk = await source.getChunk(x, z);
+                    const y = surfaceHeight(chunk) ?? (renderEntities && chunk?.entities?.length ? Math.floor(chunk.entities[0].position[1]) : undefined);
+                    if (y !== undefined) { start = { x, z, y }; break; }
+                } catch (error) {
+                    recordFailure(`${region.file.name}, chunk ${x}, ${z}`, error);
+                }
+            }
+            if (start) break;
+        }
+        if (!start && !keepCenter) {
+            throw new Error(`${dimension.label} has no ${renderEntities ? "terrain or saved mobs" : "terrain"} to display.${!renderEntities && dimension.entityRegions.size ? " Enable Render saved mobs to load entity regions." : ""}${firstFailure
+                ? ` ${failureCount} region or chunk reads failed. First failure: ${firstFailure}` : ""}`);
+        }
+        element("source-info").textContent = `${dimension.label} · ${dimension.regions.size} terrain / ${dimension.entityRegions.size} entity region files · ${dimension.externalChunks.size} external chunk files. Regions are read on demand; the shared cache holds up to 4 files / 64 MiB.`;
+        await replaceSource({ source, label: dimension.label, dimension, clearCache: () => source.clearCache() }, start);
     } catch (error) {
         source.clearCache();
         throw error;
@@ -280,6 +290,8 @@ select("dimension").addEventListener("change", () => {
     runChange(() => openDimension(id));
 });
 select("load-radius").addEventListener("change", () => runChange(() => replaceSource(active!)));
+input("render-entities").addEventListener("change", () => runChange(() => select("dimension").disabled
+    ? replaceSource(active!) : openDimension(select("dimension").value, true)));
 element("apply-version").addEventListener("click", () => runChange(async () => {
     const version = input("asset-version").value.trim();
     if (!/^[a-zA-Z0-9_.-]+$/.test(version)) throw new Error("Enter a Minecraft version such as 1.21.11.");
@@ -320,7 +332,7 @@ async function dispose(): Promise<void> {
     renderer.dispose();
 }
 window.addEventListener("pagehide", event => { if (!event.persisted) void dispose().catch(console.error); });
-Object.assign(window, { worldDemo: { renderer, world, get streamer() { return streamer; }, dispose } });
+Object.assign(window, { worldDemo: { renderer, get world() { return world; }, get streamer() { return streamer; }, dispose } });
 input("asset-version").value = AssetLoader.version;
 renderer.start();
 runChange(() => replaceSource(sample, { x: 0, z: 0, y: 5 }));
