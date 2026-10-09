@@ -14,6 +14,7 @@ The private Yarn workspace root contains the public library and its consumers. U
 |---|---|
 | `packages/minerender/` | Public `minerender` library, moved from the V2 repository root. Browser, Node, and IIFE delivery formats retain their package paths. |
 | `apps/web/` | MineRenderWeb demo/test pages, built with esbuild against the library workspace. |
+| `apps/api/` | Node HTTP rendering service. `POST /v1/renders` accepts scene documents; metadata and PNGs live in a bounded, expiring memory cache. See its README for the request contract and configuration. |
 | `apps/site/` | V2 website (Vite + TypeScript, no framework): feature overview, live examples, usage docs. Examples live in `src/examples/*.ts`; `src/viewport/` lazily creates renderers and caps how many are alive at once. See its README. |
 | `examples/vite/` | Vue 3 + Vite consumer, imported from `MineRender/example-vite`. Uses ESM named imports and a workspace dependency. |
 | `examples/script-tag/` | Plain HTML consumer, imported from `MineRender/example-bundle`. Loads the library's IIFE as `MineRender`. |
@@ -34,6 +35,7 @@ The private Yarn workspace root contains the public library and its consumers. U
   |---|---|
   | `yarn build` | Build the library, web demos, and both examples. |
   | `yarn build:lib` | Build the public library only. |
+  | `yarn build:api`, `yarn start:api`, `yarn test:api` | Build the library and HTTP service, run the built service, or test its HTTP contract. |
   | `yarn test` | Run the library's AVA tests. |
   | `yarn test:node` | After `yarn build:lib`, test native WebGL 2 rendering and Node package exports with `canvas` and `gl`; use `xvfb-run -a yarn test:node` on headless Linux with the platform dependencies installed. |
   | `yarn typecheck` | Typecheck the library and Vite example. |

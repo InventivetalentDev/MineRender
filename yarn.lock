@@ -1572,6 +1572,20 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@minerender/api@workspace:apps/api":
+  version: 0.0.0-use.local
+  resolution: "@minerender/api@workspace:apps/api"
+  dependencies:
+    "@types/node": "npm:^20.17.6"
+    "@types/three": "npm:~0.186.0"
+    ava: "npm:^5.3.1"
+    fast-png: "npm:^8.0.0"
+    minerender: "workspace:*"
+    three: "npm:^0.186.1"
+    typescript: "npm:~5.6.3"
+  languageName: unknown
+  linkType: soft
+
 "@minerender/example-script-tag@workspace:examples/script-tag":
   version: 0.0.0-use.local
   resolution: "@minerender/example-script-tag@workspace:examples/script-tag"

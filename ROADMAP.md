@@ -44,7 +44,7 @@ legacy website cleanup is a separate task.
 | Embeds & website | minerender.org + iframe embeds | V2 website, configurable playgrounds, consumer examples, and API reference implemented; playground/editor hosting pending, iframe embeds remain | low |
 | **Large-scale worlds (V2 goal)** | n/a | Paletted signed chunks, opt-in static opaque section meshes, neighbor face culling, block visibility, and camera-driven chunk streaming with bounded retention; lighting, biome tint, and LOD remain | high |
 | **Anvil .mca / world formats (V2 goal)** | n/a | Java 1.13+ paletted regions, lazy multi-region world sources, DataVersion, and a local world-folder demo with dimension selection; no LZ4, external chunks, or data fixing | high |
-| **Node headless rendering (V2 goal)** | faked externally by MineRenderServer | DOM-free renderer with injected WebGL 2, native `NodeRenderer.create()`, and PNG buffers; HTTP wrapper remains | partial |
+| **Node headless rendering (V2 goal)** | faked externally by MineRenderServer | DOM-free renderer with injected WebGL 2, native `NodeRenderer.create()`, PNG buffers, and a scene-document HTTP API | complete |
 | Bedrock geometry (V2 ambition) | n/a | Type declarations only | low |
 | Instancing architecture | merged Geometry + instanced-mesh fork | Reusable slots, growing buffers, explicit mesh ownership, and per-placement references; shared-owner transforms affect all live instances, blockstate-level deduplication remains | high |
 
@@ -103,7 +103,7 @@ Decoding and mesh construction run on the main thread; worker-based preparation 
 ### 12. Node headless rendering entry point — high
 ~~Make `Renderer` constructible without DOM through an injected canvas and WebGL 2 context.~~ ~~Add `renderOnce()` and Node-only `NodeRenderer.renderToBuffer()` for fresh frames and PNG buffers without the animation loop.~~ `NodeRenderer.create({ width, height, ...options })` owns a native context from optional `gl@9.0.0-rc.10` (experimental WebGL 2); the Node entry uses `canvas` 3 for texture preparation. Injected contexts remain caller-owned. See [platform setup and usage](./packages/minerender/reference/platforms.md).
 
-A thin V2 HTTP server remains separate work: revive `GET /render/skin/:texture` and `GET /render/model/:type/:model` using `InventivetalentDev/MineRenderServer` as the endpoint contract reference. V2 exposes the scene and camera publicly.
+~~Add a V2 HTTP rendering service.~~ [`apps/api`](./apps/api/README.md) accepts versioned scene documents at `POST /v1/renders` and serves render metadata and PNG images. Rendering uses isolated processes, bounded concurrency, deadlines, and an expiring memory cache. Hosting and persistent render storage remain separate work.
 
 ### 13. Anvil region (.mca) + schematic loaders — high
 ~~Add a world-format layer feeding chunk storage: `.mca` sector tables, section palettes and DataVersion; preserve NBT type/compression metadata; implement legacy `.schematic` ID/metadata and AddBlocks conversion; retain structure entities and DataVersion.~~ ~~Support custom legacy schematic mappings and opt-in lenient parsing.~~ Pre-1.13 numeric Anvil chunks, LZ4 and external `.mcc` payloads, Sponge `.schem`, Litematica, rendering ordinary entities from saved NBT, and DataVersion-based migration remain.
