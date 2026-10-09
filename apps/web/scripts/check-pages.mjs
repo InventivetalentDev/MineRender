@@ -97,6 +97,7 @@ async function visit(url, name) {
         await page.screenshot({ path: path.join(shots, `${name}.png`) });
         const tintPresets = {
             dyed_leather: { 0: 0x3f76e4 }, potion_color: { 0: 0xd557ef }, map_color: { 0: 0xffffff, 1: 0xe0a63a },
+            potion_healing: { 0: 0xf82423 }, splash_potion: { 0: 0x33ebff }, lingering_potion: { 0: 0x87a363 }, tipped_arrow: { 0: 0x66bbe3 },
             firework_color: { 0: 0xffffff, 1: 0x7f007f }, custom_model_color: { 0: 0x55ff55 }
         };
         const expectedTints = url.startsWith("demo/item/") && tintPresets[new URL(url, base).searchParams.get("preset")];

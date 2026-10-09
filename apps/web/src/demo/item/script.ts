@@ -1,4 +1,4 @@
-import { AssetKey, BannerPatterns, DISPLAY_POSITIONS, DisplayPosition, ItemGlint, ModelMerger, Models, isGuiObject, isInstanceReference, isModelObject, type GuiObject, type ItemModel, type ItemModelContext } from "minerender";
+import { AssetKey, BannerPatterns, DISPLAY_POSITIONS, DisplayPosition, ItemGlint, ItemTints, ModelMerger, Models, isGuiObject, isInstanceReference, isModelObject, type GuiObject, type ItemModel, type ItemModelContext } from "minerender";
 import { Box3, OrthographicCamera, PerspectiveCamera, Vector2 } from "three";
 import { Playground, type DemoContext, type DemoContent } from "../../playground/Playground";
 import { button, field, group, input, note, section, select, suggestions } from "../../playground/controls";
@@ -57,7 +57,17 @@ const app = new Playground<ItemSettings>({
         clock: { label: "Clock (time 0–1)", state: { item: "minecraft:clock", preview: "slot",
             properties: { "minecraft:time": 0, "minecraft:context_dimension": "minecraft:overworld" },
             components: { "minecraft:enchantment_glint_override": true } }, view: guiView },
-        potion: { label: "Potion (tinted)", state: { item: "minecraft:potion", tints: { 0: 0xd557ef } } },
+        potion: { label: "Potion (explicit tint override)", state: { item: "minecraft:potion", tints: { 0: 0xd557ef } } },
+        potion_healing: { label: "Potion of healing", state: { item: "minecraft:potion", display: DisplayPosition.GUI,
+            components: { "minecraft:potion_contents": "minecraft:healing" } }, view: guiView },
+        splash_potion: { label: "Splash potion of swiftness", state: { item: "minecraft:splash_potion", display: DisplayPosition.GUI,
+            components: { "minecraft:potion_contents": { potion: "minecraft:swiftness" } } }, view: guiView },
+        lingering_potion: { label: "Lingering potion of poison", state: { item: "minecraft:lingering_potion", display: DisplayPosition.GUI,
+            components: { "minecraft:potion_contents": { potion: "minecraft:poison" } } }, view: guiView },
+        tipped_arrow: { label: "Tipped arrow (custom effect colors)", state: { item: "minecraft:tipped_arrow", display: DisplayPosition.GUI,
+            components: { "minecraft:potion_contents": { custom_effects: [
+                { id: "minecraft:speed", amplifier: 1 }, { id: "minecraft:regeneration" }
+            ] } } }, view: guiView },
         dyed_leather: { label: "Dyed leather (blue component)", state: { item: "minecraft:leather_chestplate", display: DisplayPosition.GUI,
             components: { "minecraft:dyed_color": 0x3f76e4 } }, view: guiView },
         potion_color: { label: "Potion (custom color component)", state: { item: "minecraft:potion", display: DisplayPosition.GUI,
@@ -391,8 +401,41 @@ function referenceKey(value: unknown): AssetKey {
     return modelKey(stateId(value.trim()));
 }
 
-function syncComponentColors(state: ItemSettings): void {
+function syncComponentColors(state: ItemSettings, potionColor?: number): void {
     componentColors.replaceChildren();
+    const potionId = Object.prototype.hasOwnProperty.call(state.components, "potion_contents") ? "potion_contents" : "minecraft:potion_contents";
+    const potion = state.components[potionId];
+    if (potion !== undefined || /^(?:minecraft:)?(?:potion|splash_potion|lingering_potion|tipped_arrow)$/.test(state.item)) {
+        const contents = typeof potion === "string" ? { potion } : potion && typeof potion === "object" && !Array.isArray(potion) ? potion as Record<string, unknown> : {};
+        let currentPotion = typeof contents.potion === "string" ? contents.potion : "";
+        if (currentPotion && !currentPotion.includes(":")) currentPotion = `minecraft:${currentPotion}`;
+        const options: Array<[string, string]> = ItemTints.getPotionList().map(id => [id,
+            id.replace(/^minecraft:/, "").replace(/_/g, " ").replace(/^./, letter => letter.toUpperCase())]);
+        if (currentPotion && !options.some(([id]) => id === currentPotion)) options.unshift([currentPotion, currentPotion]);
+        const control = select(componentColors, "Potion", [["", "No base potion"], ...options], currentPotion);
+        control.id = "item-potion";
+        const edit = (change: (value: Record<string, unknown>) => void) => {
+            if (control.disabled || app.state.item !== state.item || JSON.stringify(app.state.components) !== JSON.stringify(state.components)) return;
+            const next = structuredClone(state.components);
+            const value = structuredClone(contents);
+            change(value);
+            next[potionId] = value;
+            control.disabled = true;
+            void app.update({ components: next });
+        };
+        control.addEventListener("change", () => edit(value => {
+            if (control.value) value.potion = control.value;
+            else delete value.potion;
+        }));
+        const customColor = typeof contents.custom_color === "number" ? contents.custom_color & 0xffffff : undefined;
+        const color = input(componentColors, "Potion color", `#${(customColor ?? potionColor ?? 0xffffff).toString(16).padStart(6, "0")}`, "color");
+        color.dataset.itemColor = potionId;
+        color.addEventListener("change", () => edit(value => { value.custom_color = parseInt(color.value.slice(1), 16); }));
+        button(componentColors, "Use potion and effect colors", () => edit(value => { delete value.custom_color; })).disabled = contents.custom_color === undefined;
+        note(componentColors, contents.custom_color === undefined ? "Color follows the potion and visible custom effects. Choosing a color overrides both."
+            : "Custom color overrides potion and effect colors. Use potion and effect colors to remove it.");
+        if (Object.keys(state.tints).length) note(componentColors, "Explicit colors under Tint colors override component colors at the same index.");
+    }
     const add = (id: string, title: string, value: unknown, path: Array<string | number> = [], allowTriple = false) => {
         let rgb: number;
         if (typeof value === "number" && Number.isInteger(value) && value >= -2147483648 && value <= 2147483647) rgb = value & 0xffffff;
@@ -427,8 +470,7 @@ function syncComponentColors(state: ItemSettings): void {
         else if (name === "map_color") add(id, "Map color", value);
         else if (value && typeof value === "object" && !Array.isArray(value)) {
             const data = value as Record<string, unknown>;
-            if (name === "potion_contents") add(id, "Potion color", data.custom_color, ["custom_color"]);
-            else if ((name === "firework_explosion" || name === "custom_model_data") && Array.isArray(data.colors)) {
+            if ((name === "firework_explosion" || name === "custom_model_data") && Array.isArray(data.colors)) {
                 data.colors.forEach((color, index) => add(id,
                     name === "firework_explosion" ? `Firework color ${index + 1}` : `Custom model color (index ${index})`,
                     color, ["colors", index], name === "custom_model_data"));
@@ -437,7 +479,7 @@ function syncComponentColors(state: ItemSettings): void {
     }
 }
 
-function syncStateControls(state: ItemSettings, items: string[]): void {
+function syncStateControls(state: ItemSettings, items: string[], potionColor?: number): void {
     stackState = state;
     profileGuard.sync(state);
     const profile = state.components.profile ?? state.components["minecraft:profile"];
@@ -462,7 +504,7 @@ function syncStateControls(state: ItemSettings, items: string[]): void {
         control.disabled = false;
     }
     slotNote.hidden = state.preview !== "slot";
-    syncComponentColors(state);
+    syncComponentColors(state, potionColor);
     components.value = JSON.stringify(state.components, null, 2);
     propertyEntries.replaceChildren();
     for (const [id, value] of Object.entries(state.properties)) {
@@ -584,7 +626,13 @@ async function load(ctx: DemoContext, state: ItemSettings): Promise<DemoContent>
             statuePose.disabled = override !== undefined;
             statuePoseNote.hidden = override === undefined;
             syncBannerControls(state, patterns);
-            syncStateControls(state, list);
+            let potionColor: number | undefined;
+            visual.traverse(child => {
+                if (!isModelObject(child)) return;
+                const index = (child.originalModel as ItemModel).tints?.findIndex(source => source.type.replace(/^minecraft:/, "") === "potion");
+                if (index !== undefined && index >= 0) potionColor = child.options.tints?.[index];
+            });
+            syncStateControls(state, list, potionColor);
             syncModelControls();
             if (isGuiObject(object)) app.inspector?.selectObject(object);
             else selectModel(app, object);
