@@ -15,10 +15,16 @@
             <button id="save-scene" class="primary">Save JSON</button>
             <button id="show-code">Use in code</button>
             <select id="export-format" aria-label="Export format">
-                <option value="png">PNG image</option><option value="glb">GLB model</option>
+                <option value="png">PNG image</option><option value="video">Video</option><option value="glb">GLB model</option>
                 <option value="gltf">glTF model</option><option value="obj">OBJ model</option><option value="ply">PLY model</option>
             </select>
             <button id="export-scene">Export</button>
+            <button id="cancel-recording" hidden>Cancel recording</button>
+            <div id="video-settings" hidden>
+                <label>Duration (seconds)<input id="video-duration" type="number" min="0.1" max="120" step="0.1" value="5" required></label>
+                <label>Video FPS<input id="video-fps" type="number" min="1" max="60" step="1" value="30" required></label>
+                <p class="editor-note">Records in real time without audio. Transparent areas become black. Your browser chooses WebM or MP4.</p>
+            </div>
         </nav>
     </header>
     <div class="workspace">

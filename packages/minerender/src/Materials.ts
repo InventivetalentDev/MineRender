@@ -91,6 +91,7 @@ export class Materials {
                 material.depthWrite = false;
                 break;
             case "eyes":
+            case "no_outline":
                 material.transparent = true;
                 material.alphaTest = 0;
                 material.depthWrite = false;

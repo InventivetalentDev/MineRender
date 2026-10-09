@@ -1,4 +1,4 @@
-import { Box2, Box3, BufferGeometry, DoubleSide, Group, Matrix4, Mesh, MeshBasicMaterial, ShaderMaterial, Vector2 } from "three";
+import { Box2, Box3, BufferGeometry, DoubleSide, Group, Matrix4, Mesh, MeshBasicMaterial, Vector2 } from "three";
 import { AssetKey } from "../../assets/AssetKey";
 import { ModelTextures } from "../../assets/ModelTextures";
 import { Models } from "../../assets/Models";
@@ -9,8 +9,6 @@ import { Materials } from "../../Materials";
 import { GuiItemLayer, GuiLayer } from "../GuiLayer";
 import { ModelObject } from "../../model/scene/ModelObject";
 import { DisplayPosition } from "../../model/DisplayPosition";
-import { GuiLight } from "../../model/GuiLight";
-import type { ItemModel } from "../../model/Model";
 import { createGuiTextureGeometry } from "../GuiTextureGeometry";
 import { createGuiTextGeometry, layoutGuiText } from "../GuiText";
 import type { CompatCanvas } from "../../canvas/CanvasCompat";
@@ -89,12 +87,16 @@ export class GuiObject extends SceneObject {
                         mesh.geometry.computeBoundingBox();
                         bounds.union(mesh.geometry.boundingBox!.clone().applyMatrix4(new Matrix4().multiplyMatrices(inverse, mesh.matrixWorld)));
                     });
-                    item.position.z = depth - bounds.min.z;
-                    depth += bounds.max.z - bounds.min.z + 0.01;
+                    item.position.z = depth;
+                    if (!bounds.isEmpty()) {
+                        item.position.z -= bounds.min.z;
+                        depth += bounds.max.z - bounds.min.z;
+                        this.bounds.expandByPoint(new Vector2(bounds.min.x, -bounds.max.y));
+                        this.bounds.expandByPoint(new Vector2(bounds.max.x, -bounds.min.y));
+                    }
+                    depth += 0.01;
                     this.bounds.expandByPoint(new Vector2(x, y));
                     this.bounds.expandByPoint(new Vector2(x + width, y + height));
-                    this.bounds.expandByPoint(new Vector2(bounds.min.x, -bounds.max.y));
-                    this.bounds.expandByPoint(new Vector2(bounds.max.x, -bounds.min.y));
                     continue;
                 }
                 const key = typeof layer.texture === "string" ? AssetKey.parse("textures", layer.texture) : layer.texture;
@@ -126,7 +128,7 @@ export class GuiObject extends SceneObject {
 
     private async createItem(layer: GuiItemLayer, index: number): Promise<ModelObject> {
         const key = typeof layer.item === "string" ? AssetKey.parse("models", layer.item) : layer.item;
-        const model = await Models.getMerged(key);
+        const model = await Models.getMerged(key, { ...layer.context, displayContext: DisplayPosition.GUI });
         if (!model) throw new Error(`Could not load GUI item ${key.toNamespacedString()}`);
         const item = new ModelObject(model, {
             displayPosition: DisplayPosition.GUI, tints: layer.tints, instanceMeshes: false, mergeMeshes: true
@@ -134,16 +136,14 @@ export class GuiObject extends SceneObject {
         item.name = `group:${layer.name ?? index}`;
         this.add(item);
         await item.init();
-        item.iterateAllMeshes(mesh => {
-            if (!(model as ItemModel).special) this.geometries.add(mesh.geometry);
+        const meshes: Mesh[] = [];
+        item.iterateAllMeshes(mesh => meshes.push(mesh));
+        meshes.forEach((mesh, partIndex) => {
             mesh.name = `mesh:${layer.name ?? index}`;
-            mesh.renderOrder = index;
+            mesh.renderOrder = index + partIndex / (meshes.length + 1) * 0.5;
             for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
                 // GUI textures and items share the transparent pass so renderOrder applies to both.
                 material.transparent = true;
-                if ((model as ItemModel).gui_light === GuiLight.FRONT && (material as ShaderMaterial).uniforms?.SHADE) {
-                    (material as ShaderMaterial).uniforms.SHADE.value = false;
-                }
             }
         });
         return item;

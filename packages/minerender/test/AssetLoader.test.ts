@@ -15,7 +15,7 @@ let defaults: Array<{ name: string; source: AssetSource }>;
 
 test.beforeEach(() => {
     defaults = [];
-    for (const name of ["mcassets", "mcassets-fallback"]) {
+    for (const name of ["mcassets"]) {
         const source = AssetLoader.removeSource(name);
         if (source) defaults.push({ name, source });
     }

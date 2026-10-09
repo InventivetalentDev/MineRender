@@ -44,6 +44,7 @@ Use the environment that supports the operation:
 | Interactive `Renderer`, controls, inspector, and DOM displays | Supported | Requires a browser environment; the Node provider does not supply one |
 | ZIP resource packs | [BrowserArchiveProxy](/api/index/classes/BrowserArchiveProxy) | No Node-specific archive proxy is provided |
 | glTF and GLB export | Supported through [SceneExporter](/api/index/classes/SceneExporter) | Requires browser canvas and `FileReader` |
+| Video export | `Renderer.toVideo()` requires canvas `captureStream()` and `MediaRecorder`; formats depend on the browser | Requires a browser environment |
 
 `Renderer.toImage()` returns a data URL from its browser canvas. It does not provide a Node `Buffer` result. Importing the Node build makes the shared APIs available; it does not make every exported class usable without a browser.
 
