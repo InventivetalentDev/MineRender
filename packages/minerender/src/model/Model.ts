@@ -53,6 +53,7 @@ export type ItemTintSource =
 export type SpecialItemRenderer =
     | { type: "banner" | "minecraft:banner"; color: DyeColor }
     | { type: "shield" | "minecraft:shield" }
+    | { type: "decorated_pot" | "minecraft:decorated_pot" }
     | { type: "trident" | "minecraft:trident" | "conduit" | "minecraft:conduit" }
     | { type: "chest" | "minecraft:chest"; texture: string; openness?: number }
     | { type: "shulker_box" | "minecraft:shulker_box"; texture: string; openness?: number;

@@ -57,6 +57,9 @@ const app = new Playground<ItemSettings>({
         trident: { label: "Trident (held or throwing)", state: { item: "minecraft:trident", display: DisplayPosition.THIRDPERSON_RIGHTHAND,
             properties: { "minecraft:using_item": false } }, view: { camera: { position: [40, 24, 70], target: [0, 0, 0], zoom: 1 } } },
         conduit: { label: "Conduit in GUI pose", state: { item: "minecraft:conduit", display: DisplayPosition.GUI }, view: guiView },
+        decorated_pot: { label: "Decorated pot (four sherds)", state: { item: "minecraft:decorated_pot", display: DisplayPosition.GUI,
+            components: { "minecraft:pot_decorations": ["minecraft:angler_pottery_sherd", "minecraft:archer_pottery_sherd",
+                "minecraft:arms_up_pottery_sherd", "minecraft:blade_pottery_sherd"] } }, view: guiView },
         bundle: {
             label: "Bundle with a selected item",
             state: { item: "minecraft:bundle", display: DisplayPosition.GUI,
@@ -120,6 +123,34 @@ const shulkerOrientation = select(shulkerGroup, "Direction", SHULKER_DIRECTIONS.
 shulkerOrientation.id = "item-shulker-orientation";
 shulkerOrientation.addEventListener("change", () => void app.update({ shulkerOrientation: shulkerOrientation.value as ShulkerDirection }));
 note(shulkerGroup, "Preview the lid opening and direction.");
+const potGroup = group(app.controls, "Decorated pot");
+potGroup.hidden = true;
+const potSides = ["Back", "Left", "Right", "Front"];
+const sherdLabel = (id: string) => id.replace(/^minecraft:/, "").replace(/_pottery_sherd$/, "").replace(/_/g, " ").replace(/^./, letter => letter.toUpperCase());
+const sherdOptions: Array<[string, string]> = [["minecraft:brick", "Plain (brick)"], ...[
+    "angler", "archer", "arms_up", "blade", "brewer", "burn", "danger", "explorer", "flow", "friend", "guster",
+    "heart", "heartbreak", "howl", "miner", "mourner", "plenty", "prize", "scrape", "sheaf", "shelter", "skull", "snort"
+].map(name => [`minecraft:${name}_pottery_sherd`, sherdLabel(name)] as [string, string])];
+const potGuard = itemControlGuard(potGroup);
+const potControls = potSides.map((side, index) => {
+    const control = select(potGroup, side, sherdOptions, "minecraft:brick");
+    control.dataset.potSide = side.toLowerCase();
+    control.addEventListener("change", () => {
+        if (!potGuard.matches()) return;
+        const current = app.state.components;
+        if (!current || typeof current !== "object" || Array.isArray(current)) return;
+        const components = structuredClone(current);
+        const id = Object.prototype.hasOwnProperty.call(components, "pot_decorations") ? "pot_decorations" : "minecraft:pot_decorations";
+        if (components[id] !== undefined && !Array.isArray(components[id])) return;
+        const decorations = (components[id] ?? []) as string[];
+        while (decorations.length <= index) decorations.push("minecraft:brick");
+        decorations[index] = control.value;
+        components[id] = decorations;
+        potGuard.update({ components });
+    });
+    return control;
+});
+note(potGroup, "Rotate the preview to see each side.");
 const syncBannerControls = bannerControls(app.controls, () => app.state, patch => { void app.update(patch); });
 const stackGroup = group(app.controls, "Item stack");
 const count = input(stackGroup, "Count", app.state.count, "number");
@@ -169,6 +200,24 @@ button(addReference, "Add reference", () => {
 });
 const syncModelControls = modelControls(app);
 syncModelControls();
+
+function itemControlGuard(controls: HTMLFieldSetElement, keys: Array<keyof ItemSettings> = ["item", "components"]) {
+    let snapshot: string | undefined;
+    const serialize = (state: ItemSettings) => JSON.stringify(keys.map(key => state[key]));
+    const matches = () => !controls.disabled && snapshot === serialize(app.state);
+    return {
+        sync(state: ItemSettings) {
+            snapshot = serialize(state);
+            controls.disabled = false;
+        },
+        matches,
+        update(patch: Partial<ItemSettings>) {
+            if (!matches()) return;
+            controls.disabled = true;
+            void app.update(patch);
+        }
+    };
+}
 
 function isModelPath(item: string): boolean {
     return /^(?:[a-z0-9_.-]+:)?(?:item|block)\//.test(item.trim());
@@ -341,6 +390,16 @@ async function load(ctx: DemoContext, state: ItemSettings): Promise<DemoContent>
             shulkerOpenness.value = String(state.shulkerOpenness);
             shulkerOpennessValue.value = String(state.shulkerOpenness);
             shulkerOrientation.value = state.shulkerOrientation;
+            potGuard.sync(state);
+            const decorations = state.components.pot_decorations ?? state.components["minecraft:pot_decorations"];
+            potGroup.hidden = state.item !== "minecraft:decorated_pot" && state.item !== "decorated_pot" && decorations === undefined;
+            potControls.forEach((control, index) => {
+                const item = Array.isArray(decorations) ? decorations[index] : undefined;
+                const id = typeof item === "string" ? (item.includes(":") ? item : `minecraft:${item}`) : "minecraft:brick";
+                control.replaceChildren(...sherdOptions.map(([value, label]) => new Option(label, value)));
+                if (!sherdOptions.some(([value]) => value === id)) control.append(new Option(`${sherdLabel(id)} (plain)`, id));
+                control.value = id;
+            });
             syncBannerControls(state, patterns);
             syncStateControls(state, list);
             syncModelControls();
