@@ -10,7 +10,6 @@ import { ListAsset } from "../ListAsset";
 import { AssetParser } from "./source/parser/AssetParsers";
 import { DisplayPosition } from "../model/DisplayPosition";
 import { DYE_COLORS } from "./BannerPatterns";
-import itemGlintDefaults from "../model/itemGlintDefaults.json";
 import { ItemDefaults } from "../model/ItemDefaults";
 
 /** Caller-supplied item-preview state passed to {@link Models.getMerged}. */
@@ -21,7 +20,7 @@ export interface ItemModelContext {
     properties?: Record<string, boolean | string | number>;
     /** Supplied component JSON by ID, overriding built-in defaults. Component selectors compare structural JSON values. */
     components?: Record<string, unknown>;
-    /** Stack count, as a nonnegative integer. Defaults to 1; missing `max_stack_size` on unknown items also defaults to 1. */
+    /** Stack count, as a nonnegative integer. Defaults to 1; items without listed defaults stack to 64. */
     count?: number;
     /** Item-model keys by reference-node ID, such as `minecraft:bundle/selected_item`. Unset references draw nothing. */
     itemReferences?: Record<string, AssetKey>;
@@ -142,11 +141,6 @@ export class Models {
             for (const [id, value] of Object.entries(ItemDefaults.get(`${key.namespace}:${key.path}`))) {
                 if (!Object.prototype.hasOwnProperty.call(components, id)) components[id] = value;
             }
-        }
-        // Vanilla items whose default enchantment_glint_override component is true; the list has not changed across versions.
-        if (key.type === "item" && key.namespace === DEFAULT_NAMESPACE && itemGlintDefaults.includes(key.path)
-            && !Object.prototype.hasOwnProperty.call(components, "minecraft:enchantment_glint_override")) {
-            components["minecraft:enchantment_glint_override"] = true;
         }
         const itemReferences: Record<string, AssetKey> = {};
         for (const [id, value] of Object.entries(context.itemReferences ?? {})) {
