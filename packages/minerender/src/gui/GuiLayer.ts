@@ -24,8 +24,10 @@ export interface GuiTextureLayer extends GuiLayerLayout {
 export interface GuiItemLayer extends GuiLayerLayout {
     /** Model key, such as minecraft:item/stone; uses the model's GUI display pose. */
     item: AssetKey | string;
-    /** Supplied item state. GUI layers always select models in the GUI display context. */
+    /** Supplied item state, count label, and damage bar. Count zero leaves an empty slot; models always use the GUI display context. */
     context?: Omit<ItemModelContext, "displayContext">;
+    /** Draw count labels and durability bars. Defaults to true. */
+    decorations?: boolean;
     /** sRGB 0xRRGGBB colors by face tint index, overriding the item's automatic preview colors. */
     tints?: Record<number, number>;
 }
