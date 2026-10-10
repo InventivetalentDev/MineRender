@@ -4,7 +4,7 @@ import { AssetKey } from "../assets/AssetKey";
 import { AssetLoader } from "../assets/AssetLoader";
 import { BlockStates } from "../assets/BlockStates";
 import { Entities } from "../assets/Entities";
-import { Models } from "../assets/Models";
+import { ItemModelContext, Models } from "../assets/Models";
 import type { BasicMinecraftAsset } from "../MinecraftAsset";
 import { DisplayPosition } from "../model/DisplayPosition";
 import { MineRenderScene } from "../renderer/MineRenderScene";
@@ -14,7 +14,20 @@ import { EntityObject } from "../entity/scene/EntityObject";
 import { SkinObject } from "../skin/scene/SkinObject";
 import { Skins } from "../skin/Skins";
 import { GuiObject } from "../gui/scene/GuiObject";
-import { parseSceneDocument, SceneDocument, SceneObjectDefinition } from "./SceneDocument";
+import type { GuiLayer } from "../gui/GuiLayer";
+import { parseSceneDocument, SceneDocument, SceneItemContext, SceneObjectDefinition } from "./SceneDocument";
+
+function itemKey(asset: string): AssetKey {
+    const key = AssetKey.parse("models", asset);
+    return key.type === "item" ? key : new AssetKey(key.namespace, key.getFullPath(), "models", "item");
+}
+
+function itemContext(context: SceneItemContext | undefined): ItemModelContext {
+    const { itemReferences, ...rest } = context ?? {};
+    return itemReferences
+        ? { ...rest, itemReferences: Object.fromEntries(Object.entries(itemReferences).map(([id, item]) => [id, itemKey(item)])) }
+        : rest;
+}
 
 export interface LoadedSceneObject {
     readonly root: Group;
@@ -163,11 +176,8 @@ export class SceneDocumentLoader {
                 }
                 case "item":
                 case "model": {
-                    let key = AssetKey.parse("models", definition.asset);
-                    if (definition.type === "item" && key.type !== "item") {
-                        key = new AssetKey(key.namespace, key.getFullPath(), "models", "item");
-                    }
-                    const model = await Models.getMerged(key);
+                    const key = definition.type === "item" ? itemKey(definition.asset) : AssetKey.parse("models", definition.asset);
+                    const model = await Models.getMerged(key, definition.type === "item" ? itemContext(definition.context) : {});
                     if (!model) throw new Error(`Could not load ${definition.type} ${definition.asset}`);
                     object = await content.addModel(model, { ...(definition.type === "item" ? { displayPosition: DisplayPosition.GUI } : {}),
                         ...definition.options, instanceMeshes: false }) as SceneObject;
@@ -191,7 +201,8 @@ export class SceneDocumentLoader {
                     break;
                 }
                 case "gui":
-                    object = await content.initialize(new GuiObject(definition.layers));
+                    object = await content.initialize(new GuiObject(definition.layers.map((layer): GuiLayer =>
+                        "item" in layer ? { ...layer, context: layer.context && itemContext(layer.context) } : layer)));
                     break;
             }
             let disposed = false;

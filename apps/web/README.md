@@ -19,19 +19,19 @@ These paths are relative to the development server root:
 |---|---|
 | `editor/` | Mixed scenes with object controls, transforms, animations, import, and export |
 | `demo/block/` | Blockstates with property pickers, multipart models, block entities, tints |
-| `demo/item/` | Item definitions or model files, display poses, tints |
+| `demo/item/` | Item definitions or model files, display poses, tints, data components and properties, banner, shield, shulker box, trident, and bundle previews |
 | `demo/skin/` | Player skins and capes, model/layout overrides, poses, visible parts |
 | `demo/entity/` | Dataset passes or manual layers, states, tints, texture overrides, keyframe animations |
-| `demo/gui/` | Chest and recipe layouts, custom texture/item layers, layer JSON |
-| `demo/structure/` | Built-in structures, local `.nbt`/`.schematic`/`.mca` files, random block workloads, section meshing, block edits |
+| `demo/gui/` | Chest, recipe, boss bar, and book layouts, custom texture/item/text layers, layer JSON |
+| `demo/structure/` | Built-in structures, local `.nbt`/`.schematic`/`.schem`/`.litematic`/`.mca` files, random block workloads, section meshing, block edits |
 | `demo/world/` | Local Java world folders and region files, dimension selection, view-center chunk streaming, sample terrain |
 | `demo/custom_model/` | Java model JSON editor |
-| `demo/exports/` | Image and 3D export of a small instanced scene |
+| `demo/exports/` | Image, video, and 3D export of a small instanced scene |
 | `demo/materials/` | Canvas material shader regression check |
 
-The sidebar from `src/playground/Playground.ts` provides presets, renderer and camera settings, Minecraft version / hosted root / resource-pack ZIP, exports, and a shareable link or JSON that restores the page state. Local files are not part of shared links and have to be selected again.
+The sidebar from `src/playground/Playground.ts` provides presets, renderer and camera settings, Minecraft version / hosted root / resource-pack ZIP, image, video, and 3D exports, and a shareable link or JSON that restores the page state. Local files are not part of shared links and have to be selected again.
 
-The world page uses a separate streaming viewer. Select a world folder or region files, choose the matching asset version, then pan or enter chunk coordinates. Local saves start with one chunk; increase the load radius to include neighbors. File contents stay in the browser. Lighting, biome tint, LOD, pre-1.13 numeric chunks, LZ4, and external `.mcc` payloads remain unsupported.
+The world page uses a separate streaming viewer. Select a world folder or region files with their external `c.x.z.mcc` chunk files, choose a dimension, then pan or enter chunk coordinates. Pre-1.13 numeric chunks use the legacy schematic mappings and modern assets; those mappings do not reconstruct states from neighbors or block-entity NBT. For paletted chunks, choose the matching asset version. Local saves start with one chunk; increase the load radius to include neighbors. Enable **Render saved mobs** to load supported mobs from embedded records and the dimension's `entities/` folder. Entity regions require a world-folder selection; loose files are treated as terrain. File contents stay in the browser. Lighting, biome tint, and LOD remain unsupported.
 
 ## Adding a page
 

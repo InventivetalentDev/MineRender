@@ -238,6 +238,43 @@ test.serial("scrolling modes follow entity age on an owned texture and stop on d
     t.is(Ticker["interval"], undefined);
 });
 
+test.serial("failed initialization waits for remaining layers before owned resources are disposed", async t => {
+    fixture(t);
+    const key = new BasicAssetKey("minecraft", "fixture");
+    const layers = {
+        main: { key, layer: geometry(), texture: textureKey("failed") },
+        wind: { key, layer: geometry("breeze_wind"), texture: textureKey("delayed") }
+    };
+    const object = new EntityObject({ ...layers.main, id: "minecraft:fixture", layers });
+    t.teardown(() => object.dispose());
+    let resolveTexture!: (value: ExtractableImageData) => void;
+    const texture = new Promise<ExtractableImageData>(resolve => { resolveTexture = resolve; });
+    const error = new Error("main texture failed");
+    ModelTextures.get = async requested => {
+        if (requested.path === "failed") throw error;
+        return texture;
+    };
+    let settled = false;
+    const initialization = object.init().then(() => { settled = true; }, reason => {
+        settled = true;
+        return reason;
+    });
+    await new Promise(resolve => setTimeout(resolve, 0));
+    t.false(settled);
+    resolveTexture({ width: 64, height: 32, data: { canvas } } as unknown as ExtractableImageData);
+    t.is(await initialization, error);
+
+    let disposed = 0;
+    const wind = material(object, "wind");
+    wind.addEventListener("dispose", () => disposed++);
+    wind.map!.addEventListener("dispose", () => disposed++);
+    object.getMeshByName("root", "wind")!.geometry.addEventListener("dispose", () => disposed++);
+    object.dispose();
+    await Promise.resolve();
+    t.is(disposed, 3);
+    t.is(object["scrollMaterials"].length, 0);
+});
+
 test.serial("scrolling entity tickers pause while detached and resume once with the same age", async t => {
     const create = fixture(t);
     const tickers = Ticker.tickers.size;

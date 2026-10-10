@@ -332,6 +332,7 @@ button { font: inherit; color: inherit; }
 @media (min-width: 980px) {
     .docs-toc { display: flex; flex-direction: column; gap: 2px; position: sticky; top: calc(var(--nav-height) + 24px); align-self: start; }
     .docs-toc strong { font-family: var(--font-display); font-size: 1rem; margin-bottom: 8px; }
+    .docs-toc a + strong { margin-top: 20px; }
     .docs-toc a { color: var(--ink-soft); text-decoration: none; font-size: 0.9rem; padding: 4px 0 4px 12px; border-left: 2px solid var(--line); }
     .docs-toc a:hover, .docs-toc a.is-active { color: var(--ink); border-left-color: var(--moss); }
 }

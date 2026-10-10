@@ -3,6 +3,8 @@
 A TypeScript library for interactive Minecraft skins, models, blocks, entities, and worlds.
 V2 is in beta. See the [roadmap](https://github.com/InventivetalentDev/MineRender/blob/main/ROADMAP.md) for feature parity and remaining work.
 
+Live examples and usage docs: [beta.minerender.org](https://beta.minerender.org/). API reference: [beta-docs.minerender.org](https://beta-docs.minerender.org/).
+
 Install the beta package with its three.js peer:
 
 ```sh

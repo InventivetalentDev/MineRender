@@ -88,6 +88,7 @@ Use the environment that supports the operation:
 | ZIP resource packs | [BrowserArchiveProxy](/api/index/classes/BrowserArchiveProxy) | No Node-specific archive proxy is provided |
 | glTF and GLB export | Supported through [SceneExporter](/api/index/classes/SceneExporter) | Requires browser canvas and `FileReader` |
 | Video export | `Renderer.toVideo()` requires canvas `captureStream()` and `MediaRecorder`; formats depend on the browser | Requires a browser environment |
+| World section meshing | Geometry builds in a Web Worker when the ESM build's `section.worker` file ships beside the module; the IIFE bundle and bundlers that drop it build synchronously | Synchronous |
 
 `Renderer.toImage()` returns a data URL from its browser canvas. `NodeRenderer.renderToBuffer()` returns PNG bytes. DOM controls, displays, and glTF/GLB export remain browser-only; importing the Node build does not supply those browser APIs.
 

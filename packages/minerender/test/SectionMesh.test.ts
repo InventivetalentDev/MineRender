@@ -1,5 +1,5 @@
 import test, { ExecutionContext } from "ava";
-import { BoxGeometry, Float32BufferAttribute, Matrix4, Mesh, ShaderMaterial, Texture } from "three";
+import { BoxGeometry, Float32BufferAttribute, FrontSide, Matrix4, Mesh, ShaderMaterial, Texture } from "three";
 import { CanvasImage } from "../src/canvas/CanvasImage";
 import { CompatCanvas } from "../src/canvas/CanvasCompat";
 import { Env, EnvProvider } from "../src/Env";
@@ -24,11 +24,11 @@ function fixture(t: ExecutionContext, createWorker?: EnvProvider["createWorker"]
         Env["_provider"] = provider;
         for (const geometry of geometries) geometry.dispose();
     });
-    return (): SectionMeshTemplate => {
+    return (layer: 0 | 1 = 0): SectionMeshTemplate => {
         const geometry = new BoxGeometry(16, 16, 16);
         geometries.push(geometry);
-        return { geometry, atlas: new TextureAtlas({}, new CanvasImage(2, 2), {}, {}, false, {}, false),
-            cullFaces: [1, 2, 4, 8, 16, 32] };
+        return { geometry, atlas: new TextureAtlas({}, new CanvasImage(2, 2), {}, {}, false, {}, layer === 1, layer === 1),
+            cullFaces: new Uint8Array([1, 2, 4, 8, 16, 32]), occludes: layer === 0, layer };
     };
 }
 
@@ -83,7 +83,7 @@ test.serial("section atlases page at the size limit, share repeated sources and 
     const create = fixture(t);
     const templates = [create(), create(), create()];
     const section = SectionMesh.build([...templates, templates[0]].map((template, index) => ({
-        index, template: { ...template, cullFaces: [0, 2, 4, 8, 16, 32] }, cullMask: 63
+        index, template: { ...template, cullFaces: new Uint8Array([0, 2, 4, 8, 16, 32]) }, cullMask: 63
     })), 2);
     t.teardown(() => section.dispose());
     t.is(section.children.length, 3);
@@ -95,6 +95,46 @@ test.serial("section atlases page at the size limit, share repeated sources and 
     const empty = SectionMesh.build([{ index: 0, template: templates[0], cullMask: 63 }], 2);
     t.is(empty.children.length, 0);
     empty.dispose();
+});
+
+test.serial("section materials blend only translucent pages", t => {
+    const create = fixture(t);
+    const section = SectionMesh.build([
+        { index: 0, template: create(1), cullMask: 0 },
+        { index: 1, template: create(0), cullMask: 0 }
+    ]);
+    t.teardown(() => section.dispose());
+    t.is(section.children.length, 2);
+    const materials = section.children.map(child => (child as Mesh).material as ShaderMaterial);
+    t.deepEqual(materials.map(material => material.transparent), [false, true]);
+    t.deepEqual(materials.map(material => material.side), [FrontSide, FrontSide]);
+});
+
+test.serial("section meshes copy templates with fewer than six quads", t => {
+    const template = fixture(t)();
+    for (const name of ["position", "normal", "uv"]) {
+        const attribute = template.geometry.getAttribute(name);
+        template.geometry.setAttribute(name, new Float32BufferAttribute(attribute.array.slice(0, attribute.itemSize * 8), attribute.itemSize));
+    }
+    template.geometry.setIndex(Array.from(template.geometry.getIndex()!.array).slice(0, 12));
+    template.cullFaces = new Uint8Array(2);
+    const section = SectionMesh.build([{ index: 0, template, cullMask: 63 }]);
+    t.teardown(() => section.dispose());
+    const geometry = (section.children[0] as Mesh).geometry;
+    t.is(geometry.getAttribute("position").count, 8);
+    t.deepEqual(Array.from(geometry.getIndex()!.array), [0, 2, 1, 2, 3, 1, 4, 6, 5, 6, 7, 5]);
+});
+
+test.serial("section meshes validate quad vertex and index counts", t => {
+    const create = fixture(t);
+    const incomplete = create(), mismatch = create();
+    incomplete.geometry.setIndex([0, 1, 2]);
+    mismatch.geometry.setIndex([0, 1, 2, 0, 2, 3]);
+    for (const template of [incomplete, mismatch]) {
+        t.throws(() => SectionMesh.build([{ index: 0, template, cullMask: 0 }]), {
+            instanceOf: RangeError, message: "Section template geometry must hold four vertices and six indices per quad"
+        });
+    }
 });
 
 function geometryData(section: SectionMesh) {
