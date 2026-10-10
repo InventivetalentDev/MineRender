@@ -180,7 +180,7 @@ export class HostedAssetSource extends AssetSource {
 
     public get<T extends MinecraftAsset>(key: AssetKey, parser: AssetParser): Promise<Maybe<T>> {
         const responseParser = HostedAssetSource.PARSER_MAP.get(parser) as ResponseParser<T>;
-        if (this.options.retryDefaults) {
+        if (this.options.retryDefaults && !(key.rootType === undefined && key.namespace === "minerender-data")) {
             return this.loadOrRetryWithDefaults(key, responseParser);
         }
         return this.load(key, responseParser);

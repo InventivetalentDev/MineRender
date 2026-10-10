@@ -300,7 +300,7 @@ const stackFields = ([
     });
     return { name, control };
 });
-const defaultsNote = note(stackGroup, "Blank fields use vanilla 1.21.11 defaults when available. Maximum stack size affects count-based models; it does not limit Count.");
+const defaultsNote = note(stackGroup, "Blank fields use defaults for the selected Minecraft version. Maximum stack size affects count-based models; it does not limit Count.");
 const slotNote = note(stackGroup, "Count 0 leaves the slot empty. Damaged items with a maximum damage value show a durability bar unless unbreakable.");
 const componentColors = document.createElement("div");
 stackGroup.append(componentColors);
@@ -406,15 +406,20 @@ function referenceKey(value: unknown): AssetKey {
     return modelKey(stateId(value.trim()));
 }
 
-function syncComponentColors(state: ItemSettings, potionColor?: number): void {
+function hasPotionControls(state: ItemSettings): boolean {
+    return state.components.potion_contents !== undefined || state.components["minecraft:potion_contents"] !== undefined
+        || /^(?:minecraft:)?(?:potion|splash_potion|lingering_potion|tipped_arrow)$/.test(state.item);
+}
+
+function syncComponentColors(state: ItemSettings, potions: string[], potionColor?: number): void {
     componentColors.replaceChildren();
     const potionId = Object.prototype.hasOwnProperty.call(state.components, "potion_contents") ? "potion_contents" : "minecraft:potion_contents";
     const potion = state.components[potionId];
-    if (potion !== undefined || /^(?:minecraft:)?(?:potion|splash_potion|lingering_potion|tipped_arrow)$/.test(state.item)) {
+    if (hasPotionControls(state)) {
         const contents = typeof potion === "string" ? { potion } : potion && typeof potion === "object" && !Array.isArray(potion) ? potion as Record<string, unknown> : {};
         let currentPotion = typeof contents.potion === "string" ? contents.potion : "";
         if (currentPotion && !currentPotion.includes(":")) currentPotion = `minecraft:${currentPotion}`;
-        const options: Array<[string, string]> = ItemTints.getPotionList().map(id => [id,
+        const options: Array<[string, string]> = potions.map(id => [id,
             id.replace(/^minecraft:/, "").replace(/_/g, " ").replace(/^./, letter => letter.toUpperCase())]);
         if (currentPotion && !options.some(([id]) => id === currentPotion)) options.unshift([currentPotion, currentPotion]);
         const control = select(componentColors, "Potion", [["", "No base potion"], ...options], currentPotion);
@@ -484,7 +489,7 @@ function syncComponentColors(state: ItemSettings, potionColor?: number): void {
     }
 }
 
-function syncStateControls(state: ItemSettings, items: string[], potionColor?: number): void {
+function syncStateControls(state: ItemSettings, items: string[], inherited: Record<string, unknown>, potions: string[], potionColor?: number): void {
     stackState = state;
     profileGuard.sync(state);
     const profile = state.components.profile ?? state.components["minecraft:profile"];
@@ -503,7 +508,6 @@ function syncStateControls(state: ItemSettings, items: string[], potionColor?: n
     const override = state.components["minecraft:enchantment_glint_override"] ?? state.components.enchantment_glint_override;
     glint.value = override === true ? "on" : override === false ? "off" : "auto";
     glint.disabled = isModelPath(state.item);
-    const inherited = isModelPath(state.item) ? {} : ItemDefaults.get(state.item);
     for (const { name, control } of stackFields) {
         const value = state.components[name] ?? state.components[`minecraft:${name}`];
         control.value = value === undefined ? "" : String(value);
@@ -513,7 +517,7 @@ function syncStateControls(state: ItemSettings, items: string[], potionColor?: n
     }
     defaultsNote.hidden = isModelPath(state.item);
     slotNote.hidden = state.preview !== "slot";
-    syncComponentColors(state, potionColor);
+    syncComponentColors(state, potions, potionColor);
     components.value = JSON.stringify(state.components, null, 2);
     propertyEntries.replaceChildren();
     for (const [id, value] of Object.entries(state.properties)) {
@@ -584,7 +588,10 @@ async function load(ctx: DemoContext, state: ItemSettings): Promise<DemoContent>
         : direct ? Models.getRaw(key) : state.item === CUSTOM_MODEL_DATA_ITEM
         ? loadCustomModelData(key, context) : previewShulker ? loadShulkerPreview(key, context, state.shulkerOpenness, state.shulkerOrientation)
             : Models.getMerged(key, context);
-    const [loaded, list, patterns] = await Promise.all([pending, Models.getItemList().catch(() => []), hasBannerControls(state) ? BannerPatterns.getList().catch(() => []) : []]);
+    const [loaded, list, patterns, dyeColors, defaults, potions] = await Promise.all([pending, Models.getItemList().catch(() => []),
+        hasBannerControls(state) ? BannerPatterns.getList().catch(() => []) : [],
+        hasBannerControls(state) ? BannerPatterns.getColors() : {},
+        direct ? {} : ItemDefaults.get(state.item), hasPotionControls(state) ? ItemTints.getPotionList() : []]);
     if (loaded && isGuiObject(loaded)) ctx.onCleanup(() => { loaded.removeFromScene(); loaded.dispose(); });
     const model = direct && loaded && !isGuiObject(loaded) ? await ModelMerger.mergeWithParents(loaded) : loaded;
     if (!model) throw new Error(`Model not found: ${state.item}`);
@@ -634,14 +641,14 @@ async function load(ctx: DemoContext, state: ItemSettings): Promise<DemoContent>
             statuePose.value = typeof pose === "string" && statuePoses.includes(pose) ? pose : "standing";
             statuePose.disabled = override !== undefined;
             statuePoseNote.hidden = override === undefined;
-            syncBannerControls(state, patterns);
+            syncBannerControls(state, patterns, dyeColors);
             let potionColor: number | undefined;
             visual.traverse(child => {
                 if (!isModelObject(child)) return;
                 const index = (child.originalModel as ItemModel).tints?.findIndex(source => source.type.replace(/^minecraft:/, "") === "potion");
                 if (index !== undefined && index >= 0) potionColor = child.options.tints?.[index];
             });
-            syncStateControls(state, list, potionColor);
+            syncStateControls(state, list, defaults, potions, potionColor);
             syncModelControls();
             if (isGuiObject(object)) app.inspector?.selectObject(object);
             else selectModel(app, object);

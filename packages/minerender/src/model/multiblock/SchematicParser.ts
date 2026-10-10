@@ -2,13 +2,14 @@ import type { Compound, NBT } from "prismarine-nbt";
 import { MineRenderError } from "../../error/MineRenderError";
 import { TripleArray } from "../Model";
 import { MultiBlockBlock, MultiBlockStructure } from "./MultiBlockStructure";
-import { resolveLegacyBlock } from "./LegacyBlocks";
+import { resolveLegacyBlockState } from "./LegacyBlocks";
+import { MineRenderData } from "../../assets/MineRenderData";
 
 /** Converts legacy Alpha `.schematic` NBT with numeric block IDs into modern block names and properties. */
 export class SchematicParser {
 
     /**
-     * Parses a legacy schematic using custom mappings before the bundled defaults.
+     * Parses a legacy schematic using custom mappings before the selected version's defaults.
      * Keys are `id:metadata`; values are block states such as `minecraft:oak_log[axis=x]`.
      */
     public static async parse(nbt: NBT, customMappings: Readonly<Record<string, string>> = {},
@@ -51,12 +52,13 @@ export class SchematicParser {
             tileEntities.set((y * length + z) * width + x, { type: "compound", value: tile });
         }
         const blocks: MultiBlockBlock[] = [];
+        const mappings = (await MineRenderData.get("legacyBlocks", options.root)).blocks;
         for (let index = 0; index < volume; index++) {
             const packed = addBlocks?.value[index >> 1] ?? 0;
             const high = (packed >> ((index & 1) * 4)) & 0xf;
             const id = (high << 8) | (ids.value[index] & 0xff);
             const metadata = data.value[index] & 0xff;
-            const block = resolveLegacyBlock(id, metadata, customMappings, options.lenient);
+            const block = resolveLegacyBlockState(id, metadata, mappings, customMappings, options.lenient);
             if (!block) {
                 if (options.lenient) {
                     continue;
@@ -88,6 +90,8 @@ export class SchematicParser {
 }
 
 export interface SchematicParserOptions {
+    /** Asset root used to select the legacy mapping version. Omit to use the active asset sources. */
+    root?: string;
     /**
      * Ignores Materials, tries metadata 0 for unmapped states, and skips unknown IDs. Defaults to false.
      * Dimensions, arrays, and entity data remain validated.

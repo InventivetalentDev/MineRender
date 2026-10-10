@@ -1,3 +1,4 @@
+import { installMineRenderDataFixtures } from "./helpers/minerender-data";
 import test, { ExecutionContext } from "ava";
 import { Box3, DoubleSide, FrontSide, Mesh, MeshBasicMaterial, ShaderMaterial, Texture, Vector3 } from "three";
 import { AssetKey, BasicAssetKey } from "../src/assets/AssetKey";
@@ -30,6 +31,10 @@ const part = (children: Record<string, EntityModelPart> = {}, origin?: TripleArr
     pose: { offset: [0, 0, 0], rotation: [0, 0, 0] },
     cubes: origin ? [{ origin, size, uv: [0, 0] }] : [], children
 });
+
+let restoreData: () => void;
+test.before(() => { restoreData = installMineRenderDataFixtures(); });
+test.after.always(() => restoreData());
 
 function patterns(t: ExecutionContext, assets: Record<string, unknown>) {
     const original = [...AssetLoader["_SOURCES"]];

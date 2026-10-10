@@ -1,3 +1,5 @@
+import { installMineRenderDataFixtures, mineRenderDataFixtures } from "./helpers/minerender-data";
+import { MineRenderData } from "../src/assets/MineRenderData";
 import test from "ava";
 import { AssetKey, AssetLoader, AssetSource, Caching, DisplayPosition, ItemDefaults, ItemGlint, ItemTints, Models, PersistentCache, shutdown } from "../src";
 import type { ItemModel, ItemModelContext, ItemTintSource, MinecraftAsset, Maybe, SpecialItemRenderer } from "../src";
@@ -67,18 +69,18 @@ test.afterEach.always(() => {
 });
 test.after.always(() => shutdown());
 
-test("item defaults expose fresh namespaced stack components for vanilla item IDs", t => {
+test("item defaults expose fresh namespaced stack components for vanilla item IDs", async t => {
     const pickaxe = { "minecraft:max_stack_size": 1, "minecraft:max_damage": 1561, "minecraft:damage": 0 };
-    t.deepEqual(ItemDefaults.get("diamond_pickaxe"), pickaxe);
-    t.deepEqual(ItemDefaults.get("minecraft:diamond_pickaxe"), pickaxe);
-    t.deepEqual(ItemDefaults.get("snowball"), { "minecraft:max_stack_size": 16 });
-    t.deepEqual(ItemDefaults.get("stone"), { "minecraft:max_stack_size": 64 });
-    t.deepEqual(ItemDefaults.get("potion"), { "minecraft:max_stack_size": 1 });
+    t.deepEqual(await ItemDefaults.get("diamond_pickaxe"), pickaxe);
+    t.deepEqual(await ItemDefaults.get("minecraft:diamond_pickaxe"), pickaxe);
+    t.deepEqual(await ItemDefaults.get("snowball"), { "minecraft:max_stack_size": 16 });
+    t.deepEqual(await ItemDefaults.get("stone"), { "minecraft:max_stack_size": 64 });
+    t.deepEqual(await ItemDefaults.get("potion"), { "minecraft:max_stack_size": 1 });
     for (const id of ["custom:diamond_pickaxe", "minecraft:unknown", "item/diamond_pickaxe", "toString", "__proto__"]) {
-        t.deepEqual(ItemDefaults.get(id), { "minecraft:max_stack_size": 64 });
+        t.deepEqual(await ItemDefaults.get(id), { "minecraft:max_stack_size": 64 });
     }
-    ItemDefaults.get("diamond_pickaxe")["minecraft:max_damage"] = 10;
-    t.deepEqual(ItemDefaults.get("diamond_pickaxe"), pickaxe);
+    (await ItemDefaults.get("diamond_pickaxe"))["minecraft:max_damage"] = 10;
+    t.deepEqual(await ItemDefaults.get("diamond_pickaxe"), pickaxe);
 });
 
 test.serial("damage and count selectors inherit item defaults and preserve component and property overrides", async t => {
@@ -109,6 +111,77 @@ test.serial("damage and count selectors inherit item defaults and preserve compo
     }
     await t.throwsAsync(Models.getMerged(key, { components: { max_damage: 100, "minecraft:max_damage": 200 } }), { message: /Duplicate item-preview component/ });
     t.deepEqual(Models["snapshotContext"](new AssetKey("minecraft", "diamond_pickaxe", "models", "block"), {}).components, {});
+});
+
+test.serial("item defaults follow the requested registry version and remain separate in persistent models", async t => {
+    const restore = installMineRenderDataFixtures(root => ({ itemDefaults: root.endsWith("1.16.5") ? {} : mineRenderDataFixtures.itemDefaults }));
+    t.teardown(restore);
+    AssetLoader.addSource("test-items", new FixtureSource({
+        "items/wolf_armor": { model: { type: "condition", property: "has_component", component: "max_damage",
+            on_true: reference("item/damageable"), on_false: reference("item/plain") } },
+        "models/item/damageable": { textures: { layer0: "damageable" } }, "models/item/plain": { textures: { layer0: "plain" } }
+    }));
+    for (let attempt = 0; attempt < 2; attempt++) {
+        for (const [version, texture, maximum] of [["1.16.5", "plain", undefined], ["1.21.11", "damageable", 64]] as const) {
+            const key = itemKey("wolf_armor");
+            key.root = `https://assets.example/${version}`;
+            const model = (await Models.getMerged(key))! as ItemModel;
+            t.is(model.textures?.layer0, texture);
+            t.is(model.components?.["minecraft:max_damage"], maximum);
+        }
+        Caching.clear();
+    }
+});
+
+test.serial("legacy potion stacks with effects inherit glint only before Minecraft 1.19.4", async t => {
+    const resolve = MineRenderData.resolve;
+    MineRenderData.resolve = async root => {
+        const result = await resolve(root);
+        result.manifest.dataVersion = result.version === "1.19.4" ? 3337 : 2586;
+        return result;
+    };
+    t.teardown(() => { MineRenderData.resolve = resolve; });
+    const ids = ["potion", "splash_potion", "lingering_potion"];
+    AssetLoader.addSource("test-items", new FixtureSource(Object.fromEntries(ids.map(id => [`models/item/${id}`, { textures: { layer0: id } }]))));
+    for (const version of ["1.16.5", "1.17.1", "1.18.2", "1.19.4"]) {
+        for (const id of ids) {
+            const key = itemKey(id);
+            key.root = `https://assets.example/${version}`;
+            for (const potion of [undefined, "water", "healing", { custom_effects: [{ id: "speed", show_particles: false }] }]) {
+                const context = potion === undefined ? {} : { components: { potion_contents: potion } };
+                const model = (await Models.getMerged(key, context))! as ItemModel;
+                const hasEffects = potion === "healing" || typeof potion === "object";
+                t.is(ItemGlint.enabled(model.components), version !== "1.19.4" && hasEffects, `${version} ${id} ${JSON.stringify(potion)}`);
+            }
+            const suppressed = (await Models.getMerged(key, { components: { potion_contents: "healing", enchantment_glint_override: false } }))! as ItemModel;
+            t.false(ItemGlint.enabled(suppressed.components));
+        }
+    }
+});
+
+test.serial("version changes during item-model loading reject before persisting mixed defaults", async t => {
+    const originalGetFirst = AssetLoader.getFirst, originalRoot = AssetLoader.ROOT;
+    let loaded!: () => void, release!: () => void;
+    const started = new Promise<void>(resolve => { loaded = resolve; });
+    const waiting = new Promise<void>(resolve => { release = resolve; });
+    AssetLoader.getFirst = (async keys => {
+        loaded();
+        await waiting;
+        return { key: keys[0], asset: { model: reference("item/stale") } };
+    }) as typeof AssetLoader.getFirst;
+    t.teardown(() => { AssetLoader.getFirst = originalGetFirst; AssetLoader.ROOT = originalRoot; });
+    const pending = Models.getMerged(itemKey("stone"));
+    await started;
+    AssetLoader.ROOT = "https://assets.example/1.16.5";
+    release();
+    await t.throwsAsync(pending, { message: /Asset sources changed/ });
+    t.false((await Models["_persistentCache"]!.keys()).some(key => key.startsWith("item-v8:")));
+    AssetLoader.getFirst = originalGetFirst;
+    AssetLoader.ROOT = originalRoot;
+    AssetLoader.addSource("test-items", new FixtureSource({
+        "items/stone": { model: reference("item/fresh") }, "models/item/fresh": { textures: { layer0: "fresh" } }
+    }));
+    t.is((await Models.getMerged(itemKey("stone")))?.textures?.layer0, "fresh");
 });
 
 test.serial("composites, referenced items, pack replacements, and cache reloads keep their own stack defaults", async t => {
@@ -1124,3 +1197,7 @@ test.serial("item lists use modern definitions and retain legacy source fallback
     t.deepEqual(await Models.getItemList(), ["pack_item"]);
     t.is(source.calls.length, 0);
 });
+
+let restoreData: () => void;
+test.before(() => { restoreData = installMineRenderDataFixtures(); });
+test.after.always(() => restoreData());

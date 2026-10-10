@@ -1,3 +1,4 @@
+import { installMineRenderDataFixtures } from "./helpers/minerender-data";
 import test, { ExecutionContext } from "ava";
 import { Group, Matrix4, MeshBasicMaterial, Object3D } from "three";
 import { AssetKey } from "../src/assets/AssetKey";
@@ -17,6 +18,10 @@ import { SceneDocumentLoader } from "../src/scene/SceneDocumentLoader";
 import { SkinTextures } from "../src/skin/SkinTextures";
 import { GuiObject } from "../src/gui/scene/GuiObject";
 import type { GuiItemLayer } from "../src/gui/GuiLayer";
+
+let restoreData: () => void;
+test.before(() => { restoreData = installMineRenderDataFixtures(); });
+test.after.always(() => restoreData());
 
 function document(objects: SceneObjectDefinition[] = []): SceneDocument {
     return { format: "minerender-scene", version: 1, objects };

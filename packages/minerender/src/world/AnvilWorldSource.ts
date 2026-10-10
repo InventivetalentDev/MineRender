@@ -10,7 +10,7 @@ import type { WorldChunkSource } from "./WorldChunkSource";
 export type AnvilRegionReader = (x: number, z: number, signal?: AbortSignal) => Promise<Uint8Array | ArrayBuffer | undefined>;
 
 /** Readers and cache limits passed to `new AnvilWorldSource(readRegion, options)`. */
-export interface AnvilWorldSourceOptions extends Pick<AnvilParseOptions, "readExternalChunk" | "legacyMappings" | "lenient"> {
+export interface AnvilWorldSourceOptions extends Pick<AnvilParseOptions, "readExternalChunk" | "legacyMappings" | "lenient" | "root"> {
     /** Reads a dimension's separate `entities/r.<x>.<z>.mca` files. Omit to use embedded entities only. */
     readEntityRegion?: AnvilRegionReader;
     /** Maximum cached regions per kind (terrain and entities), including missing regions. Defaults to 4 each; 0 disables caching. */
@@ -48,12 +48,12 @@ export class AnvilWorldSource implements WorldChunkSource {
     private readonly maxCachedRegions: number;
     private readonly maxCachedBytes: number;
     private readonly readEntityRegion?: AnvilRegionReader;
-    private readonly parseOptions: Pick<AnvilParseOptions, "readExternalChunk" | "legacyMappings" | "lenient">;
+    private readonly parseOptions: Pick<AnvilParseOptions, "readExternalChunk" | "legacyMappings" | "lenient" | "root">;
     private cachedBytes = 0;
 
     constructor(private readonly readRegion: AnvilRegionReader, options: AnvilWorldSourceOptions = {}) {
         this.readEntityRegion = options.readEntityRegion;
-        this.parseOptions = { readExternalChunk: options.readExternalChunk, legacyMappings: options.legacyMappings, lenient: options.lenient };
+        this.parseOptions = { readExternalChunk: options.readExternalChunk, legacyMappings: options.legacyMappings, lenient: options.lenient, root: options.root };
         this.maxCachedRegions = options.maxCachedRegions ?? 4;
         this.maxCachedBytes = options.maxCachedBytes ?? 64 * 1024 * 1024;
         for (const [name, value] of Object.entries({ maxCachedRegions: this.maxCachedRegions, maxCachedBytes: this.maxCachedBytes })) {
