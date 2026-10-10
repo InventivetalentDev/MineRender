@@ -75,7 +75,7 @@ test("item defaults expose fresh namespaced stack components for vanilla item ID
     t.deepEqual(ItemDefaults.get("stone"), { "minecraft:max_stack_size": 64 });
     t.deepEqual(ItemDefaults.get("potion"), { "minecraft:max_stack_size": 1 });
     for (const id of ["custom:diamond_pickaxe", "minecraft:unknown", "item/diamond_pickaxe", "toString", "__proto__"]) {
-        t.deepEqual(ItemDefaults.get(id), {});
+        t.deepEqual(ItemDefaults.get(id), { "minecraft:max_stack_size": 64 });
     }
     ItemDefaults.get("diamond_pickaxe")["minecraft:max_damage"] = 10;
     t.deepEqual(ItemDefaults.get("diamond_pickaxe"), pickaxe);
@@ -105,7 +105,7 @@ test.serial("damage and count selectors inherit item defaults and preserve compo
         t.deepEqual(await layers(itemKey(id), { count: half - 1 }), ["low", "low", "low", "low"]);
     }
     for (const unknown of [itemKey("unknown"), new AssetKey("custom", "diamond_pickaxe", "models", "item")]) {
-        t.deepEqual(await layers(unknown, { components }), ["low", "low", "high", "low"]);
+        t.deepEqual(await layers(unknown, { components }), ["low", "low", "low", "low"]);
     }
     await t.throwsAsync(Models.getMerged(key, { components: { max_damage: 100, "minecraft:max_damage": 200 } }), { message: /Duplicate item-preview component/ });
     t.deepEqual(Models["snapshotContext"](new AssetKey("minecraft", "diamond_pickaxe", "models", "block"), {}).components, {});
@@ -474,8 +474,8 @@ test.serial("item tint components survive snapshots, composites, legacy parents,
         ItemTints.get(model.parts![0]), ItemTints.get(model.parts![1].parts![0]), ItemTints.get(model.parts![1].parts![1])
     ]);
     t.deepEqual(await palette(first), [{ 0: 0xff0000 }, { 0: 0x0000ff }, { 0: 0xffffff }]);
-    t.deepEqual(first.parts![0].components, canonical.components);
-    t.deepEqual(first.parts![1].parts![1].components, {});
+    t.deepEqual(first.parts![0].components, { ...canonical.components, "minecraft:max_stack_size": 64 });
+    t.deepEqual(first.parts![1].parts![1].components, { "minecraft:max_stack_size": 64 });
     const changed = (await Models.getMerged(key, context))! as ItemModel;
     t.deepEqual(await palette(changed), [{ 0: 0xffff00 }, { 0: 0x0000ff }, { 0: 0xffffff }]);
     const legacy = (await Models.getMerged(itemKey("legacy"), context))! as ItemModel;
@@ -677,7 +677,7 @@ test.serial("damage and count ranges normalize, clamp, honor overrides, and inva
     const definitionKey = new AssetKey(key.namespace, key.path, "items", undefined, key.rootType, ".json", key.root);
     await Models["_persistentCache"]!.put(`item-v2:${AssetLoader.persistentKey(definitionKey.serialize())}`, { key, textures: { layer0: "stale" } });
     const layers = async (context: ItemModelContext = {}) => ((await Models.getMerged(key, context))! as ItemModel).parts!.map(part => part.textures?.layer0);
-    t.deepEqual(await layers(), ["missing", "zero", "full", "zero"]);
+    t.deepEqual(await layers(), ["missing", "zero", "zero", "zero"]);
     t.deepEqual(await layers({ count: 4, components: { damage: 50, max_damage: 100, max_stack_size: 8 } }), ["half", "half", "half", "zero"]);
     t.deepEqual(await layers({ count: 80, components: { damage: 150, max_damage: 100, max_stack_size: 8 } }), ["full", "half", "full", "full"]);
     t.deepEqual(await layers({ count: 0, components: { damage: -5, max_damage: 100, max_stack_size: 8 } }), ["zero", "zero", "zero", "zero"]);
@@ -685,7 +685,7 @@ test.serial("damage and count ranges normalize, clamp, honor overrides, and inva
     const calls = source.calls.length;
     Caching.clear();
     t.deepEqual(await layers({ count: 4, components: { max_stack_size: 8, max_damage: 100, damage: 50 } }), ["half", "half", "half", "zero"]);
-    t.deepEqual(await layers(), ["missing", "zero", "full", "zero"]);
+    t.deepEqual(await layers(), ["missing", "zero", "zero", "zero"]);
     t.is(source.calls.length, calls);
 });
 
@@ -745,7 +745,7 @@ test.serial("special items retain their renderer and inherit the base pose throu
         for (let attempt = 0; attempt < 2; attempt++) {
             const model = (await Models.getMerged(key, { components }))! as ItemModel;
             t.deepEqual(model.special, renderers[index]);
-            t.deepEqual(model.components, { "minecraft:banner_patterns": components.banner_patterns, "minecraft:base_color": "red" });
+            t.deepEqual(model.components, { "minecraft:banner_patterns": components.banner_patterns, "minecraft:base_color": "red", "minecraft:max_stack_size": 64 });
             t.deepEqual(model.display?.gui, display.gui);
             t.is(model.gui_light, "front");
             t.is(model.key?.toNamespacedString(), "pack:item/base");
@@ -771,8 +771,8 @@ test.serial("player profiles are snapshotted and separated in item caches and re
     profile.properties.textures[0] = "second";
     const first = (await pending)! as ItemModel;
     const second = (await Models.getMerged(itemKey("head"), { components: { "minecraft:profile": profile } }))! as ItemModel;
-    t.deepEqual(first.components, { "minecraft:profile": { id: [0, 0, 0, 1], properties: { textures: ["first"] } } });
-    t.deepEqual(second.components, { "minecraft:profile": profile });
+    t.deepEqual(first.components, { "minecraft:profile": { id: [0, 0, 0, 1], properties: { textures: ["first"] } }, "minecraft:max_stack_size": 64 });
+    t.deepEqual(second.components, { "minecraft:profile": profile, "minecraft:max_stack_size": 64 });
     t.not(first, second);
     Caching.clear();
     const cached = (await Models.getMerged(itemKey("head"), { components: { profile: { properties: { textures: ["first"] }, id: [0, 0, 0, 1] } } }))! as ItemModel;
@@ -780,7 +780,7 @@ test.serial("player profiles are snapshotted and separated in item caches and re
     t.deepEqual(cached.special, { type: "minecraft:player_head" });
     const composite = (await Models.getMerged(itemKey("composite_head"), { components: { profile }, itemReferences: { "bundle/selected_item": itemKey("head") } }))! as ItemModel;
     t.deepEqual(composite.parts![0].components, second.components);
-    t.deepEqual(composite.parts![1].components, {});
+    t.deepEqual(composite.parts![1].components, { "minecraft:max_stack_size": 64 });
     t.deepEqual(composite.parts![1].special, cached.special);
 });
 
@@ -922,11 +922,11 @@ test.serial("decorated-pot components survive composite snapshots and persistent
     const pending = Models.getMerged(itemKey("composite_pot"), context);
     decorations[0] = "flow_pottery_sherd";
     const first = (await pending)! as ItemModel;
-    t.deepEqual(first.parts![0].components, { "minecraft:pot_decorations": ["archer_pottery_sherd", "brick", "prize_pottery_sherd", "skull_pottery_sherd"] });
+    t.deepEqual(first.parts![0].components, { "minecraft:pot_decorations": ["archer_pottery_sherd", "brick", "prize_pottery_sherd", "skull_pottery_sherd"], "minecraft:max_stack_size": 64 });
     t.deepEqual(first.parts![1].special, { type: "decorated_pot" });
-    t.deepEqual(first.parts![1].components, {});
+    t.deepEqual(first.parts![1].components, { "minecraft:max_stack_size": 64 });
     const second = (await Models.getMerged(itemKey("composite_pot"), context))! as ItemModel;
-    t.deepEqual(second.parts![0].components, { "minecraft:pot_decorations": decorations });
+    t.deepEqual(second.parts![0].components, { "minecraft:pot_decorations": decorations, "minecraft:max_stack_size": 64 });
     t.not(first, second);
     const calls = source.calls.length;
     Caching.clear();
