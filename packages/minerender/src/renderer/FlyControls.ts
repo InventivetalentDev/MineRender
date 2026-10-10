@@ -129,6 +129,7 @@ export class FlyControls extends Controls<FlyControlsEventMap, Camera> {
         element.removeEventListener("blur", this._onBlur);
         element.style.touchAction = "auto";
         this.unlock();
+        this._locked = false;
         this.releaseKeys();
         this._dragPointer = undefined;
         this._joystick = undefined;
@@ -278,13 +279,14 @@ export class FlyControls extends Controls<FlyControlsEventMap, Camera> {
     }
 
     private handleKey(event: KeyboardEvent, down: boolean): void {
-        if (!this.enabled) return;
         const action = this.actionFor(event.code);
         if (!action) return;
-        if (down && !this._locked && event.target !== this.domElement) return;
+        const ownsInput = this.enabled && (this._locked || event.target === this.domElement);
+        if (down && !ownsInput) return;
+        const pressed = this._pressed.has(action);
         if (down) this._pressed.add(action);
         else this._pressed.delete(action);
-        event.preventDefault();
+        if (ownsInput || (this.enabled && pressed)) event.preventDefault();
     }
 
     private actionFor(code: string): FlyAction | undefined {

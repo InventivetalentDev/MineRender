@@ -317,7 +317,10 @@ export class Renderer implements Disposable {
     /** Advances owned controls; without a frame time, flight movement does not progress. */
     private updateControls(time?: number): void {
         const controls = this._controls;
-        if (!controls?.enabled) return;
+        if (!controls?.enabled) {
+            this._controlsTime = undefined;
+            return;
+        }
         if (!isFlyControls(controls)) {
             controls.update();
             return;
@@ -513,6 +516,7 @@ export class Renderer implements Disposable {
             this.renderer.setAnimationLoop(null);
         }
         this._nextFrameTime = undefined;
+        this._controlsTime = undefined;
         for (const subscription of this._frameCallbacks.values()) subscription.previous = undefined;
     }
 

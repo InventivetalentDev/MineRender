@@ -376,8 +376,8 @@ const flying: Example = {
     description: "Creative-style flight: click the view, then W/A/S/D move, space rises, shift descends, control sprints, and the mouse looks around. Scroll to change the speed, as in spectator mode. On touch screens, the left half is a joystick and the right half looks.",
     renderer: {
         camera: {
-            position: [128, 90, 300] as [number, number, number],
-            lookingAt: [128, 60, 128] as [number, number, number],
+            position: [128, 220, 300] as [number, number, number],
+            lookingAt: [128, 100, 128] as [number, number, number],
             far: 10000
         },
         controls: { enabled: true, mode: "fly" as const }
@@ -400,7 +400,7 @@ const flying: Example = {
 // WASD moves along the view direction, space/shift move vertically, control sprints,
 // the mouse looks around (click to capture it, Esc releases), and the wheel changes the speed.
 const renderer = new Renderer({
-    camera: { position: [128, 90, 300], lookingAt: [128, 60, 128], far: 10000 },
+    camera: { position: [128, 220, 300], lookingAt: [128, 100, 128], far: 10000 },
     controls: { enabled: true, mode: "fly" }
 });
 

@@ -145,6 +145,11 @@ test("clicking requests pointer lock, unlocking releases held keys, and dispose 
 
     document.emit("keydown", key("KeyW", { tagName: "INPUT" }));
     t.false(controls.isPressed("forward"));
+    let prevented = 0;
+    const buttonKey = { ...key("Space", { tagName: "BUTTON" }), preventDefault() { prevented++; } };
+    document.emit("keydown", buttonKey);
+    document.emit("keyup", buttonKey);
+    t.is(prevented, 0, "unfocused button keys keep their default behavior");
     document.emit("keydown", key("KeyW"));
     t.true(controls.isPressed("forward"), "the focused element receives keys");
     document.defaultView.emit("blur");
@@ -159,7 +164,11 @@ test("clicking requests pointer lock, unlocking releases held keys, and dispose 
     element.emit("pointerup", { pointerId: 2, pointerType: "mouse", button: 0 });
     t.is(element.lockRequests, 1, "pointerLock: false never requests a lock");
 
+    controls.lock();
+    t.true(controls.locked);
     controls.dispose();
+    t.false(controls.locked);
+    t.is(document.pointerLockElement, null);
     t.is(element.listenerCount + document.listenerCount + document.defaultView.listenerCount, 0);
     t.deepEqual(camera.position.toArray(), [0, 0, 0]);
 });
@@ -310,6 +319,31 @@ test("renderer fly controls keep drawing while a key is held and switch modes in
     const back = renderer.setControlsMode("fly");
     t.true(isFlyControls(back));
     t.true(Math.abs(renderer.camera.position.z - 98) < 1e-6, "switching keeps the camera in place");
+
+    const resumed = renderer.flyControls!;
+    resumed.enableDamping = false;
+    resumed.movementSpeed = 10;
+    document.emit("keydown", key("KeyW"));
+    renderer.tick(700);
+    renderer.tick(800);
+    const pausedPosition = renderer.camera.position.clone();
+    renderer.stop();
+    renderer.start();
+    renderer.tick(10800);
+    t.deepEqual(renderer.camera.position, pausedPosition, "resume excludes time spent stopped");
+    renderer.tick(10900);
+    t.true(Math.abs(renderer.camera.position.z - pausedPosition.z + 1) < 1e-6);
+    resumed.enabled = false;
+    renderer.tick(20900);
+    const disabledPosition = renderer.camera.position.clone();
+    resumed.enabled = true;
+    renderer.tick(30900);
+    t.deepEqual(renderer.camera.position, disabledPosition, "reenabling controls excludes disabled time");
+    renderer.tick(31000);
+    t.true(Math.abs(renderer.camera.position.z - disabledPosition.z + 1) < 1e-6);
+    resumed.enabled = false;
+    document.emit("keyup", key("KeyW"));
+    t.false(resumed.isPressed("forward"), "disabled controls still release held keys");
 
     renderer.dispose();
     t.is(renderer.controls, undefined);
