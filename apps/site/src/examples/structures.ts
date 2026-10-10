@@ -1,4 +1,4 @@
-import { AnvilParser, AssetKey, AssetLoader, AssetParser, MineRenderWorld, MultiBlockStructure, NBTAsset, NBTHelper, Renderer, SchematicParser, StructureParser } from "minerender";
+import { AnvilParser, AssetKey, AssetLoader, AssetParser, ChunkData, MineRenderWorld, MultiBlockStructure, NBTAsset, NBTHelper, Renderer, SchematicParser, StructureParser, WorldStreamer, type AnvilChunk, type WorldChunkSource } from "minerender";
 import type { Example, ExampleGroup } from "./types";
 import { esmRenderer, fileControl, statusControl, textControl, toggleControl } from "./shared";
 import { Box3, PerspectiveCamera, Vector3 } from "three";
@@ -269,10 +269,105 @@ for (let x = 0; x < 10; x++) {
     }
 };
 
+/** Procedural chunk columns. A source answers getChunk with absolute chunk coordinates; AnvilWorldSource does the same from region files. */
+const terrain: WorldChunkSource = {
+    async getChunk(x, z): Promise<AnvilChunk> {
+        const data = new ChunkData();
+        for (let localZ = 0; localZ < 16; localZ++) {
+            for (let localX = 0; localX < 16; localX++) {
+                const worldX = x * 16 + localX, worldZ = z * 16 + localZ;
+                const height = 3 + Math.floor((Math.sin(worldX / 11) + Math.cos(worldZ / 15) + 2) * 1.5);
+                for (let y = 0; y <= height; y++) {
+                    const type = y === height ? "minecraft:grass_block" : y >= height - 2 ? "minecraft:dirt" : "minecraft:stone";
+                    data.set(localX + localZ * 16 + y * 256, { type });
+                }
+            }
+        }
+        return { x, z, sections: [{ y: 0, data }] };
+    }
+};
+
+const streaming: Example = {
+    id: "structure-streaming",
+    title: "Stream chunks around the view",
+    description: "WorldStreamer loads the chunk columns near a position in distance order and unloads the ones beyond its retention radius. Pan the view to pull in new terrain. Java worlds stream the same way through AnvilWorldSource.",
+    renderer: {
+        camera: {
+            position: [420, 260, 420] as [number, number, number],
+            lookingAt: [128, 40, 128] as [number, number, number],
+            far: 10000
+        }
+    },
+    placeholder: "/placeholder-block.png",
+    async setup(context) {
+        const { renderer, signal } = context;
+        const world = new MineRenderWorld(renderer.scene, { sectionMeshing: true });
+        const streamer = new WorldStreamer(world, terrain, { loadRadius: 2, unloadRadius: 3 });
+        const status = statusControl(context);
+        const center = () => renderer.controls?.target ?? renderer.camera.position;
+        let chunk = "";
+        let running = false, queued = false;
+        const update = async () => {
+            const next = `${Math.floor(center().x / 256)},${Math.floor(center().z / 256)}`;
+            if (next === chunk && !queued) return;
+            chunk = next;
+            if (running) { queued = true; return; }
+            running = true;
+            try {
+                do {
+                    queued = false;
+                    await streamer.updatePosition(center());
+                } while (queued && !signal.aborted);
+                status.textContent = `${streamer.loadedChunks.length} chunk columns loaded`;
+            } catch (error) {
+                console.warn(error);
+            } finally {
+                running = false;
+            }
+        };
+        await context.track(update(), "Loading chunks…");
+        const onChange = () => void update();
+        renderer.controls?.addEventListener("change", onChange);
+        return () => {
+            renderer.controls?.removeEventListener("change", onChange);
+            streamer.dispose().then(() => world.clear()).catch(() => undefined);
+        };
+    },
+    code: {
+        esm: `${esmRenderer("AnvilWorldSource", "ChunkData", "MineRenderWorld", "WorldStreamer")}
+
+// A chunk source answers getChunk(x, z) with absolute chunk coordinates, or undefined where nothing exists
+const terrain = {
+    async getChunk(x: number, z: number) {
+        const data = new ChunkData();   // 16×16×16 block states, indexed x + z * 16 + y * 256
+        for (let i = 0; i < 256; i++) data.set(i, { type: "minecraft:grass_block" });
+        return { x, z, sections: [{ y: 0, data }] };
+    }
+};
+
+// Java worlds: hand AnvilWorldSource the bytes of r.<x>.<z>.mca on demand
+const save = new AnvilWorldSource(async (regionX, regionZ, signal) => {
+    const response = await fetch(\`/world/region/r.\${regionX}.\${regionZ}.mca\`, { signal });
+    return response.ok ? response.arrayBuffer() : undefined;
+});
+
+const world = new MineRenderWorld(renderer.scene, { sectionMeshing: true });
+const streamer = new WorldStreamer(world, terrain, { loadRadius: 2, unloadRadius: 3 });
+
+// Load the columns around the orbit target, nearest first; call again whenever it moves
+await streamer.updatePosition(renderer.controls!.target);
+renderer.controls!.addEventListener("change", () => void streamer.updatePosition(renderer.controls!.target));
+
+streamer.loadedChunks;              // what is on screen
+await streamer.retryFailedChunks(); // after source errors (listed in streamer.failedChunks)
+await streamer.dispose();           // unloads its columns; the world stays yours`
+    }
+};
+
 export const structures: ExampleGroup = {
     id: "structures",
     title: "Structures & worlds",
-    lead: "Load structure, schematic, and region files or place blocks from code. Sections can be merged into single meshes.",
-    playgrounds: [{ url: "https://beta.minerender.org/demo/structure/", label: "Structure playground" }],
-    examples: [vanilla, ownFile, programmatic]
+    lead: "Load structure, schematic, and region files, stream chunks around the view, or place blocks from code. Sections can be merged into single meshes built off the main thread.",
+    playgrounds: [{ url: "https://beta.minerender.org/demo/structure/", label: "Structure playground" }, { url: "https://beta.minerender.org/demo/world/", label: "World streaming demo" }],
+    examples: [vanilla, ownFile, streaming, programmatic]
 };

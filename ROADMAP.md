@@ -36,13 +36,13 @@ legacy website cleanup is a separate task.
 | Structure (.nbt) loading | works via ModelConverter | Bounded placement, signed coordinates, slot cleanup, DataVersion and entity NBT preservation; supported block entities render, with opt-in saved mobs and selected appearance fields | high |
 | Legacy .schematic | full incl. AddBlocks nibbles | Numeric block IDs, metadata, AddBlocks, custom mappings, and block/entity NBT parsed; strict by default, with opt-in lenient fallback | complete |
 | Combined multi-renderer scene | CombinedRender wrapper | Superseded by design (one scene hosts all types) — **at parity** | — |
-| Screenshots & 3D export | toImage(trim,mime), toObj/toGLTF/toPLY | Fresh captures with trim/MIME/quality; static OBJ/PLY and textured browser glTF/GLB snapshots | complete |
+| Screenshots, video & 3D export | toImage(trim,mime), toObj/toGLTF/toPLY | Fresh captures with trim/MIME/quality, real-time browser video recording, static OBJ/PLY, and textured browser glTF/GLB snapshots | complete |
 | Asset loading & resource packs | swappable assetRoot, fallback | Ordered source selection, ZIP pack overlays and filters, failure-evicting caches, and contextual errors; defaults to 1.21.11, ZIPs browser-only | high |
 | Per-frame animation API | `<type>Render` CustomEvents | `onFrame` subscriptions with time/delta, FPS limiting, pause/resume, and disposal | complete |
 | Entity keyframe animations | none | Native and sampled procedural clips with synchronized, layer-specific playback and caller-driven time; runtime state selection, blending, visibility, and animated renderer transforms remain | partial |
-| Scene documents & editor | n/a | Versioned scene JSON, atomic document loading, and a browser editor with transforms, import, and export | complete |
-| Embeds & website | minerender.org + iframe embeds | V2 website, configurable playgrounds, consumer examples, and API reference implemented; playground/editor hosting pending, iframe embeds remain | low |
-| **Large-scale worlds (V2 goal)** | n/a | Paletted signed chunks, opt-in section meshes for static models of any shape, neighbor face culling, block visibility, and camera-driven chunk streaming with bounded retention; lighting, biome tint, and LOD remain | high |
+| Scene documents & editor | n/a | Versioned scene JSON with item state, atomic document loading, and a browser editor with transforms, GUI layouts, import, and image, video, and model export | complete |
+| Embeds & website | minerender.org + iframe embeds | V2 website, hosted playgrounds and scene editor, consumer examples, and API reference; iframe embeds remain | low |
+| **Large-scale worlds (V2 goal)** | n/a | Paletted signed chunks, opt-in section meshes for static models of any shape built in a browser worker, grouped bulk placement, neighbor face culling, block visibility, and camera-driven chunk streaming with bounded retention; lighting, biome tint, and LOD remain | high |
 | **Anvil .mca / world formats (V2 goal)** | n/a | Numeric and paletted Java regions, Sponge v2/v3 schematics with local palettes, offsets, and preserved NBT, Litematica v5–7 named regions with relative placement, lazy multi-region world sources, separate entity regions, DataVersion, gzip/zlib/LZ4/uncompressed payloads, external `.mcc` payloads, and a local world-folder demo with dimension selection; no data fixing | high |
 | **Node headless rendering (V2 goal)** | faked externally by MineRenderServer | No DOM-free Renderer construction, no render-to-buffer API | high |
 | Bedrock geometry (V2 ambition) | n/a | Type declarations only | low |
@@ -102,7 +102,7 @@ For biome tint, first preserve biome data during import and in chunk storage, th
 
 ~~Seed weighted blockstate alternatives by world position so unloading and reloading a chunk preserves its appearance.~~ Individual blocks and section meshes share vanilla-identical weighted selection from absolute block coordinates. Standalone previews remain random unless given `variantPosition`.
 
-Decoding and mesh construction run on the main thread; worker-based preparation and faster bulk placement remain scale improvements.
+~~Resolve each block state once per placement group and yield to the event loop instead of a timer-driven batch queue.~~ ~~Build section geometry in a browser worker.~~ Region decoding still runs on the main thread; wasm or worker-side chunk parsing remains a scale option once placement stops dominating.
 
 ~~Render sloped water/lava surfaces with still/flow textures and waterlogged blocks.~~ ~~Cover intrinsic water in kelp, seagrass, and bubble columns.~~ For remaining fluid parity, obtain vanilla block-state fluid definitions, face-occlusion shapes, and solidity/flow-blocking flags; add water overlays against glass/leaves. Keep 1 block = 16 units.
 
@@ -118,6 +118,6 @@ Make `Renderer` constructible without DOM: injectable canvas + WebGL 2 context, 
 ### 15. Polish: exports, animation API, inspector, demos, docs — medium
 ~~Port toObj/toGLTF and toImage trim/mime.~~ ~~Add a per-frame callback integrated with the dirty flag (replaces V1's CustomEvent contract).~~ ~~Fix `SceneInspector` raycast normalization and select individual instances.~~ ~~Fix `SceneStatsDisplay`'s leaked interval.~~ ~~Fix animated-texture timing, frame grids/sequences, and stationary-camera redraw for all scenes sharing an atlas, respecting `fpsLimit`; stop unused atlas tickers.~~ ~~Add texture interpolation.~~
 
-~~Build the V2 website with live examples.~~ ~~Rework the demos into configurable playgrounds.~~ ~~Add portable scene documents and a browser scene editor.~~ ~~Add TypeDoc/VitePress reference tooling and library API JSDoc.~~
+~~Build the V2 website with live examples.~~ ~~Rework the demos into configurable playgrounds.~~ ~~Add portable scene documents and a browser scene editor.~~ ~~Add TypeDoc/VitePress reference tooling and library API JSDoc.~~ ~~Host the playgrounds and editor on Cloudflare.~~ ~~Add browser video export with recording controls.~~
 
 Iframe embeds remain. Remove unused V1 website files from the V2 tree while preserving V1 delivery URLs. Extend existing regression coverage as remaining model and blockstate features land; keep the consumer API contract in AGENTS.md as the beta compatibility baseline.

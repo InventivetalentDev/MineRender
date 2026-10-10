@@ -33,6 +33,7 @@
             <a href="#whats-new">What's new</a>
             <a href="#examples">Examples</a>
             <a href="#docs">Docs</a>
+            <a href="https://beta-docs.minerender.org/">API reference</a>
             <a href="#migration">From V1</a>
             <a href="https://beta.minerender.org/editor/">Editor</a>
             <a href="https://beta.minerender.org/demo/">Playgrounds</a>
@@ -52,7 +53,7 @@
             <p class="lead">
                 MineRender turns skins, blocks, items, entities, GUIs, structures and worlds into interactive three.js scenes.
                 Version 2 is a TypeScript rewrite that also runs in Node, loads assets from any source, draws repeated
-                models in a single call, and exports images and 3D models.
+                models in a single call, and exports images, videos and 3D models.
             </p>
             <div class="install-line">
                 <code>npm install minerender@beta three</code>
@@ -143,8 +144,8 @@
             <li class="feature">
                 <span class="feature-icon" data-icon="tint"></span>
                 <div>
-                    <h3>Tints, UV lock and display poses</h3>
-                    <p>Grass and leaves get their preview colors, rotated blockstates keep their texture orientation, and item models can take any of the game's display transforms.</p>
+                    <h3>Tints, display poses and item state</h3>
+                    <p>Grass and leaves get their preview colors, rotated blockstates keep their texture orientation, and item models can take any of the game's display transforms. Item definitions read data components, so dyed armor, banners, shields and bundles render as in the game.</p>
                     <a href="#items">See display poses</a>
                 </div>
             </li>
@@ -184,23 +185,23 @@
                 <span class="feature-icon" data-icon="world"></span>
                 <div>
                     <h3>Worlds, not just structures</h3>
-                    <p>Chunks with signed coordinates, face culling against opaque neighbors, and optional section meshing that merges static blocks into one mesh per 16³ section. Loads structure, schematic and Anvil region files.</p>
+                    <p>Chunks with signed coordinates, face culling against opaque neighbors, and optional section meshing that merges static blocks into one mesh per 16³ section. Loads structure, schematic and Anvil region files, and streams chunk columns around the camera.</p>
                     <a href="#structures">See structures and worlds</a>
                 </div>
             </li>
             <li class="feature">
                 <span class="feature-icon" data-icon="gui"></span>
                 <div>
-                    <h3>GUIs with items and recipes</h3>
-                    <p>Inventory screens and HUD elements are built from cropped texture layers and item models in their GUI pose. Recipe JSON turns into crafting-table layers.</p>
+                    <h3>GUIs with items, text and recipes</h3>
+                    <p>Inventory screens and HUD elements are built from texture layers, bitmap text and item models in their GUI pose. Helpers lay out crafting recipes, container backgrounds, boss bars, book pages and tooltips.</p>
                     <a href="#guis">See GUIs</a>
                 </div>
             </li>
             <li class="feature">
                 <span class="feature-icon" data-icon="export"></span>
                 <div>
-                    <h3>Images and 3D exports</h3>
-                    <p>Capture any frame as PNG or JPEG, optionally trimmed, or export the scene as glTF with textures, OBJ or PLY.</p>
+                    <h3>Images, video and 3D exports</h3>
+                    <p>Capture any frame as PNG or JPEG, optionally trimmed, record the canvas to WebM or MP4, or export the scene as glTF with textures, OBJ or PLY.</p>
                     <a href="#export">See exports</a>
                 </div>
             </li>
@@ -258,11 +259,15 @@
             <a href="#lifecycle">Lifecycle</a>
             <a href="#node">Node</a>
             <a href="#performance">Performance</a>
+            <strong>Reference</strong>
+            <a href="https://beta-docs.minerender.org/">API reference</a>
+            <a href="https://beta-docs.minerender.org/concepts">Behavior notes</a>
+            <a href="https://beta-docs.minerender.org/platforms">Browser &amp; Node</a>
         </aside>
         <div class="docs-body">
             <div class="section-heading">
                 <h2>Usage</h2>
-                <p class="lead">What you need for most integrations. The generated API reference covers the rest.</p>
+                <p class="lead">What you need for most integrations. The <a href="https://beta-docs.minerender.org/">API reference</a> covers every class, option and type.</p>
             </div>
 
             <article id="getting-started" class="doc">
@@ -369,13 +374,25 @@ await Entities.getPassList(key);   // [{ layer: "wool", when: "not_sheared", tin
 const model = await Entities.getEntity(key, undefined, { when: ["not_sheared"] });
 const sheep = await scene.addEntity(model!, { tints: { wool_color: 0xf9801d } });
 sheep.getLayerGroup("wool")!.visible = false;   // every layer is a group</code></pre>
+                <p>Item definitions take the game's item state. Pass data components, item-model properties, a stack count and item references to <code>Models.getMerged</code>; GUI item layers accept the same <code>context</code>. Dyed armor, banner patterns, shields, shulker boxes, bundles and tridents resolve from it. Registry defaults are not loaded, so supply what a selector reads.</p>
+                <pre><code data-lang="ts">const shield = await Models.getMerged(new AssetKey("minecraft", "shield", "models", "item"), {
+    components: {
+        "minecraft:base_color": "blue",
+        "minecraft:banner_patterns": [{ pattern: "minecraft:stripe_center", color: "white" }]
+    }
+});
+await scene.addModel(shield!, { displayPosition: DisplayPosition.GUI });
+await Models.getMerged(bundle, {
+    properties: { "minecraft:bundle/has_selected_item": true },
+    itemReferences: { "minecraft:bundle/selected_item": apple }   // AssetKey of the item drawn inside
+});</code></pre>
                 <p>Mobs with keyframe animations (warden, frog, camel, breeze, armadillo, sniffer, bat and others) expose them through <code>Entities.getAnimations</code>. The entity owns no clock, so advance it from a frame callback.</p>
                 <pre><code data-lang="ts">const animations = await Entities.getAnimations(key);   // undefined without any
 warden.playAnimation(animations!.roar, { loop: true, speed: 1 });
 const stop = renderer.onFrame(({ delta }) => warden.advanceAnimation(delta));
 warden.setAnimationTime(1.5);   // or pose at an explicit time
 warden.stopAnimation();         // restores the default pose</code></pre>
-                <p>GUIs take ordered layers in GUI pixels, with y growing down: texture crops, or item models in their GUI display pose. <code>gui.bounds</code> reports the drawn area for fitting an orthographic camera, <code>GuiHelper.inventorySlot</code> turns a slot index into a position, and <code>GuiHelper.recipe</code> lays out a crafting recipe.</p>
+                <p>GUIs take ordered layers in GUI pixels, with y growing down: texture crops, or item models in their GUI display pose. <code>gui.bounds</code> reports the drawn area for fitting an orthographic camera, <code>GuiHelper.inventorySlot</code> turns a slot index into a position, and <code>GuiHelper.recipe</code> lays out a crafting recipe. Text layers draw bitmap fonts from the resource pack, and <code>GuiHelper.container</code>, <code>bossBar</code>, <code>book</code> and <code>tooltip</code> return ready layer lists.</p>
                 <pre><code data-lang="ts">const gui = await scene.addGui([
     { texture: "minecraft:gui/container/generic_54", crop: [0, 0, 176, 222] },
     { item: "minecraft:item/apple", position: GuiHelper.inventorySlot(0, [8, 18]) },
@@ -384,7 +401,12 @@ warden.stopAnimation();         // restores the default pose</code></pre>
 
 const table = await scene.addGui(GuiHelper.recipe(recipeJson, {
     resolveIngredient: () => "minecraft:diamond"   // concrete item for tags and alternatives
-}));</code></pre>
+}));
+const hud = await scene.addGui([
+    ...await GuiHelper.bossBar({ color: "purple", progress: 0.65 }),
+    ...await GuiHelper.tooltip([[{ text: "Diamond Pickaxe", color: 0x55ffff }], "Efficiency IV"], { position: [12, 24] }),
+    { text: "Score: 42", position: [0, 80], shadow: true }
+]);</code></pre>
             </article>
 
             <article id="dirty-flag" class="doc">
@@ -427,7 +449,7 @@ await Models.clearCache();</code></pre>
             <article id="worlds" class="doc">
                 <h3>Worlds and files</h3>
                 <p><code>MineRenderWorld</code> stores blocks in 16³ chunks with signed coordinates and keeps faces against opaque neighbors from being drawn. With <code>sectionMeshing</code>, static block models of any shape are merged into solid and translucent meshes per section; fluids, block entities, and animated textures stay individual objects.</p>
-                <pre><code data-lang="ts">import { AnvilParser, MineRenderWorld, NBTHelper, SchematicParser, StructureParser } from "minerender";
+                <pre><code data-lang="ts">import { AnvilParser, AnvilWorldSource, MineRenderWorld, NBTHelper, SchematicParser, StructureParser, WorldStreamer } from "minerender";
 
 const world = new MineRenderWorld(renderer.scene, { sectionMeshing: true });
 
@@ -445,13 +467,22 @@ const chunks = AnvilParser.getChunkList(regionBytes);
 const chunk = await AnvilParser.parseChunk(regionBytes, chunks[0].x, chunks[0].z);
 await world.placeChunk(chunk!);
 
-await world.clear();</code></pre>
-                <p>Placement is batched through a <code>BatchedExecutor</code> so the page stays responsive. The world has no lighting, biome colors or level of detail.</p>
+await world.clear();
+
+// Or stream a Java world around the view: the source reads r.&lt;x&gt;.&lt;z&gt;.mca on demand
+const source = new AnvilWorldSource(async (x, z, signal) =&gt; {
+    const response = await fetch(`/world/region/r.${x}.${z}.mca`, { signal });
+    return response.ok ? response.arrayBuffer() : undefined;
+});
+const streamer = new WorldStreamer(world, source, { loadRadius: 2, unloadRadius: 3 });
+await streamer.updatePosition(renderer.controls!.target);   // call again whenever the view moves
+await streamer.dispose();                                    // unloads its columns</code></pre>
+                <p>Bulk placement resolves each block state once and yields to the page every few milliseconds, and section meshes are built in a worker when your bundle keeps the package's <code>section.worker</code> file next to the module. The world has no lighting, biome colors or level of detail.</p>
             </article>
 
             <article id="export" class="doc">
                 <h3>Exporting</h3>
-                <p><code>toImage</code> renders a fresh frame and returns a data URL. <code>SceneExporter</code> writes the visible meshes with their instance placements.</p>
+                <p><code>toImage</code> renders a fresh frame and returns a data URL, <code>toVideo</code> records the running scene, and <code>SceneExporter</code> writes the visible meshes with their instance placements.</p>
                 <pre><code data-lang="ts">import { SceneExporter } from "minerender";
 
 const png = renderer.toImage();                          // full canvas
@@ -459,8 +490,9 @@ const jpeg = renderer.toImage(true, "image/jpeg", 0.9);   // trimmed to the draw
 
 const glb = await SceneExporter.toGLTF(renderer.scene, { binary: true });   // textures and tints kept
 const obj = SceneExporter.toObj(renderer.scene);                           // geometry only
-const ply = SceneExporter.toPLY(skin);                                     // any Object3D as the root</code></pre>
-                <p>glTF export needs a browser. Custom shading is not baked into the exported materials.</p>
+const ply = SceneExporter.toPLY(skin);                                     // any Object3D as the root
+const video = await renderer.toVideo({ duration: 4, fps: 30 });            // real-time WebM or MP4 Blob; check video.type</code></pre>
+                <p>glTF export needs a browser. Custom shading is not baked into the exported materials. Video recording runs in real time through <code>MediaRecorder</code>, keeps the canvas size at the start, fills transparent pixels with black and can be cancelled with an <code>AbortSignal</code>.</p>
             </article>
 
             <article id="lifecycle" class="doc">
@@ -499,7 +531,7 @@ shutdown(); // let the process exit</code></pre>
                     <li><strong>One renderer per visible area.</strong> Browsers limit WebGL contexts. This page keeps at most two alive and swaps the rest for snapshots.</li>
                     <li><strong>Dispose what scrolls away</strong> and recreate it on demand. Assets stay cached, so the second load is quick.</li>
                     <li><strong>Leave instancing on</strong> for repeated models, and set <code>maxInstanceCount</code> above the number of copies you expect.</li>
-                    <li><strong>Turn on <code>sectionMeshing</code></strong> for worlds and large structures. Static blocks become one mesh per section.</li>
+                    <li><strong>Turn on <code>sectionMeshing</code></strong> for worlds and large structures. Static blocks become one mesh per section, built in a worker when the bundle ships <code>section.worker</code>.</li>
                     <li><strong>Disable the composer</strong> when you do not need post-processing, and keep <code>pixelRatio</code> at 1 unless you need sharper output.</li>
                     <li><strong>Lower <code>fpsLimit</code></strong> on busy pages. The dirty flag already skips idle frames.</li>
                 </ul>
@@ -525,7 +557,7 @@ shutdown(); // let the process exit</code></pre>
             <tr><td><code>options.assetRoot</code></td><td><code>AssetLoader.setVersion()</code>, <code>AssetLoader.addSource()</code>, or a per-key root</td></tr>
             <tr><td><code>options.controls</code>, <code>camera</code>, <code>showAxes</code>, <code>showGrid</code></td><td><code>controls.enabled</code>, <code>camera.position</code>, <code>debug.axes</code>, <code>debug.grid</code></td></tr>
             <tr><td><code>render.toImage(trim, mime)</code></td><td><code>renderer.toImage(trim, mime, quality)</code></td></tr>
-            <tr><td><code>render.toObj()</code>, <code>toGLTF()</code>, <code>toPLY()</code></td><td><code>SceneExporter.toObj(renderer.scene)</code>, <code>toGLTF</code>, <code>toPLY</code></td></tr>
+            <tr><td><code>render.toObj()</code>, <code>toGLTF()</code>, <code>toPLY()</code></td><td><code>SceneExporter.toObj(renderer.scene)</code>, <code>toGLTF</code>, <code>toPLY</code>; new: <code>renderer.toVideo()</code></td></tr>
             <tr><td><code>render.clearScene()</code>, <code>render.dispose()</code></td><td><code>object.removeFromScene()</code>, <code>renderer.dispose()</code></td></tr>
             <tr><td>Per-frame <code>skinRender</code> CustomEvents</td><td><code>renderer.onFrame(({ time, delta }) =&gt; ...)</code></td></tr>
             <tr><td><code>skinRender.playerModel.getObjectByName("head")</code></td><td><code>skin.getGroupByName("head")</code>, <code>skin.getMeshByName("hat")</code></td></tr>
@@ -632,6 +664,7 @@ AssetLoader.addSource("my-pack", new ArchiveAssetSource(archive));</code></pre>
         </div>
         <div class="footer-links">
             <a href="https://github.com/InventivetalentDev/MineRender" target="_blank" rel="noopener">GitHub</a>
+            <a href="https://beta-docs.minerender.org/">API reference</a>
             <a href="https://www.npmjs.com/package/minerender" target="_blank" rel="noopener">npm</a>
             <a href="https://minerender.org" target="_blank" rel="noopener">V1 website</a>
         </div>

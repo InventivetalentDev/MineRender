@@ -1,4 +1,4 @@
-import { AssetKey, DISPLAY_POSITIONS, Entities, parseSceneDocument, type SceneEntityDefinition, type SceneObjectDefinition, type SceneSkinDefinition, type SceneSkinPosePart } from "minerender";
+import { AssetKey, DISPLAY_POSITIONS, Entities, GuiHelper, parseSceneDocument, type SceneEntityDefinition, type SceneItemContext, type SceneObjectDefinition, type SceneSkinDefinition, type SceneSkinPosePart } from "minerender";
 import { Color } from "three";
 import { getBlockProperties, getObjectList } from "./catalog";
 
@@ -195,7 +195,23 @@ export function renderInspector(container: HTMLElement, definition: SceneObjectD
     }
 
     if (draft.type === "item" || draft.type === "model") {
-        select(container, "Display pose", [["", draft.type === "item" ? "Default (GUI)" : "None"], ...DISPLAY_POSITIONS.map(value => [value, value.replace(/_/g, " ")] as [string, string])], draft.options?.displayPosition ?? "", value => options({ displayPosition: value || undefined }));
+        const model = draft;
+        select(container, "Display pose", [["", draft.type === "item" ? "Default (GUI)" : "None"], ...DISPLAY_POSITIONS.map(value => [value, value.replace(/_/g, " ")] as [string, string])], draft.options?.displayPosition ?? "", value => {
+            // Item definitions pick models per display context (tridents, bows), so it follows the pose.
+            if (model.type === "item") model.context = itemContextWith(model.context, { displayContext: value as SceneItemContext["displayContext"] || undefined });
+            options({ displayPosition: value || undefined });
+        });
+    }
+
+    if (draft.type === "item") {
+        const item = draft;
+        const state = section(container, "Item state");
+        note(state, "Components, properties, and the stack count select the item definition's model and colors. Item references name the items drawn by nodes such as minecraft:bundle/selected_item.");
+        const apply = (patch: Partial<SceneItemContext>) => { item.context = itemContextWith(item.context, patch); emit(true, state); };
+        number(state, "Stack count", item.context?.count ?? 1, 0, undefined, 1, count => apply({ count: count === 1 ? undefined : count }));
+        json(state, "Components JSON", item.context?.components ?? {}, value => apply({ components: value }), error => fail(error, state));
+        json(state, "Properties JSON", item.context?.properties ?? {}, value => apply({ properties: value }), error => fail(error, state));
+        json(state, "Item references JSON", item.context?.itemReferences ?? {}, value => apply({ itemReferences: value }), error => fail(error, state));
     }
 
     if (draft.type === "block" || draft.type === "item" || draft.type === "model") {
@@ -395,6 +411,16 @@ export function renderInspector(container: HTMLElement, definition: SceneObjectD
         button(add, "Add texture", () => addLayer({ texture: "minecraft:gui/sprites/tooltip/background", position: [0, gui.layers.length * 18], size: [128, 32] }));
         button(add, "Add item", () => addLayer({ item: "minecraft:item/diamond", position: [0, gui.layers.length * 18] }));
         button(add, "Add text", () => addLayer({ text: "Text", position: [0, gui.layers.length * 18], shadow: true }));
+        const addLayout = (label: string, build: () => Promise<unknown[]>) => button(add, label, () => submit(async () => {
+            const built = await build() as typeof gui.layers;
+            gui.layers.push(...built);
+            renderLayers(gui.layers.length - built.length);
+            commit(layers);
+        }, add));
+        addLayout("Add chest background", () => GuiHelper.container("generic_54"));
+        addLayout("Add boss bar", () => GuiHelper.bossBar({ color: "purple", progress: 0.65 }));
+        addLayout("Add book page", () => GuiHelper.book({ previous: "normal", next: "normal", text: "Page text" }));
+        addLayout("Add tooltip", () => GuiHelper.tooltip(["Title", "Description"]));
         function renderLayers(openIndex = 0) {
             list.replaceChildren();
             if (!gui.layers.length) note(list, "Add a layer to give this GUI some content.");
@@ -447,6 +473,12 @@ export function renderInspector(container: HTMLElement, definition: SceneObjectD
                         if ("texture" in layer) layer.texture = source.value.trim(); else layer.item = source.value.trim();
                         commit();
                     });
+                    if ("item" in layer) {
+                        json(item, "Item state JSON", layer.context ?? {}, value => {
+                            layer.context = itemContextWith(value, {});
+                            commit(item);
+                        }, error => fail(error, item));
+                    }
                 } else {
                     if (typeof layer.text === "string") {
                         const content = document.createElement("textarea");
@@ -510,6 +542,15 @@ export function renderInspector(container: HTMLElement, definition: SceneObjectD
         }, error => fail(error, advanced));
     }
     return () => { active = false; };
+}
+
+/** Merges item state and drops empty entries so saved documents stay minimal. */
+function itemContextWith(context: SceneItemContext | undefined, patch: Partial<SceneItemContext>): SceneItemContext | undefined {
+    const next: Record<string, unknown> = { ...context, ...patch };
+    for (const [key, value] of Object.entries(next)) {
+        if (value === undefined || (typeof value === "object" && value !== null && !Array.isArray(value) && !Object.keys(value).length)) delete next[key];
+    }
+    return Object.keys(next).length ? next as SceneItemContext : undefined;
 }
 
 function section(parent: HTMLElement, title: string): HTMLFieldSetElement {

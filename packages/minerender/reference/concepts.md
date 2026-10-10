@@ -26,7 +26,9 @@ The `addModel`, `addBlock`, `addSkin`, `addEntity`, and `addGui` methods on [Min
 
 Texture changes can also be asynchronous. Await `SkinObject.setSkinTexture` before relying on skin dimensions or model detection, and await `setCapeTexture` before capturing the cape.
 
-World edits such as `setBlockAt`, `placeMultiBlock`, and `clear` also return promises. Await them before reading the resulting rendered state. A failed bulk placement can leave successfully placed blocks in the world; it is not a transaction that rolls back earlier placements.
+World edits such as `setBlockAt`, `placeMultiBlock`, and `clear` also return promises. Await them before reading the resulting rendered state. Bulk placement resolves each distinct block state once, yields to the event loop every few milliseconds, and refreshes neighbor culling once at the end; pass a `BatchedExecutor` to keep per-position batches instead. A failed bulk placement can leave successfully placed blocks in the world; it is not a transaction that rolls back earlier placements.
+
+With `sectionMeshing: true`, changed sections rebuild after the placement promise resolves. The browser build prepares section geometry in a Web Worker when the bundle keeps `section.worker` beside the module; otherwise it builds synchronously. See [Browser and Node.js](./platforms.md#capability-boundaries).
 
 ## Redrawing after changes
 
@@ -47,6 +49,21 @@ Call `renderer.toVideo({ duration: 5, fps: 30 })` to record five seconds of the 
 Recording runs in real time. Keep the tab visible; browser scheduling and `render.fpsLimit` can reduce the frame rate or affect duration. The video keeps the canvas's initial drawing-buffer dimensions, scales later resizes to fit, and fills transparent pixels with black. It does not trim frames or rewind animations.
 
 Only one video can record per renderer. A stopped renderer starts for the recording and stops again afterward. Pass an `AbortSignal` as `signal` to cancel. Calling `stop()` or disposing the renderer also cancels the recording and rejects its promise. Calling `start()` while the renderer is running leaves the recording active.
+
+## Item state
+
+`Models.getMerged(key, context)` evaluates an item definition with the supplied [ItemModelContext](/api/index/interfaces/ItemModelContext): data `components`, item-model `properties`, a stack `count`, a `displayContext`, and `itemReferences` for nodes such as `minecraft:bundle/selected_item`. The same state selects models, special renderers, and automatic tints.
+
+```ts
+const key = new AssetKey("minecraft", "leather_chestplate", "models", "item");
+const model = await Models.getMerged(key, { components: { "minecraft:dyed_color": 0x3f76e4 } });
+await scene.addGui([{ item: "minecraft:item/shield", context: { components: {
+    "minecraft:base_color": "blue",
+    "minecraft:banner_patterns": [{ pattern: "minecraft:stripe_center", color: "white" }]
+} } }]);
+```
+
+Item registry defaults are not loaded, so selectors that read an absent component see no value. GUI item layers and scene-document item definitions take the same `context`; documents name item references by item ID. Explicit `tints` still override automatic colors. See the [AGENTS.md item notes](https://github.com/InventivetalentDev/MineRender/blob/main/AGENTS.md#gotchas) for the supported components and renderers.
 
 ## Objects and instance references
 
