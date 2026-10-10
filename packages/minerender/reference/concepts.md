@@ -131,6 +131,8 @@ Numeric and paletted Java chunks support gzip, zlib, LZ4, and uncompressed paylo
 
 Numeric mappings do not reconstruct states that depend on neighbors or block-entity NBT, such as paired doors or bed colors. DataVersion migration remains unsupported.
 
+Modern Anvil sections retain their biome palettes as 64 IDs in `section.biomes`, ordered by `x + z * 4 + y * 16`; each sample covers 4×4×4 blocks. `placeChunk` copies them into the world, including for air-only sections, and `world.getBiomeAt(x, y, z)` returns the saved ID at integer block coordinates, or `undefined` without biome data. Replacing or unloading the column removes its samples. Older numeric `Biomes` arrays, biome blending, and biome-based rendering colors are not supported.
+
 ## Ownership and cleanup
 
 Choose cleanup according to the resource you own:
