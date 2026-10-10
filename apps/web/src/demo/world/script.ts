@@ -1,11 +1,11 @@
 import {
     AnvilParser, AnvilWorldSource, AssetLoader, ChunkData, MineRenderWorld, Renderer, WorldStreamer,
-    type AnvilChunk, type WorldChunkSource
+    type AnvilChunk, type AnvilExternalChunkReader, type WorldChunkSource
 } from "minerender";
 import { Color, Vector3 } from "three";
 
 interface RegionFile { x: number; z: number; file: File }
-interface Dimension { label: string; regions: Map<string, RegionFile> }
+interface Dimension { label: string; regions: Map<string, RegionFile>; externalChunks: Map<string, File> }
 interface Source { source: WorldChunkSource; label: string; clearCache?: () => void }
 
 const element = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -154,10 +154,12 @@ const sample: Source = {
 function collectDimensions(files: File[]): Map<string, Dimension> {
     const result = new Map<string, Dimension>();
     for (const file of files) {
-        const match = /^r\.(-?\d+)\.(-?\d+)\.mca$/i.exec(file.name);
+        const region = /^r\.(-?\d+)\.(-?\d+)\.mca$/i.exec(file.name);
+        const match = region ?? /^c\.(-?\d+)\.(-?\d+)\.mcc$/i.exec(file.name);
         if (!match) continue;
+        const external = !region;
         const x = Number(match[1]), z = Number(match[2]);
-        if (![x, z].every(Number.isSafeInteger)) throw new Error(`Invalid region coordinates: ${file.name}`);
+        if (![x, z].every(Number.isSafeInteger)) throw new Error(`Invalid ${external ? "chunk" : "region"} coordinates: ${file.name}`);
         const path = file.webkitRelativePath.replace(/\\/g, "/").split("/").slice(0, -1);
         if (path.length && path[path.length - 1] !== "region") continue;
         let id = "minecraft:overworld", label = "Overworld";
@@ -171,11 +173,17 @@ function collectDimensions(files: File[]): Map<string, Dimension> {
             }
         }
         let dimension = result.get(id);
-        if (!dimension) result.set(id, dimension = { label, regions: new Map() });
+        if (!dimension) result.set(id, dimension = { label, regions: new Map(), externalChunks: new Map() });
         const key = `${x},${z}`;
-        if (dimension.regions.has(key)) throw new Error(`Duplicate region ${file.name} in ${label}. Select files from one world.`);
-        dimension.regions.set(key, { x, z, file });
+        if (external) {
+            if (dimension.externalChunks.has(key)) throw new Error(`Duplicate external chunk ${file.name} in ${label}. Select files from one world.`);
+            dimension.externalChunks.set(key, file);
+        } else {
+            if (dimension.regions.has(key)) throw new Error(`Duplicate region ${file.name} in ${label}. Select files from one world.`);
+            dimension.regions.set(key, { x, z, file });
+        }
     }
+    for (const [id, dimension] of result) if (!dimension.regions.size) result.delete(id);
     if (!result.size) throw new Error("No region files found. Select a Java world folder or r.x.z.mca files.");
     return result;
 }
@@ -183,6 +191,7 @@ function collectDimensions(files: File[]): Map<string, Dimension> {
 async function openDimension(id: string): Promise<void> {
     const dimension = dimensions.get(id);
     if (!dimension) throw new Error("Choose a dimension from the selected world.");
+    const readExternalChunk: AnvilExternalChunkReader = async (x, z) => dimension.externalChunks.get(`${x},${z}`)?.arrayBuffer();
     const regions = [...dimension.regions.values()].sort((a, b) => Math.hypot(a.x, a.z) - Math.hypot(b.x, b.z));
     let start: { x: number; z: number; y: number } | undefined;
     let failureCount = 0;
@@ -204,7 +213,9 @@ async function openDimension(id: string): Promise<void> {
         for (const position of positions) {
             const x = region.x * 32 + position.x, z = region.z * 32 + position.z;
             try {
-                const chunk = await AnvilParser.parseChunk(bytes, position.x, position.z);
+                const chunk = await AnvilParser.parseChunk(bytes, position.x, position.z, {
+                    region: { x: region.x, z: region.z }, readExternalChunk
+                });
                 if (chunk && (chunk.x !== x || chunk.z !== z)) {
                     throw new Error(`Stored coordinates ${chunk.x}, ${chunk.z} do not match region coordinates ${x}, ${z}.`);
                 }
@@ -221,9 +232,9 @@ async function openDimension(id: string): Promise<void> {
             ? ` ${failureCount} region or chunk reads failed. First failure: ${firstFailure}` : ""}`);
     }
     const source = new AnvilWorldSource(async (x, z) => dimension.regions.get(`${x},${z}`)?.file.arrayBuffer(),
-        { maxCachedRegions: 4, maxCachedBytes: 64 * 1024 * 1024 });
+        { readExternalChunk, maxCachedRegions: 4, maxCachedBytes: 64 * 1024 * 1024 });
     try {
-        element("source-info").textContent = `${dimension.label} · ${dimension.regions.size} region files. Regions are read on demand; the region cache holds up to 4 files / 64 MiB.`;
+        element("source-info").textContent = `${dimension.label} · ${dimension.regions.size} region files · ${dimension.externalChunks.size} external chunk files. Files are read on demand; the region cache holds up to 4 files / 64 MiB.`;
         await replaceSource({ source, label: dimension.label, clearCache: () => source.clearCache() }, start);
     } catch (error) {
         source.clearCache();
