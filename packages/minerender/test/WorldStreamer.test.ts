@@ -1,6 +1,9 @@
 import test from "ava";
 import type { AnvilChunk } from "../src/world/AnvilParser";
 import { WorldStreamer } from "../src/world/WorldStreamer";
+import { MineRenderWorld } from "../src/world/MineRenderWorld";
+import { MineRenderScene } from "../src/renderer/MineRenderScene";
+import { ChunkData } from "../src/world/ChunkData";
 
 function deferred<T = void>() {
     let resolve!: (value: T) => void;
@@ -11,6 +14,31 @@ function deferred<T = void>() {
 
 const chunk = (x: number, z: number): AnvilChunk => ({ x, z, sections: [] });
 const key = (x: number, z: number) => `${x},${z}`;
+
+test("streaming retains biome-only sections until eviction and restores them on return", async t => {
+    const world = new MineRenderWorld(new MineRenderScene());
+    const reads: string[] = [];
+    const source = { getChunk: async (x: number, z: number): Promise<AnvilChunk> => {
+        reads.push(key(x, z));
+        return { x, z, sections: [{ y: -4, data: new ChunkData(), biomes: Array(64).fill(`test:biome_${x}_${z}`) }] };
+    } };
+    const streamer = new WorldStreamer(world, source, { loadRadius: 0, unloadRadius: 1 });
+    t.teardown(async () => { await streamer.dispose(); await world.clear(); });
+    await streamer.update(-1, -2);
+    t.is(world.getBiomeAt(-1, -64, -17), "test:biome_-1_-2");
+    t.is(world.getBlockAt(-1, -64, -17), undefined);
+    await streamer.update(0, -2);
+    t.is(world.getBiomeAt(-1, -64, -17), "test:biome_-1_-2");
+    t.is(world.getBiomeAt(0, -49, -32), "test:biome_0_-2");
+    await streamer.update(1, -2);
+    t.is(world.getBiomeAt(-1, -64, -17), undefined);
+    await streamer.update(-1, -2);
+    t.is(world.getBiomeAt(-1, -64, -17), "test:biome_-1_-2");
+    t.deepEqual(reads, ["-1,-2", "0,-2", "1,-2", "-1,-2"]);
+    await streamer.dispose();
+    t.is(world.getBiomeAt(-1, -64, -17), undefined);
+    t.is(world.getBiomeAt(0, -49, -32), undefined);
+});
 
 function fixture(options: { loadRadius?: number; unloadRadius?: number } = { loadRadius: 0, unloadRadius: 0 }, hooks: {
     get?: (x: number, z: number, signal?: AbortSignal) => Promise<AnvilChunk | undefined>;

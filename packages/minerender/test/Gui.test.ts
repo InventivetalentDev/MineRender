@@ -177,7 +177,7 @@ test("shaped recipes trim outer spaces, preserve gaps, and center single dimensi
         { name: "background", texture: "minecraft:gui/container/crafting_table", crop: [0, 0, 176, 166] },
         { name: "ingredient-1", item: "minecraft:item/iron_ingot", position: [48, 17] },
         { name: "ingredient-3", item: "minecraft:item/iron_ingot", position: [30, 35] },
-        { name: "result", item: "minecraft:item/shears", position: [124, 35] }
+        { name: "result", item: "minecraft:item/shears", position: [124, 35], context: { count: 1 } }
     ]);
     t.is(JSON.stringify(recipe), original);
     const spaced = GuiHelper.recipe({
@@ -219,7 +219,7 @@ test("shapeless recipes resolve tags and alternatives without changing legacy it
         { name: "ingredient-1", item: "test:item/woods/plank", position: [48, 17] },
         { name: "ingredient-2", item: "minecraft:item/oak_log", position: [66, 17] },
         { name: "ingredient-3", item: "pack:item/handles/bamboo", position: [30, 35] },
-        { name: "result", item: "test:item/assembled/tool", position: [124, 35] }
+        { name: "result", item: "test:item/assembled/tool", position: [124, 35], context: { count: 2 } }
     ]);
     t.is((layers[4] as { item: AssetKey }).item, selected);
     t.is(JSON.stringify(recipe), original);

@@ -26,16 +26,20 @@ class CustomModelDataSource extends AssetSource {
 }
 
 export async function loadCustomModelData(key: AssetKey, context: ItemModelContext) {
+    return withCustomModelData(() => Models.getMerged(key, context));
+}
+
+export async function withCustomModelData<T>(load: () => Promise<T>): Promise<T> {
     AssetLoader.addSource(SOURCE_NAME, new CustomModelDataSource());
     Caching.clear();
-    try { return await Models.getMerged(key, context); }
+    try { return await load(); }
     finally {
         AssetLoader.removeSource(SOURCE_NAME);
         Caching.clear();
     }
 }
 
-export function customModelDataCode(load: string): string {
+export function customModelDataCode(load: string, result = "model"): string {
     return `const definition = ${JSON.stringify(definition, null, 2)};
 class DemoItemSource extends MineRender.AssetSource {
     get cacheId() { return ${JSON.stringify(SOURCE_CACHE_ID)}; }
@@ -47,9 +51,9 @@ class DemoItemSource extends MineRender.AssetSource {
 }
 MineRender.AssetLoader.addSource(${JSON.stringify(SOURCE_NAME)}, new DemoItemSource());
 MineRender.Caching.clear();
-let model;
+let ${result};
 try {
-    model = await ${load};
+    ${result} = await ${load};
 } finally {
     MineRender.AssetLoader.removeSource(${JSON.stringify(SOURCE_NAME)});
     MineRender.Caching.clear();

@@ -2,7 +2,7 @@
 // is no build step to keep in sync. (The previous config declared rewritePaths src/ -> dist/cjs/,
 // a leftover from the dual-tsc pipeline that tsup replaced; that directory no longer exists.)
 module.exports = {
-    files: ["test/**/*.test.ts"],
+    files: ["test/**/*.test.ts", "!test/node/**"],
     extensions: {
         ts: "commonjs"
     },

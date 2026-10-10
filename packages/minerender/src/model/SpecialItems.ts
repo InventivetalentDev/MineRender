@@ -1,8 +1,11 @@
 import { Euler, Matrix4, MeshBasicMaterial } from "three";
-import { AssetKey } from "../assets/AssetKey";
+import { AssetKey, isResourceLocation } from "../assets/AssetKey";
 import { Entities } from "../assets/Entities";
 import { BannerPatterns, DYE_COLORS } from "../assets/BannerPatterns";
+import { DecoratedPots } from "../assets/DecoratedPots";
 import { ModelTextures } from "../assets/ModelTextures";
+import { CubeFace } from "../CubeFace";
+import { PlayerHeadTextures } from "../skin/PlayerHeadTextures";
 import type { EntityLayer, EntityModel, EntityModelLayer } from "../entity/EntityModel";
 import type { SpecialItemRenderer, TripleArray } from "./Model";
 
@@ -15,6 +18,9 @@ export interface SpecialItemPart {
     positions?: Record<string, TripleArray>;
     /** Colors for the entity model's named texture passes. */
     tints?: Record<string, number>;
+    faces?: Record<string, CubeFace[]>;
+    /** Shared prepared material; the renderer clones it and retains ownership of only that clone. */
+    material?: MeshBasicMaterial;
 }
 
 /** Loads entity geometry and texture passes for supported special item previews. */
@@ -37,6 +43,60 @@ export class SpecialItems {
             return { model, transform, rotations };
         };
         switch (special.type) {
+            case "minecraft:decorated_pot":
+            case "decorated_pot": {
+                const sideTextures = DecoratedPots.getSideTextures(components["minecraft:pot_decorations"], root);
+                const baseTexture = texture("decorated_pot_base", "decorated_pot");
+                const [base, sides] = await Promise.all([
+                    load("decorated_pot_base", baseTexture, new Matrix4()),
+                    load("decorated_pot_sides", texture("decorated_pot_side", "decorated_pot"), new Matrix4())
+                ]);
+                const layers: Record<string, EntityLayer> = {
+                    base: { key: base.model.key, texture: baseTexture, layer: base.model.layer, render: "solid" }
+                };
+                for (const side of ["front", "back", "left", "right"] as const) {
+                    const part = sides.model.layer.root.children[side];
+                    if (!part) throw new Error(`Decorated-pot entity model is missing its ${side} side`);
+                    layers[side] = { key: sides.model.key, texture: sideTextures[side], render: "solid", layer: {
+                        ...sides.model.layer, root: { ...sides.model.layer.root, cubes: [], children: {
+                            [side]: part
+                        } }
+                    } };
+                }
+                await Promise.all([...new Map(Object.values(layers).map(layer => [layer.texture!.serialize(), layer.texture!])).values()].map(async key => {
+                    if (!await ModelTextures.preload(key)) throw new Error(`Missing special item texture ${key.toNamespacedString()}`);
+                }));
+                base.model = { ...base.model, ...layers.base, layers };
+                base.faces = { front: [CubeFace.NORTH], back: [CubeFace.NORTH], left: [CubeFace.NORTH], right: [CubeFace.NORTH] };
+                return [base];
+            }
+            case "minecraft:player_head":
+            case "player_head": {
+                const skin = await PlayerHeadTextures.get(components["minecraft:profile"], root);
+                const part = await load("player_head", skin.texture,
+                    new Matrix4().makeTranslation(8, 0, 8).multiply(new Matrix4().makeScale(-1, -1, 1)), { head: [0, Math.PI, 0] });
+                const main = { ...part.model, texture: skin.texture, render: "translucent" as const };
+                part.model = { ...main, layers: { main } };
+                part.material = skin.material;
+                return [part];
+            }
+            case "minecraft:copper_golem_statue":
+            case "copper_golem_statue": {
+                if (!isResourceLocation(special.texture)) throw new Error("Copper-golem statue texture must be a resource identifier");
+                const [namespace, path] = special.texture.includes(":") ? special.texture.split(":") : ["minecraft", special.texture];
+                const literal = new AssetKey(namespace, path, undefined, undefined, "assets", "", root);
+                const key = path.startsWith("textures/") && path.endsWith(".png")
+                    ? path.startsWith("textures/entity/") ? texture(`${namespace}:${path.slice("textures/entity/".length)}`, "")
+                        : AssetKey.parse("textures", `${namespace}:${path.slice("textures/".length)}`, literal)
+                    : literal;
+                const statue = await load(special.pose === "standing" ? "copper_golem" : `copper_golem_${special.pose}`, key,
+                    new Matrix4().makeTranslation(8, 24, 8).multiply(new Matrix4().makeScale(-1, -1, 1)));
+                const pose = statue.model.layer.root.pose;
+                statue.rotations.root = [pose.rotation[0], Math.PI, Math.PI];
+                statue.positions = { root: [pose.offset[0], 0, pose.offset[2]] };
+                statue.model = { ...statue.model, texture: key, render: "cutout", layers: undefined };
+                return [statue];
+            }
             case "minecraft:trident":
             case "trident":
             case "minecraft:conduit":

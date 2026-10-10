@@ -68,7 +68,7 @@ function fixture(t: ExecutionContext) {
 
 test.after.always(() => shutdown());
 
-test("image export draws before readback while clean, frame-limited, or stopped", t => {
+test("single frames and image exports draw while clean, frame-limited, or stopped", t => {
     for (const composer of [false, true]) {
         const renderer = new ImageRenderer(composer);
         renderer["_controls"] = { enabled: true, update: () => renderer.events.push("controls") } as unknown as OrbitControls;
@@ -76,6 +76,11 @@ test("image export draws before readback while clean, frame-limited, or stopped"
         let callbacks = 0;
         renderer.onFrame(() => { callbacks++; });
         const deadline = renderer["_nextFrameTime"];
+        renderer.events.length = 0;
+        renderer.renderOnce();
+        t.deepEqual(renderer.events, ["controls", composer ? "composer" : "direct"]);
+        t.is(renderer["_nextFrameTime"], deadline);
+        t.is(callbacks, 0);
         renderer.events.length = 0;
         const image = JSON.parse(renderer.toImage(false, "image/jpeg", 0.7));
         t.deepEqual(renderer.events, ["controls", composer ? "composer" : "direct", "read"]);
@@ -90,10 +95,15 @@ test("image export draws before readback while clean, frame-limited, or stopped"
         t.false(renderer.dirty);
         renderer.stop();
         renderer.events.length = 0;
+        renderer.renderOnce();
+        t.deepEqual(renderer.events, ["controls", composer ? "composer" : "direct"]);
+        t.is(renderer["_nextFrameTime"], undefined);
+        renderer.events.length = 0;
         t.is(JSON.parse(renderer.toImage()).mime, "image/png");
         t.deepEqual(renderer.events, ["controls", composer ? "composer" : "direct", "read"]);
         t.is(callbacks, 0);
         renderer["_disposed"] = true;
+        t.throws(() => renderer.renderOnce(), { message: "Cannot render a disposed renderer" });
         t.throws(() => renderer.toImage(), { message: "Cannot export an image from a disposed renderer" });
     }
 });

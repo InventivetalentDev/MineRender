@@ -3,6 +3,7 @@ import { MinecraftAsset } from "./MinecraftAsset";
 /** Texture animation and GUI scaling metadata read from a `.png.mcmeta` file. */
 export interface MinecraftTextureMeta extends MinecraftAsset {
     animation?: AnimationMeta;
+    texture?: { blur?: boolean; clamp?: boolean };
     gui?: { scaling?: GuiSpriteScaling };
 }
 

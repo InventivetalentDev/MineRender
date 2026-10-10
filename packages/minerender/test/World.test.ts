@@ -1,10 +1,14 @@
 import test, { ExecutionContext } from "ava";
 import { BoxGeometry, InstancedMesh, MeshBasicMaterial, Vector3 } from "three";
+import type { Compound, NBT } from "prismarine-nbt";
+import { BlockEntities } from "../src/assets/BlockEntities";
 import { BlockStates } from "../src/assets/BlockStates";
 import { Models } from "../src/assets/Models";
 import { BlockObject } from "../src/model/block/scene/BlockObject";
 import { TripleArray } from "../src/model/Model";
 import { ModelObject } from "../src/model/scene/ModelObject";
+import { SpongeSchematicParser } from "../src/model/multiblock/SpongeSchematicParser";
+import { LitematicaParser } from "../src/model/multiblock/LitematicaParser";
 import { MineRenderScene } from "../src/renderer/MineRenderScene";
 import { ChunkData } from "../src/world/ChunkData";
 import { BatchedExecutor } from "../src/util/BatchedExecutor";
@@ -64,6 +68,70 @@ test.serial("world coordinates cross signed chunk boundaries through every overl
     t.is(owners[0].children.length, 1);
     t.is(owners[0].children[0].children.length, 0);
     t.is(scene.stats.instanceCount, positions.length);
+});
+
+test.serial("Sponge structures place offset blocks with saved properties and normalized NBT", async t => {
+    const { world, scene } = fixture(t);
+    const getIndex = BlockEntities.getIndex;
+    BlockEntities.getIndex = async () => ({});
+    t.teardown(() => { BlockEntities.getIndex = getIndex; });
+    const input: NBT = { type: "compound", name: "", value: { Schematic: { type: "compound", value: {
+        Version: { type: "int", value: 3 }, DataVersion: { type: "int", value: 4671 },
+        Width: { type: "short", value: 2 }, Height: { type: "short", value: 1 }, Length: { type: "short", value: 1 },
+        Offset: { type: "intArray", value: [-17, -1, 16] },
+        Blocks: { type: "compound", value: {
+            Palette: { type: "compound", value: { "test:stone[facing=east]": { type: "int", value: 0 } } },
+            Data: { type: "byteArray", value: [0, 0] },
+            BlockEntities: { type: "list", value: { type: "compound", value: [{
+                Id: { type: "string", value: "test:container" }, Pos: { type: "intArray", value: [1, 0, 0] },
+                Data: { type: "compound", value: { CustomName: { type: "string", value: "fixture" } } }
+            }] } }
+        } }
+    } } } };
+    await world.placeMultiBlock(await SpongeSchematicParser.parse(input));
+    t.deepEqual(world.getBlockAt(-17, -1, 16)!.object.state, { facing: "east" });
+    const placed = world.getBlockAt(-16, -1, 16)!;
+    t.deepEqual(placed.object.getPosition().toArray(), [-256, -16, 256]);
+    t.deepEqual(placed.block, { type: "test:stone", properties: { facing: "east" }, nbt: {
+        type: "compound", value: {
+            CustomName: { type: "string", value: "fixture" }, id: { type: "string", value: "test:container" },
+            x: { type: "int", value: -16 }, y: { type: "int", value: -1 }, z: { type: "int", value: 16 }
+        }
+    } });
+    t.is(scene.stats.instanceCount, 2);
+});
+
+test.serial("individual Litematica regions place signed coordinates with saved properties and NBT", async t => {
+    const { world, scene } = fixture(t);
+    const getIndex = BlockEntities.getIndex;
+    BlockEntities.getIndex = async () => ({});
+    t.teardown(() => { BlockEntities.getIndex = getIndex; });
+    const int = (value: number) => ({ type: "int" as const, value });
+    const position = (x: number, y: number, z: number): Compound => ({ type: "compound", value: { x: int(x), y: int(y), z: int(z) } });
+    const input: NBT = { type: "compound", name: "", value: {
+        Version: int(7), Regions: { type: "compound", value: { Reverse: { type: "compound", value: {
+            Position: position(-16, -1, 16), Size: position(-2, 1, 1),
+            BlockStatePalette: { type: "list", value: { type: "compound", value: [{
+                Name: { type: "string", value: "test:stone" },
+                Properties: { type: "compound", value: { facing: { type: "string", value: "east" } } }
+            }] } },
+            BlockStates: { type: "longArray", value: [[0, 0]] },
+            TileEntities: { type: "list", value: { type: "compound", value: [{
+                id: { type: "string", value: "test:container" }, x: int(1), y: int(0), z: int(0),
+                CustomName: { type: "string", value: "fixture" }
+            }] } }
+        } } } }
+    } };
+    const parsed = await LitematicaParser.parse(input);
+    await world.placeMultiBlock(parsed.regions[0]);
+    t.deepEqual(world.getBlockAt(-17, -1, 16)!.object.state, { facing: "east" });
+    const placed = world.getBlockAt(-16, -1, 16)!;
+    t.deepEqual(placed.object.getPosition().toArray(), [-256, -16, 256]);
+    t.deepEqual(placed.block.nbt, { type: "compound", value: {
+        id: { type: "string", value: "test:container" }, x: int(-16), y: int(-1), z: int(16),
+        CustomName: { type: "string", value: "fixture" }
+    } });
+    t.is(scene.stats.instanceCount, 2);
 });
 
 test.serial("invalid world and local coordinates cannot alias another block", async t => {
@@ -165,12 +233,12 @@ test.serial("world placement snapshots block data without changing BlockInfo or 
 });
 
 
-test.serial("parsed chunk columns replace old sections and preserve signed positions, properties and block NBT", async t => {
+for (const useExecutor of [false, true]) test.serial(`parsed chunk columns replace old sections and preserve signed positions, properties and block NBT (executor=${useExecutor})`, async t => {
     const { world, scene } = fixture(t);
     const preload = BlockStates.getAll;
     BlockStates.getAll = async () => [];
-    const executor = new BatchedExecutor(1, 4);
-    t.teardown(() => { BlockStates.getAll = preload; executor.stop(); });
+    const executor = useExecutor ? new BatchedExecutor(1, 4) : undefined;
+    t.teardown(() => { BlockStates.getAll = preload; executor?.stop(); });
     await world.setBlockAt(-32, 100, 48, block);
     const neighbor = await world.setBlockAt(-16, 100, 48, block);
     const data = new ChunkData();
@@ -185,7 +253,61 @@ test.serial("parsed chunk columns replace old sections and preserve signed posit
     await world.placeChunk({ x: -2, z: 3, sections: [] }, executor);
     t.is(world.getBlockAt(-17, -49, 63), undefined);
     t.is(scene.stats.instanceCount, 1);
-    t.is(await executor.submit(() => "reusable"), "reusable");
+    if (executor) t.is(await executor.submit(() => "reusable"), "reusable");
+});
+
+test.serial("parsed columns clear unknown states, place remaining cells and reject with the first error", async t => {
+    const { world, scene, loads } = fixture(t);
+    await world.setBlockAt(0, 16, 0, block);
+    loads.length = 0;
+    const later = new ChunkData();
+    later.set(0, block);
+    const get = BlockStates.get, failure = new Error("first unknown state");
+    const requested: string[] = [];
+    BlockStates.get = async key => {
+        requested.push(key.path);
+        if (key.path === "unknown") throw failure;
+        if (key.path === "other_unknown") throw new Error("later unknown state");
+        return key.path === "missing" ? undefined : get(key);
+    };
+    const data = new ChunkData();
+    for (const [index, type] of ["unknown", "stone", "unknown", "missing", "stone", "other_unknown"].entries()) {
+        data.set(index, { type: `test:${type}` });
+    }
+    await t.throwsAsync(world.placeChunk({ x: 0, z: 0, sections: [{ y: 0, data }, { y: 1, data: later }] }), { is: failure });
+    t.is(world.getBlockAt(0, 16, 0), undefined);
+    const chunk = world.getChunkAt(new Vector3())!;
+    for (const index of [0, 2, 3, 5]) {
+        t.is(world.getBlockAt(index, 0, 0), undefined);
+        t.is(chunk["data"].get(index), undefined);
+    }
+    t.deepEqual([1, 4].map(x => world.getBlockAt(x, 0, 0)!.block), [block, block]);
+    t.deepEqual(requested, ["unknown", "stone", "missing", "other_unknown"]);
+    t.deepEqual(loads, ["test:stone"]);
+    t.is(scene.stats.instanceCount, 2);
+    t.is(data.get(0)!.type, "test:unknown");
+    const missing = new ChunkData();
+    missing.set(0, { type: "test:missing" });
+    await t.notThrowsAsync(world.placeChunk({ x: 1, z: 0, sections: [{ y: 0, data: missing }] }));
+    t.is(world.getBlockAt(16, 0, 0), undefined);
+});
+
+test.serial("placing a parsed column twice releases its first per-block objects", async t => {
+    const { world, scene } = fixture(t);
+    const data = new ChunkData();
+    data.set(0, block);
+    data.set(2, block);
+    const column = { x: -1, z: 2, sections: [{ y: 0, data }] };
+    await world.placeChunk(column);
+    const first = [-16, -14].map(x => world.getBlockAt(x, 0, 32)!.object);
+    const references = first.flatMap(object => object["_models"]);
+    await world.placeChunk(column);
+    for (const [index, x] of [-16, -14].entries()) {
+        t.not(world.getBlockAt(x, 0, 32)!.object, first[index]);
+        t.is(first[index].instanceCounter, 0);
+    }
+    for (const reference of references) t.throws(() => reference.getPosition(), { message: "Instance has been removed" });
+    t.is(scene.stats.instanceCount, 2);
 });
 
 test.serial("default bulk placement keeps repeated writes ordered within signed chunks", async t => {
@@ -200,6 +322,10 @@ test.serial("default bulk placement keeps repeated writes ordered within signed 
         { type: "test:last", properties: { facing: "north" }, nbt: { items: [1] } });
     t.deepEqual(world.getBlockAt(-1, 0, 0)!.object.state, { facing: "north" });
     t.is(world.getBlockAt(16, 0, 0)!.block.type, "test:neighbor");
+    t.is(scene.stats.instanceCount, 2);
+    await world.placeMultiBlock({ size: [1, 1, 1], blocks: ["test:first", "test:middle", "test:first"]
+        .map(type => ({ position: [-1, 0, 0] as TripleArray, type })) });
+    t.is(world.getBlockAt(-1, 0, 0)!.block.type, "test:first");
     t.is(scene.stats.instanceCount, 2);
 });
 

@@ -5,11 +5,12 @@ import { ModelMerger } from "../model/ModelMerger";
 import { AssetLoader } from "./AssetLoader";
 import { DEFAULT_NAMESPACE } from "./Assets";
 import { PersistentCache } from "../cache/PersistentCache";
-import { AssetKey, isAssetKey } from "./AssetKey";
+import { AssetKey, isAssetKey, isResourceLocation } from "./AssetKey";
 import { ListAsset } from "../ListAsset";
 import { AssetParser } from "./source/parser/AssetParsers";
 import { DisplayPosition } from "../model/DisplayPosition";
 import { DYE_COLORS } from "./BannerPatterns";
+import { ItemDefaults } from "../model/ItemDefaults";
 
 /** Caller-supplied item-preview state passed to {@link Models.getMerged}. */
 export interface ItemModelContext {
@@ -17,9 +18,9 @@ export interface ItemModelContext {
     displayContext?: DisplayPosition | "none";
     /** Explicit property overrides. Nodes with the same ID share one override, regardless of their parameters. */
     properties?: Record<string, boolean | string | number>;
-    /** Supplied component JSON by ID. Item-registry defaults are not added; component selectors compare structural JSON values. */
+    /** Supplied component JSON by ID, overriding built-in defaults. Component selectors compare structural JSON values. */
     components?: Record<string, unknown>;
-    /** Stack count, as a nonnegative integer. Defaults to 1; absent `max_stack_size` also defaults to 1. */
+    /** Stack count, as a nonnegative integer. Defaults to 1; items without listed defaults stack to 64. */
     count?: number;
     /** Item-model keys by reference-node ID, such as `minecraft:bundle/selected_item`. Unset references draw nothing. */
     itemReferences?: Record<string, AssetKey>;
@@ -28,6 +29,8 @@ export interface ItemModelContext {
 /** Loads and caches Java block/item models, including inherited geometry and textures. */
 export class Models {
 
+    // Bump when the shape of cached item models changes.
+    private static readonly ITEM_CACHE_VERSION = "item-v7";
     private static _persistentCache: PersistentCache | undefined;
 
     // opened lazily: touching the store at import time would hit IndexedDB/disk just for loading
@@ -55,16 +58,17 @@ export class Models {
 
     private static async getItemModel(key: AssetKey, context: ItemModelContext = {}): Promise<Maybe<Model>> {
         const preview = this.snapshotContext(key, context);
+        const itemId = `${key.namespace}:${key.path}`;
         const itemKey = new AssetKey(key.namespace, key.path, "items", undefined, key.rootType, ".json", key.root);
         const cacheKey = itemKey.serialize() + this.contextKey(preview);
-        const model = await this.PERSISTENT_CACHE.getOrLoad(`item-v4:${AssetLoader.persistentKey(cacheKey)}`, async () => {
+        const model = await this.PERSISTENT_CACHE.getOrLoad(`${this.ITEM_CACHE_VERSION}:${AssetLoader.persistentKey(cacheKey)}`, async () => {
             const result = await AssetLoader.getFirst<Model & { model?: ItemModelNode }>([itemKey, key], AssetParser.JSON);
             if (!result) return undefined;
-            if (result.key.assetType !== "items") return { ...result.asset, key, components: preview.components } as ItemModel;
+            if (result.key.assetType !== "items") return { ...result.asset, key, itemId, components: preview.components } as ItemModel;
 
             const load = async (selected: SelectedItemModel): Promise<ItemModel> => {
                 if ("parts" in selected) {
-                    return { key, parts: await Promise.all(selected.parts.map(load)) };
+                    return { key, itemId, parts: await Promise.all(selected.parts.map(load)) };
                 }
                 if ("item" in selected) {
                     // Referenced items start with their own default stack state and references.
@@ -77,7 +81,7 @@ export class Models {
                 const model = await this.getRaw(modelKey);
                 if (!model) throw new Error(`Item ${key.toNamespacedString()} references missing model ${selected.model}`);
                 // Relative texture paths belong to the referenced model's namespace.
-                return { ...model, components: preview.components, ...(selected.special && { special: selected.special }), ...(selected.tints && { tints: selected.tints }) } as ItemModel;
+                return { ...model, itemId, components: preview.components, ...(selected.special && { special: selected.special }), ...(selected.tints && { tints: selected.tints }) } as ItemModel;
             };
             return load(this.selectItemModel(result.asset.model, key, preview));
         });
@@ -89,10 +93,21 @@ export class Models {
     }
 
     private static contextIdentifier(id: string): string {
-        if (typeof id !== "string" || !/^(?:[a-z0-9_.-]+:)?[a-z0-9_./-]+$/.test(id)) {
+        if (!isResourceLocation(id)) {
             throw new Error(`Invalid item-preview identifier: ${id}`);
         }
         return id.includes(":") ? id : `minecraft:${id}`;
+    }
+
+    /** @internal */
+    public static componentValue(components: Record<string, unknown>, id: string): unknown {
+        const normalized = this.contextIdentifier(id);
+        const short = normalized.replace(/^minecraft:/, "");
+        if (short !== normalized && Object.prototype.hasOwnProperty.call(components, short)
+            && Object.prototype.hasOwnProperty.call(components, normalized)) {
+            throw new Error(`Duplicate item-preview component: ${normalized}`);
+        }
+        return Object.prototype.hasOwnProperty.call(components, short) ? components[short] : components[normalized];
     }
 
     private static snapshotContext(key: AssetKey, context: ItemModelContext): Required<ItemModelContext> {
@@ -122,6 +137,11 @@ export class Models {
             if (Object.prototype.hasOwnProperty.call(components, component)) throw new Error(`Duplicate item-preview component: ${component}`);
             components[component] = this.snapshotJson(value);
         }
+        if (key.type === "item") {
+            for (const [id, value] of Object.entries(ItemDefaults.get(`${key.namespace}:${key.path}`))) {
+                if (!Object.prototype.hasOwnProperty.call(components, id)) components[id] = value;
+            }
+        }
         const itemReferences: Record<string, AssetKey> = {};
         for (const [id, value] of Object.entries(context.itemReferences ?? {})) {
             const reference = this.contextIdentifier(id);
@@ -137,7 +157,7 @@ export class Models {
 
     private static contextKey(context: Required<ItemModelContext>): string {
         const itemReferences = Object.fromEntries(Object.entries(context.itemReferences).map(([id, key]) => [id, key.serialize()]));
-        return `|item-v4:${JSON.stringify(this.snapshotJson({ ...context, itemReferences }))}`;
+        return `|${this.ITEM_CACHE_VERSION}:${JSON.stringify(this.snapshotJson({ ...context, itemReferences }))}`;
     }
 
     private static snapshotJson(value: unknown, ancestors = new Set<object>()): unknown {
@@ -173,7 +193,7 @@ export class Models {
             return index < values.length ? values[index] : fallback;
         }
         if (kind === "condition" && property === "minecraft:has_component") {
-            if (node.ignore_default) throw new Error("Item-preview has_component with ignore_default requires an explicit properties override; item defaults are unavailable");
+            if (node.ignore_default) throw new Error("Item-preview has_component with ignore_default requires an explicit properties override; default component comparisons are unsupported");
             return Object.prototype.hasOwnProperty.call(context.components, this.contextIdentifier(node.component!));
         }
         if (kind === "select") {
@@ -231,6 +251,11 @@ export class Models {
                 if (!node.base || !node.model || typeof node.model !== "object") break;
                 const special = node.model;
                 switch (special.type) {
+                    case "copper_golem_statue":
+                    case "minecraft:copper_golem_statue":
+                        if (isResourceLocation(special.texture)
+                            && ["standing", "sitting", "running", "star"].includes(special.pose)) return { model: node.base, special };
+                        break;
                     case "banner":
                     case "minecraft:banner":
                         if (typeof special.color === "string" && Object.prototype.hasOwnProperty.call(DYE_COLORS, special.color)) return { model: node.base, special };
@@ -241,6 +266,10 @@ export class Models {
                     case "minecraft:trident":
                     case "conduit":
                     case "minecraft:conduit":
+                    case "decorated_pot":
+                    case "minecraft:decorated_pot":
+                    case "player_head":
+                    case "minecraft:player_head":
                         return { model: node.base, special };
                     case "shulker_box":
                     case "minecraft:shulker_box":
@@ -318,6 +347,7 @@ export class Models {
     /**
      * Loads a model and resolves its parent chain. Returns `undefined` when the model is missing.
      * Item keys default to GUI context and a stack count of 1. Unresolved conditions are false and numeric properties are zero.
+     * Vanilla 1.21.11 stack-size, durability, and glint defaults apply unless components override them.
      * Pass `context` to supply component values, property overrides, and item references for a preview.
      * Composite items retain independently merged children in `ItemModel.parts`.
      *

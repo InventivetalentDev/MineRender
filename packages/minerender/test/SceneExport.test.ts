@@ -137,6 +137,41 @@ test("geometry exports accept atlas shaders without DOM, and glTF reports its br
     t.false(disposed);
 });
 
+test.serial("static exports omit item glint without duplicating or changing the base mesh", async t => {
+    const parse = GLTFExporter.prototype.parseAsync;
+    const browser = { document: globalThis.document, FileReader: globalThis.FileReader };
+    t.teardown(() => {
+        GLTFExporter.prototype.parseAsync = parse;
+        for (const [key, value] of Object.entries(browser)) {
+            if (value === undefined) delete (globalThis as any)[key];
+            else (globalThis as any)[key] = value;
+        }
+    });
+    (globalThis as any).document = {};
+    (globalThis as any).FileReader = class {};
+    GLTFExporter.prototype.parseAsync = async root => ({ meshes: (root as Group).children });
+    const texture = new Texture();
+    const material = new ShaderMaterial({ uniforms: {
+        map: { value: texture }, SHADE: { value: true }, BRIGHTNESS: { value: 1 }, EMISSIVE: { value: false }
+    } });
+    const mesh = new Mesh(triangle(), material);
+    const pass = new Mesh(mesh.geometry, new ShaderMaterial());
+    pass.userData.minerenderItemGlint = true;
+    mesh.add(pass);
+    let disposed = false;
+    for (const resource of [mesh.geometry, material, pass.material, texture]) {
+        resource.addEventListener("dispose", () => { disposed = true; });
+    }
+    t.is(SceneExporter.toObj(mesh).split("\n").filter(line => line.startsWith("f ")).length, 1);
+    t.true((SceneExporter.toPLY(mesh) as string).includes("element face 1\n"));
+    const result = await SceneExporter.toGLTF(mesh) as { meshes: Mesh<BufferGeometry, MeshBasicMaterial>[] };
+    t.is(result.meshes.length, 1);
+    t.is(result.meshes[0].material.map, texture);
+    t.is(mesh.children[0], pass);
+    t.true(pass.visible);
+    t.false(disposed);
+});
+
 test.serial("glTF keeps opaque atlas regions depth-writing while retaining fractional overlays and source texture state", async t => {
     const provider = Env["_provider"];
     const parse = GLTFExporter.prototype.parseAsync;

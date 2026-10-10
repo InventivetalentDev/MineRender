@@ -128,6 +128,10 @@ export class AssetKey extends BasicAssetKey {
     }
 }
 
+export function isResourceLocation(value: unknown): value is string {
+    return typeof value === "string" && /^(?:[a-z0-9_.-]+:)?[a-z0-9_./-]+$/.test(value);
+}
+
 export function isBasicAssetKey(obj: any): obj is BasicAssetKey {
     return obj !== null && typeof obj === "object"
         && typeof obj.namespace === "string" && typeof obj.path === "string";

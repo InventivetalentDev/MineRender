@@ -50,8 +50,8 @@ export default defineConfig([
         format: ["esm", "cjs"],
         platform: "node",
         target: "node22",
-        // canvas is an optionalDependency - never inline it
-        external: ["three", "canvas"]
+        // Native modules are optional dependencies and remain outside the bundle.
+        external: ["three", "canvas", "gl"]
     },
 
     // Self-contained <script> bundle exposing `window.MineRender`, for unpkg and the plain-HTML

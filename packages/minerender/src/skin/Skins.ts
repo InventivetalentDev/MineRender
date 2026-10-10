@@ -1,5 +1,6 @@
 import { Requests } from "../request/Requests";
 import { Maybe } from "../util/util";
+import { Caching } from "../cache/Caching";
 
 //TODO: cache stuff
 /** Resolves player names, UUIDs, and service IDs to skin or cape texture URLs. */
@@ -79,7 +80,7 @@ export class Skins {
     //<editor-fold desc="Helpers">
 
     private static async usernameToUuid(username: string): Promise<Maybe<string>> {
-        return this.usernameToUuidMcProxy(username);
+        return Caching.usernameUuidCache.get(username, () => this.usernameToUuidMcProxy(username));
     }
 
     private static async usernameToUuidMcProxy(username: string): Promise<Maybe<string>> {

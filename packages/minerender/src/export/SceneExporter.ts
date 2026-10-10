@@ -17,7 +17,7 @@ export interface SceneGLTFExportOptions {
     maxTextureSize?: number;
 }
 
-/** Exports the visible meshes at their current poses without changing the source scene. */
+/** Exports visible geometry at its current pose without changing the source scene. Animated item glint is omitted. */
 export class SceneExporter {
 
     /** Returns OBJ geometry with normals and UVs; material files and textures are not included. */
@@ -179,7 +179,7 @@ function createSnapshot(root: Object3D, gltf: boolean, bakeColors: boolean = fal
     };
 
     const visit = (object: Object3D, parentWorld: Matrix4) => {
-        if (!object.visible) return;
+        if (!object.visible || object.userData.minerenderItemGlint === true) return;
         const world = parentWorld.clone().multiply(localMatrix(object));
         const mesh = object as Mesh;
         if (mesh.isMesh) {

@@ -1,16 +1,18 @@
-import { BufferGeometry, Float32BufferAttribute, Group, Material, Mesh, MeshBasicMaterial, ShaderMaterial, Texture, Uint32BufferAttribute } from "three";
+import { BufferGeometry, Color, DoubleSide, Float32BufferAttribute, FrontSide, Group, Material, Mesh, MeshBasicMaterial, ShaderMaterial, Texture, Uint32BufferAttribute } from "three";
 import { createCanvas } from "../canvas/CanvasCompat";
-import { CUBE_FACES } from "../CubeFace";
 import { Materials } from "../Materials";
+import type { MineRenderScene } from "../renderer/MineRenderScene";
 import { TextureAtlas } from "../texture/TextureAtlas";
 import { buildSectionGeometry, SectionGeometryInput, SectionGeometryPage, SectionTemplateData } from "./SectionGeometry";
 import { SectionWorker } from "./SectionWorker";
 
-/** Shared cube geometry and atlas data prepared for section merging. */
+/** Shared quad geometry and atlas data prepared for section merging. */
 export interface SectionMeshTemplate {
     geometry: BufferGeometry;
     atlas: TextureAtlas;
-    cullFaces: readonly number[];
+    cullFaces: Uint8Array;
+    occludes: boolean;
+    layer: 0 | 1;
 }
 
 /** One block placement in a section, with its storage index and hidden-face mask. */
@@ -20,9 +22,17 @@ export interface SectionMeshEntry {
     cullMask: number;
 }
 
-const templateCache = new WeakMap<SectionMeshTemplate, SectionTemplateData>();
+/** Fluid cells for one section and the shared atlases of the kinds present. */
+export interface SectionFluids {
+    cells: Uint8Array;
+    water?: TextureAtlas;
+    lava?: TextureAtlas;
+}
 
-function toInput(entries: readonly SectionMeshEntry[], maxAtlasSize: number): { input: SectionGeometryInput; atlases: TextureAtlas[] } {
+const templateCache = new WeakMap<SectionMeshTemplate, SectionTemplateData>();
+const WATER_TINT = new Color(0x3f76e4).toArray() as [number, number, number];
+
+function toInput(entries: readonly SectionMeshEntry[], maxAtlasSize: number, fluids?: SectionFluids): { input: SectionGeometryInput; atlases: TextureAtlas[] } {
     if (!Number.isInteger(maxAtlasSize) || maxAtlasSize < 1) throw new RangeError("Section atlas size must be a positive integer");
     const atlases: TextureAtlas[] = [];
     const atlasIds = new Map<TextureAtlas, number>();
@@ -40,21 +50,26 @@ function toInput(entries: readonly SectionMeshEntry[], maxAtlasSize: number): { 
                 atlas = atlases.length;
                 atlasIds.set(template.atlas, atlas);
                 atlases.push(template.atlas);
-                input.atlases.push({ width: template.atlas.image.width, height: template.atlas.image.height });
+                input.atlases.push({ width: template.atlas.image.width, height: template.atlas.image.height, animated: template.atlas.hasAnimation });
             }
             let data = templateCache.get(template);
             if (!data) {
-                data = {
-                    positions: new Float32Array(72), normals: new Float32Array(72), uvs: new Float32Array(48),
-                    uvBounds: new Float32Array(96), colors: new Float32Array(72), indices: new Uint16Array(36),
-                    cullFaces: new Uint8Array(template.cullFaces), atlas: 0
-                };
+                const indices = template.geometry.getIndex()!;
                 const position = template.geometry.getAttribute("position");
+                const quads = indices.count / 6;
+                if (indices.count % 6 !== 0 || position.count !== quads * 4) {
+                    throw new RangeError("Section template geometry must hold four vertices and six indices per quad");
+                }
+                data = {
+                    quads, positions: new Float32Array(quads * 12), normals: new Float32Array(quads * 12), uvs: new Float32Array(quads * 8),
+                    uvBounds: new Float32Array(quads * 16), colors: new Float32Array(quads * 12), indices: new Uint16Array(quads * 6),
+                    cullFaces: new Uint8Array(template.cullFaces), atlas: 0, layer: template.layer
+                };
                 const normal = template.geometry.getAttribute("normal");
                 const uv = template.geometry.getAttribute("uv");
                 const bounds = template.geometry.getAttribute("uvBounds");
                 const color = template.geometry.getAttribute("color");
-                for (let vertex = 0; vertex < CUBE_FACES.length * 4; vertex++) {
+                for (let vertex = 0; vertex < quads * 4; vertex++) {
                     data.positions.set([position.getX(vertex), position.getY(vertex), position.getZ(vertex)], vertex * 3);
                     data.normals.set([normal.getX(vertex), normal.getY(vertex), normal.getZ(vertex)], vertex * 3);
                     data.uvs.set([uv.getX(vertex), uv.getY(vertex)], vertex * 2);
@@ -62,8 +77,7 @@ function toInput(entries: readonly SectionMeshEntry[], maxAtlasSize: number): { 
                         bounds?.getZ(vertex) ?? 1, bounds?.getW(vertex) ?? 1], vertex * 4);
                     data.colors.set([color?.getX(vertex) ?? 1, color?.getY(vertex) ?? 1, color?.getZ(vertex) ?? 1], vertex * 3);
                 }
-                const indices = template.geometry.getIndex()!;
-                for (let i = 0; i < data.indices.length; i++) data.indices[i] = indices.getX(i);
+                for (let i = 0; i < data.indices.length; i++) data.indices[i] = indices.getX(i) - 4 * Math.floor(i / 6);
                 templateCache.set(template, data);
             }
             id = input.templateData.length;
@@ -75,23 +89,41 @@ function toInput(entries: readonly SectionMeshEntry[], maxAtlasSize: number): { 
         input.templates[i] = id;
         input.cullMasks[i] = cullMask;
     }
+    if (fluids) {
+        input.fluids = { cells: fluids.cells };
+        for (const kind of ["water", "lava"] as const) {
+            const atlas = fluids[kind];
+            if (!atlas) continue;
+            let id = atlasIds.get(atlas);
+            if (id === undefined) {
+                id = atlases.length;
+                atlasIds.set(atlas, id);
+                atlases.push(atlas);
+                input.atlases.push({ width: atlas.image.width, height: atlas.image.height, animated: atlas.hasAnimation });
+            }
+            input.fluids[kind] = {
+                atlas: id, still: [...atlas.positions.still, ...atlas.sizes.still],
+                flow: [...atlas.positions.flow, ...atlas.sizes.flow], tint: kind === "water" ? WATER_TINT : [1, 1, 1]
+            };
+        }
+    }
     return { input, atlases };
 }
 
 /** Merged terrain geometry and atlas pages for one 16×16×16 section. Owns its generated render resources. */
 export class SectionMesh extends Group {
 
-    private readonly ownedMeshes: { mesh: Mesh<BufferGeometry, Material>; texture?: Texture }[] = [];
+    private readonly ownedMeshes: { mesh: Mesh<BufferGeometry, Material>; texture?: Texture; unsubscribe: (() => void)[] }[] = [];
 
-    /** Builds section-local meshes from visible cube faces. `maxAtlasSize` limits each atlas dimension in pixels. */
-    public static build(entries: readonly SectionMeshEntry[], maxAtlasSize = 2048): SectionMesh {
-        const { input, atlases } = toInput(entries, maxAtlasSize);
+    /** Builds section-local meshes from visible quads. `maxAtlasSize` limits each atlas dimension in pixels. */
+    public static build(entries: readonly SectionMeshEntry[], maxAtlasSize = 2048, fluids?: SectionFluids): SectionMesh {
+        const { input, atlases } = toInput(entries, maxAtlasSize, fluids);
         return this.fromPages(buildSectionGeometry(input), atlases);
     }
 
     /** Builds section-local meshes in a browser worker when available, with synchronous fallback. */
-    public static async buildAsync(entries: readonly SectionMeshEntry[], maxAtlasSize = 2048): Promise<SectionMesh> {
-        const { input, atlases } = toInput(entries, maxAtlasSize);
+    public static async buildAsync(entries: readonly SectionMeshEntry[], maxAtlasSize = 2048, fluids?: SectionFluids): Promise<SectionMesh> {
+        const { input, atlases } = toInput(entries, maxAtlasSize, fluids);
         const worker = SectionWorker.shared();
         const pages = worker ? await worker.build(input).catch(() => buildSectionGeometry(input)) : buildSectionGeometry(input);
         return this.fromPages(pages, atlases);
@@ -115,18 +147,39 @@ export class SectionMesh extends Group {
             geometry.setIndex(new Uint32BufferAttribute(page.indices.buffer, 1));
             geometry.computeBoundingBox();
             geometry.computeBoundingSphere();
-            const material = Materials.createShadedCanvasMaterial(canvas as HTMLCanvasElement, false, false, true);
+            const transparent = page.layer === 2 ? atlases[page.placements[0].atlas].hasTranslucency : page.layer === 1;
+            const material = Materials.createShadedCanvasMaterial(canvas as HTMLCanvasElement, transparent, false, true);
+            material.side = FrontSide;
+            if (page.layer === 2) {
+                material.side = DoubleSide;
+                material.forceSinglePass = true;
+                material.depthWrite = !material.transparent;
+            }
             material.vertexColors = true;
             const texture = (material as ShaderMaterial).uniforms?.map?.value ?? (material as MeshBasicMaterial).map;
             const mesh = new Mesh(geometry, material);
             section.add(mesh);
-            section.ownedMeshes.push({ mesh, texture });
+            const unsubscribe: (() => void)[] = [];
+            for (const { atlas: id, x, y } of page.placements) {
+                const atlas = atlases[id];
+                if (!atlas.hasAnimation) continue;
+                unsubscribe.push(atlas.subscribe(() => {
+                    context.clearRect(x, y, atlas.image.width, atlas.image.height);
+                    context.drawImage(atlas.image.canvas as CanvasImageSource, x, y);
+                    texture.needsUpdate = true;
+                    section.traverseAncestors(parent => {
+                        if ((parent as MineRenderScene).isMineRenderScene) (parent as MineRenderScene).dirty = true;
+                    });
+                }));
+            }
+            section.ownedMeshes.push({ mesh, texture, unsubscribe });
         }
         return section;
     }
 
     public dispose(): void {
-        for (const { mesh, texture } of this.ownedMeshes.splice(0)) {
+        for (const { mesh, texture, unsubscribe } of this.ownedMeshes.splice(0)) {
+            for (const stop of unsubscribe) stop();
             mesh.removeFromParent();
             mesh.geometry.dispose();
             mesh.material.dispose();

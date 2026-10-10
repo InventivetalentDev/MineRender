@@ -11,6 +11,7 @@ import { AssetKey, isAssetKey } from "../../assets/AssetKey";
 import { ExtractableImageData } from "../../ExtractableImageData";
 import { Materials } from "../../Materials";
 import { MinecraftCubeTexture } from "../../MinecraftCubeTexture";
+import { CUBE_FACES, CubeFace } from "../../CubeFace";
 import { EntityLayer, EntityModel, EntityModelPart } from "../EntityModel";
 import type { DoubleArray } from "../../model/Model";
 import type { Maybe } from "../../util/util";
@@ -44,9 +45,14 @@ export class EntityObject extends SceneObject {
         this.addEventListener("removed", () => this.updateScrollSubscription());
     }
 
-    async init(): Promise<void> {
+    /** An optional shared material replaces texture loading for every selected draw; its owner retains disposal. */
+    async init(material?: Material): Promise<void> {
         this.createMeshes();
-        await this.applyTextures();
+        if (material) {
+            this.clearScrollMaterials();
+            this.iterateAllMeshes(mesh => { mesh.material = material; });
+            this.notifyDirty();
+        } else await this.applyTextures();
     }
 
     dispose() {
@@ -227,12 +233,12 @@ export class EntityObject extends SceneObject {
             const group = this.createGroup(`layer:${name}`);
             modelRoot.add(group);
             const inward = !Materials.entityModeCulls(layer.render ?? layer.layer.render);
-            this.createPart("root", layer.layer.root, group, layer.layer.texture, Materials.MISSING_TEXTURE, index, inward);
+            this.createPart("root", layer.layer.root, group, layer.layer.texture, Materials.MISSING_TEXTURE, index, inward, this.options.faces?.[name]);
         });
         this.meshesCreated = true;
     }
 
-    private createPart(name: string, part: EntityModelPart, parent: Object3D, textureSize: DoubleArray, material: Material, renderOrder: number, inward: boolean = true) {
+    private createPart(name: string, part: EntityModelPart, parent: Object3D, textureSize: DoubleArray, material: Material, renderOrder: number, inward: boolean = true, faces?: CubeFace[]) {
         const anchor = this.createGroup(name);
         anchor.position.fromArray(part.pose.offset);
         anchor.rotation.set(...part.pose.rotation, "ZYX");
@@ -251,6 +257,10 @@ export class EntityObject extends SceneObject {
             ).clone();
             this.geometries.add(geometry);
             geometry.translate(cube.origin[0] + width / 2, cube.origin[1] + height / 2, cube.origin[2] + depth / 2);
+            if (faces) {
+                geometry.setIndex(Array.from(geometry.getIndex()!.array).filter((_, index) => faces.includes(CUBE_FACES[Math.floor(index / 6)])));
+                geometry.clearGroups();
+            }
             // Vanilla draws most entity render types without backface culling, e.g. chicken legs are only painted on faces seen from inside.
             // Zero-thickness cubes keep one face per side, as their coplanar faces would z-fight.
             if (inward && Math.min(width + growX * 2, height + growY * 2, depth + growZ * 2) > 0) {
@@ -263,13 +273,13 @@ export class EntityObject extends SceneObject {
             if (this.options.wireframe) this.disposeWireframes.push(addWireframeToMesh(geometry, mesh));
         }
         for (const [childName, child] of Object.entries(part.children)) {
-            this.createPart(childName, child, anchor, size, material, renderOrder, inward);
+            this.createPart(childName, child, anchor, size, material, renderOrder, inward, faces);
         }
     }
 
     protected async applyTextures() {
         this.clearScrollMaterials();
-        await Promise.all(Object.entries(this.entityLayers).map(async ([name, layer]) => {
+        const results = await Promise.allSettled(Object.entries(this.entityLayers).map(async ([name, layer]) => {
             const mode = layer.render ?? layer.layer.render ?? "cutout";
             const tint = layer.tint === undefined ? undefined : this.options.tints?.[layer.tint];
             const scroll = Materials.entityModeScroll(mode);
@@ -303,6 +313,8 @@ export class EntityObject extends SceneObject {
         }
         this.updateScrollSubscription();
         this.notifyDirty();
+        const failure = results.find(result => result.status === "rejected");
+        if (failure?.status === "rejected") throw failure.reason;
     }
 
 
@@ -317,6 +329,8 @@ export interface EntityObjectOptions extends SceneObjectOptions {
     flip?: boolean;
     /** Colours for the dataset's tint labels, e.g. `{ wool_color: 0xf9801d }`; a pass whose label is absent stays untinted. */
     tints?: Record<string, ColorRepresentation>;
+    /** Cube faces by layer key; omitted layers draw all six faces. */
+    faces?: Record<string, CubeFace[]>;
 }
 
 export function isEntityObject(obj: any): obj is EntityObject {

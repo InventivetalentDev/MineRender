@@ -1,8 +1,26 @@
 import test from "ava";
-import { createFluidGeometry, FluidKind, FluidSample, FluidSampler } from "../src/model/fluid/FluidGeometry";
+import { buildFluidQuads, createFluidGeometry, FluidKind, FluidSample, FluidSampler } from "../src/model/fluid/FluidGeometry";
 
 const round = (value: number) => Math.round(value * 1e6) / 1e6;
 const sampler = (entries: Record<string, FluidSample>): FluidSampler => (x, y, z) => entries[`${x},${y},${z}`] ?? {};
+
+test("pure fluid quads match geometry for flowing, falling and solid-neighbor cells", t => {
+    const cases: Record<string, FluidSample>[] = [
+        { "0,0,0": { fluid: "water" }, "1,0,0": { fluid: "water", level: 4 } },
+        { "0,0,0": { fluid: "water", level: 8 }, "0,-1,0": { fluid: "water", level: 8 } },
+        { "0,0,0": { fluid: "water" }, "1,0,0": { solid: true }, "0,-1,0": { solid: true } }
+    ];
+    for (const cells of cases) {
+        const sample = sampler(cells);
+        const quads = buildFluidQuads("water", sample);
+        const geometry = createFluidGeometry("water", sample);
+        t.teardown(() => geometry.dispose());
+        t.deepEqual(geometry.getAttribute("position").array, new Float32Array(quads.positions));
+        t.deepEqual(geometry.getAttribute("normal").array, new Float32Array(quads.normals));
+        t.deepEqual(geometry.getAttribute("uv").array, new Float32Array(quads.uvs));
+        t.deepEqual(geometry.groups, quads.sprites.map((materialIndex, index) => ({ start: index * 6, count: 6, materialIndex })));
+    }
+});
 
 test("source, flowing and falling levels use vanilla corner heights", t => {
     for (const fluid of ["water", "lava"] as FluidKind[]) {
