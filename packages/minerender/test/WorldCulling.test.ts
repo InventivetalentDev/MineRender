@@ -128,6 +128,18 @@ for (const sectionMeshing of [false, true]) {
             }
             t.is(world.getBiomeAt(-32, 0, -16), "minecraft:plains");
             t.is(world.getBlockAt(-32, 0, -16)?.block.type, "test:cube");
+            for (const coordinate of [0.5, Number.MAX_SAFE_INTEGER + 1]) {
+                for (const invalid of [
+                    { ...column, x: coordinate },
+                    { ...column, z: coordinate },
+                    { ...column, sections: [column.sections[0], { ...column.sections[1], y: coordinate }] }
+                ]) {
+                    await t.throwsAsync(world.placeChunk(invalid, executor), { instanceOf: RangeError });
+                    t.is(world.getBiomeAt(-32, -16, -16), expected[0]);
+                    t.is(world.getBiomeAt(-32, 0, -16), "minecraft:plains");
+                    t.is(world.getBlockAt(-32, 0, -16)?.block.type, "test:cube");
+                }
+            }
             t.is(world.getBiomeAt(-33, -1, -1), undefined);
             t.is(world.getBiomeAt(-17, -17, -1), undefined);
             t.is(world.getBiomeAt(-17, -1, 0), undefined);

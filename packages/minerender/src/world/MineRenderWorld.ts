@@ -209,6 +209,12 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
 
     /** Replaces a chunk column's blocks and biome samples and, with `renderEntities`, its supported saved mobs. */
     public async placeChunk(chunk: AnvilChunk, executor?: BatchedExecutor): Promise<void> {
+        if (![chunk.x, chunk.z].every(Number.isSafeInteger)) {
+            throw new RangeError("Chunk column coordinates must be safe integers");
+        }
+        if (!chunk.sections.every(section => Number.isSafeInteger(section.y))) {
+            throw new RangeError("Chunk section coordinates must be safe integers");
+        }
         this.entities?.clearColumn(chunk.x, chunk.z);
         const placeEntities = this.entities?.prepare(chunk.entities, [chunk.x, chunk.z]);
         const changes = new Map<string, Vector3>();
