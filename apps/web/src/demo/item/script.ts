@@ -28,6 +28,9 @@ const shulkerItems: Array<[string, string]> = [
     ...["white", "orange", "magenta", "light_blue", "yellow", "lime", "pink", "gray", "light_gray", "cyan", "purple", "blue", "brown", "green", "red", "black"]
         .map(color => [`minecraft:${color}_shulker_box`, color.replace(/_/g, " ").replace(/^./, letter => letter.toUpperCase())] as [string, string])
 ];
+const statueItems: Array<[string, string]> = ["copper", "exposed_copper", "weathered_copper", "oxidized_copper"].flatMap(stage =>
+    ["", "waxed_"].map(wax => [`minecraft:${wax}${stage}_golem_statue`, `${wax}${stage}`.replace(/_/g, " ").replace(/^./, letter => letter.toUpperCase())] as [string, string]));
+const statuePoses = ["standing", "sitting", "running", "star"];
 const guiView: Partial<ViewSettings> = {
     projection: "orthographic", antialias: false, camera: { position: [0, 0, 100], target: [0, 0, 0], zoom: 24 }
 };
@@ -70,6 +73,12 @@ const app = new Playground<ItemSettings>({
             properties: { "minecraft:using_item": false }, components: { "minecraft:enchantments": { "minecraft:loyalty": 3 } } },
             view: { projection: "perspective", camera: { position: [40, 24, 70], target: [0, 0, 0], zoom: 1 } } },
         conduit: { label: "Conduit in GUI pose", state: { item: "minecraft:conduit", display: DisplayPosition.GUI }, view: guiView },
+        decorated_pot: { label: "Decorated pot (four sherds)", state: { item: "minecraft:decorated_pot", display: DisplayPosition.GUI,
+            components: { "minecraft:pot_decorations": ["minecraft:angler_pottery_sherd", "minecraft:archer_pottery_sherd",
+                "minecraft:arms_up_pottery_sherd", "minecraft:blade_pottery_sherd"] } }, view: guiView },
+        player_head: { label: "Player head", state: { item: "minecraft:player_head", display: DisplayPosition.GUI }, view: guiView },
+        copper_statue: { label: "Copper golem statue (variant and pose)", state: { item: "minecraft:copper_golem_statue", display: DisplayPosition.GUI,
+            components: { "minecraft:block_state": { copper_golem_pose: "standing" } } }, view: guiView },
         bundle: {
             label: "Bundle with a selected item",
             state: { item: "minecraft:bundle", display: DisplayPosition.GUI,
@@ -126,6 +135,33 @@ preview.addEventListener("change", async () => {
 const display = select(itemGroup, "Display pose", [["", "None"], ...DISPLAY_POSITIONS], app.state.display);
 display.id = "item-display";
 display.addEventListener("change", () => void app.update({ display: display.value as ItemSettings["display"] }));
+const profileGroup = group(app.controls, "Player head");
+profileGroup.hidden = true;
+const player = input(profileGroup, "Username or UUID", "");
+player.id = "item-profile-player";
+player.placeholder = "Enter a player name or UUID";
+const profileGuard = itemControlGuard(profileGroup);
+function applyPlayer(value: string): void {
+    if (!profileGuard.matches()) return;
+    const current = app.state.components;
+    if (!current || typeof current !== "object" || Array.isArray(current)) return;
+    const next = structuredClone(current);
+    const id = Object.prototype.hasOwnProperty.call(next, "profile") ? "profile" : "minecraft:profile";
+    if (!value) delete next[id];
+    else if (/^(?:[a-f0-9]{32}|[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12})$/i.test(value)) {
+        const hex = value.replace(/-/g, "");
+        next[id] = { id: [0, 8, 16, 24].map(offset => parseInt(hex.slice(offset, offset + 8), 16) | 0) };
+    } else if (/^[a-z0-9_]{1,16}$/i.test(value)) next[id] = { name: value };
+    else {
+        app.report("Enter a username of up to 16 letters, numbers, or underscores, or a UUID.", true);
+        return;
+    }
+    profileGuard.update({ components: next });
+}
+button(profileGroup, "Apply player", () => applyPlayer(player.value.trim()));
+button(profileGroup, "Clear profile", () => applyPlayer(""));
+player.addEventListener("keydown", event => { if (event.key === "Enter") applyPlayer(player.value.trim()); });
+note(profileGroup, "Applying a player replaces the profile. Edit texture properties in Components (JSON).");
 const shulkerGroup = group(app.controls, "Shulker preview");
 shulkerGroup.hidden = true;
 const shulkerColor = select(shulkerGroup, "Color", shulkerItems, app.state.item);
@@ -145,6 +181,55 @@ const shulkerOrientation = select(shulkerGroup, "Direction", SHULKER_DIRECTIONS.
 shulkerOrientation.id = "item-shulker-orientation";
 shulkerOrientation.addEventListener("change", () => void app.update({ shulkerOrientation: shulkerOrientation.value as ShulkerDirection }));
 note(shulkerGroup, "Preview the lid opening and direction.");
+const potGroup = group(app.controls, "Decorated pot");
+potGroup.hidden = true;
+const potSides = ["Back", "Left", "Right", "Front"];
+const sherdLabel = (id: string) => id.replace(/^minecraft:/, "").replace(/_pottery_sherd$/, "").replace(/_/g, " ").replace(/^./, letter => letter.toUpperCase());
+const sherdOptions: Array<[string, string]> = [["minecraft:brick", "Plain (brick)"], ...[
+    "angler", "archer", "arms_up", "blade", "brewer", "burn", "danger", "explorer", "flow", "friend", "guster",
+    "heart", "heartbreak", "howl", "miner", "mourner", "plenty", "prize", "scrape", "sheaf", "shelter", "skull", "snort"
+].map(name => [`minecraft:${name}_pottery_sherd`, sherdLabel(name)] as [string, string])];
+const potGuard = itemControlGuard(potGroup);
+const potControls = potSides.map((side, index) => {
+    const control = select(potGroup, side, sherdOptions, "minecraft:brick");
+    control.dataset.potSide = side.toLowerCase();
+    control.addEventListener("change", () => {
+        if (!potGuard.matches()) return;
+        const current = app.state.components;
+        if (!current || typeof current !== "object" || Array.isArray(current)) return;
+        const components = structuredClone(current);
+        const id = Object.prototype.hasOwnProperty.call(components, "pot_decorations") ? "pot_decorations" : "minecraft:pot_decorations";
+        if (components[id] !== undefined && !Array.isArray(components[id])) return;
+        const decorations = (components[id] ?? []) as string[];
+        while (decorations.length <= index) decorations.push("minecraft:brick");
+        decorations[index] = control.value;
+        components[id] = decorations;
+        potGuard.update({ components });
+    });
+    return control;
+});
+note(potGroup, "Rotate the preview to see each side.");
+const statueGroup = group(app.controls, "Copper golem statue");
+statueGroup.hidden = true;
+const statueGuard = itemControlGuard(statueGroup, ["item", "components", "properties"]);
+const statueVariant = select(statueGroup, "Variant", statueItems, app.state.item);
+statueVariant.id = "item-statue-variant";
+statueVariant.addEventListener("change", () => statueGuard.update({ item: statueVariant.value }));
+const statuePose = select(statueGroup, "Pose", statuePoses.map(pose => [pose, pose.replace(/^./, letter => letter.toUpperCase())]), "standing");
+statuePose.id = "item-statue-pose";
+const statuePoseNote = note(statueGroup, "Pose is set by block_state in Item properties.");
+statuePoseNote.hidden = true;
+statuePose.addEventListener("change", () => {
+    if (statuePose.disabled) return;
+    const current = app.state.components;
+    if (!current || typeof current !== "object" || Array.isArray(current)) return;
+    const components = structuredClone(current);
+    const id = Object.prototype.hasOwnProperty.call(components, "block_state") ? "block_state" : "minecraft:block_state";
+    const blockState = components[id];
+    if (blockState !== undefined && (!blockState || typeof blockState !== "object" || Array.isArray(blockState))) return;
+    components[id] = { ...(blockState as Record<string, unknown> ?? {}), copper_golem_pose: statuePose.value };
+    statueGuard.update({ components });
+});
 const syncBannerControls = bannerControls(app.controls, () => app.state, patch => { void app.update(patch); });
 const stackGroup = group(app.controls, "Item stack");
 const count = input(stackGroup, "Count", app.state.count, "number");
@@ -237,6 +322,24 @@ const syncModelControls = modelControls(app);
 const modelOptionsGroup = Array.from(app.controls.querySelectorAll("fieldset")).find(group => group.querySelector("legend")?.textContent === "Model options")!;
 syncModelControls();
 
+function itemControlGuard(controls: HTMLFieldSetElement, keys: Array<keyof ItemSettings> = ["item", "components"]) {
+    let snapshot: string | undefined;
+    const serialize = (state: ItemSettings) => JSON.stringify(keys.map(key => state[key]));
+    const matches = () => !controls.disabled && snapshot === serialize(app.state);
+    return {
+        sync(state: ItemSettings) {
+            snapshot = serialize(state);
+            controls.disabled = false;
+        },
+        matches,
+        update(patch: Partial<ItemSettings>) {
+            if (!matches()) return;
+            controls.disabled = true;
+            void app.update(patch);
+        }
+    };
+}
+
 function isModelPath(item: string): boolean {
     return /^(?:[a-z0-9_.-]+:)?(?:item|block)\//.test(item.trim());
 }
@@ -326,6 +429,19 @@ function syncComponentColors(state: ItemSettings): void {
 
 function syncStateControls(state: ItemSettings, items: string[]): void {
     stackState = state;
+    profileGuard.sync(state);
+    const profile = state.components.profile ?? state.components["minecraft:profile"];
+    profileGroup.hidden = !["player_head", "minecraft:player_head"].includes(state.item) && profile === undefined;
+    let identity = typeof profile === "string" ? profile : "";
+    if (profile && typeof profile === "object" && !Array.isArray(profile)) {
+        const data = profile as Record<string, unknown>;
+        if (typeof data.name === "string") identity = data.name;
+        else if (Array.isArray(data.id) && data.id.length === 4 && data.id.every(value => Number.isInteger(value))) {
+            const hex = data.id.map(value => (value >>> 0).toString(16).padStart(8, "0")).join("");
+            identity = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+        }
+    }
+    player.value = identity;
     count.value = String(state.count);
     const override = state.components["minecraft:enchantment_glint_override"] ?? state.components.enchantment_glint_override;
     glint.value = override === true ? "on" : override === false ? "off" : "auto";
@@ -429,6 +545,26 @@ async function load(ctx: DemoContext, state: ItemSettings): Promise<DemoContent>
             shulkerOpenness.value = String(state.shulkerOpenness);
             shulkerOpennessValue.value = String(state.shulkerOpenness);
             shulkerOrientation.value = state.shulkerOrientation;
+            potGuard.sync(state);
+            const decorations = state.components.pot_decorations ?? state.components["minecraft:pot_decorations"];
+            potGroup.hidden = state.item !== "minecraft:decorated_pot" && state.item !== "decorated_pot" && decorations === undefined;
+            potControls.forEach((control, index) => {
+                const item = Array.isArray(decorations) ? decorations[index] : undefined;
+                const id = typeof item === "string" ? (item.includes(":") ? item : `minecraft:${item}`) : "minecraft:brick";
+                control.replaceChildren(...sherdOptions.map(([value, label]) => new Option(label, value)));
+                if (!sherdOptions.some(([value]) => value === id)) control.append(new Option(`${sherdLabel(id)} (plain)`, id));
+                control.value = id;
+            });
+            statueGuard.sync(state);
+            const statueItem = statueItems.find(([id]) => id === (state.item.includes(":") ? state.item : `minecraft:${state.item}`))?.[0];
+            statueGroup.hidden = !statueItem;
+            statueVariant.value = statueItem ?? "";
+            const blockState = state.components.block_state ?? state.components["minecraft:block_state"];
+            const override = state.properties["minecraft:block_state"] ?? state.properties.block_state;
+            const pose = override ?? (blockState && typeof blockState === "object" && !Array.isArray(blockState) ? (blockState as Record<string, unknown>).copper_golem_pose : undefined);
+            statuePose.value = typeof pose === "string" && statuePoses.includes(pose) ? pose : "standing";
+            statuePose.disabled = override !== undefined;
+            statuePoseNote.hidden = override === undefined;
             syncBannerControls(state, patterns);
             syncStateControls(state, list);
             syncModelControls();
