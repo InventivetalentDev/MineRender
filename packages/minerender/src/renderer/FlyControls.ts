@@ -19,6 +19,8 @@ const PITCH_LIMIT = Math.PI / 2;
 const MOVE_EPSILON = 1e-6;
 /** Longest step applied at once, in seconds; a stalled frame must not carry the camera further. */
 const MAX_STEP_SECONDS = 0.1;
+/** Pointer travel in CSS pixels that still counts as a click. */
+const CLICK_SLOP_PIXELS = 4;
 
 const _euler = new Euler(0, 0, 0, "YXZ");
 const _forward = new Vector3();
@@ -31,7 +33,8 @@ const _targetVelocity = new Vector3();
  *
  * Call {@link FlyControls.update} with the elapsed seconds once per frame; the `change` event marks the
  * renderer dirty while keys are held. Speeds use scene units (16 per block). The element becomes focusable
- * and keys apply while it has focus or the pointer is locked. The wheel changes the speed, as in vanilla
+ * and keys apply while it has focus or the pointer is locked. A key pressed with Control, Alt, or Command
+ * stays a browser shortcut unless that modifier is bound. The wheel changes the speed, as in vanilla
  * spectator mode. Touch input uses the left half of the element as a joystick and the right half for looking.
  */
 export class FlyControls extends Controls<FlyControlsEventMap, Camera> {
@@ -77,8 +80,10 @@ export class FlyControls extends Controls<FlyControlsEventMap, Camera> {
     private _dragX = 0;
     private _dragY = 0;
     private _dragMoved = false;
+    private _dragTravel = 0;
     private _joystick?: { id: number; originX: number; originY: number; x: number; y: number };
     private _locked = false;
+    private _madeFocusable = false;
     private _lastTime?: number;
 
     private readonly _onKeyDown = (event: KeyboardEvent) => this.handleKey(event, true);
@@ -114,7 +119,10 @@ export class FlyControls extends Controls<FlyControlsEventMap, Camera> {
         element.addEventListener("wheel", this._onWheel, { passive: false });
         element.addEventListener("blur", this._onBlur);
         element.style.touchAction = "none";
-        if (element.tabIndex < 0) element.tabIndex = 0;
+        if (element.tabIndex < 0) {
+            element.tabIndex = 0;
+            this._madeFocusable = true;
+        }
     }
 
     public disconnect(): void {
@@ -133,6 +141,10 @@ export class FlyControls extends Controls<FlyControlsEventMap, Camera> {
         element.removeEventListener("wheel", this._onWheel);
         element.removeEventListener("blur", this._onBlur);
         element.style.touchAction = "auto";
+        if (this._madeFocusable) {
+            element.removeAttribute("tabindex");
+            this._madeFocusable = false;
+        }
         this.unlock();
         this._locked = false;
         this.releaseKeys();
@@ -285,14 +297,22 @@ export class FlyControls extends Controls<FlyControlsEventMap, Camera> {
     }
 
     private handleKey(event: KeyboardEvent, down: boolean): void {
+        // macOS sends no keyup for other keys while Command is held, so Command releases everything.
+        if (event.code === "MetaLeft" || event.code === "MetaRight") this.releaseKeys();
         const action = this.actionFor(event.code);
         if (!action) return;
         const ownsInput = this.enabled && (this._locked || event.target === this.domElement);
-        if (down && !ownsInput) return;
+        if (down && (!ownsInput || this.isBrowserShortcut(event))) return;
         const pressed = this._pressed.has(action);
         if (down) this._pressed.add(action);
         else this._pressed.delete(action);
         if (ownsInput || (this.enabled && pressed)) event.preventDefault();
+    }
+
+    /** A key pressed with Control, Alt, or Command stays a browser shortcut unless that modifier is bound to an action. */
+    private isBrowserShortcut(event: KeyboardEvent): boolean {
+        const bound = (modifier: string) => Object.values(this.keys).some(codes => codes.some(code => code.startsWith(modifier)));
+        return (event.ctrlKey && !bound("Control")) || (event.altKey && !bound("Alt")) || (event.metaKey && !bound("Meta"));
     }
 
     private actionFor(code: string): FlyAction | undefined {
@@ -318,6 +338,7 @@ export class FlyControls extends Controls<FlyControlsEventMap, Camera> {
         this._dragX = event.clientX;
         this._dragY = event.clientY;
         this._dragMoved = false;
+        this._dragTravel = 0;
         element.setPointerCapture?.(event.pointerId);
     }
 
@@ -345,6 +366,10 @@ export class FlyControls extends Controls<FlyControlsEventMap, Camera> {
             dy = event.clientY - this._dragY;
             this._dragX = event.clientX;
             this._dragY = event.clientY;
+            if (!this._dragMoved) {
+                this._dragTravel += Math.hypot(dx, dy);
+                if (this._dragTravel <= CLICK_SLOP_PIXELS) return;
+            }
         }
         if (!dx && !dy) return;
         this._dragMoved = true;

@@ -34,6 +34,7 @@ class FakeElement extends FakeTarget {
     tabIndex = -1;
     lockRequests = 0;
     remove(): void {}
+    removeAttribute(name: string): void { if (name === "tabindex") this.tabIndex = -1; }
     focus(): void { this.ownerDocument.activeElement = this; }
     blur(): void { this.ownerDocument.activeElement = null; this.emit("blur"); }
     getBoundingClientRect() { return { left: 100, top: 0, width: 400, height: 300 }; }
@@ -168,10 +169,49 @@ test("clicking requests pointer lock, unlocking releases held keys, and dispose 
     controls.lock();
     t.true(controls.locked);
     controls.dispose();
+    t.is(element.tabIndex, -1, "dispose restores focusability");
     t.false(controls.locked);
     t.is(document.pointerLockElement, null);
     t.is(element.listenerCount + document.listenerCount + document.defaultView.listenerCount, 0);
     t.deepEqual(camera.position.toArray(), [0, 0, 0]);
+});
+
+test("an element that was already focusable keeps its tabindex", t => {
+    const document = new FakeDocument();
+    const element = new FakeElement(document);
+    element.tabIndex = 3;
+    const controls = new FlyControls(new PerspectiveCamera(), element as unknown as HTMLElement);
+    controls.dispose();
+    t.is(element.tabIndex, 3);
+});
+
+test("a click that moves a few pixels still requests pointer lock", t => {
+    const { element, controls } = fixture();
+    element.emit("pointerdown", { pointerId: 1, pointerType: "mouse", button: 0, clientX: 100, clientY: 100 });
+    element.emit("pointermove", { pointerId: 1, clientX: 102, clientY: 101 });
+    element.emit("pointerup", { pointerId: 1, pointerType: "mouse", button: 0 });
+    t.is(element.lockRequests, 1);
+    t.true(Math.abs(controls.yaw) < 1e-6);
+});
+
+test("browser shortcuts pass through and Command releases held keys", t => {
+    const { document, controls } = fixture();
+    let prevented = 0;
+    document.emit("keydown", { ...key("KeyR"), ctrlKey: true, preventDefault() { prevented++; } });
+    t.false(controls.isPressed("sprint"));
+    t.is(prevented, 0);
+    document.emit("keydown", { ...key("KeyS"), metaKey: true });
+    t.false(controls.isPressed("back"));
+
+    document.emit("keydown", key("KeyW"));
+    document.emit("keydown", { ...key("MetaLeft"), metaKey: true });
+    t.false(controls.isPressed("forward"));
+
+    controls.keys.sprint = ["ControlLeft"];
+    document.emit("keydown", { ...key("ControlLeft"), ctrlKey: true });
+    document.emit("keydown", { ...key("KeyW"), ctrlKey: true });
+    t.true(controls.isPressed("sprint"));
+    t.true(controls.isPressed("forward"));
 });
 
 test("the wheel scales the speed within its range and touch uses a left joystick and right look", t => {
