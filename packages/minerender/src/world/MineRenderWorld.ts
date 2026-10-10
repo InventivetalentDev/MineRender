@@ -163,7 +163,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                 if (!group) groups.set(chunk, group = []);
                 group.push({ index: (y - cy * 16) * 256 + (z - cz * 16) * 16 + x - cx * 16, block });
             }
-            await this.placeChunkGroups(groups);
+            await this.placeChunkGroups(groups, changes);
             return;
         }
 
@@ -187,13 +187,18 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         }
     }
 
-    private async placeChunkGroups(groups: Map<Chunk<SectionMeshing>, { index: number; block: Maybe<Block> }[]>): Promise<void> {
+    private async placeChunkGroups(groups: Map<Chunk<SectionMeshing>, { index: number; block: Maybe<Block> }[]>,
+                                   changes: Map<string, Vector3>): Promise<void> {
         let sliceStart = performance.now();
         for (const [chunk, blocks] of groups) {
+            let positions: Vector3[] | undefined;
             try {
-                await chunk.placeBlocks(blocks);
+                positions = await chunk.placeBlocks(blocks);
             } finally {
-                this.markSectionChanged(chunk);
+                // Failed groups still clear cells and place their remaining blocks.
+                positions ??= blocks.map(({ index }) => new Vector3(chunk.x * 16 + index % 16,
+                    chunk.y * 16 + Math.floor(index / 256), chunk.z * 16 + Math.floor(index / 16) % 16));
+                for (const pos of positions) changes.set(`${pos.x},${pos.y},${pos.z}`, pos);
             }
             if (performance.now() - sliceStart > 8) {
                 await yieldToEventLoop();
@@ -225,7 +230,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
             }
         }
         try {
-            await this.clearChunkColumn(chunk.x, chunk.z, executor ? undefined : occupiedSections);
+            await this.clearChunkColumn(chunk.x, chunk.z);
             let sliceStart = performance.now();
             for (const section of chunk.sections) {
                 if (section.biomes) {
@@ -291,11 +296,11 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         }
     }
 
-    private async clearChunkColumn(x: number, z: number, keep?: Set<number>): Promise<void> {
+    private async clearChunkColumn(x: number, z: number): Promise<void> {
         this.biomes.delete(`${x}_${z}`);
         const previous = [...this._chunks.entries()].filter(([, section]) => section.x === x && section.z === z);
         for (const [key, section] of previous) {
-            if (!keep?.has(section.y)) this._chunks.delete(key);
+            this._chunks.delete(key);
             this.pendingCulling.delete(section);
             await section.clear(false);
             this.markSectionChanged(section);

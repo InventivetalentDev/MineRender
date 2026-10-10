@@ -819,6 +819,38 @@ test.serial("standalone edits finish culling while another bulk placement is wai
     t.is(indexCount(world.getBlockAt(2, 0, 0)!.object), 36);
 });
 
+for (const translucent of [false, true]) {
+    test.serial(`parallel chunk placement keeps delayed non-occluding section meshes visible (translucent=${translucent})`, async t => {
+        const { world, scene, addModel } = fixture(t, { sectionMeshing: true });
+        addModel("delayed", { transparent: true, translucent });
+        addModel("glass", { translucent: true });
+        let release!: () => void, started!: () => void;
+        const gate = new Promise<void>(resolve => { release = resolve; });
+        const loading = new Promise<void>(resolve => { started = resolve; });
+        const get = Models.getMerged;
+        Models.getMerged = async (key, options) => {
+            if (key.path === "delayed") { started(); await gate; }
+            return get(key, options);
+        };
+        t.teardown(() => { release(); });
+        const left = new ChunkData(), right = new ChunkData();
+        left.set(15, { type: "test:delayed" });
+        right.set(0, { type: "test:glass" });
+        const pending = world.placeChunk({ x: 0, z: 0, sections: [{ y: 0, data: left }] });
+        await loading;
+        await world.placeChunk({ x: 1, z: 0, sections: [{ y: 0, data: right }] });
+        release();
+        await pending;
+        const count = (x: number) => {
+            const section = scene.children.find(child => child instanceof SectionMesh && child.position.x === x);
+            return section?.children.reduce((sum, child) => sum + (child as Mesh).geometry.getIndex()!.count, 0) ?? 0;
+        };
+        t.deepEqual([count(0), count(256)], [36, 36]);
+        t.is(world.getBlockAt(15, 0, 0)?.block.type, "test:delayed");
+        t.is(world.getBlockAt(16, 0, 0)?.block.type, "test:glass");
+    });
+}
+
 test.serial("section meshes restore border faces without changing block snapshots or weighted selections", async t => {
     const { world, scene, states, place, addModel } = fixture(t, { sectionMeshing: true });
     addModel("alternative");

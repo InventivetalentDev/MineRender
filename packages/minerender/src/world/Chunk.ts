@@ -228,6 +228,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
                 const templates = perBlock ? undefined : fluid?.renderModel === false ? [] : prepared?.pick(variantPosition);
                 if (templates) {
                     this.sectionBlocks.set(index, templates.map(template => ({ index, template, cullMask: 0 })));
+                    this.meshDirty = true;
                 } else {
                     perBlocks.push({ index, blockState });
                 }
@@ -345,7 +346,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
                 }
             } else {
                 const object = this.renderedBlocks.get(index)?.object;
-                if (object && object["_cullMask"] !== mask) changed.push([index, mask]);
+                if (object && object.cullMask !== mask) changed.push([index, mask]);
             }
         }
         return changed;
