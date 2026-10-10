@@ -56,6 +56,8 @@ Calling `removeFromScene()` or `dispose()` on an instance reference releases its
 
 With `sectionMeshing: true`, [MineRenderWorld](/api/index/classes/MineRenderWorld) merges eligible blocks into section meshes. A merged block has no individual `BlockInfo.object`. Edit it through the world or chunk setters so geometry and neighbor culling update together.
 
+World placement selects weighted block models from absolute block coordinates, so unloading and reloading preserves their appearance in both rendering modes. Standalone `scene.addBlock` previews remain random unless you supply `variantPosition: [x, y, z]` in block units. The position is copied at construction; moving the object does not change its selection. The pick is vanilla-identical for the same coordinates and ordered weights. Position-based selection rejects total weights above 2,147,483,647.
+
 ## Saved entities
 
 Enable `renderEntities` to render supported mobs from parsed structures or embedded Anvil entity records:
@@ -79,6 +81,13 @@ const source = new AnvilWorldSource(async (x, z, signal) => {
     if (response.status === 404) return undefined;
     if (!response.ok) throw new Error(`Region request failed: ${response.status}`);
     return response.arrayBuffer();
+}, {
+    readExternalChunk: async (x, z, signal) => {
+        const response = await fetch(`/world/region/c.${x}.${z}.mcc`, { signal });
+        if (response.status === 404) return undefined;
+        if (!response.ok) throw new Error(`External chunk request failed: ${response.status}`);
+        return response.arrayBuffer();
+    }
 });
 const world = new MineRenderWorld(renderer.scene, { sectionMeshing: true });
 const stream = new WorldStreamer(world, source, { loadRadius: 1, unloadRadius: 2 });
@@ -89,11 +98,15 @@ Call `updatePosition` after the camera or view center moves. It accepts scene un
 
 The streamer aborts obsolete reads and active reads during disposal. Source callbacks must forward the optional signal to cancellable I/O to stop that work.
 
+`readExternalChunk` handles oversized chunks stored beside their region file. Its coordinates are absolute chunk coordinates, and it reads from the same dimension as the region reader. The source caches region files within its configured limits; external payloads are read on demand without retaining them. A missing external file is a chunk error and can be retried.
+
 Source errors appear in `failedChunks` while other columns continue loading. Call `await stream.retryFailedChunks()` to retry them. Placement or unloading failures reject the update.
 
 Await `stream.dispose()` before editing or clearing the world; it unloads its columns and leaves the world and source caller-owned.
 
-Java 1.13+ paletted chunks support gzip, zlib, and uncompressed payloads; pre-1.13 numeric chunks, LZ4, external `.mcc` payloads, and DataVersion migration remain unsupported.
+Numeric and paletted Java chunks support gzip, zlib, and uncompressed payloads, including external `.mcc` files. Pre-1.13 numeric chunks use the same block mappings as legacy schematics. Pass `legacyMappings: { "id:metadata": "namespace:block[property=value]" }` to `AnvilParser.parse`, `AnvilParser.parseChunk`, or `AnvilWorldSource` to override those mappings. Set `lenient: true` to try metadata 0 for unmapped numeric states and skip unknown IDs; malformed arrays still fail validation.
+
+Numeric mappings do not reconstruct states that depend on neighbors or block-entity NBT, such as paired doors or bed colors. LZ4 and DataVersion migration remain unsupported.
 
 ## Ownership and cleanup
 

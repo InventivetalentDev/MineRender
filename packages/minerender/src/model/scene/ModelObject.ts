@@ -4,7 +4,7 @@ import { Materials } from "../../Materials";
 import { Maybe, toRadians } from "../../util/util";
 import { UVMapper } from "../../UVMapper";
 import { TextureAtlas } from "../../texture/TextureAtlas";
-import { BoxGeometry, BoxHelper, BufferAttribute, Color, EdgesGeometry, Euler, InstancedMesh, LineBasicMaterial, LineSegments, Material, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, ShaderMaterial } from "three";
+import { BoxGeometry, BoxHelper, BufferAttribute, Color, DoubleSide, EdgesGeometry, Euler, FrontSide, InstancedMesh, LineBasicMaterial, LineSegments, Material, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, ShaderMaterial } from "three";
 import { mergeBufferGeometries } from "../../three/BufferGeometryUtils";
 import { SceneObjectOptions } from "../../renderer/SceneObjectOptions";
 import { addBox3WireframeToObject, addWireframeToMesh, addWireframeToObject, applyElementRotation } from "../../util/model";
@@ -21,6 +21,7 @@ import { SpecialItems } from "../SpecialItems";
 import { EntityObject } from "../../entity/scene/EntityObject";
 import { GuiLight } from "../GuiLight";
 import { ItemTints } from "../ItemTints";
+import { ItemGlint } from "../ItemGlint";
 
 
 const p = prefix("ModelObject");
@@ -40,6 +41,8 @@ export class ModelObject extends SceneObject {
     private unsubscribeAtlas?: () => void;
     private readonly specialMaterials = new Map<Material, Material>();
     private readonly geometries = new Set<BufferGeometry>();
+    private readonly hasGlint: boolean;
+    private glint?: ItemGlint;
 
     public blockParent: Maybe<BlockObject>;
 
@@ -48,7 +51,10 @@ export class ModelObject extends SceneObject {
     constructor(readonly originalModel: Model, options?: Partial<ModelObjectOptions>) {
         super(options);
         this.options = merge({}, ModelObject.DEFAULT_OPTIONS, options ?? {});
-        if ((originalModel as ItemModel).special || (originalModel as ItemModel).parts) this.options.instanceMeshes = false;
+        const item = originalModel as ItemModel;
+        const specialType = item.special?.type.replace(/^minecraft:/, "");
+        this.hasGlint = !item.parts && (!item.special || specialType === "shield" || specialType === "trident") && ItemGlint.enabled(item.components);
+        if (item.special || item.parts || this.hasGlint) this.options.instanceMeshes = false;
         if (this.options.tints) this.options.tints = { ...this.options.tints };
         this.addEventListener("added", () => this.updateAnimationSubscription());
         this.addEventListener("removed", () => this.updateAnimationSubscription());
@@ -86,13 +92,14 @@ export class ModelObject extends SceneObject {
                 ? DisplayTransforms.getMatrix(this.originalModel.display, this.options.displayPosition) : new Matrix4();
             transform.multiply(new Matrix4().makeTranslation(-8, -8, -8));
             try {
+                const targets: { mesh: Mesh; parent?: Mesh }[] = [];
                 for (const part of parts) {
-                    const object = new EntityObject(part.model, { flip: false, wireframe: this.options.wireframe, tints: part.tints });
+                    const object = new EntityObject(part.model, { flip: false, wireframe: this.options.wireframe, tints: part.tints, faces: part.faces });
                     object.matrix.copy(transform).multiply(part.transform);
                     object.matrixWorldNeedsUpdate = true;
                     object.matrixAutoUpdate = false;
                     this.add(object);
-                    await object.init();
+                    await object.init(part.material);
                     object.iterateAllMeshes(mesh => {
                         const source = mesh.material as MeshBasicMaterial;
                         let material = this.specialMaterials.get(source);
@@ -100,6 +107,8 @@ export class ModelObject extends SceneObject {
                             const front = this.options.displayPosition === DisplayPosition.GUI &&
                                 (this.originalModel as ItemModel).gui_light === GuiLight.FRONT;
                             material = SpecialItems.createMaterial(source, !front);
+                            // Entity geometry already contains the inward faces used by vanilla's translucent draw.
+                            if (part.material) material.side = FrontSide;
                             this.specialMaterials.set(source, material);
                         }
                         mesh.material = material;
@@ -110,6 +119,21 @@ export class ModelObject extends SceneObject {
                     for (const [name, position] of Object.entries(part.positions ?? {})) {
                         object.getGroupByName(name)?.position.set(...position);
                     }
+                    if (this.hasGlint) {
+                        if (special.type === "shield" || special.type === "minecraft:shield") {
+                            const mesh = object.getMeshByName("plate", "main")!;
+                            const layers = Object.keys(part.model.layers!);
+                            if (part.model.layers!.pattern_base) targets.push({ mesh: object.getMeshByName("handle", "main")! });
+                            // Follow the final plate draw so GUI and composite ordering keeps glint above the patterns.
+                            targets.push({ mesh, parent: object.getMeshByName("plate", layers[layers.length - 1])! });
+                        } else {
+                            object.iterateAllMeshes(mesh => targets.push({ mesh }));
+                        }
+                    }
+                }
+                if (targets.length) {
+                    this.glint = await ItemGlint.create(this, undefined, this.originalModel.key?.root, targets);
+                    this.updateAnimationSubscription();
                 }
             } catch (error) {
                 this.disposeAndRemoveAllChildren();
@@ -118,10 +142,19 @@ export class ModelObject extends SceneObject {
             this.notifyDirty();
             return;
         }
-        // load textures first so we have the updated UV coordinates from the atlas
-        await this.loadTextures();
-        this.createMeshes();
-        this.applyTextures();
+        try {
+            // Load the atlas before creating geometry so every pass uses the mapped UVs.
+            await this.loadTextures();
+            this.createMeshes();
+            this.applyTextures();
+            if (this.hasGlint && this.atlasTexture) {
+                this.glint = await ItemGlint.create(this, this.atlasTexture, this.originalModel.key?.root);
+                this.updateAnimationSubscription();
+            }
+        } catch (error) {
+            this.disposeAndRemoveAllChildren();
+            throw error;
+        }
     }
 
     public get textureAtlas(): Maybe<TextureAtlas> {
@@ -166,6 +199,7 @@ export class ModelObject extends SceneObject {
                         UVMapper.lockUvs(elGeo, el.faces, this.atlas!, new Euler(...this.options.uvLockRotation));
                     }
                     UVMapper.setAtlasUvBounds(elGeo, el.faces, this.atlas!);
+                    if (this.hasGlint) ItemGlint.mapUvs(elGeo, el.faces, this.atlas!);
                     if (this.options.tints) {
                         const colors = new Float32Array(elGeo.getAttribute("position").count * 3).fill(1);
                         for (const [faceIndex, faceName] of CUBE_FACES.entries()) {
@@ -255,7 +289,8 @@ export class ModelObject extends SceneObject {
 
     protected applyTextures() {
         if (this.atlas) {
-            const mat = Materials.createShadedCanvasMaterial(this.atlas.image.canvas as HTMLCanvasElement, this.atlas.hasTransparency, false, true);
+            const mat = Materials.createShadedCanvasMaterial(this.atlas.image.canvas as HTMLCanvasElement, this.atlas.hasTranslucency, false, true);
+            mat.side = this.atlas.hasTransparency ? DoubleSide : FrontSide;
             this.atlasMaterial = mat;
             this.atlasTexture = (mat as ShaderMaterial).uniforms?.map?.value ?? (mat as MeshBasicMaterial).map;
             if (this.options.displayPosition === DisplayPosition.GUI &&
@@ -274,6 +309,7 @@ export class ModelObject extends SceneObject {
         let root: ModelObject = this;
         while (root.parent && isModelObject(root.parent)) root = root.parent;
         const active = !!root.parent && (!this.isInstanced || this.instanceCounter > 0);
+        this.glint?.updateSubscription(active);
         if (active && this.atlas?.hasAnimation && this.atlasTexture) {
             if (!this.unsubscribeAtlas) {
                 this.atlasTexture.needsUpdate = true;
@@ -306,6 +342,8 @@ export class ModelObject extends SceneObject {
     }
 
     public disposeAndRemoveAllChildren(): void {
+        this.glint?.dispose();
+        this.glint = undefined;
         this.unsubscribeAtlas?.();
         this.unsubscribeAtlas = undefined;
         this.atlasTexture?.dispose();
