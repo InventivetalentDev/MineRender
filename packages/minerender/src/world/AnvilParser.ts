@@ -4,6 +4,7 @@ import { Block } from "../model/block/Block";
 import { MultiBlockEntity } from "../model/multiblock/MultiBlockStructure";
 import { NBTHelper } from "../nbt/NBTHelper";
 import { ChunkData } from "./ChunkData";
+import { decodeAnvilLz4 } from "./_compression/Lz4";
 
 type CompoundValue = Compound["value"];
 type NBTTag = Tags[TagType] | undefined;
@@ -50,7 +51,7 @@ export class AnvilParser {
         return this.locations(this.bytes(data)).map(({ x, z }) => ({ x, z }));
     }
 
-    /** Decodes all stored chunks. Gzip, zlib, and uncompressed payloads are supported. */
+    /** Decodes all stored chunks. Gzip, zlib, LZ4, and uncompressed payloads are supported. */
     public static async parse(data: RegionInput, options: AnvilParseOptions = {}): Promise<AnvilRegion> {
         options.signal?.throwIfAborted();
         const bytes = this.bytes(data);
@@ -123,8 +124,8 @@ export class AnvilParser {
         const format = data[location.offset + 4];
         const external = (format & 128) !== 0;
         const compression = format & 127;
-        if (compression !== 1 && compression !== 2 && compression !== 3) {
-            throw new MineRenderError(`Unsupported Anvil compression ${compression}${compression === 4 ? " (LZ4)" : ""}`);
+        if (compression !== 1 && compression !== 2 && compression !== 3 && compression !== 4) {
+            throw new MineRenderError(`Unsupported Anvil compression ${compression}`);
         }
         let payload = data.subarray(location.offset + 5, location.offset + 4 + location.length);
         let expected: { x: number; z: number } | undefined;
@@ -144,7 +145,9 @@ export class AnvilParser {
             if (externalData === undefined) throw new MineRenderError(`External Anvil chunk c.${expected.x}.${expected.z}.mcc is missing`);
             payload = this.bytes(externalData);
         }
-        if (compression !== 3) {
+        if (compression === 4) {
+            payload = decodeAnvilLz4(payload);
+        } else if (compression !== 3) {
             const stream = new Blob([payload]).stream()
                 .pipeThrough(new DecompressionStream(compression === 1 ? "gzip" : "deflate"));
             payload = new Uint8Array(await new Response(stream).arrayBuffer());
