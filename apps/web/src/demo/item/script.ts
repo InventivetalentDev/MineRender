@@ -1,4 +1,4 @@
-import { AssetKey, BannerPatterns, DISPLAY_POSITIONS, DisplayPosition, ItemGlint, ModelMerger, Models, isGuiObject, isInstanceReference, isModelObject, type GuiObject, type ItemModel, type ItemModelContext } from "minerender";
+import { AssetKey, BannerPatterns, DISPLAY_POSITIONS, DisplayPosition, ItemDefaults, ItemGlint, ItemTints, ModelMerger, Models, isGuiObject, isInstanceReference, isModelObject, type GuiObject, type ItemModel, type ItemModelContext } from "minerender";
 import { Box3, OrthographicCamera, PerspectiveCamera, Vector2 } from "three";
 import { Playground, type DemoContext, type DemoContent } from "../../playground/Playground";
 import { button, field, group, input, note, section, select, suggestions } from "../../playground/controls";
@@ -44,11 +44,30 @@ const app = new Playground<ItemSettings>({
         apple: { label: "Apple in GUI pose", state: { item: "minecraft:apple", display: DisplayPosition.GUI } },
         stack: { label: "Inventory slot: 64 apples", state: { item: "minecraft:apple", preview: "slot", count: 64 }, view: guiView },
         damaged: { label: "Inventory slot: damaged pickaxe", state: { item: "minecraft:diamond_pickaxe", preview: "slot",
-            components: { "minecraft:damage": 781, "minecraft:max_damage": 1561 } }, view: guiView },
+            components: { "minecraft:damage": 781 } }, view: guiView },
         enchanted: { label: "Inventory slot: enchanted pickaxe", state: { item: "minecraft:diamond_pickaxe", preview: "slot",
             components: { "minecraft:enchantments": { "minecraft:efficiency": 3 } } }, view: guiView },
         nether_star: { label: "Inventory slot: nether star", state: { item: "minecraft:nether_star", preview: "slot" }, view: guiView },
-        potion: { label: "Potion (tinted)", state: { item: "minecraft:potion", tints: { 0: 0xd557ef } } },
+        compass: { label: "Compass (direction 0–1)", state: { item: "minecraft:compass", preview: "slot",
+            properties: { "minecraft:compass": 0 } }, view: guiView },
+        lodestone_compass: { label: "Lodestone compass (direction 0–1)", state: { item: "minecraft:compass", preview: "slot",
+            properties: { "minecraft:compass": 0 }, components: { "minecraft:lodestone_tracker": {} } }, view: guiView },
+        recovery_compass: { label: "Recovery compass (direction 0–1)", state: { item: "minecraft:recovery_compass", preview: "slot",
+            properties: { "minecraft:compass": 0 }, components: { "minecraft:enchantment_glint_override": true } }, view: guiView },
+        clock: { label: "Clock (time 0–1)", state: { item: "minecraft:clock", preview: "slot",
+            properties: { "minecraft:time": 0, "minecraft:context_dimension": "minecraft:overworld" },
+            components: { "minecraft:enchantment_glint_override": true } }, view: guiView },
+        potion: { label: "Potion (explicit tint override)", state: { item: "minecraft:potion", tints: { 0: 0xd557ef } } },
+        potion_healing: { label: "Potion of healing", state: { item: "minecraft:potion", display: DisplayPosition.GUI,
+            components: { "minecraft:potion_contents": "minecraft:healing" } }, view: guiView },
+        splash_potion: { label: "Splash potion of swiftness", state: { item: "minecraft:splash_potion", display: DisplayPosition.GUI,
+            components: { "minecraft:potion_contents": { potion: "minecraft:swiftness" } } }, view: guiView },
+        lingering_potion: { label: "Lingering potion of poison", state: { item: "minecraft:lingering_potion", display: DisplayPosition.GUI,
+            components: { "minecraft:potion_contents": { potion: "minecraft:poison" } } }, view: guiView },
+        tipped_arrow: { label: "Tipped arrow (custom effect colors)", state: { item: "minecraft:tipped_arrow", display: DisplayPosition.GUI,
+            components: { "minecraft:potion_contents": { custom_effects: [
+                { id: "minecraft:speed", amplifier: 1 }, { id: "minecraft:regeneration" }
+            ] } } }, view: guiView },
         dyed_leather: { label: "Dyed leather (blue component)", state: { item: "minecraft:leather_chestplate", display: DisplayPosition.GUI,
             components: { "minecraft:dyed_color": 0x3f76e4 } }, view: guiView },
         potion_color: { label: "Potion (custom color component)", state: { item: "minecraft:potion", display: DisplayPosition.GUI,
@@ -250,12 +269,16 @@ glint.addEventListener("change", () => {
     glint.disabled = true;
     void app.update({ components: next });
 });
-note(stackGroup, "Auto follows the item's default glint and supplied enchantments. On and Off override the shimmer without changing enchantments.");
-const damageFields = (["damage", "max_damage"] as const).map(name => {
-    const control = input(stackGroup, name === "damage" ? "Damage (optional)" : "Maximum damage (optional)", "", "number");
+note(stackGroup, "Auto follows the item and its components. On and Off override the shimmer without changing enchantments.");
+const stackFields = ([
+    ["damage", "Damage", "2147483647"],
+    ["max_damage", "Maximum damage", "2147483647"],
+    ["max_stack_size", "Maximum stack size", "99"]
+] as const).map(([name, title, max]) => {
+    const control = input(stackGroup, `${title} (optional)`, "", "number");
     control.id = `item-${name.replace(/_/g, "-")}`;
     control.placeholder = "Not supplied";
-    Object.assign(control, { min: name === "damage" ? "0" : "1", max: "2147483647", step: "1" });
+    Object.assign(control, { min: name === "damage" ? "0" : "1", max, step: "1" });
     control.addEventListener("change", () => {
         if (control.disabled || !stackState || app.state.item !== stackState.item
             || JSON.stringify(app.state.components) !== JSON.stringify(stackState.components)) return;
@@ -267,17 +290,18 @@ const damageFields = (["damage", "max_damage"] as const).map(name => {
         else {
             const value = control.valueAsNumber;
             if (!Number.isInteger(value) || value < Number(control.min) || value > Number(control.max)) {
-                app.report(`${name === "damage" ? "Damage" : "Maximum damage"} must be a whole number from ${control.min} to ${control.max}.`, true);
+                app.report(`${title} must be a whole number from ${control.min} to ${control.max}.`, true);
                 return;
             }
             next[id] = value;
         }
-        damageFields.forEach(({ control }) => { control.disabled = true; });
+        stackFields.forEach(({ control }) => { control.disabled = true; });
         void app.update({ components: next });
     });
     return { name, control };
 });
-const slotNote = note(stackGroup, "Count 0 leaves the slot empty. A durability bar needs both damage values and no unbreakable component. Blank fields remove damage values.");
+const defaultsNote = note(stackGroup, "Blank fields use vanilla 1.21.11 defaults when available. Maximum stack size affects count-based models; it does not limit Count.");
+const slotNote = note(stackGroup, "Count 0 leaves the slot empty. Damaged items with a maximum damage value show a durability bar unless unbreakable.");
 const componentColors = document.createElement("div");
 stackGroup.append(componentColors);
 const components = field(stackGroup, "Components (JSON)", document.createElement("textarea"));
@@ -382,8 +406,41 @@ function referenceKey(value: unknown): AssetKey {
     return modelKey(stateId(value.trim()));
 }
 
-function syncComponentColors(state: ItemSettings): void {
+function syncComponentColors(state: ItemSettings, potionColor?: number): void {
     componentColors.replaceChildren();
+    const potionId = Object.prototype.hasOwnProperty.call(state.components, "potion_contents") ? "potion_contents" : "minecraft:potion_contents";
+    const potion = state.components[potionId];
+    if (potion !== undefined || /^(?:minecraft:)?(?:potion|splash_potion|lingering_potion|tipped_arrow)$/.test(state.item)) {
+        const contents = typeof potion === "string" ? { potion } : potion && typeof potion === "object" && !Array.isArray(potion) ? potion as Record<string, unknown> : {};
+        let currentPotion = typeof contents.potion === "string" ? contents.potion : "";
+        if (currentPotion && !currentPotion.includes(":")) currentPotion = `minecraft:${currentPotion}`;
+        const options: Array<[string, string]> = ItemTints.getPotionList().map(id => [id,
+            id.replace(/^minecraft:/, "").replace(/_/g, " ").replace(/^./, letter => letter.toUpperCase())]);
+        if (currentPotion && !options.some(([id]) => id === currentPotion)) options.unshift([currentPotion, currentPotion]);
+        const control = select(componentColors, "Potion", [["", "No base potion"], ...options], currentPotion);
+        control.id = "item-potion";
+        const edit = (change: (value: Record<string, unknown>) => void) => {
+            if (control.disabled || app.state.item !== state.item || JSON.stringify(app.state.components) !== JSON.stringify(state.components)) return;
+            const next = structuredClone(state.components);
+            const value = structuredClone(contents);
+            change(value);
+            next[potionId] = value;
+            control.disabled = true;
+            void app.update({ components: next });
+        };
+        control.addEventListener("change", () => edit(value => {
+            if (control.value) value.potion = control.value;
+            else delete value.potion;
+        }));
+        const customColor = typeof contents.custom_color === "number" ? contents.custom_color & 0xffffff : undefined;
+        const color = input(componentColors, "Potion color", `#${(customColor ?? potionColor ?? 0xffffff).toString(16).padStart(6, "0")}`, "color");
+        color.dataset.itemColor = potionId;
+        color.addEventListener("change", () => edit(value => { value.custom_color = parseInt(color.value.slice(1), 16); }));
+        button(componentColors, "Use potion and effect colors", () => edit(value => { delete value.custom_color; })).disabled = contents.custom_color === undefined;
+        note(componentColors, contents.custom_color === undefined ? "Color follows the potion and visible custom effects. Choosing a color overrides both."
+            : "Custom color overrides potion and effect colors. Use potion and effect colors to remove it.");
+        if (Object.keys(state.tints).length) note(componentColors, "Explicit colors under Tint colors override component colors at the same index.");
+    }
     const add = (id: string, title: string, value: unknown, path: Array<string | number> = [], allowTriple = false) => {
         let rgb: number;
         if (typeof value === "number" && Number.isInteger(value) && value >= -2147483648 && value <= 2147483647) rgb = value & 0xffffff;
@@ -418,8 +475,7 @@ function syncComponentColors(state: ItemSettings): void {
         else if (name === "map_color") add(id, "Map color", value);
         else if (value && typeof value === "object" && !Array.isArray(value)) {
             const data = value as Record<string, unknown>;
-            if (name === "potion_contents") add(id, "Potion color", data.custom_color, ["custom_color"]);
-            else if ((name === "firework_explosion" || name === "custom_model_data") && Array.isArray(data.colors)) {
+            if ((name === "firework_explosion" || name === "custom_model_data") && Array.isArray(data.colors)) {
                 data.colors.forEach((color, index) => add(id,
                     name === "firework_explosion" ? `Firework color ${index + 1}` : `Custom model color (index ${index})`,
                     color, ["colors", index], name === "custom_model_data"));
@@ -428,7 +484,7 @@ function syncComponentColors(state: ItemSettings): void {
     }
 }
 
-function syncStateControls(state: ItemSettings, items: string[]): void {
+function syncStateControls(state: ItemSettings, items: string[], potionColor?: number): void {
     stackState = state;
     profileGuard.sync(state);
     const profile = state.components.profile ?? state.components["minecraft:profile"];
@@ -447,13 +503,17 @@ function syncStateControls(state: ItemSettings, items: string[]): void {
     const override = state.components["minecraft:enchantment_glint_override"] ?? state.components.enchantment_glint_override;
     glint.value = override === true ? "on" : override === false ? "off" : "auto";
     glint.disabled = isModelPath(state.item);
-    for (const { name, control } of damageFields) {
+    const inherited = isModelPath(state.item) ? {} : ItemDefaults.get(state.item);
+    for (const { name, control } of stackFields) {
         const value = state.components[name] ?? state.components[`minecraft:${name}`];
         control.value = value === undefined ? "" : String(value);
+        const defaultValue = inherited[`minecraft:${name}`];
+        control.placeholder = defaultValue === undefined ? "Not supplied" : `Default: ${defaultValue}`;
         control.disabled = false;
     }
+    defaultsNote.hidden = isModelPath(state.item);
     slotNote.hidden = state.preview !== "slot";
-    syncComponentColors(state);
+    syncComponentColors(state, potionColor);
     components.value = JSON.stringify(state.components, null, 2);
     propertyEntries.replaceChildren();
     for (const [id, value] of Object.entries(state.properties)) {
@@ -535,7 +595,7 @@ async function load(ctx: DemoContext, state: ItemSettings): Promise<DemoContent>
         if (!isModelObject(child)) return;
         const item = child.originalModel as ItemModel;
         const special = item.special?.type.replace(/^minecraft:/, "");
-        if (!item.parts && (!special || special === "shield" || special === "trident")) hasGlint ||= ItemGlint.enabled(item.components);
+        if (!item.parts && (!special || special === "shield" || special === "trident")) hasGlint ||= ItemGlint.enabled(item.components, item.itemId);
     });
     return {
         object: visual,
@@ -575,7 +635,13 @@ async function load(ctx: DemoContext, state: ItemSettings): Promise<DemoContent>
             statuePose.disabled = override !== undefined;
             statuePoseNote.hidden = override === undefined;
             syncBannerControls(state, patterns);
-            syncStateControls(state, list);
+            let potionColor: number | undefined;
+            visual.traverse(child => {
+                if (!isModelObject(child)) return;
+                const index = (child.originalModel as ItemModel).tints?.findIndex(source => source.type.replace(/^minecraft:/, "") === "potion");
+                if (index !== undefined && index >= 0) potionColor = child.options.tints?.[index];
+            });
+            syncStateControls(state, list, potionColor);
             syncModelControls();
             if (isGuiObject(object)) app.inspector?.selectObject(object);
             else selectModel(app, object);

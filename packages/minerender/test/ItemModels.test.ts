@@ -1,5 +1,5 @@
 import test from "ava";
-import { AssetKey, AssetLoader, AssetSource, Caching, DisplayPosition, ItemGlint, ItemTints, Models, PersistentCache, shutdown } from "../src";
+import { AssetKey, AssetLoader, AssetSource, Caching, DisplayPosition, ItemDefaults, ItemGlint, ItemTints, Models, PersistentCache, shutdown } from "../src";
 import type { ItemModel, ItemModelContext, ItemTintSource, MinecraftAsset, Maybe, SpecialItemRenderer } from "../src";
 
 class MemoryCache extends PersistentCache<Map<string, string>> {
@@ -67,6 +67,89 @@ test.afterEach.always(() => {
 });
 test.after.always(() => shutdown());
 
+test("item defaults expose fresh namespaced stack components for vanilla item IDs", t => {
+    const pickaxe = { "minecraft:max_stack_size": 1, "minecraft:max_damage": 1561, "minecraft:damage": 0 };
+    t.deepEqual(ItemDefaults.get("diamond_pickaxe"), pickaxe);
+    t.deepEqual(ItemDefaults.get("minecraft:diamond_pickaxe"), pickaxe);
+    t.deepEqual(ItemDefaults.get("snowball"), { "minecraft:max_stack_size": 16 });
+    t.deepEqual(ItemDefaults.get("stone"), { "minecraft:max_stack_size": 64 });
+    t.deepEqual(ItemDefaults.get("potion"), { "minecraft:max_stack_size": 1 });
+    for (const id of ["custom:diamond_pickaxe", "minecraft:unknown", "item/diamond_pickaxe", "toString", "__proto__"]) {
+        t.deepEqual(ItemDefaults.get(id), { "minecraft:max_stack_size": 64 });
+    }
+    ItemDefaults.get("diamond_pickaxe")["minecraft:max_damage"] = 10;
+    t.deepEqual(ItemDefaults.get("diamond_pickaxe"), pickaxe);
+});
+
+test.serial("damage and count selectors inherit item defaults and preserve component and property overrides", async t => {
+    const definition = { model: { type: "composite", models: [
+        { type: "range_dispatch", property: "damage", entries: [{ threshold: 0.5, model: reference("item/high") }], fallback: reference("item/low") },
+        { type: "range_dispatch", property: "damage", normalize: false, entries: [{ threshold: 781, model: reference("item/high") }], fallback: reference("item/low") },
+        { type: "range_dispatch", property: "count", entries: [{ threshold: 0.5, model: reference("item/high") }], fallback: reference("item/low") },
+        { type: "condition", property: "has_component", component: "max_damage", on_true: reference("item/high"), on_false: reference("item/low") }
+    ] } };
+    AssetLoader.addSource("test-items", new FixtureSource({
+        ...Object.fromEntries(["diamond_pickaxe", "stone", "snowball", "unknown"].map(id => [`items/${id}`, definition])),
+        "models/item/high": { textures: { layer0: "high" } }, "models/item/low": { textures: { layer0: "low" } }
+    }));
+    const layers = async (key: AssetKey, context?: ItemModelContext) => ((await Models.getMerged(key, context))! as ItemModel).parts!.map(part => part.textures?.layer0);
+    const key = itemKey("diamond_pickaxe");
+    const components = { damage: 781 };
+    t.deepEqual(await layers(key, { components }), ["high", "high", "high", "high"]);
+    t.deepEqual(components, { damage: 781 });
+    t.deepEqual(await layers(key), ["low", "low", "high", "high"]);
+    t.deepEqual(await layers(key, { components: { "minecraft:damage": 781, max_damage: 2000, max_stack_size: 64 } }), ["low", "high", "low", "high"]);
+    t.deepEqual(await layers(key, { components, properties: { damage: 0, count: 0, has_component: false } }), ["low", "low", "low", "low"]);
+    for (const [id, half] of [["stone", 32], ["snowball", 8]] as const) {
+        t.deepEqual(await layers(itemKey(id), { count: half }), ["low", "low", "high", "low"]);
+        t.deepEqual(await layers(itemKey(id), { count: half - 1 }), ["low", "low", "low", "low"]);
+    }
+    for (const unknown of [itemKey("unknown"), new AssetKey("custom", "diamond_pickaxe", "models", "item")]) {
+        t.deepEqual(await layers(unknown, { components }), ["low", "low", "low", "low"]);
+    }
+    await t.throwsAsync(Models.getMerged(key, { components: { max_damage: 100, "minecraft:max_damage": 200 } }), { message: /Duplicate item-preview component/ });
+    t.deepEqual(Models["snapshotContext"](new AssetKey("minecraft", "diamond_pickaxe", "models", "block"), {}).components, {});
+});
+
+test.serial("composites, referenced items, pack replacements, and cache reloads keep their own stack defaults", async t => {
+    const source = new FixtureSource({
+        "items/diamond_pickaxe": { model: { type: "composite", models: [reference("custom:item/replacement"), { type: "bundle/selected_item" }] } },
+        "items/bow": { model: reference("custom:item/replacement") },
+        "models/item/replacement": { textures: { layer0: "custom:item/replacement" } },
+        "models/item/elytra": { textures: { layer0: "custom:item/legacy" } }
+    });
+    AssetLoader.addSource("test-items", source);
+    const key = itemKey("diamond_pickaxe");
+    const context = { components: { damage: 781, max_damage: 2000 }, itemReferences: { "bundle/selected_item": itemKey("bow") } };
+    const original = JSON.stringify(context);
+    const model = (await Models.getMerged(key, context))! as ItemModel;
+    t.is(model.parts![0].itemId, "minecraft:diamond_pickaxe");
+    t.is(model.parts![0].key?.toNamespacedString(), "custom:item/replacement");
+    t.deepEqual(model.parts![0].components, { "minecraft:max_stack_size": 1, "minecraft:damage": 781, "minecraft:max_damage": 2000 });
+    t.is(model.parts![1].itemId, "minecraft:bow");
+    t.deepEqual(model.parts![1].components, { "minecraft:max_stack_size": 1, "minecraft:damage": 0, "minecraft:max_damage": 384 });
+    const legacy = (await Models.getMerged(itemKey("elytra")))! as ItemModel;
+    t.deepEqual(legacy.components, { "minecraft:max_stack_size": 1, "minecraft:damage": 0, "minecraft:max_damage": 432 });
+    const automatic = (await Models.getMerged(key, { ...context, components: { damage: 781 } }))! as ItemModel;
+    t.is(automatic.parts![0].components!["minecraft:max_damage"], 1561);
+    const calls = source.calls.length;
+    Caching.clear();
+    t.deepEqual(await Models.getMerged(key, context), model);
+    t.deepEqual(await Models.getMerged(key, { ...context, components: { damage: 781 } }), automatic);
+    t.is(source.calls.length, calls);
+    t.is(JSON.stringify(context), original);
+    t.is(((await Models.getRaw(model.parts![0].key!))! as ItemModel).components, undefined);
+
+    const previousContext = Models["snapshotContext"](itemKey("bow"), {});
+    previousContext.components = {};
+    const previousKey = new AssetKey("minecraft", "bow", "items").serialize() + Models["contextKey"](previousContext).replace(`|${Models["ITEM_CACHE_VERSION"]}:`, "|item-v6:");
+    await Models["_persistentCache"]!.put(`item-v6:${AssetLoader.persistentKey(previousKey)}`, { key: itemKey("bow"), textures: { layer0: "stale" } });
+    Caching.clear();
+    const restored = (await Models.getMerged(itemKey("bow")))! as ItemModel;
+    t.is(restored.components!["minecraft:max_damage"], 384);
+    t.is(restored.textures?.layer0, "custom:item/replacement");
+});
+
 test("item glint uses nonempty enchantment objects and explicit boolean overrides", t => {
     for (const components of [{}, { enchantments: {} }, { stored_enchantments: { sharpness: 1 } },
         { enchantments: { sharpness: 1 }, enchantment_glint_override: false }]) t.false(ItemGlint.enabled(components));
@@ -79,6 +162,83 @@ test("item glint uses nonempty enchantment objects and explicit boolean override
         { enchantments: {}, "minecraft:enchantments": {} }]) {
         t.throws(() => ItemGlint.enabled(components));
     }
+});
+
+test("lodestone tracking enables glint only for normal compasses and respects explicit overrides", t => {
+    for (const id of ["lodestone_tracker", "minecraft:lodestone_tracker"]) {
+        t.true(ItemGlint.enabled({ [id]: {} }, "minecraft:compass"));
+        t.false(ItemGlint.enabled({ [id]: {}, enchantment_glint_override: false }, "minecraft:compass"));
+        for (const itemId of [undefined, "minecraft:recovery_compass", "minecraft:clock", "custom:compass"]) {
+            t.false(ItemGlint.enabled({ [id]: {} }, itemId));
+        }
+    }
+    t.false(ItemGlint.enabled({}, "minecraft:compass"));
+    t.true(ItemGlint.enabled({ enchantments: { unbreaking: 1 } }, "minecraft:recovery_compass"));
+    t.true(ItemGlint.enabled({ enchantment_glint_override: true }, "minecraft:clock"));
+});
+
+test.serial("item identity survives model replacements and legacy packs without changing raw models", async t => {
+    AssetLoader.addSource("test-items", new FixtureSource({
+        "items/compass": { model: reference("minecraft:item/compass_16") },
+        "items/recovery_compass": { model: reference("minecraft:item/recovery_compass_16") },
+        "items/clock": { model: reference("minecraft:item/clock_00") },
+        "items/alias": { model: reference("minecraft:item/compass_16") },
+        "models/item/compass_16": { textures: { layer0: "item/compass_16" } }
+    }));
+    AssetLoader.addSource("test-pack", new FixtureSource({
+        "items/compass": { model: reference("custom:item/replacement") },
+        "models/item/replacement": { textures: { layer0: "custom:item/replacement" } },
+        "models/item/recovery_compass": { textures: { layer0: "custom:item/recovery" } },
+        "models/item/clock": { textures: { layer0: "custom:item/clock" } }
+    }));
+    const compass = (await Models.getMerged(itemKey("compass"), { components: { lodestone_tracker: {} } }))! as ItemModel;
+    t.is(compass.itemId, "minecraft:compass");
+    t.is(compass.key?.toNamespacedString(), "custom:item/replacement");
+    t.true(ItemGlint.enabled(compass.components, compass.itemId));
+    t.false(Object.hasOwn(compass.components!, "minecraft:enchantment_glint_override"));
+    for (const id of ["recovery_compass", "clock"]) {
+        const legacy = (await Models.getMerged(itemKey(id)))! as ItemModel;
+        t.is(legacy.itemId, `minecraft:${id}`);
+        t.is(legacy.textures?.layer0, id === "clock" ? "custom:item/clock" : "custom:item/recovery");
+    }
+    const alias = (await Models.getMerged(new AssetKey("custom", "alias", "models", "item"), {
+        components: { lodestone_tracker: {} }
+    }))! as ItemModel;
+    t.is(alias.itemId, "custom:alias");
+    t.false(ItemGlint.enabled(alias.components, alias.itemId));
+    t.is(((await Models.getRaw(compass.key!))! as ItemModel).itemId, undefined);
+});
+
+test.serial("composite item identities and referenced defaults survive persistent cache reloads", async t => {
+    const source = new FixtureSource({
+        "items/compass": { model: { type: "composite", models: [reference("item/frame"),
+            { type: "composite", models: [reference("item/frame"), { type: "bundle/selected_item" }] }] } },
+        "items/clock": { model: reference("item/frame") },
+        "items/carrier": { model: { type: "bundle/selected_item" } },
+        "models/item/frame": { textures: { layer0: "item/frame" } }
+    });
+    AssetLoader.addSource("test-items", source);
+    const context = { components: { lodestone_tracker: {} }, itemReferences: { "bundle/selected_item": itemKey("clock") } };
+    const model = (await Models.getMerged(itemKey("compass"), context))! as ItemModel;
+    t.is(model.itemId, "minecraft:compass");
+    t.is(model.parts![0].itemId, "minecraft:compass");
+    t.is(model.parts![1].parts![0].itemId, "minecraft:compass");
+    t.is(model.parts![1].parts![1].itemId, "minecraft:clock");
+    t.deepEqual(model.parts![1].parts![1].components, { "minecraft:max_stack_size": 64 });
+    const calls = source.calls.length;
+    Caching.clear();
+    t.deepEqual(await Models.getMerged(itemKey("compass"), context), model);
+    t.is(source.calls.length, calls);
+
+    const key = itemKey("carrier");
+    const oldContext = Models["contextKey"](Models["snapshotContext"](key, context)).replace(`|${Models["ITEM_CACHE_VERSION"]}:`, "|item-v5:");
+    const oldKey = new AssetKey(key.namespace, key.path, "items").serialize() + oldContext;
+    await Models["_persistentCache"]!.put(`item-v5:${AssetLoader.persistentKey(oldKey)}`, {
+        key: itemKey("frame"), components: {}, textures: { layer0: "stale" }
+    });
+    const referenced = (await Models.getMerged(key, context))! as ItemModel;
+    t.is(referenced.itemId, "minecraft:clock");
+    t.is(referenced.textures?.layer0, "item/frame");
 });
 
 test.serial("natural glint defaults belong to the seven vanilla item IDs and allow explicit suppression", async t => {
@@ -162,7 +322,7 @@ test.serial("composite children and selectors see item defaults while referenced
     const carrier = itemKey("carrier");
     const context = { itemReferences: { "bundle/selected_item": itemKey("enchanted_book") } };
     const oldKey = new AssetKey(carrier.namespace, carrier.path, "items").serialize()
-        + Models["contextKey"](Models["snapshotContext"](carrier, context)).replace("|item-v5:", "|item-v4:");
+        + Models["contextKey"](Models["snapshotContext"](carrier, context)).replace(`|${Models["ITEM_CACHE_VERSION"]}:`, "|item-v4:");
     await Models["_persistentCache"]!.put(`item-v4:${AssetLoader.persistentKey(oldKey)}`, {
         key: itemKey("plain"), components: {}, textures: { layer0: "stale" }
     });
@@ -302,7 +462,7 @@ test.serial("item tint components survive snapshots, composites, legacy parents,
     const components = { custom_model_data: { colors: [0xff0000, 0x0000ff] }, dyed_color: 0x00ff00 };
     const context = { components, itemReferences: { "bundle/selected_item": itemKey("selected") } };
     const previousKey = new AssetKey(key.namespace, key.path, "items").serialize()
-        + Models["contextKey"](Models["snapshotContext"](key, context)).replace("|item-v5:", "|item-v3:");
+        + Models["contextKey"](Models["snapshotContext"](key, context)).replace(`|${Models["ITEM_CACHE_VERSION"]}:`, "|item-v3:");
     await Models["_persistentCache"]!.put(`item-v3:${AssetLoader.persistentKey(previousKey)}`, { key, textures: { layer0: "stale" } });
     const pending = Models.getMerged(key, context);
     components.custom_model_data.colors[0] = 0xffff00;
@@ -314,8 +474,8 @@ test.serial("item tint components survive snapshots, composites, legacy parents,
         ItemTints.get(model.parts![0]), ItemTints.get(model.parts![1].parts![0]), ItemTints.get(model.parts![1].parts![1])
     ]);
     t.deepEqual(await palette(first), [{ 0: 0xff0000 }, { 0: 0x0000ff }, { 0: 0xffffff }]);
-    t.deepEqual(first.parts![0].components, canonical.components);
-    t.deepEqual(first.parts![1].parts![1].components, {});
+    t.deepEqual(first.parts![0].components, { ...canonical.components, "minecraft:max_stack_size": 64 });
+    t.deepEqual(first.parts![1].parts![1].components, { "minecraft:max_stack_size": 64 });
     const changed = (await Models.getMerged(key, context))! as ItemModel;
     t.deepEqual(await palette(changed), [{ 0: 0xffff00 }, { 0: 0x0000ff }, { 0: 0xffffff }]);
     const legacy = (await Models.getMerged(itemKey("legacy"), context))! as ItemModel;
@@ -517,7 +677,7 @@ test.serial("damage and count ranges normalize, clamp, honor overrides, and inva
     const definitionKey = new AssetKey(key.namespace, key.path, "items", undefined, key.rootType, ".json", key.root);
     await Models["_persistentCache"]!.put(`item-v2:${AssetLoader.persistentKey(definitionKey.serialize())}`, { key, textures: { layer0: "stale" } });
     const layers = async (context: ItemModelContext = {}) => ((await Models.getMerged(key, context))! as ItemModel).parts!.map(part => part.textures?.layer0);
-    t.deepEqual(await layers(), ["missing", "zero", "full", "zero"]);
+    t.deepEqual(await layers(), ["missing", "zero", "zero", "zero"]);
     t.deepEqual(await layers({ count: 4, components: { damage: 50, max_damage: 100, max_stack_size: 8 } }), ["half", "half", "half", "zero"]);
     t.deepEqual(await layers({ count: 80, components: { damage: 150, max_damage: 100, max_stack_size: 8 } }), ["full", "half", "full", "full"]);
     t.deepEqual(await layers({ count: 0, components: { damage: -5, max_damage: 100, max_stack_size: 8 } }), ["zero", "zero", "zero", "zero"]);
@@ -525,7 +685,7 @@ test.serial("damage and count ranges normalize, clamp, honor overrides, and inva
     const calls = source.calls.length;
     Caching.clear();
     t.deepEqual(await layers({ count: 4, components: { max_stack_size: 8, max_damage: 100, damage: 50 } }), ["half", "half", "half", "zero"]);
-    t.deepEqual(await layers(), ["missing", "zero", "full", "zero"]);
+    t.deepEqual(await layers(), ["missing", "zero", "zero", "zero"]);
     t.is(source.calls.length, calls);
 });
 
@@ -585,7 +745,7 @@ test.serial("special items retain their renderer and inherit the base pose throu
         for (let attempt = 0; attempt < 2; attempt++) {
             const model = (await Models.getMerged(key, { components }))! as ItemModel;
             t.deepEqual(model.special, renderers[index]);
-            t.deepEqual(model.components, { "minecraft:banner_patterns": components.banner_patterns, "minecraft:base_color": "red" });
+            t.deepEqual(model.components, { "minecraft:banner_patterns": components.banner_patterns, "minecraft:base_color": "red", "minecraft:max_stack_size": 64 });
             t.deepEqual(model.display?.gui, display.gui);
             t.is(model.gui_light, "front");
             t.is(model.key?.toNamespacedString(), "pack:item/base");
@@ -611,8 +771,8 @@ test.serial("player profiles are snapshotted and separated in item caches and re
     profile.properties.textures[0] = "second";
     const first = (await pending)! as ItemModel;
     const second = (await Models.getMerged(itemKey("head"), { components: { "minecraft:profile": profile } }))! as ItemModel;
-    t.deepEqual(first.components, { "minecraft:profile": { id: [0, 0, 0, 1], properties: { textures: ["first"] } } });
-    t.deepEqual(second.components, { "minecraft:profile": profile });
+    t.deepEqual(first.components, { "minecraft:profile": { id: [0, 0, 0, 1], properties: { textures: ["first"] } }, "minecraft:max_stack_size": 64 });
+    t.deepEqual(second.components, { "minecraft:profile": profile, "minecraft:max_stack_size": 64 });
     t.not(first, second);
     Caching.clear();
     const cached = (await Models.getMerged(itemKey("head"), { components: { profile: { properties: { textures: ["first"] }, id: [0, 0, 0, 1] } } }))! as ItemModel;
@@ -620,7 +780,7 @@ test.serial("player profiles are snapshotted and separated in item caches and re
     t.deepEqual(cached.special, { type: "minecraft:player_head" });
     const composite = (await Models.getMerged(itemKey("composite_head"), { components: { profile }, itemReferences: { "bundle/selected_item": itemKey("head") } }))! as ItemModel;
     t.deepEqual(composite.parts![0].components, second.components);
-    t.deepEqual(composite.parts![1].components, {});
+    t.deepEqual(composite.parts![1].components, { "minecraft:max_stack_size": 64 });
     t.deepEqual(composite.parts![1].special, cached.special);
 });
 
@@ -762,11 +922,11 @@ test.serial("decorated-pot components survive composite snapshots and persistent
     const pending = Models.getMerged(itemKey("composite_pot"), context);
     decorations[0] = "flow_pottery_sherd";
     const first = (await pending)! as ItemModel;
-    t.deepEqual(first.parts![0].components, { "minecraft:pot_decorations": ["archer_pottery_sherd", "brick", "prize_pottery_sherd", "skull_pottery_sherd"] });
+    t.deepEqual(first.parts![0].components, { "minecraft:pot_decorations": ["archer_pottery_sherd", "brick", "prize_pottery_sherd", "skull_pottery_sherd"], "minecraft:max_stack_size": 64 });
     t.deepEqual(first.parts![1].special, { type: "decorated_pot" });
-    t.deepEqual(first.parts![1].components, {});
+    t.deepEqual(first.parts![1].components, { "minecraft:max_stack_size": 64 });
     const second = (await Models.getMerged(itemKey("composite_pot"), context))! as ItemModel;
-    t.deepEqual(second.parts![0].components, { "minecraft:pot_decorations": decorations });
+    t.deepEqual(second.parts![0].components, { "minecraft:pot_decorations": decorations, "minecraft:max_stack_size": 64 });
     t.not(first, second);
     const calls = source.calls.length;
     Caching.clear();
@@ -908,7 +1068,7 @@ test.serial("referenced items retain display context but start with their own st
         itemReferences: { "bundle/selected_item": itemKey("shield") }
     }))! as ItemModel;
     t.deepEqual(shield.special, { type: "shield" });
-    t.deepEqual(shield.components, {});
+    t.deepEqual(shield.components, { "minecraft:max_stack_size": 1, "minecraft:max_damage": 336, "minecraft:damage": 0 });
     t.deepEqual(((await Models.getMerged(itemKey("selected_only"), {
         itemReferences: { "bundle/selected_item": itemKey("selected_only") }
     }))! as ItemModel).parts, []);

@@ -97,6 +97,7 @@ async function visit(url, name) {
         await page.screenshot({ path: path.join(shots, `${name}.png`) });
         const tintPresets = {
             dyed_leather: { 0: 0x3f76e4 }, potion_color: { 0: 0xd557ef }, map_color: { 0: 0xffffff, 1: 0xe0a63a },
+            potion_healing: { 0: 0xf82423 }, splash_potion: { 0: 0x33ebff }, lingering_potion: { 0: 0x87a363 }, tipped_arrow: { 0: 0x66bbe3 },
             firework_color: { 0: 0xffffff, 1: 0x7f007f }, custom_model_color: { 0: 0x55ff55 }
         };
         const expectedTints = url.startsWith("demo/item/") && tintPresets[new URL(url, base).searchParams.get("preset")];
@@ -107,7 +108,8 @@ async function visit(url, name) {
             if (JSON.stringify(result.tints) !== JSON.stringify(expectedTints)) problems.add(`Component tint differs: ${JSON.stringify(result.tints)}`);
             if (!result.code.includes(`components: ${JSON.stringify(result.components)}`)) problems.add("Generated code omits the color components.");
         }
-        if (/^Ready/.test(status) && await page.$('[data-glint="true"]')) {
+        if (/^Ready/.test(status) && (await page.$('[data-glint="true"]') || /^demo\/item\/\?preset=(compass|recovery_compass|clock)$/.test(url))) {
+            const automatic = !/^demo\/item\/\?preset=(compass|recovery_compass|clock)$/.test(url);
             const initialZoom = await page.evaluate(() => window.renderer.camera.zoom);
             for (const zoom of [initialZoom / 2, initialZoom]) {
                 const frames = await page.evaluate(async zoom => {
@@ -125,7 +127,7 @@ async function visit(url, name) {
                     return images;
                 }, zoom);
                 if (frames[0] === frames[1]) problems.add(`Glint is invisible at camera zoom ${zoom}.`);
-                if (frames[0] === frames[2]) problems.add(`Automatic glint is invisible at camera zoom ${zoom}.`);
+                if ((frames[0] !== frames[2]) !== automatic) problems.add(`Automatic glint differs from the item state at camera zoom ${zoom}.`);
             }
         }
         if (/^demo\/item\/\?preset=(bundle|bow|crossbow|custom_model_data)$/.test(url) && /^Ready/.test(status)) {

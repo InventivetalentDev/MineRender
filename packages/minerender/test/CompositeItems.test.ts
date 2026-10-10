@@ -164,9 +164,11 @@ test.serial("composite GUI layers retain child order and bounds and dispose each
     t.is(frontAtlas.ticker, undefined);
 });
 
-test.serial("composite GUI glint preserves leaf order and shares atlas attachment behavior", async t => {
+test.serial("composite GUI projected glint preserves leaf order and shares atlas attachment behavior", async t => {
     const { scene, front, side, composite, frontAtlas } = fixture(t);
-    front.components = { ...front.components, enchantment_glint_override: true };
+    front.itemId = "minecraft:compass";
+    front.components = { ...front.components, lodestone_tracker: {} };
+    side.itemId = "minecraft:clock";
     side.components = { ...side.components, enchantments: { sharpness: 1 }, enchantment_glint_override: false };
     composite.parts![1].parts![1].components = { enchantment_glint_override: true };
     const originalFont = Fonts.get;

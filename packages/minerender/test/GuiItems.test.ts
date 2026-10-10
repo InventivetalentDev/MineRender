@@ -22,6 +22,8 @@ import type { CompatCanvas } from "../src/canvas/CanvasCompat";
 import { ModelObject } from "../src/model/scene/ModelObject";
 import type { InstanceReference } from "../src/instance/InstanceReference";
 import { ItemGlint } from "../src/model/ItemGlint";
+import { DisplayPosition } from "../src/model/DisplayPosition";
+import { Axis } from "../src/Axis";
 
 function fixture(t: ExecutionContext) {
     const originals = { merged: Models.getMerged, atlas: UVMapper.getAtlas, image: Materials.getImage,
@@ -200,6 +202,66 @@ test.serial("glint UV density ignores atlas packing and texture resolution while
     geometry.dispose();
 });
 
+test.serial("compass and clock glint projects all face directions with display-context scale and ignores sprite UVs", t => {
+    const { model, atlas } = fixture(t);
+    const shared = Geometries.getBox({ width: 16, height: 16, depth: 16, uv: model.elements![0].mappedUv });
+    const geometry = shared.clone().translate(8, 8, 8);
+    t.teardown(() => geometry.dispose());
+    const firstCorners = [[16, -16], [0, -16], [0, 0], [0, -16], [0, -16], [-16, -16]];
+    for (const [itemId, display, scale] of [
+        ["minecraft:compass", DisplayPosition.GUI, 0.5],
+        ["minecraft:recovery_compass", DisplayPosition.FIRSTPERSON_RIGHTHAND, 0.75],
+        ["minecraft:clock", DisplayPosition.FIRSTPERSON_LEFTHAND, 0.75],
+        ["minecraft:compass", DisplayPosition.THIRDPERSON_RIGHTHAND, 1],
+        ["minecraft:clock", undefined, 1]
+    ] as const) {
+        ItemGlint.mapUvs(geometry, model.elements![0].faces, atlas, itemId, display);
+        const projected = geometry.getAttribute("glintUv");
+        const actual = CUBE_FACES.map((_, index) => [projected.getX(index * 4) + 0, projected.getY(index * 4) + 0]);
+        t.deepEqual(actual, firstCorners.map(pair => pair.map(value => Math.fround(value / (2048 * scale)) + 0)));
+    }
+    const original = Array.from(geometry.getAttribute("glintUv").array);
+    const uv = geometry.getAttribute("uv");
+    for (let index = 0; index < uv.count; index++) uv.setXY(index, 0.375, 0.625);
+    const packed = new TextureAtlas(model, { width: 128, height: 128 } as CanvasImage, { side: [64, 32] }, { side: [32, 16] }, false, {}, false);
+    ItemGlint.mapUvs(geometry, model.elements![0].faces, packed, "minecraft:clock");
+    t.deepEqual(Array.from(geometry.getAttribute("glintUv").array), original);
+    geometry.getAttribute("normal").setXYZ(0, 1, 1, 0);
+    ItemGlint.mapUvs(geometry, model.elements![0].faces, atlas, "minecraft:compass");
+    t.is(geometry.getAttribute("glintUv").getY(0), 16 / 2048);
+    ItemGlint.mapUvs(geometry, model.elements![0].faces, atlas, "custom:clock");
+    t.deepEqual(Array.from(geometry.getAttribute("glintUv").array).slice(0, 2), [0.375 / 32, 0.375 / 32]);
+    t.false(shared.hasAttribute("glintUv"));
+});
+
+test.serial("lodestone compass projection follows rotated elements before display transforms without changing shared atlas data", async t => {
+    const { scene, model } = fixture(t);
+    model.itemId = "minecraft:compass";
+    model.components = { lodestone_tracker: {} };
+    model.elements![0].rotation = { axis: Axis.Y, angle: 22.5, origin: [8, 8, 8], rescale: false };
+    const before = JSON.stringify(model);
+    const first = await scene.addModel(model, { displayPosition: DisplayPosition.GUI }) as ModelObject;
+    const second = await scene.addModel({ ...model, display: { gui: {
+        translation: [-9, 13, 4], rotation: [17, 43, -21], scale: [-1, 0.3, 2]
+    } } }, { displayPosition: DisplayPosition.GUI }) as ModelObject;
+    t.false(first.isInstanced);
+    const getPass = (object: ModelObject) => {
+        let pass: Mesh | undefined;
+        object.iterateAllMeshes(mesh => { if (mesh.userData.minerenderItemGlint) pass = mesh; });
+        return pass!;
+    };
+    const firstPass = getPass(first), secondPass = getPass(second);
+    t.truthy(firstPass);
+    t.truthy(secondPass);
+    const firstUv = firstPass.geometry.getAttribute("glintUv"), secondUv = secondPass.geometry.getAttribute("glintUv");
+    t.deepEqual(Array.from(firstUv.array), Array.from(secondUv.array));
+    t.notDeepEqual(Array.from(firstPass.geometry.getAttribute("position").array), Array.from(secondPass.geometry.getAttribute("position").array));
+    const z = 8 - 8 * Math.sin(Math.PI / 8) + 8 * Math.cos(Math.PI / 8);
+    t.true(Math.abs(firstUv.getX(0) - z / 1024) < 1e-8);
+    t.is(firstUv.getY(0), -16 / 1024);
+    t.is(JSON.stringify(model), before);
+});
+
 test.serial("missing glint textures reject cleanly after releasing the ordinary item's owned resources", async t => {
     const { scene, model } = fixture(t);
     ModelTextures.get = async key => {
@@ -317,6 +379,37 @@ test.serial("GUI item decorations can be disabled without changing stack state o
     t.is(gui.getGroupByName("empty")!.children.length, 0);
     t.is(requests.length, 1);
     t.deepEqual(font.requests, []);
+});
+
+test.serial("GUI durability inherits the requested item's defaults and preserves explicit overrides", async t => {
+    const { scene } = fixture(t);
+    for (const [item, components, expected] of [
+        ["minecraft:item/diamond_pickaxe", { damage: 781 }, 6],
+        [new AssetKey("minecraft", "bow", "models", "item"), { "minecraft:damage": 192 }, 7],
+        ["item/elytra", { damage: 216 }, 7],
+        ["item/diamond_pickaxe", { damage: 781, max_damage: 1562 }, 7],
+        ["item/diamond_pickaxe", {}, undefined],
+        ["item/diamond_pickaxe", { damage: 0 }, undefined],
+        ["item/diamond_pickaxe", { damage: 781, max_damage: 0 }, undefined],
+        ["item/diamond_pickaxe", { damage: 781, unbreakable: {} }, undefined],
+        ["custom:item/diamond_pickaxe", { damage: 781 }, undefined],
+        ["minecraft:item/unknown", { damage: 781 }, undefined],
+        ["minecraft:block/diamond_pickaxe", { damage: 781 }, undefined]
+    ] as const) {
+        const before = JSON.stringify(components);
+        const gui = await scene.addGui([{ name: "item", item, context: { components } }]);
+        const fill = gui.getMeshByName("item:durability-fill");
+        t.is(!!fill, expected !== undefined);
+        if (fill) {
+            fill.geometry.computeBoundingBox();
+            t.is(fill.geometry.boundingBox!.max.x - fill.geometry.boundingBox!.min.x, expected);
+        }
+        t.is(JSON.stringify(components), before);
+        gui.dispose();
+    }
+    await t.throwsAsync(scene.addGui([{ item: "item/diamond_pickaxe", context: { components: {
+        damage: 781, max_damage: 1561, "minecraft:max_damage": 1562
+    } } }]), { message: /Duplicate item-preview component/ });
 });
 
 test.serial("GUI overlays snapshot stack inputs before loading and include wide count labels in local bounds", async t => {

@@ -12,6 +12,7 @@ import { DisplayPosition } from "../../model/DisplayPosition";
 import { createGuiTextureGeometry } from "../GuiTextureGeometry";
 import { createGuiTextGeometry, layoutGuiText, type GuiTextLayout } from "../GuiText";
 import type { CompatCanvas } from "../../canvas/CanvasCompat";
+import { ItemDefaults } from "../../model/ItemDefaults";
 
 /**
  * Renders ordered texture, item, and text layers. Create it through {@link MineRenderScene.addGui}.
@@ -57,7 +58,7 @@ export class GuiObject extends SceneObject {
                 }
                 if ("item" in layer) {
                     const [width, height] = layer.size ?? [16, 16];
-                    const overlay = this.itemOverlay(layer.context);
+                    const overlay = this.itemOverlay(layer);
                     this.bounds.expandByPoint(new Vector2(x, y));
                     this.bounds.expandByPoint(new Vector2(x + width, y + height));
                     if (overlay.count === 0) {
@@ -149,12 +150,19 @@ export class GuiObject extends SceneObject {
         return material;
     }
 
-    private itemOverlay(context: GuiItemLayer["context"]): GuiItemOverlay {
+    private itemOverlay({ item, context }: GuiItemLayer): GuiItemOverlay {
         const count = context?.count === undefined ? 1 : context.count;
         if (!Number.isSafeInteger(count) || count < 0) throw new Error("Item-preview count must be a nonnegative safe integer");
         const components = context?.components ?? {};
-        const maximum = Models.componentValue(components, "max_damage"), suppliedDamage = Models.componentValue(components, "damage");
-        const unbreakable = Models.componentValue(components, "unbreakable");
+        const key = typeof item === "string" ? AssetKey.parse("models", item) : item;
+        const defaults = key.type === "item" ? ItemDefaults.get(`${key.namespace}:${key.path}`) : {};
+        const component = (id: string): unknown => {
+            const value = Models.componentValue(components, id);
+            return Object.prototype.hasOwnProperty.call(components, id) || Object.prototype.hasOwnProperty.call(components, `minecraft:${id}`)
+                ? value : defaults[`minecraft:${id}`];
+        };
+        const maximum = component("max_damage"), suppliedDamage = component("damage");
+        const unbreakable = component("unbreakable");
         if (count === 0 || maximum === undefined || suppliedDamage === undefined
             || unbreakable !== undefined) return { count };
         if (typeof maximum !== "number" || !Number.isFinite(maximum) || maximum < 0

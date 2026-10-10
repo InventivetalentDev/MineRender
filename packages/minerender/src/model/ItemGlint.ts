@@ -10,6 +10,7 @@ import { Ticker } from "../Ticker";
 import { CUBE_FACES } from "../CubeFace";
 import type { ModelFaces } from "./ModelElement";
 import type { TextureAtlas } from "../texture/TextureAtlas";
+import { DisplayPosition } from "./DisplayPosition";
 
 /** An owned glint material over item geometry; textures and geometry retain their owners. */
 export class ItemGlint {
@@ -19,12 +20,17 @@ export class ItemGlint {
         this.updateTime();
     }
 
-    /** Enables glint for enchantments unless a boolean component overrides them. */
-    public static enabled(components: Record<string, unknown> = {}): boolean {
+    /** Enables glint for enchantments or a lodestone compass unless a boolean component overrides them. */
+    public static enabled(components: Record<string, unknown> = {}, itemId?: string): boolean {
         const override = Models.componentValue(components, "enchantment_glint_override");
         if (override !== undefined) {
             if (typeof override !== "boolean") throw new Error("Item enchantment_glint_override must be a boolean");
             return override;
+        }
+        if (itemId === "minecraft:compass") {
+            Models.componentValue(components, "lodestone_tracker");
+            if (Object.prototype.hasOwnProperty.call(components, "lodestone_tracker")
+                || Object.prototype.hasOwnProperty.call(components, "minecraft:lodestone_tracker")) return true;
         }
         const enchantments = Models.componentValue(components, "enchantments");
         if (enchantments === undefined) return false;
@@ -120,12 +126,32 @@ export class ItemGlint {
     }
 
     /**
-     * Uses a fixed sprite span and local phase to approximate glint density without Minecraft's shared item atlas.
+     * Maps glint before model centering and display transforms. Ordinary sprites approximate Minecraft's shared atlas density.
      * @internal
      */
-    public static mapUvs(geometry: BufferGeometry, faces: ModelFaces, atlas: TextureAtlas): void {
+    public static mapUvs(geometry: BufferGeometry, faces: ModelFaces, atlas: TextureAtlas, itemId?: string, display?: DisplayPosition): void {
         const uv = geometry.getAttribute("uv");
         const mapped = new Float32Array(uv.count * 2);
+        if (itemId === "minecraft:compass" || itemId === "minecraft:recovery_compass" || itemId === "minecraft:clock") {
+            const positions = geometry.getAttribute("position"), normals = geometry.getAttribute("normal");
+            const scale = display === DisplayPosition.GUI ? 0.5
+                : display === DisplayPosition.FIRSTPERSON_LEFTHAND || display === DisplayPosition.FIRSTPERSON_RIGHTHAND ? 0.75 : 1;
+            // The decal's inverse pose cancels the display transform; its face projection uses block units at 1/128 scale.
+            const factor = 1 / (16 * 128 * scale);
+            for (let index = 0; index < positions.count; index++) {
+                const x = positions.getX(index), y = positions.getY(index), z = positions.getZ(index);
+                const nx = normals.getX(index), ny = normals.getY(index), nz = normals.getZ(index);
+                const ax = Math.abs(nx), ay = Math.abs(ny), az = Math.abs(nz);
+                let u: number, v: number;
+                if (ay >= az && ay >= ax) { u = x; v = ny < 0 ? -z : z; }
+                else if (az >= ax) { u = nz < 0 ? -x : x; v = -y; }
+                else { u = nx < 0 ? -z : z; v = -y; }
+                mapped[index * 2] = u * factor;
+                mapped[index * 2 + 1] = v * factor;
+            }
+            geometry.setAttribute("glintUv", new Float32BufferAttribute(mapped, 2));
+            return;
+        }
         for (const [faceIndex, face] of CUBE_FACES.entries()) {
             const texture = faces[face]?.texture?.substring(1);
             const position = texture && atlas.positions[texture] || [0, 0];
