@@ -238,12 +238,12 @@ test.serial("world placement snapshots block data without changing BlockInfo or 
 });
 
 
-test.serial("parsed chunk columns replace old sections and preserve signed positions, properties and block NBT", async t => {
+for (const useExecutor of [false, true]) test.serial(`parsed chunk columns replace old sections and preserve signed positions, properties and block NBT (executor=${useExecutor})`, async t => {
     const { world, scene } = fixture(t);
     const preload = BlockStates.getAll;
     BlockStates.getAll = async () => [];
-    const executor = new BatchedExecutor(1, 4);
-    t.teardown(() => { BlockStates.getAll = preload; executor.stop(); });
+    const executor = useExecutor ? new BatchedExecutor(1, 4) : undefined;
+    t.teardown(() => { BlockStates.getAll = preload; executor?.stop(); });
     await world.setBlockAt(-32, 100, 48, block);
     const neighbor = await world.setBlockAt(-16, 100, 48, block);
     const data = new ChunkData();
@@ -258,7 +258,61 @@ test.serial("parsed chunk columns replace old sections and preserve signed posit
     await world.placeChunk({ x: -2, z: 3, sections: [] }, executor);
     t.is(world.getBlockAt(-17, -49, 63), undefined);
     t.is(scene.stats.instanceCount, 1);
-    t.is(await executor.submit(() => "reusable"), "reusable");
+    if (executor) t.is(await executor.submit(() => "reusable"), "reusable");
+});
+
+test.serial("parsed columns clear unknown states, place remaining cells and reject with the first error", async t => {
+    const { world, scene, loads } = fixture(t);
+    await world.setBlockAt(0, 16, 0, block);
+    loads.length = 0;
+    const later = new ChunkData();
+    later.set(0, block);
+    const get = BlockStates.get, failure = new Error("first unknown state");
+    const requested: string[] = [];
+    BlockStates.get = async key => {
+        requested.push(key.path);
+        if (key.path === "unknown") throw failure;
+        if (key.path === "other_unknown") throw new Error("later unknown state");
+        return key.path === "missing" ? undefined : get(key);
+    };
+    const data = new ChunkData();
+    for (const [index, type] of ["unknown", "stone", "unknown", "missing", "stone", "other_unknown"].entries()) {
+        data.set(index, { type: `test:${type}` });
+    }
+    await t.throwsAsync(world.placeChunk({ x: 0, z: 0, sections: [{ y: 0, data }, { y: 1, data: later }] }), { is: failure });
+    t.is(world.getBlockAt(0, 16, 0), undefined);
+    const chunk = world.getChunkAt(new Vector3())!;
+    for (const index of [0, 2, 3, 5]) {
+        t.is(world.getBlockAt(index, 0, 0), undefined);
+        t.is(chunk["data"].get(index), undefined);
+    }
+    t.deepEqual([1, 4].map(x => world.getBlockAt(x, 0, 0)!.block), [block, block]);
+    t.deepEqual(requested, ["unknown", "stone", "missing", "other_unknown"]);
+    t.deepEqual(loads, ["test:stone"]);
+    t.is(scene.stats.instanceCount, 2);
+    t.is(data.get(0)!.type, "test:unknown");
+    const missing = new ChunkData();
+    missing.set(0, { type: "test:missing" });
+    await t.notThrowsAsync(world.placeChunk({ x: 1, z: 0, sections: [{ y: 0, data: missing }] }));
+    t.is(world.getBlockAt(16, 0, 0), undefined);
+});
+
+test.serial("placing a parsed column twice releases its first per-block objects", async t => {
+    const { world, scene } = fixture(t);
+    const data = new ChunkData();
+    data.set(0, block);
+    data.set(2, block);
+    const column = { x: -1, z: 2, sections: [{ y: 0, data }] };
+    await world.placeChunk(column);
+    const first = [-16, -14].map(x => world.getBlockAt(x, 0, 32)!.object);
+    const references = first.flatMap(object => object["_models"]);
+    await world.placeChunk(column);
+    for (const [index, x] of [-16, -14].entries()) {
+        t.not(world.getBlockAt(x, 0, 32)!.object, first[index]);
+        t.is(first[index].instanceCounter, 0);
+    }
+    for (const reference of references) t.throws(() => reference.getPosition(), { message: "Instance has been removed" });
+    t.is(scene.stats.instanceCount, 2);
 });
 
 test.serial("default bulk placement keeps repeated writes ordered within signed chunks", async t => {
@@ -273,6 +327,10 @@ test.serial("default bulk placement keeps repeated writes ordered within signed 
         { type: "test:last", properties: { facing: "north" }, nbt: { items: [1] } });
     t.deepEqual(world.getBlockAt(-1, 0, 0)!.object.state, { facing: "north" });
     t.is(world.getBlockAt(16, 0, 0)!.block.type, "test:neighbor");
+    t.is(scene.stats.instanceCount, 2);
+    await world.placeMultiBlock({ size: [1, 1, 1], blocks: ["test:first", "test:middle", "test:first"]
+        .map(type => ({ position: [-1, 0, 0] as TripleArray, type })) });
+    t.is(world.getBlockAt(-1, 0, 0)!.block.type, "test:first");
     t.is(scene.stats.instanceCount, 2);
 });
 

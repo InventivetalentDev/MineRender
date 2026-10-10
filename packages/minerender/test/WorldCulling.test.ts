@@ -1,15 +1,19 @@
 import test, { ExecutionContext } from "ava";
 import { Mesh, MeshBasicMaterial, Vector3 } from "three";
 import { AssetKey } from "../src/assets/AssetKey";
+import { BlockEntities } from "../src/assets/BlockEntities";
 import { BlockStates } from "../src/assets/BlockStates";
+import { Entities } from "../src/assets/Entities";
 import { Models } from "../src/assets/Models";
 import { Caching } from "../src/cache/Caching";
 import { CUBE_FACES, CubeFace } from "../src/CubeFace";
 import { Env, EnvProvider } from "../src/Env";
+import { EntityObject } from "../src/entity/scene/EntityObject";
 import { isInstanceReference } from "../src/instance/InstanceReference";
 import { Materials } from "../src/Materials";
 import { BlockState } from "../src/model/block/BlockState";
 import { BlockObject } from "../src/model/block/scene/BlockObject";
+import { createFluidGeometry, resolveBlockFluidState } from "../src/model/fluid/FluidGeometry";
 import { Model, TripleArray } from "../src/model/Model";
 import { ModelObject } from "../src/model/scene/ModelObject";
 import { MineRenderScene } from "../src/renderer/MineRenderScene";
@@ -25,11 +29,11 @@ import { buildSectionGeometry, SectionGeometryInput } from "../src/world/Section
 import { SectionWorker } from "../src/world/SectionWorker";
 import type { CanvasImage } from "../src/canvas/CanvasImage";
 import type { CompatCanvas } from "../src/canvas/CanvasCompat";
-import { installMineRenderDataFixtures } from "./helpers/minerender-data";
+import { installMineRenderDataFixtures, mineRenderDataFixtures } from "./helpers/minerender-data";
 
 function fixture<SectionMeshing extends boolean = false>(t: ExecutionContext, options: MineRenderWorldOptions<SectionMeshing> = {}) {
     t.teardown(installMineRenderDataFixtures());
-    const originals = { state: BlockStates.get, defaults: BlockStates.getDefaultState, model: Models.getMerged, atlas: UVMapper.getAtlas, image: Materials.getImage, material: Materials.createShadedCanvasMaterial, provider: Env["_provider"] };
+    const originals = { state: BlockStates.get, defaults: BlockStates.getDefaultState, entities: BlockEntities.getIndex, model: Models.getMerged, atlas: UVMapper.getAtlas, image: Materials.getImage, material: Materials.createShadedCanvasMaterial, provider: Env["_provider"] };
     const scene = new MineRenderScene(), world = new MineRenderWorld<SectionMeshing>(scene, options);
     Env.register({ name: "test", createCanvas: (width, height) => ({
         width, height, getContext: () => ({ drawImage() {} })
@@ -40,6 +44,7 @@ function fixture<SectionMeshing extends boolean = false>(t: ExecutionContext, op
     Caching.clear();
     BlockStates.get = async key => states.get(key.toNamespacedString());
     BlockStates.getDefaultState = async () => undefined;
+    BlockEntities.getIndex = async () => ({});
     Models.getMerged = async key => models.get(key.toNamespacedString());
     UVMapper.getAtlas = async model => {
         if (model.key?.type === "fluid" && !atlases.has(model)) {
@@ -76,6 +81,7 @@ function fixture<SectionMeshing extends boolean = false>(t: ExecutionContext, op
         material.dispose();
         BlockStates.get = originals.state;
         BlockStates.getDefaultState = originals.defaults;
+        BlockEntities.getIndex = originals.entities;
         Models.getMerged = originals.model;
         UVMapper.getAtlas = originals.atlas;
         Materials.getImage = originals.image;
@@ -102,6 +108,102 @@ const indexCount = (block: BlockObject, index = 0) => {
 function templateOf(world: MineRenderWorld<boolean>, position: TripleArray) {
     const point = new Vector3(...position), chunk = world.getChunkAt(point)!;
     return chunk["sectionBlocks"].get(Chunk.chunkPosToBlockIndex(chunk.worldPosToChunkPos(point)))![0].template;
+}
+
+for (const sectionMeshing of [false, true]) {
+    for (const batched of [false, true]) {
+        test.serial(`biomes survive air-only placement and block edits, then clear with their column (sectionMeshing=${sectionMeshing}, batched=${batched})`, async t => {
+            const { world, place } = fixture(t, { sectionMeshing });
+            const executor = batched ? new BatchedExecutor(1, 1) : undefined;
+            t.teardown(() => executor?.stop());
+            const biomes = Array.from({ length: 64 }, (_, index) => `test:biome_${index}`);
+            const expected = [...biomes], data = new ChunkData();
+            const blocks = new ChunkData();
+            blocks.set(0, { type: "test:cube" });
+            const column = { x: -2, z: -1, sections: [
+                { y: -1, data, biomes },
+                { y: 0, data: blocks, biomes: Array(64).fill("minecraft:plains") }
+            ] };
+            await world.placeChunk(column, executor);
+            t.is(world.getChunkAt(new Vector3(-32, -16, -16)), undefined);
+            t.is(world.getBlockAt(-32, -16, -16), undefined);
+            biomes[0] = "test:changed";
+            for (let index = 0; index < 64; index++) {
+                const pos = new Vector3(-32 + index % 4 * 4, -16 + Math.floor(index / 16) * 4,
+                    -16 + Math.floor(index / 4) % 4 * 4);
+                t.is(world.getBiomeAt(pos), expected[index]);
+                t.is(world.getBiomeAt(pos.addScalar(3).toArray()), expected[index]);
+            }
+            t.is(world.getBiomeAt(-32, 0, -16), "minecraft:plains");
+            t.is(world.getBlockAt(-32, 0, -16)?.block.type, "test:cube");
+            for (const coordinate of [0.5, Number.MAX_SAFE_INTEGER + 1]) {
+                for (const invalid of [
+                    { ...column, x: coordinate },
+                    { ...column, z: coordinate },
+                    { ...column, sections: [column.sections[0], { ...column.sections[1], y: coordinate }] }
+                ]) {
+                    await t.throwsAsync(world.placeChunk(invalid, executor), { instanceOf: RangeError });
+                    t.is(world.getBiomeAt(-32, -16, -16), expected[0]);
+                    t.is(world.getBiomeAt(-32, 0, -16), "minecraft:plains");
+                    t.is(world.getBlockAt(-32, 0, -16)?.block.type, "test:cube");
+                }
+            }
+            t.is(world.getBiomeAt(-33, -1, -1), undefined);
+            t.is(world.getBiomeAt(-17, -17, -1), undefined);
+            t.is(world.getBiomeAt(-17, -1, 0), undefined);
+            for (const pos of [new Vector3(-32.5, -16, -16), new Vector3(NaN, 0, 0)]) {
+                t.throws(() => world.getBiomeAt(pos), { instanceOf: RangeError });
+            }
+            await place([-32, -16, -16]);
+            await world.setBlockVisibleAt([-32, -16, -16], false);
+            t.is(world.getBiomeAt(-32, -16, -16), expected[0]);
+            await world.setBlockAt(-32, -16, -16, undefined);
+            t.is(world.getBiomeAt(-32, -16, -16), expected[0]);
+            await world.placeChunk({ x: -2, z: -1, sections: [{ y: -1, data }] }, executor);
+            t.is(world.getBiomeAt(-32, -16, -16), undefined);
+            t.is(world.getBiomeAt(-32, 0, -16), undefined);
+            await world.placeChunk(column, executor);
+            await world.unloadChunkColumn(-2, -1);
+            t.is(world.getBiomeAt(-32, -16, -16), undefined);
+            await world.placeChunk(column, executor);
+            await world.clear();
+            t.is(world.getBiomeAt(-32, -16, -16), undefined);
+            for (const invalid of [Array(63).fill("test:biome"), Array(65).fill("test:biome"), Array(64).fill(""), Array<string>(64)]) {
+                await t.throwsAsync(world.placeChunk({ x: -2, z: -1, sections: [{ y: -1, data, biomes: invalid }] }, executor), {
+                    instanceOf: RangeError, message: "Section biomes must contain 64 nonempty biome IDs"
+                });
+            }
+        });
+    }
+}
+
+function assertFluidPositions(t: ExecutionContext, world: MineRenderWorld<boolean>, scene: MineRenderScene, positions: TripleArray[]): number[] {
+    const origin = new Vector3(...positions[0]).divideScalar(16).floor().multiplyScalar(256);
+    const section = scene.children.find(child => child instanceof SectionMesh && child.position.equals(origin));
+    const mesh = section?.children.at(-1) as Mesh | undefined;
+    const actual = Array.from(mesh?.geometry.getAttribute("position").array ?? []);
+    const expected: number[] = [];
+    for (const position of positions) {
+        const center = new Vector3(...position);
+        if (!world.getChunkAt(center)?.isBlockVisibleAt(center)) continue;
+        const block = world.getBlockAt(center)!.block;
+        const fluid = resolveBlockFluidState(AssetKey.parse("blockstates", block.type), block.properties, mineRenderDataFixtures.fluids)!;
+        const geometry = createFluidGeometry(fluid.kind, (x, y, z) => {
+            const neighbor = center.clone().add(new Vector3(x, y, z));
+            const chunk = world.getChunkAt(neighbor);
+            if (!chunk?.isBlockVisibleAt(neighbor)) return {};
+            const block = world.getBlockAt(neighbor)!.block;
+            const fluid = resolveBlockFluidState(AssetKey.parse("blockstates", block.type), block.properties, mineRenderDataFixtures.fluids);
+            return { fluid: fluid?.kind, level: fluid?.level, solid: chunk.isOccludingAt(neighbor) };
+        });
+        geometry.translate(center.x * 16 - origin.x, center.y * 16 - origin.y, center.z * 16 - origin.z);
+        expected.push(...geometry.getAttribute("position").array);
+        geometry.dispose();
+    }
+    t.is(actual.length, expected.length);
+    // Section offsets are applied before coordinates are stored as Float32 values.
+    t.true(actual.every((value, index) => Math.abs(value - expected[index]) < 0.00002));
+    return actual;
 }
 
 test.serial("opaque neighbors cull shared faces across signed chunk borders and restore them when cleared or replaced", async t => {
@@ -366,6 +468,17 @@ test.serial("weighted models and rotations agree across rendering modes and reve
     await individual.placeMultiBlock({ size: [32, 48, 80], blocks });
     t.deepEqual(positions.map(sectionSelection), selected);
     t.deepEqual(positions.map(individualSelection), selected);
+    for (const [index, position] of positions.entries()) {
+        const [x, y, z] = position.map(axis => Math.floor(axis / 16));
+        const data = new ChunkData();
+        data.set((position[1] - y * 16) * 256 + (position[2] - z * 16) * 16 + position[0] - x * 16,
+            { type: "test:weighted" });
+        const column = { x, z, sections: [{ y, data }] };
+        await world.placeChunk(column);
+        await individual.placeChunk(column);
+        t.deepEqual(sectionSelection(position), selected[index]);
+        t.deepEqual(individualSelection(position), selected[index]);
+    }
 });
 
 test.serial("visibility changes preserve the originally selected weighted model", async t => {
@@ -428,9 +541,23 @@ for (const sectionMeshing of [false, true]) {
     });
 
     test.serial(`hidden water reveals neighboring fluid surfaces and restores them when shown (sectionMeshing=${sectionMeshing})`, async t => {
-        const { world } = fixture(t, { sectionMeshing });
+        const { world, scene } = fixture(t, { sectionMeshing });
         const left = (await world.setBlockAt([-17, -1, -1], { type: "water", properties: { level: "0" } }))!;
         const right = (await world.setBlockAt([-16, -1, -1], { type: "water", properties: { level: "4" } }))!;
+        if (sectionMeshing) {
+            t.deepEqual([left.object, right.object], [undefined, undefined]);
+            t.is(assertFluidPositions(t, world, scene, [[-17, -1, -1]]).length, 60);
+            t.is(assertFluidPositions(t, world, scene, [[-16, -1, -1]]).length, 60);
+            await world.setBlockVisibleAt([-17, -1, -1], false);
+            t.deepEqual(assertFluidPositions(t, world, scene, [[-17, -1, -1]]), []);
+            t.is(assertFluidPositions(t, world, scene, [[-16, -1, -1]]).length, 72);
+            t.is(world.getBlockAt(-17, -1, -1), left);
+            await world.setBlockVisibleAt([-17, -1, -1], true);
+            t.is(assertFluidPositions(t, world, scene, [[-17, -1, -1]]).length, 60);
+            t.is(assertFluidPositions(t, world, scene, [[-16, -1, -1]]).length, 60);
+            t.deepEqual(left.block, { type: "minecraft:water", properties: { level: "0" } });
+            return;
+        }
         const object = left.object!, model = object["_models"][0];
         const surface = modelOf(right.object!);
         t.deepEqual([indexCount(object), indexCount(right.object!)], [30, 30]);
@@ -493,6 +620,80 @@ test.serial("chunk column placement culls across sections and empty replacement 
     t.is(scene.stats.instanceCount, 1);
 });
 
+test.serial("parsed columns match single edits for section geometry and per-block cull masks", async t => {
+    const { world, scene, states, place } = fixture(t, { sectionMeshing: true });
+    states.set("test:entity", { key: AssetKey.parse("blockstates", "test:entity"),
+        variants: { "": { model: "test:block/cube" } } });
+    BlockEntities.getIndex = async () => ({ "test:entity": { parts: [] } });
+    const blocks = [
+        { position: [14, 15, 0] as TripleArray, type: "test:entity" },
+        { position: [15, 15, 0] as TripleArray, type: "test:cube" },
+        { position: [15, 16, 0] as TripleArray, type: "test:cube" }
+    ];
+    const counts = () => scene.children.filter(child => child instanceof SectionMesh)
+        .sort((a, b) => a.position.x - b.position.x || a.position.y - b.position.y)
+        .map(section => section.children.reduce((sum, child) => sum + (child as Mesh).geometry.getIndex()!.count, 0));
+    await place([16, 15, 0]);
+    for (const { position, type } of blocks) await world.setBlockAt(position, { type });
+    const expected = counts(), mask = world.getBlockAt(14, 15, 0)!.object!["_cullMask"];
+    t.is(mask, 1);
+    await world.clear();
+    await place([16, 15, 0]);
+    const lower = new ChunkData(), upper = new ChunkData();
+    for (const { position: [x, y, z], type } of blocks) {
+        (y < 16 ? lower : upper).set((y % 16) * 256 + z * 16 + x, { type });
+    }
+    await world.placeChunk({ x: 0, z: 0, sections: [{ y: 0, data: lower }, { y: 1, data: upper }] });
+    t.deepEqual(counts(), expected);
+    t.is(world.getBlockAt(14, 15, 0)!.object!["_cullMask"], mask);
+});
+
+for (const sectionMeshing of [false, true]) test.serial(`parsed columns refresh adjacent faces and diagonal water heights on load and unload (sectionMeshing=${sectionMeshing})`, async t => {
+    const { world, scene, place } = fixture(t, { sectionMeshing });
+    const water = (await world.setBlockAt([15, 0, 15], { type: "water", properties: { level: "4" } }))!;
+    await world.setBlockAt([15, 0, 16], { type: "water", properties: { level: "4" } });
+    const cube = (await place([20, 0, 15]))!;
+    const positions = () => sectionMeshing ? assertFluidPositions(t, world, scene, [[15, 0, 15]])
+        : Array.from(geometryOf(water.object!).getAttribute("position").array);
+    const count = () => {
+        if (cube.object) return indexCount(cube.object);
+        const section = scene.children.find(child => child instanceof SectionMesh && child.position.x === 256 && child.position.z === 0)!;
+        return section.children.reduce((sum, child) => sum + (child as Mesh).geometry.getIndex()!.count, 0);
+    };
+    const isolated = positions();
+    t.is(count(), 36);
+    const data = new ChunkData();
+    data.set(0, { type: "water" });
+    data.set(4, { type: "test:cube" });
+    await world.placeChunk({ x: 1, z: 1, sections: [{ y: 0, data }] });
+    const joined = positions();
+    t.true(joined.some((value, index) => index % 3 === 1 && value > isolated[index]));
+    t.is(count(), 30);
+    await world.unloadChunkColumn(1, 1);
+    t.deepEqual(positions(), isolated);
+    t.is(count(), 36);
+    t.is(world.getBlockAt(15, 0, 15), water);
+    t.is(world.getBlockAt(20, 0, 15), cube);
+});
+
+test.serial("section marking preserves pending single-edit indices in neighboring and distant sections", async t => {
+    const { world, place } = fixture(t, { sectionMeshing: true });
+    for (const position of [[0, 0, 0], [20, 4, 4], [40, 4, 4]] as TripleArray[]) await place(position);
+    const changed = world.getChunkAt(new Vector3())!;
+    const neighbor = world.getChunkAt(new Vector3(20, 4, 4))!, distant = world.getChunkAt(new Vector3(40, 4, 4))!;
+    const neighborIndices = new Set([4 * 256 + 4 * 16 + 4]), distantIndices = new Set([4 * 256 + 4 * 16 + 8]);
+    world["pendingCulling"].set(neighbor, neighborIndices);
+    world["pendingCulling"].set(distant, distantIndices);
+    world["markSectionChanged"](changed);
+    t.is(world["pendingCulling"].get(changed), "all");
+    t.is(world["pendingCulling"].get(neighbor), neighborIndices);
+    t.true(neighborIndices.has(4 * 256 + 4 * 16 + 4));
+    t.is(neighborIndices.size, 257);
+    t.is(world["pendingCulling"].get(distant), distantIndices);
+    t.deepEqual([...distantIndices], [4 * 256 + 4 * 16 + 8]);
+    await world["updateCulling"]([]);
+});
+
 for (const sectionMeshing of [false, true]) {
     test.serial(`unloading a signed chunk column releases every section and allows reloading (sectionMeshing=${sectionMeshing})`, async t => {
         const { world, scene, place } = fixture(t, { sectionMeshing });
@@ -541,13 +742,31 @@ for (const sectionMeshing of [false, true]) {
     test.serial(`unloading a column restores neighboring fluid surfaces and heights (sectionMeshing=${sectionMeshing})`, async t => {
         const { world, scene } = fixture(t, { sectionMeshing });
         const left = (await world.setBlockAt([-17, -1, -1], { type: "water", properties: { level: "4" } }))!;
-        const object = left.object!, baseline = modelOf(object);
-        const height = () => geometryOf(object).getAttribute("position").getY(2);
-        const isolatedHeight = height();
         const water = new ChunkData(), above = new ChunkData();
         water.set(15 * 256 + 15 * 16, { type: "water" });
         above.set(15 * 16, { type: "water" });
         const column = { x: -1, z: -1, sections: [{ y: -1, data: water }, { y: 0, data: above }] };
+        if (sectionMeshing) {
+            const isolated = assertFluidPositions(t, world, scene, [[-17, -1, -1]]);
+            t.is(isolated.length, 72);
+            await world.placeChunk(column);
+            const joined = assertFluidPositions(t, world, scene, [[-17, -1, -1]]);
+            t.is(joined.length, 60);
+            t.true(joined[7] > isolated[7]);
+            assertFluidPositions(t, world, scene, [[-16, -1, -1]]);
+            assertFluidPositions(t, world, scene, [[-16, 0, -1]]);
+            await world.unloadChunkColumn(-1, -1);
+            t.is(world.getBlockAt(-17, -1, -1), left);
+            t.is(left.object, undefined);
+            t.deepEqual(assertFluidPositions(t, world, scene, [[-17, -1, -1]]), isolated);
+            await world.placeChunk(column);
+            t.deepEqual(assertFluidPositions(t, world, scene, [[-17, -1, -1]]), joined);
+            t.is(scene.stats.instanceCount, 0);
+            return;
+        }
+        const object = left.object!, baseline = modelOf(object);
+        const height = () => geometryOf(object).getAttribute("position").getY(2);
+        const isolatedHeight = height();
         await world.placeChunk(column);
         const joinedHeight = height();
         const reference = world.getBlockAt(-16, -1, -1)!.object!["_models"][0];
@@ -602,6 +821,38 @@ test.serial("standalone edits finish culling while another bulk placement is wai
     t.is(indexCount(world.getBlockAt(2, 0, 0)!.object), 36);
 });
 
+for (const translucent of [false, true]) {
+    test.serial(`parallel chunk placement keeps delayed non-occluding section meshes visible (translucent=${translucent})`, async t => {
+        const { world, scene, addModel } = fixture(t, { sectionMeshing: true });
+        addModel("delayed", { transparent: true, translucent });
+        addModel("glass", { translucent: true });
+        let release!: () => void, started!: () => void;
+        const gate = new Promise<void>(resolve => { release = resolve; });
+        const loading = new Promise<void>(resolve => { started = resolve; });
+        const get = Models.getMerged;
+        Models.getMerged = async (key, options) => {
+            if (key.path === "delayed") { started(); await gate; }
+            return get(key, options);
+        };
+        t.teardown(() => { release(); });
+        const left = new ChunkData(), right = new ChunkData();
+        left.set(15, { type: "test:delayed" });
+        right.set(0, { type: "test:glass" });
+        const pending = world.placeChunk({ x: 0, z: 0, sections: [{ y: 0, data: left }] });
+        await loading;
+        await world.placeChunk({ x: 1, z: 0, sections: [{ y: 0, data: right }] });
+        release();
+        await pending;
+        const count = (x: number) => {
+            const section = scene.children.find(child => child instanceof SectionMesh && child.position.x === x);
+            return section?.children.reduce((sum, child) => sum + (child as Mesh).geometry.getIndex()!.count, 0) ?? 0;
+        };
+        t.deepEqual([count(0), count(256)], [36, 36]);
+        t.is(world.getBlockAt(15, 0, 0)?.block.type, "test:delayed");
+        t.is(world.getBlockAt(16, 0, 0)?.block.type, "test:glass");
+    });
+}
+
 test.serial("section meshes restore border faces without changing block snapshots or weighted selections", async t => {
     const { world, scene, states, place, addModel } = fixture(t, { sectionMeshing: true });
     addModel("alternative");
@@ -629,7 +880,7 @@ test.serial("section meshes restore border faces without changing block snapshot
     t.is(scene.children.length, 0);
 });
 
-test.serial("section meshing merges partial, transparent and multipart blocks while animated blocks retain render objects", async t => {
+test.serial("section meshing merges partial, transparent, animated and multipart blocks", async t => {
     const { world, scene, states, place, addModel } = fixture(t, { sectionMeshing: true });
     addModel("partial", { height: 8 });
     addModel("transparent", { transparent: true });
@@ -639,15 +890,70 @@ test.serial("section meshing merges partial, transparent and multipart blocks wh
     ] });
     for (const [index, type] of ["partial", "transparent", "animated", "multipart"].entries()) {
         const info = (await place([index * 2, 0, 0], type))!;
-        if (type === "animated") t.true(info.object?.isBlockObject);
-        else t.is(info.object, undefined);
+        t.is(info.object, undefined);
     }
     t.is((await place([8, 0, 0]))!.object, undefined);
-    t.is(scene.stats.instanceCount, 1);
+    t.is(scene.stats.instanceCount, 0);
     t.is(scene.children.filter(child => child instanceof SectionMesh).length, 1);
     t.is((await place([4, 0, 0]))!.object, undefined);
     t.is(scene.stats.instanceCount, 0);
     t.is(world.getBlockAt(2, 0, 0)!.object, undefined);
+});
+
+for (const kelp of [false, true]) test.serial(`section meshes merge model and water quads for ${kelp ? "animated kelp" : "waterlogged blocks"}`, async t => {
+    const { world, scene, states, addModel } = fixture(t, { sectionMeshing: true });
+    const name = kelp ? "kelp" : "waterlogged", type = kelp ? "minecraft:kelp" : "test:waterlogged";
+    addModel(name, { height: 8, animated: kelp, transparent: kelp });
+    states.set(type, { key: AssetKey.parse("blockstates", type), variants: { "": { model: `test:block/${name}` } } });
+    const info = (await world.setBlockAt([2, 3, 4], { type, properties: kelp ? undefined : { waterlogged: "true" } }))!;
+    t.is(info.object, undefined);
+    t.is(scene.stats.instanceCount, 0);
+    const section = scene.children.find(child => child instanceof SectionMesh)!;
+    t.deepEqual(section.children.map(child => (child as Mesh).geometry.getIndex()!.count), [36, 36]);
+    assertFluidPositions(t, world, scene, [[2, 3, 4]]);
+});
+
+test.serial("waterlogged block entities keep their own fluid outside section meshes", async t => {
+    const { world, scene, states, addModel, place } = fixture(t, { sectionMeshing: true });
+    addModel("entity", { height: 8 });
+    states.set("test:entity", { key: AssetKey.parse("blockstates", "test:entity"), variants: { "": { model: "test:block/entity" } } });
+    const getEntity = Entities.getEntity, applyTextures = EntityObject.prototype["applyTextures"];
+    BlockEntities.getIndex = async () => ({ "test:entity": { parts: [{ model: "test:entity" }] } });
+    Entities.getEntity = async key => ({ id: key.toNamespacedString(), key, layer: { texture: [16, 16], root: {
+        pose: { offset: [0, 0, 0], rotation: [0, 0, 0] }, cubes: [], children: {}
+    } } });
+    EntityObject.prototype["applyTextures"] = async () => undefined;
+    t.teardown(() => { Entities.getEntity = getEntity; EntityObject.prototype["applyTextures"] = applyTextures; });
+    const entity = (await world.setBlockAt([0, 0, 0], { type: "test:entity", properties: { waterlogged: "true" } }))!;
+    await place([2, 0, 0]);
+    t.true(entity.object!.isBlockObject);
+    t.is(entity.object!.blockEntities.length, 1);
+    t.is(entity.object!.fluidKind, "water");
+    t.is(indexCount(entity.object!, 1), 36);
+    const section = scene.children.find(child => child instanceof SectionMesh)!;
+    t.deepEqual(section.children.map(child => (child as Mesh).geometry.getIndex()!.count), [36]);
+    t.is((section.children[0] as Mesh).geometry.boundingBox!.min.x, 24);
+    await world.setBlockAt([1, 0, 0], { type: "water", properties: { level: "4" } });
+    const joined = assertFluidPositions(t, world, scene, [[1, 0, 0]]);
+    t.is(indexCount(entity.object!, 1), 30);
+    await world.setBlockVisibleAt([0, 0, 0], false);
+    t.notDeepEqual(assertFluidPositions(t, world, scene, [[1, 0, 0]]), joined);
+    await world.setBlockVisibleAt([0, 0, 0], true);
+    t.deepEqual(assertFluidPositions(t, world, scene, [[1, 0, 0]]), joined);
+});
+
+test.serial("changing water levels across a chunk border rebuilds both section surfaces", async t => {
+    const { world, scene } = fixture(t, { sectionMeshing: true });
+    await world.setBlockAt([15, 0, 0], { type: "water", properties: { level: "0" } });
+    await world.setBlockAt([16, 0, 0], { type: "water", properties: { level: "4" } });
+    const left = assertFluidPositions(t, world, scene, [[15, 0, 0]]);
+    const right = assertFluidPositions(t, world, scene, [[16, 0, 0]]);
+    const sections = scene.children.filter(child => child instanceof SectionMesh);
+    await world.setBlockAt([16, 0, 0], { type: "water", properties: { level: "7" } });
+    t.notDeepEqual(assertFluidPositions(t, world, scene, [[15, 0, 0]]), left);
+    t.notDeepEqual(assertFluidPositions(t, world, scene, [[16, 0, 0]]), right);
+    t.true(sections.every(section => section.parent === null));
+    t.is(scene.stats.instanceCount, 0);
 });
 
 test.serial("a merged half-height block does not hide its full-cube neighbor's shared face", async t => {
@@ -772,6 +1078,32 @@ for (const sectionMeshing of [false, true]) {
         const left = await water([-17, -1, -1]), right = await water([-16, -1, -1], "4");
         const matching = await water([15, -1, 10]);
         await water([16, -1, 10], "4");
+        if (sectionMeshing) {
+            t.deepEqual([left, right, matching], [undefined, undefined, undefined]);
+            const baseline = assertFluidPositions(t, world, scene, [[-17, -1, -1]]);
+            const matchingPositions = assertFluidPositions(t, world, scene, [[15, -1, 10]]);
+            t.is(baseline.length, 60);
+            assertFluidPositions(t, world, scene, [[-16, -1, -1]]);
+            await water([-16, -1, 0]);
+            const diagonal = assertFluidPositions(t, world, scene, [[-17, -1, -1]]);
+            t.true(diagonal[7] > baseline[7]);
+            assertFluidPositions(t, world, scene, [[-16, -1, -1]]);
+            t.deepEqual(assertFluidPositions(t, world, scene, [[15, -1, 10]]), matchingPositions);
+            await water([-16, 0, 0]);
+            t.true(assertFluidPositions(t, world, scene, [[-17, -1, -1]])[7] > diagonal[7]);
+            await world.setBlockAt(-16, 0, 0, undefined);
+            t.deepEqual(assertFluidPositions(t, world, scene, [[-17, -1, -1]]), diagonal);
+            await world.setBlockAt(-16, -1, 0, undefined);
+            t.deepEqual(assertFluidPositions(t, world, scene, [[-17, -1, -1]]), baseline);
+            await place([-17, -1, -2]);
+            t.is(assertFluidPositions(t, world, scene, [[-17, -1, -1]]).length, 48);
+            await world.setBlockAt(-17, -1, -2, undefined);
+            t.deepEqual(assertFluidPositions(t, world, scene, [[-17, -1, -1]]), baseline);
+            await world.setBlockAt(-16, -1, -1, undefined);
+            t.is(assertFluidPositions(t, world, scene, [[-17, -1, -1]]).length, 72);
+            t.is(scene.stats.instanceCount, 0);
+            return;
+        }
         const original = modelOf(left), baseline = geometryOf(left).getAttribute("position");
         t.is(original, modelOf(matching));
         t.deepEqual([indexCount(left), indexCount(right)], [30, 30]);
@@ -807,6 +1139,26 @@ for (const sectionMeshing of [false, true]) {
             variants: { "": { model: "test:block/cube", y: 90 } } });
         const value = { type: "test:logged", properties: { waterlogged: "true", level: "7" } };
         const logged = (await world.setBlockAt([-17, 0, 0], value))!.object!;
+        if (sectionMeshing) {
+            t.is(logged, undefined);
+            assertFluidPositions(t, world, scene, [[-17, 0, 0]]);
+            const water = (await world.setBlockAt([-16, 0, 0], { type: "water" }))!;
+            t.is(water.object, undefined);
+            t.is(assertFluidPositions(t, world, scene, [[-17, 0, 0]]).length, 60);
+            assertFluidPositions(t, world, scene, [[-16, 0, 0]]);
+            await place([-18, 0, 0]);
+            t.is(assertFluidPositions(t, world, scene, [[-17, 0, 0]]).length, 48);
+            await world.setBlockAt(-18, 0, 0, undefined);
+            t.is(assertFluidPositions(t, world, scene, [[-17, 0, 0]]).length, 60);
+            const dry = (await world.setBlockAt([-17, 0, 0], { ...value, properties: { waterlogged: "false" } }))!;
+            t.is(dry.object, undefined);
+            const section = scene.children.find(child => child instanceof SectionMesh && child.position.x === -512)!;
+            t.deepEqual(section.children.map(child => (child as Mesh).geometry.getIndex()!.count), [36]);
+            await world.setBlockAt(-17, 0, 0, undefined);
+            t.is(assertFluidPositions(t, world, scene, [[-16, 0, 0]]).length, 72);
+            t.is(scene.stats.instanceCount, 0);
+            return;
+        }
         t.truthy(logged);
         t.is(logged["_models"].length, 2);
         t.is(logged.fluidLevel, 0);
@@ -845,18 +1197,24 @@ test.serial("implicit water retains aquatic plants, hides bubble-column models a
         ["tall_seagrass", { half: "lower" }], ["tall_seagrass", { half: "upper" }],
         ["bubble_column", { drag_down: "false" }], ["bubble_column", { drag_down: "true" }]
     ];
+    let positions: TripleArray[] = [];
     for (const [index, [type, properties]] of cases.entries()) {
         states.set(`minecraft:${type}`, { key: AssetKey.parse("blockstates", type), variants: { "": { model: "test:block/plant" } } });
-        const x = index * 4, fluidIndex = type === "bubble_column" ? 0 : 1;
-        const block = (await world.setBlockAt([x, 0, 0], { type, properties: { level: "7", ...properties } }))!.object!;
-        t.deepEqual([block.fluidKind, block.fluidLevel, block["_models"].length], ["water", 0, fluidIndex + 1]);
-        if (fluidIndex) t.is(modelOf(block).originalModel, plant);
-        t.is(modelOf(block, fluidIndex).originalModel.key!.type, "fluid");
-        const water = (await world.setBlockAt([x + 1, 0, 0], { type: "water" }))!.object!;
-        t.deepEqual([indexCount(block, fluidIndex), indexCount(water)], [30, 30]);
+        const x = index * 4;
+        const block = (await world.setBlockAt([x, 0, 0], { type, properties: { level: "7", ...properties } }))!;
+        t.is(block.object, undefined);
+        const chunk = world.getChunkAt(new Vector3(x, 0, 0))!;
+        t.is(chunk.fluidByteIndex(x % 16), 16);
+        const entries = chunk["sectionBlocks"].get(x % 16) ?? [];
+        t.is(entries.length, type === "bubble_column" ? 0 : 1);
+        if (entries.length) t.is(entries[0].template.atlas.model, plant);
+        const water = (await world.setBlockAt([x + 1, 0, 0], { type: "water" }))!;
+        t.is(water.object, undefined);
+        positions.push([x, 0, 0], [x + 1, 0, 0]);
+        assertFluidPositions(t, world, scene, positions.filter(pos => Math.floor(pos[0] / 16) === Math.floor(x / 16)));
         await world.setBlockAt(x, 0, 0, undefined);
-        t.is(block["_models"].length, 0);
-        t.is(indexCount(water), 36);
+        positions = positions.filter(pos => pos[0] !== x);
+        assertFluidPositions(t, world, scene, positions.filter(pos => Math.floor(pos[0] / 16) === Math.floor(x / 16)));
     }
     for (const [index, type] of ["test:kelp", "minecraft:water_cauldron"].entries()) {
         states.set(type, { key: AssetKey.parse("blockstates", type), variants: { "": { model: "test:block/plant" } } });

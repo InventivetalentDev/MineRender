@@ -1,3 +1,6 @@
+import { buildFluidQuads, fluidKindOf } from "../model/fluid/FluidQuads";
+import type { FluidKind, FluidQuads } from "../model/fluid/FluidQuads";
+
 /** Static model geometry as quads: four vertices per quad, in quad order. */
 export interface SectionTemplateData {
     quads: number;
@@ -12,10 +15,27 @@ export interface SectionTemplateData {
     layer: number;
 }
 
-/** The pixel dimensions of a template atlas. */
+/** The pixel dimensions and animation state of a source atlas. */
 export interface SectionAtlasSize {
     width: number;
     height: number;
+    animated: boolean;
+}
+
+/** One fluid kind's sprite rectangles in atlas pixels and its linear-light vertex tint. */
+export interface SectionFluidKind {
+    atlas: number;
+    still: [x: number, y: number, width: number, height: number];
+    flow: [x: number, y: number, width: number, height: number];
+    tint: [r: number, g: number, b: number];
+}
+
+/** Fluid cells of the section plus a one-cell shell, 18×18×18, x fastest, then z, then y. */
+export interface SectionFluidInput {
+    /** Bit 128 marks a surface rendered elsewhere; the cell still supplies neighbor fluid samples. */
+    cells: Uint8Array;
+    water?: SectionFluidKind;
+    lava?: SectionFluidKind;
 }
 
 /** Section placements and their shared templates, ready for geometry building. */
@@ -27,6 +47,7 @@ export interface SectionGeometryInput {
     templateData: SectionTemplateData[];
     atlases: SectionAtlasSize[];
     maxAtlasSize: number;
+    fluids?: SectionFluidInput;
 }
 
 /** Merged quads and source-atlas placements for one atlas page. */
@@ -45,9 +66,10 @@ export interface SectionGeometryPage {
 
 /** Builds section-local geometry from visible quads, with bounded atlas pages per layer. */
 export function buildSectionGeometry(input: SectionGeometryInput): SectionGeometryPage[] {
-    const { count, indices, templates, cullMasks, templateData, atlases, maxAtlasSize } = input;
+    const { count, indices, templates, cullMasks, templateData, atlases, maxAtlasSize, fluids } = input;
     if (!Number.isInteger(maxAtlasSize) || maxAtlasSize < 1) throw new RangeError("Section atlas size must be a positive integer");
     if (count > indices.length || count > templates.length || count > cullMasks.length) throw new RangeError("Section entry count exceeds its arrays");
+    if (fluids && fluids.cells.length !== 5832) throw new RangeError("Section fluid cells must cover an 18×18×18 neighborhood");
     for (const template of templateData) {
         const { quads } = template;
         if (template.positions.length !== quads * 12 || template.normals.length !== quads * 12 ||
@@ -67,16 +89,18 @@ export function buildSectionGeometry(input: SectionGeometryInput): SectionGeomet
     }
     const pages: {
         layer: number; placements: SectionGeometryPage["placements"]; entries: number[];
+        fluids: { quads: FluidQuads; x: number; y: number; z: number; data: SectionFluidKind }[];
         x: number; y: number; rowHeight: number; width: number; height: number;
     }[] = [];
     const locations = new Map<number, { page: number; x: number; y: number }>();
     for (const [layer, layerAtlases] of [...visibleAtlases].sort(([a], [b]) => a - b)) {
         const firstPage = pages.length;
-        for (const atlas of [...layerAtlases].sort((a, b) => atlases[b].height - atlases[a].height)) {
-            const { width, height } = atlases[atlas];
+        for (const atlas of [...layerAtlases].sort((a, b) => Number(atlases[a].animated) - Number(atlases[b].animated) ||
+            (atlases[a].animated ? a - b : atlases[b].height - atlases[a].height))) {
+            const { width, height, animated } = atlases[atlas];
             if (width > maxAtlasSize || height > maxAtlasSize) throw new RangeError("Model atlas exceeds the section atlas size limit");
             let selected = -1;
-            for (let i = firstPage; i < pages.length; i++) {
+            for (let i = firstPage; !animated && i < pages.length; i++) {
                 const page = pages[i];
                 const nextRow = page.x + width > maxAtlasSize;
                 if ((nextRow ? page.y + page.rowHeight : page.y) + height > maxAtlasSize) continue;
@@ -90,7 +114,7 @@ export function buildSectionGeometry(input: SectionGeometryInput): SectionGeomet
             }
             if (selected < 0) {
                 selected = pages.length;
-                pages.push({ layer, placements: [], entries: [], x: 0, y: 0, rowHeight: 0, width: 0, height: 0 });
+                pages.push({ layer, placements: [], entries: [], fluids: [], x: 0, y: 0, rowHeight: 0, width: 0, height: 0 });
             }
             const page = pages[selected];
             page.placements.push({ atlas, x: page.x, y: page.y });
@@ -103,8 +127,33 @@ export function buildSectionGeometry(input: SectionGeometryInput): SectionGeomet
     }
     for (const entry of visible) pages[locations.get(templateData[templates[entry]].atlas)!.page].entries.push(entry);
 
+    if (fluids) {
+        const fluidPages = new Map<FluidKind, (typeof pages)[number]>();
+        for (let y = 0; y < 16; y++) for (let z = 0; z < 16; z++) for (let x = 0; x < 16; x++) {
+            const byte = fluids.cells[(y + 1) * 324 + (z + 1) * 18 + x + 1];
+            const fluid = fluidKindOf(byte);
+            if (!fluid || (byte & 128)) continue;
+            const data = fluids[fluid];
+            if (!data) throw new RangeError("Section fluid input lacks the atlas for a present fluid");
+            const quads = buildFluidQuads(fluid, (dx, dy, dz) => {
+                const cell = fluids.cells[(y + 1 + dy) * 324 + (z + 1 + dz) * 18 + x + 1 + dx];
+                return { fluid: fluidKindOf(cell), level: cell & 15, solid: !!(cell & 64) };
+            });
+            if (!quads.sprites.length) continue;
+            if (!fluidPages.has(fluid)) {
+                const { width, height } = atlases[data.atlas];
+                if (width > maxAtlasSize || height > maxAtlasSize) throw new RangeError("Model atlas exceeds the section atlas size limit");
+                fluidPages.set(fluid, { layer: 2, placements: [{ atlas: data.atlas, x: 0, y: 0 }], entries: [], fluids: [],
+                    x: 0, y: 0, rowHeight: 0, width, height });
+            }
+            fluidPages.get(fluid)!.fluids.push({ quads, x, y, z, data });
+        }
+        pages.push(...[...fluidPages.values()].sort((a, b) => Number(atlases[a.placements[0].atlas].animated) -
+            Number(atlases[b.placements[0].atlas].animated) || a.placements[0].atlas - b.placements[0].atlas));
+    }
+
     return pages.map(page => {
-        let faces = 0;
+        let faces = page.fluids.reduce((sum, fluid) => sum + fluid.quads.sprites.length, 0);
         for (const entry of page.entries) {
             const template = templateData[templates[entry]];
             for (let quad = 0; quad < template.quads; quad++) {
@@ -146,6 +195,32 @@ export function buildSectionGeometry(input: SectionGeometryInput): SectionGeomet
                     colors[vertex * 3 + 2] = template.colors[source * 3 + 2];
                 }
                 for (let corner = 0; corner < 6; corner++) outputIndices[indexOffset++] = start + template.indices[quad * 6 + corner];
+            }
+        }
+        for (const { quads, x, y, z, data } of page.fluids) {
+            const atlas = atlases[data.atlas];
+            const placement = page.placements[0];
+            const mapU = (u: number) => (placement.x + u * atlas.width) / page.width;
+            const mapV = (v: number) => 1 - (placement.y + (1 - v) * atlas.height) / page.height;
+            for (let quad = 0; quad < quads.sprites.length; quad++) {
+                const rect = quads.sprites[quad] === 0 ? data.still : data.flow;
+                const start = vertex;
+                for (let corner = 0; corner < 4; corner++, vertex++) {
+                    const source = quad * 4 + corner;
+                    positions[vertex * 3] = quads.positions[source * 3] + x * 16;
+                    positions[vertex * 3 + 1] = quads.positions[source * 3 + 1] + y * 16;
+                    positions[vertex * 3 + 2] = quads.positions[source * 3 + 2] + z * 16;
+                    normals[vertex * 3] = quads.normals[source * 3];
+                    normals[vertex * 3 + 1] = quads.normals[source * 3 + 1];
+                    normals[vertex * 3 + 2] = quads.normals[source * 3 + 2];
+                    uvs[vertex * 2] = mapU((rect[0] + quads.uvs[source * 2] * rect[2]) / atlas.width);
+                    uvs[vertex * 2 + 1] = mapV(1 - (rect[1] + (1 - quads.uvs[source * 2 + 1]) * rect[3]) / atlas.height);
+                    uvBounds.set([mapU(rect[0] / atlas.width), mapV(1 - (rect[1] + rect[3]) / atlas.height),
+                        mapU((rect[0] + rect[2]) / atlas.width), mapV(1 - rect[1] / atlas.height)], vertex * 4);
+                    colors.set(data.tint, vertex * 3);
+                }
+                outputIndices.set([start, start + 1, start + 2, start, start + 2, start + 3], indexOffset);
+                indexOffset += 6;
             }
         }
         return { layer: page.layer, width: page.width, height: page.height, placements: page.placements, positions, normals, uvs, uvBounds, colors, indices: outputIndices };

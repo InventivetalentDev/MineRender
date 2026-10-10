@@ -374,7 +374,7 @@ await Entities.getPassList(key);   // [{ layer: "wool", when: "not_sheared", tin
 const model = await Entities.getEntity(key, undefined, { when: ["not_sheared"] });
 const sheep = await scene.addEntity(model!, { tints: { wool_color: 0xf9801d } });
 sheep.getLayerGroup("wool")!.visible = false;   // every layer is a group</code></pre>
-                <p>Item definitions take the game's item state. Pass data components, item-model properties, a stack count and item references to <code>Models.getMerged</code>; GUI item layers accept the same <code>context</code>. Dyed armor, banner patterns, shields, shulker boxes, bundles and tridents resolve from it. Registry defaults are not loaded, so supply what a selector reads.</p>
+                <p>Item definitions take the game's item state. Pass data components, item-model properties, a stack count and item references to <code>Models.getMerged</code>; GUI item layers accept the same <code>context</code>. Dyed armor, banner patterns, shields, shulker boxes, bundles and tridents resolve from it. Bundled vanilla 1.21.11 stack-size, durability, and glint defaults apply unless overridden by supplied components. Supply any other components a selector reads.</p>
                 <pre><code data-lang="ts">const shield = await Models.getMerged(new AssetKey("minecraft", "shield", "models", "item"), {
     components: {
         "minecraft:base_color": "blue",
@@ -448,7 +448,7 @@ await Models.clearCache();</code></pre>
 
             <article id="worlds" class="doc">
                 <h3>Worlds and files</h3>
-                <p><code>MineRenderWorld</code> stores blocks in 16³ chunks with signed coordinates and keeps faces against opaque neighbors from being drawn. With <code>sectionMeshing</code>, static block models of any shape are merged into solid and translucent meshes per section; fluids, block entities, and animated textures stay individual objects.</p>
+                <p><code>MineRenderWorld</code> stores blocks in 16³ chunks with signed coordinates and keeps faces against opaque neighbors from being drawn. With <code>sectionMeshing</code>, block models of any shape, animated textures, and fluid surfaces are merged into solid, translucent, and fluid meshes per section; block entities stay individual objects.</p>
                 <pre><code data-lang="ts">import { AnvilParser, AnvilWorldSource, MineRenderWorld, NBTHelper, SchematicParser, StructureParser, WorldStreamer } from "minerender";
 
 const world = new MineRenderWorld(renderer.scene, { sectionMeshing: true });

@@ -19,6 +19,7 @@ const string = (value: string) => ({ type: "string" as const, value });
 const bytes = (value: number[]) => ({ type: "byteArray" as const, value });
 const compound = (value: Tags): Compound => ({ type: "compound", value });
 const list = (value: Tags[]) => ({ type: "list" as const, value: { type: "compound" as const, value } });
+const strings = (value: string[]) => ({ type: "list" as const, value: { type: "string" as const, value } });
 const longs = (words: bigint[]) => ({ type: "longArray" as const, value: words.map(word => [
     Number(BigInt.asIntN(32, word >> 32n)), Number(BigInt.asIntN(32, word))
 ] as [number, number]) });
@@ -695,4 +696,58 @@ test("Anvil rejects malformed palettes instead of silently replacing them with a
     await t.throwsAsync(() => AnvilParser.parse(region({ nbt: unknownVersion })), { message: /DataVersion is required/ });
     const lightingOnly = await AnvilParser.parse(region({ nbt: chunk([{ Y: int(0), BlockLight: { type: "byteArray", value: [0] } }]) }));
     t.is(lightingOnly.chunks[0].sections[0].data.get(0), undefined);
+});
+
+test("Anvil preserves uniform biome IDs in air-only sections and leaves absent or legacy biome data unknown", async t => {
+    const sections = [
+        { Y: int(-4), biomes: compound({ palette: strings(["test:underground/deep"]) }) },
+        { Y: int(-3), biomes: compound({ palette: strings(["minecraft:plains"]), data: longs([]) }) },
+        { Y: int(-2) }
+    ];
+    const parsed = (await AnvilParser.parseChunk(region({ nbt: chunk(sections) }), 31, 30))!;
+    t.deepEqual(parsed.sections.map(section => section.y), [-4, -3, -2]);
+    t.deepEqual(parsed.sections[0].biomes, Array(64).fill("test:underground/deep"));
+    t.deepEqual(parsed.sections[1].biomes, Array(64).fill("minecraft:plains"));
+    t.is(parsed.sections[2].biomes, undefined);
+    t.true(parsed.sections.every(section => section.data.get(0) === undefined));
+    const legacy = (await AnvilParser.parseChunk(region({ nbt: chunk([{ Y: int(0) }], {
+        modern: false, version: 2527, extra: { Biomes: { type: "intArray", value: Array(1024).fill(1) } }
+    }) }), 31, 30))!;
+    t.is(legacy.sections[0].biomes, undefined);
+});
+
+for (const paletteSize of [2, 5, 64]) {
+    test(`Anvil decodes all 64 biome samples from a padded ${paletteSize}-entry palette`, async t => {
+        const palette = Array.from({ length: paletteSize }, (_, index) => `test:biome_${index}`);
+        const expected = Array.from({ length: 64 }, (_, index) => (index * 13 + 7) % paletteSize);
+        const bits = Math.ceil(Math.log2(paletteSize)), perLong = Math.floor(64 / bits);
+        const words = Array<bigint>(Math.ceil(64 / perLong)).fill(0n);
+        for (const [index, value] of expected.entries()) {
+            words[Math.floor(index / perLong)] |= BigInt(value) << BigInt(index % perLong * bits);
+        }
+        const section = { Y: int(-1), biomes: compound({ palette: strings(palette), data: longs(words) }) };
+        const parsed = (await AnvilParser.parseChunk(region({ nbt: chunk([section]) }), 31, 30))!;
+        t.deepEqual(parsed.sections[0].biomes, expected.map(index => palette[index]));
+    });
+}
+
+test("Anvil rejects malformed biome containers, palettes and packed indices", async t => {
+    const palette = strings(["minecraft:plains", "minecraft:desert", "test:caves"]);
+    const invalid = [
+        int(0),
+        compound({}),
+        compound({ palette: strings([]) }),
+        compound({ palette: list([{ Name: string("minecraft:plains") }]) }),
+        compound({ palette: strings([""]) }),
+        compound({ palette: strings(Array(65).fill("minecraft:plains")) }),
+        compound({ palette }),
+        compound({ palette, data: { type: "intArray", value: [0, 0] } }),
+        compound({ palette, data: longs([0n]) }),
+        compound({ palette, data: longs([0n, 0n, 0n]) }),
+        compound({ palette, data: longs([0n, 3n << 62n]) }),
+        compound({ palette: strings(["minecraft:plains"]), data: longs([0n]) })
+    ];
+    for (const biomes of invalid) {
+        await t.throwsAsync(() => AnvilParser.parse(region({ nbt: chunk([{ Y: int(0), biomes }]) })), { message: /biome/i });
+    }
 });

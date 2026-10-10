@@ -82,7 +82,7 @@ await scene.addGui([{ item: "minecraft:item/shield", context: { components: {
 } } }]);
 ```
 
-Item registry defaults are not loaded, so selectors that read an absent component see no value. GUI item layers and scene-document item definitions take the same `context`; documents name item references by item ID. Explicit `tints` still override automatic colors. See the [AGENTS.md item notes](https://github.com/InventivetalentDev/MineRender/blob/main/AGENTS.md#gotchas) for the supported components and renderers.
+Bundled vanilla 1.21.11 stack-size, durability, and glint defaults apply unless overridden by supplied components. Supply any other components a selector reads. GUI item layers and scene-document item definitions take the same `context`; documents name item references by item ID. Explicit `tints` still override automatic colors. See the [AGENTS.md item notes](https://github.com/InventivetalentDev/MineRender/blob/main/AGENTS.md#gotchas) for the supported components and renderers.
 
 ## Objects and instance references
 
@@ -149,6 +149,8 @@ Await `stream.dispose()` before editing or clearing the world; it unloads its co
 Numeric and paletted Java chunks support gzip, zlib, LZ4, and uncompressed payloads, including external `.mcc` files. Pre-1.13 numeric chunks use the same block mappings as legacy schematics. Pass `legacyMappings: { "id:metadata": "namespace:block[property=value]" }` to `AnvilParser.parse`, `AnvilParser.parseChunk`, or `AnvilWorldSource` to override those mappings. Set `lenient: true` to try metadata 0 for unmapped numeric states and skip unknown IDs; malformed arrays still fail validation.
 
 Numeric mappings do not reconstruct states that depend on neighbors or block-entity NBT, such as paired doors or bed colors. DataVersion migration remains unsupported.
+
+Modern Anvil sections retain their biome palettes as 64 IDs in `section.biomes`, ordered by `x + z * 4 + y * 16`; each sample covers 4×4×4 blocks. `placeChunk` copies them into the world, including for air-only sections, and `world.getBiomeAt(x, y, z)` returns the saved ID at integer block coordinates, or `undefined` without biome data. Replacing or unloading the column removes its samples. Older numeric `Biomes` arrays, biome blending, and biome-based rendering colors are not supported.
 
 ## Ownership and cleanup
 

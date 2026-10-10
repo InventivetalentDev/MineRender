@@ -206,6 +206,11 @@ export class BlockObject extends SceneObject {
         return ModelCulling.toLocalMask(worldMask, new Euler().setFromQuaternion(rotation));
     }
 
+    /** World-space face mask currently applied to this block. */
+    public get cullMask(): number {
+        return this._cullMask;
+    }
+
     public async setCullMask(worldMask: number): Promise<void> {
         worldMask &= 63;
         const replacements: (ModelObject | InstanceReference<ModelObject>)[] = [];

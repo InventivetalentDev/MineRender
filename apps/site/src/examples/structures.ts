@@ -57,7 +57,7 @@ function structureBounds(structure: MultiBlockStructure): Box3 {
 const vanilla: Example = {
     id: "structure-vanilla",
     title: "Vanilla structure files",
-    description: "Structure .nbt files are parsed in the browser and placed into a world in batches. Section meshing merges static block models into solid and translucent meshes per 16³ section, with neighbor faces culled.",
+    description: "Structure .nbt files are parsed in the browser and placed into a world in batches. Section meshing merges block models and fluids into meshes per 16³ section, with neighbor faces culled; block entities stay individual objects.",
     renderer: {
         camera: {
             position: [230, 170, 230] as [number, number, number],

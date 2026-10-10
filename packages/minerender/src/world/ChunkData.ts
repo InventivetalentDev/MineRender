@@ -49,44 +49,88 @@ export class ChunkData {
     /** Copies block data into a cell. An omitted block or an air block clears the cell. */
     public set(index: number, block?: Block): void {
         ChunkData.validateIndex(index);
-        let state: PaletteState | undefined;
-        let key: string | undefined;
-        let nbt: unknown;
-        if (block && !ChunkData.isAir(block)) {
-            const type = blockKey(block.type).toNamespacedString();
-            const properties = Object.fromEntries(Object.keys(block.properties ?? {}).sort()
-                .map(name => [name, block.properties![name]]));
-            state = Object.freeze(Object.keys(properties).length
-                ? { type, properties: Object.freeze(properties) } : { type });
-            key = ChunkData.paletteKey(block);
-            if (block.nbt !== undefined) nbt = structuredClone(block.nbt);
-        }
+        this.assign(index, this.intern(block), block?.nbt === undefined ? undefined : structuredClone(block.nbt));
+    }
 
+    /** Interns a normalized block state without changing cells. Air has palette id 0. */
+    public intern(block: Maybe<Block>): number {
+        if (!block || ChunkData.isAir(block)) return 0;
+        const key = ChunkData.paletteKey(block);
+        const existingId = this.paletteIds.get(key);
+        if (existingId !== undefined) return existingId;
+        const type = blockKey(block.type).toNamespacedString();
+        const properties = Object.fromEntries(Object.keys(block.properties ?? {}).sort()
+            .map(name => [name, block.properties![name]]));
+        const state = Object.freeze(Object.keys(properties).length
+            ? { type, properties: Object.freeze(properties) } : { type });
+        const id = this.freeIds.pop() ?? this.palette.length;
+        this.palette[id] = { key, state, references: 0 };
+        this.paletteIds.set(key, id);
+        return id;
+    }
+
+    /** Assigns an interned state to a cell and replaces its NBT. `undefined` clears the NBT. */
+    public assign(index: number, id: number, nbt?: unknown): void {
+        ChunkData.validateIndex(index);
+        if (!Number.isInteger(id) || id < 0 || (id !== 0 && !this.palette[id])) {
+            throw new RangeError("Palette id must refer to an interned state");
+        }
         const previousId = this.indices[index];
-        if (previousId !== 0) {
-            const previous = this.palette[previousId]!;
-            if (--previous.references === 0) {
-                this.paletteIds.delete(previous.key);
-                this.palette[previousId] = undefined;
-                this.freeIds.push(previousId);
+        if (previousId !== id) {
+            if (previousId !== 0) {
+                const previous = this.palette[previousId]!;
+                if (--previous.references === 0) {
+                    this.paletteIds.delete(previous.key);
+                    this.palette[previousId] = undefined;
+                    this.freeIds.push(previousId);
+                }
             }
+            if (id !== 0) this.palette[id]!.references++;
+            this.indices[index] = id;
         }
-
-        let id = 0;
-        if (state && key !== undefined) {
-            const existingId = this.paletteIds.get(key);
-            if (existingId !== undefined) {
-                id = existingId;
-                this.palette[id]!.references++;
-            } else {
-                id = this.freeIds.pop() ?? this.palette.length;
-                this.palette[id] = { key, state, references: 1 };
-                this.paletteIds.set(key, id);
-            }
-        }
-        this.indices[index] = id;
-        if (nbt !== undefined) this.nbt.set(index, nbt);
+        if (id !== 0 && nbt !== undefined) this.nbt.set(index, nbt);
         else this.nbt.delete(index);
+    }
+
+    /** Replaces all cells from palette indices, normalizes air to 0, and clears NBT. */
+    public fill(palette: readonly Maybe<Block>[], indices: Uint16Array): void {
+        if (indices.length !== 4096 || indices.some(index => index >= palette.length)) {
+            throw new RangeError("Section fill needs 4096 valid palette indices");
+        }
+        this.clear();
+        const ids = palette.map(block => this.intern(block));
+        for (let index = 0; index < 4096; index++) {
+            const id = ids[indices[index]];
+            this.indices[index] = id;
+            if (id !== 0) this.palette[id]!.references++;
+        }
+    }
+
+    /** Returns a cell's palette id, or 0 for air. */
+    public idAt(index: number): number {
+        ChunkData.validateIndex(index);
+        return this.indices[index];
+    }
+
+    /** Returns a frozen state, or `undefined` for air or a freed palette id. */
+    public stateAt(id: number): PaletteState | undefined {
+        return this.palette[id]?.state;
+    }
+
+    /** Replaces cells, palette entries, and NBT with independent copies of another section. */
+    public copyFrom(other: ChunkData): void {
+        if (other === this) return;
+        this.clear();
+        this.indices.set(other.indices);
+        for (let id = 1; id < other.palette.length; id++) {
+            const entry = other.palette[id];
+            const state = entry && ChunkData.copyBlock(entry.state, undefined);
+            if (state?.properties) Object.freeze(state.properties);
+            this.palette[id] = entry && { ...entry, state: Object.freeze(state!) };
+        }
+        for (const [key, id] of other.paletteIds) this.paletteIds.set(key, id);
+        this.freeIds.push(...other.freeIds);
+        for (const [index, nbt] of other.nbt) this.nbt.set(index, structuredClone(nbt));
     }
 
     public clear(): void {

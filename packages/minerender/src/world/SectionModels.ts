@@ -6,9 +6,11 @@ import { BlockState, BlockStateVariant } from "../model/block/BlockState";
 import { BlockStateProperties } from "../model/block/BlockStateProperties";
 import { BlockStateResolver } from "../model/block/BlockStateResolver";
 import { BlockTints } from "../model/block/BlockTints";
+import { FluidKind } from "../model/fluid/FluidGeometry";
 import { Model, TripleArray } from "../model/Model";
 import { ModelCulling } from "../model/ModelCulling";
 import { ModelObject } from "../model/scene/ModelObject";
+import { TextureAtlas } from "../texture/TextureAtlas";
 import { UVMapper } from "../UVMapper";
 import { SectionMeshTemplate } from "./SectionMesh";
 
@@ -58,11 +60,12 @@ function compactQuads(geometry: BufferGeometry, keep: boolean[]): BufferGeometry
     return compact;
 }
 
-/** Prepares and caches static model geometry for merged world sections. */
+/** Prepares and caches model geometry and fluid atlases for merged world sections. */
 export class SectionModels {
     private states = new WeakMap<BlockState, Map<string, Promise<PreparedState | undefined>>>();
     private models = new WeakMap<Model, Map<string, Promise<SectionMeshTemplate>>>();
     private readonly templates = new Set<SectionMeshTemplate>();
+    private readonly fluidAtlases = new Map<string, Promise<TextureAtlas>>();
 
     constructor(readonly maxAtlasSize = 2048) {
         if (!Number.isInteger(maxAtlasSize) || maxAtlasSize < 1) throw new RangeError("maxAtlasSize must be a positive integer");
@@ -71,12 +74,30 @@ export class SectionModels {
     /** Returns templates for the matched parts, or `undefined` when the block needs an individual render object. */
     public async get(blockState: BlockState, properties: BlockStateProperties = {}, position?: Readonly<TripleArray>): Promise<SectionMeshTemplate[] | undefined> {
         const variantPosition: TripleArray | undefined = position ? [...position] : undefined;
+        return (await this.prepareState(blockState, properties))?.pick(variantPosition);
+    }
+
+    /** Resolves section templates once, with a synchronous weighted choice for each cell. */
+    public async prepareState(blockState: BlockState, properties: BlockStateProperties = {}): Promise<{ pick(position?: Readonly<TripleArray>): SectionMeshTemplate[] } | undefined> {
         let states = this.states.get(blockState);
         if (!states) this.states.set(blockState, states = new Map());
         const key = JSON.stringify(Object.entries(properties).sort(([a], [b]) => a.localeCompare(b)));
         const prepared = await cached(states, key, () => this.prepare(blockState, properties));
         if (!prepared) return undefined;
-        return prepared.groups.map(group => prepared.templates.get(BlockStateResolver.choose(group, variantPosition))!);
+        return { pick: (position?: Readonly<TripleArray>) => prepared.groups.map(group => prepared.templates.get(BlockStateResolver.choose(group, position))!) };
+    }
+
+    /** Returns the shared still/flow atlas used by per-block fluid objects. */
+    public fluidAtlas(kind: FluidKind, root?: string): Promise<TextureAtlas> {
+        return cached(this.fluidAtlases, kind, async () => {
+            const atlas = await UVMapper.getAtlas({
+                key: new AssetKey("minecraft", kind, "models", "fluid", "assets", ".json", root),
+                textures: { still: `minecraft:block/${kind}_still`, flow: `minecraft:block/${kind}_flow` },
+                elements: []
+            });
+            if (!atlas) throw new Error(`Missing ${kind} fluid atlas`);
+            return atlas;
+        });
     }
 
     private async prepare(blockState: BlockState, properties: BlockStateProperties): Promise<PreparedState | undefined> {
@@ -93,7 +114,7 @@ export class SectionModels {
                 if (!model?.elements?.length) return undefined;
                 const atlas = await UVMapper.getAtlas(model);
                 const rotation = BlockStateResolver.rotation(variant);
-                if (!atlas || atlas.hasAnimation
+                if (!atlas
                     || atlas.image.width > this.maxAtlasSize || atlas.image.height > this.maxAtlasSize) return undefined;
                 const tints = await BlockTints.get(blockState.key, state, model);
                 let models = this.models.get(model);
@@ -148,5 +169,6 @@ export class SectionModels {
         this.templates.clear();
         this.states = new WeakMap();
         this.models = new WeakMap();
+        this.fluidAtlases.clear();
     }
 }

@@ -13,6 +13,7 @@ import { CUBE_FACE_OFFSETS } from "../CubeFace";
 import type { AnvilChunk } from "./AnvilParser";
 import { SectionModels } from "./SectionModels";
 import { WorldEntities } from "./_entities/WorldEntities";
+import { fluidKindOf } from "../model/fluid/FluidQuads";
 
 //TODO: maybe make this an Object3D to add children
 /**
@@ -25,9 +26,10 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
     public readonly scene: MineRenderScene;
 
     private readonly _chunks: Map<string, Chunk<SectionMeshing>> = new Map();
+    private readonly biomes = new Map<string, Map<number, readonly string[]>>();
     private readonly sectionModels?: SectionModels;
     private readonly entities?: WorldEntities;
-    private readonly pendingCulling = new Map<Chunk<SectionMeshing>, Set<number>>();
+    private readonly pendingCulling = new Map<Chunk<SectionMeshing>, Set<number> | "all">();
     private culling?: Promise<void>;
 
     constructor(scene: MineRenderScene, options: MineRenderWorldOptions<SectionMeshing> = {}) {
@@ -49,6 +51,20 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         }
         this.validatePosBounds(posOrX);
         return this.getChunkAt(posOrX)?.getBlockAt(posOrX);
+    }
+
+    /** Returns the saved 4-block biome sample at integer world block coordinates, or `undefined` if absent. */
+    public getBiomeAt(x: number, y: number, z: number): Maybe<string>;
+    public getBiomeAt(pos: Vector3): Maybe<string>;
+    public getBiomeAt(pos: TripleArray): Maybe<string>;
+    public getBiomeAt(posOrX: number | Vector3 | TripleArray, y?: number, z?: number): Maybe<string> {
+        if (typeof posOrX === "number") return this.getBiomeAt(new Vector3(posOrX, y, z));
+        if (isTripleArray(posOrX)) return this.getBiomeAt(new Vector3(...posOrX));
+        this.validatePosBounds(posOrX);
+        const cx = Math.floor(posOrX.x / 16), cy = Math.floor(posOrX.y / 16), cz = Math.floor(posOrX.z / 16);
+        const lx = posOrX.x - cx * 16, ly = posOrX.y - cy * 16, lz = posOrX.z - cz * 16;
+        return this.biomes.get(`${cx}_${cz}`)?.get(cy)?.[
+            Math.floor(lx / 4) + Math.floor(lz / 4) * 4 + Math.floor(ly / 4) * 16];
     }
 
     /**
@@ -192,28 +208,56 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
     }
 
 
-    /** Replaces a chunk column's blocks and, with `renderEntities`, its supported saved mobs. */
+    /** Replaces a chunk column's blocks and biome samples and, with `renderEntities`, its supported saved mobs. */
     public async placeChunk(chunk: AnvilChunk, executor?: BatchedExecutor): Promise<void> {
+        if (![chunk.x, chunk.z].every(Number.isSafeInteger)) {
+            throw new RangeError("Chunk column coordinates must be safe integers");
+        }
+        if (!chunk.sections.every(section => Number.isSafeInteger(section.y))) {
+            throw new RangeError("Chunk section coordinates must be safe integers");
+        }
         this.entities?.clearColumn(chunk.x, chunk.z);
         const placeEntities = this.entities?.prepare(chunk.entities, [chunk.x, chunk.z]);
         const changes = new Map<string, Vector3>();
-        try {
-            await this.clearChunkColumn(chunk.x, chunk.z, changes);
-            const groups = new Map<Chunk<SectionMeshing>, { index: number; block: Maybe<Block> }[]>();
+        const occupiedSections = new Set<number>();
+        if (!executor) {
             for (const section of chunk.sections) {
-                if (!executor) {
-                    const blocks: { index: number; block: Maybe<Block> }[] = [];
-                    for (let index = 0; index < 4096; index++) {
-                        const block = section.data.get(index);
-                        if (block) blocks.push({ index, block });
+                for (let index = 0; index < 4096; index++) {
+                    if (!section.data.idAt(index)) continue;
+                    occupiedSections.add(section.y);
+                    break;
+                }
+            }
+        }
+        try {
+            await this.clearChunkColumn(chunk.x, chunk.z);
+            let sliceStart = performance.now();
+            for (const section of chunk.sections) {
+                if (section.biomes) {
+                    const position = new Vector3(chunk.x * 16, section.y * 16, chunk.z * 16);
+                    this.validatePosBounds(position);
+                    const copy = [...section.biomes];
+                    if (copy.length !== 64 || !copy.every(id => typeof id === "string" && id.length > 0)) {
+                        throw new RangeError("Section biomes must contain 64 nonempty biome IDs");
                     }
-                    if (blocks.length) {
-                        const position = new Vector3(chunk.x * 16, section.y * 16, chunk.z * 16);
-                        this.validatePosBounds(position);
-                        const target = this.getOrCreateChunkAt(position);
-                        const previous = groups.get(target);
-                        if (previous) previous.push(...blocks);
-                        else groups.set(target, blocks);
+                    const key = `${chunk.x}_${chunk.z}`;
+                    let column = this.biomes.get(key);
+                    if (!column) this.biomes.set(key, column = new Map());
+                    column.set(section.y, copy);
+                }
+                if (!executor) {
+                    if (!occupiedSections.has(section.y)) continue;
+                    const position = new Vector3(chunk.x * 16, section.y * 16, chunk.z * 16);
+                    this.validatePosBounds(position);
+                    const target = this.getOrCreateChunkAt(position);
+                    try {
+                        await target.placeSection(section.data);
+                    } finally {
+                        this.markSectionChanged(target);
+                    }
+                    if (performance.now() - sliceStart > 8) {
+                        await yieldToEventLoop();
+                        sliceStart = performance.now();
                     }
                     continue;
                 }
@@ -229,7 +273,6 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                 }
                 await this.placeBlocks({ size: [16, 16, 16], blocks }, true, executor, changes);
             }
-            if (!executor) await this.placeChunkGroups(groups, changes);
             await placeEntities?.();
         } finally {
             await this.updateCulling([...changes.values()]);
@@ -246,21 +289,44 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         }
         this.entities?.clearColumn(x, z);
         await this.culling;
-        const changes = new Map<string, Vector3>();
         try {
-            await this.clearChunkColumn(x, z, changes);
+            await this.clearChunkColumn(x, z);
         } finally {
-            await this.updateCulling([...changes.values()]);
+            await this.updateCulling([]);
         }
     }
 
-    private async clearChunkColumn(x: number, z: number, changes: Map<string, Vector3>): Promise<void> {
+    private async clearChunkColumn(x: number, z: number): Promise<void> {
+        this.biomes.delete(`${x}_${z}`);
         const previous = [...this._chunks.entries()].filter(([, section]) => section.x === x && section.z === z);
         for (const [key, section] of previous) {
             this._chunks.delete(key);
-            await section.clear(async positions => {
-                for (const pos of positions) changes.set(pos.toArray().join(","), pos);
-            });
+            this.pendingCulling.delete(section);
+            await section.clear(false);
+            this.markSectionChanged(section);
+        }
+    }
+
+    private markSectionChanged(chunk: Chunk<SectionMeshing>): void {
+        if (this._chunks.get(`${chunk.x}_${chunk.y}_${chunk.z}`) === chunk) this.pendingCulling.set(chunk, "all");
+        for (let dy = -1; dy <= 1; dy++) {
+            for (let dz = -1; dz <= 1; dz++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                    if (dx === 0 && dy === 0 && dz === 0) continue;
+                    const neighbor = this._chunks.get(`${chunk.x + dx}_${chunk.y + dy}_${chunk.z + dz}`);
+                    if (!neighbor) continue;
+                    let pending = this.pendingCulling.get(neighbor);
+                    if (pending === "all") continue;
+                    if (!pending) this.pendingCulling.set(neighbor, pending = new Set());
+                    for (let y = dy < 0 ? 15 : 0; y <= (dy > 0 ? 0 : 15); y++) {
+                        for (let z = dz < 0 ? 15 : 0; z <= (dz > 0 ? 0 : 15); z++) {
+                            for (let x = dx < 0 ? 15 : 0; x <= (dx > 0 ? 0 : 15); x++) {
+                                pending.add(y * 256 + z * 16 + x);
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -270,6 +336,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         await this.culling;
         const chunks = [...this._chunks.values()];
         this._chunks.clear();
+        this.biomes.clear();
         for (const chunk of chunks) {
             await chunk.dispose();
         }
@@ -292,9 +359,9 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                         if (!section) continue;
                         const index = (ny & 15) * 256 + (nz & 15) * 16 + (nx & 15);
                         let pending = this.pendingCulling.get(section);
-                        if (pending?.has(index)) continue;
+                        if (pending === "all" || pending?.has(index)) continue;
                         if (Math.abs(x) + Math.abs(y) + Math.abs(z) > 1
-                            && !section.getBlockAt(neighbor.set(pos.x + x, pos.y + y, pos.z + z))?.object?.fluidKind) continue;
+                            && !section.isFluidIndex(index)) continue;
                         if (!pending) this.pendingCulling.set(section, pending = new Set());
                         pending.add(index);
                     }
@@ -308,8 +375,18 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                     const batch = [...this.pendingCulling];
                     this.pendingCulling.clear();
                     for (const [chunk, indices] of batch) {
-                        for (const index of indices) {
-                            if (!chunk.isBlockVisibleIndex(index)) continue;
+                        const neighbors = CUBE_FACE_OFFSETS.map(([x, y, z]) =>
+                            this._chunks.get(`${chunk.x + x}_${chunk.y + y}_${chunk.z + z}`));
+                        const masks = chunk.updateCullMasks(indices === "all" ? undefined : indices, (x, y, z) => {
+                            const lx = x - chunk.x * 16, ly = y - chunk.y * 16, lz = z - chunk.z * 16;
+                            const section = neighbors[lx >= 16 ? 0 : lx < 0 ? 1 : ly >= 16 ? 2 : ly < 0 ? 3 : lz >= 16 ? 4 : 5];
+                            return section?.isOccludingIndex((ly & 15) * 256 + (lz & 15) * 16 + (lx & 15)) ?? false;
+                        });
+                        const fluidIndices = indices === "all" ? (function* () {
+                            for (let index = 0; index < 4096; index++) yield index;
+                        })() : indices;
+                        for (const index of fluidIndices) {
+                            if (!chunk.fluidByteIndex(index) || !chunk.isBlockVisibleIndex(index)) continue;
                             const lx = index % 16, ly = Math.floor(index / 256), lz = Math.floor(index / 16) % 16;
                             const wx = chunk.x * 16 + lx, wy = chunk.y * 16 + ly, wz = chunk.z * 16 + lz;
                             const block = chunk.getBlockAt(neighbor.set(wx, wy, wz))!;
@@ -319,22 +396,13 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                                     const section = nx >= 0 && nx < 16 && ny >= 0 && ny < 16 && nz >= 0 && nz < 16 ? chunk
                                         : this._chunks.get(`${chunk.x + Math.floor(nx / 16)}_${chunk.y + Math.floor(ny / 16)}_${chunk.z + Math.floor(nz / 16)}`);
                                     const neighborIndex = (ny & 15) * 256 + (nz & 15) * 16 + (nx & 15);
-                                    const object = section?.isBlockVisibleIndex(neighborIndex)
-                                        ? section.getBlockAt(neighbor.set(wx + x, wy + y, wz + z))?.object : undefined;
-                                    return { fluid: object?.fluidKind, level: object?.fluidLevel,
+                                    const byte = section?.fluidByteIndex(neighborIndex) ?? 0;
+                                    return { fluid: fluidKindOf(byte), level: byte & 15,
                                         solid: section?.isOccludingIndex(neighborIndex) ?? false };
                                 });
                             }
-                            let mask = 0;
-                            for (let face = 0; face < CUBE_FACE_OFFSETS.length; face++) {
-                                const offset = CUBE_FACE_OFFSETS[face];
-                                const nx = lx + offset[0], ny = ly + offset[1], nz = lz + offset[2];
-                                const section = nx >= 0 && nx < 16 && ny >= 0 && ny < 16 && nz >= 0 && nz < 16 ? chunk
-                                    : this._chunks.get(`${chunk.x + Math.floor(nx / 16)}_${chunk.y + Math.floor(ny / 16)}_${chunk.z + Math.floor(nz / 16)}`);
-                                if (section?.isOccludingIndex((ny & 15) * 256 + (nz & 15) * 16 + (nx & 15))) mask |= 1 << face;
-                            }
-                            await chunk.setCullMaskIndex(index, mask);
                         }
+                        for (const [index, mask] of masks) await chunk.setCullMaskIndex(index, mask);
                     }
                     await Promise.all(batch.map(([chunk]) => chunk.rebuildSectionMesh()));
                 }
@@ -349,7 +417,12 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         let chunk = this._chunks.get(key);
         if (typeof chunk === "undefined") {
             chunk = new Chunk<SectionMeshing>(this.scene, Math.floor(pos.x / 16), Math.floor(pos.y / 16), Math.floor(pos.z / 16),
-                positions => this.updateCulling(positions), this.sectionModels);
+                positions => this.updateCulling(positions), this.sectionModels, (x, y, z) => {
+                    const cx = Math.floor(x / 16), cy = Math.floor(y / 16), cz = Math.floor(z / 16);
+                    const section = this._chunks.get(`${cx}_${cy}_${cz}`);
+                    const index = (y - cy * 16) * 256 + (z - cz * 16) * 16 + x - cx * 16;
+                    return (section?.fluidByteIndex(index) ?? 0) | (section?.isOccludingIndex(index) ? 64 : 0);
+                });
             this._chunks.set(key, chunk);
         }
         return chunk;
