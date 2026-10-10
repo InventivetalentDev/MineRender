@@ -29,7 +29,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
     private readonly biomes = new Map<string, Map<number, readonly string[]>>();
     private readonly sectionModels?: SectionModels;
     private readonly entities?: WorldEntities;
-    private readonly pendingCulling = new Map<Chunk<SectionMeshing>, Set<number>>();
+    private readonly pendingCulling = new Map<Chunk<SectionMeshing>, Set<number> | "all">();
     private culling?: Promise<void>;
 
     constructor(scene: MineRenderScene, options: MineRenderWorldOptions<SectionMeshing> = {}) {
@@ -163,7 +163,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                 if (!group) groups.set(chunk, group = []);
                 group.push({ index: (y - cy * 16) * 256 + (z - cz * 16) * 16 + x - cx * 16, block });
             }
-            await this.placeChunkGroups(groups, changes);
+            await this.placeChunkGroups(groups);
             return;
         }
 
@@ -187,18 +187,13 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         }
     }
 
-    private async placeChunkGroups(groups: Map<Chunk<SectionMeshing>, { index: number; block: Maybe<Block> }[]>,
-                                   changes: Map<string, Vector3>): Promise<void> {
+    private async placeChunkGroups(groups: Map<Chunk<SectionMeshing>, { index: number; block: Maybe<Block> }[]>): Promise<void> {
         let sliceStart = performance.now();
         for (const [chunk, blocks] of groups) {
-            let positions: Vector3[] | undefined;
             try {
-                positions = await chunk.placeBlocks(blocks);
+                await chunk.placeBlocks(blocks);
             } finally {
-                // Failed groups still clear cells and place their remaining blocks.
-                positions ??= blocks.map(({ index }) => new Vector3(chunk.x * 16 + index % 16,
-                    chunk.y * 16 + Math.floor(index / 256), chunk.z * 16 + Math.floor(index / 16) % 16));
-                for (const pos of positions) changes.set(`${pos.x},${pos.y},${pos.z}`, pos);
+                this.markSectionChanged(chunk);
             }
             if (performance.now() - sliceStart > 8) {
                 await yieldToEventLoop();
@@ -220,8 +215,8 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         const placeEntities = this.entities?.prepare(chunk.entities, [chunk.x, chunk.z]);
         const changes = new Map<string, Vector3>();
         try {
-            await this.clearChunkColumn(chunk.x, chunk.z, changes);
-            const groups = new Map<Chunk<SectionMeshing>, { index: number; block: Maybe<Block> }[]>();
+            await this.clearChunkColumn(chunk.x, chunk.z, executor ? undefined : new Set(chunk.sections.map(section => section.y)));
+            let sliceStart = performance.now();
             for (const section of chunk.sections) {
                 if (section.biomes) {
                     const position = new Vector3(chunk.x * 16, section.y * 16, chunk.z * 16);
@@ -236,18 +231,17 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                     column.set(section.y, copy);
                 }
                 if (!executor) {
-                    const blocks: { index: number; block: Maybe<Block> }[] = [];
-                    for (let index = 0; index < 4096; index++) {
-                        const block = section.data.get(index);
-                        if (block) blocks.push({ index, block });
+                    const position = new Vector3(chunk.x * 16, section.y * 16, chunk.z * 16);
+                    this.validatePosBounds(position);
+                    const target = this.getOrCreateChunkAt(position);
+                    try {
+                        await target.placeSection(section.data);
+                    } finally {
+                        this.markSectionChanged(target);
                     }
-                    if (blocks.length) {
-                        const position = new Vector3(chunk.x * 16, section.y * 16, chunk.z * 16);
-                        this.validatePosBounds(position);
-                        const target = this.getOrCreateChunkAt(position);
-                        const previous = groups.get(target);
-                        if (previous) previous.push(...blocks);
-                        else groups.set(target, blocks);
+                    if (performance.now() - sliceStart > 8) {
+                        await yieldToEventLoop();
+                        sliceStart = performance.now();
                     }
                     continue;
                 }
@@ -263,7 +257,6 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                 }
                 await this.placeBlocks({ size: [16, 16, 16], blocks }, true, executor, changes);
             }
-            if (!executor) await this.placeChunkGroups(groups, changes);
             await placeEntities?.();
         } finally {
             await this.updateCulling([...changes.values()]);
@@ -280,22 +273,44 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         }
         this.entities?.clearColumn(x, z);
         await this.culling;
-        const changes = new Map<string, Vector3>();
         try {
-            await this.clearChunkColumn(x, z, changes);
+            await this.clearChunkColumn(x, z);
         } finally {
-            await this.updateCulling([...changes.values()]);
+            await this.updateCulling([]);
         }
     }
 
-    private async clearChunkColumn(x: number, z: number, changes: Map<string, Vector3>): Promise<void> {
+    private async clearChunkColumn(x: number, z: number, keep?: Set<number>): Promise<void> {
         this.biomes.delete(`${x}_${z}`);
-        const previous = [...this._chunks.entries()].filter(([, section]) => section.x === x && section.z === z);
+        const previous = [...this._chunks.entries()].filter(([, section]) => section.x === x && section.z === z && !keep?.has(section.y));
         for (const [key, section] of previous) {
             this._chunks.delete(key);
-            await section.clear(async positions => {
-                for (const pos of positions) changes.set(pos.toArray().join(","), pos);
-            });
+            this.pendingCulling.delete(section);
+            await section.clear(undefined);
+            this.markSectionChanged(section);
+        }
+    }
+
+    private markSectionChanged(chunk: Chunk<SectionMeshing>): void {
+        if (this._chunks.get(`${chunk.x}_${chunk.y}_${chunk.z}`) === chunk) this.pendingCulling.set(chunk, "all");
+        for (let dy = -1; dy <= 1; dy++) {
+            for (let dz = -1; dz <= 1; dz++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                    if (dx === 0 && dy === 0 && dz === 0) continue;
+                    const neighbor = this._chunks.get(`${chunk.x + dx}_${chunk.y + dy}_${chunk.z + dz}`);
+                    if (!neighbor) continue;
+                    let pending = this.pendingCulling.get(neighbor);
+                    if (pending === "all") continue;
+                    if (!pending) this.pendingCulling.set(neighbor, pending = new Set());
+                    for (let y = dy < 0 ? 15 : 0; y <= (dy > 0 ? 0 : 15); y++) {
+                        for (let z = dz < 0 ? 15 : 0; z <= (dz > 0 ? 0 : 15); z++) {
+                            for (let x = dx < 0 ? 15 : 0; x <= (dx > 0 ? 0 : 15); x++) {
+                                pending.add(y * 256 + z * 16 + x);
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -328,7 +343,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                         if (!section) continue;
                         const index = (ny & 15) * 256 + (nz & 15) * 16 + (nx & 15);
                         let pending = this.pendingCulling.get(section);
-                        if (pending?.has(index)) continue;
+                        if (pending === "all" || pending?.has(index)) continue;
                         if (Math.abs(x) + Math.abs(y) + Math.abs(z) > 1
                             && !section.isFluidIndex(index)) continue;
                         if (!pending) this.pendingCulling.set(section, pending = new Set());
@@ -344,8 +359,18 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                     const batch = [...this.pendingCulling];
                     this.pendingCulling.clear();
                     for (const [chunk, indices] of batch) {
-                        for (const index of indices) {
-                            if (!chunk.isBlockVisibleIndex(index)) continue;
+                        const neighbors = CUBE_FACE_OFFSETS.map(([x, y, z]) =>
+                            this._chunks.get(`${chunk.x + x}_${chunk.y + y}_${chunk.z + z}`));
+                        const masks = chunk.updateCullMasks(indices === "all" ? undefined : indices, (x, y, z) => {
+                            const lx = x - chunk.x * 16, ly = y - chunk.y * 16, lz = z - chunk.z * 16;
+                            const section = neighbors[lx >= 16 ? 0 : lx < 0 ? 1 : ly >= 16 ? 2 : ly < 0 ? 3 : lz >= 16 ? 4 : 5];
+                            return section?.isOccludingIndex((ly & 15) * 256 + (lz & 15) * 16 + (lx & 15)) ?? false;
+                        });
+                        const fluidIndices = indices === "all" ? (function* () {
+                            for (let index = 0; index < 4096; index++) yield index;
+                        })() : indices;
+                        for (const index of fluidIndices) {
+                            if (!chunk.fluidByteIndex(index) || !chunk.isBlockVisibleIndex(index)) continue;
                             const lx = index % 16, ly = Math.floor(index / 256), lz = Math.floor(index / 16) % 16;
                             const wx = chunk.x * 16 + lx, wy = chunk.y * 16 + ly, wz = chunk.z * 16 + lz;
                             const block = chunk.getBlockAt(neighbor.set(wx, wy, wz))!;
@@ -360,16 +385,8 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                                         solid: section?.isOccludingIndex(neighborIndex) ?? false };
                                 });
                             }
-                            let mask = 0;
-                            for (let face = 0; face < CUBE_FACE_OFFSETS.length; face++) {
-                                const offset = CUBE_FACE_OFFSETS[face];
-                                const nx = lx + offset[0], ny = ly + offset[1], nz = lz + offset[2];
-                                const section = nx >= 0 && nx < 16 && ny >= 0 && ny < 16 && nz >= 0 && nz < 16 ? chunk
-                                    : this._chunks.get(`${chunk.x + Math.floor(nx / 16)}_${chunk.y + Math.floor(ny / 16)}_${chunk.z + Math.floor(nz / 16)}`);
-                                if (section?.isOccludingIndex((ny & 15) * 256 + (nz & 15) * 16 + (nx & 15))) mask |= 1 << face;
-                            }
-                            await chunk.setCullMaskIndex(index, mask);
                         }
+                        for (const [index, mask] of masks) await chunk.setCullMaskIndex(index, mask);
                     }
                     await Promise.all(batch.map(([chunk]) => chunk.rebuildSectionMesh()));
                 }
