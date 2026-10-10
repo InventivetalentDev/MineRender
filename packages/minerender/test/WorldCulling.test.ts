@@ -19,6 +19,7 @@ import { BatchedExecutor } from "../src/util/BatchedExecutor";
 import { UVMapper } from "../src/UVMapper";
 import { MineRenderWorld, MineRenderWorldOptions } from "../src/world/MineRenderWorld";
 import { ChunkData } from "../src/world/ChunkData";
+import { Chunk } from "../src/world/Chunk";
 import { SectionMesh } from "../src/world/SectionMesh";
 import { buildSectionGeometry, SectionGeometryInput } from "../src/world/SectionGeometry";
 import { SectionWorker } from "../src/world/SectionWorker";
@@ -46,7 +47,7 @@ function fixture<SectionMeshing extends boolean = false>(t: ExecutionContext, op
         return atlases.get(model);
     };
     Materials.getImage = Materials.createShadedCanvasMaterial = () => material;
-    const addModel = (name: string, options: { height?: number; transparent?: boolean; animated?: boolean; cullable?: CubeFace[] } = {}) => {
+    const addModel = (name: string, options: { height?: number; transparent?: boolean; translucent?: boolean; animated?: boolean; cullable?: CubeFace[] } = {}) => {
         const model: Model = {
             key: new AssetKey("test", name, "models", "block"), textures: { side: "block/stone" },
             elements: [{ from: [0, 0, 0], to: [16, options.height ?? 16, 16],
@@ -57,7 +58,8 @@ function fixture<SectionMeshing extends boolean = false>(t: ExecutionContext, op
         };
         models.set(model.key!.toNamespacedString(), model);
         atlases.set(model, new TextureAtlas(model, { width: 16, height: 16, canvas: {} } as CanvasImage,
-            { side: [16, 16] }, { side: [0, 0] }, options.animated ?? false, {}, options.transparent ?? false));
+            { side: [16, 16] }, { side: [0, 0] }, options.animated ?? false, {},
+            options.transparent ?? options.translucent ?? false, options.translucent ?? false));
         states.set(`test:${name}`, { variants: { "": { model: `test:block/${name}` } } });
         return model;
     };
@@ -94,6 +96,11 @@ const indexCount = (block: BlockObject, index = 0) => {
     const geometry = geometryOf(block, index);
     return geometry.index?.count ?? geometry.getAttribute("position")?.count ?? 0;
 };
+
+function templateOf(world: MineRenderWorld<boolean>, position: TripleArray) {
+    const point = new Vector3(...position), chunk = world.getChunkAt(point)!;
+    return chunk["sectionBlocks"].get(Chunk.chunkPosToBlockIndex(chunk.worldPosToChunkPos(point)))![0].template;
+}
 
 test.serial("opaque neighbors cull shared faces across signed chunk borders and restore them when cleared or replaced", async t => {
     const { world, place, addModel } = fixture(t);
@@ -313,32 +320,58 @@ test.serial("default bulk placement starts distinct block-state resolutions conc
     t.true(types.every((type, x) => world.getBlockAt(x, 0, 0)?.block.type === type));
 });
 
-test.serial("default bulk placement selects weighted section templates separately for each block", async t => {
+test.serial("weighted models and rotations agree across rendering modes and reversed chunk reloads", async t => {
     const { world, scene, states, addModel } = fixture(t, { sectionMeshing: true });
-    addModel("unculled", { cullable: [] });
-    states.set("test:weighted", { variants: { "": [{ model: "test:block/cube" }, { model: "test:block/unculled" }] } });
-    await world["sectionModels"]!.get(states.get("test:weighted")!);
-    const random = Math.random;
-    let choices = 0;
-    Math.random = () => choices++ % 2 === 0 ? 0 : 0.99;
-    t.teardown(() => { Math.random = random; });
-    await world.placeMultiBlock({ size: [2, 1, 1], blocks: [
-        { position: [0, 0, 0], type: "test:weighted" }, { position: [1, 0, 0], type: "test:weighted" }
-    ] });
-    const section = scene.children.find(child => child instanceof SectionMesh)!;
-    t.is(section.children.reduce((sum, child) => sum + (child as Mesh).geometry.getIndex()!.count, 0), 66);
+    const individual = new MineRenderWorld(scene);
+    t.teardown(() => individual.clear());
+    addModel("alternative");
+    states.set("test:weighted", { variants: { "": [
+        { model: "test:block/cube" }, { model: "test:block/alternative", x: 90, y: 90, uvlock: true, weight: 3 },
+        { model: "test:block/alternative", y: 180, weight: 2 }
+    ] } });
+    const positions = Array.from({ length: 32 }, (_, index) =>
+        [index - 20, -17 + index % 3 * 16, -33 + index % 5 * 16] as TripleArray);
+    const blocks = positions.map(position => ({ position, type: "test:weighted" }));
+    const vertices = (geometry: ReturnType<typeof geometryOf>) =>
+        Array.from(geometry.getAttribute("position").array, value => Math.abs(value) < 1e-6 ? 0 : +value.toFixed(5));
+    const sectionSelection = (position: TripleArray) => {
+        const template = templateOf(world, position);
+        return { model: template.atlas.model.key!.toNamespacedString(), vertices: vertices(template.geometry) };
+    };
+    const individualSelection = (position: TripleArray) => {
+        const block = individual.getBlockAt(position)!.object;
+        const geometry = geometryOf(block).clone();
+        geometry.applyMatrix4(block["getModelMatrix"](block["_models"][0]).setPosition(0, 0, 0));
+        const selection = { model: modelOf(block).originalModel.key!.toNamespacedString(), vertices: vertices(geometry) };
+        geometry.dispose();
+        return selection;
+    };
+    await world.placeMultiBlock({ size: [32, 48, 80], blocks });
+    await individual.placeMultiBlock({ size: [32, 48, 80], blocks: [...blocks].reverse() });
+    const selected = positions.map(sectionSelection);
+    t.deepEqual(positions.map(individualSelection), selected);
+    t.true(new Set(selected.map(selection => JSON.stringify(selection))).size > 1);
+    const position = [...positions[0]] as TripleArray, expected = templateOf(world, position);
+    const different = positions.find(value => templateOf(world, value) !== expected)!;
+    const pending = world["sectionModels"]!.get(states.get("test:weighted")!, {}, position);
+    position.splice(0, 3, ...different);
+    t.is((await pending)![0], expected);
+    for (const [x, , z] of positions) {
+        await world.unloadChunkColumn(Math.floor(x / 16), Math.floor(z / 16));
+        await individual.unloadChunkColumn(Math.floor(x / 16), Math.floor(z / 16));
+    }
+    await world.placeMultiBlock({ size: [32, 48, 80], blocks: [...blocks].reverse() });
+    await individual.placeMultiBlock({ size: [32, 48, 80], blocks });
+    t.deepEqual(positions.map(sectionSelection), selected);
+    t.deepEqual(positions.map(individualSelection), selected);
 });
 
 test.serial("visibility changes preserve the originally selected weighted model", async t => {
     const { world, states, place, addModel } = fixture(t);
     addModel("alternative");
     states.set("test:weighted", { variants: { "": [{ model: "test:block/cube" }, { model: "test:block/alternative" }] } });
-    const random = Math.random;
-    t.teardown(() => { Math.random = random; });
-    Math.random = () => 0;
     const weighted = (await place([0, 0, 0], "weighted"))!;
     const selected = modelOf(weighted.object).originalModel;
-    Math.random = () => 0.99;
     await place([1, 0, 0]);
     t.is(indexCount(weighted.object), 30);
     t.is(modelOf(weighted.object).originalModel, selected);
@@ -351,15 +384,13 @@ test.serial("visibility changes preserve the originally selected weighted model"
 for (const sectionMeshing of [false, true]) {
     test.serial(`hidden blocks retain their data and reveal neighboring faces across chunk borders (sectionMeshing=${sectionMeshing})`, async t => {
         const { world, scene, states, addModel, place } = fixture(t, { sectionMeshing });
-        addModel("unculled", { cullable: [] });
-        states.set("test:weighted", { variants: { "": [{ model: "test:block/cube" }, { model: "test:block/unculled" }] } });
-        const random = Math.random;
-        t.teardown(() => { Math.random = random; });
-        Math.random = () => 0;
+        addModel("alternative");
+        states.set("test:weighted", { variants: { "": [{ model: "test:block/cube" }, { model: "test:block/alternative" }] } });
         const value = { type: "test:weighted", properties: { axis: "x" }, nbt: { items: [1] } };
         const left = (await world.setBlockAt([-17, -1, -1], value))!;
         const right = (await place([-16, -1, -1]))!;
         const object = left.object, model = object?.["_models"][0];
+        const template = sectionMeshing ? templateOf(world, [-17, -1, -1]) : undefined;
         const count = (x: number) => {
             if (!sectionMeshing) {
                 const block = world.getBlockAt(x, -1, -1)?.object;
@@ -369,7 +400,6 @@ for (const sectionMeshing of [false, true]) {
             return section?.children.reduce((sum, child) => sum + (child as Mesh).geometry.getIndex()!.count, 0) ?? 0;
         };
         t.deepEqual([count(-17), count(-16)], [30, 30]);
-        Math.random = () => 0.99;
         scene.dirty = false;
         await world.setBlockVisibleAt([-17, -1, -1], false);
         t.true(scene.dirty);
@@ -380,6 +410,7 @@ for (const sectionMeshing of [false, true]) {
         await world.setBlockVisibleAt(new Vector3(-17, -1, -1), true);
         t.deepEqual([count(-17), count(-16)], [30, 30]);
         t.is(left.object?.["_models"][0], model);
+        if (sectionMeshing) t.is(templateOf(world, [-17, -1, -1]), template);
         t.is(world.getBlockAt(-16, -1, -1), right);
 
         await world.setBlockVisibleAt(-17, -1, -1, false);
@@ -571,13 +602,11 @@ test.serial("standalone edits finish culling while another bulk placement is wai
 
 test.serial("section meshes restore border faces without changing block snapshots or weighted selections", async t => {
     const { world, scene, states, place, addModel } = fixture(t, { sectionMeshing: true });
-    addModel("unculled", { cullable: [] });
-    states.set("test:weighted", { variants: { "": [{ model: "test:block/cube" }, { model: "test:block/unculled" }] } });
-    const random = Math.random;
-    t.teardown(() => { Math.random = random; });
-    Math.random = () => 0;
+    addModel("alternative");
+    states.set("test:weighted", { variants: { "": [{ model: "test:block/cube" }, { model: "test:block/alternative" }] } });
     const value = { type: "test:weighted", properties: { axis: "x" }, nbt: { items: [1] } };
     const left = (await world.setBlockAt([-17, -1, -1], value))!;
+    const template = templateOf(world, [-17, -1, -1]);
     t.is(left.object, undefined);
     left.block.properties!.axis = "z";
     left.block.nbt.items[0] = 9;
@@ -586,19 +615,19 @@ test.serial("section meshes restore border faces without changing block snapshot
         const group = scene.children.find(child => child instanceof SectionMesh && child.position.x === x) as SectionMesh | undefined;
         return group?.children.reduce((sum, child) => sum + (child as Mesh).geometry.getIndex()!.count, 0) ?? 0;
     };
-    Math.random = () => 0.99;
     const right = (await place([-16, -1, -1]))!;
     t.is(right.object, undefined);
     t.deepEqual([count(-512), count(-256)], [30, 30]);
     t.is(scene.stats.instanceCount, 0);
     await world.getChunkAt(new Vector3(-16, -1, -1))!.clear();
     t.deepEqual([count(-512), count(-256)], [36, 0]);
+    t.is(templateOf(world, [-17, -1, -1]), template);
     t.is(world.getBlockAt(-17, -1, -1), left);
     await world.clear();
     t.is(scene.children.length, 0);
 });
 
-test.serial("section meshing retains render objects for partial, transparent, animated and multipart blocks", async t => {
+test.serial("section meshing merges partial, transparent and multipart blocks while animated blocks retain render objects", async t => {
     const { world, scene, states, place, addModel } = fixture(t, { sectionMeshing: true });
     addModel("partial", { height: 8 });
     addModel("transparent", { transparent: true });
@@ -608,14 +637,130 @@ test.serial("section meshing retains render objects for partial, transparent, an
     ] });
     for (const [index, type] of ["partial", "transparent", "animated", "multipart"].entries()) {
         const info = (await place([index * 2, 0, 0], type))!;
-        t.true(info.object?.isBlockObject);
+        if (type === "animated") t.true(info.object?.isBlockObject);
+        else t.is(info.object, undefined);
     }
     t.is((await place([8, 0, 0]))!.object, undefined);
-    t.is(scene.stats.instanceCount, 5);
+    t.is(scene.stats.instanceCount, 1);
     t.is(scene.children.filter(child => child instanceof SectionMesh).length, 1);
-    t.is((await place([0, 0, 0]))!.object, undefined);
-    t.is(scene.stats.instanceCount, 4);
-    t.is(world.getBlockAt(2, 0, 0)!.object?.isBlockObject, true);
+    t.is((await place([4, 0, 0]))!.object, undefined);
+    t.is(scene.stats.instanceCount, 0);
+    t.is(world.getBlockAt(2, 0, 0)!.object, undefined);
+});
+
+test.serial("a merged half-height block does not hide its full-cube neighbor's shared face", async t => {
+    const { scene, place, addModel } = fixture(t, { sectionMeshing: true });
+    addModel("partial", { height: 8 });
+    t.is((await place([15, 0, 0], "partial"))!.object, undefined);
+    t.is((await place([16, 0, 0]))!.object, undefined);
+    const sections = scene.children.filter(child => child instanceof SectionMesh).sort((a, b) => a.position.x - b.position.x);
+    t.deepEqual(sections.map(section => section.children.reduce((sum, child) =>
+        sum + (child as Mesh).geometry.getIndex()!.count, 0)), [30, 36]);
+});
+
+test.serial("multipart section blocks keep every part at one cell and cull each part's quads", async t => {
+    const { world, scene, states, place, addModel } = fixture(t, { sectionMeshing: true });
+    addModel("partial", { height: 8 });
+    states.set("test:multipart", { multipart: [
+        { apply: { model: "test:block/cube" } }, { apply: { model: "test:block/partial" } }
+    ] });
+    t.is((await place([0, 0, 0], "multipart"))!.object, undefined);
+    const entries = world.getChunkAt(new Vector3())!["sectionBlocks"].get(0)!;
+    t.deepEqual(entries.map(entry => entry.index), [0, 0]);
+    t.deepEqual(entries.map(entry => entry.template.atlas.model.key!.path), ["cube", "partial"]);
+    const section = scene.children.find(child => child instanceof SectionMesh)!;
+    const geometry = (section.children[0] as Mesh).geometry;
+    t.is(geometry.getIndex()!.count, 72);
+    const positions = geometry.getAttribute("position");
+    t.true(Array.from({ length: positions.count }, (_, i) => positions.getY(i)).includes(0));
+    t.deepEqual(geometry.boundingBox!.max.toArray(), [8, 8, 8]);
+    await place([1, 0, 0]);
+    t.deepEqual(entries.map(entry => entry.cullMask), [1, 1]);
+    const rebuilt = scene.children.find(child => child instanceof SectionMesh)!;
+    t.is((rebuilt.children[0] as Mesh).geometry.getIndex()!.count, 90);
+});
+
+test.serial("section models omit absent faces from every element", async t => {
+    const { scene, place, addModel } = fixture(t, { sectionMeshing: true });
+    const model = addModel("open", { height: 8 });
+    const lower = model.elements![0];
+    delete lower.faces.east;
+    model.elements!.push({ ...lower, from: [0, 8, 0], to: [16, 16, 16] });
+    t.is((await place([0, 0, 0], "open"))!.object, undefined);
+    const section = scene.children.find(child => child instanceof SectionMesh)!;
+    const geometry = (section.children[0] as Mesh).geometry;
+    t.is(geometry.getIndex()!.count, 60);
+    t.is(geometry.getAttribute("position").count, 40);
+    t.false(Array.from(geometry.getIndex()!.array).some(vertex => geometry.getAttribute("normal").getX(vertex) === 1));
+    t.deepEqual(geometry.boundingBox!.min.toArray(), [-8, -8, -8]);
+    t.deepEqual(geometry.boundingBox!.max.toArray(), [8, 8, 8]);
+});
+
+for (const transform of ["rotated cullface", "uvlock", "element rotation"]) {
+    test.serial(`section templates preserve ${transform} from individual block geometry`, async t => {
+        const { world, scene, states, addModel, place } = fixture(t, { sectionMeshing: true });
+        const individual = new MineRenderWorld(scene);
+        t.teardown(() => individual.clear());
+        const model = addModel("transformed", { height: 8,
+            cullable: transform === "rotated cullface" ? [CubeFace.UP] : undefined });
+        if (transform === "element rotation") {
+            model.elements![0].rotation = { origin: [4, 6, 10], axis: "z", angle: 22.5 };
+        }
+        states.set("test:transformed", { variants: { "": {
+            model: "test:block/transformed", x: transform === "rotated cullface" ? 180 : 90,
+            y: transform === "rotated cullface" ? 0 : 90, uvlock: transform === "uvlock"
+        } } });
+        await place([0, 0, 0], "transformed");
+        const block = (await individual.setBlockAt([0, 0, 0], { type: "test:transformed" }))!.object;
+        const entry = world.getChunkAt(new Vector3())!["sectionBlocks"].get(0)![0];
+        const template = entry.template;
+        const expected = geometryOf(block).clone();
+        t.teardown(() => expected.dispose());
+        expected.applyMatrix4(block["getModelMatrix"](block["_models"][0]).setPosition(0, 0, 0));
+        const values = (geometry: typeof expected, attribute: string) =>
+            Array.from(geometry.getAttribute(attribute).array, value => Math.abs(value) < 1e-6 ? 0 : +value.toFixed(5));
+        for (const attribute of ["position", "normal", "uv", "uvBounds"]) {
+            t.deepEqual(values(template.geometry, attribute), values(expected, attribute), attribute);
+        }
+        t.false(template.occludes);
+        if (transform === "uvlock") {
+            t.notDeepEqual(Array.from(template.geometry.getAttribute("uv").array), model.elements![0].mappedUv);
+        }
+        const section = SectionMesh.build([{ index: 0, template, cullMask: 0 }]);
+        t.teardown(() => section.dispose());
+        const geometry = (section.children[0] as Mesh).geometry;
+        t.deepEqual(values(geometry, "position"), values(expected, "position"));
+        t.deepEqual(values(geometry, "uv"), values(expected, "uv"));
+        if (transform === "rotated cullface") {
+            t.deepEqual(Array.from(template.cullFaces), [0, 0, 8, 0, 0, 0]);
+            for (const y of [1, -1]) {
+                await place([0, y, 0]);
+                await individual.setBlockAt([0, y, 0], { type: "test:cube" });
+                const culled = SectionMesh.build([entry]);
+                t.teardown(() => culled.dispose());
+                const geometry = (culled.children[0] as Mesh).geometry;
+                t.is(entry.cullMask, y === 1 ? 4 : 12);
+                t.is(geometry.getIndex()!.count, y === 1 ? 36 : 30);
+                t.is(geometry.getIndex()!.count, indexCount(block));
+                if (y === -1) {
+                    t.true(Array.from(geometry.getIndex()!.array).every(vertex =>
+                        geometry.getAttribute("normal").getY(vertex) > -0.999));
+                }
+            }
+        }
+    });
+}
+
+test.serial("section meshing puts translucent blocks in a separate transparent mesh", async t => {
+    const { scene, place, addModel } = fixture(t, { sectionMeshing: true });
+    Materials.createShadedCanvasMaterial = (_canvas, transparent) => new MeshBasicMaterial({ transparent });
+    addModel("translucent", { translucent: true });
+    t.is((await place([0, 0, 0], "translucent"))!.object, undefined);
+    await place([2, 0, 0]);
+    const section = scene.children.find(child => child instanceof SectionMesh)!;
+    const meshes = section.children as Mesh[];
+    t.deepEqual(meshes.map(mesh => (mesh.material as MeshBasicMaterial).transparent), [false, true]);
+    t.deepEqual(meshes.map(mesh => mesh.geometry.getIndex()!.count), [36, 36]);
 });
 
 for (const sectionMeshing of [false, true]) {
@@ -713,8 +858,8 @@ test.serial("implicit water retains aquatic plants, hides bubble-column models a
     }
     for (const [index, type] of ["test:kelp", "minecraft:water_cauldron"].entries()) {
         states.set(type, { key: AssetKey.parse("blockstates", type), variants: { "": { model: "test:block/plant" } } });
-        const block = (await world.setBlockAt([40 + index * 4, 0, 0], { type }))!.object!;
-        t.deepEqual([block.fluidKind, block["_models"].length], [undefined, 1]);
+        const block = (await world.setBlockAt([40 + index * 4, 0, 0], { type }))!;
+        t.is(block.object, undefined);
     }
     await world.clear();
     t.is(scene.stats.instanceCount, 0);

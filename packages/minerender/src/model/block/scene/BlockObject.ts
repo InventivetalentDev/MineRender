@@ -18,6 +18,7 @@ import { FluidKind, FluidSampler, getBlockFluidState, getFluidKind } from "../..
 import { BlockEntities, ResolvedBlockEntity } from "../../../assets/BlockEntities";
 import { Entities } from "../../../assets/Entities";
 import type { EntityObject } from "../../../entity/scene/EntityObject";
+import type { TripleArray } from "../../Model";
 
 /** Controls the model parts selected by a blockstate. Create it through {@link MineRenderScene.addBlock}. */
 export class BlockObject extends SceneObject {
@@ -28,6 +29,7 @@ export class BlockObject extends SceneObject {
         applyDefaultState: true
     });
     public readonly options: BlockObjectOptions;
+    private readonly variantPosition?: TripleArray;
 
     private _previousState: BlockStateProperties = {};
     private _state: BlockStateProperties = {};
@@ -50,6 +52,7 @@ export class BlockObject extends SceneObject {
     constructor(readonly blockState: BlockState, options?: Partial<BlockObjectOptions>) {
         super(options);
         this.options = merge({}, BlockObject.DEFAULT_OPTIONS, options ?? {});
+        this.variantPosition = options?.variantPosition ? [...options.variantPosition] : undefined;
         //TODO
     }
 
@@ -347,7 +350,7 @@ export class BlockObject extends SceneObject {
     }
 
     protected getSingleVariant(variants: BlockStateVariant | BlockStateVariant[]): BlockStateVariant {
-        return BlockStateResolver.choose(variants);
+        return BlockStateResolver.choose(variants, this.variantPosition);
     }
 
     // @deprecated
@@ -523,6 +526,8 @@ export interface BlockObjectOptions extends ModelObjectOptions {
     applyDefaultState: boolean;
     /** Properties applied before model creation, overriding defaults when applyDefaultState is enabled. */
     initialState?: BlockStateProperties;
+    /** Absolute block coordinates for repeatable variants, copied at construction. Omit for random previews. */
+    variantPosition?: TripleArray;
 }
 
 export function isBlockObject(obj: any): obj is BlockObject {
