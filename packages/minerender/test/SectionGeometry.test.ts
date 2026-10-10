@@ -2,18 +2,19 @@ import test from "ava";
 import { BoxGeometry, Matrix4 } from "three";
 import { buildSectionGeometry, SectionGeometryInput, SectionTemplateData, sectionGeometryTransferables } from "../src/world/SectionGeometry";
 
-function template(atlas: number, rotated = false): SectionTemplateData {
+function template(atlas: number, rotated = false, quads = 6): SectionTemplateData {
     const geometry = new BoxGeometry(16, 16, 16);
     if (rotated) geometry.applyMatrix4(new Matrix4().makeRotationY(Math.PI / 2));
     const result = {
-        positions: new Float32Array(geometry.getAttribute("position").array),
-        normals: new Float32Array(geometry.getAttribute("normal").array),
-        uvs: new Float32Array(geometry.getAttribute("uv").array),
-        uvBounds: new Float32Array(Array.from({ length: 24 }, () => rotated ? [0.25, 0.25, 0.75, 0.75] : [0, 0, 1, 1]).flat()),
-        colors: new Float32Array(Array.from({ length: 24 }, () => rotated ? [0.25, 0.5, 0.75] : [1, 1, 1]).flat()),
-        indices: new Uint16Array(geometry.getIndex()!.array),
-        cullFaces: new Uint8Array([1, 2, 4, 8, 16, 32]),
-        atlas
+        quads,
+        positions: new Float32Array(geometry.getAttribute("position").array.slice(0, quads * 12)),
+        normals: new Float32Array(geometry.getAttribute("normal").array.slice(0, quads * 12)),
+        uvs: new Float32Array(geometry.getAttribute("uv").array.slice(0, quads * 8)),
+        uvBounds: new Float32Array(Array.from({ length: quads * 4 }, () => rotated ? [0.25, 0.25, 0.75, 0.75] : [0, 0, 1, 1]).flat()),
+        colors: new Float32Array(Array.from({ length: quads * 4 }, () => rotated ? [0.25, 0.5, 0.75] : [1, 1, 1]).flat()),
+        indices: new Uint16Array(Array.from(geometry.getIndex()!.array).slice(0, quads * 6).map((index, offset) => index - Math.floor(offset / 6) * 4)),
+        cullFaces: new Uint8Array([1, 2, 4, 8, 16, 32].slice(0, quads)),
+        atlas, layer: 0
     };
     geometry.dispose();
     return result;
@@ -71,6 +72,37 @@ test("section geometry exposes every output array buffer for transfer", t => {
     let index = 0;
     for (const page of pages) {
         for (const array of [page.positions, page.normals, page.uvs, page.uvBounds, page.colors, page.indices]) t.is(buffers[index++], array.buffer);
+    }
+});
+
+test("section geometry keeps both untagged quads under a full cull mask", t => {
+    const source = input();
+    source.count = 1;
+    source.templateData = [template(0, false, 2)];
+    source.templateData[0].cullFaces.fill(0);
+    source.cullMasks.fill(63);
+    const pages = buildSectionGeometry(source);
+    t.is(pages.length, 1);
+    t.is(pages[0].positions.length, 24);
+    t.deepEqual(Array.from(pages[0].indices), [0, 2, 1, 2, 3, 1, 4, 6, 5, 6, 7, 5]);
+});
+
+test("section geometry packs solid pages before translucent pages", t => {
+    const source = input();
+    source.templateData[0].layer = 1;
+    const pages = buildSectionGeometry(source);
+    t.deepEqual(pages.map(page => page.layer), [0, 1]);
+    t.deepEqual(pages.map(page => page.placements), [[{ atlas: 1, x: 0, y: 0 }], [{ atlas: 0, x: 0, y: 0 }]]);
+    t.deepEqual(pages.map(page => page.indices.length), [36, 30]);
+});
+
+test("section geometry validates every template array against its quad count", t => {
+    const source = input();
+    const data = source.templateData[0];
+    for (const field of ["positions", "normals", "uvs", "uvBounds", "colors", "indices", "cullFaces"] as const) {
+        t.throws(() => buildSectionGeometry({ ...source, templateData: [{ ...data, [field]: data[field].slice(1) }, source.templateData[1]] }), {
+            instanceOf: RangeError, message: "Section template arrays do not match its quad count"
+        });
     }
 });
 

@@ -17,7 +17,8 @@ export class TextureAtlas implements Disposable {
         readonly positions: { [texture: string]: DoubleArray },
         readonly hasAnimation: boolean,
         readonly animatorFunctions: { [p: string]: AnimatorFunction },
-        readonly hasTransparency: boolean
+        readonly hasTransparency: boolean,
+        readonly hasTranslucency: boolean = false
     ) {
     }
 
