@@ -29,6 +29,8 @@ export interface ItemModelContext {
 /** Loads and caches Java block/item models, including inherited geometry and textures. */
 export class Models {
 
+    // Bump when the shape of cached item models changes.
+    private static readonly ITEM_CACHE_VERSION = "item-v6";
     private static _persistentCache: PersistentCache | undefined;
 
     // opened lazily: touching the store at import time would hit IndexedDB/disk just for loading
@@ -59,7 +61,7 @@ export class Models {
         const itemId = `${key.namespace}:${key.path}`;
         const itemKey = new AssetKey(key.namespace, key.path, "items", undefined, key.rootType, ".json", key.root);
         const cacheKey = itemKey.serialize() + this.contextKey(preview);
-        const model = await this.PERSISTENT_CACHE.getOrLoad(`item-v6:${AssetLoader.persistentKey(cacheKey)}`, async () => {
+        const model = await this.PERSISTENT_CACHE.getOrLoad(`${this.ITEM_CACHE_VERSION}:${AssetLoader.persistentKey(cacheKey)}`, async () => {
             const result = await AssetLoader.getFirst<Model & { model?: ItemModelNode }>([itemKey, key], AssetParser.JSON);
             if (!result) return undefined;
             if (result.key.assetType !== "items") return { ...result.asset, key, itemId, components: preview.components } as ItemModel;
@@ -155,7 +157,7 @@ export class Models {
 
     private static contextKey(context: Required<ItemModelContext>): string {
         const itemReferences = Object.fromEntries(Object.entries(context.itemReferences).map(([id, key]) => [id, key.serialize()]));
-        return `|item-v6:${JSON.stringify(this.snapshotJson({ ...context, itemReferences }))}`;
+        return `|${this.ITEM_CACHE_VERSION}:${JSON.stringify(this.snapshotJson({ ...context, itemReferences }))}`;
     }
 
     private static snapshotJson(value: unknown, ancestors = new Set<object>()): unknown {

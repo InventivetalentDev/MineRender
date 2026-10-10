@@ -148,7 +148,7 @@ test.serial("composite item identities and referenced defaults survive persisten
     t.is(source.calls.length, calls);
 
     const key = itemKey("carrier");
-    const oldContext = Models["contextKey"](Models["snapshotContext"](key, context)).replace("|item-v6:", "|item-v5:");
+    const oldContext = Models["contextKey"](Models["snapshotContext"](key, context)).replace(`|${Models["ITEM_CACHE_VERSION"]}:`, "|item-v5:");
     const oldKey = new AssetKey(key.namespace, key.path, "items").serialize() + oldContext;
     await Models["_persistentCache"]!.put(`item-v5:${AssetLoader.persistentKey(oldKey)}`, {
         key: itemKey("frame"), components: {}, textures: { layer0: "stale" }
@@ -239,7 +239,7 @@ test.serial("composite children and selectors see item defaults while referenced
     const carrier = itemKey("carrier");
     const context = { itemReferences: { "bundle/selected_item": itemKey("enchanted_book") } };
     const oldKey = new AssetKey(carrier.namespace, carrier.path, "items").serialize()
-        + Models["contextKey"](Models["snapshotContext"](carrier, context)).replace("|item-v6:", "|item-v4:");
+        + Models["contextKey"](Models["snapshotContext"](carrier, context)).replace(`|${Models["ITEM_CACHE_VERSION"]}:`, "|item-v4:");
     await Models["_persistentCache"]!.put(`item-v4:${AssetLoader.persistentKey(oldKey)}`, {
         key: itemKey("plain"), components: {}, textures: { layer0: "stale" }
     });
@@ -379,7 +379,7 @@ test.serial("item tint components survive snapshots, composites, legacy parents,
     const components = { custom_model_data: { colors: [0xff0000, 0x0000ff] }, dyed_color: 0x00ff00 };
     const context = { components, itemReferences: { "bundle/selected_item": itemKey("selected") } };
     const previousKey = new AssetKey(key.namespace, key.path, "items").serialize()
-        + Models["contextKey"](Models["snapshotContext"](key, context)).replace("|item-v6:", "|item-v3:");
+        + Models["contextKey"](Models["snapshotContext"](key, context)).replace(`|${Models["ITEM_CACHE_VERSION"]}:`, "|item-v3:");
     await Models["_persistentCache"]!.put(`item-v3:${AssetLoader.persistentKey(previousKey)}`, { key, textures: { layer0: "stale" } });
     const pending = Models.getMerged(key, context);
     components.custom_model_data.colors[0] = 0xffff00;
