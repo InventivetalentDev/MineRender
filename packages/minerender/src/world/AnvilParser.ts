@@ -249,11 +249,9 @@ export class AnvilParser {
                 if (palette.length) {
                     const states = palette.map(entry => this.block(entry));
                     const indices = this.unpack(modern ? modern.data : section.BlockStates, states.length, !!modern, dataVersion);
-                    for (let index = 0; index < 4096; index++) {
-                        const state = states[indices[index]];
-                        if (!state) throw new MineRenderError(`Anvil palette index ${indices[index]} is out of range`);
-                        if (!ChunkData.isAir(state)) data.set(index, state);
-                    }
+                    const invalid = indices.find(index => index >= states.length);
+                    if (invalid !== undefined) throw new MineRenderError(`Anvil palette index ${invalid} is out of range`);
+                    data.fill(states, indices);
                 } else if (modern || section.Palette || section.BlockStates) {
                     throw new MineRenderError("Anvil section has block states without a palette");
                 }

@@ -74,12 +74,17 @@ export class SectionModels {
     /** Returns templates for the matched parts, or `undefined` when the block needs an individual render object. */
     public async get(blockState: BlockState, properties: BlockStateProperties = {}, position?: Readonly<TripleArray>): Promise<SectionMeshTemplate[] | undefined> {
         const variantPosition: TripleArray | undefined = position ? [...position] : undefined;
+        return (await this.prepareState(blockState, properties))?.pick(variantPosition);
+    }
+
+    /** Resolves section templates once, with a synchronous weighted choice for each cell. */
+    public async prepareState(blockState: BlockState, properties: BlockStateProperties = {}): Promise<{ pick(position?: Readonly<TripleArray>): SectionMeshTemplate[] } | undefined> {
         let states = this.states.get(blockState);
         if (!states) this.states.set(blockState, states = new Map());
         const key = JSON.stringify(Object.entries(properties).sort(([a], [b]) => a.localeCompare(b)));
         const prepared = await cached(states, key, () => this.prepare(blockState, properties));
         if (!prepared) return undefined;
-        return prepared.groups.map(group => prepared.templates.get(BlockStateResolver.choose(group, variantPosition))!);
+        return { pick: (position?: Readonly<TripleArray>) => prepared.groups.map(group => prepared.templates.get(BlockStateResolver.choose(group, position))!) };
     }
 
     /** Returns the shared still/flow atlas used by per-block fluid objects. */

@@ -466,6 +466,17 @@ test.serial("weighted models and rotations agree across rendering modes and reve
     await individual.placeMultiBlock({ size: [32, 48, 80], blocks });
     t.deepEqual(positions.map(sectionSelection), selected);
     t.deepEqual(positions.map(individualSelection), selected);
+    for (const [index, position] of positions.entries()) {
+        const [x, y, z] = position.map(axis => Math.floor(axis / 16));
+        const data = new ChunkData();
+        data.set((position[1] - y * 16) * 256 + (position[2] - z * 16) * 16 + position[0] - x * 16,
+            { type: "test:weighted" });
+        const column = { x, z, sections: [{ y, data }] };
+        await world.placeChunk(column);
+        await individual.placeChunk(column);
+        t.deepEqual(sectionSelection(position), selected[index]);
+        t.deepEqual(individualSelection(position), selected[index]);
+    }
 });
 
 test.serial("visibility changes preserve the originally selected weighted model", async t => {
@@ -607,6 +618,80 @@ test.serial("chunk column placement culls across sections and empty replacement 
     t.is(scene.stats.instanceCount, 1);
 });
 
+test.serial("parsed columns match single edits for section geometry and per-block cull masks", async t => {
+    const { world, scene, states, place } = fixture(t, { sectionMeshing: true });
+    states.set("test:entity", { key: AssetKey.parse("blockstates", "test:entity"),
+        variants: { "": { model: "test:block/cube" } } });
+    BlockEntities.getIndex = async () => ({ "test:entity": { parts: [] } });
+    const blocks = [
+        { position: [14, 15, 0] as TripleArray, type: "test:entity" },
+        { position: [15, 15, 0] as TripleArray, type: "test:cube" },
+        { position: [15, 16, 0] as TripleArray, type: "test:cube" }
+    ];
+    const counts = () => scene.children.filter(child => child instanceof SectionMesh)
+        .sort((a, b) => a.position.x - b.position.x || a.position.y - b.position.y)
+        .map(section => section.children.reduce((sum, child) => sum + (child as Mesh).geometry.getIndex()!.count, 0));
+    await place([16, 15, 0]);
+    for (const { position, type } of blocks) await world.setBlockAt(position, { type });
+    const expected = counts(), mask = world.getBlockAt(14, 15, 0)!.object!["_cullMask"];
+    t.is(mask, 1);
+    await world.clear();
+    await place([16, 15, 0]);
+    const lower = new ChunkData(), upper = new ChunkData();
+    for (const { position: [x, y, z], type } of blocks) {
+        (y < 16 ? lower : upper).set((y % 16) * 256 + z * 16 + x, { type });
+    }
+    await world.placeChunk({ x: 0, z: 0, sections: [{ y: 0, data: lower }, { y: 1, data: upper }] });
+    t.deepEqual(counts(), expected);
+    t.is(world.getBlockAt(14, 15, 0)!.object!["_cullMask"], mask);
+});
+
+for (const sectionMeshing of [false, true]) test.serial(`parsed columns refresh adjacent faces and diagonal water heights on load and unload (sectionMeshing=${sectionMeshing})`, async t => {
+    const { world, scene, place } = fixture(t, { sectionMeshing });
+    const water = (await world.setBlockAt([15, 0, 15], { type: "water", properties: { level: "4" } }))!;
+    await world.setBlockAt([15, 0, 16], { type: "water", properties: { level: "4" } });
+    const cube = (await place([20, 0, 15]))!;
+    const positions = () => sectionMeshing ? assertFluidPositions(t, world, scene, [[15, 0, 15]])
+        : Array.from(geometryOf(water.object!).getAttribute("position").array);
+    const count = () => {
+        if (cube.object) return indexCount(cube.object);
+        const section = scene.children.find(child => child instanceof SectionMesh && child.position.x === 256 && child.position.z === 0)!;
+        return section.children.reduce((sum, child) => sum + (child as Mesh).geometry.getIndex()!.count, 0);
+    };
+    const isolated = positions();
+    t.is(count(), 36);
+    const data = new ChunkData();
+    data.set(0, { type: "water" });
+    data.set(4, { type: "test:cube" });
+    await world.placeChunk({ x: 1, z: 1, sections: [{ y: 0, data }] });
+    const joined = positions();
+    t.true(joined.some((value, index) => index % 3 === 1 && value > isolated[index]));
+    t.is(count(), 30);
+    await world.unloadChunkColumn(1, 1);
+    t.deepEqual(positions(), isolated);
+    t.is(count(), 36);
+    t.is(world.getBlockAt(15, 0, 15), water);
+    t.is(world.getBlockAt(20, 0, 15), cube);
+});
+
+test.serial("section marking preserves pending single-edit indices in neighboring and distant sections", async t => {
+    const { world, place } = fixture(t, { sectionMeshing: true });
+    for (const position of [[0, 0, 0], [20, 4, 4], [40, 4, 4]] as TripleArray[]) await place(position);
+    const changed = world.getChunkAt(new Vector3())!;
+    const neighbor = world.getChunkAt(new Vector3(20, 4, 4))!, distant = world.getChunkAt(new Vector3(40, 4, 4))!;
+    const neighborIndices = new Set([4 * 256 + 4 * 16 + 4]), distantIndices = new Set([4 * 256 + 4 * 16 + 8]);
+    world["pendingCulling"].set(neighbor, neighborIndices);
+    world["pendingCulling"].set(distant, distantIndices);
+    world["markSectionChanged"](changed);
+    t.is(world["pendingCulling"].get(changed), "all");
+    t.is(world["pendingCulling"].get(neighbor), neighborIndices);
+    t.true(neighborIndices.has(4 * 256 + 4 * 16 + 4));
+    t.is(neighborIndices.size, 257);
+    t.is(world["pendingCulling"].get(distant), distantIndices);
+    t.deepEqual([...distantIndices], [4 * 256 + 4 * 16 + 8]);
+    await world["updateCulling"]([]);
+});
+
 for (const sectionMeshing of [false, true]) {
     test.serial(`unloading a signed chunk column releases every section and allows reloading (sectionMeshing=${sectionMeshing})`, async t => {
         const { world, scene, place } = fixture(t, { sectionMeshing });
@@ -733,6 +818,38 @@ test.serial("standalone edits finish culling while another bulk placement is wai
     await pending;
     t.is(indexCount(world.getBlockAt(2, 0, 0)!.object), 36);
 });
+
+for (const translucent of [false, true]) {
+    test.serial(`parallel chunk placement keeps delayed non-occluding section meshes visible (translucent=${translucent})`, async t => {
+        const { world, scene, addModel } = fixture(t, { sectionMeshing: true });
+        addModel("delayed", { transparent: true, translucent });
+        addModel("glass", { translucent: true });
+        let release!: () => void, started!: () => void;
+        const gate = new Promise<void>(resolve => { release = resolve; });
+        const loading = new Promise<void>(resolve => { started = resolve; });
+        const get = Models.getMerged;
+        Models.getMerged = async (key, options) => {
+            if (key.path === "delayed") { started(); await gate; }
+            return get(key, options);
+        };
+        t.teardown(() => { release(); });
+        const left = new ChunkData(), right = new ChunkData();
+        left.set(15, { type: "test:delayed" });
+        right.set(0, { type: "test:glass" });
+        const pending = world.placeChunk({ x: 0, z: 0, sections: [{ y: 0, data: left }] });
+        await loading;
+        await world.placeChunk({ x: 1, z: 0, sections: [{ y: 0, data: right }] });
+        release();
+        await pending;
+        const count = (x: number) => {
+            const section = scene.children.find(child => child instanceof SectionMesh && child.position.x === x);
+            return section?.children.reduce((sum, child) => sum + (child as Mesh).geometry.getIndex()!.count, 0) ?? 0;
+        };
+        t.deepEqual([count(0), count(256)], [36, 36]);
+        t.is(world.getBlockAt(15, 0, 0)?.block.type, "test:delayed");
+        t.is(world.getBlockAt(16, 0, 0)?.block.type, "test:glass");
+    });
+}
 
 test.serial("section meshes restore border faces without changing block snapshots or weighted selections", async t => {
     const { world, scene, states, place, addModel } = fixture(t, { sectionMeshing: true });
