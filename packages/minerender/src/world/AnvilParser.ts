@@ -10,6 +10,18 @@ type CompoundValue = Compound["value"];
 type NBTTag = Tags[TagType] | undefined;
 type RegionInput = Uint8Array | ArrayBuffer;
 
+/** Reads `c.<x>.<z>.mcc` at absolute chunk coordinates, or returns `undefined` when the file is missing. */
+export type AnvilExternalChunkReader = (x: number, z: number, signal?: AbortSignal) => Promise<Uint8Array | ArrayBuffer | undefined>;
+
+export interface AnvilParseOptions {
+    /** Region coordinates from `r.<x>.<z>.mca`, required when reading external chunks. */
+    region?: { x: number; z: number };
+    /** Reads external chunk payloads without their region-file header. */
+    readExternalChunk?: AnvilExternalChunkReader;
+    /** Cancels parsing and forwards the signal to external chunk reads. */
+    signal?: AbortSignal;
+}
+
 interface ChunkLocation {
     x: number;
     z: number;
@@ -40,10 +52,13 @@ export class AnvilParser {
     }
 
     /** Decodes all stored chunks. Gzip, zlib, LZ4, and uncompressed payloads are supported. */
-    public static async parse(data: RegionInput): Promise<AnvilRegion> {
+    public static async parse(data: RegionInput, options: AnvilParseOptions = {}): Promise<AnvilRegion> {
+        options.signal?.throwIfAborted();
         const bytes = this.bytes(data);
         const chunks: AnvilChunk[] = [];
-        for (const location of this.locations(bytes)) chunks.push(await this.readChunk(bytes, location));
+        for (const location of this.locations(bytes)) {
+            chunks.push(await this.abortable(this.readChunk(bytes, location, options), options.signal));
+        }
         return { chunks };
     }
 
@@ -53,13 +68,29 @@ export class AnvilParser {
      * @param localZ - Chunk z within the region, from 0 to 31.
      * @returns The chunk with absolute coordinates, or `undefined` if the region has no chunk there.
      */
-    public static async parseChunk(data: RegionInput, localX: number, localZ: number): Promise<AnvilChunk | undefined> {
+    public static async parseChunk(data: RegionInput, localX: number, localZ: number, options: AnvilParseOptions = {}): Promise<AnvilChunk | undefined> {
+        options.signal?.throwIfAborted();
         if (![localX, localZ].every(value => Number.isInteger(value) && value >= 0 && value < 32)) {
             throw new RangeError("Region-local chunk coordinates must be integers from 0 to 31");
         }
         const bytes = this.bytes(data);
         const location = this.locations(bytes).find(({ x, z }) => x === localX && z === localZ);
-        return location ? this.readChunk(bytes, location) : undefined;
+        return location ? this.abortable(this.readChunk(bytes, location, options), options.signal) : undefined;
+    }
+
+    private static async abortable<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
+        if (!signal) return promise;
+        let abort!: () => void;
+        const cancelled = new Promise<never>((_, reject) => {
+            abort = () => reject(signal.reason);
+            signal.addEventListener("abort", abort, { once: true });
+            if (signal.aborted) abort();
+        });
+        try {
+            return await Promise.race([promise, cancelled]);
+        } finally {
+            signal.removeEventListener("abort", abort);
+        }
     }
 
     private static bytes(data: RegionInput): Uint8Array {
@@ -88,13 +119,32 @@ export class AnvilParser {
         return locations;
     }
 
-    private static async readChunk(data: Uint8Array, location: ChunkLocation): Promise<AnvilChunk> {
-        const compression = data[location.offset + 4];
-        if (compression & 128) throw new MineRenderError("External Anvil .mcc chunks are not supported");
+    private static async readChunk(data: Uint8Array, location: ChunkLocation, options: AnvilParseOptions): Promise<AnvilChunk> {
+        options.signal?.throwIfAborted();
+        const format = data[location.offset + 4];
+        const external = (format & 128) !== 0;
+        const compression = format & 127;
         if (compression !== 1 && compression !== 2 && compression !== 3 && compression !== 4) {
             throw new MineRenderError(`Unsupported Anvil compression ${compression}`);
         }
         let payload = data.subarray(location.offset + 5, location.offset + 4 + location.length);
+        let expected: { x: number; z: number } | undefined;
+        if (external) {
+            if (!options.region || !options.readExternalChunk) {
+                throw new MineRenderError("External Anvil .mcc chunks require region coordinates and readExternalChunk");
+            }
+            if (![options.region.x, options.region.z].every(Number.isSafeInteger)) {
+                throw new RangeError("Anvil region coordinates must be safe integers");
+            }
+            expected = { x: options.region.x * 32 + location.x, z: options.region.z * 32 + location.z };
+            if (![expected.x, expected.z].every(Number.isSafeInteger)) {
+                throw new RangeError("External Anvil chunk coordinates must be safe integers");
+            }
+            const externalData = await options.readExternalChunk(expected.x, expected.z, options.signal);
+            options.signal?.throwIfAborted();
+            if (externalData === undefined) throw new MineRenderError(`External Anvil chunk c.${expected.x}.${expected.z}.mcc is missing`);
+            payload = this.bytes(externalData);
+        }
         if (compression === 4) {
             payload = decodeAnvilLz4(payload);
         } else if (compression !== 3) {
@@ -102,7 +152,9 @@ export class AnvilParser {
                 .pipeThrough(new DecompressionStream(compression === 1 ? "gzip" : "deflate"));
             payload = new Uint8Array(await new Response(stream).arrayBuffer());
         }
+        options.signal?.throwIfAborted();
         const nbt = await NBTHelper.fromBuffer(payload, "big");
+        options.signal?.throwIfAborted();
         const root = nbt.value;
         const level = root.Level?.type === "compound" ? root.Level.value : root;
         const dataVersion = root.DataVersion?.type === "int" ? root.DataVersion.value : undefined;
@@ -112,6 +164,9 @@ export class AnvilParser {
         };
         if (((chunk.x % 32) + 32) % 32 !== location.x || ((chunk.z % 32) + 32) % 32 !== location.z) {
             throw new MineRenderError("Anvil chunk coordinates do not match its region location");
+        }
+        if (expected && (chunk.x !== expected.x || chunk.z !== expected.z)) {
+            throw new MineRenderError(`Anvil chunk coordinates do not match external file c.${expected.x}.${expected.z}.mcc`);
         }
         for (const section of this.compounds(level.sections ?? level.Sections, "sections")) {
             const y = this.integer(section.Y, "section Y");

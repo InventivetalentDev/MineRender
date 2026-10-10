@@ -66,6 +66,13 @@ const source = new AnvilWorldSource(async (x, z, signal) => {
     if (response.status === 404) return undefined;
     if (!response.ok) throw new Error(`Region request failed: ${response.status}`);
     return response.arrayBuffer();
+}, {
+    readExternalChunk: async (x, z, signal) => {
+        const response = await fetch(`/world/region/c.${x}.${z}.mcc`, { signal });
+        if (response.status === 404) return undefined;
+        if (!response.ok) throw new Error(`External chunk request failed: ${response.status}`);
+        return response.arrayBuffer();
+    }
 });
 const world = new MineRenderWorld(renderer.scene, { sectionMeshing: true });
 const stream = new WorldStreamer(world, source, { loadRadius: 1, unloadRadius: 2 });
@@ -76,11 +83,13 @@ Call `updatePosition` after the camera or view center moves. It accepts scene un
 
 The streamer aborts obsolete reads and active reads during disposal. Source callbacks must forward the optional signal to cancellable I/O to stop that work.
 
+`readExternalChunk` handles oversized chunks stored beside their region file. Its coordinates are absolute chunk coordinates, and it reads from the same dimension as the region reader. The source caches region files within its configured limits; external payloads are read on demand without retaining them. A missing external file is a chunk error and can be retried.
+
 Source errors appear in `failedChunks` while other columns continue loading. Call `await stream.retryFailedChunks()` to retry them. Placement or unloading failures reject the update.
 
 Await `stream.dispose()` before editing or clearing the world; it unloads its columns and leaves the world and source caller-owned.
 
-Java 1.13+ paletted chunks support gzip, zlib, and uncompressed payloads; pre-1.13 numeric chunks, LZ4, external `.mcc` payloads, and DataVersion migration remain unsupported.
+Java 1.13+ paletted chunks support gzip, zlib, and uncompressed payloads, including external `.mcc` files; pre-1.13 numeric chunks, LZ4, and DataVersion migration remain unsupported.
 
 ## Ownership and cleanup
 
