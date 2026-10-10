@@ -47,7 +47,7 @@ test("different native renders reuse downloaded blockstate, model, and texture a
         data: new Uint8Array([192, 32, 16, 255]) })).toString("base64");
     const model = { textures: { all: "minecraft:block/stone" }, elements: [{ from: [0, 0, 0], to: [16, 16, 16],
         faces: Object.fromEntries(["east", "west", "up", "down", "south", "north"].map(face => [face, { texture: "#all" }])) }] };
-    const dataFiles = { blockStates: "block-states", blockTints: "block-tints", fluids: "fluids" };
+    const dataFiles = { blockStates: "block-states", fluids: "fluids" };
     const renderData = Object.fromEntries(Object.values(dataFiles).map(file => [`${file}.json`, {}]));
     renderData["manifest.json"] = {
         schemaVersion: 1, minecraftVersion: "1.21.11", dataVersion: 4671,
