@@ -420,6 +420,7 @@ export class UVMapper {
             const positions: { [texture: string]: DoubleArray; } = {};
 
             let hasTransparency = false;
+            let hasTranslucency = false;
 
             let hasAnimation = false;
             const animatorFunctions: { [texture: string]: AnimatorFunction; } = {};
@@ -446,6 +447,9 @@ export class UVMapper {
 
                     if (texture.hasTransparency) {
                         hasTransparency = true;
+                    }
+                    if (texture.hasTranslucency) {
+                        hasTranslucency = true;
                     }
 
                     if (sequence && sequence.some(frame => frame.index !== sequence[0].index)) {
@@ -580,7 +584,8 @@ export class UVMapper {
                 positions,
                 hasAnimation,
                 animatorFunctions,
-                hasTransparency
+                hasTransparency,
+                hasTranslucency
             );
         } else {
             console.warn(p, "Model does not have any textures", model);

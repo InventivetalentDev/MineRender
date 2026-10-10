@@ -2,6 +2,7 @@ import test, { type ExecutionContext } from "ava";
 import { Box3, MeshBasicMaterial, ShaderMaterial, Vector3 } from "three";
 import type { Mesh } from "three";
 import { AssetKey } from "../src/assets/AssetKey";
+import { Fonts } from "../src/assets/Fonts";
 import { Entities } from "../src/assets/Entities";
 import { Models } from "../src/assets/Models";
 import { ModelTextures } from "../src/assets/ModelTextures";
@@ -131,7 +132,8 @@ test.serial("composite GUI layers retain child order and bounds and dispose each
     sharedEntityMaterial.map!.addEventListener("dispose", () => sharedDisposals++);
     const gui = await scene.addGui([
         { name: "background", texture: "test:gui/background", position: [10, 20], size: [32, 16] },
-        { name: "composite", item: "test:item/composite", position: [10, 20], size: [32, 16], tints: { 0: 0x00ff00 } },
+        { name: "composite", item: "test:item/composite", position: [10, 20], size: [32, 16], tints: { 0: 0x00ff00 },
+            context: { components: { damage: 25, max_damage: 100 } } },
         { name: "overlay", texture: "test:gui/overlay", position: [10, 20], size: [32, 16] }
     ]);
     const item = gui.getGroupByName("composite")! as ModelObject;
@@ -139,6 +141,11 @@ test.serial("composite GUI layers retain child order and bounds and dispose each
     const background = gui.getMeshByName("background")!, overlay = gui.getMeshByName("overlay")!;
     t.true(background.renderOrder < drawn[0].renderOrder && drawn[2].renderOrder < overlay.renderOrder);
     t.true(drawn[0].renderOrder < drawn[1].renderOrder && drawn[1].renderOrder < drawn[2].renderOrder);
+    const bar = gui.getMeshByName("composite:durability-background")!, fill = gui.getMeshByName("composite:durability-fill")!;
+    t.true(drawn[2].renderOrder < bar.renderOrder && bar.renderOrder < fill.renderOrder && fill.renderOrder < overlay.renderOrder);
+    gui.updateMatrixWorld(true);
+    t.true(new Box3().setFromObject(item).max.z < new Box3().setFromObject(bar).min.z);
+    t.true(new Box3().setFromObject(fill).max.z < overlay.position.z);
     t.deepEqual([gui.bounds.min.toArray(), gui.bounds.max.toArray()], [[-6, 20], [54, 36]]);
     for (const mesh of drawn.slice(0, 2)) {
         const color = mesh.geometry.getAttribute("color");
@@ -155,6 +162,58 @@ test.serial("composite GUI layers retain child order and bounds and dispose each
     gui.dispose(); gui.dispose();
     t.deepEqual([geometryDisposals, materialDisposals, textureDisposals, sharedDisposals, imageDisposals()], [3, 3, 2, 0, 0]);
     t.is(frontAtlas.ticker, undefined);
+});
+
+test.serial("composite GUI glint preserves leaf order and shares atlas attachment behavior", async t => {
+    const { scene, front, side, composite, frontAtlas } = fixture(t);
+    front.components = { ...front.components, enchantment_glint_override: true };
+    side.components = { ...side.components, enchantments: { sharpness: 1 }, enchantment_glint_override: false };
+    composite.parts![1].parts![1].components = { enchantment_glint_override: true };
+    const originalFont = Fonts.get;
+    Fonts.get = async () => ({ glyphs: new Map() });
+    t.teardown(() => { Fonts.get = originalFont; });
+    const gui = await scene.addGui([
+        { name: "item", item: "test:item/composite", context: { count: 64, components: { damage: 50, max_damage: 100 } } },
+        { name: "cover", texture: "test:gui/overlay" }
+    ]);
+    const item = gui.getGroupByName("item")! as ModelObject;
+    const drawn = meshes(item), passes = drawn.filter(mesh => mesh.userData.minerenderItemGlint);
+    t.is(passes.length, 1);
+    t.is(drawn[1], passes[0]);
+    t.is(passes[0].geometry, drawn[0].geometry);
+    t.true(drawn.every((mesh, index) => index === 0 || mesh.renderOrder > drawn[index - 1].renderOrder));
+    const bar = gui.getMeshByName("item:durability-fill")!;
+    const count = gui.getGroupByName("item:count")!.children as Mesh[];
+    const cover = gui.getMeshByName("cover")!;
+    t.true(drawn.at(-1)!.renderOrder < bar.renderOrder && bar.renderOrder < count[0].renderOrder && count.at(-1)!.renderOrder < cover.renderOrder);
+    t.true([bar, ...count, cover].every(mesh => !mesh.userData.minerenderItemGlint));
+    const glintTicker = () => [...Ticker.tickers.keys()].find(key => key !== frontAtlas.ticker)!;
+    const ticker = glintTicker(), atlasTicker = frontAtlas.ticker;
+    t.true(Ticker.tickers.has(ticker));
+    t.true(Ticker.tickers.has(atlasTicker!));
+    scene.dirty = false;
+    Ticker.tickers.get(ticker)!();
+    t.true(scene.dirty);
+    gui.removeFromParent();
+    t.true(Ticker.tickers.has(ticker));
+    t.is(frontAtlas.ticker, atlasTicker);
+    scene.add(gui);
+    t.true(Ticker.tickers.has(ticker));
+    t.is(frontAtlas.ticker, atlasTicker);
+    item.removeFromParent();
+    t.false(Ticker.tickers.has(ticker));
+    t.is(frontAtlas.ticker, undefined);
+    gui.add(item);
+    t.true(Ticker.tickers.has(glintTicker()));
+    t.true(Ticker.tickers.has(frontAtlas.ticker!));
+    const material = passes[0].material as ShaderMaterial;
+    let materialDisposals = 0, textureDisposals = 0, geometryDisposals = 0;
+    material.addEventListener("dispose", () => materialDisposals++);
+    material.uniforms.glintMap.value.addEventListener("dispose", () => textureDisposals++);
+    passes[0].geometry.addEventListener("dispose", () => geometryDisposals++);
+    gui.dispose(); gui.dispose();
+    t.deepEqual([materialDisposals, textureDisposals, geometryDisposals], [1, 0, 1]);
+    t.is(Ticker.tickers.size, 0);
 });
 
 test.serial("composite animation pauses on detachment and partial initialization releases earlier parts", async t => {

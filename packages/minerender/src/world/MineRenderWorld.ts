@@ -12,6 +12,7 @@ import { BlockStates } from "../assets/BlockStates";
 import { CUBE_FACE_OFFSETS } from "../CubeFace";
 import type { AnvilChunk } from "./AnvilParser";
 import { SectionModels } from "./SectionModels";
+import { WorldEntities } from "./_entities/WorldEntities";
 
 //TODO: maybe make this an Object3D to add children
 /**
@@ -25,12 +26,14 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
 
     private readonly _chunks: Map<string, Chunk<SectionMeshing>> = new Map();
     private readonly sectionModels?: SectionModels;
+    private readonly entities?: WorldEntities;
     private readonly pendingCulling = new Map<Chunk<SectionMeshing>, Set<number>>();
     private culling?: Promise<void>;
 
     constructor(scene: MineRenderScene, options: MineRenderWorldOptions<SectionMeshing> = {}) {
         this.scene = scene;
         if (options.sectionMeshing) this.sectionModels = new SectionModels(options.maxAtlasSize);
+        if (options.renderEntities) this.entities = new WorldEntities(scene);
     }
 
     /** Returns a placed block at world block coordinates, or `undefined` for an empty position. */
@@ -93,15 +96,17 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
 
     /**
      * Places a structure's blocks at their stored positions, then refreshes neighboring faces.
-     * Entity NBT is retained by the structure but is not rendered.
+     * With `renderEntities`, also places supported saved mobs and applies supported appearance fields.
      *
      * @param useBatches - Yields between chunks by default. Set to `false` for sequential placement.
      * @param executor - Optional queue for batched placement. The caller remains responsible for stopping it.
      */
     public async placeMultiBlock(multiblock: MultiBlockStructure, useBatches: boolean = true, executor?: BatchedExecutor): Promise<void> {
+        const placeEntities = this.entities?.prepare(multiblock.entities);
         const changes = new Map<string, Vector3>();
         try {
             await this.placeBlocks(multiblock, useBatches, executor, changes);
+            await placeEntities?.();
         } finally {
             await this.updateCulling([...changes.values()]);
         }
@@ -187,8 +192,10 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
     }
 
 
-    /** Replaces one chunk column's blocks. Entity NBT remains available on the parsed chunk. */
+    /** Replaces a chunk column's blocks and, with `renderEntities`, its supported saved mobs. */
     public async placeChunk(chunk: AnvilChunk, executor?: BatchedExecutor): Promise<void> {
+        this.entities?.clearColumn(chunk.x, chunk.z);
+        const placeEntities = this.entities?.prepare(chunk.entities, [chunk.x, chunk.z]);
         const changes = new Map<string, Vector3>();
         try {
             await this.clearChunkColumn(chunk.x, chunk.z, changes);
@@ -223,19 +230,21 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                 await this.placeBlocks({ size: [16, 16, 16], blocks }, true, executor, changes);
             }
             if (!executor) await this.placeChunkGroups(groups, changes);
+            await placeEntities?.();
         } finally {
             await this.updateCulling([...changes.values()]);
         }
     }
 
     /**
-     * Removes all sections at integer chunk-column coordinates, then refreshes neighboring faces and fluids.
+     * Removes blocks and owned entities at chunk-column coordinates, then refreshes neighboring faces and fluids.
      * Coordinates match AnvilChunk.x/z, not block positions. Missing columns are ignored.
      */
     public async unloadChunkColumn(x: number, z: number): Promise<void> {
         if (!Number.isInteger(x) || !Number.isInteger(z)) {
             throw new RangeError("Chunk column coordinates must be integers");
         }
+        this.entities?.clearColumn(x, z);
         await this.culling;
         const changes = new Map<string, Vector3>();
         try {
@@ -255,8 +264,9 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         }
     }
 
-    /** Removes all chunks and releases their block placements and section meshes. */
+    /** Removes all chunks and releases their blocks, section meshes, and owned entities. */
     public async clear(): Promise<void> {
+        this.entities?.clear();
         await this.culling;
         const chunks = [...this._chunks.values()];
         this._chunks.clear();
@@ -387,6 +397,8 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
 
 /** Settings passed as the second argument to `new MineRenderWorld(scene, options)`. */
 export interface MineRenderWorldOptions<SectionMeshing extends boolean = boolean> {
+    /** Render supported saved mobs at their position and yaw, including supported appearance fields. Defaults to false. */
+    renderEntities?: boolean;
     /** Merge static opaque cubes into section meshes. Merged blocks have no individual object. */
     sectionMeshing?: SectionMeshing;
     /** Maximum width and height of each section atlas page, in pixels. */
