@@ -1,3 +1,4 @@
+import { isResourceLocation } from "../assets/AssetKey";
 import { MineRenderError } from "../error/MineRenderError";
 import { Colormaps } from "../texture/Colormaps";
 import type { ItemModel, ItemTintColor, Model } from "./Model";
@@ -83,7 +84,7 @@ export class ItemTints {
         const contents = value as Record<string, unknown>;
         if (contents.custom_color !== undefined) return this.componentColor(contents.custom_color);
         const identifier = (id: unknown): string => {
-            if (typeof id !== "string" || !/^(?:[a-z0-9_.-]+:)?[a-z0-9_./-]+$/.test(id)) {
+            if (!isResourceLocation(id)) {
                 throw new MineRenderError("Item tint potion and effect IDs must be identifiers");
             }
             return id.replace(/^minecraft:/, "");
