@@ -60,6 +60,7 @@ const app = new Playground<ItemSettings>({
         decorated_pot: { label: "Decorated pot (four sherds)", state: { item: "minecraft:decorated_pot", display: DisplayPosition.GUI,
             components: { "minecraft:pot_decorations": ["minecraft:angler_pottery_sherd", "minecraft:archer_pottery_sherd",
                 "minecraft:arms_up_pottery_sherd", "minecraft:blade_pottery_sherd"] } }, view: guiView },
+        player_head: { label: "Player head", state: { item: "minecraft:player_head", display: DisplayPosition.GUI }, view: guiView },
         bundle: {
             label: "Bundle with a selected item",
             state: { item: "minecraft:bundle", display: DisplayPosition.GUI,
@@ -104,6 +105,33 @@ note(itemGroup, "minecraft:apple loads the item definition; minecraft:item/apple
 const display = select(itemGroup, "Display pose", [["", "None"], ...DISPLAY_POSITIONS], app.state.display);
 display.id = "item-display";
 display.addEventListener("change", () => void app.update({ display: display.value as ItemSettings["display"] }));
+const profileGroup = group(app.controls, "Player head");
+profileGroup.hidden = true;
+const player = input(profileGroup, "Username or UUID", "");
+player.id = "item-profile-player";
+player.placeholder = "Enter a player name or UUID";
+const profileGuard = itemControlGuard(profileGroup);
+function applyPlayer(value: string): void {
+    if (!profileGuard.matches()) return;
+    const current = app.state.components;
+    if (!current || typeof current !== "object" || Array.isArray(current)) return;
+    const next = structuredClone(current);
+    const id = Object.prototype.hasOwnProperty.call(next, "profile") ? "profile" : "minecraft:profile";
+    if (!value) delete next[id];
+    else if (/^(?:[a-f0-9]{32}|[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12})$/i.test(value)) {
+        const hex = value.replace(/-/g, "");
+        next[id] = { id: [0, 8, 16, 24].map(offset => parseInt(hex.slice(offset, offset + 8), 16) | 0) };
+    } else if (/^[a-z0-9_]{1,16}$/i.test(value)) next[id] = { name: value };
+    else {
+        app.report("Enter a username of up to 16 letters, numbers, or underscores, or a UUID.", true);
+        return;
+    }
+    profileGuard.update({ components: next });
+}
+button(profileGroup, "Apply player", () => applyPlayer(player.value.trim()));
+button(profileGroup, "Clear profile", () => applyPlayer(""));
+player.addEventListener("keydown", event => { if (event.key === "Enter") applyPlayer(player.value.trim()); });
+note(profileGroup, "Applying a player replaces the profile. Edit texture properties in Components (JSON).");
 const shulkerGroup = group(app.controls, "Shulker preview");
 shulkerGroup.hidden = true;
 const shulkerColor = select(shulkerGroup, "Color", shulkerItems, app.state.item);
@@ -307,6 +335,19 @@ function syncComponentColors(state: ItemSettings): void {
 }
 
 function syncStateControls(state: ItemSettings, items: string[]): void {
+    profileGuard.sync(state);
+    const profile = state.components.profile ?? state.components["minecraft:profile"];
+    profileGroup.hidden = !["player_head", "minecraft:player_head"].includes(state.item) && profile === undefined;
+    let identity = typeof profile === "string" ? profile : "";
+    if (profile && typeof profile === "object" && !Array.isArray(profile)) {
+        const data = profile as Record<string, unknown>;
+        if (typeof data.name === "string") identity = data.name;
+        else if (Array.isArray(data.id) && data.id.length === 4 && data.id.every(value => Number.isInteger(value))) {
+            const hex = data.id.map(value => (value >>> 0).toString(16).padStart(8, "0")).join("");
+            identity = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+        }
+    }
+    player.value = identity;
     count.value = String(state.count);
     syncComponentColors(state);
     components.value = JSON.stringify(state.components, null, 2);

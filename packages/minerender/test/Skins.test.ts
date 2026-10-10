@@ -1,6 +1,31 @@
 import test from "ava";
 import { Requests } from "../src/request/Requests";
 import { Skins } from "../src/skin/Skins";
+import { Caching } from "../src/cache/Caching";
+
+test.serial("username lookups share requests for five minutes and reload after clearing caches", async t => {
+    const originalRequest = Requests.genericRequest, originalNow = Date.now;
+    let now = originalNow(), requests = 0;
+    Caching.clear();
+    t.teardown(() => { Requests.genericRequest = originalRequest; Date.now = originalNow; Caching.clear(); });
+    Date.now = () => now;
+    Requests.genericRequest = async request => {
+        requests++;
+        return { data: { data: { id: "alex-uuid" } }, status: 200, statusText: "OK", headers: new Headers(), url: request.url };
+    };
+    const skin = "https://mcproxy.dev/skin/alex-uuid";
+    t.deepEqual(await Promise.all([Skins.fromUsername("Alex"), Skins.fromUsername("Alex")]), [skin, skin]);
+    t.is(requests, 1);
+    now += 299_999;
+    t.is(await Skins.capeFromUsername("Alex"), "https://mcproxy.dev/cape/alex-uuid");
+    t.is(requests, 1);
+    now += 2;
+    t.is(await Skins.fromUsername("Alex"), skin);
+    t.is(requests, 2);
+    Caching.clear();
+    t.is(await Skins.fromUsername("Alex"), skin);
+    t.is(requests, 3);
+});
 
 test.serial("capes.dev resolves names and UUIDs to full static textures and distinguishes missing capes from failed requests", async t => {
     const original = Requests.genericRequest;

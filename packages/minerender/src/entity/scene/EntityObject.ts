@@ -45,9 +45,14 @@ export class EntityObject extends SceneObject {
         this.addEventListener("removed", () => this.updateScrollSubscription());
     }
 
-    async init(): Promise<void> {
+    /** An optional shared material replaces texture loading for every selected draw; its owner retains disposal. */
+    async init(material?: Material): Promise<void> {
         this.createMeshes();
-        await this.applyTextures();
+        if (material) {
+            this.clearScrollMaterials();
+            this.iterateAllMeshes(mesh => { mesh.material = material; });
+            this.notifyDirty();
+        } else await this.applyTextures();
     }
 
     dispose() {

@@ -92,7 +92,7 @@ export class ModelObject extends SceneObject {
                     object.matrixWorldNeedsUpdate = true;
                     object.matrixAutoUpdate = false;
                     this.add(object);
-                    await object.init();
+                    await object.init(part.material);
                     object.iterateAllMeshes(mesh => {
                         const source = mesh.material as MeshBasicMaterial;
                         let material = this.specialMaterials.get(source);
@@ -100,6 +100,8 @@ export class ModelObject extends SceneObject {
                             const front = this.options.displayPosition === DisplayPosition.GUI &&
                                 (this.originalModel as ItemModel).gui_light === GuiLight.FRONT;
                             material = SpecialItems.createMaterial(source, !front);
+                            // Entity geometry already contains the inward faces used by vanilla's translucent draw.
+                            if (part.material) material.side = FrontSide;
                             this.specialMaterials.set(source, material);
                         }
                         mesh.material = material;

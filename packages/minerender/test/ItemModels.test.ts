@@ -420,6 +420,8 @@ test.serial("special items retain their renderer and inherit the base pose throu
         { type: "minecraft:conduit" },
         { type: "decorated_pot" },
         { type: "minecraft:decorated_pot" },
+        { type: "player_head" },
+        { type: "minecraft:player_head" },
         { type: "minecraft:head", kind: "dragon", texture: "pack:dragon", animation: 0.25 }
     ];
     const display = { gui: { rotation: [30, 45, 0], scale: [0.625, 0.625, 0.625] } };
@@ -449,6 +451,32 @@ test.serial("special items retain their renderer and inherit the base pose throu
     t.is(source.calls.filter(key => key.assetType === "items").length, renderers.length);
     t.false(source.calls.some(key => key.getFullPath() === "builtin/entity"));
     t.true(source.calls.every(key => key.root === "https://assets.example/1.21.11"));
+});
+
+test.serial("player profiles are snapshotted and separated in item caches and reset across item references", async t => {
+    const special = { type: "minecraft:special", base: "minecraft:item/head", model: { type: "minecraft:player_head" } };
+    const source = new FixtureSource({
+        "items/head": { model: special }, "items/composite_head": { model: { type: "minecraft:composite", models: [special, { type: "minecraft:bundle/selected_item" }] } },
+        "models/item/head": { gui_light: "front", display: { gui: { scale: [1.2, 1.2, 1.2] } } }
+    });
+    AssetLoader.addSource("test-items", source);
+    const profile = { id: [0, 0, 0, 1], properties: { textures: ["first"] } };
+    const pending = Models.getMerged(itemKey("head"), { components: { profile } });
+    profile.id[3] = 2;
+    profile.properties.textures[0] = "second";
+    const first = (await pending)! as ItemModel;
+    const second = (await Models.getMerged(itemKey("head"), { components: { "minecraft:profile": profile } }))! as ItemModel;
+    t.deepEqual(first.components, { "minecraft:profile": { id: [0, 0, 0, 1], properties: { textures: ["first"] } } });
+    t.deepEqual(second.components, { "minecraft:profile": profile });
+    t.not(first, second);
+    Caching.clear();
+    const cached = (await Models.getMerged(itemKey("head"), { components: { profile: { properties: { textures: ["first"] }, id: [0, 0, 0, 1] } } }))! as ItemModel;
+    t.deepEqual(cached.components, first.components);
+    t.deepEqual(cached.special, { type: "minecraft:player_head" });
+    const composite = (await Models.getMerged(itemKey("composite_head"), { components: { profile }, itemReferences: { "bundle/selected_item": itemKey("head") } }))! as ItemModel;
+    t.deepEqual(composite.parts![0].components, second.components);
+    t.deepEqual(composite.parts![1].components, {});
+    t.deepEqual(composite.parts![1].special, cached.special);
 });
 
 test.serial("composite items retain ordered nested parts, independent inheritance, and keys through cache hits", async t => {
