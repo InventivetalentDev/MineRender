@@ -14,11 +14,12 @@ The private Yarn workspace root contains the public library and its consumers. U
 |---|---|
 | `packages/minerender/` | Public `minerender` library, moved from the V2 repository root. Browser, Node, and IIFE delivery formats retain their package paths. |
 | `apps/web/` | MineRenderWeb demo/test pages, built with esbuild against the library workspace. |
+| `apps/api/` | Node HTTP rendering service. `POST /v1/renders` accepts scene documents; metadata and PNGs live in a bounded, expiring memory cache. Pooled worker processes reuse asset caches between renders. See its README for the request contract and configuration. |
 | `apps/site/` | V2 website (Vite + TypeScript, no framework): feature overview, live examples, usage docs. Examples live in `src/examples/*.ts`; `src/viewport/` lazily creates renderers and caps how many are alive at once. See its README. |
 | `examples/vite/` | Vue 3 + Vite consumer, imported from `MineRender/example-vite`. Uses ESM named imports and a workspace dependency. |
 | `examples/script-tag/` | Plain HTML consumer, imported from `MineRender/example-bundle`. Loads the library's IIFE as `MineRender`. |
 | `InventivetalentDev/MineRender` (V1 checkout: `MineRenderV1`) | `master` contains V1 (JS, webpack 4, three 0.93, browser-only), the feature-parity reference. V2 development shares this repository on `typescript` and the stacked refactor branches. Preserve V1 tags, bundles, and website URLs. |
-| `InventivetalentDev/MineRenderServer`  | V1-era headless render HTTP API (Express + headless-gl + patched node-canvas + three-png-stream under xvfb). Reference only; not imported. Its contract includes `GET /render/skin/[:texture]`, `GET /render/model/:type/:model`, the `minerender-options` header, and an MD5-keyed PNG cache. |
+| `InventivetalentDev/MineRenderServer`  | V1-era headless render HTTP API (Express + headless-gl + patched node-canvas + three-png-stream under xvfb). Historical reference only; not imported. Its `GET /render/skin/[:texture]`, `GET /render/model/:type/:model`, `minerender-options` header, and MD5-keyed PNG cache are not compatibility requirements for the V2 API. |
 | [minecraft-entity-models](https://github.com/InventivetalentDev/minecraft-entity-models) | Per-model entity and block-entity geometry at `assets.mcasset.cloud/<version>/entity-models/<namespace>/<id>.json`. Default blockstates ship with the library in `src/model/defaultBlockStates.json`. |
 | `assets.mcasset.cloud` | Primary vanilla-asset CDN, defaults to MC **1.21.11** in `src/assets/Assets.ts` (`DEFAULT_ROOT`). Provides synthetic `_list.json` directory indexes that `getList()` APIs depend on. |
 | `minecraft-skin-proxy.inventive.workers.dev` | Own Cloudflare worker for CORS-safe skin/cape/UUID lookups (`src/skin/Skins.ts`); also api.mineskin.org, api.capes.dev. |
@@ -34,6 +35,7 @@ The private Yarn workspace root contains the public library and its consumers. U
   |---|---|
   | `yarn build` | Build the library, web demos, and both examples. |
   | `yarn build:lib` | Build the public library only. |
+  | `yarn build:api`, `yarn start:api`, `yarn test:api` | Build the library and HTTP service, run the built service, or test its HTTP contract. |
   | `yarn test` | Run the library's AVA tests. |
   | `yarn test:node` | After `yarn build:lib`, test native WebGL 2 rendering and Node package exports with `canvas` and `gl`; use `xvfb-run -a yarn test:node` on headless Linux with the platform dependencies installed. |
   | `yarn typecheck` | Typecheck the library and Vite example. |

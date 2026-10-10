@@ -1,0 +1,34 @@
+{
+  "name": "@minerender/api",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "HTTP rendering service for MineRender scene documents",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "start": "node dist/main.js",
+    "test": "ava",
+    "test:native": "ava test/native/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "dependencies": {
+    "minerender": "workspace:*",
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.6",
+    "@types/three": "~0.186.0",
+    "ava": "^5.3.1",
+    "fast-png": "^8.0.0",
+    "typescript": "~5.6.3"
+  },
+  "ava": {
+    "files": [
+      "test/*.test.mjs"
+    ],
+    "workerThreads": false
+  }
+}

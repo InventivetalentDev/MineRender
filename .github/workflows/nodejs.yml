@@ -34,7 +34,10 @@ jobs:
           yarn typecheck
           yarn test
           yarn test:package
+          yarn test:api
       - name: Test native rendering
-        run: xvfb-run -a yarn test:node
+        run: |
+          xvfb-run -a yarn test:node
+          xvfb-run -a yarn test:api:native
       - name: Pack the public library
         run: yarn workspace minerender pack --out /tmp/minerender.tgz
