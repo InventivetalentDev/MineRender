@@ -23,7 +23,7 @@ These paths are relative to the development server root:
 | `demo/skin/` | Player skins and capes, model/layout overrides, poses, visible parts |
 | `demo/entity/` | Dataset passes or manual layers, states, tints, texture overrides, keyframe animations |
 | `demo/gui/` | Chest and recipe layouts, custom texture/item layers, layer JSON |
-| `demo/structure/` | Built-in structures, local `.nbt`/`.schematic`/`.mca` files, random block workloads, section meshing, block edits |
+| `demo/structure/` | Built-in structures, local `.nbt`/`.schematic`/`.schem`/`.litematic`/`.mca` files, random block workloads, section meshing, block edits |
 | `demo/world/` | Local Java world folders and region files, dimension selection, view-center chunk streaming, sample terrain |
 | `demo/custom_model/` | Java model JSON editor |
 | `demo/exports/` | Image and 3D export of a small instanced scene |
