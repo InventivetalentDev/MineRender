@@ -1,8 +1,30 @@
 import test from "ava";
-import { buildFluidQuads, createFluidGeometry, FluidKind, FluidSample, FluidSampler } from "../src/model/fluid/FluidGeometry";
+import { buildFluidQuads, createFluidGeometry, FluidKind, FluidSample, FluidSampler, getBlockFluidState, getFluidKind, resolveBlockFluidState } from "../src/model/fluid/FluidGeometry";
+import { AssetKey } from "../src/assets/AssetKey";
+import { MineRenderData } from "../src/assets/MineRenderData";
+import { installMineRenderDataFixtures } from "./helpers/minerender-data";
 
 const round = (value: number) => Math.round(value * 1e6) / 1e6;
 const sampler = (entries: Record<string, FluidSample>): FluidSampler => (x, y, z) => entries[`${x},${y},${z}`] ?? {};
+
+test.serial("fluid rules use each asset root and leave loaded rules independent of later requests", async t => {
+    t.teardown(installMineRenderDataFixtures(root => ({ fluids: {
+        "test:fluid": root.endsWith("/1.16.5")
+            ? { kind: "water", levelProperty: "level", renderModel: false }
+            : { kind: "lava", levelProperty: "depth", renderModel: true }
+    } })));
+    const old = AssetKey.parse("blockstates", "test:fluid");
+    old.root = "https://assets.example/1.16.5";
+    const current = AssetKey.parse("blockstates", "test:fluid");
+    current.root = "https://assets.example/1.21.11";
+    const rules = await MineRenderData.get("fluids", old.root);
+    t.deepEqual(await getBlockFluidState(current, { depth: "3" }), { kind: "lava", level: 3, renderModel: true });
+    t.deepEqual(await getBlockFluidState(old, { level: "7" }), { kind: "water", level: 7, renderModel: false });
+    t.is(await getFluidKind(current), "lava");
+    t.deepEqual(resolveBlockFluidState(old, { level: "4" }, rules), { kind: "water", level: 4, renderModel: false });
+    t.deepEqual(resolveBlockFluidState(undefined, { waterlogged: "true" }, rules), { kind: "water", level: 0, renderModel: true });
+    t.is(resolveBlockFluidState(undefined, {}, rules), undefined);
+});
 
 test("pure fluid quads match geometry for flowing, falling and solid-neighbor cells", t => {
     const cases: Record<string, FluidSample>[] = [

@@ -13,7 +13,7 @@ import { isInstanceReference } from "../src/instance/InstanceReference";
 import { Materials } from "../src/Materials";
 import { BlockState } from "../src/model/block/BlockState";
 import { BlockObject } from "../src/model/block/scene/BlockObject";
-import { createFluidGeometry, getBlockFluidState } from "../src/model/fluid/FluidGeometry";
+import { createFluidGeometry, resolveBlockFluidState } from "../src/model/fluid/FluidGeometry";
 import { Model, TripleArray } from "../src/model/Model";
 import { ModelObject } from "../src/model/scene/ModelObject";
 import { MineRenderScene } from "../src/renderer/MineRenderScene";
@@ -29,8 +29,10 @@ import { buildSectionGeometry, SectionGeometryInput } from "../src/world/Section
 import { SectionWorker } from "../src/world/SectionWorker";
 import type { CanvasImage } from "../src/canvas/CanvasImage";
 import type { CompatCanvas } from "../src/canvas/CanvasCompat";
+import { installMineRenderDataFixtures, mineRenderDataFixtures } from "./helpers/minerender-data";
 
 function fixture<SectionMeshing extends boolean = false>(t: ExecutionContext, options: MineRenderWorldOptions<SectionMeshing> = {}) {
+    t.teardown(installMineRenderDataFixtures());
     const originals = { state: BlockStates.get, defaults: BlockStates.getDefaultState, entities: BlockEntities.getIndex, model: Models.getMerged, atlas: UVMapper.getAtlas, image: Materials.getImage, material: Materials.createShadedCanvasMaterial, provider: Env["_provider"] };
     const scene = new MineRenderScene(), world = new MineRenderWorld<SectionMeshing>(scene, options);
     Env.register({ name: "test", createCanvas: (width, height) => ({
@@ -185,13 +187,13 @@ function assertFluidPositions(t: ExecutionContext, world: MineRenderWorld<boolea
         const center = new Vector3(...position);
         if (!world.getChunkAt(center)?.isBlockVisibleAt(center)) continue;
         const block = world.getBlockAt(center)!.block;
-        const fluid = getBlockFluidState(AssetKey.parse("blockstates", block.type), block.properties)!;
+        const fluid = resolveBlockFluidState(AssetKey.parse("blockstates", block.type), block.properties, mineRenderDataFixtures.fluids)!;
         const geometry = createFluidGeometry(fluid.kind, (x, y, z) => {
             const neighbor = center.clone().add(new Vector3(x, y, z));
             const chunk = world.getChunkAt(neighbor);
             if (!chunk?.isBlockVisibleAt(neighbor)) return {};
             const block = world.getBlockAt(neighbor)!.block;
-            const fluid = getBlockFluidState(AssetKey.parse("blockstates", block.type), block.properties);
+            const fluid = resolveBlockFluidState(AssetKey.parse("blockstates", block.type), block.properties, mineRenderDataFixtures.fluids);
             return { fluid: fluid?.kind, level: fluid?.level, solid: chunk.isOccludingAt(neighbor) };
         });
         geometry.translate(center.x * 16 - origin.x, center.y * 16 - origin.y, center.z * 16 - origin.z);

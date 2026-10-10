@@ -1,3 +1,4 @@
+import { installMineRenderDataFixtures } from "./helpers/minerender-data";
 import test, { ExecutionContext } from "ava";
 import { InstancedMesh, Mesh, MeshBasicMaterial } from "three";
 import { AssetKey } from "../src/assets/AssetKey";
@@ -161,3 +162,7 @@ test.serial("UV locking preserves shared atlas data and leaves unlocked cropped 
     t.deepEqual(atlas.model.elements![0].mappedUv, originalUvs);
     t.deepEqual(uvs(unlocked), originalUvs);
 });
+
+let restoreData: () => void;
+test.before(() => { restoreData = installMineRenderDataFixtures(); });
+test.after.always(() => restoreData());

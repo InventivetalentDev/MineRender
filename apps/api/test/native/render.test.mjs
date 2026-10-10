@@ -47,12 +47,23 @@ test("different native renders reuse downloaded blockstate, model, and texture a
         data: new Uint8Array([192, 32, 16, 255]) })).toString("base64");
     const model = { textures: { all: "minecraft:block/stone" }, elements: [{ from: [0, 0, 0], to: [16, 16, 16],
         faces: Object.fromEntries(["east", "west", "up", "down", "south", "north"].map(face => [face, { texture: "#all" }])) }] };
+    const dataFiles = { blockStates: "block-states", blockTints: "block-tints", fluids: "fluids" };
+    const renderData = Object.fromEntries(Object.values(dataFiles).map(file => [`${file}.json`, {}]));
+    renderData["manifest.json"] = {
+        schemaVersion: 1, minecraftVersion: "1.21.11", dataVersion: 4671,
+        datasets: Object.fromEntries(Object.entries(dataFiles).map(([dataset, file]) => [dataset,
+            { file: `${file}.json`, sha256: "0".repeat(64), bytes: 2, provenance: {} }])),
+        unavailable: {}, extractor: { repository: "test", revision: "test", sha256: "0".repeat(64) }
+    };
     await writeFile(workerUrl, `
         import { appendFile } from "node:fs/promises";
         await appendFile(${JSON.stringify(started)}, JSON.stringify({ pid: process.pid, cwd: process.cwd() }) + "\\n");
+        const renderData = ${JSON.stringify(renderData)};
         globalThis.fetch = async input => {
             const url = new URL(input instanceof Request ? input.url : input);
             await appendFile(${JSON.stringify(log)}, JSON.stringify(url.pathname) + "\\n");
+            const dataFile = url.pathname.split("/minerender-data/")[1];
+            if (Object.hasOwn(renderData, dataFile)) return Response.json(renderData[dataFile]);
             if (url.pathname.endsWith("/blockstates/stone.json")) {
                 return Response.json({ variants: { "": { model: "minecraft:block/stone" } } });
             }
@@ -78,7 +89,8 @@ test("different native renders reuse downloaded blockstate, model, and texture a
             t.is(image.data[center + 3], 255);
         }
         const requests = (await readFile(log, "utf8")).trim().split("\n").map(line => JSON.parse(line));
-        for (const asset of ["blockstates/stone.json", "models/block/stone.json", "textures/block/stone.png"]) {
+        for (const asset of ["blockstates/stone.json", "models/block/stone.json", "textures/block/stone.png",
+            ...Object.keys(renderData).map(file => `minerender-data/${file}`)]) {
             t.is(requests.filter(path => path.endsWith(`/${asset}`)).length, 1, asset);
         }
         const processes = (await readFile(started, "utf8")).trim().split("\n").map(line => JSON.parse(line));

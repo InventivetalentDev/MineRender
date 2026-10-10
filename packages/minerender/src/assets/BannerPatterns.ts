@@ -4,8 +4,9 @@ import { AssetParser } from "./source/parser/AssetParsers";
 import { Caching } from "../cache/Caching";
 import type { MinecraftAsset } from "../MinecraftAsset";
 import type { ListAsset } from "../ListAsset";
+import { MineRenderData } from "./MineRenderData";
 
-/** Vanilla dye colors used by banner and shield textures, as sRGB packed values. */
+/** @deprecated Fixed 1.21.11 palette. Use {@link BannerPatterns.getColors} for the selected version. */
 export const DYE_COLORS = Object.freeze({
     white: 0xf9fffe, orange: 0xf9801d, magenta: 0xc74ebd, light_blue: 0x3ab3da,
     yellow: 0xfed83d, lime: 0x80c71f, pink: 0xf38baa, gray: 0x474f52,
@@ -44,7 +45,13 @@ export class BannerPatterns {
         return collect("");
     }
 
-    /** Returns the named dye's sRGB value, rejecting unknown colors. */
+    /** Loads the selected version's texture dye colors as packed sRGB values. */
+    public static async getColors(root?: string): Promise<Record<DyeColor, number>> {
+        const dyes = await MineRenderData.get("dyes", root);
+        return Object.fromEntries(Object.entries(dyes).map(([name, dye]) => [name, dye.textureDiffuseColor])) as Record<DyeColor, number>;
+    }
+
+    /** @deprecated Uses the fixed 1.21.11 palette. Use {@link getColors} for versioned colors. */
     public static getColor(color: unknown): number {
         if (typeof color !== "string" || !Object.prototype.hasOwnProperty.call(DYE_COLORS, color)) throw new Error(`Unsupported dye color ${color}`);
         return DYE_COLORS[color as DyeColor];
@@ -54,14 +61,22 @@ export class BannerPatterns {
     public static async getLayers(value: unknown, target: "banner" | "shield", root?: string): Promise<BannerPatternDraw[]> {
         if (value === undefined) return [];
         if (!Array.isArray(value)) throw new Error("banner_patterns must be an array");
+        const activeRoot = AssetLoader.ROOT, scope = AssetLoader.persistentScope;
+        const checkSources = () => {
+            if (activeRoot !== AssetLoader.ROOT || scope !== AssetLoader.persistentScope) throw new Error("Asset sources changed while loading banner patterns; retry the request");
+        };
+        const colors = value.length ? await this.getColors(root) : undefined;
+        checkSources();
         return Promise.all(value.slice(0, 16).map(async layer => {
             if (!layer || typeof layer !== "object" || Array.isArray(layer)) throw new Error("Each banner pattern requires a pattern and dye color");
-            const color = this.getColor(layer.color);
+            if (typeof layer.color !== "string" || !Object.prototype.hasOwnProperty.call(colors, layer.color)) throw new Error(`Unsupported dye color ${layer.color}`);
+            const color = colors![layer.color as DyeColor];
             let pattern: unknown = layer.pattern;
             if (typeof pattern === "string") {
                 const id = this.identifier(pattern);
                 const key = new AssetKey(id.namespace, id.getFullPath(), "banner_pattern", undefined, "data", ".json", root);
                 pattern = await Caching.bannerPatternCache.get(key.serialize(), () => AssetLoader.get<BannerPattern>(key, AssetParser.JSON));
+                checkSources();
                 if (!pattern) throw new Error(`Missing banner pattern ${layer.pattern}`);
             }
             if (!pattern || typeof pattern !== "object" || Array.isArray(pattern)

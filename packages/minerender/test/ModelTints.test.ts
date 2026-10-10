@@ -1,3 +1,4 @@
+import { installMineRenderDataFixtures } from "./helpers/minerender-data";
 import test, { ExecutionContext } from "ava";
 import { Mesh, MeshBasicMaterial } from "three";
 import { AssetKey } from "../src/assets/AssetKey";
@@ -135,3 +136,7 @@ test("generated item front and back faces retain the tint index of each texture 
         t.deepEqual([element.faces.north?.texture, element.faces.south?.texture], [`#${layer}`, `#${layer}`]);
     }
 });
+
+let restoreData: () => void;
+test.before(() => { restoreData = installMineRenderDataFixtures(); });
+test.after.always(() => restoreData());

@@ -8,6 +8,7 @@ export * from './BlockStates';
 export * from './DecoratedPots';
 export * from './Entities';
 export * from './Fonts';
+export * from './MineRenderData';
 export * from './ModelTextures';
 export * from './Models';
 export * from './source';

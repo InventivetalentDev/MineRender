@@ -1,4 +1,4 @@
-import { DYE_COLORS } from "minerender";
+import { DYE_COLORS, type DyeColor } from "minerender";
 import { button, group, note, select } from "../../playground/controls";
 
 interface PatternState {
@@ -19,6 +19,7 @@ export function hasBannerControls(state: PatternState): boolean {
 }
 
 export function bannerControls(parent: HTMLElement, current: () => PatternState, update: (patch: Partial<PatternState>) => void) {
+    let colors: Partial<Record<DyeColor, number>> = {};
     const controls = group(parent, "Banner and shield patterns");
     controls.hidden = true;
     const content = document.createElement("div");
@@ -52,13 +53,14 @@ export function bannerControls(parent: HTMLElement, current: () => PatternState,
         const swatch = document.createElement("span");
         swatch.setAttribute("aria-hidden", "true");
         Object.assign(swatch.style, { display: "inline-block", width: "1em", height: "1em", marginLeft: "8px", verticalAlign: "middle", border: "1px solid #586575" });
-        const color = DYE_COLORS[value as keyof typeof DYE_COLORS];
+        const color = colors[value as DyeColor];
         swatch.style.backgroundColor = color === undefined ? "transparent" : `#${color.toString(16).padStart(6, "0")}`;
         control.parentElement!.querySelector("span")!.append(swatch);
         return control;
     };
 
-    return (state: PatternState, patterns: string[]) => {
+    return (state: PatternState, patterns: string[], palette: Partial<Record<DyeColor, number>>) => {
+        colors = palette;
         controls.disabled = false;
         displayed = state;
         controls.hidden = !hasBannerControls(state);

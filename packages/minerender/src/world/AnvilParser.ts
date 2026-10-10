@@ -2,7 +2,9 @@ import type { Compound, Tags, TagType } from "prismarine-nbt";
 import { MineRenderError } from "../error/MineRenderError";
 import { Block } from "../model/block/Block";
 import { MultiBlockEntity } from "../model/multiblock/MultiBlockStructure";
-import { resolveLegacyBlock } from "../model/multiblock/LegacyBlocks";
+import { resolveLegacyBlockState } from "../model/multiblock/LegacyBlocks";
+import { MineRenderData } from "../assets/MineRenderData";
+import { AssetLoader } from "../assets/AssetLoader";
 import { NBTHelper } from "../nbt/NBTHelper";
 import { ChunkData } from "./ChunkData";
 import { decodeAnvilLz4 } from "./_compression/Lz4";
@@ -17,6 +19,8 @@ const BLOCK_STATE_LAYOUT = { count: 4096, minBits: 4, name: "block-state" };
 export type AnvilExternalChunkReader = (x: number, z: number, signal?: AbortSignal) => Promise<Uint8Array | ArrayBuffer | undefined>;
 
 export interface AnvilParseOptions {
+    /** Asset root used to select numeric block mappings. Omit to use the active asset sources. */
+    root?: string;
     /** Overrides numeric `id:metadata` mappings with block states such as `minecraft:oak_log[axis=x]`. */
     legacyMappings?: Readonly<Record<string, string>>;
     /** For numeric blocks, tries metadata 0 for unmapped states and skips unknown IDs. Defaults to false. */
@@ -75,12 +79,15 @@ export class AnvilParser {
 
     /** Decodes all stored chunks. Gzip, zlib, LZ4, and uncompressed payloads are supported. */
     public static async parse(data: RegionInput, options: AnvilParseOptions = {}): Promise<AnvilRegion> {
+        options = { ...options };
+        const checkSources = this.assetGuard();
         options.signal?.throwIfAborted();
         const bytes = this.bytes(data);
         const chunks: AnvilChunk[] = [];
         for (const location of this.locations(bytes)) {
             chunks.push(await this.abortable(this.readChunk(bytes, location, options), options.signal));
         }
+        checkSources();
         return { chunks };
     }
 
@@ -91,10 +98,23 @@ export class AnvilParser {
      * @returns The chunk with absolute coordinates, or `undefined` if the region has no chunk there.
      */
     public static async parseChunk(data: RegionInput, localX: number, localZ: number, options: AnvilParseOptions = {}): Promise<AnvilChunk | undefined> {
+        options = { ...options };
+        const checkSources = this.assetGuard();
         options.signal?.throwIfAborted();
         const bytes = this.bytes(data);
         const location = this.location(bytes, localX, localZ);
-        return location ? this.abortable(this.readChunk(bytes, location, options), options.signal) : undefined;
+        const chunk = location ? await this.abortable(this.readChunk(bytes, location, options), options.signal) : undefined;
+        checkSources();
+        return chunk;
+    }
+
+    private static assetGuard(): () => void {
+        const root = AssetLoader.ROOT, scope = AssetLoader.persistentScope;
+        return () => {
+            if (AssetLoader.ROOT !== root || AssetLoader.persistentScope !== scope) {
+                throw new MineRenderError("Asset sources changed while parsing Anvil data; retry the request");
+            }
+        };
     }
 
     /**
@@ -229,6 +249,7 @@ export class AnvilParser {
             throw new MineRenderError(`Anvil chunk coordinates do not match external file c.${expected.x}.${expected.z}.mcc`);
         }
         const numericStates = new Map<number, Block | undefined>();
+        let legacyMappings: Readonly<Record<string, string>> | undefined;
         for (const section of this.compounds(level.sections ?? level.Sections, "sections")) {
             const y = this.integer(section.Y, "section Y");
             let data: ChunkData;
@@ -236,7 +257,9 @@ export class AnvilParser {
                 if (section.Palette || section.BlockStates || section.block_states) {
                     throw new MineRenderError(`Anvil section ${y} mixes numeric and paletted block states`);
                 }
-                data = this.numericSection(section, y, options, numericStates);
+                legacyMappings ??= (await MineRenderData.get("legacyBlocks", options.root)).blocks;
+                options.signal?.throwIfAborted();
+                data = this.numericSection(section, y, options, numericStates, legacyMappings);
             } else {
                 if (section.block_states && section.block_states.type !== "compound") {
                     throw new MineRenderError("Anvil block_states must be a compound");
@@ -276,7 +299,8 @@ export class AnvilParser {
         return chunk;
     }
 
-    private static numericSection(section: CompoundValue, y: number, options: AnvilParseOptions, states: Map<number, Block | undefined>): ChunkData {
+    private static numericSection(section: CompoundValue, y: number, options: AnvilParseOptions, states: Map<number, Block | undefined>,
+                                  mappings: Readonly<Record<string, string>>): ChunkData {
         const bytes = (name: string, length: number, optional = false): number[] | undefined => {
             const tag = section[name];
             if (!tag && optional) return undefined;
@@ -295,7 +319,7 @@ export class AnvilParser {
             const id = (ids[index] & 255) | ((((extra?.[index >> 1] ?? 0) >> shift) & 15) << 8);
             const value = ((metadata?.[index >> 1] ?? 0) >> shift) & 15;
             const key = id * 16 + value;
-            if (!states.has(key)) states.set(key, resolveLegacyBlock(id, value, options.legacyMappings, options.lenient));
+            if (!states.has(key)) states.set(key, resolveLegacyBlockState(id, value, mappings, options.legacyMappings, options.lenient));
             const block = states.get(key);
             if (!block && !options.lenient) {
                 throw new MineRenderError(`Unsupported legacy block ${id}:${value} at Anvil section ${y} index ${index}`);

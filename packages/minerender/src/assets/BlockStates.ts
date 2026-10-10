@@ -9,7 +9,7 @@ import { PersistentCache } from "../cache/PersistentCache";
 import { AssetParser } from "./source/parser/AssetParsers";
 import { ListAsset } from "../ListAsset";
 import { MinecraftAsset } from "../MinecraftAsset";
-import defaultBlockStates from "../model/defaultBlockStates.json";
+import { MineRenderData } from "./MineRenderData";
 
 /** Loads blockstate definitions and the property defaults used to select block models. */
 export class BlockStates {
@@ -37,17 +37,17 @@ export class BlockStates {
         }).then(r => r?.files ?? []);
     }
 
-    public static async getDefaultStates(): Promise<Maybe<DefaultBlockStates>> {
-        return defaultBlockStates as DefaultBlockStates;
+    public static async getDefaultStates(root?: string): Promise<Maybe<DefaultBlockStates>> {
+        return MineRenderData.get("blockStates", root);
     }
 
     /** Looks up vanilla property definitions for the key's block path, or returns `undefined`. */
     public static async getDefaultState(key: AssetKey): Promise<Maybe<BlockStatePropertyDefaults>> {
-        const defaultStates = await this.getDefaultStates();
+        const defaultStates = await this.getDefaultStates(key.root);
         if (!defaultStates) {
             return undefined;
         }
-        return defaultStates["minecraft:" + key.path] as BlockStatePropertyDefaults;
+        return defaultStates[key.toNamespacedString()] as BlockStatePropertyDefaults;
     }
 
     /** Loads a cached blockstate definition for {@link MineRenderScene.addBlock}, or returns `undefined`. */

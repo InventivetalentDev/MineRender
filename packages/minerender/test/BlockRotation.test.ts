@@ -1,3 +1,4 @@
+import { installMineRenderDataFixtures } from "./helpers/minerender-data";
 import test, { ExecutionContext } from "ava";
 import { BoxGeometry, Euler, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, Quaternion, Vector3 } from "three";
 import { Models } from "../src/assets/Models";
@@ -185,3 +186,7 @@ test.serial("non-instanced block state changes and disposal detach their owned m
     t.is(scene.children.length, 0);
     t.is(atlasDisposals, 0);
 });
+
+let restoreData: () => void;
+test.before(() => { restoreData = installMineRenderDataFixtures(); });
+test.after.always(() => restoreData());
