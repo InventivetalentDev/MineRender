@@ -381,6 +381,37 @@ test.serial("GUI item decorations can be disabled without changing stack state o
     t.deepEqual(font.requests, []);
 });
 
+test.serial("GUI durability inherits the requested item's defaults and preserves explicit overrides", async t => {
+    const { scene } = fixture(t);
+    for (const [item, components, expected] of [
+        ["minecraft:item/diamond_pickaxe", { damage: 781 }, 6],
+        [new AssetKey("minecraft", "bow", "models", "item"), { "minecraft:damage": 192 }, 7],
+        ["item/elytra", { damage: 216 }, 7],
+        ["item/diamond_pickaxe", { damage: 781, max_damage: 1562 }, 7],
+        ["item/diamond_pickaxe", {}, undefined],
+        ["item/diamond_pickaxe", { damage: 0 }, undefined],
+        ["item/diamond_pickaxe", { damage: 781, max_damage: 0 }, undefined],
+        ["item/diamond_pickaxe", { damage: 781, unbreakable: {} }, undefined],
+        ["custom:item/diamond_pickaxe", { damage: 781 }, undefined],
+        ["minecraft:item/unknown", { damage: 781 }, undefined],
+        ["minecraft:block/diamond_pickaxe", { damage: 781 }, undefined]
+    ] as const) {
+        const before = JSON.stringify(components);
+        const gui = await scene.addGui([{ name: "item", item, context: { components } }]);
+        const fill = gui.getMeshByName("item:durability-fill");
+        t.is(!!fill, expected !== undefined);
+        if (fill) {
+            fill.geometry.computeBoundingBox();
+            t.is(fill.geometry.boundingBox!.max.x - fill.geometry.boundingBox!.min.x, expected);
+        }
+        t.is(JSON.stringify(components), before);
+        gui.dispose();
+    }
+    await t.throwsAsync(scene.addGui([{ item: "item/diamond_pickaxe", context: { components: {
+        damage: 781, max_damage: 1561, "minecraft:max_damage": 1562
+    } } }]), { message: /Duplicate item-preview component/ });
+});
+
 test.serial("GUI overlays snapshot stack inputs before loading and include wide count labels in local bounds", async t => {
     const { scene, model } = fixture(t);
     countFont(t);
