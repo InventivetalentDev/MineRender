@@ -18,6 +18,7 @@ interface WorldState {
     chunk: string;
     preset: string;
     sectionMeshing: boolean;
+    renderEntities: boolean;
     maxAtlasSize: number;
     workload: Workload;
     edits: Edit[];
@@ -29,7 +30,7 @@ const presetInfo: Record<string, string> = {
 };
 const defaults: WorldState = {
     source: "builtin", name: "end_city/ship", namespace: "minecraft", fileName: "", chunk: "", preset: "culling",
-    sectionMeshing: false, maxAtlasSize: 2048, workload: { ...defaultWorkload }, edits: []
+    sectionMeshing: false, renderEntities: false, maxAtlasSize: 2048, workload: { ...defaultWorkload }, edits: []
 };
 let localFile: { name: string; bytes: Uint8Array } | undefined;
 let activeWorld: MineRenderWorld<boolean> | undefined;
@@ -54,7 +55,7 @@ const app = new Playground<WorldState>({
         const maxAtlasSize = integer(state.maxAtlasSize, "Atlas size", 16, 4096);
         if (maxAtlasSize & (maxAtlasSize - 1)) throw new Error("The atlas size must be a power of two.");
         if (!/^[a-z0-9_.-]+$/.test(state.namespace)) throw new Error("Invalid namespace.");
-        const world = new MineRenderWorld(ctx.renderer.scene, { sectionMeshing: !!state.sectionMeshing, maxAtlasSize });
+        const world = new MineRenderWorld(ctx.renderer.scene, { sectionMeshing: !!state.sectionMeshing, renderEntities: !!state.renderEntities, maxAtlasSize });
         ctx.onCleanup(() => world.clear());
         const bounds = new Box3();
         let count = 0;
@@ -152,6 +153,8 @@ app.controls.innerHTML = `
     <details open><summary>World rendering</summary>
         <label><input id="section-meshing" type="checkbox"> Merge opaque cubes into section meshes</label>
         <label>Maximum atlas size<select id="atlas-size"><option>256</option><option>512</option><option>1024</option><option selected>2048</option><option>4096</option></select></label>
+        <label><input id="render-entities" type="checkbox"> Render saved mobs</label>
+        <p class="control-note">Supported mobs use their default appearance at saved positions and yaw. Equipment, variants, baby sizes, passengers, and saved animations are ignored. Separate entities/*.mca files are not read.</p>
         <div class="playground-actions"><button id="world-clear" type="button">Clear world</button><button id="world-reload" type="button">Reload</button></div>
     </details>
     <details><summary>Random blocks</summary>
@@ -196,6 +199,7 @@ function syncControls(chunks: { x: number; z: number }[], chunk: string) {
     input("structure-name").value = state.name;
     input("structure-file").value = "";
     input("section-meshing").checked = state.sectionMeshing;
+    input("render-entities").checked = state.renderEntities;
     select("atlas-size").value = String(state.maxAtlasSize);
     select("work-shape").value = state.workload.shape;
     for (const key of ["count", "width", "height", "depth", "radius", "spacing", "seed", "blocks"] as const) input(`work-${key}`).value = String(state.workload[key]);
@@ -256,6 +260,7 @@ input("structure-file").addEventListener("change", () => guard(async () => {
 }));
 select("chunk-input").addEventListener("change", () => guard(() => updateAndFit({ chunk: select("chunk-input").value, edits: [] })));
 input("section-meshing").addEventListener("change", () => guard(() => app.update({ sectionMeshing: input("section-meshing").checked })));
+input("render-entities").addEventListener("change", () => guard(() => updateAndFit({ renderEntities: input("render-entities").checked })));
 select("atlas-size").addEventListener("change", () => guard(() => app.update({ maxAtlasSize: Number(select("atlas-size").value) })));
 document.getElementById("world-clear")!.addEventListener("click", () => guard(() => app.update({ source: "empty", edits: [] })));
 document.getElementById("world-reload")!.addEventListener("click", () => guard(() => app.reload()));
@@ -293,7 +298,7 @@ function validateEdit(edit: Edit) {
 }
 
 function worldCode(state: WorldState): string {
-    let code = `const world = new MineRender.MineRenderWorld(renderer.scene, ${JSON.stringify({ sectionMeshing: state.sectionMeshing, maxAtlasSize: state.maxAtlasSize })});\n`;
+    let code = `const world = new MineRender.MineRenderWorld(renderer.scene, ${JSON.stringify({ sectionMeshing: state.sectionMeshing, renderEntities: state.renderEntities, maxAtlasSize: state.maxAtlasSize })});\n`;
     if (state.source === "builtin") {
         code += `const key = new MineRender.AssetKey(${JSON.stringify(state.namespace)}, ${JSON.stringify(state.name)}, "structure", undefined, "data", ".nbt");\n`;
         code += `const asset = await MineRender.AssetLoader.get(key, MineRender.AssetParser.NBT);\n`;

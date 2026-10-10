@@ -11,7 +11,7 @@ export interface MultiBlockStructure {
 
 }
 
-/** Preserved entity position and NBT. World placement does not create a render object for it. */
+/** Preserved entity position and NBT. `MineRenderWorld` can render supported mobs with `renderEntities`. */
 export interface MultiBlockEntity {
     position: TripleArray;
     blockPosition?: TripleArray;

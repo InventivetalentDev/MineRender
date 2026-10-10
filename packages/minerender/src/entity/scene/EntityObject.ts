@@ -279,7 +279,7 @@ export class EntityObject extends SceneObject {
 
     protected async applyTextures() {
         this.clearScrollMaterials();
-        await Promise.all(Object.entries(this.entityLayers).map(async ([name, layer]) => {
+        const results = await Promise.allSettled(Object.entries(this.entityLayers).map(async ([name, layer]) => {
             const mode = layer.render ?? layer.layer.render ?? "cutout";
             const tint = layer.tint === undefined ? undefined : this.options.tints?.[layer.tint];
             const scroll = Materials.entityModeScroll(mode);
@@ -313,6 +313,8 @@ export class EntityObject extends SceneObject {
         }
         this.updateScrollSubscription();
         this.notifyDirty();
+        const failure = results.find(result => result.status === "rejected");
+        if (failure?.status === "rejected") throw failure.reason;
     }
 
 
