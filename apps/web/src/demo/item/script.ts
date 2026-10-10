@@ -1,4 +1,4 @@
-import { AssetKey, BannerPatterns, DISPLAY_POSITIONS, DisplayPosition, ItemGlint, ItemTints, ModelMerger, Models, isGuiObject, isInstanceReference, isModelObject, type GuiObject, type ItemModel, type ItemModelContext } from "minerender";
+import { AssetKey, BannerPatterns, DISPLAY_POSITIONS, DisplayPosition, ItemDefaults, ItemGlint, ItemTints, ModelMerger, Models, isGuiObject, isInstanceReference, isModelObject, type GuiObject, type ItemModel, type ItemModelContext } from "minerender";
 import { Box3, OrthographicCamera, PerspectiveCamera, Vector2 } from "three";
 import { Playground, type DemoContext, type DemoContent } from "../../playground/Playground";
 import { button, field, group, input, note, section, select, suggestions } from "../../playground/controls";
@@ -44,7 +44,7 @@ const app = new Playground<ItemSettings>({
         apple: { label: "Apple in GUI pose", state: { item: "minecraft:apple", display: DisplayPosition.GUI } },
         stack: { label: "Inventory slot: 64 apples", state: { item: "minecraft:apple", preview: "slot", count: 64 }, view: guiView },
         damaged: { label: "Inventory slot: damaged pickaxe", state: { item: "minecraft:diamond_pickaxe", preview: "slot",
-            components: { "minecraft:damage": 781, "minecraft:max_damage": 1561 } }, view: guiView },
+            components: { "minecraft:damage": 781 } }, view: guiView },
         enchanted: { label: "Inventory slot: enchanted pickaxe", state: { item: "minecraft:diamond_pickaxe", preview: "slot",
             components: { "minecraft:enchantments": { "minecraft:efficiency": 3 } } }, view: guiView },
         nether_star: { label: "Inventory slot: nether star", state: { item: "minecraft:nether_star", preview: "slot" }, view: guiView },
@@ -270,11 +270,15 @@ glint.addEventListener("change", () => {
     void app.update({ components: next });
 });
 note(stackGroup, "Auto follows the item and its components. On and Off override the shimmer without changing enchantments.");
-const damageFields = (["damage", "max_damage"] as const).map(name => {
-    const control = input(stackGroup, name === "damage" ? "Damage (optional)" : "Maximum damage (optional)", "", "number");
+const stackFields = ([
+    ["damage", "Damage", "2147483647"],
+    ["max_damage", "Maximum damage", "2147483647"],
+    ["max_stack_size", "Maximum stack size", "99"]
+] as const).map(([name, title, max]) => {
+    const control = input(stackGroup, `${title} (optional)`, "", "number");
     control.id = `item-${name.replace(/_/g, "-")}`;
     control.placeholder = "Not supplied";
-    Object.assign(control, { min: name === "damage" ? "0" : "1", max: "2147483647", step: "1" });
+    Object.assign(control, { min: name === "damage" ? "0" : "1", max, step: "1" });
     control.addEventListener("change", () => {
         if (control.disabled || !stackState || app.state.item !== stackState.item
             || JSON.stringify(app.state.components) !== JSON.stringify(stackState.components)) return;
@@ -286,17 +290,18 @@ const damageFields = (["damage", "max_damage"] as const).map(name => {
         else {
             const value = control.valueAsNumber;
             if (!Number.isInteger(value) || value < Number(control.min) || value > Number(control.max)) {
-                app.report(`${name === "damage" ? "Damage" : "Maximum damage"} must be a whole number from ${control.min} to ${control.max}.`, true);
+                app.report(`${title} must be a whole number from ${control.min} to ${control.max}.`, true);
                 return;
             }
             next[id] = value;
         }
-        damageFields.forEach(({ control }) => { control.disabled = true; });
+        stackFields.forEach(({ control }) => { control.disabled = true; });
         void app.update({ components: next });
     });
     return { name, control };
 });
-const slotNote = note(stackGroup, "Count 0 leaves the slot empty. A durability bar needs both damage values and no unbreakable component. Blank fields remove damage values.");
+const defaultsNote = note(stackGroup, "Blank fields use vanilla 1.21.11 defaults when available. Maximum stack size affects count-based models; it does not limit Count.");
+const slotNote = note(stackGroup, "Count 0 leaves the slot empty. Damaged items with a maximum damage value show a durability bar unless unbreakable.");
 const componentColors = document.createElement("div");
 stackGroup.append(componentColors);
 const components = field(stackGroup, "Components (JSON)", document.createElement("textarea"));
@@ -498,11 +503,15 @@ function syncStateControls(state: ItemSettings, items: string[], potionColor?: n
     const override = state.components["minecraft:enchantment_glint_override"] ?? state.components.enchantment_glint_override;
     glint.value = override === true ? "on" : override === false ? "off" : "auto";
     glint.disabled = isModelPath(state.item);
-    for (const { name, control } of damageFields) {
+    const inherited = isModelPath(state.item) ? {} : ItemDefaults.get(state.item);
+    for (const { name, control } of stackFields) {
         const value = state.components[name] ?? state.components[`minecraft:${name}`];
         control.value = value === undefined ? "" : String(value);
+        const defaultValue = inherited[`minecraft:${name}`];
+        control.placeholder = defaultValue === undefined ? "Not supplied" : `Default: ${defaultValue}`;
         control.disabled = false;
     }
+    defaultsNote.hidden = isModelPath(state.item);
     slotNote.hidden = state.preview !== "slot";
     syncComponentColors(state, potionColor);
     components.value = JSON.stringify(state.components, null, 2);

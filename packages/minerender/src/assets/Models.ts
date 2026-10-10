@@ -11,6 +11,7 @@ import { AssetParser } from "./source/parser/AssetParsers";
 import { DisplayPosition } from "../model/DisplayPosition";
 import { DYE_COLORS } from "./BannerPatterns";
 import itemGlintDefaults from "../model/itemGlintDefaults.json";
+import { ItemDefaults } from "../model/ItemDefaults";
 
 /** Caller-supplied item-preview state passed to {@link Models.getMerged}. */
 export interface ItemModelContext {
@@ -18,9 +19,9 @@ export interface ItemModelContext {
     displayContext?: DisplayPosition | "none";
     /** Explicit property overrides. Nodes with the same ID share one override, regardless of their parameters. */
     properties?: Record<string, boolean | string | number>;
-    /** Supplied component JSON by ID, overriding built-in glint defaults. Component selectors compare structural JSON values. */
+    /** Supplied component JSON by ID, overriding built-in defaults. Component selectors compare structural JSON values. */
     components?: Record<string, unknown>;
-    /** Stack count, as a nonnegative integer. Defaults to 1; absent `max_stack_size` also defaults to 1. */
+    /** Stack count, as a nonnegative integer. Defaults to 1; missing `max_stack_size` on unknown items also defaults to 1. */
     count?: number;
     /** Item-model keys by reference-node ID, such as `minecraft:bundle/selected_item`. Unset references draw nothing. */
     itemReferences?: Record<string, AssetKey>;
@@ -30,7 +31,7 @@ export interface ItemModelContext {
 export class Models {
 
     // Bump when the shape of cached item models changes.
-    private static readonly ITEM_CACHE_VERSION = "item-v6";
+    private static readonly ITEM_CACHE_VERSION = "item-v7";
     private static _persistentCache: PersistentCache | undefined;
 
     // opened lazily: touching the store at import time would hit IndexedDB/disk just for loading
@@ -137,6 +138,11 @@ export class Models {
             if (Object.prototype.hasOwnProperty.call(components, component)) throw new Error(`Duplicate item-preview component: ${component}`);
             components[component] = this.snapshotJson(value);
         }
+        if (key.type === "item") {
+            for (const [id, value] of Object.entries(ItemDefaults.get(`${key.namespace}:${key.path}`))) {
+                if (!Object.prototype.hasOwnProperty.call(components, id)) components[id] = value;
+            }
+        }
         // Vanilla items whose default enchantment_glint_override component is true; the list has not changed across versions.
         if (key.type === "item" && key.namespace === DEFAULT_NAMESPACE && itemGlintDefaults.includes(key.path)
             && !Object.prototype.hasOwnProperty.call(components, "minecraft:enchantment_glint_override")) {
@@ -193,7 +199,7 @@ export class Models {
             return index < values.length ? values[index] : fallback;
         }
         if (kind === "condition" && property === "minecraft:has_component") {
-            if (node.ignore_default) throw new Error("Item-preview has_component with ignore_default requires an explicit properties override; item defaults are unavailable");
+            if (node.ignore_default) throw new Error("Item-preview has_component with ignore_default requires an explicit properties override; default component comparisons are unsupported");
             return Object.prototype.hasOwnProperty.call(context.components, this.contextIdentifier(node.component!));
         }
         if (kind === "select") {
@@ -347,7 +353,7 @@ export class Models {
     /**
      * Loads a model and resolves its parent chain. Returns `undefined` when the model is missing.
      * Item keys default to GUI context and a stack count of 1. Unresolved conditions are false and numeric properties are zero.
-     * Known vanilla item glint defaults apply unless components override them; other item-registry defaults are not loaded.
+     * Vanilla 1.21.11 stack-size, durability, and glint defaults apply unless components override them.
      * Pass `context` to supply component values, property overrides, and item references for a preview.
      * Composite items retain independently merged children in `ItemModel.parts`.
      *
