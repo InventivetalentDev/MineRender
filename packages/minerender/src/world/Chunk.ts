@@ -30,7 +30,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
 
     private readonly data = new ChunkData();
     private readonly renderedBlocks = new Map<number, BlockInfo<SectionMeshing>>();
-    private readonly sectionBlocks = new Map<number, SectionMeshEntry>();
+    private readonly sectionBlocks = new Map<number, SectionMeshEntry[]>();
     private readonly hiddenBlocks = new Set<number>();
     private readonly blockPosition = new Vector3();
     private sectionMesh?: SectionMesh;
@@ -143,9 +143,9 @@ export class Chunk<SectionMeshing extends boolean = false> {
                     continue;
                 }
                 // SectionModels chooses weighted variants separately for each block.
-                const template = perBlock ? undefined : await this.sectionModels!.get(blockState, stored.properties);
-                if (template) {
-                    this.sectionBlocks.set(index, { index, template, cullMask: 0 });
+                const templates = perBlock ? undefined : await this.sectionModels!.get(blockState, stored.properties);
+                if (templates) {
+                    this.sectionBlocks.set(index, templates.map(template => ({ index, template, cullMask: 0 })));
                     this.meshDirty = true;
                 } else {
                     object = await this.scene.addBlock(blockState, {
@@ -204,7 +204,8 @@ export class Chunk<SectionMeshing extends boolean = false> {
     /** Reports whether a visible cell hides neighboring cube faces. */
     public isOccludingIndex(index: number): boolean {
         return !this.hiddenBlocks.has(index)
-            && (this.sectionBlocks.has(index) || (this.renderedBlocks.get(index)?.object?.isOccluding ?? false));
+            && (this.sectionBlocks.get(index)?.some(entry => entry.template.occludes)
+                ?? this.renderedBlocks.get(index)?.object?.isOccluding ?? false);
     }
 
     public async setCullMaskAt(pos: Vector3, mask: number): Promise<void> {
@@ -213,11 +214,13 @@ export class Chunk<SectionMeshing extends boolean = false> {
 
     /** Updates hidden faces for a cell's section entry or individual render object. */
     public async setCullMaskIndex(index: number, mask: number): Promise<void> {
-        const entry = this.sectionBlocks.get(index);
-        if (entry) {
-            if (entry.cullMask !== mask) {
-                entry.cullMask = mask;
-                this.meshDirty = true;
+        const entries = this.sectionBlocks.get(index);
+        if (entries) {
+            for (const entry of entries) {
+                if (entry.cullMask !== mask) {
+                    entry.cullMask = mask;
+                    this.meshDirty = true;
+                }
             }
         } else {
             await this.renderedBlocks.get(index)?.object?.setCullMask(mask);
@@ -229,7 +232,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
         if (!this.meshDirty) return;
         this.meshDirty = false;
         const generation = ++this.meshGeneration;
-        const entries = [...this.sectionBlocks.values()].filter(entry => !this.hiddenBlocks.has(entry.index));
+        const entries = [...this.sectionBlocks.entries()].flatMap(([index, entries]) => this.hiddenBlocks.has(index) ? [] : entries);
         const next = entries.length ? await SectionMesh.buildAsync(entries, this.sectionModels!.maxAtlasSize) : undefined;
         if (generation !== this.meshGeneration) {
             next?.dispose();

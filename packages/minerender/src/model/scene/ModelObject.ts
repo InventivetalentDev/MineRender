@@ -4,7 +4,7 @@ import { Materials } from "../../Materials";
 import { Maybe, toRadians } from "../../util/util";
 import { UVMapper } from "../../UVMapper";
 import { TextureAtlas } from "../../texture/TextureAtlas";
-import { BoxGeometry, BoxHelper, BufferAttribute, Color, EdgesGeometry, Euler, InstancedMesh, LineBasicMaterial, LineSegments, Material, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, ShaderMaterial } from "three";
+import { BoxGeometry, BoxHelper, BufferAttribute, Color, DoubleSide, EdgesGeometry, Euler, FrontSide, InstancedMesh, LineBasicMaterial, LineSegments, Material, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, ShaderMaterial } from "three";
 import { mergeBufferGeometries } from "../../three/BufferGeometryUtils";
 import { SceneObjectOptions } from "../../renderer/SceneObjectOptions";
 import { addBox3WireframeToObject, addWireframeToMesh, addWireframeToObject, applyElementRotation } from "../../util/model";
@@ -255,7 +255,8 @@ export class ModelObject extends SceneObject {
 
     protected applyTextures() {
         if (this.atlas) {
-            const mat = Materials.createShadedCanvasMaterial(this.atlas.image.canvas as HTMLCanvasElement, this.atlas.hasTransparency, false, true);
+            const mat = Materials.createShadedCanvasMaterial(this.atlas.image.canvas as HTMLCanvasElement, this.atlas.hasTranslucency, false, true);
+            mat.side = this.atlas.hasTransparency ? DoubleSide : FrontSide;
             this.atlasMaterial = mat;
             this.atlasTexture = (mat as ShaderMaterial).uniforms?.map?.value ?? (mat as MeshBasicMaterial).map;
             if (this.options.displayPosition === DisplayPosition.GUI &&
