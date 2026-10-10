@@ -286,7 +286,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         for (const [key, section] of previous) {
             this._chunks.delete(key);
             this.pendingCulling.delete(section);
-            await section.clear(undefined);
+            await section.clear(false);
             this.markSectionChanged(section);
         }
     }

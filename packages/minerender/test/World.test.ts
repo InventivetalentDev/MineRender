@@ -283,8 +283,7 @@ test.serial("parsed columns clear unknown states, place remaining cells and reje
     t.is(data.get(0)!.type, "test:unknown");
     const missing = new ChunkData();
     missing.set(0, { type: "test:missing" });
-    await t.throwsAsync(world.placeChunk({ x: 1, z: 0, sections: [{ y: 0, data: missing }] }),
-        { message: "Missing block state test:missing" });
+    await t.notThrowsAsync(world.placeChunk({ x: 1, z: 0, sections: [{ y: 0, data: missing }] }));
     t.is(world.getBlockAt(16, 0, 0), undefined);
 });
 

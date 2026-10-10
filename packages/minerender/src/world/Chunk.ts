@@ -217,7 +217,11 @@ export class Chunk<SectionMeshing extends boolean = false> {
                 const resolved = resolutions.get(id)!;
                 if (resolved.status === "rejected") throw resolved.reason;
                 const { blockState, perBlock, fluid, prepared } = resolved.value;
-                if (!blockState) throw new Error(`Missing block state ${this.data.stateAt(id)!.type}`);
+                if (!blockState) {
+                    this.data.assign(index, 0);
+                    this.fluidCells[index] = 0;
+                    continue;
+                }
                 if (fluid) this.fluidCells[index] = (fluid.kind === "water" ? 16 : 32) | Math.min(fluid.level, 8);
                 const variantPosition: TripleArray = [this.x * 16 + index % 16,
                     this.y * 16 + Math.floor(index / 256), this.z * 16 + Math.floor(index / 16) % 16];
@@ -410,10 +414,9 @@ export class Chunk<SectionMeshing extends boolean = false> {
         this.scene.dirty = true;
     }
 
-    /** Removes stored blocks and their render objects, then notifies the owning world of changed positions. */
-    public async clear(onBlocksChanged?: (positions: Vector3[]) => Promise<void>): Promise<void> {
-        if (!arguments.length) onBlocksChanged = this.onBlocksChanged;
-        const positions = onBlocksChanged ? [...this.renderedBlocks.keys()].map(index => this.chunkPosToWorldPos(
+    /** Removes stored blocks and render objects. Set `notify` to false to skip the owning world's update. */
+    public async clear(notify = true): Promise<void> {
+        const positions = notify && this.onBlocksChanged ? [...this.renderedBlocks.keys()].map(index => this.chunkPosToWorldPos(
             new Vector3(index % 16, Math.floor(index / 256), Math.floor(index / 16) % 16)
         )) : [];
         for (const info of this.renderedBlocks.values()) info.object?.removeFromScene();
@@ -426,7 +429,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
         this.hiddenBlocks.clear();
         this.fluidCells.fill(0);
         this.data.clear();
-        await onBlocksChanged?.(positions);
+        if (notify) await this.onBlocksChanged?.(positions);
     }
 
     public async dispose(): Promise<void> {
