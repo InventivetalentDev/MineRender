@@ -2,6 +2,13 @@ import test from "ava";
 import { parseUncompressed, writeUncompressed } from "prismarine-nbt";
 import type { Compound, NBT } from "prismarine-nbt";
 import { SchematicParser } from "../src/model/multiblock/SchematicParser";
+import { MineRenderData } from "../src/assets/MineRenderData";
+import { AssetLoader } from "../src/assets/AssetLoader";
+import { installMineRenderDataFixtures } from "./helpers/minerender-data";
+
+let restoreData: () => void;
+test.before(() => { restoreData = installMineRenderDataFixtures(); });
+test.after.always(() => restoreData());
 
 function schematic(blocks: number[], data = blocks.map(() => 0), size = [blocks.length, 1, 1]): NBT {
     return {
@@ -37,6 +44,23 @@ test("legacy IDs and metadata become modern block states in x/z/y order", async 
         { type: "minecraft:cauldron", properties: {}, position: [0, 1, 2] },
         { type: "minecraft:water_cauldron", properties: { level: "2" }, position: [1, 1, 2] }
     ]);
+});
+
+test.serial("legacy schematics preserve active asset sources and explicit mapping roots", async t => {
+    const originalRoot = AssetLoader.ROOT;
+    AssetLoader.ROOT = "https://assets.example/1.21.11";
+    t.teardown(() => { AssetLoader.ROOT = originalRoot; });
+    t.teardown(installMineRenderDataFixtures(root => ({ legacyBlocks: { blocks: {
+        "31:1": root.endsWith("/1.16.5") ? "minecraft:grass" : "minecraft:short_grass"
+    } } })));
+    const get = MineRenderData.get, roots: (string | undefined)[] = [];
+    MineRenderData.get = (dataset, root) => { roots.push(root); return get(dataset, root); };
+    await SchematicParser.parse(schematic([31], [1]));
+    for (const [version, name] of [["1.16.5", "grass"], ["1.21.11", "short_grass"]]) {
+        const parsed = await SchematicParser.parse(schematic([31], [1]), {}, { root: `https://assets.example/${version}` });
+        t.is(parsed.blocks[0].type, `minecraft:${name}`);
+    }
+    t.deepEqual(roots, [undefined, "https://assets.example/1.16.5", "https://assets.example/1.21.11"]);
 });
 
 test("schematics retain tile entities, free entities and DataVersion without changing their NBT", async t => {

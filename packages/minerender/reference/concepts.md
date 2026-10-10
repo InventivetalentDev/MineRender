@@ -30,6 +30,25 @@ World edits such as `setBlockAt`, `placeMultiBlock`, and `clear` also return pro
 
 With `sectionMeshing: true`, changed sections rebuild after the placement promise resolves. The browser build prepares section geometry in a Web Worker when the bundle keeps `section.worker` beside the module; otherwise it builds synchronously. See [Browser and Node.js](./platforms.md#capability-boundaries).
 
+## Versioned registry data
+
+`AssetLoader.setVersion(version)` selects both vanilla assets and the registry data used for item defaults, potion colors, block properties, preview tints, fluids, dyes, and legacy numeric mappings. These datasets load from `assets.mcasset.cloud/<version>/minerender-data/` when needed.
+
+When the exact dataset version is missing, MineRender selects the nearest published patch in the same release line, preferring the older patch on a tie. Otherwise it uses the latest earlier published release. Automatic fallback supports releases from 1.16.5 onward; an unpublished snapshot rejects. Models and textures retain the requested asset version. A missing dataset or failed request rejects rather than returning an empty registry.
+
+Inspect the selected registry version with `resolve`:
+
+```ts
+AssetLoader.setVersion("1.21.6");
+const data = await MineRenderData.resolve();
+console.log(data.requestedVersion, data.version);
+const defaults = await ItemDefaults.get("minecraft:diamond_sword");
+```
+
+Pass an explicit asset root as the second argument to `MineRenderData.get(dataset, root)` or `ItemDefaults.get(itemId, root)` when loading another version or a mirror. `SchematicParser`, `AnvilParser`, and `AnvilWorldSource` accept `root` in their options to select the target registry for numeric block mappings; the file's DataVersion does not choose or migrate that target.
+
+The former synchronous data lookups now return promises: `ItemDefaults.get`, `ItemTints.getPotionList`, `getBlockFluidState`, `getFluidKind`, and `resolveLegacyBlock`. For repeated synchronous calculations, load `fluids` or `legacyBlocks` once with `MineRenderData.get` and pass the table to `resolveBlockFluidState` or `resolveLegacyBlockState`. Rendering and parser entry points await their data automatically. `BannerPatterns.getColors(root?)` provides versioned texture dyes; `DYE_COLORS` and `BannerPatterns.getColor` retain the fixed 1.21.11 palette for compatibility and are deprecated.
+
 ## Redrawing after changes
 
 [Renderer](/api/index/classes/Renderer) draws only when the scene is dirty, `render.renderAlways` is enabled, an `onFrame` subscription is active, or a video is recording. Calling `start()` runs this loop; it does not force an unchanged scene to redraw continuously.

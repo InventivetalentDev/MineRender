@@ -1,3 +1,4 @@
+import { installMineRenderDataFixtures } from "./helpers/minerender-data";
 import test, { ExecutionContext } from "ava";
 import { Object3D, Vector3 } from "three";
 import type { Compound } from "prismarine-nbt";
@@ -11,6 +12,10 @@ import type { TripleArray } from "../src/model/Model";
 import type { MultiBlockEntity, MultiBlockStructure } from "../src/model/multiblock/MultiBlockStructure";
 import { MineRenderScene } from "../src/renderer/MineRenderScene";
 import { MineRenderWorld } from "../src/world/MineRenderWorld";
+
+let restoreData: () => void;
+test.before(() => { restoreData = installMineRenderDataFixtures(); });
+test.after.always(() => restoreData());
 
 function deferred() {
     let resolve!: () => void;

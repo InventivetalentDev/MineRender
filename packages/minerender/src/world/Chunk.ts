@@ -119,7 +119,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
             const blockState = await BlockStates.get(AssetKey.parse("blockstates", stored.type));
             const perBlock = !blockState || !this.sectionModels
                 || !!(blockState.key && BlockEntities.entry(await BlockEntities.getIndex(blockState.key.root), blockState.key.toNamespacedString()));
-            const fluid = getBlockFluidState(blockState?.key, stored.properties);
+            const fluid = await getBlockFluidState(blockState?.key, stored.properties);
             const prepared = perBlock || fluid?.renderModel === false ? undefined
                 : await this.sectionModels!.prepareState(blockState!, stored.properties);
             return { blockState, perBlock, fluid, prepared, stored };
@@ -202,7 +202,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
             const blockState = await BlockStates.get(AssetKey.parse("blockstates", state.type));
             const perBlock = !blockState || !this.sectionModels
                 || !!(blockState.key && BlockEntities.entry(await BlockEntities.getIndex(blockState.key.root), blockState.key.toNamespacedString()));
-            const fluid = getBlockFluidState(blockState?.key, state.properties);
+            const fluid = await getBlockFluidState(blockState?.key, state.properties);
             const prepared = perBlock || fluid?.renderModel === false ? undefined
                 : await this.sectionModels!.prepareState(blockState!, state.properties);
             return { blockState, perBlock, fluid, prepared };

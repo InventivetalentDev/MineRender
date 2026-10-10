@@ -1,3 +1,4 @@
+import { installMineRenderDataFixtures } from "./helpers/minerender-data";
 import test, { ExecutionContext } from "ava";
 import { BoxGeometry, DoubleSide, Float32BufferAttribute, FrontSide, Group, Matrix4, Mesh, ShaderMaterial, Texture } from "three";
 import { CanvasImage } from "../src/canvas/CanvasImage";
@@ -8,6 +9,10 @@ import { Ticker } from "../src/Ticker";
 import { buildSectionGeometry, SectionGeometryInput, SectionGeometryPage } from "../src/world/SectionGeometry";
 import { SectionWorker } from "../src/world/SectionWorker";
 import { SectionMesh, SectionMeshTemplate } from "../src/world/SectionMesh";
+
+let restoreData: () => void;
+test.before(() => { restoreData = installMineRenderDataFixtures(); });
+test.after.always(() => restoreData());
 
 function fixture(t: ExecutionContext, createWorker?: EnvProvider["createWorker"], drawImage = () => {},
                  clearRect: (x: number, y: number, width: number, height: number) => void = () => {}) {

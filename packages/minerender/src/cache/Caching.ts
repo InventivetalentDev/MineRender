@@ -112,6 +112,7 @@ export class Caching {
     static readonly blockEntityIndexCache: AsyncLoadingCache<CacheKey, BlockEntityIndex> = Caching.createAssetCache<BlockEntityIndex>();
     static readonly fontCache: AsyncLoadingCache<CacheKey, BitmapFont> = Caching.createAssetCache<BitmapFont>();
     static readonly bannerPatternCache: AsyncLoadingCache<CacheKey, BannerPattern> = Caching.createAssetCache<BannerPattern>();
+    static readonly mineRenderDataCache: AsyncLoadingCache<CacheKey, unknown> = Caching.createAssetCache<unknown>();
     static readonly usernameUuidCache: AsyncLoadingCache<CacheKey, string> = Caches.builder()
         .expireAfterWrite(Time.minutes(5))
         .expirationInterval(Time.seconds(30))
@@ -151,6 +152,7 @@ export class Caching {
             this.blockEntityIndexCache,
             this.fontCache,
             this.bannerPatternCache,
+            this.mineRenderDataCache,
             this.usernameUuidCache
         ];
     }

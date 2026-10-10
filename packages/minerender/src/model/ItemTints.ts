@@ -2,14 +2,14 @@ import { isResourceLocation } from "../assets/AssetKey";
 import { MineRenderError } from "../error/MineRenderError";
 import { Colormaps } from "../texture/Colormaps";
 import type { ItemModel, ItemTintColor, Model } from "./Model";
-import potionColors from "./potionColors.json";
+import { MineRenderData, type MineRenderDatasets } from "../assets/MineRenderData";
 
 /** Resolves item-preview colors from vanilla tint definitions, stack components, and caller overrides. */
 export class ItemTints {
 
-    /** Lists the vanilla 1.21.11 potion IDs supported by automatic tinting. */
-    public static getPotionList(): string[] {
-        return Object.keys(potionColors.potions).sort().map(id => `minecraft:${id}`);
+    /** Lists potion IDs from the selected version's registry. */
+    public static async getPotionList(root?: string): Promise<string[]> {
+        return Object.keys((await MineRenderData.get("potionColors", root)).potions).sort();
     }
 
     /** Resolves preview colors from item definitions; explicit per-index colors take precedence. */
@@ -35,7 +35,7 @@ export class ItemTints {
                     break;
                 case "potion":
                 case "minecraft:potion": {
-                    colors[index] = this.potionColor(components["minecraft:potion_contents"], source.default);
+                    colors[index] = await this.potionColor(components["minecraft:potion_contents"], source.default, model.key?.root);
                     break;
                 }
                 case "map_color":
@@ -77,33 +77,66 @@ export class ItemTints {
         return colors;
     }
 
-    private static potionColor(value: unknown, fallback: ItemTintColor): number {
+    /** Whether a potion component contains a known effect, including effects with hidden particles. */
+    public static async hasPotionEffects(value: unknown, root?: string): Promise<boolean> {
+        if (value === undefined) return false;
+        const data = await MineRenderData.get("potionColors", root);
+        const { effects } = this.potionEffects(value, data);
+        return effects.some(effect => Object.prototype.hasOwnProperty.call(data.effects, effect.id));
+    }
+
+    private static async potionColor(value: unknown, fallback: ItemTintColor, root?: string): Promise<number> {
         if (value === undefined) return this.rgb(fallback);
-        if (typeof value === "string") value = { potion: value };
-        if (!value || typeof value !== "object" || Array.isArray(value)) throw new MineRenderError("Item tint potion_contents must be a potion ID or object");
-        const contents = value as Record<string, unknown>;
+        const contents = this.potionContents(value);
         if (contents.custom_color !== undefined) return this.componentColor(contents.custom_color);
+        const [data, resolved] = await Promise.all([MineRenderData.get("potionColors", root), MineRenderData.resolve(root)]);
+        const { effects, unresolved } = this.potionEffects(contents, data);
+        if (unresolved) return this.rgb(fallback);
+        const version = /^1\.(\d+)(?:\.(\d+))?$/.exec(resolved.version);
+        const legacy = !!version && (Number(version[1]) < 20 || Number(version[1]) === 20 && Number(version[2] ?? 0) < 5);
+        let red = 0, green = 0, blue = 0, weight = 0;
+        const add = (total: number, channel: number) => legacy ? Math.fround(total + Math.fround(channel / 255)) : total + channel;
+        for (const effect of effects) {
+            if (effect.show_particles === false) continue;
+            const color = data.effects[effect.id], contribution = effect.amplifier + 1;
+            red = add(red, (color >> 16 & 255) * contribution);
+            green = add(green, (color >> 8 & 255) * contribution);
+            blue = add(blue, (color & 255) * contribution);
+            weight += contribution;
+        }
+        if (!weight) return legacy ? (effects.length ? 0 : 3694022) : this.rgb(fallback);
+        const channel = (value: number) => Math.floor(legacy ? Math.fround(Math.fround(value / weight) * 255) : value / weight);
+        return channel(red) << 16 | channel(green) << 8 | channel(blue);
+    }
+
+    private static potionContents(value: unknown): Record<string, unknown> {
+        if (typeof value === "string") return { potion: value };
+        if (!value || typeof value !== "object" || Array.isArray(value)) throw new MineRenderError("Item tint potion_contents must be a potion ID or object");
+        return value as Record<string, unknown>;
+    }
+
+    private static potionEffects(value: unknown, data: MineRenderDatasets["potionColors"]): {
+        effects: { id: string; amplifier: number; show_particles?: boolean }[]; unresolved: boolean;
+    } {
+        const contents = this.potionContents(value);
         const identifier = (id: unknown): string => {
             if (!isResourceLocation(id)) {
                 throw new MineRenderError("Item tint potion and effect IDs must be identifiers");
             }
-            return id.replace(/^minecraft:/, "");
+            return id.includes(":") ? id : `minecraft:${id}`;
         };
-        const potions: Record<string, Array<{ id: string; amplifier: number }>> = potionColors.potions;
-        const effectColors: Record<string, number> = potionColors.effects;
-        const effects: unknown[] = [];
+        const values: unknown[] = [];
         let unresolved = false;
         if (contents.potion !== undefined) {
             const id = identifier(contents.potion);
-            if (Object.prototype.hasOwnProperty.call(potions, id)) effects.push(...potions[id]);
+            if (Object.prototype.hasOwnProperty.call(data.potions, id)) values.push(...data.potions[id]);
             else unresolved = true;
         }
         if (contents.custom_effects !== undefined) {
             if (!Array.isArray(contents.custom_effects)) throw new MineRenderError("Item tint potion_contents.custom_effects must be an array");
-            effects.push(...contents.custom_effects);
+            values.push(...contents.custom_effects);
         }
-        let red = 0, green = 0, blue = 0, weight = 0;
-        for (const value of effects) {
+        const effects = values.map(value => {
             if (!value || typeof value !== "object" || Array.isArray(value)) throw new MineRenderError("Item tint potion effects must be objects");
             const effect = value as Record<string, unknown>;
             const id = identifier(effect.id);
@@ -114,19 +147,10 @@ export class ItemTints {
             if (effect.show_particles !== undefined && typeof effect.show_particles !== "boolean") {
                 throw new MineRenderError("Item tint potion effect show_particles must be a boolean");
             }
-            if (effect.show_particles === false) continue;
-            if (!Object.prototype.hasOwnProperty.call(effectColors, id)) {
-                unresolved = true;
-                continue;
-            }
-            const color = effectColors[id], contribution = amplifier + 1;
-            red += (color >> 16 & 255) * contribution;
-            green += (color >> 8 & 255) * contribution;
-            blue += (color & 255) * contribution;
-            weight += contribution;
-        }
-        return unresolved || !weight ? this.rgb(fallback)
-            : Math.floor(red / weight) << 16 | Math.floor(green / weight) << 8 | Math.floor(blue / weight);
+            if (effect.show_particles !== false && !Object.prototype.hasOwnProperty.call(data.effects, id)) unresolved = true;
+            return { id, amplifier, show_particles: effect.show_particles as boolean | undefined };
+        });
+        return { effects, unresolved };
     }
 
     private static componentField(components: Record<string, unknown>, id: string, field: string): unknown {

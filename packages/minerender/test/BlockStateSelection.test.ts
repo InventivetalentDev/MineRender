@@ -1,3 +1,4 @@
+import { installMineRenderDataFixtures } from "./helpers/minerender-data";
 import test from "ava";
 import { BlockObject } from "../src/model/block/scene/BlockObject";
 import type { BlockStateVariant } from "../src/model/block/BlockState";
@@ -253,3 +254,6 @@ test.serial("initialization without metadata skips grouped conditions and retain
     t.deepEqual(unconditional.state, {});
     t.deepEqual(unconditional.selected, [base]);
 });
+let restoreData: () => void;
+test.before(() => { restoreData = installMineRenderDataFixtures(); });
+test.after.always(() => restoreData());

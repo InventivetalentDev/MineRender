@@ -58,7 +58,7 @@ export class GuiObject extends SceneObject {
                 }
                 if ("item" in layer) {
                     const [width, height] = layer.size ?? [16, 16];
-                    const overlay = this.itemOverlay(layer);
+                    const overlay = await this.itemOverlay(layer);
                     this.bounds.expandByPoint(new Vector2(x, y));
                     this.bounds.expandByPoint(new Vector2(x + width, y + height));
                     if (overlay.count === 0) {
@@ -150,12 +150,13 @@ export class GuiObject extends SceneObject {
         return material;
     }
 
-    private itemOverlay({ item, context }: GuiItemLayer): GuiItemOverlay {
+    private async itemOverlay({ item, context }: GuiItemLayer): Promise<GuiItemOverlay> {
         const count = context?.count === undefined ? 1 : context.count;
         if (!Number.isSafeInteger(count) || count < 0) throw new Error("Item-preview count must be a nonnegative safe integer");
+        if (count === 0) return { count };
         const components = context?.components ?? {};
         const key = typeof item === "string" ? AssetKey.parse("models", item) : item;
-        const defaults = key.type === "item" ? ItemDefaults.get(`${key.namespace}:${key.path}`) : {};
+        const defaults = key.type === "item" ? await ItemDefaults.get(`${key.namespace}:${key.path}`, key.root) : {};
         const component = (id: string): unknown => {
             const value = Models.componentValue(components, id);
             return Object.prototype.hasOwnProperty.call(components, id) || Object.prototype.hasOwnProperty.call(components, `minecraft:${id}`)
