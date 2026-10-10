@@ -1,9 +1,8 @@
 # Iframe embeds
 
 The embed page displays a scene without loading MineRender into the parent page.
-`apps/embed/` builds it as a separate Cloudflare Worker. Its configured destination
-is `https://beta.minerender.org/embed/`; deployment is a separate step. The examples
-below use that destination.
+The examples use the configured destination, `https://beta.minerender.org/embed/`.
+Deployment is a separate step.
 
 ```html
 <iframe
@@ -16,9 +15,8 @@ below use that destination.
 </iframe>
 ```
 
-Embeds follow the iframe size, fit the scene when no camera is supplied, and pause
-rendering while off-screen or in a hidden tab. Load errors appear inside the iframe.
-The page exposes a URL API; it does not accept or send `postMessage` commands.
+Embeds follow the iframe size and fit the scene when no camera is supplied. The page
+exposes a URL API; it does not accept or send `postMessage` commands.
 
 ## Choose a scene source
 
@@ -41,6 +39,10 @@ are only accepted with their matching shorthand, not with `src` or `#scene`.
 In the scene editor, **Copy embed** creates iframe HTML with the document, current
 camera, background, and viewport aspect ratio. It includes imported skin/cape PNGs
 as data URLs. Remote textures still need HTTPS and CORS access from the embed host.
+With `sandbox="allow-scripts"`, remote scene and texture servers must allow the
+opaque origin (`null`), for example with `Access-Control-Allow-Origin: *`.
+
+Changing the URL's `#scene` fragment replaces the displayed scene.
 
 ## View options
 
@@ -55,7 +57,7 @@ Missing values use automatic framing and the library's default asset version.
 | `controls.zoom` | `false` | `true` or `false` |
 | `controls.pan` | `false` | `true` or `false` |
 | `autorotate` | `0` | Degrees per second, from `-360` to `360`; also works with controls disabled |
-| `camera.position` | Document value or automatic | `x,y,z`, each from `-1000000` to `1000000` |
+| `camera.position` | Document value or automatic | Three finite coordinates: `x,y,z` |
 | `camera.target` | Document value or scene center | `x,y,z`; position and target must differ |
 | `background` | `transparent` | `transparent` or a six-digit RGB color, such as `19212d` |
 | `shadow` | `false` | `true` or `false`; applies a CSS drop shadow to the canvas |
@@ -89,35 +91,19 @@ uncompressed JSON to 1 MiB each. They require native `CompressionStream` and
 `DecompressionStream`. The embed also caps remote scene JSON at 1 MiB and fetches it
 with a 15-second timeout. PNG data URLs count toward the document size.
 
-Before requesting rendering assets, the embed validates one to 32 objects, at most
-128 GUI layers, and at most 8,192 GUI text characters across the scene. It also bounds
-transforms, animation values, and GUI dimensions. Drawing buffers are limited to
-4,096 pixels per side and 4,194,304 pixels in total by reducing the effective pixel
-ratio. A remote `src` avoids a long URL but does not bypass scene limits.
+Embeds validate the shared `SceneDocument` schema before requesting rendering
+assets. Scenes can contain as many objects and GUI layers as fit within the payload
+limit. Drawing buffers are limited to 4,096 pixels per side and 4,194,304 pixels in
+total by reducing the effective pixel ratio. A remote `src` avoids a long URL but
+keeps the same payload limit.
 
-## V1 query compatibility
+## Visibility and recovery
 
-Existing `minerender.org/embed/skin` and `minerender.org/embed/model` URLs remain V1
-pages. The V2 page accepts only these additional query forms:
+An off-screen embed releases its WebGL context. When it becomes visible again, it
+recreates the renderer and resumes the scene with the saved camera and entity clip
+playback time. Rendering also pauses while the browser tab is hidden.
 
-| V1 query | V2 behavior |
-| --- | --- |
-| `skin.name`, `skin.url` | Aliases for `skin`; supply only one |
-| `cape.user`, `cape.url` | Aliases for `cape`; supply only one, with skin shorthand |
-| `models=minecraft:block/stone,minecraft:item/apple` | Creates model objects at their default positions |
-| `controls`, `controls.zoom`, `controls.rotate`, `controls.pan`, `camera.position`, `shadow` | Uses the view options above |
-
-`skin.data` and `cape.data` are rejected; use PNG data URLs in a scene document.
-`showAxes` is unsupported. `autoResize` is rejected because embeds always follow
-their iframe size. There is no CORS proxy or `CORSpipe.php` replacement.
-
-## Run from the repository
-
-Run `yarn dev:embed`, then open
-`http://127.0.0.1:3001/embed/?block=minecraft:stone`. To make the local editor generate
-local iframe URLs, run `EMBED_URL=http://127.0.0.1:3001/embed/ yarn dev:web` in a
-second terminal.
-
-`yarn build:embed` builds the library and the embed into `apps/embed/dist/`.
-`yarn test:embed` checks URL parsing, scene limits, and remote loading. `yarn preview:embed` serves the
-Worker locally through Wrangler; `yarn deploy:embed` publishes its configured routes.
+Load errors appear inside the iframe. If the browser loses the WebGL context, the
+viewer shows a recovery message and a **Retry** button; it also recovers when the browser
+restores the context. If browser cache storage is unavailable, assets use memory
+for that page session so rendering can continue.

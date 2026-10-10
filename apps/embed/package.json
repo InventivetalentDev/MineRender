@@ -9,6 +9,7 @@
     "dev": "node build.mjs --serve",
     "typecheck": "tsc --noEmit",
     "test": "ava",
+    "test:browser": "node --test test/browser.test.mjs",
     "deploy": "yarn build && wrangler deploy",
     "preview:cf": "yarn build && wrangler dev"
   },
@@ -22,6 +23,7 @@
     "esbuild": "^0.19.5",
     "esbuild-plugin-polyfill-node": "^0.3.0",
     "esbuild-runner": "^2.2.2",
+    "puppeteer-core": "^23.11.1",
     "typescript": "~5.6.3",
     "wrangler": "^4.147.0"
   }

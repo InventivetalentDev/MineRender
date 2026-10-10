@@ -7,7 +7,6 @@ import { TransformControls } from "three/examples/jsm/controls/TransformControls
 import { renderInspector } from "./inspector";
 import { getObjectList, getObjectListHint, validateMinecraftVersion } from "./catalog";
 import { importStructure } from "./imports";
-import { validateEmbedScene } from "../../../embed/src/limits";
 
 declare const MINERENDER_EMBED_URL: string;
 
@@ -859,10 +858,9 @@ async function start(): Promise<void> {
         report(message);
     }
     element("copy-embed").addEventListener("click", () => { void run("Preparing embed…", async () => {
-        const scene = validateEmbedScene(snapshot());
         const url = new URL(MINERENDER_EMBED_URL, location.href);
         url.searchParams.set("background", element<HTMLInputElement>("transparent").checked ? "transparent" : "19212d");
-        url.hash = `scene=${await encodeSceneDocument(scene)}`;
+        url.hash = `scene=${await encodeSceneDocument(snapshot())}`;
         const source = url.href.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         const height = Math.max(1, Math.round(640 * viewport.clientHeight / Math.max(1, viewport.clientWidth)));
         showCode(`<iframe src="${source}" title="Minecraft scene" width="640" height="${height}" loading="lazy" style="border:0;max-width:100%;height:auto;aspect-ratio:640/${height};"></iframe>`, true);

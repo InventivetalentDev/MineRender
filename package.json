@@ -42,6 +42,7 @@
     "build:embed": "yarn build:lib && yarn workspace @minerender/embed build",
     "dev:embed": "yarn build:lib && yarn workspace @minerender/embed dev",
     "test:embed": "yarn workspace @minerender/embed test",
+    "test:embed:browser": "yarn workspace @minerender/embed test:browser",
     "deploy:embed": "yarn build:lib && yarn workspace @minerender/embed deploy",
     "preview:embed": "yarn build:lib && yarn workspace @minerender/embed preview:cf"
   }

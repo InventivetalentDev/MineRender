@@ -12,6 +12,7 @@ const { values: args } = parseArgs({ options: {
 if (!args.serve) await rm("dist", { recursive: true, force: true });
 await mkdir("dist/embed", { recursive: true });
 await copyFile("src/index.html", "dist/embed/index.html");
+await copyFile("src/_headers", "dist/_headers");
 const options = {
     entryPoints: ["src/main.ts"],
     outfile: "dist/embed/main.js",

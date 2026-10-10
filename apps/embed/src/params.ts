@@ -1,7 +1,4 @@
 import type { SceneDocument, TripleArray } from "minerender";
-import { httpsUrl, minecraftVersion, validateEmbedScene } from "./limits";
-export { validateEmbedScene } from "./limits";
-import { legacyModelScene, normalizeLegacyParams } from "./legacy";
 import { booleanParam, CONTENT_MODIFIERS, SHORTHAND_TYPES, shorthandScene } from "./shorthand";
 
 export interface EmbedView {
@@ -30,10 +27,10 @@ function uniqueParams(params: URLSearchParams): void {
     }
 }
 
-function numeric(value: string, name: string, minimum: number, maximum: number): number {
+function numeric(value: string, name: string, minimum = -Infinity, maximum = Infinity): number {
     if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(value)
         || !Number.isFinite(Number(value)) || Number(value) < minimum || Number(value) > maximum) {
-        throw new Error(`${name}: expected a number from ${minimum} to ${maximum}`);
+        throw new Error(`${name}: expected ${Number.isFinite(minimum) ? `a number from ${minimum} to ${maximum}` : "a finite number"}`);
     }
     return Number(value);
 }
@@ -41,20 +38,37 @@ function numeric(value: string, name: string, minimum: number, maximum: number):
 function vector(value: string, name: string): TripleArray {
     const parts = value.split(",");
     if (parts.length !== 3) throw new Error(`${name}: expected x,y,z`);
-    return parts.map(part => numeric(part, name, -1_000_000, 1_000_000)) as TripleArray;
+    return parts.map(part => numeric(part, name)) as TripleArray;
+}
+
+function minecraftVersion(value: string): string {
+    if (!/^[a-zA-Z0-9._-]{1,64}$/.test(value) || value === "." || value === "..") {
+        throw new Error("version: expected a Minecraft version of at most 64 characters without slashes");
+    }
+    return value;
+}
+
+function httpsUrl(value: string): string {
+    let url: URL;
+    try { url = new URL(value); }
+    catch { throw new Error("src: expected an HTTPS URL"); }
+    if (url.protocol !== "https:" || url.username || url.password || !value.startsWith("https://")) {
+        throw new Error("src: expected an HTTPS URL without credentials");
+    }
+    return url.href;
 }
 
 export function parseEmbedUrl(url: URL): EmbedRequest {
     uniqueParams(url.searchParams);
-    const params = normalizeLegacyParams(url.searchParams);
+    const params = url.searchParams;
     const hash = new URLSearchParams(url.hash.slice(1));
     uniqueParams(hash);
     for (const key of hash.keys()) if (key !== "scene") throw new Error(`${key}: unsupported fragment parameter`);
-    const allowed = [...SHORTHAND_TYPES, "models", "src", ...CONTENT_MODIFIERS, ...VIEW_PARAMS];
+    const allowed = [...SHORTHAND_TYPES, "src", ...CONTENT_MODIFIERS, ...VIEW_PARAMS];
     for (const key of params.keys()) if (!allowed.includes(key)) throw new Error(`${key}: unsupported parameter`);
-    const selectors = [...SHORTHAND_TYPES, "models", "src"].filter(key => params.has(key));
+    const selectors = [...SHORTHAND_TYPES, "src"].filter(key => params.has(key));
     if (selectors.length + Number(hash.has("scene")) !== 1) {
-        throw new Error("Choose exactly one scene source: skin, block, item, entity, model, models, src, or #scene");
+        throw new Error("Choose exactly one scene source: skin, block, item, entity, model, src, or #scene");
     }
     const shorthand = SHORTHAND_TYPES.find(key => params.has(key));
     if (!shorthand) {
@@ -62,9 +76,8 @@ export function parseEmbedUrl(url: URL): EmbedRequest {
     }
 
     let source: EmbedRequest["source"];
-    if (shorthand) source = { kind: "scene", scene: validateEmbedScene(shorthandScene(shorthand, params)) };
-    else if (params.has("models")) source = { kind: "scene", scene: validateEmbedScene(legacyModelScene(params.get("models")!)) };
-    else if (params.has("src")) source = { kind: "remote", url: httpsUrl(params.get("src")!, "src") };
+    if (shorthand) source = { kind: "scene", scene: shorthandScene(shorthand, params) };
+    else if (params.has("src")) source = { kind: "remote", url: httpsUrl(params.get("src")!) };
     else {
         const value = hash.get("scene")!;
         if (!value) throw new Error("scene: expected an encoded scene document");

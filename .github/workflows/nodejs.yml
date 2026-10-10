@@ -35,6 +35,9 @@ jobs:
           yarn test
           yarn test:package
           yarn test:api
+          yarn test:embed
+      - name: Test iframe rendering in Chrome
+        run: CHROME_PATH="$(command -v google-chrome)" yarn test:embed:browser
       - name: Test native rendering
         run: |
           xvfb-run -a yarn test:node
