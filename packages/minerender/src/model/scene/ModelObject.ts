@@ -52,7 +52,8 @@ export class ModelObject extends SceneObject {
         super(options);
         this.options = merge({}, ModelObject.DEFAULT_OPTIONS, options ?? {});
         const item = originalModel as ItemModel;
-        this.hasGlint = !item.special && !item.parts && ItemGlint.enabled(item.components);
+        const specialType = item.special?.type.replace(/^minecraft:/, "");
+        this.hasGlint = !item.parts && (!item.special || specialType === "shield" || specialType === "trident") && ItemGlint.enabled(item.components);
         if (item.special || item.parts || this.hasGlint) this.options.instanceMeshes = false;
         if (this.options.tints) this.options.tints = { ...this.options.tints };
         this.addEventListener("added", () => this.updateAnimationSubscription());
@@ -91,6 +92,7 @@ export class ModelObject extends SceneObject {
                 ? DisplayTransforms.getMatrix(this.originalModel.display, this.options.displayPosition) : new Matrix4();
             transform.multiply(new Matrix4().makeTranslation(-8, -8, -8));
             try {
+                const targets: { mesh: Mesh; parent?: Mesh }[] = [];
                 for (const part of parts) {
                     const object = new EntityObject(part.model, { flip: false, wireframe: this.options.wireframe, tints: part.tints, faces: part.faces });
                     object.matrix.copy(transform).multiply(part.transform);
@@ -117,6 +119,21 @@ export class ModelObject extends SceneObject {
                     for (const [name, position] of Object.entries(part.positions ?? {})) {
                         object.getGroupByName(name)?.position.set(...position);
                     }
+                    if (this.hasGlint) {
+                        if (special.type === "shield" || special.type === "minecraft:shield") {
+                            const mesh = object.getMeshByName("plate", "main")!;
+                            const layers = Object.keys(part.model.layers!);
+                            if (part.model.layers!.pattern_base) targets.push({ mesh: object.getMeshByName("handle", "main")! });
+                            // Follow the final plate draw so GUI and composite ordering keeps glint above the patterns.
+                            targets.push({ mesh, parent: object.getMeshByName("plate", layers[layers.length - 1])! });
+                        } else {
+                            object.iterateAllMeshes(mesh => targets.push({ mesh }));
+                        }
+                    }
+                }
+                if (targets.length) {
+                    this.glint = await ItemGlint.create(this, undefined, this.originalModel.key?.root, targets);
+                    this.updateAnimationSubscription();
                 }
             } catch (error) {
                 this.disposeAndRemoveAllChildren();

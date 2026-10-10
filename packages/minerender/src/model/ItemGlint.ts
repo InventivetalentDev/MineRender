@@ -11,7 +11,7 @@ import { CUBE_FACES } from "../CubeFace";
 import type { ModelFaces } from "./ModelElement";
 import type { TextureAtlas } from "../texture/TextureAtlas";
 
-/** An owned glint material over ordinary item geometry; textures and geometry retain their owners. */
+/** An owned glint material over item geometry; textures and geometry retain their owners. */
 export class ItemGlint {
     private ticker?: number;
 
@@ -33,7 +33,8 @@ export class ItemGlint {
     }
 
     /** @internal */
-    public static async create(owner: SceneObject, baseMap: Texture, root?: string): Promise<ItemGlint> {
+    public static async create(owner: SceneObject, baseMap?: Texture, root?: string,
+                               entityMeshes?: readonly { mesh: Mesh; parent?: Mesh }[]): Promise<ItemGlint> {
         const key = new AssetKey("minecraft", "enchanted_glint_item", "textures", "misc", "assets", ".png", root);
         const assetKey = key.serialize(), textureKey = `item-glint:${assetKey}`;
         let texture = Caching.textureCache.getIfPresent(textureKey);
@@ -43,7 +44,7 @@ export class ItemGlint {
             const [image, metadata] = await Promise.all([pending, ModelTextures.getMeta(key)]);
             if (!image) throw new Error(`Missing item glint texture ${key.toNamespacedString()}`);
             // A cache clear during decoding must not restore an older source's texture.
-            if (cachedAsset && Caching.textureAssetCache.getIfPresent(assetKey) !== cachedAsset) return this.create(owner, baseMap, root);
+            if (cachedAsset && Caching.textureAssetCache.getIfPresent(assetKey) !== cachedAsset) return this.create(owner, baseMap, root, entityMeshes);
             texture = Caching.textureCache.get(textureKey, () => {
                 const texture = Textures.createCanvasTexture((image.data as CanvasRenderingContext2D).canvas);
                 texture.wrapS = texture.wrapT = metadata?.texture?.clamp ? ClampToEdgeWrapping : RepeatWrapping;
@@ -55,18 +56,26 @@ export class ItemGlint {
             name: "item-glint", transparent: true, depthWrite: false, depthFunc: EqualDepth, side: DoubleSide, forceSinglePass: true,
             blending: CustomBlending, blendSrc: SrcColorFactor, blendDst: OneFactor, blendSrcAlpha: ZeroFactor, blendDstAlpha: OneFactor,
             toneMapped: false,
-            uniforms: { baseMap: { value: baseMap }, glintMap: { value: texture }, glintOffset: { value: new Vector2() }, glintAlpha: { value: 0.75 } },
+            defines: entityMeshes ? { ENTITY_GLINT: true } : {},
+            uniforms: { ...(!entityMeshes && { baseMap: { value: baseMap } }),
+                glintMap: { value: texture }, glintOffset: { value: new Vector2() }, glintAlpha: { value: 0.75 } },
             vertexShader: `
                 uniform vec2 glintOffset;
+                #ifndef ENTITY_GLINT
                 attribute vec4 uvBounds;
                 attribute vec2 glintUv;
                 flat out vec4 vUvBounds;
                 centroid out vec2 vUv;
+                #endif
                 varying vec2 vGlintUv;
                 void main() {
+                    #ifdef ENTITY_GLINT
+                    vec2 p = vec2(uv.x, 1.0 - uv.y) * 0.5;
+                    #else
                     vUv = uv;
                     vUvBounds = uvBounds;
                     vec2 p = glintUv * 8.0;
+                    #endif
                     float angle = radians(10.0);
                     vGlintUv = vec2(cos(angle) * p.x - sin(angle) * p.y, sin(angle) * p.x + cos(angle) * p.y) + glintOffset;
                     vec4 mvPosition = vec4(position, 1.0);
@@ -75,15 +84,19 @@ export class ItemGlint {
                 }
             `,
             fragmentShader: `
+                #ifndef ENTITY_GLINT
                 uniform sampler2D baseMap;
-                uniform sampler2D glintMap;
-                uniform float glintAlpha;
                 flat in vec4 vUvBounds;
                 centroid in vec2 vUv;
+                #endif
+                uniform sampler2D glintMap;
+                uniform float glintAlpha;
                 varying vec2 vGlintUv;
                 void main() {
+                    #ifndef ENTITY_GLINT
                     vec2 mapUv = clamp(vUv, vUvBounds.xy, vUvBounds.zw);
                     if (texture2D(baseMap, mapUv).a < 0.01) discard;
+                    #endif
                     vec4 color = texture2D(glintMap, vec2(vGlintUv.x, 1.0 - vGlintUv.y));
                     if (color.a < 0.1) discard;
                     gl_FragColor = color;
@@ -92,16 +105,16 @@ export class ItemGlint {
                 }
             `
         });
-        Object.assign(material.defaultAttributeValues, { uvBounds: [0, 0, 1, 1] });
-        const bases: Mesh[] = [];
-        owner.iterateAllMeshes(mesh => bases.push(mesh));
-        for (const base of bases) {
+        if (!entityMeshes) Object.assign(material.defaultAttributeValues, { uvBounds: [0, 0, 1, 1] });
+        const targets: { mesh: Mesh; parent?: Mesh }[] = entityMeshes ? [...entityMeshes] : [];
+        if (!entityMeshes) owner.iterateAllMeshes(mesh => targets.push({ mesh }));
+        for (const { mesh: base, parent = base } of targets) {
             const pass = new Mesh(base.geometry, material);
             pass.name = `${base.name}:glint`;
             pass.userData.minerenderItemGlint = true;
             pass.raycast = () => {};
-            pass.renderOrder = base.renderOrder + 0.5;
-            base.add(pass);
+            pass.renderOrder = parent.renderOrder + 0.5;
+            parent.add(pass);
         }
         return new ItemGlint(owner, material);
     }

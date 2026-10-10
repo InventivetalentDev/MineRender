@@ -1,11 +1,13 @@
 import test, { ExecutionContext } from "ava";
-import { Box3, DoubleSide, FrontSide, Mesh, MeshBasicMaterial, Texture, Vector3 } from "three";
+import { Box3, DoubleSide, FrontSide, Mesh, MeshBasicMaterial, ShaderMaterial, Texture, Vector3 } from "three";
 import { AssetKey, BasicAssetKey } from "../src/assets/AssetKey";
 import { AssetLoader } from "../src/assets/AssetLoader";
 import { BannerPatterns, DYE_COLORS } from "../src/assets/BannerPatterns";
 import { DecoratedPots } from "../src/assets/DecoratedPots";
 import { Entities, EntityModelOptions } from "../src/assets/Entities";
 import { ModelTextures } from "../src/assets/ModelTextures";
+import { Models } from "../src/assets/Models";
+import { Fonts } from "../src/assets/Fonts";
 import { AssetSource } from "../src/assets/source/AssetSource";
 import { Caching } from "../src/cache/Caching";
 import type { EntityModel, EntityModelPart } from "../src/entity/EntityModel";
@@ -19,6 +21,7 @@ import type { ItemModel, SpecialItemRenderer, TripleArray } from "../src/model/M
 import { ModelObject } from "../src/model/scene/ModelObject";
 import { SpecialItems } from "../src/model/SpecialItems";
 import { MineRenderScene } from "../src/renderer/MineRenderScene";
+import { Ticker } from "../src/Ticker";
 import { UVMapper } from "../src/UVMapper";
 import { SkinTextures } from "../src/skin/SkinTextures";
 
@@ -44,7 +47,8 @@ function patterns(t: ExecutionContext, assets: Record<string, unknown>) {
 }
 
 function fixture(t: ExecutionContext) {
-    const originals = { entity: Entities.getEntity, texture: ModelTextures.get, preload: ModelTextures.preload, image: Materials.getImage, atlas: UVMapper.getAtlas };
+    const originals = { entity: Entities.getEntity, texture: ModelTextures.get, preload: ModelTextures.preload,
+        meta: ModelTextures.getMeta, image: Materials.getImage, atlas: UVMapper.getAtlas };
     const material = new MeshBasicMaterial();
     const requests: { key: BasicAssetKey, texture?: BasicAssetKey, options?: EntityModelOptions }[] = [];
     const textures: AssetKey[] = [];
@@ -55,9 +59,10 @@ function fixture(t: ExecutionContext) {
     UVMapper.getAtlas = async () => { throw new Error("Special items must not load a block-model atlas"); };
     ModelTextures.get = async key => {
         textures.push(key);
-        return /^entity\/(?:banner|shield|decorated_pot)/.test(key.getFullPath())
+        return /^(?:entity\/(?:banner|shield|decorated_pot|trident)|misc\/enchanted_glint_item)/.test(key.getFullPath())
             ? { width: 64, height: 64, data: { canvas: {} } } as unknown as ExtractableImageData : undefined;
     };
+    ModelTextures.getMeta = async () => undefined;
     ModelTextures.preload = async key => Caching.textureAssetCache.get(key.serialize(), async () => ({ key } as TextureAsset));
     Entities.getEntity = async (key, texture, options) => {
         requests.push({ key, texture, options });
@@ -118,6 +123,7 @@ function fixture(t: ExecutionContext) {
         Entities.getEntity = originals.entity;
         ModelTextures.get = originals.texture;
         ModelTextures.preload = originals.preload;
+        ModelTextures.getMeta = originals.meta;
         Materials.getImage = originals.image;
         UVMapper.getAtlas = originals.atlas;
         material.dispose();
@@ -440,6 +446,148 @@ test.serial("shield decoration switches the base texture and draws masks only on
     const bounds = new Box3().setFromObject(plain.getMeshByName("plate")!);
     t.deepEqual([coordinates(bounds.min), coordinates(bounds.max)], [[-14, -19, -7], [-2, 3, -6]]);
     t.is(Object.keys(DYE_COLORS).length, 16);
+});
+
+test.serial("shield glint covers the plain plate and the decorated handle once without repeating pattern passes", async t => {
+    const { create, textures, models } = fixture(t);
+    const enchantments = { "minecraft:enchantments": { "minecraft:unbreaking": 3 } };
+    const plain = await create({ type: "minecraft:shield" }, undefined, enchantments);
+    const empty = await create({ type: "shield" }, undefined, { ...enchantments, "minecraft:banner_patterns": [] });
+    const dyed = await create({ type: "shield" }, undefined, { ...enchantments, "minecraft:base_color": "blue" });
+    const decorated = await create({ type: "shield" }, undefined, { ...enchantments, "minecraft:banner_patterns": Array.from({ length: 20 }, () => ({
+        pattern: { asset_id: "cross", translation_key: "pattern.cross" }, color: "white"
+    })) });
+    const off = await create({ type: "shield" }, undefined, { ...enchantments, enchantment_glint_override: false });
+    for (const [index, object] of [plain, empty, dyed, decorated, off].entries()) {
+        const entity = object.children[0] as EntityObject;
+        const meshes: Mesh[] = [];
+        object.iterateAllMeshes(mesh => meshes.push(mesh));
+        const passes = meshes.filter(mesh => mesh.userData.minerenderItemGlint);
+        t.is(passes.length, index === 4 ? 0 : index < 2 ? 1 : 2);
+        if (!passes.length) continue;
+        const plate = entity.getMeshByName("plate", "main")!;
+        const platePass = passes.find(pass => pass.geometry === plate.geometry)!;
+        const layers = Object.keys(entity.entity.layers!);
+        const lastPlate = entity.getMeshByName("plate", layers[layers.length - 1])!;
+        t.is(platePass.parent, lastPlate);
+        t.is(meshes[meshes.length - 1], platePass);
+        t.true(platePass.renderOrder > lastPlate.renderOrder);
+        const material = platePass.material as ShaderMaterial;
+        t.is(material.uniforms.baseMap, undefined);
+        t.true(material.defines.ENTITY_GLINT);
+        t.is(plate.geometry.getAttribute("glintUv"), undefined);
+        const handle = entity.getMeshByName("handle", "main")!;
+        t.is(passes.filter(pass => pass.geometry === handle.geometry).length, index < 2 ? 0 : 1);
+        object.updateMatrixWorld(true);
+        t.deepEqual(platePass.matrixWorld.elements, plate.matrixWorld.elements);
+    }
+    t.is(Object.keys((decorated.children[0] as EntityObject).entity.layers!).length, 18);
+    const glintRequests = textures.filter(key => key.getFullPath() === "misc/enchanted_glint_item");
+    t.is(glintRequests.length, 1);
+    t.true(glintRequests.every(key => key.root === "https://example.test/pack"));
+    t.true(models.every(model => !model.layers));
+});
+
+test.serial("trident glint follows every entity part and keeps other special renderers unchanged", async t => {
+    const { create, models } = fixture(t);
+    const trident = await create({ type: "trident" }, {
+        gui: { rotation: [17, 23, -11], translation: [3, 7, 1], scale: [0.5, 0.7, 0.9] }
+    }, { enchantment_glint_override: true });
+    const meshes: Mesh[] = [];
+    trident.iterateAllMeshes(mesh => meshes.push(mesh));
+    const bases = meshes.filter(mesh => !mesh.userData.minerenderItemGlint);
+    const passes = meshes.filter(mesh => mesh.userData.minerenderItemGlint);
+    t.is(passes.length, 5);
+    t.is(bases.length, 5);
+    trident.updateMatrixWorld(true);
+    for (const [index, pass] of passes.entries()) {
+        t.is(pass.parent, bases[index]);
+        t.is(pass.geometry, bases[index].geometry);
+        t.deepEqual(pass.matrixWorld.elements, bases[index].matrixWorld.elements);
+        t.is(pass.geometry.getAttribute("glintUv"), undefined);
+    }
+    const sharedMaterial = passes[0].material as ShaderMaterial;
+    t.true(passes.every(pass => pass.material === sharedMaterial));
+    t.true(sharedMaterial.defines.ENTITY_GLINT);
+    t.is(sharedMaterial.uniforms.baseMap, undefined);
+    t.is(models[0].layer.root.children.pole.pose.rotation[0], 0);
+    for (const special of [{ type: "conduit" }, { type: "chest", texture: "normal" }, { type: "trident" }] as const) {
+        const object = await create(special, undefined, { enchantment_glint_override: special.type !== "trident" });
+        object.iterateAllMeshes(mesh => t.falsy(mesh.userData.minerenderItemGlint));
+    }
+});
+
+test.serial("multipart special items share one glint material and ticker and dispose them once", async t => {
+    const { create } = fixture(t);
+    const getParts = SpecialItems.getParts;
+    SpecialItems.getParts = async (...args) => {
+        const parts = await getParts(...args);
+        return [...parts, ...parts];
+    };
+    t.teardown(() => { SpecialItems.getParts = getParts; });
+    const initialTickers = new Set(Ticker.tickers.keys());
+    const trident = await create({ type: "trident" }, undefined, { enchantment_glint_override: true });
+    const passes: Mesh[] = [];
+    trident.iterateAllMeshes(mesh => { if (mesh.userData.minerenderItemGlint) passes.push(mesh); });
+    t.is(trident.children.length, 2);
+    t.is(passes.length, 10);
+    const material = passes[0].material as ShaderMaterial;
+    t.true(passes.every(pass => pass.material === material));
+    t.is(Ticker.tickers.size - initialTickers.size, 1);
+    let disposals = 0;
+    material.addEventListener("dispose", () => disposals++);
+    trident.dispose(); trident.dispose();
+    t.is(disposals, 1);
+    t.deepEqual(new Set(Ticker.tickers.keys()), initialTickers);
+});
+
+test.serial("composite GUI special glint stays below stack overlays and releases only its owned resources", async t => {
+    fixture(t);
+    const originalMerged = Models.getMerged, originalFont = Fonts.get;
+    t.teardown(() => { Models.getMerged = originalMerged; Fonts.get = originalFont; });
+    const shield: ItemModel = { key: AssetKey.parse("models", "test:item/shield"), special: { type: "shield" },
+        components: { "minecraft:enchantment_glint_override": true, "minecraft:base_color": "red",
+            "minecraft:banner_patterns": [{ pattern: { asset_id: "cross", translation_key: "pattern.cross" }, color: "white" }] } };
+    const trident: ItemModel = { key: AssetKey.parse("models", "test:item/trident"), special: { type: "trident" },
+        components: { "minecraft:enchantments": { "minecraft:impaling": 2 } } };
+    Models.getMerged = async key => ({ key, parts: [shield, trident] });
+    Fonts.get = async () => ({ glyphs: new Map() });
+    const scene = new MineRenderScene();
+    const initialTickers = new Set(Ticker.tickers.keys());
+    const gui = await scene.addGui([{ name: "stack", item: "test:item/composite", position: [0, 0],
+        context: { count: 4, components: { damage: 5, max_damage: 10 } } }]);
+    t.teardown(() => { gui.dispose(); gui.removeFromParent(); });
+    const item = gui.getGroupByName("stack")!;
+    const meshes: Mesh[] = [];
+    item.traverse(child => { if ((child as Mesh).isMesh) meshes.push(child as Mesh); });
+    const passes = meshes.filter(mesh => mesh.userData.minerenderItemGlint);
+    t.is(passes.length, 7);
+    const platePass = passes[1];
+    t.is(meshes.indexOf(platePass), 5);
+    t.true(meshes.every((mesh, index) => index === 0 || mesh.renderOrder > meshes[index - 1].renderOrder));
+    t.true(meshes.every(mesh => mesh.renderOrder < 0.5));
+    t.is(Ticker.tickers.size - initialTickers.size, 2);
+    gui.removeFromParent();
+    t.is(Ticker.tickers.size - initialTickers.size, 2);
+    scene.add(gui);
+    t.is(Ticker.tickers.size - initialTickers.size, 2);
+    item.removeFromParent();
+    t.deepEqual(new Set(Ticker.tickers.keys()), initialTickers);
+    gui.add(item);
+    t.is(Ticker.tickers.size - initialTickers.size, 2);
+    let geometryDisposals = 0, materialDisposals = 0, glintTextureDisposals = 0, baseTextureDisposals = 0;
+    const geometries = new Set(meshes.map(mesh => mesh.geometry));
+    geometries.forEach(geometry => geometry.addEventListener("dispose", () => geometryDisposals++));
+    const materials = new Set(passes.map(pass => pass.material as ShaderMaterial));
+    materials.forEach(material => {
+        material.addEventListener("dispose", () => materialDisposals++);
+        material.uniforms.glintMap.value.addEventListener("dispose", () => glintTextureDisposals++);
+    });
+    const baseTextures = new Set(meshes.filter(mesh => !mesh.userData.minerenderItemGlint).map(mesh => (mesh.material as MeshBasicMaterial).map!));
+    baseTextures.forEach(texture => texture.addEventListener("dispose", () => baseTextureDisposals++));
+    gui.dispose(); gui.dispose();
+    t.deepEqual([geometryDisposals, materialDisposals, glintTextureDisposals, baseTextureDisposals], [geometries.size, 2, 0, 0]);
+    t.deepEqual(new Set(Ticker.tickers.keys()), initialTickers);
 });
 
 test.serial("composite shield components keep independent colors and dispose owned resources once", async t => {
