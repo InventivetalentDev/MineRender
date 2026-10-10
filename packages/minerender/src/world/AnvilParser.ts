@@ -11,6 +11,8 @@ type CompoundValue = Compound["value"];
 type NBTTag = Tags[TagType] | undefined;
 type RegionInput = Uint8Array | ArrayBuffer;
 
+const BLOCK_STATE_LAYOUT = { count: 4096, minBits: 4, name: "block-state" };
+
 /** Reads `c.<x>.<z>.mcc` at absolute chunk coordinates, or returns `undefined` when the file is missing. */
 export type AnvilExternalChunkReader = (x: number, z: number, signal?: AbortSignal) => Promise<Uint8Array | ArrayBuffer | undefined>;
 
@@ -326,26 +328,13 @@ export class AnvilParser {
             throw new MineRenderError("Anvil biome palette must contain 1 to 64 nonempty biome IDs");
         }
         const ids = palette.value.value as string[];
-        if (ids.length === 1 && (!data || (data.type === "longArray" && data.value.length === 0))) {
-            return Array<string>(64).fill(ids[0]);
+        if (ids.length === 1 && data?.type === "longArray" && data.value.length !== 0) {
+            throw new MineRenderError("Invalid Anvil biome array length: expected 0");
         }
-        if (data?.type !== "longArray") throw new MineRenderError("Anvil biomes are missing their long array");
-        const bits = Math.max(1, Math.ceil(Math.log2(ids.length)));
-        const perLong = Math.floor(64 / bits);
-        const expected = ids.length === 1 ? 0 : Math.ceil(64 / perLong);
-        if (data.value.length !== expected) throw new MineRenderError(`Invalid Anvil biome array length: expected ${expected}`);
-        const mask = (1 << bits) - 1;
-        const biomes: string[] = [];
-        for (let index = 0; index < 64; index++) {
-            const [high, low] = data.value[Math.floor(index / perLong)];
-            const shift = (index % perLong) * bits;
-            let value = shift < 32 ? low >>> shift : high >>> (shift - 32);
-            if (shift < 32 && shift + bits > 32) value += (high >>> 0) * 2 ** (32 - shift);
-            const id = value & mask;
+        return Array.from(this.unpack(data, ids.length, true, undefined, { count: 64, minBits: 1, name: "biome" }), id => {
             if (id >= ids.length) throw new MineRenderError(`Anvil biome palette index ${id} is out of range`);
-            biomes.push(ids[id]);
-        }
-        return biomes;
+            return ids[id];
+        });
     }
 
     private static compounds(tag: NBTTag, name: string): CompoundValue[] {
@@ -381,23 +370,24 @@ export class AnvilParser {
         return block;
     }
 
-    private static unpack(tag: NBTTag, paletteSize: number, modern: boolean, dataVersion?: number): Uint16Array {
-        const indices = new Uint16Array(4096);
+    private static unpack(tag: NBTTag, paletteSize: number, modern: boolean, dataVersion?: number,
+        layout: { count: number; minBits: number; name: string } = BLOCK_STATE_LAYOUT): Uint16Array {
+        const indices = new Uint16Array(layout.count);
         if (paletteSize === 1 && (!tag || (tag.type === "longArray" && tag.value.length === 0))) return indices;
-        if (tag?.type !== "longArray") throw new MineRenderError("Anvil section is missing its block-state long array");
-        const bits = Math.max(4, Math.ceil(Math.log2(paletteSize)));
+        if (tag?.type !== "longArray") throw new MineRenderError(`Anvil section is missing its ${layout.name} long array`);
+        const bits = Math.max(layout.minBits, Math.ceil(Math.log2(paletteSize)));
         if (paletteSize > 4096) throw new MineRenderError("Anvil block palette exceeds 4096 entries");
         if (!modern && dataVersion === undefined && 64 % bits !== 0) {
-            throw new MineRenderError("Anvil DataVersion is required to decode this block-state layout");
+            throw new MineRenderError(`Anvil DataVersion is required to decode this ${layout.name} layout`);
         }
         // DataVersion 2527 added padding so each block-state index fits within one long.
         const padded = modern || (dataVersion ?? 0) >= 2527;
         const perLong = Math.floor(64 / bits);
-        const expected = padded ? Math.ceil(4096 / perLong) : Math.ceil(4096 * bits / 64);
-        if (tag.value.length !== expected) throw new MineRenderError(`Invalid Anvil block-state array length: expected ${expected}`);
+        const expected = padded ? Math.ceil(layout.count / perLong) : Math.ceil(layout.count * bits / 64);
+        if (tag.value.length !== expected) throw new MineRenderError(`Invalid Anvil ${layout.name} array length: expected ${expected}`);
         const words = tag.value.map(([high, low]) => [high >>> 0, low >>> 0]);
         const mask = (1 << bits) - 1;
-        for (let index = 0; index < 4096; index++) {
+        for (let index = 0; index < layout.count; index++) {
             const bitPos = index * bits;
             const word = padded ? Math.floor(index / perLong) : bitPos >>> 6;
             const shift = padded ? (index % perLong) * bits : bitPos & 63;

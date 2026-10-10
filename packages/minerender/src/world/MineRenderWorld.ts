@@ -25,6 +25,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
     public readonly scene: MineRenderScene;
 
     private readonly _chunks: Map<string, Chunk<SectionMeshing>> = new Map();
+    private readonly biomes = new Map<string, Map<number, readonly string[]>>();
     private readonly sectionModels?: SectionModels;
     private readonly entities?: WorldEntities;
     private readonly pendingCulling = new Map<Chunk<SectionMeshing>, Set<number>>();
@@ -59,7 +60,10 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         if (typeof posOrX === "number") return this.getBiomeAt(new Vector3(posOrX, y, z));
         if (isTripleArray(posOrX)) return this.getBiomeAt(new Vector3(...posOrX));
         this.validatePosBounds(posOrX);
-        return this.getChunkAt(posOrX)?.getBiomeAt(posOrX);
+        const cx = Math.floor(posOrX.x / 16), cy = Math.floor(posOrX.y / 16), cz = Math.floor(posOrX.z / 16);
+        const lx = posOrX.x - cx * 16, ly = posOrX.y - cy * 16, lz = posOrX.z - cz * 16;
+        return this.biomes.get(`${cx}_${cz}`)?.get(cy)?.[
+            Math.floor(lx / 4) + Math.floor(lz / 4) * 4 + Math.floor(ly / 4) * 16];
     }
 
     /**
@@ -203,7 +207,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
     }
 
 
-    /** Replaces a chunk column's blocks and biomes and, with `renderEntities`, its supported saved mobs. */
+    /** Replaces a chunk column's blocks and biome samples and, with `renderEntities`, its supported saved mobs. */
     public async placeChunk(chunk: AnvilChunk, executor?: BatchedExecutor): Promise<void> {
         this.entities?.clearColumn(chunk.x, chunk.z);
         const placeEntities = this.entities?.prepare(chunk.entities, [chunk.x, chunk.z]);
@@ -215,7 +219,14 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                 if (section.biomes) {
                     const position = new Vector3(chunk.x * 16, section.y * 16, chunk.z * 16);
                     this.validatePosBounds(position);
-                    this.getOrCreateChunkAt(position).setBiomes(section.biomes);
+                    const copy = [...section.biomes];
+                    if (copy.length !== 64 || !copy.every(id => typeof id === "string" && id.length > 0)) {
+                        throw new RangeError("Section biomes must contain 64 nonempty biome IDs");
+                    }
+                    const key = `${chunk.x}_${chunk.z}`;
+                    let column = this.biomes.get(key);
+                    if (!column) this.biomes.set(key, column = new Map());
+                    column.set(section.y, copy);
                 }
                 if (!executor) {
                     const blocks: { index: number; block: Maybe<Block> }[] = [];
@@ -271,6 +282,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
     }
 
     private async clearChunkColumn(x: number, z: number, changes: Map<string, Vector3>): Promise<void> {
+        this.biomes.delete(`${x}_${z}`);
         const previous = [...this._chunks.entries()].filter(([, section]) => section.x === x && section.z === z);
         for (const [key, section] of previous) {
             this._chunks.delete(key);
@@ -286,6 +298,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         await this.culling;
         const chunks = [...this._chunks.values()];
         this._chunks.clear();
+        this.biomes.clear();
         for (const chunk of chunks) {
             await chunk.dispose();
         }
