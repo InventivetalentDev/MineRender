@@ -1,8 +1,9 @@
 import test, { ExecutionContext } from "ava";
-import { Box3, Mesh, MeshBasicMaterial, Vector3 } from "three";
+import { Box3, DoubleSide, FrontSide, Mesh, MeshBasicMaterial, Texture, Vector3 } from "three";
 import { AssetKey, BasicAssetKey } from "../src/assets/AssetKey";
 import { AssetLoader } from "../src/assets/AssetLoader";
 import { BannerPatterns, DYE_COLORS } from "../src/assets/BannerPatterns";
+import { DecoratedPots } from "../src/assets/DecoratedPots";
 import { Entities, EntityModelOptions } from "../src/assets/Entities";
 import { ModelTextures } from "../src/assets/ModelTextures";
 import { AssetSource } from "../src/assets/source/AssetSource";
@@ -19,6 +20,7 @@ import { ModelObject } from "../src/model/scene/ModelObject";
 import { SpecialItems } from "../src/model/SpecialItems";
 import { MineRenderScene } from "../src/renderer/MineRenderScene";
 import { UVMapper } from "../src/UVMapper";
+import { SkinTextures } from "../src/skin/SkinTextures";
 
 const coordinates = (v: Vector3) => v.toArray().map(value => Math.round(value * 1e6) / 1e6 + 0);
 const part = (children: Record<string, EntityModelPart> = {}, origin?: TripleArray, size: TripleArray = [8, 8, 8]): EntityModelPart => ({
@@ -53,7 +55,7 @@ function fixture(t: ExecutionContext) {
     UVMapper.getAtlas = async () => { throw new Error("Special items must not load a block-model atlas"); };
     ModelTextures.get = async key => {
         textures.push(key);
-        return /^entity\/(?:banner|shield)/.test(key.getFullPath())
+        return /^entity\/(?:banner|shield|decorated_pot)/.test(key.getFullPath())
             ? { width: 64, height: 64, data: { canvas: {} } } as unknown as ExtractableImageData : undefined;
     };
     ModelTextures.preload = async key => Caching.textureAssetCache.get(key.serialize(), async () => ({ key } as TextureAsset));
@@ -74,9 +76,30 @@ function fixture(t: ExecutionContext) {
                 right_spike: part({}, [1.5, -3, -0.5], [1, 4, 1])
             }, [-0.5, 2, -0.5], [1, 25, 1]) })
             : id === "conduit" ? part({ shell: part({}, [-3, -3, -3], [6, 6, 6]) })
+            : id === "decorated_pot_base" ? part({
+                bottom: { ...part({}, [0, 0, 0], [14, 0, 14]), pose: { offset: [1, 0, 1], rotation: [0, 0, 0] } },
+                top: { ...part({}, [0, 0, 0], [14, 0, 14]), pose: { offset: [1, 16, 1], rotation: [0, 0, 0] } },
+                neck: { ...part(), pose: { offset: [0, 37, 16], rotation: [Math.PI, 0, 0] }, cubes: [
+                    { origin: [4, 17, 4], size: [8, 3, 8], grow: [-0.1, -0.1, -0.1], uv: [0, 0] },
+                    { origin: [5, 20, 5], size: [6, 1, 6], grow: [0.2, 0.2, 0.2], uv: [0, 5] }
+                ] }
+            })
+            : id === "decorated_pot_sides" ? part(Object.fromEntries(Object.entries({
+                back: { offset: [15, 16, 1], rotation: [0, 0, Math.PI] },
+                left: { offset: [1, 16, 1], rotation: [0, -Math.PI / 2, Math.PI] },
+                right: { offset: [15, 16, 15], rotation: [0, Math.PI / 2, Math.PI] },
+                front: { offset: [1, 16, 15], rotation: [Math.PI, 0, 0] }
+            }).map(([name, pose]) => [name, { ...part({}, [0, 0, 0], [14, 16, 0]), pose,
+                cubes: [{ origin: [0, 0, 0], size: [14, 16, 0], uv: [1, 0] }] } as EntityModelPart])))
+            : id === "player_head" ? part({ head: part({ hat: {
+                ...part({}, [-4, -8, -4]), cubes: [{ origin: [-4, -8, -4], size: [8, 8, 8], uv: [32, 0], grow: [0.25, 0.25, 0.25] }]
+            } }, [-4, -8, -4]) })
+            : id.startsWith("copper_golem") ? { ...part({ body: part({}, [-4, -12, -3], [8, 12, 6]) }),
+                pose: { offset: [0, id === "copper_golem" ? 24 : 0, 0] as TripleArray, rotation: [0, 0, 0] as TripleArray } }
             : id.startsWith("bed_") ? part({ main: part({}, [0, 0, 0], [16, 16, 6]) })
             : part({ head: part({ jaw: part(), left_ear: part(), right_ear: part() }, [-4, -8, -4]) });
         const model: EntityModel = { key, id, texture: texture as AssetKey | undefined, transform: [{ translate: [100, 200, 300] }], layer: { texture: [64, 64], root } };
+        if (id.startsWith("decorated_pot_")) model.layer.texture = id.endsWith("base") ? [32, 32] : [16, 16];
         if (id === "trident" || id === "conduit") {
             model.layer.texture = id === "trident" ? [32, 32] : [32, 16];
             model.layers = { [options?.layer ?? "main"]: { key, texture: texture as AssetKey, layer: model.layer } };
@@ -152,6 +175,58 @@ test.serial("special beds join both halves before applying the inherited item di
     t.deepEqual([coordinates(bounds.min), coordinates(bounds.max)], [[-2, 0.5, -8], [6, 3.5, 8]]);
 });
 
+test.serial("player-head items keep the hat, skin materials, inherited display, and composite profiles independent", async t => {
+    const { create, requests, textures, models, objects } = fixture(t);
+    const original = SkinTextures.get;
+    const skins = [new MeshBasicMaterial({ map: new Texture(), transparent: true, alphaTest: 0.1, side: DoubleSide }),
+        new MeshBasicMaterial({ map: new Texture(), transparent: true, alphaTest: 0.1, side: DoubleSide })];
+    SkinTextures.get = async src => ({ material: skins[src.endsWith("second") ? 1 : 0], slim: false, legacy: false });
+    t.teardown(() => { SkinTextures.get = original; skins.forEach(material => { material.map!.dispose(); material.dispose(); }); });
+    const components = (name: string) => ({ "minecraft:profile": { properties: { textures: [Buffer.from(JSON.stringify({
+        textures: { SKIN: { url: `https://textures.minecraft.net/texture/${name}` } }
+    })).toString("base64")] } } });
+    const first = await create({ type: "minecraft:player_head" }, undefined, components("first"));
+    const second = await create({ type: "player_head" }, { gui: { translation: [2, 3, 4], scale: [0.5, 0.5, 0.5] } }, components("second"));
+    t.deepEqual(requests.map(request => [request.key.path, request.options?.layer]), [["player_head", "main"], ["player_head", "main"]]);
+    t.true(requests.every(request => (request.key as AssetKey).root === "https://example.test/pack"));
+    t.deepEqual(textures, []);
+    t.is(first.getGroupByName("head")!.rotation.y, Math.PI);
+    const bounds = [first, second].map(object => new Box3().setFromObject(object));
+    t.deepEqual(bounds.map(box => [coordinates(box.min), coordinates(box.max)]), [
+        [[-4.25, -8.25, -4.25], [4.25, 0.25, 4.25]], [[-0.125, -1.125, 1.875], [4.125, 3.125, 6.125]]
+    ]);
+    for (const [index, object] of [first, second].entries()) {
+        const entity = object.children[0] as EntityObject;
+        const head = entity.getMeshByName("head")!;
+        const hat = entity.getMeshByName("hat")!;
+        const material = head.material as MeshBasicMaterial;
+        t.is(head.material, hat.material);
+        t.not(material, skins[index]);
+        t.is(material.map, skins[index].map);
+        t.deepEqual([material.side, material.transparent, material.alphaTest, material.depthWrite], [FrontSide, true, 0.1, true]);
+        t.is(head.geometry.getIndex()!.count, 72);
+        t.is(hat.geometry.getIndex()!.count, 72);
+        t.is(entity.entity.render, "translucent");
+        t.is(models[index].render, undefined);
+        t.is(models[index].layer.root.children.head.pose.rotation[1], 0);
+        t.false(object.isInstanced);
+    }
+    const composite = new ModelObject({ parts: [first.originalModel, { ...second.originalModel, gui_light: GuiLight.FRONT }] } as ItemModel,
+        { displayPosition: DisplayPosition.GUI, instanceMeshes: true });
+    objects.push(composite);
+    await composite.init();
+    t.deepEqual(composite.children.map(object => ((object as ModelObject).getMeshByName("head")!.material as MeshBasicMaterial).map), skins.map(skin => skin.map));
+    t.is(((composite.children[1] as ModelObject).getMeshByName("head")!.material as MeshBasicMaterial).onBeforeCompile, skins[1].onBeforeCompile);
+    const material = first.getMeshByName("head")!.material as MeshBasicMaterial;
+    let disposedMaterial = 0, disposedTexture = 0, disposedSkin = 0;
+    material.addEventListener("dispose", () => disposedMaterial++);
+    skins[0].map!.addEventListener("dispose", () => disposedTexture++);
+    skins[0].addEventListener("dispose", () => disposedSkin++);
+    first.dispose();
+    t.deepEqual([disposedMaterial, disposedTexture, disposedSkin], [1, 0, 0]);
+    t.is((second.getMeshByName("head")!.material as MeshBasicMaterial).map, skins[1].map);
+});
+
 test.serial("trident and conduit specials select their vanilla layers, solid materials, and transforms", async t => {
     const { create, requests, textures, models } = fixture(t);
     const trident = await create({ type: "minecraft:trident" });
@@ -178,6 +253,107 @@ test.serial("trident and conduit specials select their vanilla layers, solid mat
     const displayed = await create({ type: "minecraft:conduit" }, { gui: { translation: [2, 3, 4], scale: [0.5, 0.5, 0.5] } });
     const displayedBounds = new Box3().setFromObject(displayed);
     t.deepEqual([coordinates(displayedBounds.min), coordinates(displayedBounds.max)], [[0.5, 1.5, 2.5], [3.5, 4.5, 5.5]]);
+});
+
+test.serial("decorated pots map component order to outward side planes while retaining base textures and cached geometry", async t => {
+    const { create, requests, models } = fixture(t);
+    const decorations = ["archer_pottery_sherd", "prize_pottery_sherd", "arms_up_pottery_sherd", "skull_pottery_sherd"];
+    const object = await create({ type: "minecraft:decorated_pot" }, undefined, { "minecraft:pot_decorations": decorations });
+    const entity = object.children[0] as EntityObject;
+    t.false(object.isInstanced);
+    t.deepEqual(requests.map(request => [request.key.path, request.options?.layer]), [["decorated_pot_base", "main"], ["decorated_pot_sides", "main"]]);
+    t.deepEqual(Object.keys(entity.entity.layers!), ["base", "front", "back", "left", "right"]);
+    t.is(entity.entity.layers!.base.texture!.getFullPath(), "entity/decorated_pot/decorated_pot_base");
+    const expected = {
+        back: ["archer", [0, 0, -7], [0, 0, -1]], left: ["prize", [-7, 0, 0], [-1, 0, 0]],
+        right: ["arms_up", [7, 0, 0], [1, 0, 0]], front: ["skull", [0, 0, 7], [0, 0, 1]]
+    } as const;
+    object.updateMatrixWorld(true);
+    for (const side of ["back", "left", "right", "front"] as const) {
+        const mesh = entity.getMeshByName(side, side)!;
+        const [pattern, center, normal] = expected[side];
+        t.is(entity.entity.layers![side].texture!.getFullPath(), `entity/decorated_pot/${pattern}_pottery_pattern`);
+        t.is(mesh.geometry.getIndex()!.count, 6);
+        t.deepEqual(coordinates(new Vector3(7, 8, 0).applyMatrix4(mesh.matrixWorld)), [...center]);
+        t.deepEqual(coordinates(new Vector3(0, 0, -1).transformDirection(mesh.matrixWorld)), [...normal]);
+        t.deepEqual(Array.from(mesh.geometry.getAttribute("uv").array).slice(40), [15 / 16, 0, 1 / 16, 0, 15 / 16, 1, 1 / 16, 1]);
+        const material = mesh.material as MeshBasicMaterial;
+        t.deepEqual([material.transparent, material.alphaTest, material.depthWrite], [false, 0, true]);
+    }
+    t.true(Object.values(entity.entity.layers!).every(layer => layer.texture?.root === "https://example.test/pack"));
+    t.true(requests.every(request => (request.key as AssetKey).root === "https://example.test/pack"));
+    const bounds = new Box3().setFromObject(object);
+    t.deepEqual([coordinates(bounds.min), coordinates(bounds.max)], [[-7, -8, -7], [7, 11.9, 7]]);
+    t.true(Object.values(models[1].layer.root.children).every(child => !("faces" in child.cubes[0])));
+    t.deepEqual(models[0].layer.root.children.neck.cubes[0].grow, [-0.1, -0.1, -0.1]);
+    let geometriesDisposed = 0, materialsDisposed = 0, texturesDisposed = 0;
+    const materials = new Set<MeshBasicMaterial>();
+    object.iterateAllMeshes(mesh => { mesh.geometry.addEventListener("dispose", () => geometriesDisposed++); materials.add(mesh.material as MeshBasicMaterial); });
+    materials.forEach(material => { material.addEventListener("dispose", () => materialsDisposed++); material.map!.addEventListener("dispose", () => texturesDisposed++); });
+    object.dispose(); object.dispose();
+    t.deepEqual([geometriesDisposed, materialsDisposed, texturesDisposed], [8, 5, 0]);
+    t.deepEqual(decorations, ["archer_pottery_sherd", "prize_pottery_sherd", "arms_up_pottery_sherd", "skull_pottery_sherd"]);
+});
+
+test.serial("plain and partial pot decorations use fallback sides and reject malformed component lists", async t => {
+    const { create, requests } = fixture(t);
+    for (const value of [null, {}, [null], ["invalid:item:id"], new Array(5).fill("brick")]) {
+        await t.throwsAsync(SpecialItems.getParts({ type: "decorated_pot" }, undefined, { "minecraft:pot_decorations": value }), { message: /[Pp]ot decoration|pot_decorations/ });
+    }
+    t.is(requests.length, 0);
+    const plain = await create({ type: "decorated_pot" });
+    const sides = (plain.children[0] as EntityObject).entity.layers!;
+    t.true(["front", "back", "left", "right"].every(side => sides[side].texture!.path === "decorated_pot/decorated_pot_side"));
+    const partial = DecoratedPots.getSideTextures(["flow_pottery_sherd", "minecraft:brick", "minecraft:diamond"]);
+    t.deepEqual(Object.values(partial).map(key => key.path), ["decorated_pot/flow_pottery_pattern", ...new Array(3).fill("decorated_pot/decorated_pot_side")]);
+    t.is(DecoratedPots.getSideTextures(["pack:archer_pottery_sherd"]).back.path, "decorated_pot/decorated_pot_side");
+    const preload = ModelTextures.preload;
+    ModelTextures.preload = async key => key.path === "decorated_pot/archer_pottery_pattern" ? undefined : preload(key);
+    await t.throwsAsync(SpecialItems.getParts({ type: "decorated_pot" }, undefined, { "minecraft:pot_decorations": ["archer_pottery_sherd"] }),
+        { message: /Missing special item texture minecraft:entity\/decorated_pot\/archer_pottery_pattern/ });
+});
+
+test.serial("copper-golem statue poses share entity texture keys, preserve literal paths, and override only the vanilla root pose", async t => {
+    const { create, requests, textures, models } = fixture(t);
+    const poses = ["standing", "sitting", "running", "star"] as const;
+    const textureIds = ["minecraft:textures/entity/copper_golem/copper_golem.png", "pack:textures/custom/sitting.png",
+        "pack:custom/running.image", "textures/entity/copper_golem/oxidized_copper_golem.png"];
+    const textureKeys = [
+        ["minecraft", "textures", "entity", "copper_golem/copper_golem", ".png"],
+        ["pack", "textures", "custom", "sitting", ".png"],
+        ["pack", undefined, undefined, "custom/running.image", ""],
+        ["minecraft", "textures", "entity", "copper_golem/oxidized_copper_golem", ".png"]
+    ];
+    for (const [index, pose] of poses.entries()) {
+        const object = await create({ type: "minecraft:copper_golem_statue", pose, texture: textureIds[index] });
+        const entity = object.children[0] as EntityObject;
+        t.false(object.isInstanced);
+        t.is(requests[index].key.path, pose === "standing" ? "copper_golem" : `copper_golem_${pose}`);
+        t.is(requests[index].options?.layer, "main");
+        t.is((requests[index].key as AssetKey).root, "https://example.test/pack");
+        const key = textures[index];
+        t.deepEqual([key.namespace, key.assetType, key.type, key.path, key.extension], textureKeys[index]);
+        t.is(key.root, "https://example.test/pack");
+        t.is(entity.entity.render, "cutout");
+        t.is(entity.children[0].children.length, 1);
+        t.deepEqual(entity.getGroupByName("root")!.position.toArray(), [0, 0, 0]);
+        t.deepEqual(entity.getGroupByName("root")!.rotation.toArray().slice(0, 3), [0, Math.PI, Math.PI]);
+        t.deepEqual(coordinates(new Vector3(1, 2, 3).applyMatrix4(entity.matrix)), [-1, 14, 3]);
+        const bounds = new Box3().setFromObject(object);
+        t.deepEqual([coordinates(bounds.min), coordinates(bounds.max)], [[-4, 4, -3], [4, 16, 3]]);
+        t.is(object.getMeshByName("body")!.geometry.getIndex()!.count, 72);
+        t.deepEqual(models[index].layer.root.pose, { offset: [0, pose === "standing" ? 24 : 0, 0], rotation: [0, 0, 0] });
+    }
+    const original = Entities.getEntity;
+    Entities.getEntity = async (...args) => {
+        const model = (await original(...args))!;
+        model.layer.root.pose = { offset: [2, 24, 3], rotation: [0.25, 0.5, 0.75] };
+        return model;
+    };
+    const adjusted = await create({ type: "copper_golem_statue", pose: "standing", texture: "pack:textures/custom/statue.png" });
+    t.deepEqual(adjusted.getGroupByName("root")!.position.toArray(), [2, 0, 3]);
+    t.deepEqual(adjusted.getGroupByName("root")!.rotation.toArray().slice(0, 3), [0.25, Math.PI, Math.PI]);
+    t.deepEqual(models[4].layer.root.pose, { offset: [2, 24, 3], rotation: [0.25, 0.5, 0.75] });
 });
 
 test.serial("banner patterns use registry asset IDs, namespaces, directory indexes, and the first 16 ordered layers", async t => {

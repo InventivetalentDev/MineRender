@@ -3,13 +3,14 @@ import { BoxGeometry, Float32BufferAttribute } from "three";
 import { Env, EnvProvider } from "../src/Env";
 import { ModelTextures } from "../src/assets/ModelTextures";
 import { UVMapper } from "../src/UVMapper";
+import { WrappedImage } from "../src/WrappedImage";
 import type { Model } from "../src/model/Model";
 import type { CompatCanvas } from "../src/canvas/CanvasCompat";
 import type { ExtractableImageData } from "../src/ExtractableImageData";
 
 import type { ExecutionContext } from "ava";
 
-function stubTextures(t: ExecutionContext): void {
+function stubTextures(t: ExecutionContext, alpha = 255): ExtractableImageData {
     const originals = { provider: Env["_provider"], get: ModelTextures.get, meta: ModelTextures.getMeta };
     t.teardown(() => {
         Env["_provider"] = originals.provider;
@@ -17,6 +18,7 @@ function stubTextures(t: ExecutionContext): void {
         ModelTextures.getMeta = originals.meta;
     });
     const pixels = { width: 16, height: 16, data: new Uint8ClampedArray(16 * 16 * 4).fill(255) };
+    pixels.data[3] = alpha;
     Env.register({
         name: "test",
         createCanvas: (width, height) => ({
@@ -28,8 +30,26 @@ function stubTextures(t: ExecutionContext): void {
             toDataURL: () => ""
         } as unknown as CompatCanvas)
     } as EnvProvider);
-    ModelTextures.get = async () => ({ width: 16, height: 16, data: { getImageData: () => pixels } } as ExtractableImageData);
+    const image = { width: 16, height: 16, data: { getImageData: () => pixels } } as ExtractableImageData;
+    ModelTextures.get = async () => image;
     ModelTextures.getMeta = async () => undefined;
+    return image;
+}
+
+for (const alpha of [0, 128, 255]) {
+    test.serial(`image and atlas distinguish transparency from translucency for alpha ${alpha}`, async t => {
+        const image = new WrappedImage(stubTextures(t, alpha));
+        const atlas = (await UVMapper.createAtlas({
+            textures: { side: "block/stone" },
+            elements: [{ from: [0, 0, 0], to: [16, 16, 16], faces: { east: { texture: "#side" } } }]
+        }))!;
+        t.teardown(() => atlas.dispose());
+
+        t.is(image.hasTransparency, alpha < 255);
+        t.is(image.hasTranslucency, alpha > 0 && alpha < 255);
+        t.is(atlas.hasTransparency, image.hasTransparency);
+        t.is(atlas.hasTranslucency, image.hasTranslucency);
+    });
 }
 
 test.serial("faces without texture references keep fallback UVs while textured faces map normally", async t => {

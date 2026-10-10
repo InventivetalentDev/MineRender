@@ -2,19 +2,36 @@ import test from "ava";
 import type { ExtractableImageData } from "../src/ExtractableImageData";
 import { WrappedImage } from "../src/WrappedImage";
 
-function wrap(width: number, height: number) {
+function wrap(width: number, height: number, alphas: number[] = []) {
     const regions: number[][] = [];
     const image = new WrappedImage({
         width, height,
         data: {
             getImageData(x: number, y: number, width: number, height: number) {
                 regions.push([x, y, width, height]);
-                return { width, height, data: new Uint8ClampedArray(width * height * 4) };
+                const data = new Uint8ClampedArray(width * height * 4);
+                alphas.forEach((alpha, index) => data[index * 4 + 3] = alpha);
+                return { width, height, data };
             }
         }
     } as ExtractableImageData);
     return { image, regions };
 }
+
+test("alpha properties share one pixel read in either access order", t => {
+    for (const alphas of [[255, 255, 255], [255, 0, 255], [255, 0, 128]]) {
+        for (const first of ["hasTransparency", "hasTranslucency"] as const) {
+            const { image, regions } = wrap(3, 1, alphas);
+            t.is(regions.length, 0);
+            t.is(image[first], first === "hasTransparency" ? alphas[1] === 0 : alphas[2] === 128);
+            for (let access = 0; access < 2; access++) {
+                t.is(image.hasTransparency, alphas[1] === 0);
+                t.is(image.hasTranslucency, alphas[2] === 128);
+            }
+            t.deepEqual(regions, [[0, 0, 3, 1]]);
+        }
+    }
+});
 
 test("static textures have one frame covering the whole image", t => {
     for (const [width, height] of [[16, 16], [32, 16], [16, 24]]) {

@@ -1,16 +1,17 @@
-import { BufferGeometry, Float32BufferAttribute, Group, Material, Mesh, MeshBasicMaterial, ShaderMaterial, Texture, Uint32BufferAttribute } from "three";
+import { BufferGeometry, Float32BufferAttribute, FrontSide, Group, Material, Mesh, MeshBasicMaterial, ShaderMaterial, Texture, Uint32BufferAttribute } from "three";
 import { createCanvas } from "../canvas/CanvasCompat";
-import { CUBE_FACES } from "../CubeFace";
 import { Materials } from "../Materials";
 import { TextureAtlas } from "../texture/TextureAtlas";
 import { buildSectionGeometry, SectionGeometryInput, SectionGeometryPage, SectionTemplateData } from "./SectionGeometry";
 import { SectionWorker } from "./SectionWorker";
 
-/** Shared cube geometry and atlas data prepared for section merging. */
+/** Shared quad geometry and atlas data prepared for section merging. */
 export interface SectionMeshTemplate {
     geometry: BufferGeometry;
     atlas: TextureAtlas;
-    cullFaces: readonly number[];
+    cullFaces: Uint8Array;
+    occludes: boolean;
+    layer: 0 | 1;
 }
 
 /** One block placement in a section, with its storage index and hidden-face mask. */
@@ -44,17 +45,22 @@ function toInput(entries: readonly SectionMeshEntry[], maxAtlasSize: number): { 
             }
             let data = templateCache.get(template);
             if (!data) {
-                data = {
-                    positions: new Float32Array(72), normals: new Float32Array(72), uvs: new Float32Array(48),
-                    uvBounds: new Float32Array(96), colors: new Float32Array(72), indices: new Uint16Array(36),
-                    cullFaces: new Uint8Array(template.cullFaces), atlas: 0
-                };
+                const indices = template.geometry.getIndex()!;
                 const position = template.geometry.getAttribute("position");
+                const quads = indices.count / 6;
+                if (indices.count % 6 !== 0 || position.count !== quads * 4) {
+                    throw new RangeError("Section template geometry must hold four vertices and six indices per quad");
+                }
+                data = {
+                    quads, positions: new Float32Array(quads * 12), normals: new Float32Array(quads * 12), uvs: new Float32Array(quads * 8),
+                    uvBounds: new Float32Array(quads * 16), colors: new Float32Array(quads * 12), indices: new Uint16Array(quads * 6),
+                    cullFaces: new Uint8Array(template.cullFaces), atlas: 0, layer: template.layer
+                };
                 const normal = template.geometry.getAttribute("normal");
                 const uv = template.geometry.getAttribute("uv");
                 const bounds = template.geometry.getAttribute("uvBounds");
                 const color = template.geometry.getAttribute("color");
-                for (let vertex = 0; vertex < CUBE_FACES.length * 4; vertex++) {
+                for (let vertex = 0; vertex < quads * 4; vertex++) {
                     data.positions.set([position.getX(vertex), position.getY(vertex), position.getZ(vertex)], vertex * 3);
                     data.normals.set([normal.getX(vertex), normal.getY(vertex), normal.getZ(vertex)], vertex * 3);
                     data.uvs.set([uv.getX(vertex), uv.getY(vertex)], vertex * 2);
@@ -62,8 +68,7 @@ function toInput(entries: readonly SectionMeshEntry[], maxAtlasSize: number): { 
                         bounds?.getZ(vertex) ?? 1, bounds?.getW(vertex) ?? 1], vertex * 4);
                     data.colors.set([color?.getX(vertex) ?? 1, color?.getY(vertex) ?? 1, color?.getZ(vertex) ?? 1], vertex * 3);
                 }
-                const indices = template.geometry.getIndex()!;
-                for (let i = 0; i < data.indices.length; i++) data.indices[i] = indices.getX(i);
+                for (let i = 0; i < data.indices.length; i++) data.indices[i] = indices.getX(i) - 4 * Math.floor(i / 6);
                 templateCache.set(template, data);
             }
             id = input.templateData.length;
@@ -83,7 +88,7 @@ export class SectionMesh extends Group {
 
     private readonly ownedMeshes: { mesh: Mesh<BufferGeometry, Material>; texture?: Texture }[] = [];
 
-    /** Builds section-local meshes from visible cube faces. `maxAtlasSize` limits each atlas dimension in pixels. */
+    /** Builds section-local meshes from visible quads. `maxAtlasSize` limits each atlas dimension in pixels. */
     public static build(entries: readonly SectionMeshEntry[], maxAtlasSize = 2048): SectionMesh {
         const { input, atlases } = toInput(entries, maxAtlasSize);
         return this.fromPages(buildSectionGeometry(input), atlases);
@@ -115,7 +120,8 @@ export class SectionMesh extends Group {
             geometry.setIndex(new Uint32BufferAttribute(page.indices.buffer, 1));
             geometry.computeBoundingBox();
             geometry.computeBoundingSphere();
-            const material = Materials.createShadedCanvasMaterial(canvas as HTMLCanvasElement, false, false, true);
+            const material = Materials.createShadedCanvasMaterial(canvas as HTMLCanvasElement, page.layer === 1, false, true);
+            material.side = FrontSide;
             material.vertexColors = true;
             const texture = (material as ShaderMaterial).uniforms?.map?.value ?? (material as MeshBasicMaterial).map;
             const mesh = new Mesh(geometry, material);
