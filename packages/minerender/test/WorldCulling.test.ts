@@ -814,6 +814,13 @@ test.serial("waterlogged block entities keep their own fluid outside section mes
     const section = scene.children.find(child => child instanceof SectionMesh)!;
     t.deepEqual(section.children.map(child => (child as Mesh).geometry.getIndex()!.count), [36]);
     t.is((section.children[0] as Mesh).geometry.boundingBox!.min.x, 24);
+    await world.setBlockAt([1, 0, 0], { type: "water", properties: { level: "4" } });
+    const joined = assertFluidPositions(t, world, scene, [[1, 0, 0]]);
+    t.is(indexCount(entity.object!, 1), 30);
+    await world.setBlockVisibleAt([0, 0, 0], false);
+    t.notDeepEqual(assertFluidPositions(t, world, scene, [[1, 0, 0]]), joined);
+    await world.setBlockVisibleAt([0, 0, 0], true);
+    t.deepEqual(assertFluidPositions(t, world, scene, [[1, 0, 0]]), joined);
 });
 
 test.serial("changing water levels across a chunk border rebuilds both section surfaces", async t => {

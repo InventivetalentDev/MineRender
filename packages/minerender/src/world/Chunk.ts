@@ -274,7 +274,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
                         const index = y * 256 + z * 16 + x;
                         const inner = x >= 0 && x < 16 && y >= 0 && y < 16 && z >= 0 && z < 16;
                         fluids.cells[(y + 1) * 324 + (z + 1) * 18 + x + 1] = inner
-                            ? (this.renderedBlocks.get(index)?.object ? 0 : this.fluidByteIndex(index))
+                            ? this.fluidByteIndex(index) | (this.renderedBlocks.get(index)?.object ? 128 : 0)
                                 | (this.isOccludingIndex(index) ? 64 : 0)
                             : this.neighborCell?.(this.x * 16 + x, this.y * 16 + y, this.z * 16 + z) ?? 0;
                     }

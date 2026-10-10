@@ -146,6 +146,8 @@ test("section fluid pages emit only inner cells and map both sprites and tint", 
     t.deepEqual(buildSectionGeometry(source), []);
     cells.fill(0);
     cells[cell(0, 3, 4)] = 16;
+    cells[cell(1, 3, 4)] = 32 | 128;
+    t.deepEqual(buildSectionGeometry(source).map(page => page.placements), [[{ atlas: 2, x: 0, y: 0 }]]);
     cells[cell(1, 3, 4)] = 32;
     source.atlases.push({ width: 8, height: 4, animated: false });
     source.fluids.lava = { ...source.fluids.water!, atlas: 3 };

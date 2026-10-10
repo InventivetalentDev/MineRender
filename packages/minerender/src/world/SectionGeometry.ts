@@ -32,6 +32,7 @@ export interface SectionFluidKind {
 
 /** Fluid cells of the section plus a one-cell shell, 18×18×18, x fastest, then z, then y. */
 export interface SectionFluidInput {
+    /** Bit 128 marks a surface rendered elsewhere; the cell still supplies neighbor fluid samples. */
     cells: Uint8Array;
     water?: SectionFluidKind;
     lava?: SectionFluidKind;
@@ -131,7 +132,7 @@ export function buildSectionGeometry(input: SectionGeometryInput): SectionGeomet
         for (let y = 0; y < 16; y++) for (let z = 0; z < 16; z++) for (let x = 0; x < 16; x++) {
             const byte = fluids.cells[(y + 1) * 324 + (z + 1) * 18 + x + 1];
             const fluid = fluidKindOf(byte);
-            if (!fluid) continue;
+            if (!fluid || (byte & 128)) continue;
             const data = fluids[fluid];
             if (!data) throw new RangeError("Section fluid input lacks the atlas for a present fluid");
             const quads = buildFluidQuads(fluid, (dx, dy, dz) => {
