@@ -53,7 +53,7 @@ export class ModelObject extends SceneObject {
         this.options = merge({}, ModelObject.DEFAULT_OPTIONS, options ?? {});
         const item = originalModel as ItemModel;
         const specialType = item.special?.type.replace(/^minecraft:/, "");
-        this.hasGlint = !item.parts && (!item.special || specialType === "shield" || specialType === "trident") && ItemGlint.enabled(item.components);
+        this.hasGlint = !item.parts && (!item.special || specialType === "shield" || specialType === "trident") && ItemGlint.enabled(item.components, item.itemId);
         if (item.special || item.parts || this.hasGlint) this.options.instanceMeshes = false;
         if (this.options.tints) this.options.tints = { ...this.options.tints };
         this.addEventListener("added", () => this.updateAnimationSubscription());
@@ -199,7 +199,6 @@ export class ModelObject extends SceneObject {
                         UVMapper.lockUvs(elGeo, el.faces, this.atlas!, new Euler(...this.options.uvLockRotation));
                     }
                     UVMapper.setAtlasUvBounds(elGeo, el.faces, this.atlas!);
-                    if (this.hasGlint) ItemGlint.mapUvs(elGeo, el.faces, this.atlas!);
                     if (this.options.tints) {
                         const colors = new Float32Array(elGeo.getAttribute("position").count * 3).fill(1);
                         for (const [faceIndex, faceName] of CUBE_FACES.entries()) {
@@ -224,7 +223,7 @@ export class ModelObject extends SceneObject {
                     if (el.rotation) {
                         applyElementRotation(el.rotation, elGeo);
                     }
-
+                    if (this.hasGlint) ItemGlint.mapUvs(elGeo, el.faces, this.atlas!, (this.originalModel as ItemModel).itemId, this.options.displayPosition);
 
                     elGeo.applyMatrix4(new Matrix4().makeTranslation(-8, -8, -8));
                     if (displayTransform) DisplayTransforms.apply(elGeo, displayTransform);
