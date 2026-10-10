@@ -295,7 +295,7 @@ export const items: ExampleGroup = {
     playgrounds: [{ url: "https://beta.minerender.org/demo/item/", label: "Item playground" }, { url: "https://beta.minerender.org/demo/custom_model/", label: "Custom model playground" }],
     examples: [{ ...generated, title: "Generated item models" }, poses, components, blockItem, custom],
     notes: [
-        "Item previews default to the GUI display context. Chests, beds, mob heads, shulker boxes, banners, shields, tridents and conduits use their special renderers; player heads with profiles do not.",
+        "Item previews default to the GUI display context. Chests, beds, mob heads, shulker boxes, banners, shields, tridents and conduits use their special renderers.",
         "Item registry defaults are not loaded, so supply the components a selector reads. Explicit tints override the automatic colors."
     ]
 };
