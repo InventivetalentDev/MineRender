@@ -12,12 +12,12 @@
     "build:lib": "yarn workspace minerender build",
     "build:api": "yarn build:lib && yarn workspace @minerender/api build",
     "start:api": "yarn workspace @minerender/api start",
-    "build:consumers": "yarn workspace @minerender/web build && yarn workspace @minerender/example-vite build && yarn workspace @minerender/example-script-tag build && yarn workspace @minerender/site build",
+    "build:consumers": "yarn workspace @minerender/web build && yarn workspace @minerender/example-vite build && yarn workspace @minerender/example-script-tag build && yarn workspace @minerender/site build && yarn workspace @minerender/embed build",
     "build:site": "yarn build:lib && yarn workspace @minerender/site build",
     "deploy:site": "yarn build:lib && yarn workspace @minerender/site deploy",
     "deploy:site:preview": "yarn build:lib && yarn workspace @minerender/site deploy:preview",
     "build:watch": "yarn workspace minerender build:watch",
-    "typecheck": "yarn workspace minerender typecheck && yarn workspace @minerender/web typecheck && yarn workspace @minerender/web typecheck:editor && yarn workspace @minerender/example-vite typecheck && yarn workspace @minerender/api typecheck",
+    "typecheck": "yarn workspace minerender typecheck && yarn workspace @minerender/web typecheck && yarn workspace @minerender/web typecheck:editor && yarn workspace @minerender/example-vite typecheck && yarn workspace @minerender/api typecheck && yarn workspace @minerender/embed typecheck",
     "test": "yarn workspace minerender test",
     "test:package": "yarn workspace minerender test:package",
     "test:node": "yarn workspace minerender test:node",
@@ -38,6 +38,11 @@
     "publish:beta": "yarn workspace minerender publish:beta",
     "build:web": "yarn build:lib && yarn workspace @minerender/web build:production",
     "deploy:web": "yarn build:lib && yarn workspace @minerender/web deploy",
-    "preview:web": "yarn build:lib && yarn workspace @minerender/web preview:cf"
+    "preview:web": "yarn build:lib && yarn workspace @minerender/web preview:cf",
+    "build:embed": "yarn build:lib && yarn workspace @minerender/embed build",
+    "dev:embed": "yarn build:lib && yarn workspace @minerender/embed dev",
+    "test:embed": "yarn workspace @minerender/embed test",
+    "deploy:embed": "yarn build:lib && yarn workspace @minerender/embed deploy",
+    "preview:embed": "yarn build:lib && yarn workspace @minerender/embed preview:cf"
   }
 }

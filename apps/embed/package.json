@@ -1,0 +1,28 @@
+{
+  "name": "@minerender/embed",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Hosted scene embeds for MineRender",
+  "scripts": {
+    "build": "yarn typecheck && node build.mjs",
+    "dev": "node build.mjs --serve",
+    "typecheck": "tsc --noEmit",
+    "test": "ava",
+    "deploy": "yarn build && wrangler deploy",
+    "preview:cf": "yarn build && wrangler dev"
+  },
+  "dependencies": {
+    "minerender": "workspace:*",
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "@types/three": "~0.186.0",
+    "ava": "^5.3.1",
+    "esbuild": "^0.19.5",
+    "esbuild-plugin-polyfill-node": "^0.3.0",
+    "esbuild-runner": "^2.2.2",
+    "typescript": "~5.6.3",
+    "wrangler": "^4.147.0"
+  }
+}
