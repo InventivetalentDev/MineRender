@@ -1,15 +1,15 @@
-import { NBTHelper, SchematicParser, SpongeSchematicParser, StructureParser, type SceneObjectDefinition } from "minerender";
+import { LitematicaParser, NBTHelper, SchematicParser, SpongeSchematicParser, StructureParser, type SceneObjectDefinition } from "minerender";
 
 const MAX_STRUCTURE_BLOCKS = 2048;
 
 /** Imports individually editable blocks. Entity NBT, block NBT, and DataVersion are not retained. */
 export async function importStructure(file: File): Promise<SceneObjectDefinition[]> {
     const extension = file.name.split(".").pop()?.toLowerCase();
-    if (extension !== "nbt" && extension !== "schematic" && extension !== "schem") {
-        throw new Error("Choose a Java structure (.nbt), legacy Alpha schematic (.schematic), or Sponge schematic (.schem).");
+    if (extension !== "nbt" && extension !== "schematic" && extension !== "schem" && extension !== "litematic") {
+        throw new Error("Choose a Java structure (.nbt), legacy Alpha schematic (.schematic), Sponge schematic (.schem), or Litematica schematic (.litematic).");
     }
     const nbt = await NBTHelper.fromBuffer(await file.arrayBuffer());
-    const parser = extension === "schem" ? SpongeSchematicParser : extension === "schematic" ? SchematicParser : StructureParser;
+    const parser = extension === "litematic" ? LitematicaParser : extension === "schem" ? SpongeSchematicParser : extension === "schematic" ? SchematicParser : StructureParser;
     const structure = await parser.parse(nbt);
     if (structure.blocks.length > MAX_STRUCTURE_BLOCKS) {
         throw new Error(`This structure contains ${structure.blocks.length} blocks. The scene editor supports imports of up to ${MAX_STRUCTURE_BLOCKS} non-air blocks.`);
