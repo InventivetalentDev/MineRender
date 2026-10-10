@@ -63,7 +63,7 @@ await scene.addGui([{ item: "minecraft:item/shield", context: { components: {
 } } }]);
 ```
 
-Item registry defaults are not loaded, so selectors that read an absent component see no value. GUI item layers and scene-document item definitions take the same `context`; documents name item references by item ID. Explicit `tints` still override automatic colors. See the [AGENTS.md item notes](https://github.com/InventivetalentDev/MineRender/blob/main/AGENTS.md#gotchas) for the supported components and renderers.
+Bundled vanilla 1.21.11 stack-size, durability, and glint defaults apply unless overridden by supplied components. Supply any other components a selector reads. GUI item layers and scene-document item definitions take the same `context`; documents name item references by item ID. Explicit `tints` still override automatic colors. See the [AGENTS.md item notes](https://github.com/InventivetalentDev/MineRender/blob/main/AGENTS.md#gotchas) for the supported components and renderers.
 
 ## Objects and instance references
 
