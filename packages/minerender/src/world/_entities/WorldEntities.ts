@@ -29,9 +29,9 @@ export class WorldEntities {
                     if (!current()) return;
                     const models = await Entities.getEntityList();
                     if (!models.includes(placement.key.path) || !current()) return;
-                    const model = await Entities.getEntity(placement.key);
+                    const model = await Entities.getEntity(placement.key, placement.texture, { when: placement.when });
                     if (!model || !current()) return;
-                    object = new EntityObject(model, { instanceMeshes: false });
+                    object = new EntityObject(model, { instanceMeshes: false, tints: placement.tints });
                     object.scene = this.scene;
                     // Block geometry is centered on integer coordinates; saved positions use block corners.
                     object.position.fromArray(placement.position).multiplyScalar(16).addScalar(-8);

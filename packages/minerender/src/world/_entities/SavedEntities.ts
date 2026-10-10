@@ -1,9 +1,55 @@
 import type { Compound } from "prismarine-nbt";
 import { AssetKey } from "../../assets/AssetKey";
+import { DYE_COLORS } from "../../assets/BannerPatterns";
+import type { DyeColor } from "../../assets/BannerPatterns";
 import type { MultiBlockEntity } from "../../model/multiblock/MultiBlockStructure";
 
-/** Resolves a saved model key and yaw; malformed records remain data only. */
-export function resolveSavedEntity(entity: MultiBlockEntity): { key: AssetKey; yaw: number } | undefined {
+const WOOL_COLORS: DyeColor[] = [
+    "white", "orange", "magenta", "light_blue", "yellow", "lime", "pink", "gray",
+    "light_gray", "cyan", "purple", "blue", "brown", "green", "red", "black"
+];
+
+interface SavedEntityAppearance {
+    texture?: AssetKey;
+    when?: string[];
+    tints?: Record<string, number>;
+}
+
+function integer(nbt: Compound, name: string, type: "byte" | "int"): number {
+    const tag = nbt.value[name];
+    return tag?.type === type && Number.isInteger(tag.value) ? tag.value as number : 0;
+}
+
+const appearance: Record<string, (nbt: Compound) => SavedEntityAppearance | undefined> = {
+    sheep: nbt => {
+        const savedColor = integer(nbt, "Color", "byte");
+        const color = savedColor >= 0 && savedColor < WOOL_COLORS.length ? savedColor : 0;
+        const dye = DYE_COLORS[WOOL_COLORS[color]];
+        // Sheep darken each dye channel; white wool has its own fixed shade.
+        const tint = color === 0 ? 0xe6e6e6 : (Math.floor((dye >> 16 & 255) * 0.75) << 16)
+            | (Math.floor((dye >> 8 & 255) * 0.75) << 8) | Math.floor((dye & 255) * 0.75);
+        return {
+            when: [...(color !== 0 ? ["dyed"] : []), ...(integer(nbt, "Sheared", "byte") === 0 ? ["not_sheared"] : [])],
+            tints: { wool_color: tint }
+        };
+    },
+    fox: nbt => {
+        const type = nbt.value.Type;
+        const texture = `fox/${type?.type === "string" && type.value === "snow" ? "snow_fox" : "fox"}`;
+        return { texture: new AssetKey("minecraft", texture, "textures", "entity", "assets", ".png") };
+    },
+    axolotl: nbt => {
+        const variant = ["lucy", "wild", "gold", "cyan", "blue"][integer(nbt, "Variant", "int")] ?? "lucy";
+        return { texture: new AssetKey("minecraft", `axolotl/axolotl_${variant}`, "textures", "entity", "assets", ".png") };
+    },
+    parrot: nbt => {
+        const variant = ["red_blue", "blue", "green", "yellow_blue", "grey"][Math.max(0, Math.min(4, integer(nbt, "Variant", "int")))];
+        return { texture: new AssetKey("minecraft", `parrot/parrot_${variant}`, "textures", "entity", "assets", ".png") };
+    }
+};
+
+/** Resolves a saved model key, appearance, and yaw; malformed records remain data only. */
+export function resolveSavedEntity(entity: MultiBlockEntity): ({ key: AssetKey; yaw: number } & SavedEntityAppearance) | undefined {
     if (!entity || !Array.isArray(entity.position) || entity.position.length !== 3
         || ![0, 1, 2].every(index => Number.isFinite(entity.position[index]))) return undefined;
     const nbt = entity.nbt as Compound | undefined;
@@ -24,5 +70,6 @@ export function resolveSavedEntity(entity: MultiBlockEntity): { key: AssetKey; y
             yaw = -(values[0] as number) / 180 * Math.PI;
         }
     }
-    return { key: new AssetKey("minecraft", model), yaw };
+    const handler = Object.prototype.hasOwnProperty.call(appearance, model) ? appearance[model] : undefined;
+    return { key: new AssetKey("minecraft", model), yaw, ...handler?.(nbt) };
 }

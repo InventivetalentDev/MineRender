@@ -154,7 +154,7 @@ app.controls.innerHTML = `
         <label><input id="section-meshing" type="checkbox"> Merge opaque cubes into section meshes</label>
         <label>Maximum atlas size<select id="atlas-size"><option>256</option><option>512</option><option>1024</option><option selected>2048</option><option>4096</option></select></label>
         <label><input id="render-entities" type="checkbox"> Render saved mobs</label>
-        <p class="control-note">Supported mobs use their default appearance at saved positions and yaw. Equipment, variants, baby sizes, passengers, and saved animations are ignored. Separate entities/*.mca files are not read.</p>
+        <p class="control-note">Saved mobs retain position and yaw, sheep wool colors and shearing, and fox, axolotl, and parrot texture variants. Equipment, other variants, baby sizes, passengers, and saved animations are ignored. Separate entities/*.mca files are not read.</p>
         <div class="playground-actions"><button id="world-clear" type="button">Clear world</button><button id="world-reload" type="button">Reload</button></div>
     </details>
     <details><summary>Random blocks</summary>
