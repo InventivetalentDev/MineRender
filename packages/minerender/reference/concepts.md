@@ -60,28 +60,30 @@ World placement selects weighted block models from absolute block coordinates, s
 
 ## Saved entities
 
-Enable `renderEntities` to render supported mobs from parsed structures or embedded Anvil entity records:
+Enable `renderEntities` to render supported mobs from parsed structures or Anvil entity records:
 
 ```ts
 const world = new MineRenderWorld(renderer.scene, { renderEntities: true });
 await world.placeMultiBlock(structure);
 ```
 
-The option defaults to `false`. Placement uses each mob's saved position and yaw with its default appearance from the selected entity dataset. Unsupported entities retain their NBT without creating a render object. Pitch, equipment, variants, baby sizes, passengers, and saved animation state are ignored. Modern worlds' separate `entities/*.mca` files are not read.
+The option defaults to `false`. Placement uses each mob's saved position and yaw with its default appearance from the selected entity dataset. Unsupported entities retain their NBT without creating a render object. Pitch, equipment, variants, baby sizes, passengers, and saved animation state are ignored.
 
 The world owns these entity objects. Replacing or unloading a chunk column disposes its entities, including structure entities positioned within that column. `await world.clear()` removes all of them.
 
 ## Streaming a Java world
 
-Use a dedicated `MineRenderWorld` with `sectionMeshing: true` and a `WorldStreamer` to render nearby chunk columns. This example reads one dimension's `r.<x>.<z>.mca` files at region coordinates:
+Use a dedicated `MineRenderWorld` with `sectionMeshing: true` and a `WorldStreamer` to render nearby chunk columns. This example reads one dimension's terrain and entity regions at region coordinates:
 
 ```ts
-const source = new AnvilWorldSource(async (x, z, signal) => {
-    const response = await fetch(`/world/region/r.${x}.${z}.mca`, { signal });
+const readRegion = (directory: "region" | "entities") => async (x: number, z: number, signal?: AbortSignal) => {
+    const response = await fetch(`/world/${directory}/r.${x}.${z}.mca`, { signal });
     if (response.status === 404) return undefined;
     if (!response.ok) throw new Error(`Region request failed: ${response.status}`);
     return response.arrayBuffer();
-}, {
+};
+const source = new AnvilWorldSource(readRegion("region"), {
+    readEntityRegion: readRegion("entities"),
     readExternalChunk: async (x, z, signal) => {
         const response = await fetch(`/world/region/c.${x}.${z}.mcc`, { signal });
         if (response.status === 404) return undefined;
@@ -89,10 +91,14 @@ const source = new AnvilWorldSource(async (x, z, signal) => {
         return response.arrayBuffer();
     }
 });
-const world = new MineRenderWorld(renderer.scene, { sectionMeshing: true });
+const world = new MineRenderWorld(renderer.scene, { sectionMeshing: true, renderEntities: true });
 const stream = new WorldStreamer(world, source, { loadRadius: 1, unloadRadius: 2 });
 await stream.updatePosition(renderer.camera.position);
 ```
+
+`readEntityRegion` is optional. Terrain and entity regions share the configured cache limits. A stored entity chunk replaces embedded entity records, including when its list is empty; a missing entity chunk preserves them. Entity-only columns have an empty `sections` array. The resulting chunk keeps the entity file's `DataVersion` in `entityDataVersion`, separate from terrain `dataVersion`.
+
+For direct decoding, call `AnvilParser.parseEntityChunk(bytes, localX, localZ)`. It returns absolute chunk coordinates, `dataVersion`, and typed entity NBT, or `undefined` when the region has no entry there.
 
 Call `updatePosition` after the camera or view center moves. It accepts scene units; `update(x, z)` accepts absolute chunk coordinates.
 
@@ -104,9 +110,9 @@ Source errors appear in `failedChunks` while other columns continue loading. Cal
 
 Await `stream.dispose()` before editing or clearing the world; it unloads its columns and leaves the world and source caller-owned.
 
-Numeric and paletted Java chunks support gzip, zlib, and uncompressed payloads, including external `.mcc` files. Pre-1.13 numeric chunks use the same block mappings as legacy schematics. Pass `legacyMappings: { "id:metadata": "namespace:block[property=value]" }` to `AnvilParser.parse`, `AnvilParser.parseChunk`, or `AnvilWorldSource` to override those mappings. Set `lenient: true` to try metadata 0 for unmapped numeric states and skip unknown IDs; malformed arrays still fail validation.
+Numeric and paletted Java chunks support gzip, zlib, LZ4, and uncompressed payloads, including external `.mcc` files. Pre-1.13 numeric chunks use the same block mappings as legacy schematics. Pass `legacyMappings: { "id:metadata": "namespace:block[property=value]" }` to `AnvilParser.parse`, `AnvilParser.parseChunk`, or `AnvilWorldSource` to override those mappings. Set `lenient: true` to try metadata 0 for unmapped numeric states and skip unknown IDs; malformed arrays still fail validation.
 
-Numeric mappings do not reconstruct states that depend on neighbors or block-entity NBT, such as paired doors or bed colors. LZ4 and DataVersion migration remain unsupported.
+Numeric mappings do not reconstruct states that depend on neighbors or block-entity NBT, such as paired doors or bed colors. DataVersion migration remains unsupported.
 
 ## Ownership and cleanup
 

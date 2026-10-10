@@ -11,9 +11,11 @@ export type AnvilRegionReader = (x: number, z: number, signal?: AbortSignal) => 
 
 /** Readers and cache limits passed to `new AnvilWorldSource(readRegion, options)`. */
 export interface AnvilWorldSourceOptions extends Pick<AnvilParseOptions, "readExternalChunk" | "legacyMappings" | "lenient"> {
-    /** Maximum cached regions, including missing regions. Defaults to 4; 0 disables caching. */
+    /** Reads a dimension's separate `entities/r.<x>.<z>.mca` files. Omit to use embedded entities only. */
+    readEntityRegion?: AnvilRegionReader;
+    /** Maximum cached regions per kind (terrain and entities), including missing regions. Defaults to 4 each; 0 disables caching. */
     maxCachedRegions?: number;
-    /** Maximum retained region bytes. Defaults to 64 MiB; larger regions are read without caching. */
+    /** Maximum retained bytes across both region types. Defaults to 64 MiB; larger regions are read without caching. */
     maxCachedBytes?: number;
 }
 
@@ -45,35 +47,64 @@ export class AnvilWorldSource implements WorldChunkSource {
     private readonly pending = new Map<string, PendingRegion>();
     private readonly maxCachedRegions: number;
     private readonly maxCachedBytes: number;
+    private readonly readEntityRegion?: AnvilRegionReader;
     private readonly parseOptions: Pick<AnvilParseOptions, "readExternalChunk" | "legacyMappings" | "lenient">;
     private cachedBytes = 0;
 
     constructor(private readonly readRegion: AnvilRegionReader, options: AnvilWorldSourceOptions = {}) {
+        this.readEntityRegion = options.readEntityRegion;
+        this.parseOptions = { readExternalChunk: options.readExternalChunk, legacyMappings: options.legacyMappings, lenient: options.lenient };
         this.maxCachedRegions = options.maxCachedRegions ?? 4;
         this.maxCachedBytes = options.maxCachedBytes ?? 64 * 1024 * 1024;
-        this.parseOptions = { readExternalChunk: options.readExternalChunk, legacyMappings: options.legacyMappings, lenient: options.lenient };
         for (const [name, value] of Object.entries({ maxCachedRegions: this.maxCachedRegions, maxCachedBytes: this.maxCachedBytes })) {
             if (!Number.isSafeInteger(value) || value < 0) throw new RangeError(`${name} must be a nonnegative safe integer`);
         }
     }
 
-    /** Decodes one column at absolute chunk coordinates. Aborting a caller leaves other shared readers active. */
+    /**
+     * Decodes a column at absolute chunk coordinates, including entity-only columns.
+     * A separate entity record replaces embedded entities, even when its list is empty.
+     * Missing entity files or records leave embedded entities intact. Aborting a caller leaves other shared readers active.
+     */
     public async getChunk(x: number, z: number, signal?: AbortSignal): Promise<AnvilChunk | undefined> {
         if (!Number.isSafeInteger(x) || !Number.isSafeInteger(z)) {
             throw new RangeError("Chunk column coordinates must be safe integers");
         }
         const regionX = Math.floor(x / 32), regionZ = Math.floor(z / 32);
-        const data = await this.getRegion(regionX, regionZ, signal);
-        signal?.throwIfAborted();
-        if (!data) return undefined;
-        const chunk = await AnvilParser.parseChunk(data, x - regionX * 32, z - regionZ * 32, {
-            ...this.parseOptions, region: { x: regionX, z: regionZ }, signal
-        });
-        signal?.throwIfAborted();
-        if (chunk && (chunk.x !== x || chunk.z !== z)) {
-            throw new MineRenderError(`Anvil chunk coordinates ${chunk.x},${chunk.z} do not match requested column ${x},${z}`);
+        const controller = new AbortController();
+        const readSignal = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal;
+        try {
+            const [data, entityData] = await Promise.all([
+                this.getRegion("terrain", this.readRegion, regionX, regionZ, readSignal),
+                this.readEntityRegion && this.getRegion("entities", this.readEntityRegion, regionX, regionZ, readSignal)
+            ]);
+            readSignal.throwIfAborted();
+            const localX = x - regionX * 32, localZ = z - regionZ * 32;
+            const [chunk, entities] = await abortable(Promise.all([
+                data ? AnvilParser.parseChunk(data, localX, localZ, {
+                    ...this.parseOptions, region: { x: regionX, z: regionZ }, signal: readSignal
+                }) : undefined,
+                entityData ? AnvilParser.parseEntityChunk(entityData, localX, localZ, {
+                    region: { x: regionX, z: regionZ }, signal: readSignal
+                }) : undefined
+            ]), readSignal);
+            readSignal.throwIfAborted();
+            if (chunk && (chunk.x !== x || chunk.z !== z)) {
+                throw new MineRenderError(`Anvil chunk coordinates ${chunk.x},${chunk.z} do not match requested column ${x},${z}`);
+            }
+            if (entities && (entities.x !== x || entities.z !== z)) {
+                throw new MineRenderError(`Anvil entity chunk coordinates ${entities.x},${entities.z} do not match requested column ${x},${z}`);
+            }
+            return entities ? {
+                ...(chunk ?? { x, z, sections: [] }),
+                entities: entities.entities,
+                entityDataVersion: entities.dataVersion
+            } : chunk;
+        } catch (error) {
+            // A failed region read releases this caller's interest in the other region type.
+            controller.abort(error);
+            throw error;
         }
-        return chunk;
     }
 
     /** Releases cached regions. Reads already in progress finish without repopulating this cache. */
@@ -83,9 +114,10 @@ export class AnvilWorldSource implements WorldChunkSource {
         this.cachedBytes = 0;
     }
 
-    private getRegion(x: number, z: number, signal?: AbortSignal): Promise<Uint8Array | undefined> {
+    private getRegion(kind: "terrain" | "entities", reader: AnvilRegionReader, x: number, z: number,
+                      signal?: AbortSignal): Promise<Uint8Array | undefined> {
         signal?.throwIfAborted();
-        const key = `${x},${z}`;
+        const key = `${kind}:${x},${z}`;
         const cached = this.regions.get(key);
         if (cached) {
             this.regions.delete(key);
@@ -99,7 +131,7 @@ export class AnvilWorldSource implements WorldChunkSource {
                 controller, waiters: 0, settled: false,
                 promise: Promise.resolve().then(() => {
                     controller.signal.throwIfAborted();
-                    return abortable(this.readRegion(x, z, controller.signal), controller.signal);
+                    return abortable(reader(x, z, controller.signal), controller.signal);
                 }).then(data => {
                     controller.signal.throwIfAborted();
                     let bytes = data instanceof Uint8Array ? data : data === undefined ? undefined : new Uint8Array(data);
@@ -149,8 +181,10 @@ export class AnvilWorldSource implements WorldChunkSource {
         if (!this.maxCachedRegions || size > this.maxCachedBytes) return;
         this.regions.set(key, { data, size });
         this.cachedBytes += size;
-        while (this.regions.size > this.maxCachedRegions || this.cachedBytes > this.maxCachedBytes) {
-            const oldest = this.regions.keys().next().value!;
+        const prefix = `${key.split(":")[0]}:`;
+        const sameKind = [...this.regions.keys()].filter(cachedKey => cachedKey.startsWith(prefix));
+        while (sameKind.length > this.maxCachedRegions || this.cachedBytes > this.maxCachedBytes) {
+            const oldest = sameKind.length > this.maxCachedRegions ? sameKind.shift()! : this.regions.keys().next().value!;
             this.cachedBytes -= this.regions.get(oldest)!.size;
             this.regions.delete(oldest);
         }
