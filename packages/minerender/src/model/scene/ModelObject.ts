@@ -4,7 +4,7 @@ import { Materials } from "../../Materials";
 import { Maybe, toRadians } from "../../util/util";
 import { UVMapper } from "../../UVMapper";
 import { TextureAtlas } from "../../texture/TextureAtlas";
-import { BoxGeometry, BoxHelper, BufferAttribute, Color, EdgesGeometry, Euler, InstancedMesh, LineBasicMaterial, LineSegments, Material, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, ShaderMaterial } from "three";
+import { BoxGeometry, BoxHelper, BufferAttribute, Color, DoubleSide, EdgesGeometry, Euler, FrontSide, InstancedMesh, LineBasicMaterial, LineSegments, Material, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, ShaderMaterial } from "three";
 import { mergeBufferGeometries } from "../../three/BufferGeometryUtils";
 import { SceneObjectOptions } from "../../renderer/SceneObjectOptions";
 import { addBox3WireframeToObject, addWireframeToMesh, addWireframeToObject, applyElementRotation } from "../../util/model";
@@ -87,12 +87,12 @@ export class ModelObject extends SceneObject {
             transform.multiply(new Matrix4().makeTranslation(-8, -8, -8));
             try {
                 for (const part of parts) {
-                    const object = new EntityObject(part.model, { flip: false, wireframe: this.options.wireframe, tints: part.tints });
+                    const object = new EntityObject(part.model, { flip: false, wireframe: this.options.wireframe, tints: part.tints, faces: part.faces });
                     object.matrix.copy(transform).multiply(part.transform);
                     object.matrixWorldNeedsUpdate = true;
                     object.matrixAutoUpdate = false;
                     this.add(object);
-                    await object.init();
+                    await object.init(part.material);
                     object.iterateAllMeshes(mesh => {
                         const source = mesh.material as MeshBasicMaterial;
                         let material = this.specialMaterials.get(source);
@@ -100,6 +100,8 @@ export class ModelObject extends SceneObject {
                             const front = this.options.displayPosition === DisplayPosition.GUI &&
                                 (this.originalModel as ItemModel).gui_light === GuiLight.FRONT;
                             material = SpecialItems.createMaterial(source, !front);
+                            // Entity geometry already contains the inward faces used by vanilla's translucent draw.
+                            if (part.material) material.side = FrontSide;
                             this.specialMaterials.set(source, material);
                         }
                         mesh.material = material;
@@ -255,7 +257,8 @@ export class ModelObject extends SceneObject {
 
     protected applyTextures() {
         if (this.atlas) {
-            const mat = Materials.createShadedCanvasMaterial(this.atlas.image.canvas as HTMLCanvasElement, this.atlas.hasTransparency, false, true);
+            const mat = Materials.createShadedCanvasMaterial(this.atlas.image.canvas as HTMLCanvasElement, this.atlas.hasTranslucency, false, true);
+            mat.side = this.atlas.hasTransparency ? DoubleSide : FrontSide;
             this.atlasMaterial = mat;
             this.atlasTexture = (mat as ShaderMaterial).uniforms?.map?.value ?? (mat as MeshBasicMaterial).map;
             if (this.options.displayPosition === DisplayPosition.GUI &&
