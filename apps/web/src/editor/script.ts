@@ -90,7 +90,7 @@ async function start(): Promise<void> {
         ...clone(sceneDocument),
         camera: {
             position: renderer.camera.position.toArray() as [number, number, number],
-            target: renderer.controls!.target.toArray() as [number, number, number]
+            target: renderer.orbitControls!.target.toArray() as [number, number, number]
         }
     });
     const historySnapshot = (): string => {
@@ -566,8 +566,8 @@ async function start(): Promise<void> {
         element<HTMLInputElement>("minecraft-version").value = AssetLoader.version;
         if (next.camera) {
             renderer.camera.position.fromArray(next.camera.position);
-            renderer.controls!.target.fromArray(next.camera.target);
-            renderer.controls!.update();
+            renderer.orbitControls!.target.fromArray(next.camera.target);
+            renderer.orbitControls!.update();
         }
         selectObject(next.objects[0]?.id); updateAnimation();
         void refreshCatalog();
@@ -578,11 +578,11 @@ async function start(): Promise<void> {
         if (box.isEmpty()) return;
         const center = box.getCenter(new Vector3());
         const size = Math.max(16, box.getSize(new Vector3()).length());
-        const direction = renderer.camera.position.clone().sub(renderer.controls!.target).normalize();
+        const direction = renderer.camera.position.clone().sub(renderer.orbitControls!.target).normalize();
         if (!direction.lengthSq()) direction.set(1, 0.7, 1).normalize();
         renderer.camera.position.copy(center).addScaledVector(direction, size * 1.6);
-        renderer.controls!.target.copy(center);
-        renderer.controls!.update();
+        renderer.orbitControls!.target.copy(center);
+        renderer.orbitControls!.update();
         renderer.scene.dirty = true;
     }
 
@@ -621,7 +621,7 @@ async function start(): Promise<void> {
         const asset = element<HTMLInputElement>("add-asset").value.trim();
         void run("Adding object…", async () => {
             const selectedRoot = currentObject()?.root;
-            const position = selectedRoot ? selectedRoot.position.clone() : renderer.controls!.target.clone();
+            const position = selectedRoot ? selectedRoot.position.clone() : renderer.orbitControls!.target.clone();
             if (selectedRoot) position.x += Math.max(16, new Box3().setFromObject(selectedRoot).getSize(new Vector3()).x + 4);
             const base = { id: crypto.randomUUID(), name: type === "skin" ? "Player" : asset.split(":").pop() || "GUI text", position: position.toArray() as [number, number, number] };
             let definition: SceneObjectDefinition;
