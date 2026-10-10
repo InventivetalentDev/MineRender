@@ -55,6 +55,8 @@ export type SpecialItemRenderer =
     | { type: "shield" | "minecraft:shield" }
     | { type: "decorated_pot" | "minecraft:decorated_pot" }
     | { type: "trident" | "minecraft:trident" | "conduit" | "minecraft:conduit" | "player_head" | "minecraft:player_head" }
+    | { type: "copper_golem_statue" | "minecraft:copper_golem_statue"; texture: string;
+        pose: "standing" | "sitting" | "running" | "star" }
     | { type: "chest" | "minecraft:chest"; texture: string; openness?: number }
     | { type: "shulker_box" | "minecraft:shulker_box"; texture: string; openness?: number;
         orientation?: "down" | "up" | "north" | "south" | "west" | "east" }

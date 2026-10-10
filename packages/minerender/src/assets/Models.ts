@@ -231,6 +231,11 @@ export class Models {
                 if (!node.base || !node.model || typeof node.model !== "object") break;
                 const special = node.model;
                 switch (special.type) {
+                    case "copper_golem_statue":
+                    case "minecraft:copper_golem_statue":
+                        if (isResourceLocation(special.texture)
+                            && ["standing", "sitting", "running", "star"].includes(special.pose)) return { model: node.base, special };
+                        break;
                     case "banner":
                     case "minecraft:banner":
                         if (typeof special.color === "string" && Object.prototype.hasOwnProperty.call(DYE_COLORS, special.color)) return { model: node.base, special };

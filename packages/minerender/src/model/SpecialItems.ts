@@ -1,5 +1,5 @@
 import { Euler, Matrix4, MeshBasicMaterial } from "three";
-import { AssetKey } from "../assets/AssetKey";
+import { AssetKey, isResourceLocation } from "../assets/AssetKey";
 import { Entities } from "../assets/Entities";
 import { BannerPatterns, DYE_COLORS } from "../assets/BannerPatterns";
 import { DecoratedPots } from "../assets/DecoratedPots";
@@ -79,6 +79,23 @@ export class SpecialItems {
                 part.model = { ...main, layers: { main } };
                 part.material = skin.material;
                 return [part];
+            }
+            case "minecraft:copper_golem_statue":
+            case "copper_golem_statue": {
+                if (!isResourceLocation(special.texture)) throw new Error("Copper-golem statue texture must be a resource identifier");
+                const [namespace, path] = special.texture.includes(":") ? special.texture.split(":") : ["minecraft", special.texture];
+                const literal = new AssetKey(namespace, path, undefined, undefined, "assets", "", root);
+                const key = path.startsWith("textures/") && path.endsWith(".png")
+                    ? path.startsWith("textures/entity/") ? texture(`${namespace}:${path.slice("textures/entity/".length)}`, "")
+                        : AssetKey.parse("textures", `${namespace}:${path.slice("textures/".length)}`, literal)
+                    : literal;
+                const statue = await load(special.pose === "standing" ? "copper_golem" : `copper_golem_${special.pose}`, key,
+                    new Matrix4().makeTranslation(8, 24, 8).multiply(new Matrix4().makeScale(-1, -1, 1)));
+                const pose = statue.model.layer.root.pose;
+                statue.rotations.root = [pose.rotation[0], Math.PI, Math.PI];
+                statue.positions = { root: [pose.offset[0], 0, pose.offset[2]] };
+                statue.model = { ...statue.model, texture: key, render: "cutout", layers: undefined };
+                return [statue];
             }
             case "minecraft:trident":
             case "trident":
