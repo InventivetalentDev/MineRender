@@ -214,8 +214,18 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         this.entities?.clearColumn(chunk.x, chunk.z);
         const placeEntities = this.entities?.prepare(chunk.entities, [chunk.x, chunk.z]);
         const changes = new Map<string, Vector3>();
+        const occupiedSections = new Set<number>();
+        if (!executor) {
+            for (const section of chunk.sections) {
+                for (let index = 0; index < 4096; index++) {
+                    if (!section.data.idAt(index)) continue;
+                    occupiedSections.add(section.y);
+                    break;
+                }
+            }
+        }
         try {
-            await this.clearChunkColumn(chunk.x, chunk.z, executor ? undefined : new Set(chunk.sections.map(section => section.y)));
+            await this.clearChunkColumn(chunk.x, chunk.z, executor ? undefined : occupiedSections);
             let sliceStart = performance.now();
             for (const section of chunk.sections) {
                 if (section.biomes) {
@@ -231,6 +241,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                     column.set(section.y, copy);
                 }
                 if (!executor) {
+                    if (!occupiedSections.has(section.y)) continue;
                     const position = new Vector3(chunk.x * 16, section.y * 16, chunk.z * 16);
                     this.validatePosBounds(position);
                     const target = this.getOrCreateChunkAt(position);
@@ -282,9 +293,9 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
 
     private async clearChunkColumn(x: number, z: number, keep?: Set<number>): Promise<void> {
         this.biomes.delete(`${x}_${z}`);
-        const previous = [...this._chunks.entries()].filter(([, section]) => section.x === x && section.z === z && !keep?.has(section.y));
+        const previous = [...this._chunks.entries()].filter(([, section]) => section.x === x && section.z === z);
         for (const [key, section] of previous) {
-            this._chunks.delete(key);
+            if (!keep?.has(section.y)) this._chunks.delete(key);
             this.pendingCulling.delete(section);
             await section.clear(false);
             this.markSectionChanged(section);

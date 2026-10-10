@@ -258,6 +258,10 @@ for (const useExecutor of [false, true]) test.serial(`parsed chunk columns repla
 
 test.serial("parsed columns clear unknown states, place remaining cells and reject with the first error", async t => {
     const { world, scene, loads } = fixture(t);
+    await world.setBlockAt(0, 16, 0, block);
+    loads.length = 0;
+    const later = new ChunkData();
+    later.set(0, block);
     const get = BlockStates.get, failure = new Error("first unknown state");
     const requested: string[] = [];
     BlockStates.get = async key => {
@@ -270,7 +274,8 @@ test.serial("parsed columns clear unknown states, place remaining cells and reje
     for (const [index, type] of ["unknown", "stone", "unknown", "missing", "stone", "other_unknown"].entries()) {
         data.set(index, { type: `test:${type}` });
     }
-    await t.throwsAsync(world.placeChunk({ x: 0, z: 0, sections: [{ y: 0, data }] }), { is: failure });
+    await t.throwsAsync(world.placeChunk({ x: 0, z: 0, sections: [{ y: 0, data }, { y: 1, data: later }] }), { is: failure });
+    t.is(world.getBlockAt(0, 16, 0), undefined);
     const chunk = world.getChunkAt(new Vector3())!;
     for (const index of [0, 2, 3, 5]) {
         t.is(world.getBlockAt(index, 0, 0), undefined);

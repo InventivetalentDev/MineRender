@@ -466,6 +466,17 @@ test.serial("weighted models and rotations agree across rendering modes and reve
     await individual.placeMultiBlock({ size: [32, 48, 80], blocks });
     t.deepEqual(positions.map(sectionSelection), selected);
     t.deepEqual(positions.map(individualSelection), selected);
+    for (const [index, position] of positions.entries()) {
+        const [x, y, z] = position.map(axis => Math.floor(axis / 16));
+        const data = new ChunkData();
+        data.set((position[1] - y * 16) * 256 + (position[2] - z * 16) * 16 + position[0] - x * 16,
+            { type: "test:weighted" });
+        const column = { x, z, sections: [{ y, data }] };
+        await world.placeChunk(column);
+        await individual.placeChunk(column);
+        t.deepEqual(sectionSelection(position), selected[index]);
+        t.deepEqual(individualSelection(position), selected[index]);
+    }
 });
 
 test.serial("visibility changes preserve the originally selected weighted model", async t => {
