@@ -1,5 +1,5 @@
 import test from "ava";
-import { AssetKey, AssetLoader, AssetSource, Caching, DisplayPosition, ItemTints, Models, PersistentCache, shutdown } from "../src";
+import { AssetKey, AssetLoader, AssetSource, Caching, DisplayPosition, ItemGlint, ItemTints, Models, PersistentCache, shutdown } from "../src";
 import type { ItemModel, ItemModelContext, ItemTintSource, MinecraftAsset, Maybe, SpecialItemRenderer } from "../src";
 
 class MemoryCache extends PersistentCache<Map<string, string>> {
@@ -66,6 +66,149 @@ test.afterEach.always(() => {
     Caching.clear();
 });
 test.after.always(() => shutdown());
+
+test("item glint uses nonempty enchantment objects and explicit boolean overrides", t => {
+    for (const components of [{}, { enchantments: {} }, { stored_enchantments: { sharpness: 1 } },
+        { enchantments: { sharpness: 1 }, enchantment_glint_override: false }]) t.false(ItemGlint.enabled(components));
+    for (const components of [{ enchantments: { "minecraft:sharpness": 1 } }, { "minecraft:enchantments": { sharpness: 255 } },
+        { enchantments: { levels: { sharpness: 1 } } },
+        { enchantments: { sharpness: 0 } }, { enchantments: { sharpness: 256 } }, { enchantments: { sharpness: 1.5 } },
+        { enchantments: { sharpness: 1, "minecraft:sharpness": 2 } },
+        { "minecraft:enchantment_glint_override": true }, { enchantment_glint_override: true, enchantments: "unused" }]) t.true(ItemGlint.enabled(components));
+    for (const components of [{ enchantment_glint_override: 1 }, { enchantments: null }, { enchantments: [] }, { enchantments: "bad" },
+        { enchantments: {}, "minecraft:enchantments": {} }]) {
+        t.throws(() => ItemGlint.enabled(components));
+    }
+});
+
+test.serial("natural glint defaults belong to the seven vanilla item IDs and allow explicit suppression", async t => {
+    const ids = ["enchanted_golden_apple", "experience_bottle", "written_book", "nether_star", "enchanted_book", "end_crystal", "debug_stick"];
+    const source = new FixtureSource({
+        ...Object.fromEntries([...ids, "apple", "book"].map(id => [`items/${id}`, { model: reference("item/shared") }])),
+        "models/item/shared": { textures: { layer0: "item/shared" } }
+    });
+    AssetLoader.addSource("test-items", source);
+    for (const [index, id] of ids.entries()) {
+        const model = (await Models.getMerged(itemKey(id)))! as ItemModel;
+        t.true(ItemGlint.enabled(model.components), id);
+        const component = index % 2 ? "enchantment_glint_override" : "minecraft:enchantment_glint_override";
+        const disabled = (await Models.getMerged(itemKey(id), { components: { [component]: false } }))! as ItemModel;
+        t.false(ItemGlint.enabled(disabled.components), id);
+    }
+    const emptyBook = (await Models.getMerged(itemKey("enchanted_book"), { components: { stored_enchantments: {} } }))! as ItemModel;
+    t.true(ItemGlint.enabled(emptyBook.components));
+    for (const key of [itemKey("apple"), itemKey("book"), new AssetKey("custom", "nether_star", "models", "item")]) {
+        t.false(ItemGlint.enabled(((await Models.getMerged(key))! as ItemModel).components));
+    }
+});
+
+test.serial("item glint defaults survive pack model replacements without leaking into raw models or aliases", async t => {
+    AssetLoader.addSource("test-items", new FixtureSource({
+        "items/nether_star": { model: reference("minecraft:item/nether_star") },
+        "items/custom_star": { model: reference("minecraft:item/nether_star") },
+        "items/experience_bottle": { model: reference("minecraft:item/experience_bottle") },
+        "models/item/nether_star": { textures: { layer0: "item/nether_star" } },
+        "models/item/experience_bottle": { textures: { layer0: "item/experience_bottle" } }
+    }));
+    AssetLoader.addSource("test-pack", new FixtureSource({
+        "items/nether_star": { model: reference("custom:item/pack_shape") },
+        "models/item/pack_shape": { textures: { layer0: "custom:item/pack_shape" } },
+        "models/item/experience_bottle": { textures: { layer0: "custom:item/legacy_shape" } }
+    }));
+    const starKey = itemKey("nether_star");
+    starKey.root = "https://pack.example/custom-assets";
+    const star = (await Models.getMerged(starKey))! as ItemModel;
+    t.is(star.key?.toNamespacedString(), "custom:item/pack_shape");
+    t.is(star.key?.root, starKey.root);
+    t.true(ItemGlint.enabled(star.components));
+    const legacy = (await Models.getMerged(itemKey("experience_bottle")))! as ItemModel;
+    t.is(legacy.textures?.layer0, "custom:item/legacy_shape");
+    t.true(ItemGlint.enabled(legacy.components));
+    const alias = (await Models.getMerged(itemKey("custom_star")))! as ItemModel;
+    t.is(alias.key?.toNamespacedString(), "minecraft:item/nether_star");
+    t.false(ItemGlint.enabled(alias.components));
+    t.is(((await Models.getRaw(itemKey("nether_star")))! as ItemModel).components, undefined);
+    t.is(((await Models.getRaw(star.key!))! as ItemModel).components, undefined);
+});
+
+test.serial("composite children and selectors see item defaults while referenced items resolve their own defaults", async t => {
+    AssetLoader.addSource("test-items", new FixtureSource({
+        "items/nether_star": { model: { type: "composite", models: [
+            { type: "select", property: "component", component: "enchantment_glint_override",
+                cases: [{ when: true, model: reference("item/shiny") }], fallback: reference("item/plain") },
+            { type: "composite", models: [reference("item/secondary"), { type: "bundle/selected_item" }] }
+        ] } },
+        "items/apple": { model: reference("item/plain") },
+        "items/enchanted_book": { model: reference("item/plain") },
+        "items/carrier": { model: { type: "bundle/selected_item" } },
+        ...Object.fromEntries(["shiny", "plain", "secondary"].map(name => [`models/item/${name}`, { textures: { layer0: `item/${name}` } }]))
+    }));
+    const first = (await Models.getMerged(itemKey("nether_star"), {
+        itemReferences: { "bundle/selected_item": itemKey("apple") }
+    }))! as ItemModel;
+    t.is(first.parts![0].key?.path, "shiny");
+    t.true(ItemGlint.enabled(first.parts![0].components));
+    t.true(ItemGlint.enabled(first.parts![1].parts![0].components));
+    t.false(ItemGlint.enabled(first.parts![1].parts![1].components));
+    const off = (await Models.getMerged(itemKey("nether_star"), {
+        components: { enchantment_glint_override: false },
+        itemReferences: { "minecraft:bundle/selected_item": itemKey("enchanted_book") }
+    }))! as ItemModel;
+    t.is(off.parts![0].key?.path, "plain");
+    t.false(ItemGlint.enabled(off.parts![0].components));
+    t.false(ItemGlint.enabled(off.parts![1].parts![0].components));
+    t.true(ItemGlint.enabled(off.parts![1].parts![1].components));
+
+    const carrier = itemKey("carrier");
+    const context = { itemReferences: { "bundle/selected_item": itemKey("enchanted_book") } };
+    const oldKey = new AssetKey(carrier.namespace, carrier.path, "items").serialize()
+        + Models["contextKey"](Models["snapshotContext"](carrier, context)).replace("|item-v5:", "|item-v4:");
+    await Models["_persistentCache"]!.put(`item-v4:${AssetLoader.persistentKey(oldKey)}`, {
+        key: itemKey("plain"), components: {}, textures: { layer0: "stale" }
+    });
+    const restored = (await Models.getMerged(carrier, context))! as ItemModel;
+    t.true(ItemGlint.enabled(restored.components));
+    t.is(restored.textures?.layer0, "item/plain");
+});
+
+test.serial("default and overridden glint cache independently without mutating supplied component state", async t => {
+    const source = new FixtureSource({
+        "items/end_crystal": { model: reference("item/crystal") },
+        "models/item/crystal": { textures: { layer0: "item/crystal" } }
+    });
+    AssetLoader.addSource("test-items", source);
+    const key = itemKey("end_crystal");
+    const components = { custom_data: { nested: [1, 2] } };
+    const before = JSON.stringify(components);
+    const automatic = (await Models.getMerged(key, { components }))! as ItemModel;
+    t.is(JSON.stringify(components), before);
+    const edited: ItemModelContext = { components: { ...components, enchantment_glint_override: false } };
+    const off = (await Models.getMerged(key, edited))! as ItemModel;
+    t.not(off, automatic);
+    t.false(ItemGlint.enabled(off.components));
+    t.is(edited.components!.enchantment_glint_override, false);
+    delete edited.components!.enchantment_glint_override;
+    t.is(await Models.getMerged(key, edited), automatic);
+    t.is(await Models.getMerged(key, { components: { "minecraft:custom_data": { nested: [1, 2] } } }), automatic);
+
+    const mutable = { custom_data: { nested: [3] } };
+    const pending = Models.getMerged(key, { components: mutable });
+    mutable.custom_data.nested.push(4);
+    const snapshot = (await pending)! as ItemModel;
+    t.deepEqual(snapshot.components?.["minecraft:custom_data"], { nested: [3] });
+    t.true(ItemGlint.enabled(snapshot.components));
+    const requests = source.calls.length;
+    Caching.clear();
+    const cached = (await Models.getMerged(key, { components }))! as ItemModel;
+    const cachedOff = (await Models.getMerged(key, { components: { ...components, "minecraft:enchantment_glint_override": false } }))! as ItemModel;
+    t.not(cached, automatic);
+    t.deepEqual(cached.components, automatic.components);
+    t.true(ItemGlint.enabled(cached.components));
+    t.deepEqual(cachedOff.components, off.components);
+    t.false(ItemGlint.enabled(cachedOff.components));
+    t.is(source.calls.length, requests);
+    t.is(JSON.stringify(components), before);
+});
 
 test.serial("modern definitions win within a source, while higher-priority legacy packs still override", async t => {
     const source = new FixtureSource({
@@ -159,7 +302,7 @@ test.serial("item tint components survive snapshots, composites, legacy parents,
     const components = { custom_model_data: { colors: [0xff0000, 0x0000ff] }, dyed_color: 0x00ff00 };
     const context = { components, itemReferences: { "bundle/selected_item": itemKey("selected") } };
     const previousKey = new AssetKey(key.namespace, key.path, "items").serialize()
-        + Models["contextKey"](Models["snapshotContext"](key, context)).replace("|item-v4:", "|item-v3:");
+        + Models["contextKey"](Models["snapshotContext"](key, context)).replace("|item-v5:", "|item-v3:");
     await Models["_persistentCache"]!.put(`item-v3:${AssetLoader.persistentKey(previousKey)}`, { key, textures: { layer0: "stale" } });
     const pending = Models.getMerged(key, context);
     components.custom_model_data.colors[0] = 0xffff00;
@@ -418,6 +561,12 @@ test.serial("special items retain their renderer and inherit the base pose throu
         { type: "minecraft:trident" },
         { type: "conduit" },
         { type: "minecraft:conduit" },
+        { type: "decorated_pot" },
+        { type: "minecraft:decorated_pot" },
+        { type: "player_head" },
+        { type: "minecraft:player_head" },
+        { type: "copper_golem_statue", texture: "textures/entity/copper_golem/copper_golem.png", pose: "standing" },
+        { type: "minecraft:copper_golem_statue", texture: "pack:custom/statue.png", pose: "star" },
         { type: "minecraft:head", kind: "dragon", texture: "pack:dragon", animation: 0.25 }
     ];
     const display = { gui: { rotation: [30, 45, 0], scale: [0.625, 0.625, 0.625] } };
@@ -447,6 +596,32 @@ test.serial("special items retain their renderer and inherit the base pose throu
     t.is(source.calls.filter(key => key.assetType === "items").length, renderers.length);
     t.false(source.calls.some(key => key.getFullPath() === "builtin/entity"));
     t.true(source.calls.every(key => key.root === "https://assets.example/1.21.11"));
+});
+
+test.serial("player profiles are snapshotted and separated in item caches and reset across item references", async t => {
+    const special = { type: "minecraft:special", base: "minecraft:item/head", model: { type: "minecraft:player_head" } };
+    const source = new FixtureSource({
+        "items/head": { model: special }, "items/composite_head": { model: { type: "minecraft:composite", models: [special, { type: "minecraft:bundle/selected_item" }] } },
+        "models/item/head": { gui_light: "front", display: { gui: { scale: [1.2, 1.2, 1.2] } } }
+    });
+    AssetLoader.addSource("test-items", source);
+    const profile = { id: [0, 0, 0, 1], properties: { textures: ["first"] } };
+    const pending = Models.getMerged(itemKey("head"), { components: { profile } });
+    profile.id[3] = 2;
+    profile.properties.textures[0] = "second";
+    const first = (await pending)! as ItemModel;
+    const second = (await Models.getMerged(itemKey("head"), { components: { "minecraft:profile": profile } }))! as ItemModel;
+    t.deepEqual(first.components, { "minecraft:profile": { id: [0, 0, 0, 1], properties: { textures: ["first"] } } });
+    t.deepEqual(second.components, { "minecraft:profile": profile });
+    t.not(first, second);
+    Caching.clear();
+    const cached = (await Models.getMerged(itemKey("head"), { components: { profile: { properties: { textures: ["first"] }, id: [0, 0, 0, 1] } } }))! as ItemModel;
+    t.deepEqual(cached.components, first.components);
+    t.deepEqual(cached.special, { type: "minecraft:player_head" });
+    const composite = (await Models.getMerged(itemKey("composite_head"), { components: { profile }, itemReferences: { "bundle/selected_item": itemKey("head") } }))! as ItemModel;
+    t.deepEqual(composite.parts![0].components, second.components);
+    t.deepEqual(composite.parts![1].components, {});
+    t.deepEqual(composite.parts![1].special, cached.special);
 });
 
 test.serial("composite items retain ordered nested parts, independent inheritance, and keys through cache hits", async t => {
@@ -530,6 +705,36 @@ test.serial("trident item definitions keep flat display contexts and select held
     }
 });
 
+test.serial("copper-golem statue definitions select poses from block-state components and preserve cached defaults", async t => {
+    const texture = "minecraft:textures/entity/copper_golem/weathered_copper_golem.png";
+    const special = (pose: string) => ({ type: "minecraft:special", base: "minecraft:item/template_copper_golem_statue",
+        model: { type: "minecraft:copper_golem_statue", pose, texture } });
+    const display = { gui: { rotation: [30, 45, 0], scale: [0.5, 0.5, 0.5] } };
+    const source = new FixtureSource({
+        "items/weathered_copper_golem_statue": { model: { type: "minecraft:select", property: "minecraft:block_state", block_state_property: "copper_golem_pose",
+            cases: ["sitting", "running", "star"].map(pose => ({ when: pose, model: special(pose) })), fallback: special("standing") } },
+        "models/item/template_copper_golem_statue": { display, gui_light: "side" }
+    });
+    AssetLoader.addSource("test-items", source);
+    const key = itemKey("weathered_copper_golem_statue");
+    const context = { components: { block_state: { copper_golem_pose: "sitting", facing: "east" } } };
+    const pending = Models.getMerged(key, context);
+    context.components.block_state.copper_golem_pose = "running";
+    t.is(((await pending)! as ItemModel).special?.type, "minecraft:copper_golem_statue");
+    t.deepEqual(((await pending)! as ItemModel).special, special("sitting").model);
+    for (const pose of [undefined, "standing", "sitting", "running", "star", "unknown"]) {
+        const model = (await Models.getMerged(key, pose === undefined ? {} : { components: { "minecraft:block_state": { copper_golem_pose: pose } } }))! as ItemModel;
+        t.deepEqual(model.special, special(pose === undefined || pose === "unknown" ? "standing" : pose).model);
+        t.deepEqual(model.display?.gui, display.gui);
+        t.is(model.gui_light, "side");
+    }
+    const calls = source.calls.length;
+    Caching.clear();
+    t.deepEqual(((await Models.getMerged(key))! as ItemModel).special, special("standing").model);
+    t.deepEqual(((await Models.getMerged(key, { components: { block_state: { copper_golem_pose: "star" } } }))! as ItemModel).special, special("star").model);
+    t.is(source.calls.length, calls);
+});
+
 test.serial("empty composites remain empty and a missing child rejects the complete item", async t => {
     const assets: Record<string, unknown> = {
         "items/empty": { model: { type: "minecraft:composite", models: [] } },
@@ -542,6 +747,33 @@ test.serial("empty composites remain empty and a missing child rejects the compl
     assets["models/item/missing"] = { textures: { layer0: "item/recovered" } };
     const recovered = (await Models.getMerged(itemKey("broken")))! as ItemModel;
     t.deepEqual(recovered.parts!.map(part => part.textures?.layer0), ["item/first", "item/recovered"]);
+});
+
+test.serial("decorated-pot components survive composite snapshots and persistent caches without leaking into referenced items", async t => {
+    const pot = { type: "special", base: "item/pot", model: { type: "decorated_pot" } };
+    const source = new FixtureSource({
+        "items/pot": { model: pot },
+        "items/composite_pot": { model: { type: "composite", models: [pot, { type: "bundle/selected_item" }] } },
+        "models/item/pot": { parent: "builtin/entity" }
+    });
+    AssetLoader.addSource("test-items", source);
+    const decorations = ["archer_pottery_sherd", "brick", "prize_pottery_sherd", "skull_pottery_sherd"];
+    const context = { components: { pot_decorations: decorations }, itemReferences: { "bundle/selected_item": itemKey("pot") } };
+    const pending = Models.getMerged(itemKey("composite_pot"), context);
+    decorations[0] = "flow_pottery_sherd";
+    const first = (await pending)! as ItemModel;
+    t.deepEqual(first.parts![0].components, { "minecraft:pot_decorations": ["archer_pottery_sherd", "brick", "prize_pottery_sherd", "skull_pottery_sherd"] });
+    t.deepEqual(first.parts![1].special, { type: "decorated_pot" });
+    t.deepEqual(first.parts![1].components, {});
+    const second = (await Models.getMerged(itemKey("composite_pot"), context))! as ItemModel;
+    t.deepEqual(second.parts![0].components, { "minecraft:pot_decorations": decorations });
+    t.not(first, second);
+    const calls = source.calls.length;
+    Caching.clear();
+    t.deepEqual((await Models.getMerged(itemKey("composite_pot"), context))! as ItemModel, second);
+    decorations[0] = "archer_pottery_sherd";
+    t.deepEqual((await Models.getMerged(itemKey("composite_pot"), context))! as ItemModel, first);
+    t.is(source.calls.length, calls);
 });
 
 test.serial("bundle properties and references stay independent through display-context and persistent cache changes", async t => {
@@ -696,14 +928,20 @@ test.serial("unsupported or broken definitions reject instead of using lower-pri
     AssetLoader.addSource("test-pack", new FixtureSource({ "items/missing": { model: reference("item/missing_reference") } }));
     await t.throwsAsync(Models.getMerged(itemKey("missing")), { message: /references missing model item\/missing_reference/ });
     AssetLoader.addSource("test-pack", new FixtureSource({ "items/invalid": { model: {
-        type: "minecraft:special", base: "item/base", model: { type: "minecraft:decorated_pot" }
+        type: "minecraft:special", base: "item/base", model: { type: "minecraft:standing_sign" }
     } } }));
-    await t.throwsAsync(Models.getMerged(itemKey("invalid")), { message: /Unsupported special item renderer minecraft:decorated_pot/ });
+    await t.throwsAsync(Models.getMerged(itemKey("invalid")), { message: /Unsupported special item renderer minecraft:standing_sign/ });
     for (const color of [undefined, null, "rainbow", "toString", 0xff0000]) {
         AssetLoader.addSource("test-pack", new FixtureSource({ "items/invalid": { model: {
             type: "special", base: "item/base", model: { type: "banner", color }
         } } }));
         await t.throwsAsync(Models.getMerged(itemKey("invalid")), { message: /Unsupported special item renderer banner/ });
+    }
+    for (const options of [{ pose: undefined }, { pose: null }, { pose: "waving" }, { texture: undefined }, { texture: "" }, { texture: "invalid:path:again" }]) {
+        AssetLoader.addSource("test-pack", new FixtureSource({ "items/invalid": { model: {
+            type: "special", base: "item/base", model: { type: "minecraft:copper_golem_statue", pose: "standing", texture: "textures/custom.png", ...options }
+        } } }));
+        await t.throwsAsync(Models.getMerged(itemKey("invalid")), { message: /Unsupported special item renderer minecraft:copper_golem_statue/ });
     }
     for (const options of [{ texture: "" }, { orientation: "sideways" }, { openness: "1" }, { openness: null }]) {
         AssetLoader.addSource("test-pack", new FixtureSource({ "items/invalid": { model: {

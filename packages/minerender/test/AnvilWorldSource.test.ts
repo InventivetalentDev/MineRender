@@ -4,21 +4,24 @@ import type { Compound } from "prismarine-nbt";
 import { AnvilParser } from "../src/world/AnvilParser";
 import type { AnvilChunk } from "../src/world/AnvilParser";
 import { AnvilWorldSource } from "../src/world/AnvilWorldSource";
+import { NBTHelper } from "../src/nbt/NBTHelper";
 
 function region(x: number, z: number, options: {
-    compression?: number; numeric?: boolean; malformed?: boolean; entities?: Compound["value"][];
+    compression?: number; numeric?: number[]; data?: number[]; malformed?: boolean; entities?: Compound["value"][];
 } = {}): Uint8Array {
     let payload = writeUncompressed({ name: "", type: "compound", value: {
         DataVersion: { type: "int", value: 2865 },
         xPos: { type: "int", value: x }, zPos: { type: "int", value: z },
         entities: { type: "list", value: { type: "compound", value: options.entities ?? [] } },
         sections: { type: "list", value: { type: "compound", value: options.numeric
-            ? [{ Y: { type: "byte", value: 0 }, Blocks: { type: "byteArray", value: [1] } }] : [] } }
+            ? [{ Y: { type: "byte", value: 0 }, Blocks: { type: "byteArray", value: options.numeric },
+                ...(options.data ? { Data: { type: "byteArray", value: options.data } } : {}) }] : [] } }
     } });
     if (options.malformed) payload = payload.subarray(0, 1);
-    const bytes = Buffer.alloc(12288);
+    const count = Math.ceil((payload.length + 5) / 4096);
+    const bytes = Buffer.alloc(8192 + count * 4096);
     const localX = ((x % 32) + 32) % 32, localZ = ((z % 32) + 32) % 32;
-    bytes.writeUInt32BE((2 << 8) | 1, (localX + localZ * 32) * 4);
+    bytes.writeUInt32BE((2 << 8) | count, (localX + localZ * 32) * 4);
     bytes.writeUInt32BE(payload.length + 1, 8192);
     bytes[8196] = options.compression ?? 3;
     bytes.set(payload, 8197);
@@ -53,6 +56,15 @@ function withNeighbor(first: Uint8Array): Uint8Array {
     return bytes;
 }
 
+function external(x: number, z: number): { stub: Buffer; payload: Buffer } {
+    const stub = Buffer.from(region(x, z));
+    const payload = Buffer.from(stub.subarray(8197, 8196 + stub.readUInt32BE(8192)));
+    stub.fill(0, 8192);
+    stub.writeUInt32BE(1, 8192);
+    stub[8196] = 128 | 3;
+    return { stub, payload };
+}
+
 function deferred<T = void>() {
     let resolve!: (value: T) => void;
     const promise = new Promise<T>(accept => { resolve = accept; });
@@ -72,6 +84,127 @@ test("world sources map signed chunk coordinates to region readers and decode ab
         t.deepEqual(reads, [[Math.floor(x / 32), Math.floor(z / 32)]]);
         t.is(await source.getChunk(x + (x % 32 === 31 ? -1 : 1), z), undefined);
     }
+});
+
+test("world sources apply custom and lenient numeric mappings without changing strict defaults", async t => {
+    const blocks = Array<number>(4096).fill(0), data = Array<number>(2048).fill(0);
+    blocks.splice(0, 3, 1, 1, -3);
+    data[0] = -15;
+    const input = region(-33, 65, { numeric: blocks, data });
+    const strict = new AnvilWorldSource(async () => input);
+    await t.throwsAsync(strict.getChunk(-33, 65), { message: /1:15.*section 0.*index 1/ });
+    for (const useExternal of [false, true]) {
+        const stub = Buffer.from(input), payload = Buffer.from(input.subarray(8197));
+        if (useExternal) {
+            stub.fill(0, 8192);
+            stub.writeUInt32BE(1, 8192);
+            stub[8196] = 128 | 3;
+        }
+        let reads = 0, externalReads = 0;
+        const source = new AnvilWorldSource(async () => { reads++; return stub; }, {
+            legacyMappings: Object.freeze({ "1:0": "minecraft:diamond_block" }), lenient: true,
+            readExternalChunk: async (x, z) => {
+                t.deepEqual([x, z], [-33, 65]);
+                externalReads++;
+                return payload;
+            },
+            readEntityRegion: async () => entityRegion(-33, 65)
+        });
+        for (let i = 0; i < 2; i++) {
+            const parsed = (await source.getChunk(-33, 65))!;
+            t.deepEqual([parsed.x, parsed.z], [-33, 65]);
+            t.deepEqual([0, 1, 2].map(index => parsed.sections[0].data.get(index)?.type), [
+                "minecraft:granite", "minecraft:diamond_block", undefined
+            ]);
+            t.is(parsed.entityDataVersion, 4189);
+            t.is(parsed.entities?.length, 1);
+        }
+        t.is(reads, 1);
+        t.is(externalReads, useExternal ? 2 : 0);
+    }
+    const entityStub = Buffer.from(entityRegion(-33, 65));
+    entityStub[8196] |= 128;
+    let terrainExternalReads = 0;
+    const wrongDirectory = new AnvilWorldSource(async () => undefined, {
+        readEntityRegion: async () => entityStub,
+        readExternalChunk: async () => { terrainExternalReads++; return undefined; }
+    });
+    await t.throwsAsync(wrongDirectory.getChunk(-33, 65), { message: /readExternalChunk/ });
+    t.is(terrainExternalReads, 0);
+});
+
+test("world sources read external chunks at absolute coordinates without retaining their payloads", async t => {
+    for (const [x, z] of [[31, 32], [-1, -32], [-33, 65]]) {
+        const { stub, payload } = external(x, z);
+        const regions: number[][] = [], chunks: number[][] = [];
+        const controller = new AbortController();
+        const source = new AnvilWorldSource(async (x, z) => { regions.push([x, z]); return stub; }, {
+            readExternalChunk: async (x, z, signal) => {
+                chunks.push([x, z]);
+                t.truthy(signal);
+                t.false(signal!.aborted);
+                return payload;
+            }
+        });
+        for (let i = 0; i < 2; i++) {
+            const chunk = (await source.getChunk(x, z, controller.signal))!;
+            t.deepEqual([chunk.x, chunk.z], [x, z]);
+        }
+        t.deepEqual(regions, [[Math.floor(x / 32), Math.floor(z / 32)]]);
+        t.deepEqual(chunks, [[x, z], [x, z]]);
+    }
+});
+
+test("missing and invalid external chunks retry without evicting a region or blocking its neighbors", async t => {
+    const { stub, payload } = external(0, 0);
+    for (const invalid of [undefined, new Error("external read failed"), new Uint8Array([0]), external(32, 0).payload]) {
+        let regionReads = 0, chunkReads = 0;
+        const source = new AnvilWorldSource(async () => { regionReads++; return withNeighbor(stub); }, {
+            readExternalChunk: async () => {
+                if (++chunkReads === 1) {
+                    if (invalid instanceof Error) throw invalid;
+                    return invalid;
+                }
+                return payload;
+            }
+        });
+        await t.throwsAsync(source.getChunk(0, 0));
+        t.is((await source.getChunk(1, 0))!.x, 1);
+        t.is(chunkReads, 1);
+        t.is((await source.getChunk(0, 0))!.x, 0);
+        t.is(regionReads, 1);
+        t.is(chunkReads, 2);
+    }
+});
+
+test("cancelling an external chunk read leaves another caller and the cached region usable", async t => {
+    t.timeout(3000);
+    const { stub, payload } = external(0, 0);
+    const firstRead = deferred<Uint8Array>(), secondRead = deferred<Uint8Array>(), started = deferred();
+    const firstController = new AbortController(), secondController = new AbortController();
+    const signals: (AbortSignal | undefined)[] = [];
+    let regionReads = 0;
+    const source = new AnvilWorldSource(async () => { regionReads++; return stub; }, {
+        readExternalChunk: async (_x, _z, signal) => {
+            signals.push(signal);
+            if (signals.length === 2) started.resolve();
+            return signals.length === 1 ? firstRead.promise : secondRead.promise;
+        }
+    });
+    t.teardown(() => { firstRead.resolve(payload); secondRead.resolve(payload); });
+    const first = source.getChunk(0, 0, firstController.signal);
+    const second = source.getChunk(0, 0, secondController.signal);
+    await started.promise;
+    const reason = new Error("external read cancelled");
+    firstController.abort(reason);
+    await t.throwsAsync(first, { is: reason });
+    t.true(signals[0]!.aborted);
+    t.false(signals[1]!.aborted);
+    secondRead.resolve(payload);
+    t.is((await second)!.x, 0);
+    t.is((await source.getChunk(0, 0))!.x, 0);
+    t.is(regionReads, 1);
+    firstRead.resolve(payload);
 });
 
 test("entity regions replace embedded entities and retain their own data version", async t => {
@@ -244,8 +377,8 @@ test("failed region reads and corrupt headers or sectors can be retried", async 
     }
 });
 
-test("unsupported, legacy, malformed and misplaced chunk payloads do not evict neighboring columns", async t => {
-    for (const invalid of [region(0, 0, { compression: 4 }), region(0, 0, { numeric: true }),
+test("unsupported, malformed and misplaced chunk payloads do not evict neighboring columns", async t => {
+    for (const invalid of [region(0, 0, { compression: 4 }), region(0, 0, { numeric: [1] }),
         region(0, 0, { malformed: true }), region(32, 0)]) {
         let reads = 0;
         const source = new AnvilWorldSource(async () => { reads++; return withNeighbor(invalid); });
@@ -440,20 +573,20 @@ test("cancelling before the reader starts skips its callback and permits a fresh
 
 test.serial("aborting during chunk decoding rejects promptly without evicting the raw region", async t => {
     t.timeout(3000);
-    const gate = deferred<AnvilChunk | undefined>();
+    const gate = deferred();
     const started = deferred();
-    const original = AnvilParser.parseChunk;
+    const original = NBTHelper.fromBuffer;
     let reads = 0;
     const source = new AnvilWorldSource(async () => { reads++; return region(0, 0); });
-    AnvilParser.parseChunk = async () => { started.resolve(); return gate.promise; };
-    t.teardown(() => { AnvilParser.parseChunk = original; gate.resolve(undefined); });
+    NBTHelper.fromBuffer = async (...args) => { started.resolve(); await gate.promise; return original(...args); };
+    t.teardown(() => { NBTHelper.fromBuffer = original; gate.resolve(); });
     const controller = new AbortController(), reason = new Error("decode cancelled");
     const pending = source.getChunk(0, 0, controller.signal);
     await started.promise;
     controller.abort(reason);
     await t.throwsAsync(pending, { is: reason });
-    AnvilParser.parseChunk = original;
+    NBTHelper.fromBuffer = original;
     t.is((await source.getChunk(0, 0))!.x, 0);
     t.is(reads, 1);
-    gate.resolve(undefined);
+    gate.resolve();
 });

@@ -1,9 +1,8 @@
 import type { Compound, NBT } from "prismarine-nbt";
 import { MineRenderError } from "../../error/MineRenderError";
 import { TripleArray } from "../Model";
-import { BlockStateProperties } from "../block/BlockStateProperties";
 import { MultiBlockBlock, MultiBlockStructure } from "./MultiBlockStructure";
-import legacyBlocks from "./legacyBlocks.json";
+import { resolveLegacyBlock } from "./LegacyBlocks";
 
 /** Converts legacy Alpha `.schematic` NBT with numeric block IDs into modern block names and properties. */
 export class SchematicParser {
@@ -52,34 +51,21 @@ export class SchematicParser {
             tileEntities.set((y * length + z) * width + x, { type: "compound", value: tile });
         }
         const blocks: MultiBlockBlock[] = [];
-        const mapping: Record<string, string> = legacyBlocks.blocks;
         for (let index = 0; index < volume; index++) {
             const packed = addBlocks?.value[index >> 1] ?? 0;
             const high = (packed >> ((index & 1) * 4)) & 0xf;
             const id = (high << 8) | (ids.value[index] & 0xff);
             const metadata = data.value[index] & 0xff;
-            const key = `${id}:${metadata}`;
-            let mapped = customMappings[key] ?? mapping[key];
-            if (!mapped && options.lenient) {
-                mapped = customMappings[`${id}:0`] ?? mapping[`${id}:0`];
-            }
-            if (!mapped) {
+            const block = resolveLegacyBlock(id, metadata, customMappings, options.lenient);
+            if (!block) {
                 if (options.lenient) {
                     continue;
                 }
                 throw new MineRenderError(`Unsupported legacy block ${id}:${metadata} at schematic index ${index}`);
             }
-            const [type, state] = mapped.split("[");
-            if (type === "minecraft:air") continue;
-            const properties: BlockStateProperties = {};
-            if (state) {
-                for (const property of state.slice(0, -1).split(",")) {
-                    const [key, value] = property.split("=");
-                    properties[key] = value;
-                }
-            }
+            if (block.type === "minecraft:air") continue;
             blocks.push({
-                type, properties,
+                ...block,
                 position: [index % width, Math.floor(index / (width * length)), Math.floor(index / width) % length],
                 nbt: tileEntities.get(index)
             });

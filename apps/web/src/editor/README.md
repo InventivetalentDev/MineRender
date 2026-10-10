@@ -27,12 +27,14 @@ browser storage is unavailable or full.
 
 ## Import and export
 
-**Import** accepts scene JSON, Java structure `.nbt`, and legacy Alpha `.schematic`.
+**Import** accepts scene JSON, Java structure `.nbt`, legacy Alpha `.schematic`,
+Sponge `.schem` versions 2 and 3, and Litematica `.litematic` versions 5–7.
 Scene JSON replaces the scene after every object loads successfully. Structure
 files append up to 2,048 non-air blocks as individually editable objects, preserving
-blockstates and positions. Structure imports use the first palette and omit entity
-and block-entity NBT and DataVersion. Sponge `.schem` and Anvil `.mca` imports are not
-part of this editor.
+blockstates and positions, including Sponge offsets and the relative placement of
+all Litematica subregions. Java structures use the first palette. Structure imports
+omit entity and block-entity NBT, DataVersion, and subregion names. Anvil
+`.mca` imports are not part of this editor.
 
 **Export** writes PNG images or static GLB, glTF, OBJ, and PLY snapshots. Editor
 handles, selection bounds, and the grid are excluded. PNG uses the viewport size;

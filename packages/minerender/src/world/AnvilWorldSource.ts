@@ -1,6 +1,6 @@
 import { MineRenderError } from "../error/MineRenderError";
 import { AnvilParser } from "./AnvilParser";
-import type { AnvilChunk } from "./AnvilParser";
+import type { AnvilChunk, AnvilParseOptions } from "./AnvilParser";
 import type { WorldChunkSource } from "./WorldChunkSource";
 
 /**
@@ -10,7 +10,7 @@ import type { WorldChunkSource } from "./WorldChunkSource";
 export type AnvilRegionReader = (x: number, z: number, signal?: AbortSignal) => Promise<Uint8Array | ArrayBuffer | undefined>;
 
 /** Readers and cache limits passed to `new AnvilWorldSource(readRegion, options)`. */
-export interface AnvilWorldSourceOptions {
+export interface AnvilWorldSourceOptions extends Pick<AnvilParseOptions, "readExternalChunk" | "legacyMappings" | "lenient"> {
     /** Reads a dimension's separate `entities/r.<x>.<z>.mca` files. Omit to use embedded entities only. */
     readEntityRegion?: AnvilRegionReader;
     /** Maximum cached regions per kind (terrain and entities), including missing regions. Defaults to 4 each; 0 disables caching. */
@@ -48,10 +48,12 @@ export class AnvilWorldSource implements WorldChunkSource {
     private readonly maxCachedRegions: number;
     private readonly maxCachedBytes: number;
     private readonly readEntityRegion?: AnvilRegionReader;
+    private readonly parseOptions: Pick<AnvilParseOptions, "readExternalChunk" | "legacyMappings" | "lenient">;
     private cachedBytes = 0;
 
     constructor(private readonly readRegion: AnvilRegionReader, options: AnvilWorldSourceOptions = {}) {
         this.readEntityRegion = options.readEntityRegion;
+        this.parseOptions = { readExternalChunk: options.readExternalChunk, legacyMappings: options.legacyMappings, lenient: options.lenient };
         this.maxCachedRegions = options.maxCachedRegions ?? 4;
         this.maxCachedBytes = options.maxCachedBytes ?? 64 * 1024 * 1024;
         for (const [name, value] of Object.entries({ maxCachedRegions: this.maxCachedRegions, maxCachedBytes: this.maxCachedBytes })) {
@@ -79,8 +81,12 @@ export class AnvilWorldSource implements WorldChunkSource {
             readSignal.throwIfAborted();
             const localX = x - regionX * 32, localZ = z - regionZ * 32;
             const [chunk, entities] = await abortable(Promise.all([
-                data ? AnvilParser.parseChunk(data, localX, localZ) : undefined,
-                entityData ? AnvilParser.parseEntityChunk(entityData, localX, localZ) : undefined
+                data ? AnvilParser.parseChunk(data, localX, localZ, {
+                    ...this.parseOptions, region: { x: regionX, z: regionZ }, signal: readSignal
+                }) : undefined,
+                entityData ? AnvilParser.parseEntityChunk(entityData, localX, localZ, {
+                    region: { x: regionX, z: regionZ }, signal: readSignal
+                }) : undefined
             ]), readSignal);
             readSignal.throwIfAborted();
             if (chunk && (chunk.x !== x || chunk.z !== z)) {
@@ -125,7 +131,7 @@ export class AnvilWorldSource implements WorldChunkSource {
                 controller, waiters: 0, settled: false,
                 promise: Promise.resolve().then(() => {
                     controller.signal.throwIfAborted();
-                    return reader(x, z, controller.signal);
+                    return abortable(reader(x, z, controller.signal), controller.signal);
                 }).then(data => {
                     controller.signal.throwIfAborted();
                     let bytes = data instanceof Uint8Array ? data : data === undefined ? undefined : new Uint8Array(data);
