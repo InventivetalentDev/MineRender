@@ -90,18 +90,24 @@ Default textures and root transforms come from the versioned entity dataset; cal
 
 ~~Play native and sampled procedural clips with synchronized, layer-specific playback.~~ Runtime gameplay state selection, animation blending, visibility changes, and animated renderer transforms remain.
 
+Regenerate and publish the `1.21.11` entity dataset with the procedural clips from [minecraft-entity-models #7](https://github.com/InventivetalentDev/minecraft-entity-models/pull/7), then verify hosted clips through `Entities.getAnimations`. As checked on 2026-10-09, the published branch predates that merge and contains only 17 native animation files, with no `animations/minecraft/chest.json`.
+
 ### 10. Instance lifecycle overhaul — high (prerequisite for worlds)
 ~~Limit `InstancedMesh.count` to allocated slots~~; ~~add a free-list so removal reclaims slots~~; ~~grow capacity on demand instead of silent out-of-bounds writes~~; ~~provide per-placement transforms through `InstanceReference`s~~; ~~replace the `children[0]`-is-the-InstancedMesh assumption with a stored reference~~. Shared-owner transforms still affect all live instances; changing that API remains separate work. Extend dedup beyond `assetType === "models"` to blockstate level.
 
 ### 11. World subsystem redesign for scale — high (the V2 differentiator)
 Immediate fixes: ~~fix `getChunkAt` to use `Map.get(key)`~~; ~~remove the 4×4×4 bound and negative-coordinate rejection~~; ~~remove hardcoded debug wireframes~~; ~~fix `BatchedExecutor`'s missing setInterval delay + add `stop()`~~; ~~place structures and chunks in bounded batches with one final neighbor-culling pass~~. Then the redesign: ~~palette + typed-array section storage~~, ~~opt-in merged meshes and bounded atlas pages per chunk section for static opaque cubes~~ (complex, transparent, animated, and multipart models retain per-block objects), ~~neighbor face culling via model `cullface` against opaque full cubes~~ (partial-shape and matching transparent-block rules remain), ~~explicit chunk load/unload~~, ~~per-block visibility without deleting block data~~, ~~camera-driven streaming~~. Chunk-level visibility management, baked per-vertex ambient occlusion, biome tint, and LOD remain. Section meshes already have bounds for Three.js frustum culling.
 
+For biome tint, first preserve biome data during import and in chunk storage, then apply it to grass, foliage, and water in both rendering modes. Follow with saved light data and ambient occlusion. Measure real-world decoding, placement, frame stalls, and retained memory before choosing further worker or LOD work.
+
+Seed weighted blockstate alternatives by world position so unloading and reloading a chunk preserves its appearance. Selection uses `Math.random()` without position input.
+
 Decoding and mesh construction run on the main thread; worker-based preparation and faster bulk placement remain scale improvements.
 
 ~~Render sloped water/lava surfaces with still/flow textures and waterlogged blocks.~~ ~~Cover intrinsic water in kelp, seagrass, and bubble columns.~~ For remaining fluid parity, obtain vanilla block-state fluid definitions, face-occlusion shapes, and solidity/flow-blocking flags; add water overlays against glass/leaves. Keep 1 block = 16 units.
 
 ### 12. Node headless rendering entry point — high
-Make `Renderer` constructible without DOM: injectable canvas + WebGL 2 context, `renderOnce()`/`renderToBuffer()` bypassing the animation loop, and encoded image buffers in Node. The Node environment provider supports asset loading and 2D texture preparation; it does not supply a WebGL context or DOM-free renderer. `InventivetalentDev/MineRenderServer` is the reference contract — it faked headless rendering against V1 and reached into `_scene`/`_camera`; V2 already exposes them publicly. Then a thin V2 server can revive `GET /render/skin/:texture` and `GET /render/model/:type/:model`.
+Make `Renderer` constructible without DOM: injectable canvas + WebGL 2 context, `renderOnce()`/`renderToBuffer()` bypassing the animation loop, and encoded image buffers in Node. The Node environment provider supports asset loading and 2D texture preparation; it does not supply a WebGL context or DOM-free renderer. `InventivetalentDev/MineRenderServer` is the reference contract — it faked headless rendering against V1 and reached into `_scene`/`_camera`; V2 already exposes them publicly. Compatibility with the V1 `GET /render/skin/:texture`, `GET /render/model/:type/:model`, and `minerender-options` header would require a separate adapter.
 
 ### 13. Anvil region (.mca) + schematic loaders — high
 ~~Add a world-format layer feeding chunk storage: `.mca` sector tables, section palettes and DataVersion; preserve NBT type/compression metadata; implement legacy `.schematic` ID/metadata and AddBlocks conversion; retain structure entities and DataVersion.~~ ~~Support custom legacy schematic mappings and opt-in lenient parsing.~~ ~~Load Sponge v2/v3 `.schem` files with local palettes, block states, offsets, block/entity NBT, and DataVersion; add playground and editor imports.~~ Sponge biome and metadata import, pre-1.13 numeric Anvil chunks, LZ4 and external `.mcc` payloads, Litematica, rendering ordinary entities from saved NBT, and DataVersion-based migration remain.
@@ -114,4 +120,4 @@ Make `Renderer` constructible without DOM: injectable canvas + WebGL 2 context, 
 
 ~~Build the V2 website with live examples.~~ ~~Rework the demos into configurable playgrounds.~~ ~~Add portable scene documents and a browser scene editor.~~ ~~Add TypeDoc/VitePress reference tooling and library API JSDoc.~~
 
-Playground/editor hosting is pending in [PR #252](https://github.com/InventivetalentDev/MineRender/pull/252). Iframe embeds remain. Remove unused V1 website files from the V2 tree while preserving V1 delivery URLs. Extend existing regression coverage as remaining model and blockstate features land; keep the consumer API contract in AGENTS.md as the beta compatibility baseline.
+Iframe embeds remain. Remove unused V1 website files from the V2 tree while preserving V1 delivery URLs. Extend existing regression coverage as remaining model and blockstate features land; keep the consumer API contract in AGENTS.md as the beta compatibility baseline.
