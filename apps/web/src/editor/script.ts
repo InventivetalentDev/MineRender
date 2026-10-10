@@ -761,7 +761,7 @@ async function start(): Promise<void> {
         const file = input.files?.[0]; input.value = "";
         if (!file) return;
         void run(`Importing ${file.name}…`, async () => {
-            if (/\.(nbt|schematic)$/i.test(file.name)) await appendObjects(await importStructure(file));
+            if (/\.(nbt|schematic|schem)$/i.test(file.name)) await appendObjects(await importStructure(file));
             else {
                 if (file.size > 20 * 1024 * 1024) throw new Error("Scene JSON must be smaller than 20 MB.");
                 await replaceDocument(await file.text());
@@ -889,7 +889,7 @@ function dispose() {
         if (saved) {
             await replaceDocument(saved);
             report("Local save restored.");
-        } else report("Add objects to build a scene, or import a saved JSON, .nbt, or .schematic file.");
+        } else report("Add objects to build a scene, or import a saved JSON, .nbt, .schematic, or .schem file.");
         localSaveProtected = false;
     }, "local-save-error");
     if (!restored) showError("local-save-error", "The saved scene could not load. It is preserved. Retry Restore, or use Save JSON to keep new edits.");
