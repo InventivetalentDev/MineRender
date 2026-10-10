@@ -1,5 +1,5 @@
 import test from "ava";
-import { AssetKey, AssetLoader, AssetSource, Caching, DisplayPosition, ItemTints, Models, PersistentCache, shutdown } from "../src";
+import { AssetKey, AssetLoader, AssetSource, Caching, DisplayPosition, ItemGlint, ItemTints, Models, PersistentCache, shutdown } from "../src";
 import type { ItemModel, ItemModelContext, ItemTintSource, MinecraftAsset, Maybe, SpecialItemRenderer } from "../src";
 
 class MemoryCache extends PersistentCache<Map<string, string>> {
@@ -66,6 +66,20 @@ test.afterEach.always(() => {
     Caching.clear();
 });
 test.after.always(() => shutdown());
+
+test("item glint uses nonempty enchantment objects and explicit boolean overrides", t => {
+    for (const components of [{}, { enchantments: {} }, { stored_enchantments: { sharpness: 1 } },
+        { enchantments: { sharpness: 1 }, enchantment_glint_override: false }]) t.false(ItemGlint.enabled(components));
+    for (const components of [{ enchantments: { "minecraft:sharpness": 1 } }, { "minecraft:enchantments": { sharpness: 255 } },
+        { enchantments: { levels: { sharpness: 1 } } },
+        { enchantments: { sharpness: 0 } }, { enchantments: { sharpness: 256 } }, { enchantments: { sharpness: 1.5 } },
+        { enchantments: { sharpness: 1, "minecraft:sharpness": 2 } },
+        { "minecraft:enchantment_glint_override": true }, { enchantment_glint_override: true, enchantments: "unused" }]) t.true(ItemGlint.enabled(components));
+    for (const components of [{ enchantment_glint_override: 1 }, { enchantments: null }, { enchantments: [] }, { enchantments: "bad" },
+        { enchantments: {}, "minecraft:enchantments": {} }]) {
+        t.throws(() => ItemGlint.enabled(components));
+    }
+});
 
 test.serial("modern definitions win within a source, while higher-priority legacy packs still override", async t => {
     const source = new FixtureSource({

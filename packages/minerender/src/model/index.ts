@@ -3,6 +3,7 @@ export * from './DisplayPosition';
 export * from './DisplayTransforms';
 export * from './ElementFace';
 export * from './GuiLight';
+export * from './ItemGlint';
 export * from './ItemTints';
 export * from './Model';
 export * from './ModelCulling';

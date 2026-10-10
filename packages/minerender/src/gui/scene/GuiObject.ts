@@ -225,7 +225,7 @@ export class GuiObject extends SceneObject {
         const meshes: Mesh[] = [];
         item.iterateAllMeshes(mesh => meshes.push(mesh));
         meshes.forEach((mesh, partIndex) => {
-            mesh.name = `mesh:${layer.name ?? index}`;
+            if (!mesh.userData.minerenderItemGlint) mesh.name = `mesh:${layer.name ?? index}`;
             mesh.renderOrder = index + partIndex / (meshes.length + 1) * 0.5;
             for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
                 // GUI textures and items share the transparent pass so renderOrder applies to both.

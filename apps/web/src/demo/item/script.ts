@@ -45,6 +45,8 @@ const app = new Playground<ItemSettings>({
         stack: { label: "Inventory slot: 64 apples", state: { item: "minecraft:apple", preview: "slot", count: 64 }, view: guiView },
         damaged: { label: "Inventory slot: damaged pickaxe", state: { item: "minecraft:diamond_pickaxe", preview: "slot",
             components: { "minecraft:damage": 781, "minecraft:max_damage": 1561 } }, view: guiView },
+        enchanted: { label: "Inventory slot: enchanted pickaxe", state: { item: "minecraft:diamond_pickaxe", preview: "slot",
+            components: { "minecraft:enchantments": { "minecraft:efficiency": 3 } } }, view: guiView },
         potion: { label: "Potion (tinted)", state: { item: "minecraft:potion", tints: { 0: 0xd557ef } } },
         dyed_leather: { label: "Dyed leather (blue component)", state: { item: "minecraft:leather_chestplate", display: DisplayPosition.GUI,
             components: { "minecraft:dyed_color": 0x3f76e4 } }, view: guiView },
@@ -228,6 +230,19 @@ count.id = "item-count";
 Object.assign(count, { min: "0", max: String(Number.MAX_SAFE_INTEGER), step: "1" });
 count.addEventListener("change", () => void app.update({ count: count.valueAsNumber }));
 let stackState: ItemSettings | undefined;
+const glint = select(stackGroup, "Enchantment glint", [["auto", "Auto"], ["on", "On"], ["off", "Off"]], "auto");
+glint.id = "item-glint";
+glint.addEventListener("change", () => {
+    if (glint.disabled || !stackState || app.state.item !== stackState.item
+        || JSON.stringify(app.state.components) !== JSON.stringify(stackState.components)) return;
+    const next = structuredClone(app.state.components);
+    delete next.enchantment_glint_override;
+    delete next["minecraft:enchantment_glint_override"];
+    if (glint.value !== "auto") next["minecraft:enchantment_glint_override"] = glint.value === "on";
+    glint.disabled = true;
+    void app.update({ components: next });
+});
+note(stackGroup, "Auto uses the supplied enchantments. On and Off override the shimmer without changing enchantments.");
 const damageFields = (["damage", "max_damage"] as const).map(name => {
     const control = input(stackGroup, name === "damage" ? "Damage (optional)" : "Maximum damage (optional)", "", "number");
     control.id = `item-${name.replace(/_/g, "-")}`;
@@ -421,6 +436,9 @@ function syncStateControls(state: ItemSettings, items: string[]): void {
     }
     player.value = identity;
     count.value = String(state.count);
+    const override = state.components["minecraft:enchantment_glint_override"] ?? state.components.enchantment_glint_override;
+    glint.value = override === true ? "on" : override === false ? "off" : "auto";
+    glint.disabled = isModelPath(state.item);
     for (const { name, control } of damageFields) {
         const value = state.components[name] ?? state.components[`minecraft:${name}`];
         control.value = value === undefined ? "" : String(value);
