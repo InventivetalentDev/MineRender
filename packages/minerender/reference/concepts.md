@@ -89,7 +89,9 @@ Source errors appear in `failedChunks` while other columns continue loading. Cal
 
 Await `stream.dispose()` before editing or clearing the world; it unloads its columns and leaves the world and source caller-owned.
 
-Java 1.13+ paletted chunks support gzip, zlib, and uncompressed payloads, including external `.mcc` files; pre-1.13 numeric chunks, LZ4, and DataVersion migration remain unsupported.
+Numeric and paletted Java chunks support gzip, zlib, and uncompressed payloads, including external `.mcc` files. Pre-1.13 numeric chunks use the same block mappings as legacy schematics. Pass `legacyMappings: { "id:metadata": "namespace:block[property=value]" }` to `AnvilParser.parse`, `AnvilParser.parseChunk`, or `AnvilWorldSource` to override those mappings. Set `lenient: true` to try metadata 0 for unmapped numeric states and skip unknown IDs; malformed arrays still fail validation.
+
+Numeric mappings do not reconstruct states that depend on neighbors or block-entity NBT, such as paired doors or bed colors. LZ4 and DataVersion migration remain unsupported.
 
 ## Ownership and cleanup
 

@@ -31,7 +31,7 @@ These paths are relative to the development server root:
 
 The sidebar from `src/playground/Playground.ts` provides presets, renderer and camera settings, Minecraft version / hosted root / resource-pack ZIP, exports, and a shareable link or JSON that restores the page state. Local files are not part of shared links and have to be selected again.
 
-The world page uses a separate streaming viewer. Select a world folder or region files with their external `c.x.z.mcc` chunk files, choose the matching asset version, then pan or enter chunk coordinates. Local saves start with one chunk; increase the load radius to include neighbors. File contents stay in the browser. Lighting, biome tint, LOD, pre-1.13 numeric chunks, and LZ4 remain unsupported.
+The world page uses a separate streaming viewer. Select a world folder or region files with their external `c.x.z.mcc` chunk files, then pan or enter chunk coordinates. Pre-1.13 numeric chunks use the legacy schematic mappings and modern assets; those mappings do not reconstruct states from neighbors or block-entity NBT. For paletted chunks, choose the matching asset version. Local saves start with one chunk; increase the load radius to include neighbors. File contents stay in the browser. Lighting, biome tint, LOD, and LZ4 remain unsupported.
 
 ## Adding a page
 

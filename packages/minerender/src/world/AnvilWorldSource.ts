@@ -1,6 +1,6 @@
 import { MineRenderError } from "../error/MineRenderError";
 import { AnvilParser } from "./AnvilParser";
-import type { AnvilChunk, AnvilExternalChunkReader } from "./AnvilParser";
+import type { AnvilChunk, AnvilParseOptions } from "./AnvilParser";
 import type { WorldChunkSource } from "./WorldChunkSource";
 
 /**
@@ -10,9 +10,7 @@ import type { WorldChunkSource } from "./WorldChunkSource";
 export type AnvilRegionReader = (x: number, z: number, signal?: AbortSignal) => Promise<Uint8Array | ArrayBuffer | undefined>;
 
 /** Readers and cache limits passed to `new AnvilWorldSource(readRegion, options)`. */
-export interface AnvilWorldSourceOptions {
-    /** Reads external `c.<x>.<z>.mcc` payloads at absolute chunk coordinates in the same dimension. */
-    readExternalChunk?: AnvilExternalChunkReader;
+export interface AnvilWorldSourceOptions extends Pick<AnvilParseOptions, "readExternalChunk" | "legacyMappings" | "lenient"> {
     /** Maximum cached regions, including missing regions. Defaults to 4; 0 disables caching. */
     maxCachedRegions?: number;
     /** Maximum retained region bytes. Defaults to 64 MiB; larger regions are read without caching. */
@@ -47,13 +45,13 @@ export class AnvilWorldSource implements WorldChunkSource {
     private readonly pending = new Map<string, PendingRegion>();
     private readonly maxCachedRegions: number;
     private readonly maxCachedBytes: number;
-    private readonly readExternalChunk?: AnvilExternalChunkReader;
+    private readonly parseOptions: Pick<AnvilParseOptions, "readExternalChunk" | "legacyMappings" | "lenient">;
     private cachedBytes = 0;
 
     constructor(private readonly readRegion: AnvilRegionReader, options: AnvilWorldSourceOptions = {}) {
         this.maxCachedRegions = options.maxCachedRegions ?? 4;
         this.maxCachedBytes = options.maxCachedBytes ?? 64 * 1024 * 1024;
-        this.readExternalChunk = options.readExternalChunk;
+        this.parseOptions = { readExternalChunk: options.readExternalChunk, legacyMappings: options.legacyMappings, lenient: options.lenient };
         for (const [name, value] of Object.entries({ maxCachedRegions: this.maxCachedRegions, maxCachedBytes: this.maxCachedBytes })) {
             if (!Number.isSafeInteger(value) || value < 0) throw new RangeError(`${name} must be a nonnegative safe integer`);
         }
@@ -69,7 +67,7 @@ export class AnvilWorldSource implements WorldChunkSource {
         signal?.throwIfAborted();
         if (!data) return undefined;
         const chunk = await AnvilParser.parseChunk(data, x - regionX * 32, z - regionZ * 32, {
-            region: { x: regionX, z: regionZ }, readExternalChunk: this.readExternalChunk, signal
+            ...this.parseOptions, region: { x: regionX, z: regionZ }, signal
         });
         signal?.throwIfAborted();
         if (chunk && (chunk.x !== x || chunk.z !== z)) {

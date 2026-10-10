@@ -8,6 +8,7 @@ import { NBTHelper } from "../src/nbt/NBTHelper";
 type Tags = Compound["value"];
 const int = (value: number) => ({ type: "int" as const, value });
 const string = (value: string) => ({ type: "string" as const, value });
+const bytes = (value: number[]) => ({ type: "byteArray" as const, value });
 const compound = (value: Tags): Compound => ({ type: "compound", value });
 const list = (value: Tags[]) => ({ type: "list" as const, value: { type: "compound" as const, value } });
 const longs = (words: bigint[]) => ({ type: "longArray" as const, value: words.map(word => [
@@ -436,10 +437,139 @@ test("Anvil rejects truncated sectors, invalid lengths and unsupported compressi
     await t.throwsAsync(() => AnvilParser.parseChunk(valid, -1, 0), { instanceOf: RangeError });
 });
 
-test("Anvil rejects numeric sections and malformed palettes instead of silently replacing them with air", async t => {
+test("Anvil reads numeric sections in x/z/y order and preserves legacy entities and DataVersion", async t => {
+    const blocks = Array<number>(4096).fill(0), data = Array<number>(2048).fill(0);
+    blocks[0] = 17;
+    blocks[1] = 35;
+    blocks[16] = 1;
+    blocks[256] = -1;
+    blocks[273] = 54;
+    blocks[4095] = -48;
+    data[0] = -28;
+    data[136] = 0x20;
+    const second = Array<number>(4096).fill(0);
+    second[0] = 3;
+    const blockEntity = { id: string("Chest"), x: int(-15), y: int(-15), z: int(-31), CustomName: string("legacy") };
+    const entity = { id: string("Pig"), Pos: { type: "list" as const, value: { type: "double" as const, value: [-15.5, -14, -30] } } };
+    const parsed = (await AnvilParser.parseChunk(region({ nbt: chunk([
+        { Y: int(-1), Blocks: bytes(blocks), Data: bytes(data) }, { Y: int(2), Blocks: bytes(second) }
+    ], { modern: false, version: 1343, extra: { TileEntities: list([blockEntity]), Entities: list([entity]) } }) }), 31, 30))!;
+    t.deepEqual([parsed.x, parsed.z, parsed.dataVersion], [-1, -2, 1343]);
+    t.deepEqual(parsed.sections.map(section => section.y), [-1, 2]);
+    const cells = parsed.sections[0].data;
+    t.deepEqual(cells.get(0), { type: "minecraft:oak_log", properties: { axis: "x" } });
+    t.is(cells.get(1)?.type, "minecraft:red_wool");
+    t.is(cells.get(16)?.type, "minecraft:stone");
+    t.deepEqual(cells.get(256), { type: "minecraft:structure_block", properties: { mode: "save" } });
+    t.deepEqual(cells.get(273), {
+        type: "minecraft:chest", properties: { facing: "north", type: "single" }, nbt: compound(blockEntity)
+    });
+    t.is(cells.get(4095)?.type, "minecraft:dirt_path");
+    t.is(cells.get(2), undefined);
+    t.is(parsed.sections[1].data.get(0)?.type, "minecraft:dirt");
+    t.deepEqual(parsed.entities, [{ position: [-15.5, -14, -30], nbt: compound(entity) }]);
+});
+
+test("Anvil decodes both Add nibbles and applies custom mappings before exact bundled mappings", async t => {
+    const blocks = Array<number>(4096).fill(0), data = Array<number>(2048).fill(0), add = Array<number>(2048).fill(0);
+    blocks[0] = 1;
+    blocks[1] = -1;
+    blocks[16] = 1;
+    blocks[256] = 1;
+    data[0] = -29;
+    data[8] = 1;
+    add[0] = -14;
+    const nbt = chunk([{ Y: int(0), Blocks: bytes(blocks), Data: bytes(data), Add: bytes(add) }], { modern: false });
+    const input = region({ nbt });
+    const legacyMappings = Object.freeze({
+        "513:3": "test:custom[facing=east,active=true]", "4095:14": "minecraft:air", "1:0": "minecraft:diamond_block"
+    });
+    const parsed = await AnvilParser.parse(input, { legacyMappings });
+    const cells = parsed.chunks[0].sections[0].data;
+    t.deepEqual(cells.get(0), { type: "test:custom", properties: { facing: "east", active: "true" } });
+    t.is(cells.get(1), undefined);
+    t.is(cells.get(16)?.type, "minecraft:granite");
+    t.is(cells.get(256)?.type, "minecraft:diamond_block");
+    await t.throwsAsync(() => AnvilParser.parse(input), { message: /513:3.*section 0.*index 0/ });
+    const external = (await AnvilParser.parseChunk(region({ nbt, external: true }), 31, 30, {
+        legacyMappings, region: { x: -1, z: -1 }, readExternalChunk: async () => deflateSync(writeUncompressed(nbt))
+    }))!;
+    t.deepEqual(external.sections[0].data.get(0), cells.get(0));
+});
+
+test("Anvil maps suspended legacy tripwire states while preserving powered, attached and disarmed flags", async t => {
+    const blocks = Array<number>(4096).fill(0), data = Array<number>(2048).fill(0);
+    blocks.fill(-124, 0, 16);
+    data.splice(0, 8, 0x10, 0x32, 0x54, 0x76, -104, -70, -36, -2);
+    const cells = (await AnvilParser.parse(region({ nbt: chunk([
+        { Y: int(0), Blocks: bytes(blocks), Data: bytes(data) }
+    ], { modern: false }) }))).chunks[0].sections[0].data;
+    for (let metadata = 0; metadata < 16; metadata++) {
+        t.deepEqual(cells.get(metadata), { type: "minecraft:tripwire", properties: {
+            attached: String(!!(metadata & 4)), disarmed: String(!!(metadata & 8)), powered: String(!!(metadata & 1)),
+            east: "false", west: "false", north: "false", south: "false"
+        } });
+    }
+});
+
+test("Anvil defaults missing numeric Data and Add to zero without requiring DataVersion", async t => {
+    const blocks = Array<number>(4096).fill(0);
+    blocks[4095] = 1;
+    for (const optional of [{}, { Data: bytes(Array<number>(2048).fill(0)) }, { Add: bytes(Array<number>(2048).fill(0)) }]) {
+        const parsed = await AnvilParser.parse(region({ nbt: chunk([
+            uniform(), { Y: int(0), Blocks: bytes(blocks), ...optional }
+        ], { modern: false, version: null }) }));
+        t.is(parsed.chunks[0].dataVersion, undefined);
+        t.is(parsed.chunks[0].sections[0].data.get(0)?.type, "minecraft:stone");
+        t.is(parsed.chunks[0].sections[1].data.get(4095)?.type, "minecraft:stone");
+        t.is(parsed.chunks[0].sections[1].data.get(0), undefined);
+    }
+});
+
+test("Anvil lenient numeric mappings retain exact matches, try metadata zero and skip unknown IDs", async t => {
+    const blocks = Array<number>(4096).fill(0), data = Array<number>(2048).fill(0), add = Array<number>(2048).fill(0);
+    blocks.splice(0, 5, 1, 1, 1, -1, 1);
+    data[0] = -15;
+    data[1] = 0x23;
+    data[2] = 15;
+    add[1] = -14;
+    const input = region({ nbt: chunk([{ Y: int(-2), Blocks: bytes(blocks), Data: bytes(data), Add: bytes(add) }], { modern: false }) });
+    const legacyMappings = { "1:0": "minecraft:diamond_block", "513:0": "test:extended" };
+    await t.throwsAsync(() => AnvilParser.parse(input, { legacyMappings }), { message: /1:15.*section -2.*index 1/ });
+    const cells = (await AnvilParser.parse(input, { legacyMappings, lenient: true })).chunks[0].sections[0].data;
+    t.deepEqual([0, 1, 2, 3, 4].map(index => cells.get(index)?.type), [
+        "minecraft:granite", "minecraft:diamond_block", "test:extended", undefined, "minecraft:diamond_block"
+    ]);
+    t.is((await AnvilParser.parse(input, { lenient: true })).chunks[0].sections[0].data.get(1)?.type, "minecraft:stone");
+});
+
+test("Anvil validates numeric array types and sizes and rejects mixed section encodings even when lenient", async t => {
+    const valid = { Y: int(0), Blocks: bytes(Array<number>(4096).fill(0)) };
+    const invalid: Tags[] = [
+        { Y: int(0), Data: bytes(Array<number>(2048).fill(0)) },
+        { Y: int(0), Add: bytes(Array<number>(2048).fill(0)) }
+    ];
+    for (const [name, length] of [["Blocks", 4096], ["Data", 2048], ["Add", 2048]] as const) {
+        for (const value of [int(0), bytes(Array<number>(length - 1).fill(0)), bytes(Array<number>(length + 1).fill(0))]) {
+            invalid.push({ ...valid, [name]: value });
+        }
+    }
+    for (const extra of [{ Palette: list([{ Name: string("minecraft:stone") }]) }, { BlockStates: longs([0n]) },
+        { block_states: compound({ palette: list([{ Name: string("minecraft:stone") }]) }) }]) {
+        invalid.push({ ...valid, ...extra });
+    }
+    for (const section of invalid) {
+        for (const lenient of [false, true]) {
+            await t.throwsAsync(() => AnvilParser.parse(region({ nbt: chunk([section], { modern: false }) }), { lenient }), {
+                name: "MineRenderError"
+            });
+        }
+    }
+});
+
+test("Anvil rejects malformed palettes instead of silently replacing them with air", async t => {
     const palette = list([{ Name: string("minecraft:air") }, { Name: string("minecraft:stone") }]);
     const invalid = [
-        { section: { Y: int(0), Blocks: { type: "byteArray" as const, value: [1] } }, message: /before Minecraft 1.13/ },
         { section: { Y: int(0), Palette: list([]) }, message: /without a palette/ },
         { section: { Y: int(0), block_states: int(0) }, message: /block_states must be a compound/ },
         { section: { Y: int(0), block_states: compound({ palette }) }, message: /missing.*long array/ },

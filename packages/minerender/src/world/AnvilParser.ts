@@ -2,6 +2,7 @@ import type { Compound, Tags, TagType } from "prismarine-nbt";
 import { MineRenderError } from "../error/MineRenderError";
 import { Block } from "../model/block/Block";
 import { MultiBlockEntity } from "../model/multiblock/MultiBlockStructure";
+import { resolveLegacyBlock } from "../model/multiblock/LegacyBlocks";
 import { NBTHelper } from "../nbt/NBTHelper";
 import { ChunkData } from "./ChunkData";
 import { decodeAnvilLz4 } from "./_compression/Lz4";
@@ -14,6 +15,10 @@ type RegionInput = Uint8Array | ArrayBuffer;
 export type AnvilExternalChunkReader = (x: number, z: number, signal?: AbortSignal) => Promise<Uint8Array | ArrayBuffer | undefined>;
 
 export interface AnvilParseOptions {
+    /** Overrides numeric `id:metadata` mappings with block states such as `minecraft:oak_log[axis=x]`. */
+    legacyMappings?: Readonly<Record<string, string>>;
+    /** For numeric blocks, tries metadata 0 for unmapped states and skips unknown IDs. Defaults to false. */
+    lenient?: boolean;
     /** Region coordinates from `r.<x>.<z>.mca`, required when reading external chunks. */
     region?: { x: number; z: number };
     /** Reads external chunk payloads without their region-file header. */
@@ -43,7 +48,7 @@ export interface AnvilChunk {
     entities?: MultiBlockEntity[];
 }
 
-/** Reads Java 1.13+ paletted `.mca` regions. Entity NBT is preserved without data-version migration. */
+/** Reads numeric and paletted Java `.mca` regions. Entity NBT is preserved without data-version migration. */
 export class AnvilParser {
 
     /** Lists occupied chunk positions within the region, using local coordinates from 0 to 31. */
@@ -168,29 +173,35 @@ export class AnvilParser {
         if (expected && (chunk.x !== expected.x || chunk.z !== expected.z)) {
             throw new MineRenderError(`Anvil chunk coordinates do not match external file c.${expected.x}.${expected.z}.mcc`);
         }
+        const numericStates = new Map<number, Block | undefined>();
         for (const section of this.compounds(level.sections ?? level.Sections, "sections")) {
             const y = this.integer(section.Y, "section Y");
+            let data: ChunkData;
             if (section.Blocks || section.Data || section.Add) {
-                throw new MineRenderError("Numeric Anvil block IDs before Minecraft 1.13 are not supported");
-            }
-            if (section.block_states && section.block_states.type !== "compound") {
-                throw new MineRenderError("Anvil block_states must be a compound");
-            }
-            const modern = section.block_states?.type === "compound" ? section.block_states.value : undefined;
-            const paletteTag = modern ? modern.palette : section.Palette;
-            const palette = paletteTag?.type === "list" && paletteTag.value.type === "string"
-                ? paletteTag.value.value as string[] : this.compounds(paletteTag, "block palette");
-            const data = new ChunkData();
-            if (palette.length) {
-                const states = palette.map(entry => this.block(entry));
-                const indices = this.unpack(modern ? modern.data : section.BlockStates, states.length, !!modern, dataVersion);
-                for (let index = 0; index < 4096; index++) {
-                    const state = states[indices[index]];
-                    if (!state) throw new MineRenderError(`Anvil palette index ${indices[index]} is out of range`);
-                    if (!ChunkData.isAir(state)) data.set(index, state);
+                if (section.Palette || section.BlockStates || section.block_states) {
+                    throw new MineRenderError(`Anvil section ${y} mixes numeric and paletted block states`);
                 }
-            } else if (modern || section.Palette || section.BlockStates) {
-                throw new MineRenderError("Anvil section has block states without a palette");
+                data = this.numericSection(section, y, options, numericStates);
+            } else {
+                if (section.block_states && section.block_states.type !== "compound") {
+                    throw new MineRenderError("Anvil block_states must be a compound");
+                }
+                const modern = section.block_states?.type === "compound" ? section.block_states.value : undefined;
+                const paletteTag = modern ? modern.palette : section.Palette;
+                const palette = paletteTag?.type === "list" && paletteTag.value.type === "string"
+                    ? paletteTag.value.value as string[] : this.compounds(paletteTag, "block palette");
+                data = new ChunkData();
+                if (palette.length) {
+                    const states = palette.map(entry => this.block(entry));
+                    const indices = this.unpack(modern ? modern.data : section.BlockStates, states.length, !!modern, dataVersion);
+                    for (let index = 0; index < 4096; index++) {
+                        const state = states[indices[index]];
+                        if (!state) throw new MineRenderError(`Anvil palette index ${indices[index]} is out of range`);
+                        if (!ChunkData.isAir(state)) data.set(index, state);
+                    }
+                } else if (modern || section.Palette || section.BlockStates) {
+                    throw new MineRenderError("Anvil section has block states without a palette");
+                }
             }
             if (chunk.sections.some(section => section.y === y)) throw new MineRenderError(`Duplicate Anvil section Y ${y}`);
             chunk.sections.push({ y, data });
@@ -218,6 +229,35 @@ export class AnvilParser {
             });
         }
         return chunk;
+    }
+
+    private static numericSection(section: CompoundValue, y: number, options: AnvilParseOptions, states: Map<number, Block | undefined>): ChunkData {
+        const bytes = (name: string, length: number, optional = false): number[] | undefined => {
+            const tag = section[name];
+            if (!tag && optional) return undefined;
+            if (tag?.type !== "byteArray" || !Array.isArray(tag.value) || tag.value.length !== length) {
+                throw new MineRenderError(`Anvil section ${y} ${name} must contain ${length} bytes`);
+            }
+            return tag.value;
+        };
+        const ids = bytes("Blocks", 4096)!;
+        const metadata = bytes("Data", 2048, true);
+        const extra = bytes("Add", 2048, true);
+        const data = new ChunkData();
+        for (let index = 0; index < 4096; index++) {
+            // Anvil stores metadata and extended IDs in low-nibble-first pairs, in x/z/y order.
+            const shift = (index & 1) * 4;
+            const id = (ids[index] & 255) | ((((extra?.[index >> 1] ?? 0) >> shift) & 15) << 8);
+            const value = ((metadata?.[index >> 1] ?? 0) >> shift) & 15;
+            const key = id * 16 + value;
+            if (!states.has(key)) states.set(key, resolveLegacyBlock(id, value, options.legacyMappings, options.lenient));
+            const block = states.get(key);
+            if (!block && !options.lenient) {
+                throw new MineRenderError(`Unsupported legacy block ${id}:${value} at Anvil section ${y} index ${index}`);
+            }
+            if (block && !ChunkData.isAir(block)) data.set(index, block);
+        }
+        return data;
     }
 
     private static compounds(tag: NBTTag, name: string): CompoundValue[] {
