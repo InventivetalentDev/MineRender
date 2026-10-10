@@ -4,7 +4,6 @@ import { Block } from "../model/block/Block";
 import { MultiBlockEntity } from "../model/multiblock/MultiBlockStructure";
 import { resolveLegacyBlockState } from "../model/multiblock/LegacyBlocks";
 import { MineRenderData } from "../assets/MineRenderData";
-import { AssetLoader } from "../assets/AssetLoader";
 import { NBTHelper } from "../nbt/NBTHelper";
 import { ChunkData } from "./ChunkData";
 import { decodeAnvilLz4 } from "./_compression/Lz4";
@@ -80,14 +79,12 @@ export class AnvilParser {
     /** Decodes all stored chunks. Gzip, zlib, LZ4, and uncompressed payloads are supported. */
     public static async parse(data: RegionInput, options: AnvilParseOptions = {}): Promise<AnvilRegion> {
         options = { ...options };
-        const checkSources = this.assetGuard();
         options.signal?.throwIfAborted();
         const bytes = this.bytes(data);
         const chunks: AnvilChunk[] = [];
         for (const location of this.locations(bytes)) {
             chunks.push(await this.abortable(this.readChunk(bytes, location, options), options.signal));
         }
-        checkSources();
         return { chunks };
     }
 
@@ -99,22 +96,11 @@ export class AnvilParser {
      */
     public static async parseChunk(data: RegionInput, localX: number, localZ: number, options: AnvilParseOptions = {}): Promise<AnvilChunk | undefined> {
         options = { ...options };
-        const checkSources = this.assetGuard();
         options.signal?.throwIfAborted();
         const bytes = this.bytes(data);
         const location = this.location(bytes, localX, localZ);
         const chunk = location ? await this.abortable(this.readChunk(bytes, location, options), options.signal) : undefined;
-        checkSources();
         return chunk;
-    }
-
-    private static assetGuard(): () => void {
-        const root = AssetLoader.ROOT, scope = AssetLoader.persistentScope;
-        return () => {
-            if (AssetLoader.ROOT !== root || AssetLoader.persistentScope !== scope) {
-                throw new MineRenderError("Asset sources changed while parsing Anvil data; retry the request");
-            }
-        };
     }
 
     /**

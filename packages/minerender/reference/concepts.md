@@ -34,7 +34,7 @@ With `sectionMeshing: true`, changed sections rebuild after the placement promis
 
 `AssetLoader.setVersion(version)` selects both vanilla assets and the registry data used for item defaults, potion colors, block properties, preview tints, fluids, dyes, and legacy numeric mappings. These datasets load from `assets.mcasset.cloud/<version>/minerender-data/` when needed.
 
-When the exact dataset version is missing, MineRender selects the nearest published patch in the same release line, preferring the older patch on a tie. Otherwise it uses the latest earlier published release. Automatic fallback supports releases from 1.16.5 onward; an unpublished snapshot rejects. Models and textures retain the requested asset version. A missing dataset or failed request rejects rather than returning an empty registry.
+When the exact dataset version is missing, MineRender selects the nearest published patch in the same release line, preferring the older patch on a tie. Otherwise it uses the latest earlier published release. Releases older than the published data use the oldest available release; an unpublished snapshot rejects. Models and textures retain the requested asset version. A missing dataset or failed request rejects rather than returning an empty registry.
 
 Inspect the selected registry version with `resolve`:
 

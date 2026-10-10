@@ -30,6 +30,7 @@ export interface MineRenderDataManifest {
 export interface ResolvedMineRenderData {
     requestedVersion: string;
     version: string;
+    /** Registry lookup root. Rootless requests still allow registered sources to override this URL. */
     root: string;
     manifest: MineRenderDataManifest;
 }
@@ -65,7 +66,8 @@ export class MineRenderData {
 
     /**
      * Uses the exact version when published. Otherwise, selects the nearest patch in the same
-     * release line (older on ties), then the latest earlier release. Unpublished snapshots reject.
+     * release line (older on ties), then the latest earlier release or the oldest published release.
+     * Unpublished snapshots reject.
      */
     public static async resolve(root?: string): Promise<ResolvedMineRenderData> {
         const requestRoot = root?.replace(/\/+$/, "");
@@ -74,11 +76,11 @@ export class MineRenderData {
         const scope = AssetLoader.persistentScope;
         return this.cached(`resolve:${requestRoot === undefined ? "sources" : "explicit"}:${root}`, scope, defaultRoot, async () => {
             const requestedVersion = root.slice(root.lastIndexOf("/") + 1);
-            let manifest = await this.manifest(root, release(requestedVersion) ? requestedVersion : undefined, requestRoot);
+            let manifest = await this.manifest(root, requestRoot !== undefined && release(requestedVersion) ? requestedVersion : undefined, requestRoot);
             if (manifest) return { requestedVersion, version: manifest.minecraftVersion, root, manifest };
             const requested = release(requestedVersion);
-            if (!requested || compare(requested, [1, 16, 5]) < 0) {
-                throw new Error(`No MineRender data is published for ${requestedVersion}; automatic fallback requires a release from 1.16.5 onward`);
+            if (!requested) {
+                throw new Error(`No MineRender data is published for ${requestedVersion}; automatic fallback requires a release`);
             }
             const base = root.slice(0, root.lastIndexOf("/"));
             const index = await this.cached(`versions:${base}`, scope, defaultRoot, async () => {
@@ -90,12 +92,13 @@ export class MineRenderData {
                 return value.versions as { name: string }[];
             });
             const versions = index.map(entry => ({ name: entry.name, number: release(entry.name) }))
-                .filter((entry): entry is { name: string; number: number[] } => !!entry.number && compare(entry.number, [1, 16, 5]) >= 0)
+                .filter((entry): entry is { name: string; number: number[] } => !!entry.number)
                 .sort((left, right) => compare(left.number, right.number));
             const sameLine = versions.filter(entry => entry.number[0] === requested[0] && entry.number[1] === requested[1]);
             const selected = sameLine.sort((left, right) => Math.abs((left.number[2] ?? 0) - (requested[2] ?? 0))
                 - Math.abs((right.number[2] ?? 0) - (requested[2] ?? 0)) || compare(left.number, right.number))[0]
-                ?? versions.filter(entry => compare(entry.number, requested) <= 0).pop();
+                ?? versions.filter(entry => compare(entry.number, requested) <= 0).pop()
+                ?? versions[0];
             if (!selected) throw new Error(`No compatible MineRender data is published for ${requestedVersion}`);
             const resolvedRoot = `${base}/${selected.name}`;
             manifest = await this.manifest(resolvedRoot, selected.name, resolvedRoot);

@@ -70,17 +70,19 @@ test.serial("rootless blockstates use the highest-priority hosted source while e
         "https://explicit.example/1.16.5/assets/minecraft/blockstates/stone.json"]);
 });
 
-test.serial("block initialization rejects a version change while fluid rules load", async t => {
+test.serial("block initialization tolerates version changes after fluid rules load", async t => {
     const root = AssetLoader.ROOT, get = MineRenderData.get;
     t.teardown(() => { AssetLoader.ROOT = root; MineRenderData.get = get; });
     let release!: () => void;
     const waiting = new Promise<void>(resolve => { release = resolve; });
-    MineRenderData.get = async (dataset, requestedRoot) => { await waiting; return get(dataset, requestedRoot); };
+    MineRenderData.get = async (dataset, requestedRoot) => { const rules = await get(dataset, requestedRoot); await waiting; return rules; };
     const block = new BlockObject({ key: new AssetKey("minecraft", "stone", "blockstates"), variants: {} }, { applyDefaultState: false });
+    block["createBlockEntities"] = async () => false;
     const pending = block.init();
     AssetLoader.ROOT = "https://assets.example/1.16.5";
     release();
-    await t.throwsAsync(pending, { message: /Asset sources changed while loading a block/ });
+    await t.notThrowsAsync(pending);
+    t.deepEqual(block.state, {});
 });
 
 let restoreData: () => void;
