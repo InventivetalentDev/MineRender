@@ -4,6 +4,7 @@ import { Block } from "../model/block/Block";
 import { MultiBlockEntity } from "../model/multiblock/MultiBlockStructure";
 import { NBTHelper } from "../nbt/NBTHelper";
 import { ChunkData } from "./ChunkData";
+import { decodeAnvilLz4 } from "./_compression/Lz4";
 
 type CompoundValue = Compound["value"];
 type NBTTag = Tags[TagType] | undefined;
@@ -38,7 +39,7 @@ export class AnvilParser {
         return this.locations(this.bytes(data)).map(({ x, z }) => ({ x, z }));
     }
 
-    /** Decodes all stored chunks. Gzip, zlib, and uncompressed payloads are supported. */
+    /** Decodes all stored chunks. Gzip, zlib, LZ4, and uncompressed payloads are supported. */
     public static async parse(data: RegionInput): Promise<AnvilRegion> {
         const bytes = this.bytes(data);
         const chunks: AnvilChunk[] = [];
@@ -90,11 +91,13 @@ export class AnvilParser {
     private static async readChunk(data: Uint8Array, location: ChunkLocation): Promise<AnvilChunk> {
         const compression = data[location.offset + 4];
         if (compression & 128) throw new MineRenderError("External Anvil .mcc chunks are not supported");
-        if (compression !== 1 && compression !== 2 && compression !== 3) {
-            throw new MineRenderError(`Unsupported Anvil compression ${compression}${compression === 4 ? " (LZ4)" : ""}`);
+        if (compression !== 1 && compression !== 2 && compression !== 3 && compression !== 4) {
+            throw new MineRenderError(`Unsupported Anvil compression ${compression}`);
         }
         let payload = data.subarray(location.offset + 5, location.offset + 4 + location.length);
-        if (compression !== 3) {
+        if (compression === 4) {
+            payload = decodeAnvilLz4(payload);
+        } else if (compression !== 3) {
             const stream = new Blob([payload]).stream()
                 .pipeThrough(new DecompressionStream(compression === 1 ? "gzip" : "deflate"));
             payload = new Uint8Array(await new Response(stream).arrayBuffer());
