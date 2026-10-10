@@ -107,15 +107,16 @@ async function visit(url, name) {
             if (JSON.stringify(result.tints) !== JSON.stringify(expectedTints)) problems.add(`Component tint differs: ${JSON.stringify(result.tints)}`);
             if (!result.code.includes(`components: ${JSON.stringify(result.components)}`)) problems.add("Generated code omits the color components.");
         }
-        if (/^demo\/item\/\?preset=enchanted(?:_shield|_trident)?$/.test(url) && /^Ready/.test(status)) {
+        if (/^Ready/.test(status) && await page.$('[data-glint="true"]')) {
             const initialZoom = await page.evaluate(() => window.renderer.camera.zoom);
             for (const zoom of [initialZoom / 2, initialZoom]) {
                 const frames = await page.evaluate(async zoom => {
                     const images = [];
-                    for (const enabled of [false, true]) {
-                        await window.playground.update({ components: {
-                            ...window.playground.state.components, "minecraft:enchantment_glint_override": enabled
-                        } });
+                    for (const enabled of [false, true, undefined]) {
+                        const components = { ...window.playground.state.components };
+                        if (enabled === undefined) delete components["minecraft:enchantment_glint_override"];
+                        else components["minecraft:enchantment_glint_override"] = enabled;
+                        await window.playground.update({ components });
                         const renderer = window.renderer;
                         renderer.camera.zoom = zoom;
                         renderer.camera.updateProjectionMatrix();
@@ -124,6 +125,7 @@ async function visit(url, name) {
                     return images;
                 }, zoom);
                 if (frames[0] === frames[1]) problems.add(`Glint is invisible at camera zoom ${zoom}.`);
+                if (frames[0] === frames[2]) problems.add(`Automatic glint is invisible at camera zoom ${zoom}.`);
             }
         }
         if (/^demo\/item\/\?preset=(bundle|bow|crossbow|custom_model_data)$/.test(url) && /^Ready/.test(status)) {

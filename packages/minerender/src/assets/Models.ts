@@ -10,6 +10,7 @@ import { ListAsset } from "../ListAsset";
 import { AssetParser } from "./source/parser/AssetParsers";
 import { DisplayPosition } from "../model/DisplayPosition";
 import { DYE_COLORS } from "./BannerPatterns";
+import itemGlintDefaults from "../model/itemGlintDefaults.json";
 
 /** Caller-supplied item-preview state passed to {@link Models.getMerged}. */
 export interface ItemModelContext {
@@ -17,7 +18,7 @@ export interface ItemModelContext {
     displayContext?: DisplayPosition | "none";
     /** Explicit property overrides. Nodes with the same ID share one override, regardless of their parameters. */
     properties?: Record<string, boolean | string | number>;
-    /** Supplied component JSON by ID. Item-registry defaults are not added; component selectors compare structural JSON values. */
+    /** Supplied component JSON by ID, overriding built-in glint defaults. Component selectors compare structural JSON values. */
     components?: Record<string, unknown>;
     /** Stack count, as a nonnegative integer. Defaults to 1; absent `max_stack_size` also defaults to 1. */
     count?: number;
@@ -57,7 +58,7 @@ export class Models {
         const preview = this.snapshotContext(key, context);
         const itemKey = new AssetKey(key.namespace, key.path, "items", undefined, key.rootType, ".json", key.root);
         const cacheKey = itemKey.serialize() + this.contextKey(preview);
-        const model = await this.PERSISTENT_CACHE.getOrLoad(`item-v4:${AssetLoader.persistentKey(cacheKey)}`, async () => {
+        const model = await this.PERSISTENT_CACHE.getOrLoad(`item-v5:${AssetLoader.persistentKey(cacheKey)}`, async () => {
             const result = await AssetLoader.getFirst<Model & { model?: ItemModelNode }>([itemKey, key], AssetParser.JSON);
             if (!result) return undefined;
             if (result.key.assetType !== "items") return { ...result.asset, key, components: preview.components } as ItemModel;
@@ -133,6 +134,11 @@ export class Models {
             if (Object.prototype.hasOwnProperty.call(components, component)) throw new Error(`Duplicate item-preview component: ${component}`);
             components[component] = this.snapshotJson(value);
         }
+        // Vanilla items whose default enchantment_glint_override component is true; the list has not changed across versions.
+        if (key.type === "item" && key.namespace === DEFAULT_NAMESPACE && itemGlintDefaults.includes(key.path)
+            && !Object.prototype.hasOwnProperty.call(components, "minecraft:enchantment_glint_override")) {
+            components["minecraft:enchantment_glint_override"] = true;
+        }
         const itemReferences: Record<string, AssetKey> = {};
         for (const [id, value] of Object.entries(context.itemReferences ?? {})) {
             const reference = this.contextIdentifier(id);
@@ -148,7 +154,7 @@ export class Models {
 
     private static contextKey(context: Required<ItemModelContext>): string {
         const itemReferences = Object.fromEntries(Object.entries(context.itemReferences).map(([id, key]) => [id, key.serialize()]));
-        return `|item-v4:${JSON.stringify(this.snapshotJson({ ...context, itemReferences }))}`;
+        return `|item-v5:${JSON.stringify(this.snapshotJson({ ...context, itemReferences }))}`;
     }
 
     private static snapshotJson(value: unknown, ancestors = new Set<object>()): unknown {
@@ -338,6 +344,7 @@ export class Models {
     /**
      * Loads a model and resolves its parent chain. Returns `undefined` when the model is missing.
      * Item keys default to GUI context and a stack count of 1. Unresolved conditions are false and numeric properties are zero.
+     * Known vanilla item glint defaults apply unless components override them; other item-registry defaults are not loaded.
      * Pass `context` to supply component values, property overrides, and item references for a preview.
      * Composite items retain independently merged children in `ItemModel.parts`.
      *
