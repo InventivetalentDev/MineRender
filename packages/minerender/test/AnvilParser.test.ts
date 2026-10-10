@@ -4,6 +4,14 @@ import { writeUncompressed } from "prismarine-nbt";
 import { deflateSync, gzipSync } from "node:zlib";
 import { AnvilParser } from "../src/world/AnvilParser";
 import { NBTHelper } from "../src/nbt/NBTHelper";
+import { AssetLoader } from "../src/assets/AssetLoader";
+import { MineRenderData } from "../src/assets/MineRenderData";
+import { HostedAssetSource } from "../src/assets/source/HostedAssetSource";
+import { installMineRenderDataFixtures } from "./helpers/minerender-data";
+
+let restoreData: () => void;
+test.before(() => { restoreData = installMineRenderDataFixtures(); });
+test.after.always(() => restoreData());
 
 type Tags = Compound["value"];
 const int = (value: number) => ({ type: "int" as const, value });
@@ -538,7 +546,7 @@ test("Anvil reads numeric sections in x/z/y order and preserves legacy entities 
     t.deepEqual(parsed.entities, [{ position: [-15.5, -14, -30], nbt: compound(entity) }]);
 });
 
-test("Anvil decodes both Add nibbles and applies custom mappings before exact bundled mappings", async t => {
+test("Anvil decodes both Add nibbles and applies custom mappings before exact versioned mappings", async t => {
     const blocks = Array<number>(4096).fill(0), data = Array<number>(2048).fill(0), add = Array<number>(2048).fill(0);
     blocks[0] = 1;
     blocks[1] = -1;
@@ -563,6 +571,41 @@ test("Anvil decodes both Add nibbles and applies custom mappings before exact bu
         legacyMappings, region: { x: -1, z: -1 }, readExternalChunk: async () => deflateSync(writeUncompressed(nbt))
     }))!;
     t.deepEqual(external.sections[0].data.get(0), cells.get(0));
+});
+
+test.serial("numeric Anvil mappings preserve active sources and reject changes during external reads", async t => {
+    const originalRoot = AssetLoader.ROOT, sources = [...AssetLoader["_SOURCES"]];
+    t.teardown(() => { AssetLoader.ROOT = originalRoot; AssetLoader["_SOURCES"] = sources; });
+    t.teardown(installMineRenderDataFixtures(root => ({ legacyBlocks: { blocks: {
+        "0:0": "minecraft:air", "31:1": root.endsWith("/1.16.5") ? "minecraft:grass" : "minecraft:short_grass"
+    } } })));
+    const get = MineRenderData.get, roots: (string | undefined)[] = [];
+    MineRenderData.get = (dataset, root) => { roots.push(root); return get(dataset, root); };
+    const blocks = Array<number>(4096).fill(0), data = Array<number>(2048).fill(0);
+    blocks[0] = 31;
+    data[0] = 1;
+    const nbt = chunk([{ Y: int(0), Blocks: bytes(blocks), Data: bytes(data) }], { modern: false });
+    for (const all of [false, true]) {
+        for (const changeVersion of [false, true]) {
+            AssetLoader.ROOT = "https://assets.example/1.16.5";
+            AssetLoader["_SOURCES"] = [...sources];
+            const options = { region: { x: -1, z: -1 }, readExternalChunk: async () => {
+                if (changeVersion) AssetLoader.ROOT = "https://assets.example/1.21.11";
+                else AssetLoader.addSource("numeric-mirror", new HostedAssetSource("https://mirror.example/1.16.5"));
+                return deflateSync(writeUncompressed(nbt));
+            } };
+            const input = region({ nbt, external: true });
+            await t.throwsAsync(all ? AnvilParser.parse(input, options) : AnvilParser.parseChunk(input, 31, 30, options), {
+                message: /Asset sources changed.*retry/
+            });
+        }
+    }
+    roots.length = 0;
+    const current = await AnvilParser.parse(region({ nbt }));
+    t.is(current.chunks[0].sections[0].data.get(0)?.type, "minecraft:short_grass");
+    const explicit = (await AnvilParser.parseChunk(region({ nbt }), 31, 30, { root: "https://assets.example/1.16.5" }))!;
+    t.is(explicit.sections[0].data.get(0)?.type, "minecraft:grass");
+    t.deepEqual(roots, [undefined, "https://assets.example/1.16.5"]);
 });
 
 test("Anvil maps suspended legacy tripwire states while preserving powered, attached and disarmed flags", async t => {

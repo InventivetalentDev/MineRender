@@ -108,10 +108,11 @@ export class Chunk<SectionMeshing extends boolean = false> {
             const key = ChunkData.paletteKey(block);
             if (resolutions.has(key)) continue;
             const stored = { type: block.type, properties: block.properties ? { ...block.properties } : undefined };
+            const assetKey = AssetKey.parse("blockstates", stored.type);
             const resolved = (async () => {
-                const blockState = await BlockStates.get(AssetKey.parse("blockstates", stored.type));
+                const blockState = await BlockStates.get(assetKey);
                 // Fluids and block entities need individual render objects.
-                const perBlock = !blockState || !this.sectionModels || !!getFluidKind(blockState.key, stored.properties)
+                const perBlock = !blockState || !this.sectionModels || !!await getFluidKind(blockState.key, stored.properties)
                     || !!(blockState.key && BlockEntities.entry(await BlockEntities.getIndex(blockState.key.root), blockState.key.toNamespacedString()));
                 if (!perBlock) await this.sectionModels!.get(blockState!, stored.properties);
                 return { blockState, perBlock };

@@ -1,6 +1,5 @@
 import type { Compound } from "prismarine-nbt";
 import { AssetKey } from "../../assets/AssetKey";
-import { DYE_COLORS } from "../../assets/BannerPatterns";
 import type { DyeColor } from "../../assets/BannerPatterns";
 import type { MultiBlockEntity } from "../../model/multiblock/MultiBlockStructure";
 
@@ -13,6 +12,7 @@ interface SavedEntityAppearance {
     texture?: AssetKey;
     when?: string[];
     tints?: Record<string, number>;
+    woolDye?: DyeColor;
 }
 
 function integer(nbt: Compound, name: string, type: "byte" | "int"): number {
@@ -24,13 +24,9 @@ const appearance: Record<string, (nbt: Compound) => SavedEntityAppearance | unde
     sheep: nbt => {
         const savedColor = integer(nbt, "Color", "byte");
         const color = savedColor >= 0 && savedColor < WOOL_COLORS.length ? savedColor : 0;
-        const dye = DYE_COLORS[WOOL_COLORS[color]];
-        // Sheep darken each dye channel; white wool has its own fixed shade.
-        const tint = color === 0 ? 0xe6e6e6 : (Math.floor((dye >> 16 & 255) * 0.75) << 16)
-            | (Math.floor((dye >> 8 & 255) * 0.75) << 8) | Math.floor((dye & 255) * 0.75);
         return {
             when: [...(color !== 0 ? ["dyed"] : []), ...(integer(nbt, "Sheared", "byte") === 0 ? ["not_sheared"] : [])],
-            tints: { wool_color: tint }
+            woolDye: WOOL_COLORS[color]
         };
     },
     fox: nbt => {

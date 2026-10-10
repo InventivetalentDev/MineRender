@@ -1,3 +1,4 @@
+import { installMineRenderDataFixtures } from "./helpers/minerender-data";
 import test, { ExecutionContext } from "ava";
 import { Color, Mesh, MeshBasicMaterial } from "three";
 import { AssetKey } from "../src/assets/AssetKey";
@@ -18,6 +19,10 @@ import type { Model } from "../src/model/Model";
 
 const key = (path: string, namespace = "minecraft", root?: string) =>
     new AssetKey(namespace, path, "blockstates", undefined, "assets", ".json", root);
+
+let restoreData: () => void;
+test.before(() => { restoreData = installMineRenderDataFixtures(); });
+test.after.always(() => restoreData());
 
 function cube(indices: Array<number | undefined> = [0]): Model {
     return {

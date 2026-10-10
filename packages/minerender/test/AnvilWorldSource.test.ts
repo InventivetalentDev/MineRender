@@ -5,6 +5,11 @@ import { AnvilParser } from "../src/world/AnvilParser";
 import type { AnvilChunk } from "../src/world/AnvilParser";
 import { AnvilWorldSource } from "../src/world/AnvilWorldSource";
 import { NBTHelper } from "../src/nbt/NBTHelper";
+import { installMineRenderDataFixtures } from "./helpers/minerender-data";
+
+let restoreData: () => void;
+test.before(() => { restoreData = installMineRenderDataFixtures(); });
+test.after.always(() => restoreData());
 
 function region(x: number, z: number, options: {
     compression?: number; numeric?: number[]; data?: number[]; malformed?: boolean; entities?: Compound["value"][];

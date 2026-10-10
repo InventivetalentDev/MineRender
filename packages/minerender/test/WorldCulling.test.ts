@@ -25,8 +25,10 @@ import { buildSectionGeometry, SectionGeometryInput } from "../src/world/Section
 import { SectionWorker } from "../src/world/SectionWorker";
 import type { CanvasImage } from "../src/canvas/CanvasImage";
 import type { CompatCanvas } from "../src/canvas/CanvasCompat";
+import { installMineRenderDataFixtures } from "./helpers/minerender-data";
 
 function fixture<SectionMeshing extends boolean = false>(t: ExecutionContext, options: MineRenderWorldOptions<SectionMeshing> = {}) {
+    t.teardown(installMineRenderDataFixtures());
     const originals = { state: BlockStates.get, defaults: BlockStates.getDefaultState, model: Models.getMerged, atlas: UVMapper.getAtlas, image: Materials.getImage, material: Materials.createShadedCanvasMaterial, provider: Env["_provider"] };
     const scene = new MineRenderScene(), world = new MineRenderWorld<SectionMeshing>(scene, options);
     Env.register({ name: "test", createCanvas: (width, height) => ({

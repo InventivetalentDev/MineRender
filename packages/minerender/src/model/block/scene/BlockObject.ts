@@ -14,7 +14,9 @@ import { AssetKey, BasicAssetKey } from "../../../assets/AssetKey";
 import { BlockTints } from "../BlockTints";
 import { ModelCulling } from "../../ModelCulling";
 import { BlockStateResolver } from "../BlockStateResolver";
-import { FluidKind, FluidSampler, getBlockFluidState, getFluidKind } from "../../fluid/FluidGeometry";
+import { FluidKind, FluidRules, FluidSampler, resolveBlockFluidState } from "../../fluid/FluidGeometry";
+import { MineRenderData } from "../../../assets/MineRenderData";
+import { AssetLoader } from "../../../assets/AssetLoader";
 import { BlockEntities, ResolvedBlockEntity } from "../../../assets/BlockEntities";
 import { Entities } from "../../../assets/Entities";
 import type { EntityObject } from "../../../entity/scene/EntityObject";
@@ -43,6 +45,7 @@ export class BlockObject extends SceneObject {
     private _models: (ModelObject | InstanceReference<ModelObject>)[] = [];
     private _cullMask = 0;
     private _fluidKey?: string;
+    private _fluidRules: FluidRules = {};
     private _fluidSampler?: FluidSampler;
     private _fluidModel?: ModelObject | InstanceReference<ModelObject>;
     private _entities: EntityObject[] = [];
@@ -57,11 +60,19 @@ export class BlockObject extends SceneObject {
     }
 
     async init(): Promise<void> {
+        const root = AssetLoader.ROOT, scope = AssetLoader.persistentScope;
+        const checkSources = () => {
+            if (root !== AssetLoader.ROOT || scope !== AssetLoader.persistentScope) throw new Error("Asset sources changed while loading a block; retry the request");
+        };
+        this._fluidRules = await MineRenderData.get("fluids", this.blockState.key?.root);
+        checkSources();
         if (this.options.applyDefaultState) {
             this._setState(await BlockStateResolver.defaults(this.blockState));
+            checkSources();
         }
         if (this.options.initialState !== undefined) this._setState(this.options.initialState);
         await this.recreateModels();
+        checkSources();
         //TODO
     }
 
@@ -243,11 +254,11 @@ export class BlockObject extends SceneObject {
     }
 
     public get fluidKind(): FluidKind | undefined {
-        return getFluidKind(this.blockState.key, this.state);
+        return resolveBlockFluidState(this.blockState.key, this.state, this._fluidRules)?.kind;
     }
 
     public get fluidLevel(): number {
-        return getBlockFluidState(this.blockState.key, this.state)?.level ?? 0;
+        return resolveBlockFluidState(this.blockState.key, this.state, this._fluidRules)?.level ?? 0;
     }
 
     /** Refreshes fluid surfaces from relative neighbors; standalone previews use air around the block. */
@@ -303,7 +314,7 @@ export class BlockObject extends SceneObject {
         // TODO: try to reuse models instead of just removing them and creating new ones
         this.clearModels();
 
-        if (getBlockFluidState(this.blockState.key, this.state)?.renderModel === false) {
+        if (resolveBlockFluidState(this.blockState.key, this.state, this._fluidRules)?.renderModel === false) {
             await this.updateFluid(this._fluidSampler);
             return;
         }

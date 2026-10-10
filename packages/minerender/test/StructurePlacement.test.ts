@@ -1,3 +1,4 @@
+import { installMineRenderDataFixtures } from "./helpers/minerender-data";
 import test, { ExecutionContext } from "ava";
 import { Vector3 } from "three";
 import { AssetKey } from "../src/assets/AssetKey";
@@ -102,3 +103,7 @@ test.serial("sequential placement keeps input order and does not use a supplied 
     await pending;
     t.deepEqual(started, input);
 });
+
+let restoreData: () => void;
+test.before(() => { restoreData = installMineRenderDataFixtures(); });
+test.after.always(() => restoreData());

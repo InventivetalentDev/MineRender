@@ -3,6 +3,8 @@ import { EntityObject } from "../../entity/scene/EntityObject";
 import type { MultiBlockEntity } from "../../model/multiblock/MultiBlockStructure";
 import type { MineRenderScene } from "../../renderer/MineRenderScene";
 import { resolveSavedEntity } from "./SavedEntities";
+import { BannerPatterns } from "../../assets/BannerPatterns";
+import { AssetLoader } from "../../assets/AssetLoader";
 
 /** Owns static entity placements independently of the world's block sections. */
 export class WorldEntities {
@@ -12,6 +14,10 @@ export class WorldEntities {
 
     /** Captures column ownership before asynchronous block or asset loading starts. */
     prepare(entities: readonly MultiBlockEntity[] = [], column?: [number, number]): () => Promise<void> {
+        const root = AssetLoader.ROOT, scope = AssetLoader.persistentScope;
+        const checkSources = () => {
+            if (root !== AssetLoader.ROOT || scope !== AssetLoader.persistentScope) throw new Error("Asset sources changed while loading saved entities; retry the request");
+        };
         const placements = entities.flatMap(entity => {
             const resolved = resolveSavedEntity(entity);
             if (!resolved) return [];
@@ -27,16 +33,30 @@ export class WorldEntities {
                 let object: EntityObject | undefined;
                 try {
                     if (!current()) return;
+                    checkSources();
                     const models = await Entities.getEntityList();
+                    checkSources();
                     if (!models.includes(placement.key.path) || !current()) return;
                     const model = await Entities.getEntity(placement.key, placement.texture, { when: placement.when });
+                    checkSources();
                     if (!model || !current()) return;
-                    object = new EntityObject(model, { instanceMeshes: false, tints: placement.tints });
+                    let tints = placement.tints;
+                    if (placement.woolDye) {
+                        const dye = (await BannerPatterns.getColors(placement.key.root))[placement.woolDye];
+                        checkSources();
+                        // Sheep darken each dye channel; white wool has its own fixed shade.
+                        const tint = placement.woolDye === "white" ? 0xe6e6e6 : (Math.floor((dye >> 16 & 255) * 0.75) << 16)
+                            | (Math.floor((dye >> 8 & 255) * 0.75) << 8) | Math.floor((dye & 255) * 0.75);
+                        tints = { ...tints, wool_color: tint };
+                    }
+                    if (!current()) return;
+                    object = new EntityObject(model, { instanceMeshes: false, tints });
                     object.scene = this.scene;
                     // Block geometry is centered on integer coordinates; saved positions use block corners.
                     object.position.fromArray(placement.position).multiplyScalar(16).addScalar(-8);
                     object.rotation.y = placement.yaw;
                     await object.init();
+                    checkSources();
                     if (!current()) return;
                     placement.owner.add(object);
                     this.scene.add(object);

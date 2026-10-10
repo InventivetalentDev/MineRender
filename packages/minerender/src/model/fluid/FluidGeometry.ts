@@ -2,7 +2,7 @@ import { BufferGeometry, Float32BufferAttribute } from "three";
 import type { DoubleArray, TripleArray } from "../Model";
 import type { AssetKey } from "../../assets/AssetKey";
 import type { BlockStateProperties } from "../block/BlockStateProperties";
-import fluidBlocks from "./fluidBlocks.json";
+import { MineRenderData, MineRenderDatasets } from "../../assets/MineRenderData";
 
 export type FluidKind = "water" | "lava";
 
@@ -13,11 +13,17 @@ export interface BlockFluidState {
     renderModel: boolean;
 }
 
-const fluidRules = fluidBlocks as Record<string, { kind: FluidKind; levelProperty?: string; renderModel: boolean }>;
+export type FluidRules = MineRenderDatasets["fluids"];
 
 /** Finds water or lava from the block ID and properties, including waterlogged blocks and aquatic plants. */
-export function getBlockFluidState(key?: AssetKey, state?: BlockStateProperties): BlockFluidState | undefined {
-    const rule = key && fluidRules[key.toNamespacedString()];
+export async function getBlockFluidState(key?: AssetKey, state?: BlockStateProperties): Promise<BlockFluidState | undefined> {
+    return resolveBlockFluidState(key, state, await MineRenderData.get("fluids", key?.root));
+}
+
+/** Resolves fluid state using rules already loaded for the block's asset version. */
+export function resolveBlockFluidState(key: AssetKey | undefined, state: BlockStateProperties | undefined,
+                                       rules: FluidRules): BlockFluidState | undefined {
+    const rule = key && rules[key.toNamespacedString()];
     if (rule) return {
         kind: rule.kind,
         level: rule.levelProperty ? Number(state?.[rule.levelProperty] ?? 0) : 0,
@@ -26,8 +32,8 @@ export function getBlockFluidState(key?: AssetKey, state?: BlockStateProperties)
     return state?.waterlogged === "true" ? { kind: "water", level: 0, renderModel: true } : undefined;
 }
 
-export function getFluidKind(key?: AssetKey, state?: BlockStateProperties): FluidKind | undefined {
-    return getBlockFluidState(key, state)?.kind;
+export async function getFluidKind(key?: AssetKey, state?: BlockStateProperties): Promise<FluidKind | undefined> {
+    return (await getBlockFluidState(key, state))?.kind;
 }
 
 /** A neighboring cell's fluid level and full-cube occlusion state. */

@@ -1,3 +1,4 @@
+import { installMineRenderDataFixtures, mineRenderDataFixtures } from "./helpers/minerender-data";
 import test from "ava";
 import { Color, MeshBasicMaterial } from "three";
 import type { Mesh } from "three";
@@ -15,7 +16,27 @@ import type { CanvasImage } from "../src/canvas/CanvasImage";
 import type { ExtractableImageData } from "../src/ExtractableImageData";
 import type { ItemModel, ItemTintSource } from "../src/model/Model";
 
-test("item tint sources retain their indices and decode vanilla RGB defaults without overriding caller colors", async t => {
+const legacyPotionColors = {
+    effects: {
+        "minecraft:instant_health": 16262179,
+        "minecraft:slow_falling": 16773073,
+        "minecraft:slowness": 5926017,
+        "minecraft:speed": 8171462
+    },
+    potions: {
+        "minecraft:water": [],
+        "minecraft:healing": [{ id: "minecraft:instant_health", amplifier: 0 }],
+        "minecraft:swiftness": [{ id: "minecraft:speed", amplifier: 0 }]
+    }
+};
+
+function versionedPotionModel(version: string, contents: unknown): ItemModel {
+    const key = AssetKey.parse("models", "minecraft:item/potion");
+    key.root = `https://assets.example/${version}`;
+    return { key, tints: [{ type: "potion", default: 0x123456 }], components: { "minecraft:potion_contents": contents } };
+}
+
+test.serial("item tint sources retain their indices and decode vanilla RGB defaults without overriding caller colors", async t => {
     const model: ItemModel = { tints: [
         { type: "minecraft:constant", value: -1 },
         { type: "minecraft:dye", default: -6265536 },
@@ -41,7 +62,7 @@ test("item tint sources retain their indices and decode vanilla RGB defaults wit
     await t.throwsAsync(ItemTints.get(unsupported), { message: "Unsupported item tint source custom:unknown" });
 });
 
-test("component tints use indexed RGB values, integer firework averages, and explicit overrides", async t => {
+test.serial("component tints use indexed RGB values, integer firework averages, and explicit overrides", async t => {
     const model: ItemModel = { tints: [
         { type: "custom_model_data", default: -1 },
         { type: "minecraft:custom_model_data", index: 1, default: -1 },
@@ -73,7 +94,7 @@ test("component tints use indexed RGB values, integer firework averages, and exp
     }
 });
 
-test("potion tints resolve vanilla base effects and preserve custom color precedence", async t => {
+test.serial("potion tints resolve vanilla base effects and preserve custom color precedence", async t => {
     const model: ItemModel = { tints: [{ type: "minecraft:potion", default: 0x123456 }], components: {} };
     for (const [id, color] of [
         ["healing", 16262179], ["strong_healing", 16262179], ["long_swiftness", 3402751],
@@ -90,15 +111,15 @@ test("potion tints resolve vanilla base effects and preserve custom color preced
         t.deepEqual(await ItemTints.get(model), { 0: color & 0xffffff });
         t.deepEqual(await ItemTints.get(model, { 0: 0x123456 }), { 0: 0x123456 });
     }
-    const list = ItemTints.getPotionList();
+    const list = await ItemTints.getPotionList();
     t.is(list.length, 46);
     t.true(list.includes("minecraft:water") && list.includes("minecraft:strong_turtle_master"));
     t.deepEqual(list, [...list].sort());
     list.length = 0;
-    t.is(ItemTints.getPotionList().length, 46);
+    t.is((await ItemTints.getPotionList()).length, 46);
 });
 
-test("potion colors combine base and custom effects by amplifier and ignore hidden particles", async t => {
+test.serial("potion colors combine base and custom effects by amplifier and ignore hidden particles", async t => {
     const model: ItemModel = { tints: [{ type: "potion", default: 0x123456 }], components: {} };
     const contents = { potion: "healing", custom_effects: [
         { id: "minecraft:speed", amplifier: 1, duration: 1, ambient: true, show_icon: false },
@@ -122,7 +143,52 @@ test("potion colors combine base and custom effects by amplifier and ignore hidd
     t.deepEqual(await ItemTints.get(model), { 0: 16262179 });
 });
 
-test("empty components and unresolved potion effects retain defaults, while malformed colors reject unless overridden", async t => {
+test.serial("legacy potion colors match native float32 mixtures and keep version-specific empty colors", async t => {
+    t.teardown(installMineRenderDataFixtures(root => ({ potionColors: root.endsWith("/1.21.11")
+        ? mineRenderDataFixtures.potionColors : legacyPotionColors })));
+    const mixture = { custom_effects: [
+        { id: "slow_falling", amplifier: 0 }, { id: "slowness", amplifier: 1 }
+    ] };
+    const before = JSON.stringify(mixture);
+    for (const version of ["1.16.5", "1.17.1"]) {
+        const model = versionedPotionModel(version, mixture);
+        t.deepEqual(await ItemTints.get(model), { 0: 9475995 });
+        for (const [contents, expected] of [
+            ["swiftness", 8171462], ["water", 3694022], [{ custom_effects: [] }, 3694022],
+            [{ custom_effects: [{ id: "speed", show_particles: false }] }, 0],
+            [{ ...mixture, custom_color: 0 }, 0], [{ ...mixture, custom_color: -1 }, 0xffffff]
+        ] as const) {
+            model.components!["minecraft:potion_contents"] = contents;
+            t.deepEqual(await ItemTints.get(model), { 0: expected });
+        }
+        t.deepEqual(await ItemTints.get(versionedPotionModel("1.21.11", "swiftness")), { 0: 3402751 });
+        t.deepEqual(await ItemTints.get(versionedPotionModel(version, "swiftness")), { 0: 8171462 });
+    }
+    for (const contents of ["water", { custom_effects: [] }, { custom_effects: [{ id: "speed", show_particles: false }] }]) {
+        t.deepEqual(await ItemTints.get(versionedPotionModel("1.21.11", contents)), { 0: 0x123456 });
+    }
+    t.is(JSON.stringify(mixture), before);
+});
+
+test.serial("potion effect presence includes hidden effects and ignores custom colors without changing registry versions", async t => {
+    t.teardown(installMineRenderDataFixtures(root => ({ potionColors: root.endsWith("/1.21.11")
+        ? mineRenderDataFixtures.potionColors : legacyPotionColors })));
+    for (const version of ["1.16.5", "1.17.1", "1.21.11"]) {
+        const root = `https://assets.example/${version}`;
+        for (const contents of [
+            "healing", { potion: "healing", custom_color: 0 },
+            { custom_effects: [{ id: "speed", show_particles: false }] },
+            { custom_color: 0, custom_effects: [{ id: "speed", show_particles: false }] }
+        ]) t.true(await ItemTints.hasPotionEffects(contents, root));
+        for (const contents of [undefined, "water", { custom_color: 0 }, { custom_effects: [] },
+            { custom_effects: [{ id: "custom:unknown", show_particles: false }] }
+        ]) t.false(await ItemTints.hasPotionEffects(contents, root));
+        t.is(await ItemTints.hasPotionEffects("wind_charged", root), version === "1.21.11");
+        t.is((await ItemTints.getPotionList(root)).includes("minecraft:wind_charged"), version === "1.21.11");
+    }
+});
+
+test.serial("empty components and unresolved potion effects retain defaults, while malformed colors reject unless overridden", async t => {
     const model: ItemModel = { tints: [
         { type: "custom_model_data", index: 1, default: 0x123456 },
         { type: "firework", default: 0x123456 },
@@ -227,3 +293,7 @@ test.serial("grass tints sample each definition's climate and cache by pixel and
     t.deepEqual(await ItemTints.get(model), expected);
     t.is(keys.length, 9);
 });
+
+let restoreData: () => void;
+test.before(() => { restoreData = installMineRenderDataFixtures(); });
+test.after.always(() => restoreData());

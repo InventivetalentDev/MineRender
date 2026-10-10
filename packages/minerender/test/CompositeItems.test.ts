@@ -1,3 +1,4 @@
+import { installMineRenderDataFixtures } from "./helpers/minerender-data";
 import test, { type ExecutionContext } from "ava";
 import { Box3, MeshBasicMaterial, ShaderMaterial, Vector3 } from "three";
 import type { Mesh } from "three";
@@ -274,3 +275,7 @@ test.serial("empty composites have no fallback mesh and preserve finite GUI slot
     t.true(Number.isFinite(gui.getGroupByName("empty")!.position.z));
     t.true(Number.isFinite(gui.getMeshByName("overlay")!.position.z));
 });
+
+let restoreData: () => void;
+test.before(() => { restoreData = installMineRenderDataFixtures(); });
+test.after.always(() => restoreData());
