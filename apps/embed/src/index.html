@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>MineRender embed</title>
+    <style>
+        html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: transparent; }
+        body { font: 14px/1.5 system-ui, sans-serif; }
+        #viewport { position: absolute; inset: 0; }
+        #viewport canvas { display: block; width: 100% !important; height: 100% !important; }
+        #viewport.shadow canvas { filter: drop-shadow(5px 5px 5px #222); }
+        #status { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; pointer-events: none; }
+        #status[hidden] { display: none; }
+        #status p { margin: 0; max-width: 36em; padding: 12px 16px; border-radius: 8px; color: #fff; background: #1b1d22eb; overflow-wrap: anywhere; }
+        #credit { position: absolute; bottom: 6px; right: 8px; padding: 2px 6px; border-radius: 4px; color: #fff; background: #1b1d2299; font-size: 11px; text-decoration: none; }
+        #credit:hover, #credit:focus-visible { background: #1b1d22; text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <main id="viewport" aria-label="Minecraft scene" data-state="loading"></main>
+    <div id="status" role="status" aria-live="polite"><p>Loading render…</p></div>
+    <a id="credit" href="https://minerender.org" target="_blank" rel="noopener">MineRender</a>
+    <script type="module" src="./main.js"></script>
+</body>
+</html>

@@ -3,7 +3,7 @@
     "noEmit": true,
     "baseUrl": ".",
     "skipLibCheck": true,
-    "moduleResolution": "Node",
+    "moduleResolution": "bundler",
     "module": "ES6",
     "target": "ES2020",
     "esModuleInterop": true,

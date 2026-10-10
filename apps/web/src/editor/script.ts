@@ -1,5 +1,5 @@
 import {
-    AssetKey, AssetLoader, Entities, Renderer, SceneDocumentLoader, SceneExporter, isEntityObject,
+    AssetKey, AssetLoader, Entities, Renderer, SceneDocumentLoader, SceneExporter, encodeSceneDocument, isEntityObject,
     type LoadedSceneObject, type SceneDocument, type SceneObjectDefinition, type SceneSkinDefinition, type SceneEntityDefinition
 } from "minerender";
 import { Box3, Box3Helper, Color, GridHelper, Group, Raycaster, Vector2, Vector3 } from "three";
@@ -7,6 +7,9 @@ import { TransformControls } from "three/examples/jsm/controls/TransformControls
 import { renderInspector } from "./inspector";
 import { getObjectList, getObjectListHint, validateMinecraftVersion } from "./catalog";
 import { importStructure } from "./imports";
+import { validateEmbedScene } from "../../../embed/src/limits";
+
+declare const MINERENDER_EMBED_URL: string;
 
 const element = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const viewport = element<HTMLDivElement>("viewport");
@@ -103,7 +106,7 @@ async function start(): Promise<void> {
         element<HTMLButtonElement>("redo").disabled = busy || loadingObjects.size > 0 || historyIndex >= history.length - 1;
         element<HTMLButtonElement>("duplicate").disabled = busy || !selected();
         element<HTMLButtonElement>("delete").disabled = busy || !selected();
-        for (const id of ["new-scene", "import-scene", "restore-scene", "apply-version", "export-scene"]) element<HTMLButtonElement>(id).disabled = busy;
+        for (const id of ["new-scene", "import-scene", "restore-scene", "apply-version", "export-scene", "copy-embed"]) element<HTMLButtonElement>(id).disabled = busy;
         for (const id of ["export-format", "video-duration", "video-fps", "show-grid", "transparent"]) element<HTMLInputElement | HTMLSelectElement>(id).disabled = busy;
         element("add-form").querySelector<HTMLButtonElement>("button[type=submit]")!.disabled = busy;
     }
@@ -831,8 +834,42 @@ async function start(): Promise<void> {
         report("Export downloaded.");
     }); });
     const codeDialog = element<HTMLDialogElement>("code-dialog");
+    function showCode(code: string, embed = false): void {
+        element("code-title").textContent = embed ? "Embed this scene" : "Use this scene";
+        element("code-description").textContent = embed
+            ? "Paste this iframe into your page. It includes the scene, camera, and background."
+            : "Save scene.json beside your app, then load it with MineRender.";
+        const output = element<HTMLTextAreaElement>("code-output");
+        output.value = code;
+        output.setAttribute("aria-label", embed ? "Scene iframe HTML" : "Scene loading code");
+        element("copy-code").textContent = embed ? "Copy iframe" : "Copy code";
+        element("copy-status").textContent = "";
+        codeDialog.showModal();
+    }
+    async function copyCode(): Promise<void> {
+        const output = element<HTMLTextAreaElement>("code-output");
+        let message = "Code copied.";
+        try { await navigator.clipboard.writeText(output.value); }
+        catch {
+            output.focus();
+            output.select();
+            message = "Clipboard access is unavailable. Copy the selected code with Ctrl/Cmd+C.";
+        }
+        element("copy-status").textContent = message;
+        report(message);
+    }
+    element("copy-embed").addEventListener("click", () => { void run("Preparing embed…", async () => {
+        const scene = validateEmbedScene(snapshot());
+        const url = new URL(MINERENDER_EMBED_URL, location.href);
+        url.searchParams.set("background", element<HTMLInputElement>("transparent").checked ? "transparent" : "19212d");
+        url.hash = `scene=${await encodeSceneDocument(scene)}`;
+        const source = url.href.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const height = Math.max(1, Math.round(640 * viewport.clientHeight / Math.max(1, viewport.clientWidth)));
+        showCode(`<iframe src="${source}" title="Minecraft scene" width="640" height="${height}" loading="lazy" style="border:0;max-width:100%;height:auto;aspect-ratio:640/${height};"></iframe>`, true);
+        await copyCode();
+    }); });
     element("show-code").addEventListener("click", () => {
-        element<HTMLTextAreaElement>("code-output").value = `import { AssetLoader, Renderer, SceneDocumentLoader } from "minerender";
+        showCode(`import { AssetLoader, Renderer, SceneDocumentLoader } from "minerender";
 
 const response = await fetch("./scene.json");
 if (!response.ok) throw new Error("Could not fetch scene.json");
@@ -857,15 +894,10 @@ function dispose() {
     scene.dispose();
     renderer.dispose();
 }
-`;
-        codeDialog.showModal();
+`);
     });
     element("close-code").addEventListener("click", () => codeDialog.close());
-    element("copy-code").addEventListener("click", () => {
-        void navigator.clipboard.writeText(element<HTMLTextAreaElement>("code-output").value).then(() => report("Code copied."), () => {
-            element<HTMLTextAreaElement>("code-output").select(); report("Select the code and copy it with Ctrl/Cmd+C.");
-        });
-    });
+    element("copy-code").addEventListener("click", () => { void copyCode(); });
 
     function dispose(): void {
         if (disposed) return;

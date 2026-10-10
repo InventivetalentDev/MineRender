@@ -1586,6 +1586,22 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@minerender/embed@workspace:apps/embed":
+  version: 0.0.0-use.local
+  resolution: "@minerender/embed@workspace:apps/embed"
+  dependencies:
+    "@types/three": "npm:~0.186.0"
+    ava: "npm:^5.3.1"
+    esbuild: "npm:^0.19.5"
+    esbuild-plugin-polyfill-node: "npm:^0.3.0"
+    esbuild-runner: "npm:^2.2.2"
+    minerender: "workspace:*"
+    three: "npm:^0.186.1"
+    typescript: "npm:~5.6.3"
+    wrangler: "npm:^4.147.0"
+  languageName: unknown
+  linkType: soft
+
 "@minerender/example-script-tag@workspace:examples/script-tag":
   version: 0.0.0-use.local
   resolution: "@minerender/example-script-tag@workspace:examples/script-tag"
