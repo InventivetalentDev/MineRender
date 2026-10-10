@@ -17,6 +17,8 @@ export type FlyAction = "forward" | "back" | "left" | "right" | "up" | "down" | 
 const VANILLA_FLY_SPEED = 10.89;
 const PITCH_LIMIT = Math.PI / 2;
 const MOVE_EPSILON = 1e-6;
+/** Longest step applied at once, in seconds; a stalled frame must not carry the camera further. */
+const MAX_STEP_SECONDS = 0.1;
 
 const _euler = new Euler(0, 0, 0, "YXZ");
 const _forward = new Vector3();
@@ -25,7 +27,7 @@ const _targetVelocity = new Vector3();
 
 /**
  * Creative-flight camera controls: WASD moves horizontally along the view direction, space and shift
- * move up and down, control sprints, and the mouse turns the camera (pointer lock, or drag).
+ * move up and down, R sprints, and the mouse turns the camera (pointer lock, or drag).
  *
  * Call {@link FlyControls.update} with the elapsed seconds once per frame; the `change` event marks the
  * renderer dirty while keys are held. Speeds use scene units (16 per block). The element becomes focusable
@@ -61,7 +63,8 @@ export class FlyControls extends Controls<FlyControlsEventMap, Camera> {
         right: ["KeyD", "ArrowRight"],
         up: ["Space"],
         down: ["ShiftLeft", "ShiftRight"],
-        sprint: ["ControlLeft", "ControlRight"]
+        // Not Control: Ctrl+W closes the browser tab on Windows and Linux, and a page cannot block it.
+        sprint: ["KeyR"]
     };
 
     private readonly _pressed = new Set<FlyAction>();
@@ -71,6 +74,8 @@ export class FlyControls extends Controls<FlyControlsEventMap, Camera> {
     private _position0 = new Vector3();
     private _quaternion0 = new Quaternion();
     private _dragPointer?: number;
+    private _dragX = 0;
+    private _dragY = 0;
     private _dragMoved = false;
     private _joystick?: { id: number; originX: number; originY: number; x: number; y: number };
     private _locked = false;
@@ -212,6 +217,7 @@ export class FlyControls extends Controls<FlyControlsEventMap, Camera> {
     /**
      * Advances movement by `delta` seconds (measured since the previous call when omitted)
      * and dispatches `change` when the camera moved.
+     * A step longer than 0.1 s is applied as 0.1 s.
      */
     public update(delta?: number): void {
         if (delta === undefined) {
@@ -223,7 +229,7 @@ export class FlyControls extends Controls<FlyControlsEventMap, Camera> {
             this._velocity.set(0, 0, 0);
             return;
         }
-        if (delta > 0) this.move(delta);
+        if (delta > 0) this.move(Math.min(delta, MAX_STEP_SECONDS));
         this.notifyChange();
     }
 
@@ -309,6 +315,8 @@ export class FlyControls extends Controls<FlyControlsEventMap, Camera> {
         if (this._dragPointer !== undefined) return;
         if (event.pointerType === "mouse" && event.button !== 0 && event.button !== 2) return;
         this._dragPointer = event.pointerId;
+        this._dragX = event.clientX;
+        this._dragY = event.clientY;
         this._dragMoved = false;
         element.setPointerCapture?.(event.pointerId);
     }
@@ -327,8 +335,17 @@ export class FlyControls extends Controls<FlyControlsEventMap, Camera> {
             return;
         }
         if (!this._locked && event.pointerId !== this._dragPointer) return;
-        const dx = event.movementX ?? 0;
-        const dy = event.movementY ?? 0;
+        let dx: number, dy: number;
+        if (this._locked) {
+            dx = event.movementX ?? 0;
+            dy = event.movementY ?? 0;
+        } else {
+            // Touch pointers report no movementX/Y in some browsers, so drags use positions.
+            dx = event.clientX - this._dragX;
+            dy = event.clientY - this._dragY;
+            this._dragX = event.clientX;
+            this._dragY = event.clientY;
+        }
         if (!dx && !dy) return;
         this._dragMoved = true;
         this.turn(dx, dy);

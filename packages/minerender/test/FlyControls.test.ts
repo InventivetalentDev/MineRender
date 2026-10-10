@@ -81,22 +81,23 @@ test("WASD moves horizontally along the view yaw and space/shift move vertically
     const { document, camera, controls } = fixture();
     controls.movementSpeed = 10;
     controls.setRotation(0, -Math.PI / 4);
+    t.false(Object.values(controls.keys).flat().some(code => code.startsWith("Control")));
 
     document.emit("keydown", key("KeyW"));
-    controls.update(1);
+    for (let i = 0; i < 10; i++) controls.update(0.1);
     t.true(camera.position.distanceTo(new Vector3(0, 0, -10)) < 1e-6, "forward ignores pitch");
 
     document.emit("keyup", key("KeyW"));
     document.emit("keydown", key("KeyD"));
     document.emit("keydown", key("Space"));
-    controls.update(1);
+    for (let i = 0; i < 10; i++) controls.update(0.1);
     t.true(camera.position.distanceTo(new Vector3(10, 10, -10)) < 1e-6, "strafe right and climb");
 
     document.emit("keyup", key("KeyD"));
     document.emit("keyup", key("Space"));
     document.emit("keydown", key("ShiftLeft"));
-    document.emit("keydown", key("ControlLeft"));
-    controls.update(0.5);
+    document.emit("keydown", key("KeyR"));
+    for (let i = 0; i < 5; i++) controls.update(0.1);
     t.true(camera.position.distanceTo(new Vector3(10, 0, -10)) < 1e-6, "sprint doubles descent");
 });
 
@@ -105,16 +106,16 @@ test("diagonal input is normalized and the camera turns with pointer movement", 
     controls.movementSpeed = 10;
     document.emit("keydown", key("KeyW"));
     document.emit("keydown", key("KeyA"));
-    controls.update(1);
+    for (let i = 0; i < 10; i++) controls.update(0.1);
     t.true(Math.abs(camera.position.length() - 10) < 1e-6);
 
     controls.setRotation(0, 0);
     controls.lookSpeed = 0.01;
-    element.emit("pointerdown", { pointerId: 1, pointerType: "mouse", button: 0 });
-    element.emit("pointermove", { pointerId: 1, movementX: 100, movementY: -50 });
+    element.emit("pointerdown", { pointerId: 1, pointerType: "mouse", button: 0, clientX: 100, clientY: 100 });
+    element.emit("pointermove", { pointerId: 1, clientX: 200, clientY: 50 });
     t.true(Math.abs(controls.yaw + 1) < 1e-6);
     t.true(Math.abs(controls.pitch - 0.5) < 1e-6);
-    element.emit("pointermove", { pointerId: 1, movementX: 0, movementY: -1000 });
+    element.emit("pointermove", { pointerId: 1, clientX: 200, clientY: -950 });
     t.true(Math.abs(controls.pitch - Math.PI / 2) < 1e-6, "pitch clamps to straight up");
     element.emit("pointerup", { pointerId: 1, pointerType: "mouse", button: 0 });
     t.is(element.lockRequests, 0, "a drag does not request pointer lock");
@@ -191,18 +192,18 @@ test("the wheel scales the speed within its range and touch uses a left joystick
     controls.joystickRadius = 50;
     element.emit("pointerdown", touch("pointerdown", 1, 150, 150));
     element.emit("pointermove", touch("pointermove", 1, 175, 100));
-    controls.update(1);
+    for (let i = 0; i < 10; i++) controls.update(0.1);
     t.true(camera.position.distanceTo(new Vector3(0.5, 0, -1).normalize().multiplyScalar(10)) < 1e-6, "joystick offset sets forward and strafe");
     element.emit("pointermove", touch("pointermove", 1, 150, 400));
-    controls.update(1);
+    for (let i = 0; i < 10; i++) controls.update(0.1);
     const afterClamp = new Vector3(0.5, 0, -1).normalize().multiplyScalar(10).add(new Vector3(0, 0, 10));
     t.true(camera.position.distanceTo(afterClamp) < 1e-6, "joystick travel clamps to full speed");
 
-    element.emit("pointerdown", { ...touch("pointerdown", 2, 400, 150), movementX: 0, movementY: 0 });
-    element.emit("pointermove", { ...touch("pointermove", 2, 400, 150), movementX: 100, movementY: 0 });
+    element.emit("pointerdown", touch("pointerdown", 2, 400, 150));
+    element.emit("pointermove", touch("pointermove", 2, 500, 150));
     t.true(controls.yaw < 0, "a second touch on the right half looks around");
     element.emit("pointerup", touch("pointerup", 1, 150, 400));
-    element.emit("pointerup", touch("pointerup", 2, 400, 150));
+    element.emit("pointerup", touch("pointerup", 2, 500, 150));
     controls.update(1);
     t.true(camera.position.distanceTo(afterClamp) < 1e-6, "releasing the joystick stops movement");
     t.is(element.lockRequests, 0);
@@ -221,6 +222,14 @@ test("damping eases toward the target velocity independent of frame rate", t => 
     for (let i = 0; i < 30; i++) controls.update(1 / 30);
     t.true(Math.abs(camera.position.z - sixty) < 0.05 * Math.abs(sixty));
     t.true(sixty < 0 && sixty > -10);
+});
+
+test("a stalled frame moves the camera no further than 0.1 s of flight", t => {
+    const { document, camera, controls } = fixture();
+    controls.movementSpeed = 10;
+    document.emit("keydown", key("KeyW"));
+    controls.update(3);
+    t.true(camera.position.distanceTo(new Vector3(0, 0, -1)) < 1e-6);
 });
 
 test("lookAt, saveState, and reset round-trip the pose and report changes", t => {
