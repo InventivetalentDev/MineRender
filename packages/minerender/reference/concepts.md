@@ -73,31 +73,63 @@ Calling `removeFromScene()` or `dispose()` on an instance reference releases its
 
 With `sectionMeshing: true`, [MineRenderWorld](/api/index/classes/MineRenderWorld) merges eligible blocks into section meshes. A merged block has no individual `BlockInfo.object`. Edit it through the world or chunk setters so geometry and neighbor culling update together.
 
-## Streaming a Java world
+World placement selects weighted block models from absolute block coordinates, so unloading and reloading preserves their appearance in both rendering modes. Standalone `scene.addBlock` previews remain random unless you supply `variantPosition: [x, y, z]` in block units. The position is copied at construction; moving the object does not change its selection. The pick is vanilla-identical for the same coordinates and ordered weights. Position-based selection rejects total weights above 2,147,483,647.
 
-Use a dedicated `MineRenderWorld` with `sectionMeshing: true` and a `WorldStreamer` to render nearby chunk columns. This example reads one dimension's `r.<x>.<z>.mca` files at region coordinates:
+## Saved entities
+
+Enable `renderEntities` to render supported mobs from parsed structures or Anvil entity records:
 
 ```ts
-const source = new AnvilWorldSource(async (x, z, signal) => {
-    const response = await fetch(`/world/region/r.${x}.${z}.mca`, { signal });
+const world = new MineRenderWorld(renderer.scene, { renderEntities: true });
+await world.placeMultiBlock(structure);
+```
+
+The option defaults to `false`. With `renderEntities`, supported mobs render at their saved position and yaw; sheep wool colour and shearing and fox, axolotl and parrot variants apply; other appearance state is ignored. Unsupported entities retain their NBT without creating a render object.
+
+The world owns these entity objects. Replacing or unloading a chunk column disposes its entities, including structure entities positioned within that column. `await world.clear()` removes all of them.
+
+## Streaming a Java world
+
+Use a dedicated `MineRenderWorld` with `sectionMeshing: true` and a `WorldStreamer` to render nearby chunk columns. This example reads one dimension's terrain and entity regions at region coordinates:
+
+```ts
+const readRegion = (directory: "region" | "entities") => async (x: number, z: number, signal?: AbortSignal) => {
+    const response = await fetch(`/world/${directory}/r.${x}.${z}.mca`, { signal });
     if (response.status === 404) return undefined;
     if (!response.ok) throw new Error(`Region request failed: ${response.status}`);
     return response.arrayBuffer();
+};
+const source = new AnvilWorldSource(readRegion("region"), {
+    readEntityRegion: readRegion("entities"),
+    readExternalChunk: async (x, z, signal) => {
+        const response = await fetch(`/world/region/c.${x}.${z}.mcc`, { signal });
+        if (response.status === 404) return undefined;
+        if (!response.ok) throw new Error(`External chunk request failed: ${response.status}`);
+        return response.arrayBuffer();
+    }
 });
-const world = new MineRenderWorld(renderer.scene, { sectionMeshing: true });
+const world = new MineRenderWorld(renderer.scene, { sectionMeshing: true, renderEntities: true });
 const stream = new WorldStreamer(world, source, { loadRadius: 1, unloadRadius: 2 });
 await stream.updatePosition(renderer.camera.position);
 ```
+
+`readEntityRegion` is optional. Terrain and entity regions share the configured cache limits. A stored entity chunk replaces embedded entity records, including when its list is empty; a missing entity chunk preserves them. Entity-only columns have an empty `sections` array. The resulting chunk keeps the entity file's `DataVersion` in `entityDataVersion`, separate from terrain `dataVersion`.
+
+For direct decoding, call `AnvilParser.parseEntityChunk(bytes, localX, localZ)`. It returns absolute chunk coordinates, `dataVersion`, and typed entity NBT, or `undefined` when the region has no entry there.
 
 Call `updatePosition` after the camera or view center moves. It accepts scene units; `update(x, z)` accepts absolute chunk coordinates.
 
 The streamer aborts obsolete reads and active reads during disposal. Source callbacks must forward the optional signal to cancellable I/O to stop that work.
 
+`readExternalChunk` handles oversized chunks stored beside their region file. Its coordinates are absolute chunk coordinates, and it reads from the same dimension as the region reader. The source caches region files within its configured limits; external payloads are read on demand without retaining them. A missing external file is a chunk error and can be retried.
+
 Source errors appear in `failedChunks` while other columns continue loading. Call `await stream.retryFailedChunks()` to retry them. Placement or unloading failures reject the update.
 
 Await `stream.dispose()` before editing or clearing the world; it unloads its columns and leaves the world and source caller-owned.
 
-Java 1.13+ paletted chunks support gzip, zlib, and uncompressed payloads; pre-1.13 numeric chunks, LZ4, external `.mcc` payloads, and DataVersion migration remain unsupported.
+Numeric and paletted Java chunks support gzip, zlib, LZ4, and uncompressed payloads, including external `.mcc` files. Pre-1.13 numeric chunks use the same block mappings as legacy schematics. Pass `legacyMappings: { "id:metadata": "namespace:block[property=value]" }` to `AnvilParser.parse`, `AnvilParser.parseChunk`, or `AnvilWorldSource` to override those mappings. Set `lenient: true` to try metadata 0 for unmapped numeric states and skip unknown IDs; malformed arrays still fail validation.
+
+Numeric mappings do not reconstruct states that depend on neighbors or block-entity NBT, such as paired doors or bed colors. DataVersion migration remains unsupported.
 
 ## Ownership and cleanup
 
@@ -106,7 +138,7 @@ Choose cleanup according to the resource you own:
 | Resource | Cleanup behavior |
 | --- | --- |
 | Renderer | `stop()` pauses rendering and frame callbacks. `dispose()` permanently releases renderer-owned resources, clears subscriptions, and detaches scene objects. |
-| Scene objects and worlds | Dispose objects you own when finished. Use `await world.clear()` to release a world's block handles and section meshes. Renderer disposal does not replace this cleanup. |
+| Scene objects and worlds | Dispose objects you own when finished. Use `await world.clear()` to release a world's block handles, section meshes, and owned entities. Renderer disposal does not replace this cleanup. |
 | Controls | Renderer-created controls are disposed with the renderer. Dispose caller-created controls yourself. |
 | [SceneStatsDisplay](/api/index/classes/SceneStatsDisplay) | Call `dispose()` separately to remove its timer and DOM elements. |
 | Shared library services | Call [shutdown](/api/index/functions/shutdown) only when all MineRender work is finished. It stops shared queues and timers and clears in-memory caches; request shutdown is permanent. |

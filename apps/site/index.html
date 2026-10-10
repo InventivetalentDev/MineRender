@@ -448,7 +448,7 @@ await Models.clearCache();</code></pre>
 
             <article id="worlds" class="doc">
                 <h3>Worlds and files</h3>
-                <p><code>MineRenderWorld</code> stores blocks in 16³ chunks with signed coordinates and keeps faces against opaque neighbors from being drawn. With <code>sectionMeshing</code>, static opaque cubes are merged into one mesh and atlas per section; everything else stays an individual object.</p>
+                <p><code>MineRenderWorld</code> stores blocks in 16³ chunks with signed coordinates and keeps faces against opaque neighbors from being drawn. With <code>sectionMeshing</code>, static block models of any shape are merged into solid and translucent meshes per section; fluids, block entities, and animated textures stay individual objects.</p>
                 <pre><code data-lang="ts">import { AnvilParser, AnvilWorldSource, MineRenderWorld, NBTHelper, SchematicParser, StructureParser, WorldStreamer } from "minerender";
 
 const world = new MineRenderWorld(renderer.scene, { sectionMeshing: true });
