@@ -6,6 +6,8 @@ export interface OverlayState {
     title?: number;
     /** Title block placement: centred (default) or in the upper part of the frame. */
     titlePosition?: "center" | "upper";
+    /** Heading size: the display size (default) or a smaller one for long headings such as a domain. */
+    titleSize?: "display" | "compact";
     caption?: string;
     /** Opacity of the caption. */
     captionOpacity?: number;
@@ -52,6 +54,7 @@ export class Overlay {
         this.subheading.textContent = state.subheading ?? "";
         this.title.style.opacity = String(state.title ?? 0);
         this.title.classList.toggle("is-upper", state.titlePosition === "upper");
+        this.title.classList.toggle("is-compact", state.titleSize === "compact");
         // Captions may mark words with <accent>…</accent>.
         this.caption.innerHTML = (state.caption ?? "").replace(/</g, "&lt;")
             .replace(/&lt;accent>(.*?)&lt;\/accent>/g, '<span class="accent">$1</span>');

@@ -12,7 +12,8 @@ export const outro: Shot = {
             surface: 0,
             heading: "beta.minerender.org",
             subheading: "npm install minerender@beta",
-            title: range(t, 0.2, 1.0)
+            title: range(t, 0.2, 1.0),
+            titleSize: "compact"
         });
     }
 };

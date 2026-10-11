@@ -68,7 +68,10 @@ export const entityAnimation: Shot = {
         if (!model || !animations?.roar) throw new Error("warden or its roar animation missing");
         warden = await context.renderer.scene.addEntity(model, { instanceMeshes: false }) as EntityObject;
         warden.rotation.y = 0.4;
-        warden.playAnimation(animations.roar, { loop: true });
+        // Vanilla's emissive passes (heart, bioluminescent layer, pulsating spots) are separate draws of the same
+        // bones, so each gets its own copy of the clip; a clip targets one layer.
+        const layers = [...new Set(Object.keys(model.layers ?? { main: model }).map(name => name.split("#")[0]))];
+        warden.playAnimations(layers.map(layer => ({ ...animations.roar, layer })), { loop: true });
         warden.setAnimationTime(0);
     },
     update({ camera, overlay, renderer, portrait }, t) {

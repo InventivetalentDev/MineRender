@@ -40,6 +40,7 @@ html, body { margin: 0; padding: 0; background: #000; }
 .overlay-title.is-upper { justify-content: flex-start; padding-top: calc(var(--u) * 13); }
 .overlay-logo { width: calc(var(--u) * 9); height: calc(var(--u) * 9); margin-bottom: calc(var(--u) * 1.5); }
 .overlay-heading { font-family: var(--font-display); font-weight: 800; font-size: 9em; line-height: 1; letter-spacing: -0.02em; }
+.overlay-title.is-compact .overlay-heading { font-size: 7em; }
 .overlay-subheading { margin-top: calc(var(--u) * 1.2); font-size: 3em; color: var(--ink-soft); font-weight: 500; }
 
 .overlay-caption {
@@ -82,7 +83,7 @@ html, body { margin: 0; padding: 0; background: #000; }
     max-width: calc(var(--u) * 64);
     max-height: calc(var(--u) * 60);
     border-radius: calc(var(--u) * 1.2);
-    background: #fff;
+    background: #8a928a;
     padding: calc(var(--u) * 2);
     box-shadow: 0 calc(var(--u) * 2) calc(var(--u) * 6) rgba(0, 0, 0, 0.35);
     opacity: 0;
@@ -102,6 +103,7 @@ html, body { margin: 0; padding: 0; background: #000; }
 .stage.is-portrait .overlay-code { left: calc(var(--u) * 4); right: calc(var(--u) * 4); bottom: calc(var(--u) * 4); font-size: 1.5em; white-space: pre-wrap; overflow-wrap: anywhere; }
 /* Portrait frames keep their subject in the middle, so code goes to the top unless the shot asked for the lower left (the Node shot's image is up there). */
 .stage.is-portrait .overlay-code:not(.is-left) { bottom: auto; top: calc(var(--u) * 5); }
-.stage.is-portrait .overlay-image { left: calc(var(--u) * 4); right: auto; top: calc(var(--u) * 24); transform: none; max-width: calc(var(--u) * 48); max-height: calc(var(--u) * 40); }
+.stage.is-portrait .overlay-image { left: 50%; right: auto; top: calc(var(--u) * 24); transform: translateX(-50%); max-width: calc(var(--u) * 48); max-height: calc(var(--u) * 40); }
 .stage.is-portrait .overlay-stat { right: calc(var(--u) * 4); top: auto; bottom: calc(var(--u) * 8); }
 .stage.is-portrait .overlay-heading { font-size: 7em; }
+.stage.is-portrait .overlay-title.is-compact .overlay-heading { font-size: 5em; }

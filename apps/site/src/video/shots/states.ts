@@ -35,12 +35,12 @@ export const entityStates: Shot = {
         cues = new Cues()
             .at(1.6, () => {
                 show(1);
-                captionText = "Entity <accent>states</accent>:\nthe dataset's extra passes";
+                captionText = "Entity <accent>states</accent>,\nlike a charged creeper";
                 codeText = "await Entities.getEntity(creeper, undefined, {\n    when: [\"powered\"]\n});";
             })
             .at(3.9, () => {
                 show(2);
-                captionText = "Entity <accent>states</accent>:\ntint labels take colours";
+                captionText = "Entity <accent>states</accent>\nand tints, like wool colour";
                 codeText = "await scene.addEntity(sheep, {\n    tints: { wool_color: 0xf9801d }\n});";
             })
             .at(5.0, () => show(3))

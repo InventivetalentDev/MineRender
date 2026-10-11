@@ -14,7 +14,6 @@ import { sceneComposed } from "./shots/scene";
 import { skins } from "./shots/skins";
 import { entityStates } from "./shots/states";
 import { structureVanilla } from "./shots/structure";
-import { versionsMix } from "./shots/versions";
 import { worldTerrain } from "./shots/world";
 import type { Shot } from "./types";
 
@@ -22,7 +21,7 @@ import type { Shot } from "./types";
 export const timelines: Record<string, Shot[]> = {
     hero: [
         open, blocksInstanced, fluidsAnimated, itemState, skins, capes, entityVariants, entityStates, entityAnimation,
-        guiChest, guiLayouts, structureVanilla, structureEntities, worldTerrain, versionsMix, sceneComposed, sceneDocument, nodeRender, outro
+        guiChest, guiLayouts, structureVanilla, structureEntities, worldTerrain, sceneComposed, sceneDocument, nodeRender, outro
     ],
     vertical: [open, blocksInstanced, itemState, skins, entityVariants, entityStates, guiChest, worldTerrain, sceneComposed, sceneDocument, nodeRender, outro]
 };
