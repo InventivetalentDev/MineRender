@@ -101,6 +101,11 @@ export class MineRenderScene extends Scene {
         return this.add(...object);
     }
 
+    /** Disposes unused saved-light model pools after world sections release their placements. */
+    public pruneLightingInstances(): number {
+        return this.instanceManager.pruneUnused(object => isModelObject(object) && object.options.light !== undefined);
+    }
+
     async addSceneObject<A extends BasicMinecraftAsset, T extends SceneObject, O extends SceneObjectOptions>(asset: A, objectSupplier: () => T | Promise<T>, _options?: Partial<O>, parent: Object3D = this): Promise<T | InstanceReference<T>> {
         this.dirty = true;
         //TODO: we need a way to call objectSupplier in the instance supplier below
@@ -112,12 +117,13 @@ export class MineRenderScene extends Scene {
             // Geometry options need separate instance pools while sharing the texture atlas.
             let key = asset.key.serialize();
             if (isModelObject(obj)) {
-                const { displayPosition, uvLockRotation, tints, cullMask } = obj.options;
+                const { displayPosition, uvLockRotation, tints, cullMask, light } = obj.options;
                 if (displayPosition) key += `|display:${displayPosition}`;
                 if (uvLockRotation) key += `|uvlock:${uvLockRotation.join(",")}`;
                 const palette = Object.entries(tints ?? {}).sort(([a], [b]) => Number(a) - Number(b));
                 if (palette.length) key += `|tints:${JSON.stringify(palette)}`;
                 if (cullMask) key += `|cull:${cullMask}`;
+                if (light) key += `|light:${light.join(",")}`;
             }
             return this.instanceManager.getOrCreate(key, async () => {
                 // const obj = await objectSupplier();

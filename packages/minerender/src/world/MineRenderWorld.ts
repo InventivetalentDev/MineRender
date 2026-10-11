@@ -14,6 +14,7 @@ import type { AnvilChunk } from "./AnvilParser";
 import { SectionModels } from "./SectionModels";
 import { WorldEntities } from "./_entities/WorldEntities";
 import { fluidKindOf } from "../model/fluid/FluidQuads";
+import { copySectionLight, sampleSectionLight, SavedLightSample, SectionLightData } from "./WorldLight";
 
 //TODO: maybe make this an Object3D to add children
 /**
@@ -27,6 +28,9 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
 
     private readonly _chunks: Map<string, Chunk<SectionMeshing>> = new Map();
     private readonly biomes = new Map<string, Map<number, readonly string[]>>();
+    private readonly light = new Map<string, Map<number, SectionLightData>>();
+    private readonly lightValidity = new Map<string, boolean>();
+    private readonly savedLighting: boolean;
     private readonly sectionModels?: SectionModels;
     private readonly entities?: WorldEntities;
     private readonly pendingCulling = new Map<Chunk<SectionMeshing>, Set<number> | "all">();
@@ -34,6 +38,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
 
     constructor(scene: MineRenderScene, options: MineRenderWorldOptions<SectionMeshing> = {}) {
         this.scene = scene;
+        this.savedLighting = options.savedLighting ?? false;
         if (options.sectionMeshing) this.sectionModels = new SectionModels(options.maxAtlasSize);
         if (options.renderEntities) this.entities = new WorldEntities(scene);
     }
@@ -65,6 +70,26 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         const lx = posOrX.x - cx * 16, ly = posOrX.y - cy * 16, lz = posOrX.z - cz * 16;
         return this.biomes.get(`${cx}_${cz}`)?.get(cy)?.[
             Math.floor(lx / 4) + Math.floor(lz / 4) * 4 + Math.floor(ly / 4) * 16];
+    }
+
+    /** Returns saved light at integer world block coordinates, including data marked invalid by the save. */
+    public getLightAt(x: number, y: number, z: number): Maybe<SavedLightSample>;
+    public getLightAt(pos: Vector3): Maybe<SavedLightSample>;
+    public getLightAt(pos: TripleArray): Maybe<SavedLightSample>;
+    public getLightAt(posOrX: number | Vector3 | TripleArray, y?: number, z?: number): Maybe<SavedLightSample> {
+        if (typeof posOrX === "number") return this.getLightAt(new Vector3(posOrX, y, z));
+        if (isTripleArray(posOrX)) return this.getLightAt(new Vector3(...posOrX));
+        this.validatePosBounds(posOrX);
+        const { x, y: py, z: pz } = posOrX;
+        const cx = Math.floor(x / 16), cy = Math.floor(py / 16), cz = Math.floor(pz / 16);
+        return sampleSectionLight(this.light.get(`${cx}_${cz}`)?.get(cy), (x & 15) + (pz & 15) * 16 + (py & 15) * 256);
+    }
+
+    private lightLevelAt(x: number, y: number, z: number): number {
+        const cx = Math.floor(x / 16), cy = Math.floor(y / 16), cz = Math.floor(z / 16), key = `${cx}_${cz}`;
+        if (this.lightValidity.get(key) === false) return 255;
+        const sample = sampleSectionLight(this.light.get(key)?.get(cy), (x & 15) + (z & 15) * 16 + (y & 15) * 256);
+        return sample ? Math.max(sample.block, sample.sky) : 255;
     }
 
     /**
@@ -208,13 +233,18 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
     }
 
 
-    /** Replaces a chunk column's blocks and biome samples and, with `renderEntities`, its supported saved mobs. */
+    /** Replaces a chunk column's blocks, biomes, and saved light and, with `renderEntities`, its supported saved mobs. */
     public async placeChunk(chunk: AnvilChunk, executor?: BatchedExecutor): Promise<void> {
         if (![chunk.x, chunk.z].every(Number.isSafeInteger)) {
             throw new RangeError("Chunk column coordinates must be safe integers");
         }
         if (!chunk.sections.every(section => Number.isSafeInteger(section.y))) {
             throw new RangeError("Chunk section coordinates must be safe integers");
+        }
+        const lights = new Map<number, SectionLightData>();
+        for (const section of chunk.sections) {
+            const light = section.light ?? (chunk.lightValid === true ? {} : undefined);
+            if (light) lights.set(section.y, copySectionLight(light));
         }
         this.entities?.clearColumn(chunk.x, chunk.z);
         const placeEntities = this.entities?.prepare(chunk.entities, [chunk.x, chunk.z]);
@@ -231,6 +261,12 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         }
         try {
             await this.clearChunkColumn(chunk.x, chunk.z);
+            const columnKey = `${chunk.x}_${chunk.z}`;
+            if (lights.size) this.light.set(columnKey, lights);
+            if (chunk.lightValid !== undefined) this.lightValidity.set(columnKey, chunk.lightValid);
+            if (this.savedLighting) {
+                for (const y of lights.keys()) this.markSectionChanged({ x: chunk.x, y, z: chunk.z });
+            }
             // Tall plants can sample the section below, so install all biomes before rendering.
             for (const section of chunk.sections) {
                 if (section.biomes) {
@@ -301,6 +337,11 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
 
     private async clearChunkColumn(x: number, z: number): Promise<void> {
         this.biomes.delete(`${x}_${z}`);
+        if (this.savedLighting) {
+            for (const y of this.light.get(`${x}_${z}`)?.keys() ?? []) this.markSectionChanged({ x, y, z });
+        }
+        this.light.delete(`${x}_${z}`);
+        this.lightValidity.delete(`${x}_${z}`);
         const previous = [...this._chunks.entries()].filter(([, section]) => section.x === x && section.z === z);
         for (const [key, section] of previous) {
             this._chunks.delete(key);
@@ -310,8 +351,9 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         }
     }
 
-    private markSectionChanged(chunk: Chunk<SectionMeshing>): void {
-        if (this._chunks.get(`${chunk.x}_${chunk.y}_${chunk.z}`) === chunk) this.pendingCulling.set(chunk, "all");
+    private markSectionChanged(chunk: { x: number; y: number; z: number }): void {
+        const current = this._chunks.get(`${chunk.x}_${chunk.y}_${chunk.z}`);
+        if (current && current === chunk) this.pendingCulling.set(current, "all");
         for (let dy = -1; dy <= 1; dy++) {
             for (let dz = -1; dz <= 1; dz++) {
                 for (let dx = -1; dx <= 1; dx++) {
@@ -340,10 +382,13 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         const chunks = [...this._chunks.values()];
         this._chunks.clear();
         this.biomes.clear();
+        this.light.clear();
+        this.lightValidity.clear();
         for (const chunk of chunks) {
             await chunk.dispose();
         }
         this.sectionModels?.clear();
+        if (this.savedLighting) this.scene.pruneLightingInstances();
     }
 
     private updateCulling(positions: Vector3[]): Promise<void> {
@@ -406,11 +451,13 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                             }
                         }
                         for (const [index, mask] of masks) await chunk.setCullMaskIndex(index, mask);
+                        await chunk.refreshLight(indices === "all" ? undefined : indices);
                     }
                     await Promise.all(batch.map(([chunk]) => chunk.rebuildSectionMesh()));
                 }
             } finally {
                 this.culling = undefined;
+                if (this.savedLighting) this.scene.pruneLightingInstances();
             }
         });
     }
@@ -440,6 +487,15 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                     await chunk!.refreshBiomes();
                     // Upper tall-plant halves at the boundary sample the section below.
                     await this._chunks.get(`${x}_${y + 1}_${z}`)?.refreshBiomes();
+                }, this.savedLighting ? (x, y, z) => this.lightLevelAt(x, y, z) : undefined, async () => {
+                    if (this._chunks.get(key) !== chunk) return;
+                    const columnKey = `${x}_${z}`, column = this.light.get(columnKey);
+                    if (!column?.delete(y)) return;
+                    if (!column.size) this.light.delete(columnKey);
+                    if (this.savedLighting) {
+                        this.markSectionChanged(chunk!);
+                        await this.updateCulling([]);
+                    }
                 });
             this._chunks.set(key, chunk);
         }
@@ -492,6 +548,8 @@ export interface MineRenderWorldOptions<SectionMeshing extends boolean = boolean
     renderEntities?: boolean;
     /** Merge static opaque cubes into section meshes. Merged blocks have no individual object. */
     sectionMeshing?: SectionMeshing;
+    /** Shade blocks and fluids with saved sky/block light. Missing or invalid data keeps preview brightness. Defaults to false. */
+    savedLighting?: boolean;
     /** Maximum width and height of each section atlas page, in pixels. */
     maxAtlasSize?: number;
 }

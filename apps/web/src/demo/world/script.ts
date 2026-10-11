@@ -72,7 +72,9 @@ async function replaceSource(next: Source, center?: { x: number; z: number; y: n
     await streamer?.dispose();
     streamer = undefined;
     await world.clear();
-    world = new MineRenderWorld(renderer.scene, { sectionMeshing: true, renderEntities: input("render-entities").checked });
+    world = new MineRenderWorld(renderer.scene, {
+        sectionMeshing: true, renderEntities: input("render-entities").checked, savedLighting: input("saved-lighting").checked
+    });
     if (active !== next) active?.clearCache?.();
     active = next;
     if (disposed) { next.clearCache?.(); return; }
@@ -299,6 +301,7 @@ select("dimension").addEventListener("change", () => {
     runChange(() => openDimension(id));
 });
 select("load-radius").addEventListener("change", () => runChange(() => replaceSource(active!)));
+input("saved-lighting").addEventListener("change", () => runChange(() => replaceSource(active!)));
 input("render-entities").addEventListener("change", () => runChange(() => select("dimension").disabled
     ? replaceSource(active!) : openDimension(select("dimension").value, true)));
 element("apply-version").addEventListener("click", () => runChange(async () => {

@@ -1,6 +1,6 @@
 import { installMineRenderDataFixtures } from "./helpers/minerender-data";
 import test, { ExecutionContext } from "ava";
-import { Mesh, MeshBasicMaterial } from "three";
+import { Mesh, MeshBasicMaterial, Vector3 } from "three";
 import { AssetKey } from "../src/assets/AssetKey";
 import { Models } from "../src/assets/Models";
 import { Caching } from "../src/cache/Caching";
@@ -9,6 +9,8 @@ import { Geometries } from "../src/Geometries";
 import { Materials } from "../src/Materials";
 import { ModelGenerator } from "../src/model/ModelGenerator";
 import { ModelObject } from "../src/model/scene/ModelObject";
+import { BlockObject } from "../src/model/block/scene/BlockObject";
+import { FluidModelObject } from "../src/model/fluid/FluidModelObject";
 import { MineRenderScene } from "../src/renderer/MineRenderScene";
 import { TextureAtlas } from "../src/texture/TextureAtlas";
 import { UVMapper } from "../src/UVMapper";
@@ -126,6 +128,141 @@ test.serial("item defaults separate instance palettes while sharing the atlas an
     }
     t.false(base.hasAttribute("color"));
     t.is(JSON.stringify([red, blue, override, atlas.model]), original);
+});
+
+test.serial("saved light composes with tints, separates instance pools and preserves hidden block transforms on refresh", async t => {
+    const { scene } = fixture(t);
+    const light = [5, 0, 5, 10, 15, 10, 255];
+    const add = (levels?: readonly number[]) => scene.addBlock({ variants: { "": { model: "test:block/tinted_cube", y: 90 } } }, {
+        applyDefaultState: false, light: levels, tints: { 0: 0xff0000 }
+    }) as Promise<BlockObject>;
+    const block = await add(light);
+    const shared = await add([...light]);
+    const lit = scene.children[0] as ModelObject;
+    t.is(lit.instanceCounter, 2);
+    t.deepEqual(lit.options.light, [5, 10, 15, 10, 15, 5, 0]);
+    t.deepEqual(attribute(lit, "color").slice(0, 3), Array.from(new Float32Array([1 / 3, 0, 0])));
+    t.deepEqual(attribute(lit, "color").slice(-3), [0, 0, 0]);
+    light.fill(0);
+    t.deepEqual(block.options.light, [5, 0, 5, 10, 15, 10, 15]);
+    block.setPosition(new Vector3(16, 32, 48));
+    block.setVisible(false);
+    const oldMatrix = block["_models"][0]["getMatrix"]();
+    await block.setLight([15, 15, 15, 15, 15, 15, 15]);
+    t.is(lit.instanceCounter, 1);
+    const bright = scene.children[1] as ModelObject;
+    t.is(bright.options.light, undefined);
+    t.deepEqual(block["_models"][0]["getMatrix"](), oldMatrix);
+    t.false(block.visible);
+    await add();
+    t.is(bright.instanceCounter, 2);
+    t.is(scene.children.length, 2);
+    await shared.setLight([255, 255, 255, 255, 255, 255, 255]);
+    t.is(bright.instanceCounter, 3);
+    t.is(lit.instanceCounter, 0);
+});
+
+test.serial("inset model faces use center light without changing the shared atlas", async t => {
+    const { scene, model, atlas } = fixture(t);
+    model.elements![0].from = [4, 4, 4];
+    model.elements![0].to = [12, 12, 12];
+    const object = await scene.addModel(model, { instanceMeshes: false, light: [5, 15, 15, 15, 15, 15, 15] }) as ModelObject;
+    t.true(attribute(object, "color").every(value => Math.abs(value - 1 / 9) < 1e-7));
+    t.is(object.textureAtlas, atlas);
+    for (const light of [[0], [0, 0, 0, 0, 0, 0, 16], [0, 0, 0, 0, 0, 0, 0.5], Array<number>(7)]) {
+        await t.throwsAsync(scene.addModel(model, { light }), { instanceOf: RangeError });
+    }
+});
+
+test.serial("per-block fluid light samples the brighter vertical cell and keeps the saved water tint", async t => {
+    const { scene, atlas } = fixture(t);
+    atlas.positions.still = atlas.positions.flow = [0, 0];
+    atlas.sizes.still = atlas.sizes.flow = [16, 16];
+    const object = new FluidModelObject("water", (x, y, z) => x === 0 && y === 0 && z === 0 ? { fluid: "water" } : {},
+        undefined, { instanceMeshes: false, light: [5, 15, 15, 10, 0, 15, 15], tints: { 0: 0xff0000 } });
+    object.scene = scene;
+    await object.init();
+    t.teardown(() => object.dispose());
+    const mesh = object.children[0] as Mesh;
+    const colors = mesh.geometry.getAttribute("color"), normals = mesh.geometry.getAttribute("normal");
+    for (let vertex = 0; vertex < normals.count; vertex++) {
+        const expected = normals.getY(vertex) < 0 ? 1 / 9 : 1 / 3;
+        t.true(Math.abs(colors.getX(vertex) - expected) < 1e-7);
+        t.is(colors.getY(vertex), 0);
+        t.is(colors.getZ(vertex), 0);
+    }
+});
+
+test.serial("a failed fluid light refresh retries the same profile without replacing unchanged model instances", async t => {
+    const { scene, atlas } = fixture(t);
+    atlas.positions.still = atlas.positions.flow = [0, 0];
+    atlas.sizes.still = atlas.sizes.flow = [16, 16];
+    const block = await scene.addBlock({ variants: { "": { model: "test:block/tinted_cube" } } }, {
+        applyDefaultState: false, initialState: { waterlogged: "true" }
+    }) as BlockObject;
+    const updateFluid = block.updateFluid;
+    let attempts = 0;
+    block.updateFluid = async function (sample) {
+        if (++attempts === 1) throw new Error("fluid texture unavailable");
+        return updateFluid.call(this, sample);
+    };
+    const light = [5, 5, 5, 10, 0, 5, 5];
+    await t.throwsAsync(block.setLight(light), { message: "fluid texture unavailable" });
+    const model = block["_models"][0];
+    await block.setLight(light);
+    t.is(attempts, 2);
+    t.is(block["_models"][0], model);
+    t.deepEqual(block.options.light, light);
+    const fluid = block["_fluidModel"]!;
+    t.deepEqual(("instanceable" in fluid ? fluid.instanceable : fluid).options.light, light);
+    await block.setLight(light);
+    t.is(attempts, 2);
+});
+
+for (const action of ["remove", "new light", "original light"] as const) {
+    test.serial(`an awaited light refresh cannot override ${action}`, async t => {
+        const { scene } = fixture(t);
+        const original = Array(7).fill(5);
+        const block = await scene.addBlock({ variants: { "": { model: "test:block/tinted_cube" } } }, {
+            applyDefaultState: false, light: original
+        }) as BlockObject;
+        const addModel = scene.addModel;
+        let release!: () => void, started!: () => void;
+        const waiting = new Promise<void>(resolve => { release = resolve; });
+        const ready = new Promise<void>(resolve => { started = resolve; });
+        scene.addModel = async function (model, options) {
+            if (options?.light?.[0] === 10) { started(); await waiting; }
+            return addModel.call(this, model, options);
+        };
+        t.teardown(release);
+        const pending = block.setLight(Array(7).fill(10));
+        await ready;
+        if (action === "remove") block.removeFromScene();
+        else await block.setLight(action === "new light" ? Array(7).fill(12) : original);
+        release();
+        await pending;
+        t.deepEqual(block.options.light, action === "new light" ? Array(7).fill(12) : original);
+        t.is(block["_models"].length, action === "remove" ? 0 : 1);
+        t.is(scene.stats.instanceCount, action === "remove" ? 0 : 1);
+        t.is(scene.children.length, action === "remove" ? 0 : 1);
+    });
+}
+
+test.serial("pruning light pools preserves live references, previews and shared atlases", async t => {
+    const { scene, model, atlas } = fixture(t);
+    const first = await scene.addModel(model, { light: Array(7).fill(5) });
+    const live = await scene.addModel(model, { light: Array(7).fill(10) });
+    const preview = await scene.addModel(model);
+    first.removeFromScene();
+    preview.removeFromScene();
+    t.is(scene.pruneLightingInstances(), 1);
+    t.is(scene.children.length, 2);
+    t.is(scene.stats.instanceCount, 1);
+    t.deepEqual(live.getPosition(), new Vector3());
+    const replacement = await scene.addModel(model, { light: Array(7).fill(5) });
+    t.not(replacement, first);
+    t.is(scene.children.length, 3);
+    t.is((scene.children[2] as ModelObject).textureAtlas, atlas);
 });
 
 test("generated item front and back faces retain the tint index of each texture layer", t => {

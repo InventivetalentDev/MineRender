@@ -21,6 +21,8 @@ import { Entities } from "../../../assets/Entities";
 import type { EntityObject } from "../../../entity/scene/EntityObject";
 import { Biomes } from "../../../assets/Biomes";
 import type { TripleArray } from "../../Model";
+import { CUBE_FACE_OFFSETS } from "../../../CubeFace";
+import { copyFaceLight } from "../../../world/_light/FaceLight";
 
 /** Controls the model parts selected by a blockstate. Create it through {@link MineRenderScene.addBlock}. */
 export class BlockObject extends SceneObject {
@@ -45,6 +47,8 @@ export class BlockObject extends SceneObject {
     private _models: (ModelObject | InstanceReference<ModelObject>)[] = [];
     private _cullMask = 0;
     private _fluidKey?: string;
+    private _lightRefreshPending = false;
+    private _modelOptionsGeneration = 0;
     private _fluidRules: FluidRules = {};
     private _fluidSampler?: FluidSampler;
     private readonly biomePosition?: TripleArray;
@@ -57,6 +61,7 @@ export class BlockObject extends SceneObject {
     constructor(readonly blockState: BlockState, options?: Partial<BlockObjectOptions>) {
         super(options);
         this.options = merge({}, BlockObject.DEFAULT_OPTIONS, options ?? {});
+        this.options.light = copyFaceLight(options?.light);
         this.variantPosition = options?.variantPosition ? [...options.variantPosition] : undefined;
         this.biomePosition = options?.biomePosition ? [...options.biomePosition] : undefined;
         //TODO
@@ -83,6 +88,7 @@ export class BlockObject extends SceneObject {
     }
 
     private clearModels() {
+        this._modelOptionsGeneration++;
         this.removeModels(this._models.splice(0));
         this._entityGeneration++;
         this.removeEntities(this._entities.splice(0));
@@ -208,6 +214,35 @@ export class BlockObject extends SceneObject {
     }
 
     public async setCullMask(worldMask: number): Promise<void> {
+        await this.updateModelOptions(worldMask, this.options.light);
+    }
+
+    /** Refreshes saved light levels in world-space center, east, west, up, down, south, north order. */
+    public async setLight(light?: readonly number[]): Promise<void> {
+        const levels = copyFaceLight(light);
+        this._modelOptionsGeneration++;
+        if (!this._lightRefreshPending && levels?.join(",") === this.options.light?.join(",")) return;
+        const updating = this.updateModelOptions(this._cullMask, levels);
+        const generation = this._modelOptionsGeneration;
+        if (!await updating || generation !== this._modelOptionsGeneration) return;
+        this.options.light = levels;
+        this._lightRefreshPending = true;
+        await this.updateFluid(this._fluidSampler);
+        if (generation === this._modelOptionsGeneration) this._lightRefreshPending = false;
+    }
+
+    private localLight(light: readonly number[] | undefined, rotation: Euler): number[] | undefined {
+        if (!light) return undefined;
+        return copyFaceLight([light[0], ...CUBE_FACE_OFFSETS.map(offset => {
+            const normal = new Vector3(...offset).applyEuler(rotation);
+            const world = CUBE_FACE_OFFSETS.findIndex(([x, y, z]) =>
+                Math.abs(normal.x - x) < 1e-6 && Math.abs(normal.y - y) < 1e-6 && Math.abs(normal.z - z) < 1e-6);
+            return light[world + 1];
+        })]);
+    }
+
+    private async updateModelOptions(worldMask: number, light?: readonly number[]): Promise<boolean> {
+        const generation = ++this._modelOptionsGeneration;
         worldMask &= 63;
         const replacements: (ModelObject | InstanceReference<ModelObject>)[] = [];
         try {
@@ -218,13 +253,21 @@ export class BlockObject extends SceneObject {
                 }
                 const object = isInstanceReference(model) ? model.instanceable : model;
                 const cullMask = this.getModelCullMask(model, worldMask);
-                if (cullMask === (object.options.cullMask ?? 0)) {
+                const matrix = this.getModelMatrix(model);
+                const rotation = new Quaternion();
+                matrix.decompose(new Vector3(), rotation, new Vector3());
+                const localLight = this.localLight(light, new Euler().setFromQuaternion(rotation));
+                if (cullMask === (object.options.cullMask ?? 0) && localLight?.join(",") === object.options.light?.join(",")) {
                     replacements.push(model);
                     continue;
                 }
-                const matrix = this.getModelMatrix(model);
-                const replacement = await this.scene.addModel(object.originalModel, { ...object.options, cullMask });
+                const replacement = await this.scene.addModel(object.originalModel, { ...object.options, cullMask, light: localLight });
                 replacements.push(replacement);
+                if (generation !== this._modelOptionsGeneration) {
+                    this.removeModels(replacements.filter(model => !this._models.includes(model)));
+                    this.scene.pruneLightingInstances();
+                    return false;
+                }
                 if (isInstanceReference(replacement)) {
                     replacement.setMatrix(matrix);
                 } else {
@@ -247,6 +290,7 @@ export class BlockObject extends SceneObject {
             this.setVisible(false);
         }
         this.notifyDirty();
+        return true;
     }
 
     /** Selected property values. Use {@link setState} to change properties and rebuild the rendered models. */
@@ -264,6 +308,7 @@ export class BlockObject extends SceneObject {
 
     /** Refreshes fluid surfaces from relative neighbors; standalone previews use air around the block. */
     public async updateFluid(sample?: FluidSampler): Promise<void> {
+        const generation = this._modelOptionsGeneration;
         const kind = this.fluidKind;
         if (!kind) return;
         const { FluidModelObject, sampleFluid } = await import("../../fluid/FluidModelObject");
@@ -271,13 +316,18 @@ export class BlockObject extends SceneObject {
         const surface = sampleFluid(kind, (x, y, z) => x === 0 && y === 0 && z === 0
             ? { fluid: kind, level: this.fluidLevel } : sample?.(x, y, z) ?? {});
         const tint = this.options.tints?.[0] ?? this.waterTint;
-        const fluidKey = `${surface.key}|${tint ?? "default"}`;
+        const fluidKey = `${surface.key}|${tint ?? "default"}|${this.options.light?.join(",") ?? ""}`;
         if (this._fluidKey === fluidKey) return;
         const key = new AssetKey("minecraft", `${kind}/${surface.key}`, "models", "fluid", "assets", ".json", this.blockState.key?.root);
         const replacement = await this.scene.addSceneObject({ key },
             () => new FluidModelObject(kind, surface.sample, this.blockState.key, {
                 ...this.options, tints: tint === undefined ? this.options.tints : { ...this.options.tints, 0: tint }
             }));
+        if (generation !== this._modelOptionsGeneration) {
+            this.removeModels([replacement]);
+            this.scene.pruneLightingInstances();
+            return;
+        }
         const previous = this._fluidModel;
         const matrix = previous ? this.getModelMatrix(previous) : new Matrix4().makeTranslation(...this.position.toArray());
         if (isInstanceReference(replacement)) replacement.setMatrix(matrix);
@@ -391,6 +441,7 @@ export class BlockObject extends SceneObject {
                 () => BlockTints.getBiomeColor(this.blockState.key, this.options.biome, this.biomePosition)) : this.options.tints,
             uvLockRotation: variant.uvlock && (rotation.x !== 0 || rotation.y !== 0)
                 ? [rotation.x, rotation.y, rotation.z] : undefined,
+            light: this.localLight(this.options.light, rotation),
             cullMask: this.options.displayPosition ? 0 : ModelCulling.toLocalMask(this._cullMask, rotation)
         };
         const obj = await this.scene.addModel(model!, options);
@@ -542,6 +593,8 @@ export class BlockObject extends SceneObject {
 
 /** Block settings passed to `scene.addBlock(blockState, options)` or the BlockObject constructor. */
 export interface BlockObjectOptions extends ModelObjectOptions {
+    /** Saved light levels in world-space center, east, west, up, down, south, north order. */
+    light?: readonly number[];
     /** Loads vanilla property defaults before applying `initialState`. Defaults to `true`. */
     applyDefaultState: boolean;
     /** Properties applied before model creation, overriding defaults when applyDefaultState is enabled. */

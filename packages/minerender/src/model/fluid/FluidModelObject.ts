@@ -3,6 +3,7 @@ import { AssetKey } from "../../assets/AssetKey";
 import { Materials } from "../../Materials";
 import { ModelObject, ModelObjectOptions } from "../scene/ModelObject";
 import { createFluidGeometry, FluidKind, FluidSampler } from "./FluidGeometry";
+import { fluidLightLevel, lightBrightness } from "../../world/_light/FaceLight";
 
 /** Saved fluid levels and solid neighbors determine the geometry shared by an instance pool. */
 export function sampleFluid(kind: FluidKind, sample: FluidSampler): { key: string; sample: FluidSampler } {
@@ -51,7 +52,12 @@ export class FluidModelObject extends ModelObject {
         geometry.clearGroups();
         const color = new Color(this.options.tints?.[0] ?? (this.kind === "water" ? 0x3f76e4 : 0xffffff));
         const colors = new Float32Array(geometry.getAttribute("position").count * 3);
-        for (let i = 0; i < colors.length; i += 3) color.toArray(colors, i);
+        const normals = geometry.getAttribute("normal");
+        for (let vertex = 0; vertex < normals.count; vertex++) {
+            const light = this.options.light;
+            const brightness = light ? lightBrightness(fluidLightLevel(light[0], light[normals.getY(vertex) < 0 ? 4 : 3])) : 1;
+            colors.set([color.r * brightness, color.g * brightness, color.b * brightness], vertex * 3);
+        }
         geometry.setAttribute("color", new BufferAttribute(colors, 3));
         geometry.computeBoundingBox();
         geometry.computeBoundingSphere();

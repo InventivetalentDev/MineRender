@@ -11,6 +11,7 @@ export class InstanceManager {
     public readonly isInstanceManager: true = true;
 
     protected readonly instanceCache: { [key: string]: Promise<InstanceReference<SceneObject>>; } = {};
+    private readonly initialized = new Map<string, SceneObject>();
 
     constructor() {
     }
@@ -20,7 +21,10 @@ export class InstanceManager {
         if (key in this.instanceCache) {
             console.debug(p, "key in cache", key)
             // create next instance of existing object
-            return (await this.instanceCache[key]).nextInstance() as InstanceReference<T>;
+            const pending = this.instanceCache[key];
+            const reference = await pending;
+            if (this.instanceCache[key] !== pending) return undefined;
+            return reference.nextInstance() as InstanceReference<T>;
         }
         return undefined;
     }
@@ -28,10 +32,15 @@ export class InstanceManager {
     /** Allocates a placement, calling the supplier once when the shared model is first needed. */
     public async getOrCreate<T extends SceneObject>(key: string, supplier: () => T | Promise<T>): Promise<InstanceReference<T>> {
         if (key in this.instanceCache) {
-            return await (this.get<T>(key)) as InstanceReference<T>;
+            const reference = await this.get<T>(key);
+            return reference ?? this.getOrCreate(key, supplier);
         }
         console.debug(p, "key not in cache", key)
-        const pending = Promise.resolve().then(supplier).then(obj => obj.nextInstance());
+        const pending = Promise.resolve().then(supplier).then(obj => {
+            const reference = obj.nextInstance();
+            if (this.instanceCache[key] === pending) this.initialized.set(key, obj);
+            return reference;
+        });
         this.instanceCache[key] = pending;
         try {
             return await pending as InstanceReference<T>;
@@ -43,8 +52,23 @@ export class InstanceManager {
         }
     }
 
+    /** Disposes matching initialized pools with no live placements, leaving pending and active pools alone. */
+    public pruneUnused(matches: (object: SceneObject) => boolean): number {
+        let removed = 0;
+        for (const [key, object] of this.initialized) {
+            if (object.instanceCounter || !matches(object)) continue;
+            this.initialized.delete(key);
+            delete this.instanceCache[key];
+            object.removeFromScene();
+            object.dispose();
+            removed++;
+        }
+        return removed;
+    }
+
     /** Forgets cached models without disposing them or releasing their existing placements. */
     public reset() {
+        this.initialized.clear();
         for (let instanceCacheKey in this.instanceCache) {
             delete this.instanceCache[instanceCacheKey];
         }

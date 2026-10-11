@@ -20,6 +20,8 @@
             <label>Or choose region and chunk files<input id="region-files" type="file" accept=".mca,.mcc" multiple></label>
             <label>Dimension<select id="dimension" disabled><option>Sample terrain</option></select></label>
             <label class="control-checkbox"><span>Render saved mobs</span><input id="render-entities" type="checkbox"></label>
+            <label class="control-checkbox"><span>Saved lighting</span><input id="saved-lighting" type="checkbox"></label>
+            <p class="control-note">Saved lighting shades terrain using the world’s stored light. Missing or invalid light data keeps preview brightness.</p>
             <p id="source-info" class="control-note">Procedural terrain with no world download.</p>
             <label>Minecraft asset version<input id="asset-version" value="1.21.11" spellcheck="false"></label>
             <button id="apply-version" type="button">Apply version</button>

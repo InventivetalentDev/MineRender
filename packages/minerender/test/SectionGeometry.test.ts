@@ -190,3 +190,45 @@ test("section geometry validates atlas sizes and entry array lengths", t => {
     t.deepEqual(buildSectionGeometry(source), []);
     t.deepEqual(buildSectionGeometry({ ...source, count: 0 }), []);
 });
+
+test("section light samples boundary faces after rotation and multiplies existing linear tint", t => {
+    const source = input();
+    source.count = 1;
+    source.indices[0] = 0;
+    source.cullMasks[0] = 0;
+    source.light = new Uint8Array(5832).fill(255);
+    source.light[343] = 5;
+    source.light[343 - 18] = 10;
+    source.light[343 + 18] = 0;
+    const [page] = buildSectionGeometry(source);
+    // The template's first two faces rotate from east/west to north/south.
+    t.deepEqual(Array.from(page.colors.slice(0, 3)), Array.from(new Float32Array([0.25 / 3, 0.5 / 3, 0.75 / 3])));
+    t.deepEqual(Array.from(page.colors.slice(12, 15)), [0, 0, 0]);
+    t.deepEqual(Array.from(page.colors.slice(24, 27)), [0.25, 0.5, 0.75]);
+    source.templateData[0].positions = source.templateData[0].positions.map(value => value / 2);
+    const [inset] = buildSectionGeometry(source);
+    t.deepEqual(Array.from(inset.colors.slice(0, 3)), Array.from(new Float32Array([0.25 / 9, 0.5 / 9, 0.75 / 9])));
+});
+
+test("section fluids use center and vertical light samples while retaining water tint", t => {
+    const source = input();
+    source.count = 0;
+    source.fluids = { cells: new Uint8Array(5832), water: { atlas: 0, still: [0, 0, 2, 2], flow: [0, 0, 2, 2], tint: [0.25, 0.5, 0.75] } };
+    source.fluids.cells[343] = 16;
+    source.light = new Uint8Array(5832);
+    source.light[343] = 5;
+    source.light[343 + 324] = 10;
+    const [page] = buildSectionGeometry(source);
+    for (let vertex = 0; vertex < page.normals.length / 3; vertex++) {
+        const brightness = page.normals[vertex * 3 + 1] < 0 ? 1 / 9 : 1 / 3;
+        t.deepEqual(Array.from(page.colors.slice(vertex * 3, vertex * 3 + 3)),
+            Array.from(new Float32Array([0.25, 0.5, 0.75].map(value => value * brightness))));
+    }
+});
+
+test("section light rejects invalid lengths and levels", t => {
+    for (const light of [new Uint8Array(7), new Uint8Array(5832).fill(16)]) {
+        t.throws(() => buildSectionGeometry({ ...input(), light }), { instanceOf: RangeError,
+            message: "Section light must cover an 18×18×18 neighborhood with levels from 0 to 15 or 255" });
+    }
+});
