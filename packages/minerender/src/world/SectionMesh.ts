@@ -25,6 +25,8 @@ export interface SectionMeshEntry {
 /** Fluid cells for one section and the shared atlases of the kinds present. */
 export interface SectionFluids {
     cells: Uint8Array;
+    /** Linear RGB per section cell, indexed by (x + 16z + 256y) * 3. */
+    waterTints?: Float32Array;
     water?: TextureAtlas;
     lava?: TextureAtlas;
 }
@@ -90,7 +92,7 @@ function toInput(entries: readonly SectionMeshEntry[], maxAtlasSize: number, flu
         input.cullMasks[i] = cullMask;
     }
     if (fluids) {
-        input.fluids = { cells: fluids.cells };
+        input.fluids = { cells: fluids.cells, waterTints: fluids.waterTints };
         for (const kind of ["water", "lava"] as const) {
             const atlas = fluids[kind];
             if (!atlas) continue;

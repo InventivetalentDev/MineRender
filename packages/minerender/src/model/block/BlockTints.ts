@@ -3,13 +3,29 @@ import { Colormaps } from "../../texture/Colormaps";
 import type { Model } from "../Model";
 import type { BlockStateProperties } from "./BlockStateProperties";
 import { MineRenderData } from "../../assets/MineRenderData";
+import { Biomes, BiomeColorKind } from "../../assets/Biomes";
+import type { TripleArray } from "../Model";
 
-/** Supplies block-preview tint colors from block properties and the active resource pack. */
+/** Supplies block tint colors from versioned rendering rules and the active resource pack. */
 export class BlockTints {
 
-    /** Resolves block preview colors without biome context; explicit tints take precedence. */
+    /** Returns a block's versioned biome color source, leaving fixed-color blocks unchanged. */
+    public static async biomeSource(key?: AssetKey): Promise<BiomeColorKind | undefined> {
+        const rule = key && (await MineRenderData.get("blockTints", key.root))[key.toNamespacedString()];
+        return rule ? rule.biome ?? (rule.source === "grass" ? "grass" : undefined) : undefined;
+    }
+
+    /** Resolves one block's biome tint at world block coordinates, without biome blending. */
+    public static async getBiomeColor(key?: AssetKey, biome?: string, position?: Readonly<TripleArray>): Promise<number | undefined> {
+        if (!biome) return undefined;
+        const x = position?.[0], z = position?.[2];
+        const source = await this.biomeSource(key);
+        return source ? Biomes.getColor(biome, source, key, x, z) : undefined;
+    }
+
+    /** Resolves used tint indices from biome or preview colors; explicit tints take precedence. */
     public static async get(key: AssetKey | undefined, state: BlockStateProperties, model: Model,
-                            tints?: Record<number, number>): Promise<Record<number, number> | undefined> {
+                            tints?: Record<number, number>, biomeColor?: number | (() => Promise<number | undefined>)): Promise<Record<number, number> | undefined> {
         if (!key) return tints;
         const candidates = (model.elements ?? []).flatMap(element => Object.values(element.faces))
             .some(face => face?.tintindex !== undefined && face.tintindex >= 0 && tints?.[face.tintindex] === undefined);
@@ -28,8 +44,12 @@ export class BlockTints {
         }
         if (!indices.size) return tints;
 
+        const source = rule.biome ?? (rule.source === "grass" ? "grass" : undefined);
+        const biome = source ? typeof biomeColor === "function" ? await biomeColor() : biomeColor : undefined;
         let color: number;
-        switch (rule.source) {
+        if (biome !== undefined) {
+            color = biome;
+        } else switch (rule.source) {
             case "constant":
                 color = rule.color;
                 break;

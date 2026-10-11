@@ -3,6 +3,7 @@ import { AssetLoader } from "./AssetLoader";
 import { AssetParser } from "./source/parser/AssetParsers";
 import { Caching } from "../cache/Caching";
 import type { BlockStatePropertyDefaults } from "../model/block/BlockStateProperties";
+import type { BiomeColorKind } from "./Biomes";
 
 export interface MineRenderDatasets {
     itemDefaults: Record<string, Record<string, unknown>>;
@@ -11,7 +12,10 @@ export interface MineRenderDatasets {
         potions: Record<string, { id: string; amplifier: number }[]>;
     };
     blockStates: Record<string, BlockStatePropertyDefaults>;
-    blockTints: Record<string, ({ source: "constant"; color: number } | { source: "grass" | "stem" | "redstone" }) & { untinted?: number[] }>;
+    blockTints: Record<string, ({ source: "constant"; color: number } | { source: "grass" | "stem" | "redstone" }) & {
+        untinted?: number[];
+        biome?: BiomeColorKind;
+    }>;
     fluids: Record<string, { kind: "water" | "lava"; renderModel: boolean; levelProperty?: string }>;
     dyes: Record<string, { id: number; textureDiffuseColor: number; fireworkColor: number; textColor: number }>;
     legacyBlocks: { blocks: Record<string, string> };
@@ -151,7 +155,8 @@ export class MineRenderData {
                 case "itemDefaults": return true;
                 case "blockStates": return Object.values(value).every(property => object(property) && "default" in property && Array.isArray(property.values));
                 case "blockTints": return ["constant", "grass", "stem", "redstone"].includes(value.source)
-                    && (value.source !== "constant" || Number.isInteger(value.color));
+                    && (value.source !== "constant" || Number.isInteger(value.color))
+                    && (value.biome === undefined || ["grass", "foliage", "dry_foliage", "water"].includes(value.biome));
                 case "fluids": return ["water", "lava"].includes(value.kind) && typeof value.renderModel === "boolean"
                     && (value.levelProperty === undefined || typeof value.levelProperty === "string");
                 case "dyes": return [value.id, value.textureDiffuseColor, value.fireworkColor, value.textColor].every(Number.isInteger);
