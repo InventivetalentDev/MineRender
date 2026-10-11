@@ -373,7 +373,7 @@ async function streamAround(context: ExampleContext, center: Vector3): Promise<(
 const flying: Example = {
     id: "structure-flying",
     title: "Fly through the terrain",
-    description: "Creative-style flight: click the view, then W/A/S/D move, space rises, shift descends, control sprints, and the mouse looks around. Scroll to change the speed, as in spectator mode. On touch screens, the left half is a joystick and the right half looks.",
+    description: "Creative-style flight: click the view, then W/A/S/D move, space rises, shift descends, R sprints, and the mouse looks around. Scroll to change the speed, as in spectator mode. On touch screens, the left half is a joystick and the right half looks.",
     renderer: {
         camera: {
             position: [128, 220, 300] as [number, number, number],
@@ -397,7 +397,7 @@ const flying: Example = {
         esm: `${esmRenderer("ChunkData", "MineRenderWorld", "WorldStreamer")}
 
 // controls.mode: "fly" replaces OrbitControls with creative-style flight.
-// WASD moves along the view direction, space/shift move vertically, control sprints,
+// WASD moves along the view direction, space/shift move vertically, R sprints,
 // the mouse looks around (click to capture it, Esc releases), and the wheel changes the speed.
 const renderer = new Renderer({
     camera: { position: [128, 220, 300], lookingAt: [128, 100, 128], far: 10000 },
@@ -416,8 +416,10 @@ const streamer = new WorldStreamer(world, terrain, { loadRadius: 2, unloadRadius
 await streamer.updatePosition(renderer.camera.position);
 fly.addEventListener("change", () => void streamer.updatePosition(renderer.camera.position));
 
-// Switch modes at runtime; the camera stays where it is
-renderer.setControlsMode("orbit");`
+// Switch modes at runtime; the camera stays where it is.
+// The switch creates a new controls object, so add listeners and settings again.
+renderer.setControlsMode("orbit");
+renderer.orbitControls!.addEventListener("change", () => void streamer.updatePosition(renderer.orbitControls!.target));`
     }
 };
 
