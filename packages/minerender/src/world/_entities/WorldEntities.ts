@@ -4,9 +4,9 @@ import type { MultiBlockEntity } from "../../model/multiblock/MultiBlockStructur
 import type { MineRenderScene } from "../../renderer/MineRenderScene";
 import { resolveSavedEntity } from "./SavedEntities";
 import { BannerPatterns } from "../../assets/BannerPatterns";
-import { Matrix3, Mesh, Object3D, Raycaster, Vector3 } from "three";
-import { isMesh } from "../../util/three";
+import { Mesh, Raycaster, Vector3 } from "three";
 import type { WorldEntityIntersection } from "../WorldEntityIntersection";
+import { hitNormal, pickableMeshes, visibleHits } from "../_picking/Picking";
 
 /** Owns static entity placements independently of the world's block sections. */
 export class WorldEntities {
@@ -19,30 +19,20 @@ export class WorldEntities {
         const owners = new Map<Mesh, { object: EntityObject; type: string; position: MultiBlockEntity["position"] }>();
         for (const column of this.columns.values()) {
             for (const [object, placement] of column) {
-                let attached = false, visible = true;
-                for (let parent: Object3D | null = object; parent; parent = parent.parent) {
-                    if (!parent.visible) { visible = false; break; }
-                    if (parent === this.scene) attached = true;
+                for (const mesh of pickableMeshes(object, this.scene, raycaster)) {
+                    owners.set(mesh, { object, ...placement });
                 }
-                if (!attached || !visible) continue;
-                object.updateWorldMatrix(true, true);
-                object.traverseVisible(child => {
-                    if (isMesh(child) && raycaster.layers.test(child.layers)) owners.set(child, { object, ...placement });
-                });
             }
         }
-        for (const hit of raycaster.intersectObjects([...owners.keys()], false)) {
-            if (!hit.face) continue;
+        for (const hit of visibleHits(raycaster, [...owners.keys()])) {
             const mesh = hit.object as Mesh;
-            const material = Array.isArray(mesh.material) ? mesh.material[hit.face.materialIndex] : mesh.material;
-            if (!material?.visible) continue;
             const owner = owners.get(mesh)!;
             return {
                 type: owner.type,
                 position: new Vector3(...owner.position),
                 object: owner.object,
                 point: hit.point.clone(),
-                normal: hit.face.normal.clone().applyNormalMatrix(new Matrix3().getNormalMatrix(mesh.matrixWorld)),
+                normal: hitNormal(hit),
                 distance: hit.distance
             };
         }
