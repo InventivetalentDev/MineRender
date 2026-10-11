@@ -75,7 +75,7 @@ function frameScene(): void {
     const explicitPosition = request.view.camera?.position ?? definition?.camera?.position;
     const position = savedCamera?.position ?? explicitPosition;
     const selectedTarget = savedCamera?.target ?? request.view.camera?.target ?? definition?.camera?.target;
-    const direction = camera.position.clone().sub(renderer.controls?.target ?? target);
+    const direction = camera.position.clone().sub(renderer.orbitControls?.target ?? target);
     target.copy(selectedTarget ? new Vector3(...selectedTarget) : center);
     if (position) {
         camera.position.fromArray(position);
@@ -92,8 +92,8 @@ function frameScene(): void {
     camera.far = Math.max(10000, distance + radius * 4);
     camera.lookAt(target);
     camera.updateProjectionMatrix();
-    renderer.controls?.target.copy(target);
-    renderer.controls?.update();
+    renderer.orbitControls?.target.copy(target);
+    renderer.orbitControls?.update();
     renderer.dirty = true;
     fitOnResize = !explicitPosition;
     savedCamera = undefined;
@@ -125,7 +125,7 @@ async function initialize(): Promise<void> {
         const view = new Renderer({
             render: { pixelRatio: 1, antialias: true, autoResize: false, stats: false, fpsLimit: 60 },
             composer: { enabled: false },
-            controls: { enabled: source.view.controls.enabled },
+            controls: { enabled: source.view.controls.enabled, mode: "orbit" },
             camera: { position: scene.objects.every(object => object.type === "gui") ? [0, 0, 50] : [40, 30, 50], near: 0.1, far: 10000 },
             debug: { grid: false, axes: false }
         });
@@ -141,11 +141,11 @@ async function initialize(): Promise<void> {
         const background = source.view.background;
         if (background !== null) view.renderer.setClearColor(new Color(background), 1);
         viewport.classList.toggle("shadow", source.view.shadow);
-        if (view.controls) {
-            view.controls.enableZoom = source.view.controls.zoom;
-            view.controls.enableRotate = source.view.controls.rotate;
-            view.controls.enablePan = source.view.controls.pan;
-            view.controls.update();
+        if (view.orbitControls) {
+            view.orbitControls.enableZoom = source.view.controls.zoom;
+            view.orbitControls.enableRotate = source.view.controls.rotate;
+            view.orbitControls.enablePan = source.view.controls.pan;
+            view.orbitControls.update();
         }
         const content = await SceneDocumentLoader.load(view.scene, scene);
         if (current !== revision || disposed) { content.dispose(); return; }
@@ -160,7 +160,7 @@ async function initialize(): Promise<void> {
             stopFrames = view.onFrame(({ delta }) => {
                 if (animated) content.advanceAnimations(delta);
                 if (source.view.autorotate) {
-                    const pivot = view.controls?.target ?? target;
+                    const pivot = view.orbitControls?.target ?? target;
                     offset.copy(view.camera.position).sub(pivot).applyAxisAngle(up, source.view.autorotate * Math.PI / 180 * delta);
                     view.camera.position.copy(pivot).add(offset);
                     view.camera.lookAt(pivot);
@@ -222,7 +222,7 @@ function releaseRenderer(): void {
 
 function suspend(): void {
     if (renderer && loaded && framed) {
-        savedCamera = { position: renderer.camera.position.toArray(), target: (renderer.controls?.target ?? target).toArray() };
+        savedCamera = { position: renderer.camera.position.toArray(), target: (renderer.orbitControls?.target ?? target).toArray() };
         for (const entry of loaded.objects) {
             if (isEntityObject(entry.object)) playback.set(entry.definition.id, entry.object.animationTime);
         }
