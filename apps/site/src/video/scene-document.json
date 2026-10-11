@@ -1,0 +1,15 @@
+{
+    "format": "minerender-scene",
+    "version": 1,
+    "camera": { "position": [70, 48, 120], "target": [6, 14, 0] },
+    "objects": [
+        { "id": "grass", "type": "block", "asset": "minecraft:grass_block", "position": [0, 8, 0] },
+        { "id": "table", "type": "block", "asset": "minecraft:crafting_table", "position": [16, 8, 0] },
+        { "id": "stairs", "type": "block", "asset": "minecraft:oak_stairs", "state": { "facing": "west" }, "position": [-16, 8, 0] },
+        { "id": "player", "type": "skin", "skin": "https://assets.mcasset.cloud/1.21.11/assets/minecraft/textures/entity/player/wide/steve.png",
+          "position": [-36, 0, 12], "rotation": [0, 0.5, 0], "hiddenParts": ["hat"], "pose": { "rightArm": [-2.4, 0, -0.2], "head": [-0.1, 0.3, 0] } },
+        { "id": "creeper", "type": "entity", "asset": "minecraft:creeper", "when": ["powered"], "position": [40, 0, 14], "rotation": [0, -0.4, 0] },
+        { "id": "pickaxe", "type": "item", "asset": "minecraft:diamond_pickaxe", "position": [8, 30, 0], "rotation": [0, 0.3, 0],
+          "context": { "components": { "minecraft:enchantments": { "minecraft:efficiency": 5 } } } }
+    ]
+}

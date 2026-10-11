@@ -49,11 +49,12 @@ function terrain(): MultiBlockBlock[] {
 }
 
 let blockCount = 0;
+const FLY_AT = 4.6;
 
 /** Generated terrain across several chunks with section meshing, revealed by a camera pull-back. */
 export const worldTerrain: Shot = {
     id: "world",
-    seconds: 8,
+    seconds: 9,
     renderer: { camera: { far: 30000 } },
     async prepare({ renderer }) {
         const blocks = terrain();
@@ -63,17 +64,19 @@ export const worldTerrain: Shot = {
     },
     update({ camera, overlay, renderer, portrait }, t) {
         const center = SIZE * 8;
-        const pull = smooth(t, 0, 7.5);
+        const pull = smooth(t, 0, 8.5);
         const distance = lerp(SIZE * 9, SIZE * (portrait ? 26 : 17), pull);
         const angle = 0.7 + t * 0.05;
         camera.position.set(center + Math.sin(angle) * distance, lerp(300, SIZE * 9, pull), center + Math.cos(angle) * distance);
         camera.lookAt(center, 120, center);
-        const stats = renderer.scene.stats;
+        const flying = t >= FLY_AT;
         overlay.set({
             surface: range(t, 0, 0.4),
-            caption: "Whole <accent>worlds</accent>:\nchunks, culling, section meshes",
-            captionOpacity: fade(t, 1.0, 99, 0.4),
-            stat: `${blockCount} blocks · ${stats.sceneObjectCount} meshes`,
+            caption: flying ? "Stream chunks around the view,\norbit or <accent>fly</accent> through them" : "Whole <accent>worlds</accent>:\nchunks, culling, section meshes",
+            captionOpacity: flying ? fade(t, FLY_AT, 99, 0.4) : fade(t, 1.0, FLY_AT, 0.4),
+            code: "controls: { enabled: true, mode: \"fly\" }",
+            codeOpacity: fade(t, FLY_AT + 0.3, 99, 0.4),
+            stat: `${blockCount} blocks · ${CHUNKS * CHUNKS} chunk columns`,
             statOpacity: range(t, 2.0, 2.6)
         });
     }

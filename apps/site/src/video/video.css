@@ -71,6 +71,23 @@ html, body { margin: 0; padding: 0; background: #000; }
     white-space: pre;
 }
 
+.overlay-caption.is-upper { bottom: auto; top: calc(var(--u) * 10); }
+.overlay-code.is-left { right: auto; left: calc(var(--u) * 6); }
+.overlay-code.is-top { bottom: auto; top: calc(var(--u) * 7); }
+
+.overlay-image {
+    position: absolute;
+    right: calc(var(--u) * 7); top: 50%;
+    transform: translateY(-50%);
+    max-width: calc(var(--u) * 64);
+    max-height: calc(var(--u) * 60);
+    border-radius: calc(var(--u) * 1.2);
+    background: #fff;
+    padding: calc(var(--u) * 2);
+    box-shadow: 0 calc(var(--u) * 2) calc(var(--u) * 6) rgba(0, 0, 0, 0.35);
+    opacity: 0;
+}
+
 .overlay-stat {
     position: absolute;
     right: calc(var(--u) * 6); top: calc(var(--u) * 5);
@@ -81,6 +98,10 @@ html, body { margin: 0; padding: 0; background: #000; }
 }
 
 .stage.is-portrait .overlay-caption { left: calc(var(--u) * 4); right: calc(var(--u) * 4); bottom: calc(var(--u) * 14); max-width: none; font-size: 4em; }
-.stage.is-portrait .overlay-code { left: calc(var(--u) * 4); right: calc(var(--u) * 4); bottom: calc(var(--u) * 4); font-size: 1.7em; }
-.stage.is-portrait .overlay-stat { right: calc(var(--u) * 4); top: calc(var(--u) * 4); }
+.stage.is-portrait .overlay-caption.is-upper { bottom: auto; top: calc(var(--u) * 8); }
+.stage.is-portrait .overlay-code { left: calc(var(--u) * 4); right: calc(var(--u) * 4); bottom: calc(var(--u) * 4); font-size: 1.5em; white-space: pre-wrap; overflow-wrap: anywhere; }
+/* Portrait frames keep their subject in the middle, so code goes to the top unless the shot asked for the lower left (the Node shot's image is up there). */
+.stage.is-portrait .overlay-code:not(.is-left) { bottom: auto; top: calc(var(--u) * 5); }
+.stage.is-portrait .overlay-image { left: calc(var(--u) * 4); right: auto; top: calc(var(--u) * 24); transform: none; max-width: calc(var(--u) * 48); max-height: calc(var(--u) * 40); }
+.stage.is-portrait .overlay-stat { right: calc(var(--u) * 4); top: auto; bottom: calc(var(--u) * 8); }
 .stage.is-portrait .overlay-heading { font-size: 7em; }

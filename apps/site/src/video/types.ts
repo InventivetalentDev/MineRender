@@ -13,6 +13,13 @@ export interface ShotContext {
     height: number;
     /** True for the vertical cut; shots may reframe the camera. */
     portrait: boolean;
+    /**
+     * URL prefix under which the dev server exposes the repository root (`/@fs/...`), set by the
+     * driver. Undefined in preview mode; shots fall back to showing less.
+     */
+    fsBase?: string;
+    /** URL of the Node renderer's PNG of the scene document, made by the driver before the browser started. */
+    nodeImage?: string;
 }
 
 export interface Shot {

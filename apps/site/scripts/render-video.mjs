@@ -6,12 +6,13 @@
 //   yarn workspace @minerender/site video --headed              real GPU through a visible Chrome window (viewport at device scale 2)
 //   yarn workspace @minerender/site video --scale 1             CSS pixels equal output pixels (default headless; needs a big enough window when headed)
 //   yarn workspace @minerender/site video --supersample 2       render at 2x and downscale (4x the GPU work; smooths leaves and other cutout textures)
+//   yarn workspace @minerender/site video --skip-node           reuse the last Node render of the scene document
 //   CHROME_PATH=/path/to/chrome yarn workspace @minerender/site video
 //
 // Each shot is loaded with the clock running (assets load in real time), then stepped frame by
 // frame on the injected virtual clock. Every frame is screenshotted and piped into ffmpeg; the
 // per-shot clips are joined with crossfades into .video/<timeline>.mp4.
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
@@ -52,6 +53,30 @@ if (!fs.existsSync(chrome)) {
 }
 fs.mkdirSync(clipDir, { recursive: true });
 
+// The Node shot shows a real server-side render of the scene document, made here before Chrome starts.
+const nodeImage = path.join(outDir, "node", "document.png");
+if (!args["skip-node"]) {
+    // Run inside the output folder so the Node library's persistent caches land there, not in the package.
+    fs.mkdirSync(path.dirname(nodeImage), { recursive: true });
+    const result = spawnSync(process.execPath, [path.join(root, "scripts", "render-document.mjs"), nodeImage], {
+        cwd: path.dirname(nodeImage),
+        stdio: ["ignore", "inherit", "pipe"]
+    });
+    if (result.status !== 0) {
+        console.error(`[driver] Node render failed:\n${result.stderr}`);
+        process.exit(1);
+    }
+}
+// Files outside public/ are served by the dev server through /@fs/ when they are inside the workspace.
+const repoRoot = path.resolve(root, "..", "..");
+const fsBase = `/@fs${repoRoot}`;
+const nodeImageUrl = `${fsBase}${nodeImage.slice(repoRoot.length)}`;
+
+// A render takes long enough for the Mac to go to sleep; keep it awake while this process lives.
+if (process.platform === "darwin") {
+    spawn("caffeinate", ["-i", "-w", String(process.pid)], { stdio: "ignore", detached: true }).on("error", () => undefined).unref();
+}
+
 const server = args.url ? undefined : await startDevServer();
 const browser = await puppeteer.launch({
     executablePath: chrome,
@@ -73,7 +98,7 @@ try {
     await page.evaluateOnNewDocument(fs.readFileSync(path.join(root, "scripts", "virtual-clock.js"), "utf8"));
     // Diagnostic: screenshots must not change the page size, or Chrome re-lays out every frame.
     await page.evaluateOnNewDocument(() => { window.__resizes = 0; window.addEventListener("resize", () => { window.__resizes++; }); });
-    await page.goto(`${base}video.html?timeline=${encodeURIComponent(timeline)}&w=${cssWidth}&h=${cssHeight}&dpr=${scale}`, { waitUntil: "domcontentloaded" });
+    await page.goto(`${base}video.html?timeline=${encodeURIComponent(timeline)}&w=${cssWidth}&h=${cssHeight}&dpr=${scale}&fs=${encodeURIComponent(fsBase)}&node=${encodeURIComponent(nodeImageUrl)}`, { waitUntil: "domcontentloaded" });
     await page.waitForFunction(() => window.__video?.ready === true, { timeout: 60000 });
 
     const shots = (await page.evaluate(fps => window.__video.list(fps), fps))
@@ -85,7 +110,7 @@ try {
         const clip = path.join(clipDir, `${String(index).padStart(2, "0")}-${shot.id}.mp4`);
         const started = Date.now();
         process.stdout.write(`${shot.id}: loading… `);
-        const info = await page.evaluate(({ id, fps }) => window.__video.load(id, fps), { id: shot.id, fps });
+        const info = await loadShot(page, shot.id);
         process.stdout.write(`${((Date.now() - started) / 1000).toFixed(1)}s, ${info.frames} frames\n`);
 
         const encoder = startEncoder(clip);
@@ -101,7 +126,7 @@ try {
         }
         encoder.stdin.end();
         await encoder.done;
-        const resizes = await page.evaluate(() => window.__resizes);
+        const resizes = await page.evaluate(() => { const n = window.__resizes; window.__resizes = 0; return n; });
         if (resizes) console.error(`[driver] page resized ${resizes} times during ${shot.id}; frames may be inconsistent`);
         process.stdout.write(`\r${shot.id}: ${path.relative(root, clip)}                              \n`);
         clips.push({ ...info, clip });
@@ -129,6 +154,19 @@ async function capture(page, attempt = 0) {
     }
 }
 
+/** Loads a shot, retrying once: asset loading goes over the network and a dropped request should not end a long render. */
+async function loadShot(page, id) {
+    for (let attempt = 1; ; attempt++) {
+        try {
+            return await page.evaluate(({ id, fps }) => window.__video.load(id, fps), { id, fps });
+        } catch (error) {
+            if (attempt >= 3) throw error;
+            console.error(`\n[driver] loading ${id} failed (${error.message.split("\n")[0]}); retrying`);
+            await new Promise(resolve => setTimeout(resolve, 3000));
+        }
+    }
+}
+
 function parseArgs(argv) {
     const result = {};
     for (let i = 0; i < argv.length; i++) {
@@ -150,6 +188,7 @@ async function startDevServer() {
     const vite = path.join(path.dirname(require.resolve("vite/package.json")), "bin", "vite.js");
     const child = spawn(process.execPath, [vite, "--host", "127.0.0.1", "--port", String(port), "--strictPort"], {
         cwd: root,
+        env: { ...process.env, MINERENDER_VIDEO: "1" },
         stdio: ["ignore", "ignore", "pipe"]
     });
     let log = "";

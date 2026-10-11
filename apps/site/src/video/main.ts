@@ -81,6 +81,8 @@ const height = Number(params.get("h") ?? 1080);
 /** Device pixels per CSS pixel; the driver uses 2 for headed renders so the window fits the screen. */
 const pixelRatio = Number(params.get("dpr") ?? 1);
 const timelineName = params.get("timeline") ?? "hero";
+const fsBase = params.get("fs") ?? undefined;
+const nodeImage = params.get("node") ?? undefined;
 const shots = timelines[timelineName];
 if (!shots) throw new Error(`Unknown timeline "${timelineName}"`);
 
@@ -123,7 +125,9 @@ async function load(id: string, fps: number): Promise<ShotInfo> {
         overlay,
         width,
         height,
-        portrait: height > width
+        portrait: height > width,
+        fsBase,
+        nodeImage
     };
     current = { shot, renderer, context, abort, fps, frame: 0 };
     await shot.prepare(context);
