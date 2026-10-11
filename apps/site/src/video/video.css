@@ -89,6 +89,17 @@ html, body { margin: 0; padding: 0; background: #000; }
     opacity: 0;
 }
 
+.overlay-brand {
+    position: absolute;
+    left: calc(var(--u) * 6); top: calc(var(--u) * 4);
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: 1.6em;
+    letter-spacing: 0.02em;
+    color: var(--ink-soft);
+    text-shadow: 0 0.1em 0.5em rgba(0, 0, 0, 0.5);
+}
+
 .overlay-stat {
     position: absolute;
     right: calc(var(--u) * 6); top: calc(var(--u) * 5);
@@ -96,6 +107,13 @@ html, body { margin: 0; padding: 0; background: #000; }
     font-size: 2.2em;
     color: var(--ink-soft);
     text-align: right;
+}
+.overlay-credit {
+    position: absolute;
+    left: 0; right: 0; bottom: calc(var(--u) * 3.5);
+    text-align: center;
+    font-size: 1.9em;
+    color: var(--ink-soft);
 }
 
 .stage.is-portrait .overlay-caption { left: calc(var(--u) * 4); right: calc(var(--u) * 4); bottom: calc(var(--u) * 14); max-width: none; font-size: 4em; }
@@ -105,5 +123,8 @@ html, body { margin: 0; padding: 0; background: #000; }
 .stage.is-portrait .overlay-code:not(.is-left) { bottom: auto; top: calc(var(--u) * 5); }
 .stage.is-portrait .overlay-image { left: 50%; right: auto; top: calc(var(--u) * 24); transform: translateX(-50%); max-width: calc(var(--u) * 48); max-height: calc(var(--u) * 40); }
 .stage.is-portrait .overlay-stat { right: calc(var(--u) * 4); top: auto; bottom: calc(var(--u) * 8); }
+/* Portrait shots put code along the top, so the mark moves to the lower right corner. */
+.stage.is-portrait .overlay-brand { left: auto; top: auto; right: calc(var(--u) * 4); bottom: calc(var(--u) * 2); font-size: 1.3em; }
+.stage.is-portrait .overlay-credit { bottom: calc(var(--u) * 4); font-size: 1.6em; }
 .stage.is-portrait .overlay-heading { font-size: 7em; }
 .stage.is-portrait .overlay-title.is-compact .overlay-heading { font-size: 5em; }

@@ -20,7 +20,8 @@ export const open: Shot = {
             heading: "MineRender V2",
             subheading: "Minecraft, rendered in the browser",
             title: fade(t, 1.4, 99, 0.6),
-            titlePosition: "upper"
+            titlePosition: "upper",
+            brand: 0
         });
     }
 };

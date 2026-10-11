@@ -1,5 +1,12 @@
+import { SITE } from "./brand";
+
+/** The site mark stays faint; shots scale this with `brand`. */
+const BRAND_OPACITY = 0.55;
+
 /** Caption, title, code, and stat layers over the canvas. Values are applied per frame; nothing animates on its own. */
 export interface OverlayState {
+    /** Opacity of the small site mark in the corner. Unlike the other layers it shows unless a shot hides it. */
+    brand?: number;
     heading?: string;
     subheading?: string;
     /** Opacity of the title block (logo, heading, subheading). */
@@ -22,6 +29,9 @@ export interface OverlayState {
     imageOpacity?: number;
     stat?: string;
     statOpacity?: number;
+    /** Small print along the bottom edge, such as a music credit on the end card. */
+    credit?: string;
+    creditOpacity?: number;
     /** Opacity of the render surface, for fading shots in and out. */
     surface?: number;
 }
@@ -33,6 +43,8 @@ export class Overlay {
     private readonly caption: HTMLElement;
     private readonly code: HTMLElement;
     private readonly stat: HTMLElement;
+    private readonly credit: HTMLElement;
+    private readonly brand: HTMLElement;
     private readonly image: HTMLImageElement;
     private readonly surface: HTMLElement;
 
@@ -44,12 +56,16 @@ export class Overlay {
         this.caption = pick(".overlay-caption");
         this.code = pick(".overlay-code");
         this.stat = pick(".overlay-stat");
+        this.credit = pick(".overlay-credit");
+        this.brand = pick(".overlay-brand");
+        pick(".overlay-brand span").textContent = SITE;
         this.image = pick(".overlay-image") as HTMLImageElement;
         this.surface = pick(".stage-surface");
     }
 
-    /** Applies a full frame state; omitted layers are hidden. */
+    /** Applies a full frame state; omitted layers are hidden, except the site mark. */
     set(state: OverlayState): void {
+        this.brand.style.opacity = String((state.brand ?? 1) * BRAND_OPACITY);
         this.heading.textContent = state.heading ?? "";
         this.subheading.textContent = state.subheading ?? "";
         this.title.style.opacity = String(state.title ?? 0);
@@ -68,6 +84,8 @@ export class Overlay {
         this.image.style.opacity = String(state.image ? state.imageOpacity ?? 1 : 0);
         this.stat.textContent = state.stat ?? "";
         this.stat.style.opacity = String(state.statOpacity ?? (state.stat ? 1 : 0));
+        this.credit.textContent = state.credit ?? "";
+        this.credit.style.opacity = String(state.creditOpacity ?? (state.credit ? 1 : 0));
         this.surface.style.opacity = String(state.surface ?? 1);
     }
 
