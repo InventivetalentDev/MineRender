@@ -224,9 +224,10 @@ for (const sectionMeshing of [false, true]) {
                 t.deepEqual(world.getLightAt(position), expected);
                 t.deepEqual(world.getLightAt(position.toArray()), expected);
             }
-            t.deepEqual(world.getLightAt(-32, -16, -16), { block: 3, sky: 0 });
-            t.deepEqual(world.getLightAt(-31, -16, -16), { block: 4, sky: 0 });
-            t.deepEqual(world.getLightAt(-32, 0, -16), { block: 0, sky: 0 });
+            t.deepEqual(world.getLightAt(-32, -16, -16), { block: 3, sky: 15 });
+            t.deepEqual(world.getLightAt(-31, -16, -16), { block: 4, sky: 15 });
+            t.deepEqual(world.getLightAt(-32, 0, -16), { block: 0, sky: 15 });
+            t.deepEqual(world.getLightAt(-32, 40, -16), { block: 0, sky: 15 });
             for (const position of [[-33, -32, -16], [-32, -33, -16], [-32, -32, -17]] as TripleArray[]) {
                 t.is(world.getLightAt(position), undefined);
             }
@@ -257,6 +258,31 @@ for (const sectionMeshing of [false, true]) {
             t.is(world.getLightAt(-32, -32, -16), undefined);
         });
     }
+}
+
+for (const sectionMeshing of [false, true]) {
+    test.serial(`blocks above saved sky arrays keep full brightness without inferring sky in block-only columns (sectionMeshing=${sectionMeshing})`, async t => {
+        const { world, scene, place } = fixture(t, { sectionMeshing, savedLighting: true });
+        const colors = () => {
+            const object = world.getBlockAt(8, 40, 8)?.object;
+            const section = scene.children.find(child => child instanceof SectionMesh);
+            const geometry = object ? geometryOf(object) : (section!.children[0] as Mesh).geometry;
+            const color = geometry.getAttribute("color");
+            return color ? Array.from(color.array) : Array<number>(geometry.getAttribute("position").count * 3).fill(1);
+        };
+        await place([8, 40, 8]);
+        const unlit = colors(), data = new ChunkData(), block = new Uint8Array(2048);
+        t.true(unlit.some(value => value > 0));
+        for (const sky of [new Uint8Array(2048), undefined]) {
+            await world.placeChunk({ x: 0, z: 0, lightValid: true, sections: [
+                { y: 0, data, light: { block, sky } },
+                { y: 2, data, light: { block } }
+            ] });
+            await place([8, 40, 8]);
+            t.deepEqual(world.getLightAt(8, 40, 8), { block: 0, sky: sky ? 15 : 0 });
+            t.deepEqual(colors(), sky ? unlit : unlit.map(() => 0));
+        }
+    });
 }
 
 test.serial("saved light remains available without rendering and invalid replacement arrays preserve the existing column", async t => {

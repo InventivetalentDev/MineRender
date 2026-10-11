@@ -30,6 +30,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
     private readonly biomes = new Map<string, Map<number, readonly string[]>>();
     private readonly light = new Map<string, Map<number, SectionLightData>>();
     private readonly lightValidity = new Map<string, boolean>();
+    private readonly highestSkySection = new Map<string, number>();
     private readonly savedLighting: boolean;
     private readonly sectionModels?: SectionModels;
     private readonly entities?: WorldEntities;
@@ -72,7 +73,10 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
             Math.floor(lx / 4) + Math.floor(lz / 4) * 4 + Math.floor(ly / 4) * 16];
     }
 
-    /** Returns saved light at integer world block coordinates, including data marked invalid by the save. */
+    /**
+     * Returns saved light at integer world block coordinates, including data marked invalid by the save.
+     * Sky light is 15 above a column's highest saved sky-light array.
+     */
     public getLightAt(x: number, y: number, z: number): Maybe<SavedLightSample>;
     public getLightAt(pos: Vector3): Maybe<SavedLightSample>;
     public getLightAt(pos: TripleArray): Maybe<SavedLightSample>;
@@ -82,12 +86,16 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         this.validatePosBounds(posOrX);
         const { x, y: py, z: pz } = posOrX;
         const cx = Math.floor(x / 16), cy = Math.floor(py / 16), cz = Math.floor(pz / 16);
-        return sampleSectionLight(this.light.get(`${cx}_${cz}`)?.get(cy), (x & 15) + (pz & 15) * 16 + (py & 15) * 256);
+        const key = `${cx}_${cz}`, top = this.highestSkySection.get(key);
+        const sample = sampleSectionLight(this.light.get(key)?.get(cy), (x & 15) + (pz & 15) * 16 + (py & 15) * 256);
+        return top !== undefined && cy > top ? { block: sample?.block ?? 0, sky: 15 } : sample;
     }
 
     private lightLevelAt(x: number, y: number, z: number): number {
         const cx = Math.floor(x / 16), cy = Math.floor(y / 16), cz = Math.floor(z / 16), key = `${cx}_${cz}`;
         if (this.lightValidity.get(key) === false) return 255;
+        const top = this.highestSkySection.get(key);
+        if (top !== undefined && cy > top) return 15;
         const sample = sampleSectionLight(this.light.get(key)?.get(cy), (x & 15) + (z & 15) * 16 + (y & 15) * 256);
         return sample ? Math.max(sample.block, sample.sky) : 255;
     }
@@ -263,6 +271,9 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
             await this.clearChunkColumn(chunk.x, chunk.z);
             const columnKey = `${chunk.x}_${chunk.z}`;
             if (lights.size) this.light.set(columnKey, lights);
+            for (const [y, light] of lights) {
+                if (light.sky) this.highestSkySection.set(columnKey, Math.max(y, this.highestSkySection.get(columnKey) ?? -Infinity));
+            }
             if (chunk.lightValid !== undefined) this.lightValidity.set(columnKey, chunk.lightValid);
             if (this.savedLighting) {
                 for (const y of lights.keys()) this.markSectionChanged({ x: chunk.x, y, z: chunk.z });
@@ -342,6 +353,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         }
         this.light.delete(`${x}_${z}`);
         this.lightValidity.delete(`${x}_${z}`);
+        this.highestSkySection.delete(`${x}_${z}`);
         const previous = [...this._chunks.entries()].filter(([, section]) => section.x === x && section.z === z);
         for (const [key, section] of previous) {
             this._chunks.delete(key);
@@ -384,6 +396,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         this.biomes.clear();
         this.light.clear();
         this.lightValidity.clear();
+        this.highestSkySection.clear();
         for (const chunk of chunks) {
             await chunk.dispose();
         }
@@ -492,6 +505,10 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                     const columnKey = `${x}_${z}`, column = this.light.get(columnKey);
                     if (!column?.delete(y)) return;
                     if (!column.size) this.light.delete(columnKey);
+                    this.highestSkySection.delete(columnKey);
+                    for (const [y, light] of column) {
+                        if (light.sky) this.highestSkySection.set(columnKey, Math.max(y, this.highestSkySection.get(columnKey) ?? -Infinity));
+                    }
                     if (this.savedLighting) {
                         this.markSectionChanged(chunk!);
                         await this.updateCulling([]);

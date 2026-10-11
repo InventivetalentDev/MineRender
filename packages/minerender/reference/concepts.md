@@ -164,7 +164,7 @@ await world.placeChunk(chunk);
 const light = world.getLightAt(x, y, z); // { block, sky }, each from 0 to 15, or undefined
 ```
 
-Anvil sections retain packed `BlockLight` and `SkyLight` arrays in `section.light`, including light-only sections. Each channel has 2,048 bytes: the cell index is `x + 16*z + 256*y`, with the even cell in the low nibble. An omitted channel in a saved section is zero. A valid section with both channels omitted is dark; an absent section has unknown light. `placeChunk` copies the arrays, and column replacement, unloading, or clearing removes them. `getLightAt` returns stored values even when the save marks them invalid.
+Anvil sections retain packed `BlockLight` and `SkyLight` arrays in `section.light`, including light-only sections. Each channel has 2,048 bytes: the cell index is `x + 16*z + 256*y`, with the even cell in the low nibble. An omitted channel in a saved section is zero, and an absent section has unknown light. Above a column's highest saved sky-light array, sky light is 15, as in vanilla; a column without any sky-light array has none. `placeChunk` copies the arrays, and column replacement, unloading, or clearing removes them. `getLightAt` returns stored values even when the save marks them invalid.
 
 Rendering uses the brighter of sky and block light with a neutral daylight brightness curve, multiplied by the existing face shading and biome colors. Boundary faces sample the adjacent cell; inset faces sample their own cell. Water and lava use the brighter of their cell and the cell above, or below for bottom faces. Loading or unloading adjacent columns refreshes these samples.
 
