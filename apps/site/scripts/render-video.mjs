@@ -7,17 +7,20 @@
 //   yarn workspace @minerender/site video --scale 1             CSS pixels equal output pixels (default headless; needs a big enough window when headed)
 //   yarn workspace @minerender/site video --supersample 2       render at 2x and downscale (4x the GPU work; smooths leaves and other cutout textures)
 //   yarn workspace @minerender/site video --skip-node           reuse the last Node render of the scene document
+//   yarn workspace @minerender/site video --music track.mp3     also write <timeline>-music.mp4 with the track mixed under the cut
 //   CHROME_PATH=/path/to/chrome yarn workspace @minerender/site video
 //
 // Each shot is loaded with the clock running (assets load in real time), then stepped frame by
 // frame on the injected virtual clock. Every frame is screenshotted and piped into ffmpeg; the
-// per-shot clips are joined with crossfades into .video/<timeline>.mp4.
+// per-shot clips are joined with crossfades into .video/<timeline>.mp4. scripts/mix-music.mjs adds a
+// track to a finished cut on its own, so a new track never needs a re-render.
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import puppeteer from "puppeteer-core";
+import { mixMusic, musicOutput } from "./mix-music.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(import.meta.url);
@@ -45,6 +48,11 @@ const port = Number(process.env.PORT ?? 5177);
 const base = args.url ?? `http://127.0.0.1:${port}/`;
 const chrome = process.env.CHROME_PATH ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const outDir = path.resolve(root, args.out ?? ".video");
+const music = args.music ? path.resolve(args.music) : undefined;
+if (music && !fs.existsSync(music)) {
+    console.error(`Music track not found at ${music}.`);
+    process.exit(2);
+}
 const clipDir = path.join(outDir, "clips");
 
 if (!fs.existsSync(chrome)) {
@@ -137,6 +145,7 @@ try {
     await join(clips, output);
     const total = clips.reduce((sum, clip) => sum + clip.seconds, 0) - transition * (clips.length - 1);
     console.log(`${path.relative(root, output)} (${total.toFixed(1)}s)`);
+    if (music) console.log(path.relative(root, await mixMusic(output, music, musicOutput(output))));
 } finally {
     await browser.close();
     server?.kill();
