@@ -264,8 +264,9 @@ test.serial("async section builds use the shared worker without copying its geom
     fluids.waterTints.set([0.25, 0.5, 0.75]);
     fluids.waterTints.set([0.75, 0.25, 0.5], (4 + 3 * 16 + 2 * 256) * 3);
     const light = Uint8Array.from({ length: 5832 }, (_, index) => index % 17 === 16 ? 255 : index % 17);
-    const expected = [SectionMesh.build(entries, 4, fluids, light), SectionMesh.build([...entries].reverse(), 4, fluids, light)];
-    const actual = await Promise.all([SectionMesh.buildAsync(entries, 4, fluids, light), SectionMesh.buildAsync([...entries].reverse(), 4, fluids, light)]);
+    const lighting = { light, ambientLight: 0.25 };
+    const expected = [SectionMesh.build(entries, 4, fluids, lighting), SectionMesh.build([...entries].reverse(), 4, fluids, lighting)];
+    const actual = await Promise.all([SectionMesh.buildAsync(entries, 4, fluids, lighting), SectionMesh.buildAsync([...entries].reverse(), 4, fluids, lighting)]);
     t.teardown(() => [...expected, ...actual].forEach(section => section.dispose()));
     t.is(workers, 1);
     t.deepEqual(actual.map(geometryData), expected.map(geometryData));

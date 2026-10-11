@@ -1,6 +1,8 @@
 /** Converts a saved light level to linear brightness; unknown samples retain preview brightness. */
-export function lightBrightness(level: number): number {
-    return level === 255 ? 1 : level / (60 - 3 * level);
+export function lightBrightness(level: number, ambient = 0): number {
+    if (level === 255) return 1;
+    const curve = level / (60 - 3 * level);
+    return curve + ambient * (1 - curve);
 }
 
 /** Selects the adjacent light sample for a boundary quad, or the center sample for an inset quad. */

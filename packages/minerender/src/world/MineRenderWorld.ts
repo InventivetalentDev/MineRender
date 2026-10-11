@@ -32,6 +32,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
     private readonly lightValidity = new Map<string, boolean>();
     private readonly highestSkySection = new Map<string, number>();
     private readonly savedLighting: boolean;
+    private readonly ambientLight: number;
     private readonly sectionModels?: SectionModels;
     private readonly entities?: WorldEntities;
     private readonly pendingCulling = new Map<Chunk<SectionMeshing>, Set<number> | "all">();
@@ -39,8 +40,12 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
 
     constructor(scene: MineRenderScene, options: MineRenderWorldOptions<SectionMeshing> = {}) {
         if (options.savedLighting && !options.sectionMeshing) throw new TypeError("savedLighting requires sectionMeshing");
+        if (options.ambientLight !== undefined && (!Number.isFinite(options.ambientLight) || options.ambientLight < 0 || options.ambientLight > 1)) {
+            throw new RangeError("ambientLight must be a number from 0 to 1");
+        }
         this.scene = scene;
         this.savedLighting = options.savedLighting ?? false;
+        this.ambientLight = options.ambientLight ?? 0;
         if (options.sectionMeshing) this.sectionModels = new SectionModels(options.maxAtlasSize);
         if (options.renderEntities) this.entities = new WorldEntities(scene);
     }
@@ -512,7 +517,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                         this.markSectionChanged(chunk!);
                         await this.updateCulling([]);
                     }
-                });
+                }, this.ambientLight);
             this._chunks.set(key, chunk);
         }
         return chunk;
@@ -566,6 +571,8 @@ export interface MineRenderWorldOptions<SectionMeshing extends boolean = boolean
     sectionMeshing?: SectionMeshing;
     /** Shade blocks and fluids with saved sky/block light. Missing or invalid data keeps preview brightness. Defaults to false. Requires `sectionMeshing`. */
     savedLighting?: boolean;
+    /** Minimum brightness for saved lighting, from 0 to 1, like a dimension type's `ambient_light`. Defaults to 0. */
+    ambientLight?: number;
     /** Maximum width and height of each section atlas page, in pixels. */
     maxAtlasSize?: number;
 }

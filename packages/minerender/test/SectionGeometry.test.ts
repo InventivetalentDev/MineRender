@@ -232,3 +232,23 @@ test("section light rejects invalid lengths and levels", t => {
             message: "Section light must cover an 18×18×18 neighborhood with levels from 0 to 15 or 255" });
     }
 });
+
+test("section ambient light sets a minimum for block and fluid colors while preserving full brightness", t => {
+    const source = input();
+    source.fluids = { cells: new Uint8Array(5832), water: { atlas: 0, still: [0, 0, 2, 2], flow: [0, 0, 2, 2], tint: [0.25, 0.5, 0.75] } };
+    source.fluids.cells[343] = 16;
+    const unlit = buildSectionGeometry(source);
+    t.is(unlit.length, 2);
+    for (const level of [0, 15, 255]) {
+        const light = new Uint8Array(5832).fill(level);
+        const pages = buildSectionGeometry({ ...source, light, ambientLight: 0.25 });
+        t.deepEqual(pages.map(page => page.colors),
+            unlit.map(page => page.colors.map(value => value * (level === 0 ? 0.25 : 1))));
+        t.deepEqual(buildSectionGeometry({ ...source, light, ambientLight: 0 }), buildSectionGeometry({ ...source, light }));
+    }
+    for (const ambientLight of [-0.1, 1.1, NaN]) {
+        t.throws(() => buildSectionGeometry({ ...source, ambientLight }), {
+            instanceOf: RangeError, message: "Section ambient light must be a number from 0 to 1"
+        });
+    }
+});

@@ -53,7 +53,8 @@ export class Chunk<SectionMeshing extends boolean = false> {
                 private readonly biomeAt?: (x: number, y: number, z: number) => Maybe<string>,
                 private readonly onBiomesChanged?: (biomes?: readonly string[]) => Promise<void>,
                 private readonly lightAt?: (x: number, y: number, z: number) => number,
-                private readonly onLightCleared?: () => Promise<void>) {
+                private readonly onLightCleared?: () => Promise<void>,
+                private readonly ambientLight = 0) {
         this.scene = scene;
         this.x = x;
         this.y = y;
@@ -563,7 +564,8 @@ export class Chunk<SectionMeshing extends boolean = false> {
                 }
             }
         }
-        const next = entries.length || fluids ? await SectionMesh.buildAsync(entries, this.sectionModels.maxAtlasSize, fluids, light) : undefined;
+        const next = entries.length || fluids ? await SectionMesh.buildAsync(entries, this.sectionModels.maxAtlasSize, fluids,
+            light ? { light, ambientLight: this.ambientLight } : undefined) : undefined;
         if (generation !== this.meshGeneration) {
             next?.dispose();
             return;

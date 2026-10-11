@@ -260,31 +260,34 @@ for (const sectionMeshing of [false, true]) {
     }
 }
 
-for (const sectionMeshing of [true]) {
-    test.serial(`blocks above saved sky arrays keep full brightness without inferring sky in block-only columns (sectionMeshing=${sectionMeshing})`, async t => {
-        const { world, scene, place } = fixture(t, { sectionMeshing, savedLighting: true });
-        const colors = () => {
-            const section = scene.children.find(child => child instanceof SectionMesh);
-            return Array.from((section!.children[0] as Mesh).geometry.getAttribute("color").array);
-        };
+test.serial("blocks above saved sky arrays keep full brightness while block-only columns use ambient light", async t => {
+    const { world, scene, place } = fixture(t, { sectionMeshing: true, savedLighting: true, ambientLight: 0.25 });
+    const colors = () => {
+        const section = scene.children.find(child => child instanceof SectionMesh);
+        return Array.from((section!.children[0] as Mesh).geometry.getAttribute("color").array);
+    };
+    await place([8, 40, 8]);
+    const unlit = colors(), data = new ChunkData(), block = new Uint8Array(2048);
+    t.true(unlit.some(value => value > 0));
+    for (const sky of [new Uint8Array(2048), undefined]) {
+        await world.placeChunk({ x: 0, z: 0, lightValid: true, sections: [
+            { y: 0, data, light: { block, sky } },
+            { y: 2, data, light: { block } }
+        ] });
         await place([8, 40, 8]);
-        const unlit = colors(), data = new ChunkData(), block = new Uint8Array(2048);
-        t.true(unlit.some(value => value > 0));
-        for (const sky of [new Uint8Array(2048), undefined]) {
-            await world.placeChunk({ x: 0, z: 0, lightValid: true, sections: [
-                { y: 0, data, light: { block, sky } },
-                { y: 2, data, light: { block } }
-            ] });
-            await place([8, 40, 8]);
-            t.deepEqual(world.getLightAt(8, 40, 8), { block: 0, sky: sky ? 15 : 0 });
-            t.deepEqual(colors(), sky ? unlit : unlit.map(() => 0));
-        }
-    });
-}
+        t.deepEqual(world.getLightAt(8, 40, 8), { block: 0, sky: sky ? 15 : 0 });
+        t.deepEqual(colors(), sky ? unlit : unlit.map(value => value * 0.25));
+    }
+});
 
 test.serial("saved light remains available without rendering and invalid replacement arrays preserve the existing column", async t => {
     const { world } = fixture(t);
     t.throws(() => new MineRenderWorld(world.scene, { savedLighting: true }), { instanceOf: TypeError, message: "savedLighting requires sectionMeshing" });
+    for (const ambientLight of [-0.1, 1.1, NaN]) {
+        t.throws(() => new MineRenderWorld(world.scene, { ambientLight }), {
+            instanceOf: RangeError, message: "ambientLight must be a number from 0 to 1"
+        });
+    }
     const data = new ChunkData();
     data.set(0, { type: "test:cube" });
     const column = { x: 0, z: 0, lightValid: false, sections: [

@@ -53,6 +53,8 @@ export interface SectionGeometryInput {
     fluids?: SectionFluidInput;
     /** Saved brightness levels for an 18×18×18 neighborhood; 255 means unknown/full brightness. */
     light?: Uint8Array;
+    /** Minimum brightness for known light levels, from 0 to 1. */
+    ambientLight?: number;
 }
 
 /** Merged quads and source-atlas placements for one atlas page. */
@@ -71,13 +73,16 @@ export interface SectionGeometryPage {
 
 /** Builds section-local geometry from visible quads, with bounded atlas pages per layer. */
 export function buildSectionGeometry(input: SectionGeometryInput): SectionGeometryPage[] {
-    const { count, indices, templates, cullMasks, templateData, atlases, maxAtlasSize, fluids, light } = input;
+    const { count, indices, templates, cullMasks, templateData, atlases, maxAtlasSize, fluids, light, ambientLight } = input;
     if (!Number.isInteger(maxAtlasSize) || maxAtlasSize < 1) throw new RangeError("Section atlas size must be a positive integer");
     if (count > indices.length || count > templates.length || count > cullMasks.length) throw new RangeError("Section entry count exceeds its arrays");
     if (fluids && fluids.cells.length !== 5832) throw new RangeError("Section fluid cells must cover an 18×18×18 neighborhood");
     if (fluids?.waterTints && fluids.waterTints.length !== 4096 * 3) throw new RangeError("Section water tints must contain RGB for 4096 cells");
     if (light && (light.length !== 5832 || light.some(level => level > 15 && level !== 255))) {
         throw new RangeError("Section light must cover an 18×18×18 neighborhood with levels from 0 to 15 or 255");
+    }
+    if (ambientLight !== undefined && (!Number.isFinite(ambientLight) || ambientLight < 0 || ambientLight > 1)) {
+        throw new RangeError("Section ambient light must be a number from 0 to 1");
     }
     for (const template of templateData) {
         const { quads } = template;
@@ -188,7 +193,7 @@ export function buildSectionGeometry(input: SectionGeometryInput): SectionGeomet
             for (let quad = 0; quad < template.quads; quad++) {
                 if (cullMasks[entry] & template.cullFaces[quad]) continue;
                 const brightness = light ? lightBrightness(light[lightIndex + LIGHT_SAMPLE_OFFSETS[
-                    quadLightIndex(template.positions, template.normals, quad)]]) : 1;
+                    quadLightIndex(template.positions, template.normals, quad)]], ambientLight) : 1;
                 const start = vertex;
                 for (let corner = 0; corner < 4; corner++, vertex++) {
                     const source = quad * 4 + corner;
@@ -220,7 +225,7 @@ export function buildSectionGeometry(input: SectionGeometryInput): SectionGeomet
             for (let quad = 0; quad < quads.sprites.length; quad++) {
                 const rect = quads.sprites[quad] === 0 ? data.still : data.flow;
                 const brightness = light ? lightBrightness(fluidLightLevel(light[lightIndex],
-                    light[lightIndex + (quads.normals[quad * 12 + 1] < 0 ? -324 : 324)])) : 1;
+                    light[lightIndex + (quads.normals[quad * 12 + 1] < 0 ? -324 : 324)]), ambientLight) : 1;
                 const start = vertex;
                 for (let corner = 0; corner < 4; corner++, vertex++) {
                     const source = quad * 4 + corner;
