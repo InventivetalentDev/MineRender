@@ -8,6 +8,7 @@
 //   yarn workspace @minerender/site video --supersample 2       render at 2x and downscale (4x the GPU work; smooths leaves and other cutout textures)
 //   yarn workspace @minerender/site video --skip-node           reuse the last Node render of the scene document
 //   yarn workspace @minerender/site video --music track.mp3     also write <timeline>-music.mp4 with the track mixed under the cut
+//   yarn workspace @minerender/site video --music track.mp3 --music-start 1:12   begin the track at 1:12 (or seconds)
 //   CHROME_PATH=/path/to/chrome yarn workspace @minerender/site video
 //
 // Each shot is loaded with the clock running (assets load in real time), then stepped frame by
@@ -20,7 +21,7 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import puppeteer from "puppeteer-core";
-import { mixMusic, musicOutput } from "./mix-music.mjs";
+import { mixMusic, musicOutput, parseTime } from "./mix-music.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(import.meta.url);
@@ -49,6 +50,7 @@ const base = args.url ?? `http://127.0.0.1:${port}/`;
 const chrome = process.env.CHROME_PATH ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const outDir = path.resolve(root, args.out ?? ".video");
 const music = args.music ? path.resolve(args.music) : undefined;
+const musicStart = args["music-start"] ? parseTime(args["music-start"]) : 0;
 if (music && !fs.existsSync(music)) {
     console.error(`Music track not found at ${music}.`);
     process.exit(2);
@@ -145,7 +147,7 @@ try {
     await join(clips, output);
     const total = clips.reduce((sum, clip) => sum + clip.seconds, 0) - transition * (clips.length - 1);
     console.log(`${path.relative(root, output)} (${total.toFixed(1)}s)`);
-    if (music) console.log(path.relative(root, await mixMusic(output, music, musicOutput(output))));
+    if (music) console.log(path.relative(root, await mixMusic(output, music, musicOutput(output), { start: musicStart })));
 } finally {
     await browser.close();
     server?.kill();

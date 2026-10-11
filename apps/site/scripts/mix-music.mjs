@@ -3,10 +3,12 @@
 //   node ./scripts/mix-music.mjs .video/hero.mp4 path/to/track.mp3            writes .video/hero-music.mp4
 //   node ./scripts/mix-music.mjs .video/hero.mp4 track.mp3 --out final.mp4
 //   node ./scripts/mix-music.mjs .video/hero.mp4 track.mp3 --fade 3 --loudness -16
+//   node ./scripts/mix-music.mjs .video/hero.mp4 track.mp3 --start 1:12   begin the track at 1:12 (or seconds)
 //
-// The track is looped if it is shorter than the video, trimmed to the video, faded in over one
-// second and out over `fade` seconds (default 2.5) at the end, and normalised to `loudness` LUFS
-// (default -18, quiet enough to sit under a feed's own audio). render-video.mjs calls this with --music.
+// The track starts at `start` (default 0), loops if it runs out before the video ends, is trimmed to
+// the video, faded in over one second and out over `fade` seconds (default 2.5) at the end, and
+// normalised to `loudness` LUFS (default -18, quiet enough to sit under a feed's own audio).
+// render-video.mjs calls this with --music and --music-start.
 import { spawn, spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -20,12 +22,21 @@ export function duration(file) {
     return seconds;
 }
 
+/** Parses "83", "1:23" or "1:23.5" into seconds. */
+export function parseTime(value) {
+    const parts = String(value).split(":").map(Number);
+    if (parts.some(part => !Number.isFinite(part) || part < 0)) throw new Error(`Bad time "${value}"`);
+    return parts.reduce((total, part) => total * 60 + part, 0);
+}
+
 /** Muxes `music` under `video` into `output`; the video stream is copied as-is. */
-export async function mixMusic(video, music, output, { fade = 2.5, loudness = -18 } = {}) {
+export async function mixMusic(video, music, output, { start = 0, fade = 2.5, loudness = -18 } = {}) {
     const seconds = duration(video);
     const fadeOut = Math.min(fade, seconds / 2);
+    // The track input loops, so a start past its end wraps around; the trim then picks the window.
     const audio = [
-        `atrim=0:${seconds.toFixed(3)}`,
+        `atrim=${start.toFixed(3)}:${(start + seconds).toFixed(3)}`,
+        "asetpts=PTS-STARTPTS",
         "afade=t=in:d=1",
         `afade=t=out:st=${(seconds - fadeOut).toFixed(3)}:d=${fadeOut}`,
         `loudnorm=I=${loudness}:TP=-1.5:LRA=11`
@@ -61,11 +72,12 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     };
     const [video, music] = positional;
     if (!video || !music) {
-        console.error("usage: mix-music.mjs <video.mp4> <music> [--out file] [--fade seconds] [--loudness lufs]");
+        console.error("usage: mix-music.mjs <video.mp4> <music> [--out file] [--start time] [--fade seconds] [--loudness lufs]");
         process.exit(2);
     }
     const output = option("out") ?? musicOutput(video);
     const options = {};
+    if (option("start") !== undefined) options.start = parseTime(option("start"));
     if (option("fade") !== undefined) options.fade = Number(option("fade"));
     if (option("loudness") !== undefined) options.loudness = Number(option("loudness"));
     await mixMusic(video, music, output, options);
