@@ -9,5 +9,6 @@ export * from './SectionGeometry';
 export * from './SectionMesh';
 export * from './SectionModels';
 export * from './SectionWorker';
+export * from './WorldBlockIntersection';
 export * from './WorldChunkSource';
 export * from './WorldStreamer';

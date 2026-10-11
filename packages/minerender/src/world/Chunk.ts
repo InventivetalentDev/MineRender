@@ -1,6 +1,6 @@
 import { Block } from "../model/block/Block";
 import { BlockObject } from "../model/block/scene/BlockObject";
-import { Color, Vector3 } from "three";
+import { Color, Matrix3, Matrix4, Mesh, Object3D, Raycaster, Vector3 } from "three";
 import { Maybe } from "../util/util";
 import { BlockInfo } from "./BlockInfo";
 import { ChunkData } from "./ChunkData";
@@ -18,6 +18,11 @@ import { BlockState } from "../model/block/BlockState";
 import { CUBE_FACE_OFFSETS } from "../CubeFace";
 import { BlockTints } from "../model/block/BlockTints";
 import { Biomes } from "../assets/Biomes";
+import { isInstanceReference } from "../instance/InstanceReference";
+import type { InstanceReference } from "../instance/InstanceReference";
+import type { ModelObject } from "../model/scene/ModelObject";
+import { isInstancedMesh, isMesh } from "../util/three";
+import type { WorldBlockIntersection } from "./WorldBlockIntersection";
 
 const WATER_TINT = new Color(0x3f76e4).toArray() as TripleArray;
 
@@ -56,6 +61,91 @@ export class Chunk<SectionMeshing extends boolean = false> {
         this.x = x;
         this.y = y;
         this.z = z;
+    }
+
+    /** Finds the nearest owned block hit across sections, testing each shared mesh once. */
+    public static raycast<SectionMeshing extends boolean>(chunks: Iterable<Chunk<SectionMeshing>>, raycaster: Raycaster): WorldBlockIntersection | undefined {
+        type Owner = { chunk: Chunk<SectionMeshing>; index: number };
+        const roots = new Map<Object3D, Mesh[]>();
+        const targets = new Map<Mesh, {
+            owners: Map<number | undefined, Owner>;
+            section?: { chunk: Chunk<SectionMeshing>; mesh: SectionMesh };
+        }>();
+        const meshes = (root: Object3D, scene: MineRenderScene): Mesh[] => {
+            const cached = roots.get(root);
+            if (cached) return cached;
+            const result: Mesh[] = [];
+            roots.set(root, result);
+            let attached = false;
+            for (let parent: Object3D | null = root; parent; parent = parent.parent) {
+                if (!parent.visible) return result;
+                if (parent === scene) attached = true;
+            }
+            if (!attached) return result;
+            root.updateWorldMatrix(true, true);
+            root.traverseVisible(object => {
+                if (isMesh(object) && raycaster.layers.test(object.layers)) result.push(object);
+            });
+            return result;
+        };
+        const add = (root: Object3D, owner: Owner, reference?: InstanceReference<ModelObject>) => {
+            for (const mesh of meshes(root, owner.chunk.scene)) {
+                if (reference && reference.instanceable.getInstanceReference(mesh, reference.index) !== reference) continue;
+                let entry = targets.get(mesh);
+                if (!entry) targets.set(mesh, entry = { owners: new Map() });
+                entry.owners.set(reference?.index, owner);
+            }
+        };
+        for (const chunk of chunks) {
+            for (const [index, info] of chunk.renderedBlocks) {
+                const block = info.object;
+                if (!block || !block.visible || chunk.hiddenBlocks.has(index)) continue;
+                const owner = { chunk, index };
+                for (const model of block.models) {
+                    if (isInstanceReference(model)) {
+                        if (model.instanceable.isInstanceActive(model.index, model)) add(model.instanceable, owner, model);
+                    } else {
+                        add(model, owner);
+                    }
+                }
+                for (const entity of block.blockEntities) add(entity, owner);
+            }
+            if (chunk.sectionMesh) {
+                for (const mesh of meshes(chunk.sectionMesh, chunk.scene)) {
+                    targets.set(mesh, { owners: new Map(), section: { chunk, mesh: chunk.sectionMesh } });
+                }
+            }
+        }
+        for (const hit of raycaster.intersectObjects([...targets.keys()], false)) {
+            if (!hit.face) continue;
+            const mesh = hit.object as Mesh;
+            const material = Array.isArray(mesh.material) ? mesh.material[hit.face.materialIndex] : mesh.material;
+            if (!material?.visible) continue;
+            const entry = targets.get(mesh)!;
+            let owner = entry.owners.get(hit.instanceId) ?? entry.owners.get(undefined);
+            if (entry.section) {
+                const index = entry.section.mesh.getBlockIndex(hit);
+                if (index !== undefined) owner = { chunk: entry.section.chunk, index };
+            }
+            if (!owner || owner.chunk.hiddenBlocks.has(owner.index)) continue;
+            const info = owner.chunk.renderedBlocks.get(owner.index);
+            if (!info) continue;
+            const matrix = mesh.matrixWorld.clone();
+            if (isInstancedMesh(mesh) && hit.instanceId !== undefined) {
+                const instance = new Matrix4();
+                mesh.getMatrixAt(hit.instanceId, instance);
+                matrix.multiply(instance);
+            }
+            return {
+                position: new Vector3(owner.chunk.x * 16 + owner.index % 16,
+                    owner.chunk.y * 16 + Math.floor(owner.index / 256), owner.chunk.z * 16 + Math.floor(owner.index / 16) % 16),
+                block: info.block,
+                point: hit.point.clone(),
+                normal: hit.face.normal.clone().applyNormalMatrix(new Matrix3().getNormalMatrix(matrix)),
+                distance: hit.distance
+            };
+        }
+        return undefined;
     }
 
     public getBlockAt(x: number, y: number, z: number): Maybe<BlockInfo<SectionMeshing>>;

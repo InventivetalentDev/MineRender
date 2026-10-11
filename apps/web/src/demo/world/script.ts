@@ -2,7 +2,7 @@ import {
     AnvilParser, AnvilWorldSource, AssetLoader, ChunkData, MineRenderWorld, Renderer, WorldStreamer,
     type AnvilChunk, type AnvilExternalChunkReader, type WorldChunkSource
 } from "minerender";
-import { Color, Vector3 } from "three";
+import { Box3, Box3Helper, Color, Raycaster, Vector2, Vector3, type OrthographicCamera, type PerspectiveCamera } from "three";
 
 interface RegionFile { x: number; z: number; file: File }
 interface Dimension { label: string; regions: Map<string, RegionFile>; entityRegions: Map<string, RegionFile>; externalChunks: Map<string, File> }
@@ -35,6 +35,100 @@ let requestedCenter = "";
 let updateId = 0;
 let retryAction: (() => void) | undefined;
 let lastStats = 0;
+let selectedPosition: Vector3 | undefined;
+const selectionBounds = new Box3();
+const selectionOutline = new Box3Helper(selectionBounds, 0xffe66b);
+selectionOutline.name = "world-block-selection";
+selectionOutline.visible = false;
+renderer.scene.add(selectionOutline);
+const raycaster = new Raycaster();
+const pointer = new Vector2();
+const canvas = renderer.renderer.domElement;
+const activePointers = new Set<number>();
+let gesture: { id: number; x: number; y: number; travel: number; locked: boolean; picks: boolean } | undefined;
+
+function clearSelection(): void {
+    selectedPosition = undefined;
+    selectionOutline.visible = false;
+    element("block-info").textContent = "No block selected.";
+    renderer.scene.dirty = true;
+}
+
+function refreshSelection(): void {
+    if (!selectedPosition) return;
+    const block = world.getBlockAt(selectedPosition)?.block;
+    if (!block || !world.getChunkAt(selectedPosition)?.isBlockVisibleAt(selectedPosition)) { clearSelection(); return; }
+    const properties = Object.entries(block.properties ?? {}).sort(([a], [b]) => a.localeCompare(b));
+    const biome = world.getBiomeAt(selectedPosition);
+    const text = [`Block: ${block.type}`, `Coordinates: ${selectedPosition.toArray().join(", ")}`,
+        `Properties: ${properties.length ? properties.map(([name, value]) => `${name}=${value}`).join(", ") : "none"}`,
+        ...(biome ? [`Biome: ${biome}`] : [])].join("\n");
+    if (element("block-info").textContent !== text) element("block-info").textContent = text;
+}
+
+function pickBlock(event: PointerEvent, locked: boolean): void {
+    const rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    if (!locked && (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom)) return;
+    pointer.set(locked ? 0 : (event.clientX - rect.left) / rect.width * 2 - 1,
+        locked ? 0 : 1 - (event.clientY - rect.top) / rect.height * 2);
+    const camera = renderer.camera as PerspectiveCamera | OrthographicCamera;
+    camera.updateMatrixWorld();
+    raycaster.setFromCamera(pointer, camera);
+    raycaster.near = camera.near;
+    raycaster.far = camera.far;
+    const hit = world.raycast(raycaster);
+    if (!hit) { clearSelection(); return; }
+    selectedPosition = hit.position.clone();
+    selectionBounds.setFromCenterAndSize(MineRenderWorld.worldToScenePosition(selectedPosition), new Vector3(16.05, 16.05, 16.05));
+    selectionOutline.visible = true;
+    refreshSelection();
+    renderer.scene.dirty = true;
+}
+
+function pointerDown(event: PointerEvent): void {
+    activePointers.add(event.pointerId);
+    if (!event.isPrimary || event.button !== 0 || activePointers.size !== 1 || switching || disposed) { gesture = undefined; return; }
+    const locked = document.pointerLockElement === canvas;
+    const capturesMouse = renderer.flyControls?.pointerLock && event.pointerType === "mouse" && !locked
+        && typeof canvas.requestPointerLock === "function";
+    gesture = { id: event.pointerId, x: event.clientX, y: event.clientY, travel: 0, locked, picks: !capturesMouse };
+}
+
+function pointerMove(event: PointerEvent): void {
+    if (!gesture || event.pointerId !== gesture.id) return;
+    gesture.travel += gesture.locked ? Math.hypot(event.movementX, event.movementY)
+        : Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y);
+    gesture.x = event.clientX;
+    gesture.y = event.clientY;
+}
+
+function pointerUp(event: PointerEvent): void {
+    activePointers.delete(event.pointerId);
+    if (!gesture || event.pointerId !== gesture.id) return;
+    const click = gesture;
+    gesture = undefined;
+    if (!click.locked) click.travel += Math.hypot(event.clientX - click.x, event.clientY - click.y);
+    if (click.picks && click.travel <= 4 && !activePointers.size && !switching && !disposed) pickBlock(event, click.locked);
+}
+
+function cancelGesture(): void {
+    gesture = undefined;
+    activePointers.clear();
+}
+
+function pointerLockChanged(): void {
+    cancelGesture();
+    element("pick-crosshair").hidden = document.pointerLockElement !== canvas;
+}
+
+canvas.addEventListener("pointerdown", pointerDown, true);
+canvas.addEventListener("pointermove", pointerMove, true);
+canvas.addEventListener("pointerup", pointerUp, true);
+canvas.addEventListener("pointercancel", cancelGesture);
+canvas.addEventListener("lostpointercapture", cancelGesture);
+document.addEventListener("pointerlockchange", pointerLockChanged);
+window.addEventListener("blur", cancelGesture);
 
 function report(message: string, error = false): void {
     status.textContent = message;
@@ -48,6 +142,7 @@ function fail(error: unknown, action?: () => void): void {
 }
 
 function runChange(task: () => Promise<void>): void {
+    cancelGesture();
     switching = true;
     updateId++;
     element<HTMLFieldSetElement>("source-controls").disabled = true;
@@ -69,6 +164,7 @@ function runChange(task: () => Promise<void>): void {
 }
 
 async function replaceSource(next: Source, center?: { x: number; z: number; y: number }, version?: string): Promise<void> {
+    clearSelection();
     await streamer?.dispose();
     streamer = undefined;
     await world.clear();
@@ -133,6 +229,7 @@ function moveTo(x: number, z: number, y: number): void {
 }
 
 function updateStats(): void {
+    refreshSelection();
     const info = renderer.renderer.info;
     const center = viewCenter();
     const x = Math.floor(center.x / 256);
@@ -317,6 +414,7 @@ document.querySelectorAll<HTMLButtonElement>("[data-step-x], [data-step-z]").for
         Math.floor(center.z / 256) + Number(button.dataset.stepZ ?? 0), Math.round(center.y / 16));
 }));
 select("camera-mode").addEventListener("change", () => {
+    cancelGesture();
     const mode = select("camera-mode").value as "orbit" | "fly";
     renderer.setControlsMode(mode);
     element("fly-note").hidden = mode !== "fly";
@@ -339,6 +437,19 @@ const stopFrame = renderer.onFrame(({ time }) => {
 async function dispose(): Promise<void> {
     if (disposed) return;
     disposed = true;
+    cancelGesture();
+    clearSelection();
+    element("pick-crosshair").hidden = true;
+    canvas.removeEventListener("pointerdown", pointerDown, true);
+    canvas.removeEventListener("pointermove", pointerMove, true);
+    canvas.removeEventListener("pointerup", pointerUp, true);
+    canvas.removeEventListener("pointercancel", cancelGesture);
+    canvas.removeEventListener("lostpointercapture", cancelGesture);
+    document.removeEventListener("pointerlockchange", pointerLockChanged);
+    window.removeEventListener("blur", cancelGesture);
+    selectionOutline.removeFromParent();
+    selectionOutline.geometry.dispose();
+    (Array.isArray(selectionOutline.material) ? selectionOutline.material : [selectionOutline.material]).forEach(material => material.dispose());
     stopFrame();
     resize.disconnect();
     renderer.stop();

@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>World streaming | MineRender</title>
     <link rel="stylesheet" href="../../demo_shared.css">
+    <style>
+        #block-info { white-space: pre-line; }
+        #pick-crosshair { position: absolute; left: 50%; top: 50%; z-index: 1; transform: translate(-50%, -50%); color: white; text-shadow: 0 1px 3px black; font: 24px/1 monospace; pointer-events: none; }
+    </style>
 </head>
 <body class="playground">
     <aside class="playground-panel" id="playground-panel">
@@ -13,6 +17,11 @@
         <p id="status" class="playground-status" role="status">Loading sample terrain…</p>
         <button id="retry" type="button" hidden>Retry</button>
         <p class="control-note">Drag to orbit, right-drag to pan, and scroll to zoom. Nearby chunks load around the view center as you pan.</p>
+        <fieldset>
+            <legend>Selected block</legend>
+            <output id="block-info" class="control-note" aria-live="polite">No block selected.</output>
+            <p class="control-note">Click or tap a block to inspect it. Click empty space to clear the selection.</p>
+        </fieldset>
         <fieldset id="source-controls">
             <legend>World source</legend>
             <button id="sample" type="button">Use sample terrain</button>
@@ -42,7 +51,7 @@
             <label>Load radius (chunks)<select id="load-radius"><option value="0">0 · one chunk</option><option value="1" selected>1 · up to 9 chunks</option><option value="2">2 · up to 25 chunks</option><option value="3">3 · up to 49 chunks</option></select></label>
             <label>Camera<select id="camera-mode"><option value="orbit">Orbit · drag to turn, scroll to zoom</option><option value="fly">Fly · WASD, space/shift, mouse look</option></select></label>
             <label class="control-checkbox"><span>Follow view center</span><input id="follow" type="checkbox" checked></label>
-            <p id="fly-note" class="control-note" hidden>Click the view to capture the mouse; Esc releases it. W/A/S/D move, space rises, shift descends, R sprints, and the wheel changes the speed. On touch screens the left half is a joystick and the right half looks around.</p>
+            <p id="fly-note" class="control-note" hidden>Click the view to capture the mouse; Esc releases it. Click again to inspect the block at the crosshair. W/A/S/D move, space rises, shift descends, R sprints, and the wheel changes the speed. On touch screens the left half is a joystick and the right half looks around; tap a block to inspect it.</p>
             <p class="control-note">Chunks unload beyond the load radius plus one. Opaque terrain uses section meshes. Larger radii need more time and memory.</p>
         </fieldset>
         <output id="world-stats" class="playground-stats"></output>
@@ -52,7 +61,7 @@
             <p class="control-note">Pre-1.13 worlds use modern assets with approximate legacy block mappings. Lighting and biome colors are not rendered. This viewer streams existing chunks; it does not generate missing terrain.</p>
         </details>
     </aside>
-    <main id="viewport" class="playground-viewport" aria-label="World preview"></main>
+    <main id="viewport" class="playground-viewport" aria-label="World preview"><span id="pick-crosshair" aria-hidden="true" hidden>+</span></main>
     <button id="panel-toggle" type="button" class="panel-toggle" aria-controls="playground-panel" aria-expanded="true">Hide controls</button>
     <script type="module" src="script.bundle.js"></script>
 </body>

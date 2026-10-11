@@ -1,6 +1,6 @@
 import { MineRenderScene } from "../renderer/MineRenderScene";
 import { Block } from "../model/block/Block";
-import { Vector3 } from "three";
+import { Raycaster, Vector3 } from "three";
 import { isTripleArray, TripleArray } from "../model/Model";
 import { Maybe, yieldToEventLoop } from "../util/util";
 import { Chunk } from "./Chunk";
@@ -14,6 +14,7 @@ import type { AnvilChunk } from "./AnvilParser";
 import { SectionModels } from "./SectionModels";
 import { WorldEntities } from "./_entities/WorldEntities";
 import { fluidKindOf } from "../model/fluid/FluidQuads";
+import type { WorldBlockIntersection } from "./WorldBlockIntersection";
 
 //TODO: maybe make this an Object3D to add children
 /**
@@ -36,6 +37,14 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         this.scene = scene;
         if (options.sectionMeshing) this.sectionModels = new SectionModels(options.maxAtlasSize);
         if (options.renderEntities) this.entities = new WorldEntities(scene);
+    }
+
+    /**
+     * Returns the nearest visible block geometry hit, respecting the raycaster's layers and near/far range.
+     * Includes fluids and block entities; texture alpha does not change triangle intersections.
+     */
+    public raycast(raycaster: Raycaster): WorldBlockIntersection | undefined {
+        return Chunk.raycast(this._chunks.values(), raycaster);
     }
 
     /** Returns a placed block at world block coordinates, or `undefined` for an empty position. */

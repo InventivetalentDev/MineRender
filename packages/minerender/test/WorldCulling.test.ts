@@ -1,5 +1,5 @@
 import test, { ExecutionContext } from "ava";
-import { Color, Mesh, MeshBasicMaterial, Vector3 } from "three";
+import { Color, Mesh, MeshBasicMaterial, Raycaster, Vector3 } from "three";
 import { AssetKey } from "../src/assets/AssetKey";
 import { BlockEntities } from "../src/assets/BlockEntities";
 import { Biomes } from "../src/assets/Biomes";
@@ -100,7 +100,7 @@ function fixture<SectionMeshing extends boolean = false>(t: ExecutionContext, op
 }
 
 function modelOf(block: BlockObject, index = 0): ModelObject {
-    const part = block["_models"][index];
+    const part = block.models[index];
     return isInstanceReference(part) ? part.instanceable as ModelObject : part as ModelObject;
 }
 const geometryOf = (block: BlockObject, index = 0) => (modelOf(block, index).children[0] as Mesh).geometry;
@@ -108,6 +108,109 @@ const indexCount = (block: BlockObject, index = 0) => {
     const geometry = geometryOf(block, index);
     return geometry.index?.count ?? geometry.getAttribute("position")?.count ?? 0;
 };
+
+for (const sectionMeshing of [false, true]) {
+    test.serial(`world picking returns the nearest block across negative section boundaries (sectionMeshing=${sectionMeshing})`, async t => {
+        const { world, scene, place } = fixture(t, { sectionMeshing });
+        await place([-17, -1, -1]);
+        await place([-16, -1, -1]);
+        const ray = new Raycaster(new Vector3(-232, -16, -16), new Vector3(-1, 0, 0));
+        const hit = world.raycast(ray)!;
+        t.deepEqual(hit.position.toArray(), [-16, -1, -1]);
+        t.deepEqual(hit.point.toArray(), [-248, -16, -16]);
+        t.true(hit.normal.equals(new Vector3(1, 0, 0)));
+        t.is(hit.distance, 16);
+        t.is(hit.block.type, "test:cube");
+        hit.block.type = "test:changed";
+        t.is(world.getBlockAt(hit.position)!.block.type, "test:cube");
+        ray.far = 15;
+        t.is(world.raycast(ray), undefined);
+        ray.far = Infinity;
+        ray.layers.set(1);
+        t.is(world.raycast(ray), undefined);
+        ray.layers.set(0);
+        t.deepEqual(world.raycast(ray)!.position.toArray(), [-16, -1, -1]);
+        scene.scale.set(2, 3, 4);
+        scene.rotation.z = Math.PI / 2;
+        scene.position.set(10, 20, 30);
+        ray.set(new Vector3(58, -444, -34), new Vector3(0, -1, 0));
+        const transformed = world.raycast(ray)!;
+        t.deepEqual(transformed.position.toArray(), [-16, -1, -1]);
+        t.true(transformed.point.distanceTo(new Vector3(58, -476, -34)) < 1e-10);
+        t.true(transformed.normal.distanceTo(new Vector3(0, 1, 0)) < 1e-10);
+        t.true(Math.abs(transformed.distance - 32) < 1e-10);
+    });
+
+    test.serial(`world picking uses model geometry and its owning cell for overhangs (sectionMeshing=${sectionMeshing})`, async t => {
+        const { world, place, addModel } = fixture(t, { sectionMeshing });
+        const model = addModel("overhang", { height: 8, cullable: [] });
+        model.elements![0].to = [32, 8, 16];
+        await place([-17, -1, -1], "overhang");
+        await place([-16, -1, -3]);
+        const ray = new Raycaster(new Vector3(-252, -20, 100), new Vector3(0, 0, -1));
+        t.deepEqual(world.raycast(ray)!.position.toArray(), [-17, -1, -1]);
+        t.deepEqual(world.raycast(ray)!.point.toArray(), [-252, -20, -8]);
+        ray.ray.origin.y = -10;
+        t.deepEqual(world.raycast(ray)!.position.toArray(), [-16, -1, -3]);
+    });
+
+    test.serial(`world picking excludes foreign, hidden, removed and unloaded blocks (sectionMeshing=${sectionMeshing})`, async t => {
+        const { world, scene, states, place } = fixture(t, { sectionMeshing });
+        const foreign = new MineRenderWorld(scene, { sectionMeshing });
+        t.teardown(() => foreign.clear());
+        const own = (await place([0, 0, 0]))!;
+        await place([0, 0, -4]);
+        const other = (await foreign.setBlockAt([0, 0, 2], { type: "test:cube" }))!;
+        const standalone = await scene.addBlock(states.get("test:cube")!, { applyDefaultState: false }) as BlockObject;
+        standalone.setPosition(new Vector3(0, 0, 64));
+        t.teardown(() => standalone.dispose());
+        if (!sectionMeshing) t.is(modelOf(own.object!), modelOf(other.object!));
+        const ray = new Raycaster(new Vector3(0, 0, 120), new Vector3(0, 0, -1));
+        t.deepEqual(world.raycast(ray)!.position.toArray(), [0, 0, 0]);
+        t.deepEqual(foreign.raycast(ray)!.position.toArray(), [0, 0, 2]);
+        scene.visible = false;
+        t.is(world.raycast(ray), undefined);
+        scene.visible = true;
+        await world.setBlockVisibleAt([0, 0, 0], false);
+        t.deepEqual(world.raycast(ray)!.position.toArray(), [0, 0, -4]);
+        await world.setBlockVisibleAt([0, 0, 0], true);
+        t.deepEqual(world.raycast(ray)!.position.toArray(), [0, 0, 0]);
+        await world.setBlockAt([0, 0, 0], undefined);
+        t.deepEqual(world.raycast(ray)!.position.toArray(), [0, 0, -4]);
+        await world.unloadChunkColumn(0, -1);
+        t.is(world.raycast(ray), undefined);
+    });
+
+    test.serial(`world picking includes fluid surfaces and block entity geometry (sectionMeshing=${sectionMeshing})`, async t => {
+        const { world, states, addModel } = fixture(t, { sectionMeshing });
+        await world.setBlockAt([-1, -1, -1], { type: "water", properties: { level: "4" } });
+        const ray = new Raycaster(new Vector3(-16, 100, -16), new Vector3(0, -1, 0));
+        const water = world.raycast(ray)!;
+        t.deepEqual(water.position.toArray(), [-1, -1, -1]);
+        t.is(water.block.properties?.level, "4");
+        t.true(water.normal.equals(new Vector3(0, 1, 0)));
+        t.true(water.point.y > -24 && water.point.y < -8);
+        await world.setBlockVisibleAt([-1, -1, -1], false);
+        t.is(world.raycast(ray), undefined);
+
+        addModel("entity").elements = [];
+        states.set("test:entity", { key: AssetKey.parse("blockstates", "test:entity"), variants: { "": { model: "test:block/entity" } } });
+        const getEntity = Entities.getEntity, applyTextures = EntityObject.prototype["applyTextures"];
+        BlockEntities.getIndex = async () => ({ "test:entity": { parts: [{ model: "test:entity" }] } });
+        Entities.getEntity = async key => ({ id: key.toNamespacedString(), key, transform: [], layer: { texture: [16, 16], root: {
+            pose: { offset: [0, 0, 0], rotation: [0, 0, 0] },
+            cubes: [{ origin: [0, 0, 0], size: [16, 16, 16], uv: [0, 0] }], children: {}
+        } } });
+        EntityObject.prototype["applyTextures"] = async () => undefined;
+        t.teardown(() => { Entities.getEntity = getEntity; EntityObject.prototype["applyTextures"] = applyTextures; });
+        const entity = (await world.setBlockAt([2, 0, 0], { type: "test:entity" }))!;
+        ray.ray.origin.set(32, 100, 0);
+        t.deepEqual(world.raycast(ray)!.position.toArray(), [2, 0, 0]);
+        t.deepEqual(world.raycast(ray)!.point.toArray(), [32, 8, 0]);
+        entity.object!.blockEntities[0].visible = false;
+        t.is(world.raycast(ray), undefined);
+    });
+}
 
 function templateOf(world: MineRenderWorld<boolean>, position: TripleArray) {
     const point = new Vector3(...position), chunk = world.getChunkAt(point)!;

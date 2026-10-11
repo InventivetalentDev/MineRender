@@ -64,6 +64,8 @@ export interface SectionGeometryPage {
     uvBounds: Float32Array;
     colors: Float32Array;
     indices: Uint32Array;
+    /** Owning section cell for each quad; each quad contributes two consecutive triangles. */
+    blockIndices: Uint16Array;
 }
 
 /** Builds section-local geometry from visible quads, with bounded atlas pages per layer. */
@@ -168,6 +170,7 @@ export function buildSectionGeometry(input: SectionGeometryInput): SectionGeomet
         const positions = new Float32Array(faces * 12), normals = new Float32Array(faces * 12);
         const uvs = new Float32Array(faces * 8), uvBounds = new Float32Array(faces * 16), colors = new Float32Array(faces * 12);
         const outputIndices = new Uint32Array(faces * 6);
+        const blockIndices = new Uint16Array(faces);
         let vertex = 0, indexOffset = 0;
         for (const entry of page.entries) {
             const template = templateData[templates[entry]];
@@ -180,6 +183,7 @@ export function buildSectionGeometry(input: SectionGeometryInput): SectionGeomet
             const offsetZ = (Math.floor(indices[entry] / 16) % 16) * 16;
             for (let quad = 0; quad < template.quads; quad++) {
                 if (cullMasks[entry] & template.cullFaces[quad]) continue;
+                blockIndices[indexOffset / 6] = indices[entry];
                 const start = vertex;
                 for (let corner = 0; corner < 4; corner++, vertex++) {
                     const source = quad * 4 + corner;
@@ -208,6 +212,7 @@ export function buildSectionGeometry(input: SectionGeometryInput): SectionGeomet
             const mapU = (u: number) => (placement.x + u * atlas.width) / page.width;
             const mapV = (v: number) => 1 - (placement.y + (1 - v) * atlas.height) / page.height;
             for (let quad = 0; quad < quads.sprites.length; quad++) {
+                blockIndices[indexOffset / 6] = x + z * 16 + y * 256;
                 const rect = quads.sprites[quad] === 0 ? data.still : data.flow;
                 const start = vertex;
                 for (let corner = 0; corner < 4; corner++, vertex++) {
@@ -228,11 +233,11 @@ export function buildSectionGeometry(input: SectionGeometryInput): SectionGeomet
                 indexOffset += 6;
             }
         }
-        return { layer: page.layer, width: page.width, height: page.height, placements: page.placements, positions, normals, uvs, uvBounds, colors, indices: outputIndices };
+        return { layer: page.layer, width: page.width, height: page.height, placements: page.placements, positions, normals, uvs, uvBounds, colors, indices: outputIndices, blockIndices };
     });
 }
 
 /** Returns the buffers behind each page's typed arrays for transfer to another thread. */
 export function sectionGeometryTransferables(pages: readonly SectionGeometryPage[]): ArrayBuffer[] {
-    return pages.flatMap(page => [page.positions.buffer, page.normals.buffer, page.uvs.buffer, page.uvBounds.buffer, page.colors.buffer, page.indices.buffer]);
+    return pages.flatMap(page => [page.positions.buffer, page.normals.buffer, page.uvs.buffer, page.uvBounds.buffer, page.colors.buffer, page.indices.buffer, page.blockIndices.buffer]);
 }

@@ -94,6 +94,27 @@ With `sectionMeshing: true`, [MineRenderWorld](/api/index/classes/MineRenderWorl
 
 World placement selects weighted block models from absolute block coordinates, so unloading and reloading preserves their appearance in both rendering modes. Standalone `scene.addBlock` previews remain random unless you supply `variantPosition: [x, y, z]` in block units. The position is copied at construction; moving the object does not change its selection. The pick is vanilla-identical for the same coordinates and ordered weights. Position-based selection rejects total weights above 2,147,483,647.
 
+## Inspecting world blocks
+
+Pass a three.js `Raycaster` to `world.raycast` to find the nearest visible block in that world. It works with individual instances and merged sections, including fluid surfaces and block entities. It does not load chunks or select unrelated objects in the same scene.
+
+```ts
+import { Raycaster, Vector2 } from "three";
+
+const rect = renderer.renderer.domElement.getBoundingClientRect();
+const pointer = new Vector2(
+    (event.clientX - rect.left) / rect.width * 2 - 1,
+    1 - (event.clientY - rect.top) / rect.height * 2
+);
+renderer.camera.updateWorldMatrix(true, false);
+const raycaster = new Raycaster();
+raycaster.setFromCamera(pointer, renderer.camera);
+const hit = world.raycast(raycaster);
+if (hit) console.log(hit.position, hit.block.type, hit.block.properties);
+```
+
+`hit.position` contains integer block coordinates, and `hit.block` is a detached data snapshot. `hit.point` and `hit.distance` use scene units; `hit.normal` is the triangle's unit normal in world space. The raycaster's distance range and layers apply. Picking tests geometry, including transparent texture pixels, and returns `undefined` when no block is hit. Await world edits before picking their resulting geometry.
+
 ## Saved entities
 
 Enable `renderEntities` to render supported mobs from parsed structures or Anvil entity records:
