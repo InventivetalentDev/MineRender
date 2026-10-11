@@ -448,8 +448,7 @@ async function dispose(): Promise<void> {
     document.removeEventListener("pointerlockchange", pointerLockChanged);
     window.removeEventListener("blur", cancelGesture);
     selectionOutline.removeFromParent();
-    selectionOutline.geometry.dispose();
-    (Array.isArray(selectionOutline.material) ? selectionOutline.material : [selectionOutline.material]).forEach(material => material.dispose());
+    selectionOutline.dispose();
     stopFrame();
     resize.disconnect();
     renderer.stop();

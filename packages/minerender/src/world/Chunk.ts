@@ -41,6 +41,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
 
     private readonly data = new ChunkData();
     private readonly renderedBlocks = new Map<number, BlockInfo<SectionMeshing>>();
+    private readonly objectBlocks = new Set<number>();
     private readonly sectionBlocks = new Map<number, SectionMeshEntry[]>();
     private readonly hiddenBlocks = new Set<number>();
     private readonly fluidCells = new Uint8Array(4096);
@@ -97,8 +98,8 @@ export class Chunk<SectionMeshing extends boolean = false> {
             }
         };
         for (const chunk of chunks) {
-            for (const [index, info] of chunk.renderedBlocks) {
-                const block = info.object;
+            for (const index of chunk.objectBlocks) {
+                const block = chunk.renderedBlocks.get(index)!.object;
                 if (!block || !block.visible || chunk.hiddenBlocks.has(index)) continue;
                 const owner = { chunk, index };
                 for (const model of block.models) {
@@ -292,6 +293,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
             if (this.fluidCells[index]) this.meshDirty = true;
             this.fluidCells[index] = 0;
             this.renderedBlocks.delete(index);
+            this.objectBlocks.delete(index);
             const worldPos = new Vector3(this.x * 16 + index % 16, this.y * 16 + Math.floor(index / 256),
                 this.z * 16 + Math.floor(index / 16) % 16);
             positions.push(worldPos);
@@ -328,6 +330,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
                     object.setPosition(MineRenderWorld.worldToScenePosition(worldPos));
                 }
                 this.renderedBlocks.set(index, { get block() { return readBlock(); }, object } as BlockInfo<SectionMeshing>);
+                if (object) this.objectBlocks.add(index);
             } catch (error) {
                 this.data.assign(index, 0);
                 this.fluidCells[index] = 0;
@@ -347,6 +350,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
         this.fluidCells.fill(0);
         this.waterTints = undefined;
         this.renderedBlocks.clear();
+        this.objectBlocks.clear();
         this.hiddenBlocks.clear();
         this.meshDirty = true;
         this.data.copyFrom(data);
@@ -393,6 +397,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
                 }
                 const readBlock = this.data.snapshot(index)!;
                 this.renderedBlocks.set(index, { get block() { return readBlock(); }, object: undefined } as BlockInfo<SectionMeshing>);
+                this.objectBlocks.delete(index);
             } catch (error) {
                 this.data.assign(index, 0);
                 this.fluidCells[index] = 0;
@@ -414,10 +419,12 @@ export class Chunk<SectionMeshing extends boolean = false> {
                 object.setPosition(new Vector3(this.x * 256 + index % 16 * 16,
                     this.y * 256 + Math.floor(index / 256) * 16, this.z * 256 + Math.floor(index / 16) % 16 * 16));
                 this.renderedBlocks.get(index)!.object = object;
+                this.objectBlocks.add(index);
             } catch (error) {
                 this.data.assign(index, 0);
                 this.fluidCells[index] = 0;
                 this.renderedBlocks.delete(index);
+                this.objectBlocks.delete(index);
                 object?.removeFromScene();
                 if (!failed) failure = error;
                 failed = true;
@@ -658,6 +665,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
         this.sectionMesh = undefined;
         this.meshDirty = false;
         this.renderedBlocks.clear();
+        this.objectBlocks.clear();
         this.hiddenBlocks.clear();
         this.fluidCells.fill(0);
         this.waterTints = undefined;
