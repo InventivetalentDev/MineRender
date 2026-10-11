@@ -104,6 +104,7 @@ Immediate fixes: ~~fix `getChunkAt` to use `Map.get(key)`~~; ~~remove the 4×4×
 ~~Seed weighted blockstate alternatives by world position so unloading and reloading a chunk preserves its appearance.~~ Individual blocks and section meshes share vanilla-identical weighted selection from absolute block coordinates. Standalone previews remain random unless given `variantPosition`.
 
 ~~Pick individual world blocks through `world.raycast`, including merged terrain, and inspect their coordinates, properties, and saved biome in the world demo.~~
+~~Pick rendered mobs through `world.raycastEntities` and inspect their type and saved position in the world demo.~~
 
 ~~Resolve each block state once per placement group and yield to the event loop instead of a timer-driven batch queue.~~ ~~Build section geometry in a browser worker.~~ Region decoding still runs on the main thread; wasm or worker-side chunk parsing remains a scale option once placement stops dominating.
 
