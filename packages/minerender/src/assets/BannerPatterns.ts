@@ -61,12 +61,7 @@ export class BannerPatterns {
     public static async getLayers(value: unknown, target: "banner" | "shield", root?: string): Promise<BannerPatternDraw[]> {
         if (value === undefined) return [];
         if (!Array.isArray(value)) throw new Error("banner_patterns must be an array");
-        const activeRoot = AssetLoader.ROOT, scope = AssetLoader.persistentScope;
-        const checkSources = () => {
-            if (activeRoot !== AssetLoader.ROOT || scope !== AssetLoader.persistentScope) throw new Error("Asset sources changed while loading banner patterns; retry the request");
-        };
         const colors = value.length ? await this.getColors(root) : undefined;
-        checkSources();
         return Promise.all(value.slice(0, 16).map(async layer => {
             if (!layer || typeof layer !== "object" || Array.isArray(layer)) throw new Error("Each banner pattern requires a pattern and dye color");
             if (typeof layer.color !== "string" || !Object.prototype.hasOwnProperty.call(colors, layer.color)) throw new Error(`Unsupported dye color ${layer.color}`);
@@ -76,7 +71,6 @@ export class BannerPatterns {
                 const id = this.identifier(pattern);
                 const key = new AssetKey(id.namespace, id.getFullPath(), "banner_pattern", undefined, "data", ".json", root);
                 pattern = await Caching.bannerPatternCache.get(key.serialize(), () => AssetLoader.get<BannerPattern>(key, AssetParser.JSON));
-                checkSources();
                 if (!pattern) throw new Error(`Missing banner pattern ${layer.pattern}`);
             }
             if (!pattern || typeof pattern !== "object" || Array.isArray(pattern)

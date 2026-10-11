@@ -54,7 +54,7 @@ test.serial("exact versions share pending registry loads and clear with the asse
     t.deepEqual(calls, ["manifest", "item-defaults", "manifest", "item-defaults"]);
 });
 
-test.serial("missing releases select the nearest patch, older ties, then the latest earlier release", async t => {
+test.serial("missing releases select the nearest patch, older ties, then an earlier or oldest published release", async t => {
     const published = ["1.16.5", "1.19.4", "1.20.1", "1.20.6", "1.21.5", "1.21.11", "26.1.2"];
     const calls: string[] = [];
     AssetLoader.addSource("data", new DataSource("releases", key => {
@@ -63,7 +63,8 @@ test.serial("missing releases select the nearest patch, older ties, then the lat
         const version = key.root!.split("/").pop()!;
         return published.includes(version) ? mineRenderDataManifest(version) : undefined;
     }));
-    for (const [requested, expected] of [["1.20.4", "1.20.6"], ["1.21.8", "1.21.5"], ["1.22", "1.21.11"], ["1.18.2", "1.16.5"]]) {
+    for (const [requested, expected] of [["1.20.4", "1.20.6"], ["1.21.8", "1.21.5"], ["1.22", "1.21.11"], ["1.18.2", "1.16.5"],
+        ["1.16.4", "1.16.5"], ["1.15.2", "1.16.5"], ["1.12.2", "1.16.5"]]) {
         const resolved = await MineRenderData.resolve(`https://assets.example/${requested}`);
         t.is(resolved.requestedVersion, requested);
         t.is(resolved.version, expected);
@@ -71,7 +72,6 @@ test.serial("missing releases select the nearest patch, older ties, then the lat
     }
     t.is(calls.filter(path => path.endsWith("/versions")).length, 1);
     t.true(calls.includes("https://assets.example/versions"));
-    await t.throwsAsync(MineRenderData.resolve("https://assets.example/1.15.2"), { message: /1.16.5 onward/ });
     await t.throwsAsync(MineRenderData.resolve("https://assets.example/26w01a"), { message: /26w01a.*fallback requires a release/ });
 });
 
@@ -141,6 +141,26 @@ test.serial("active versions, explicit roots, and added sources have separate ca
     t.deepEqual(await MineRenderData.get("itemDefaults", custom), { "minecraft:test": { override: true } });
 });
 
+test.serial("block tint datasets accept optional biome sources and reject unknown kinds", async t => {
+    let rule: Record<string, unknown> = { source: "constant", color: 0x48b518 };
+    AssetLoader.addSource("data", new DataSource("biome-tints", key => key.path === "manifest"
+        ? mineRenderDataManifest() : { "minecraft:oak_leaves": rule }));
+    const load = () => MineRenderData.get("blockTints", "https://assets.example/1.21.11");
+    t.deepEqual(await load(), { "minecraft:oak_leaves": rule });
+    for (const biome of ["grass", "foliage", "dry_foliage", "water"]) {
+        Caching.clear();
+        rule = { ...rule, biome };
+        t.deepEqual(await load(), { "minecraft:oak_leaves": rule });
+    }
+    Caching.clear();
+    for (const biome of ["unknown", null, 1]) {
+        rule = { ...rule, biome };
+        await t.throwsAsync(load(), { message: /Invalid MineRender blockTints data/ });
+    }
+    rule = { ...rule, biome: "foliage" };
+    t.deepEqual(await load(), { "minecraft:oak_leaves": rule });
+});
+
 test.serial("declared unavailable datasets reject without selecting another version", async t => {
     const manifest = mineRenderDataManifest();
     delete manifest.datasets.fluids;
@@ -183,19 +203,23 @@ test.serial("hosted registry requests do not retry the default namespace or root
     t.deepEqual(urls, ["https://mirror.example/1.16.5/minerender-data/manifest.json"]);
 });
 
-test.serial("default requests honor hosted-source roots without sharing explicit-root cache entries", async t => {
+test.serial("rootless requests use a hosted source's manifest version without sharing explicit-root cache entries", async t => {
     const urls: string[] = [];
     AssetLoader.ROOT = "https://assets.example/1.21.11";
     Requests.mcAssetRequest = async config => {
         urls.push(config.url);
-        const data = config.url.endsWith("manifest.json") ? mineRenderDataManifest()
+        const data = config.url.endsWith("manifest.json") ? mineRenderDataManifest(config.url.startsWith("https://pack.example/") ? "1.20.1" : "1.21.11")
             : { "minecraft:stone": { "minecraft:max_stack_size": config.url.startsWith("https://pack.example/") ? 16 : 64 } };
         return { data, status: 200, statusText: "OK", headers: new Headers(), url: config.url };
     };
     AssetLoader.addSource("mcassets", new HostedAssetSource(AssetLoader.ROOT));
-    AssetLoader.addSource("pack", new HostedAssetSource("https://pack.example/1.21.11"));
+    AssetLoader.addSource("pack", new HostedAssetSource("https://pack.example/1.20.1"));
     t.deepEqual(await MineRenderData.get("itemDefaults"), { "minecraft:stone": { "minecraft:max_stack_size": 16 } });
+    const resolved = await MineRenderData.resolve();
+    t.is(resolved.version, "1.20.1");
+    t.is(resolved.requestedVersion, "1.21.11");
+    t.is(resolved.root, AssetLoader.ROOT);
     t.deepEqual(await MineRenderData.get("itemDefaults", AssetLoader.ROOT), { "minecraft:stone": { "minecraft:max_stack_size": 64 } });
-    t.deepEqual(urls, ["https://pack.example/1.21.11/minerender-data/manifest.json", "https://pack.example/1.21.11/minerender-data/item-defaults.json",
+    t.deepEqual(urls, ["https://pack.example/1.20.1/minerender-data/manifest.json", "https://pack.example/1.20.1/minerender-data/item-defaults.json",
         "https://assets.example/1.21.11/minerender-data/manifest.json", "https://assets.example/1.21.11/minerender-data/item-defaults.json"]);
 });

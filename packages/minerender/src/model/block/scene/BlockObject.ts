@@ -16,10 +16,10 @@ import { ModelCulling } from "../../ModelCulling";
 import { BlockStateResolver } from "../BlockStateResolver";
 import { FluidKind, FluidRules, FluidSampler, resolveBlockFluidState } from "../../fluid/FluidGeometry";
 import { MineRenderData } from "../../../assets/MineRenderData";
-import { AssetLoader } from "../../../assets/AssetLoader";
 import { BlockEntities, ResolvedBlockEntity } from "../../../assets/BlockEntities";
 import { Entities } from "../../../assets/Entities";
 import type { EntityObject } from "../../../entity/scene/EntityObject";
+import { Biomes } from "../../../assets/Biomes";
 import type { TripleArray } from "../../Model";
 
 /** Controls the model parts selected by a blockstate. Create it through {@link MineRenderScene.addBlock}. */
@@ -47,6 +47,8 @@ export class BlockObject extends SceneObject {
     private _fluidKey?: string;
     private _fluidRules: FluidRules = {};
     private _fluidSampler?: FluidSampler;
+    private readonly biomePosition?: TripleArray;
+    private waterTint?: number;
     private _fluidModel?: ModelObject | InstanceReference<ModelObject>;
     private _entities: EntityObject[] = [];
     private _entityPlacement = new Matrix4();
@@ -56,23 +58,17 @@ export class BlockObject extends SceneObject {
         super(options);
         this.options = merge({}, BlockObject.DEFAULT_OPTIONS, options ?? {});
         this.variantPosition = options?.variantPosition ? [...options.variantPosition] : undefined;
+        this.biomePosition = options?.biomePosition ? [...options.biomePosition] : undefined;
         //TODO
     }
 
     async init(): Promise<void> {
-        const root = AssetLoader.ROOT, scope = AssetLoader.persistentScope;
-        const checkSources = () => {
-            if (root !== AssetLoader.ROOT || scope !== AssetLoader.persistentScope) throw new Error("Asset sources changed while loading a block; retry the request");
-        };
         this._fluidRules = await MineRenderData.get("fluids", this.blockState.key?.root);
-        checkSources();
         if (this.options.applyDefaultState) {
             this._setState(await BlockStateResolver.defaults(this.blockState));
-            checkSources();
         }
         if (this.options.initialState !== undefined) this._setState(this.options.initialState);
         await this.recreateModels();
-        checkSources();
         //TODO
     }
 
@@ -274,10 +270,14 @@ export class BlockObject extends SceneObject {
         this._fluidSampler = sample;
         const surface = sampleFluid(kind, (x, y, z) => x === 0 && y === 0 && z === 0
             ? { fluid: kind, level: this.fluidLevel } : sample?.(x, y, z) ?? {});
-        if (this._fluidKey === surface.key) return;
+        const tint = this.options.tints?.[0] ?? this.waterTint;
+        const fluidKey = `${surface.key}|${tint ?? "default"}`;
+        if (this._fluidKey === fluidKey) return;
         const key = new AssetKey("minecraft", `${kind}/${surface.key}`, "models", "fluid", "assets", ".json", this.blockState.key?.root);
         const replacement = await this.scene.addSceneObject({ key },
-            () => new FluidModelObject(kind, surface.sample, this.blockState.key, this.options));
+            () => new FluidModelObject(kind, surface.sample, this.blockState.key, {
+                ...this.options, tints: tint === undefined ? this.options.tints : { ...this.options.tints, 0: tint }
+            }));
         const previous = this._fluidModel;
         const matrix = previous ? this.getModelMatrix(previous) : new Matrix4().makeTranslation(...this.position.toArray());
         if (isInstanceReference(replacement)) replacement.setMatrix(matrix);
@@ -285,7 +285,7 @@ export class BlockObject extends SceneObject {
         this._models = this._models.filter(model => model !== previous);
         this._models.push(replacement);
         this._fluidModel = replacement;
-        this._fluidKey = surface.key;
+        this._fluidKey = fluidKey;
         this._isInstanced ||= isInstanceReference(replacement);
         this._instanceCounter = this._isInstanced ? 1 : 0;
         if (previous) this.removeModels([previous]);
@@ -318,6 +318,9 @@ export class BlockObject extends SceneObject {
 
         // TODO: try to reuse models instead of just removing them and creating new ones
         this.clearModels();
+
+        this.waterTint = this.fluidKind === "water" && this.options.biome && this.options.tints?.[0] === undefined
+            ? await Biomes.getColor(this.options.biome, "water", this.blockState.key) : undefined;
 
         if (resolveBlockFluidState(this.blockState.key, this.state, this._fluidRules)?.renderModel === false) {
             await this.updateFluid(this._fluidSampler);
@@ -384,7 +387,8 @@ export class BlockObject extends SceneObject {
         const model = await Models.getMerged(modelKey);
         const options: Partial<ModelObjectOptions> = {
             ...this.options,
-            tints: model ? await BlockTints.get(this.blockState.key, this.state, model, this.options.tints) : this.options.tints,
+            tints: model ? await BlockTints.get(this.blockState.key, this.state, model, this.options.tints,
+                () => BlockTints.getBiomeColor(this.blockState.key, this.options.biome, this.biomePosition)) : this.options.tints,
             uvLockRotation: variant.uvlock && (rotation.x !== 0 || rotation.y !== 0)
                 ? [rotation.x, rotation.y, rotation.z] : undefined,
             cullMask: this.options.displayPosition ? 0 : ModelCulling.toLocalMask(this._cullMask, rotation)
@@ -544,6 +548,10 @@ export interface BlockObjectOptions extends ModelObjectOptions {
     initialState?: BlockStateProperties;
     /** Absolute block coordinates for repeatable variants, copied at construction. Omit for random previews. */
     variantPosition?: TripleArray;
+    /** Saved biome ID used for automatic grass, foliage, and water colors. */
+    biome?: string;
+    /** World block coordinates used by biome grass modifiers. Copied at construction; defaults to the origin. */
+    biomePosition?: TripleArray;
 }
 
 export function isBlockObject(obj: any): obj is BlockObject {

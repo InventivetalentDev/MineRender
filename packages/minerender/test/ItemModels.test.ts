@@ -159,7 +159,7 @@ test.serial("legacy potion stacks with effects inherit glint only before Minecra
     }
 });
 
-test.serial("version changes during item-model loading reject before persisting mixed defaults", async t => {
+test.serial("version changes after item data loads do not cancel the pending model", async t => {
     const originalGetFirst = AssetLoader.getFirst, originalRoot = AssetLoader.ROOT;
     let loaded!: () => void, release!: () => void;
     const started = new Promise<void>(resolve => { loaded = resolve; });
@@ -167,15 +167,15 @@ test.serial("version changes during item-model loading reject before persisting 
     AssetLoader.getFirst = (async keys => {
         loaded();
         await waiting;
-        return { key: keys[0], asset: { model: reference("item/stale") } };
+        return { key: keys[1], asset: { textures: { layer0: "stone" } } };
     }) as typeof AssetLoader.getFirst;
     t.teardown(() => { AssetLoader.getFirst = originalGetFirst; AssetLoader.ROOT = originalRoot; });
     const pending = Models.getMerged(itemKey("stone"));
     await started;
     AssetLoader.ROOT = "https://assets.example/1.16.5";
     release();
-    await t.throwsAsync(pending, { message: /Asset sources changed/ });
-    t.false((await Models["_persistentCache"]!.keys()).some(key => key.startsWith("item-v8:")));
+    t.is((await pending)?.textures?.layer0, "stone");
+    t.true((await Models["_persistentCache"]!.keys()).some(key => key.startsWith("item-v8:")));
     AssetLoader.getFirst = originalGetFirst;
     AssetLoader.ROOT = originalRoot;
     AssetLoader.addSource("test-items", new FixtureSource({
