@@ -204,6 +204,37 @@ test("off-screen embeds release their context and recreate it when visible", { t
     await color(frame, "red");
 });
 
+test("released skin renderers allow their WebGL contexts to be collected", { timeout: 30000 }, async t => {
+    const source = await fragment(skinScene(red));
+    const { page, frame } = await open(t, source);
+    await page.evaluateOnNewDocument(() => {
+        window.contexts = [];
+        const getContext = HTMLCanvasElement.prototype.getContext;
+        HTMLCanvasElement.prototype.getContext = function (...args) {
+            const context = getContext.apply(this, args);
+            if (args[0] === "webgl2" && context) window.contexts.push(new WeakRef(context));
+            return context;
+        };
+    });
+    await frame.goto(`${origin}/embed/?controls=false${source}`);
+    await ready(frame);
+    for (let cycle = 0; cycle < 6; cycle++) {
+        await page.evaluate(() => scrollTo(0, 1800));
+        await frame.waitForFunction(() => !document.querySelector("#viewport canvas"), { timeout: 10000 });
+        await page.evaluate(() => scrollTo(0, 0));
+        await ready(frame);
+    }
+    const session = await page.createCDPSession();
+    for (let pass = 0; pass < 3; pass++) await session.send("HeapProfiler.collectGarbage");
+    const { created, reachable } = await frame.evaluate(() => ({
+        created: window.contexts.length,
+        reachable: window.contexts.filter(context => context.deref()).length
+    }));
+    assert.equal(created, 7);
+    assert.ok(reachable <= 2, `Expected at most two reachable WebGL contexts, got ${reachable}`);
+    await session.detach();
+});
+
 test("twenty embeds share the page without retaining off-screen WebGL contexts", { timeout: 60000 }, async t => {
     const source = await fragment(skinScene(red));
     const { page } = await open(t, source);

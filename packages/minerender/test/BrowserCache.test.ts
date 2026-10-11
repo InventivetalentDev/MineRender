@@ -21,7 +21,10 @@ function store() {
         readyCalls: () => readyCalls, reads: () => reads };
 }
 
-test("browser cache loads and reuses assets when no storage driver is available", async t => {
+test.serial("browser cache loads and reuses assets when no storage driver is available", async t => {
+    const warn = console.warn, warnings: unknown[][] = [];
+    console.warn = (...args) => { warnings.push(args); };
+    t.teardown(() => { console.warn = warn; });
     const cache = new BrowserCache(localforage.createInstance({ name: "minerender-no-storage", driver: [] }));
     let loads = 0;
     const load = async () => { loads++; return { model: "stone" }; };
@@ -38,6 +41,8 @@ test("browser cache loads and reuses assets when no storage driver is available"
     t.is(await cache.get("other"), false);
     await cache.clear();
     t.deepEqual(await cache.keys(), []);
+    t.is(warnings.length, 1);
+    t.true(warnings[0][2] instanceof Error);
 });
 
 test("browser cache initializes healthy storage once and leaves it authoritative", async t => {
@@ -55,41 +60,15 @@ test("browser cache initializes healthy storage once and leaves it authoritative
     t.is(values.size, 0);
 });
 
-test("browser cache keeps failed writes in memory and stops using unavailable storage", async t => {
+test("browser cache propagates failed writes and keeps using opened storage", async t => {
     const { cache, backing, values, reads } = store();
     await cache.put("persisted", "old");
-    backing.setItem = async () => { throw new DOMException("Storage denied", "SecurityError"); };
-    t.is(await cache.put("asset", "loaded"), "loaded");
-    t.is(await cache.get("asset"), "loaded");
-    t.is(await cache.get("persisted"), undefined);
-    t.is(reads(), 0);
+    const failure = new DOMException("Storage denied", "SecurityError");
+    backing.setItem = async () => { throw failure; };
+    await t.throwsAsync(cache.put("asset", "loaded"), { is: failure });
+    t.is(await cache.get("persisted"), "old");
+    t.is(reads(), 1);
     t.deepEqual([...values.entries()], [["persisted", "old"]]);
     await cache.clear();
     t.is(await cache.length(), 0);
-});
-
-test("browser cache bounds stalled readiness and keeps using memory after late initialization", async t => {
-    const { cache, backing, reads, values } = store();
-    let release!: () => void;
-    backing.ready = () => new Promise<void>(resolve => { release = resolve; });
-    t.timeout(5000);
-    const [first, second] = await Promise.all([
-        cache.getOrLoad("first", async () => "loaded"), cache.getOrLoad("second", async () => "also loaded")
-    ]);
-    t.is(first, "loaded");
-    t.is(second, "also loaded");
-    release();
-    await Promise.resolve();
-    t.is(await cache.get("first"), "loaded");
-    t.is(reads(), 0);
-    t.is(values.size, 0);
-});
-
-test("browser cache does not treat iteration callback errors as storage failures", async t => {
-    const { cache, values } = store();
-    await cache.put("asset", "stored");
-    const failure = new Error("caller failure");
-    await t.throwsAsync(cache.forEach(() => { throw failure; }), { is: failure });
-    values.set("asset", "still persistent");
-    t.is(await cache.get("asset"), "still persistent");
 });

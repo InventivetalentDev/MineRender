@@ -2,7 +2,6 @@
 
 The embed page displays a scene without loading MineRender into the parent page.
 The examples use the configured destination, `https://beta.minerender.org/embed/`.
-Deployment is a separate step.
 
 ```html
 <iframe
@@ -101,9 +100,12 @@ keeps the same payload limit.
 
 An off-screen embed releases its WebGL context. When it becomes visible again, it
 recreates the renderer and resumes the scene with the saved camera and entity clip
-playback time. Rendering also pauses while the browser tab is hidden.
+playback time. A hidden browser tab is handled the same way.
 
 Load errors appear inside the iframe. If the browser loses the WebGL context, the
 viewer shows a recovery message and a **Retry** button; it also recovers when the browser
 restores the context. If browser cache storage is unavailable, assets use memory
 for that page session so rendering can continue.
+
+Browsers allow about 16 WebGL contexts per page. When more embeds are visible at
+once, the extra ones show the recovery message until others leave the screen.

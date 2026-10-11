@@ -1,8 +1,11 @@
 import { PersistentCache } from "../../cache/PersistentCache";
+import { prefix } from "../../util/log";
+
+const p = prefix("BrowserCache");
 
 /**
  * {@link PersistentCache} backed by localforage (IndexedDB / WebSQL / localStorage).
- * Uses an in-memory store if browser storage fails or takes more than one second to initialize.
+ * Uses an in-memory store when browser storage cannot be opened.
  */
 export class BrowserCache extends PersistentCache<LocalForage> {
 
@@ -14,28 +17,18 @@ export class BrowserCache extends PersistentCache<LocalForage> {
     }
 
     private async initialize(): Promise<boolean> {
-        let timer: ReturnType<typeof setTimeout> | undefined;
         try {
-            const ready = await Promise.race([
-                Promise.resolve().then(() => this.backing.ready()).then(() => true, () => false),
-                new Promise<boolean>(resolve => { timer = setTimeout(() => resolve(false), 1000); })
-            ]);
-            if (!ready) this.memory = new Map();
-            return ready;
-        } finally {
-            clearTimeout(timer);
+            await this.backing.ready();
+            return true;
+        } catch (error) {
+            this.memory = new Map();
+            console.warn(p, "Could not open browser storage; using an in-memory store", error);
+            return false;
         }
     }
 
     private async run<T>(operation: () => Promise<T>, fallback: (memory: Map<string, unknown>) => T): Promise<T> {
-        if (!this.memory && await (this.initialized ??= this.initialize())) {
-            try {
-                const value = await operation();
-                if (!this.memory) return value;
-            } catch {
-                this.memory ??= new Map();
-            }
-        }
+        if (await (this.initialized ??= this.initialize())) return operation();
         return fallback(this.memory!);
     }
 
@@ -66,13 +59,10 @@ export class BrowserCache extends PersistentCache<LocalForage> {
         return this.run(() => this.backing.keys(), memory => [...memory.keys()]);
     }
 
-    async forEach<T>(callback: (v: T, k: string) => void): Promise<void> {
-        const entries = await this.run(async () => {
-            const entries: Array<[string, T]> = [];
-            await this.backing.iterate<T, void>((value, key) => { entries.push([key, value]); });
-            return entries;
-        }, memory => [...memory.entries()] as Array<[string, T]>);
-        for (const [key, value] of entries) callback(value, key);
+    forEach<T>(callback: (v: T, k: string) => void): Promise<void> {
+        return this.run(() => this.backing.iterate<T, void>((value, key) => {
+            callback(value, key);
+        }), memory => memory.forEach((value, key) => callback(value as T, key)));
     }
 
 }

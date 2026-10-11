@@ -1,6 +1,6 @@
 import { AssetLoader, Renderer, SceneDocumentLoader, isEntityObject } from "minerender";
 import type { LoadedSceneDocument, SceneDocument, TripleArray } from "minerender";
-import { Box3, Color, Mesh, PerspectiveCamera, Vector3 } from "three";
+import { Box3, Color, Mesh, PerspectiveCamera, ShaderMaterial, Vector3 } from "three";
 import { loadEmbedScene } from "./load";
 import { parseEmbedUrl } from "./params";
 import type { EmbedRequest } from "./params";
@@ -212,6 +212,17 @@ function releaseRenderer(): void {
     canvas?.removeEventListener("webglcontextrestored", contextRestored);
     stopFrames?.();
     stopFrames = undefined;
+    // Cached resources retain the renderer through three.js dispose listeners until they are disposed.
+    renderer?.scene.traverse(object => {
+        if (!(object as Mesh).isMesh) return;
+        const mesh = object as Mesh;
+        mesh.geometry.dispose();
+        for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+            const textures = [...Object.values(material), ...Object.values((material as ShaderMaterial).uniforms ?? {}).map(uniform => uniform.value)];
+            for (const texture of textures) if (texture?.isTexture) texture.dispose();
+            material.dispose();
+        }
+    });
     loaded?.dispose();
     loaded = undefined;
     renderer?.dispose();
@@ -245,7 +256,8 @@ function readLocation(): void {
 }
 
 const intersection = new IntersectionObserver(entries => {
-    visible = entries.some(entry => entry.isIntersecting && entry.intersectionRatio > 0);
+    const entry = entries[entries.length - 1];
+    visible = entry.isIntersecting && entry.intersectionRatio > 0;
     syncRunning();
 });
 const observer = new ResizeObserver(() => {
