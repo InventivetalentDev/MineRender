@@ -18,6 +18,7 @@ import { BlockState } from "../model/block/BlockState";
 import { CUBE_FACE_OFFSETS } from "../CubeFace";
 import { BlockTints } from "../model/block/BlockTints";
 import { Biomes } from "../assets/Biomes";
+import { sectionAmbientOcclusionMask } from "./_light/AmbientOcclusion";
 
 const WATER_TINT = new Color(0x3f76e4).toArray() as TripleArray;
 
@@ -45,6 +46,8 @@ export class Chunk<SectionMeshing extends boolean = false> {
     private sectionMesh?: SectionMesh;
     private meshDirty = false;
     private meshGeneration = 0;
+    private ambientOcclusionCells?: Uint8Array;
+    private ambientOcclusionPending = false;
 
     constructor(scene: MineRenderScene, x: number, y: number, z: number,
                 private readonly onBlocksChanged?: (positions: Vector3[]) => Promise<void>,
@@ -54,7 +57,8 @@ export class Chunk<SectionMeshing extends boolean = false> {
                 private readonly onBiomesChanged?: (biomes?: readonly string[]) => Promise<void>,
                 private readonly lightAt?: (x: number, y: number, z: number) => number,
                 private readonly onLightCleared?: () => Promise<void>,
-                private readonly ambientLight = 0) {
+                private readonly ambientLight = 0,
+                private ambientOcclusion = false) {
         this.scene = scene;
         this.x = x;
         this.y = y;
@@ -351,6 +355,42 @@ export class Chunk<SectionMeshing extends boolean = false> {
         }
     }
 
+    /** Refreshes baked corner shading after edits or a world setting change. Disabled chunks keep no AO neighborhood. */
+    public async refreshAmbientOcclusion(enabled: boolean, indices?: Iterable<number>): Promise<void> {
+        if (!enabled && !this.ambientOcclusion && !this.ambientOcclusionPending) return;
+        this.ambientOcclusion = enabled;
+        this.ambientOcclusionPending = true;
+        const cells = enabled ? this.buildAmbientOcclusionCells() : undefined;
+        if (cells?.some((value, index) => value !== this.ambientOcclusionCells?.[index])
+            || !!cells !== !!this.ambientOcclusionCells) this.meshDirty = true;
+        this.ambientOcclusionCells = cells;
+        for (const index of indices ?? this.renderedBlocks.keys()) {
+            const object = this.renderedBlocks.get(index)?.object;
+            if (object) await object.setAmbientOcclusion(cells ? this.ambientOcclusionMask(index, cells) : undefined);
+        }
+        this.ambientOcclusionPending = false;
+    }
+
+    private buildAmbientOcclusionCells(): Uint8Array {
+        const cells = new Uint8Array(18 * 18 * 18);
+        for (let y = -1; y <= 16; y++) {
+            for (let z = -1; z <= 16; z++) {
+                for (let x = -1; x <= 16; x++) {
+                    const inner = x >= 0 && x < 16 && y >= 0 && y < 16 && z >= 0 && z < 16;
+                    cells[(y + 1) * 324 + (z + 1) * 18 + x + 1] = inner
+                        ? Number(this.isOccludingIndex(y * 256 + z * 16 + x))
+                        : Number(!!((this.neighborCell?.(this.x * 16 + x, this.y * 16 + y, this.z * 16 + z) ?? 0) & 64));
+                }
+            }
+        }
+        return cells;
+    }
+
+    private ambientOcclusionMask(index: number, cells: Uint8Array): number {
+        const center = (Math.floor(index / 256) + 1) * 324 + (Math.floor(index / 16) % 16 + 1) * 18 + index % 16 + 1;
+        return sectionAmbientOcclusionMask(cells, center);
+    }
+
     private biomePosition(index: number, blockState: BlockState, stored: Block): TripleArray {
         const position = this.positionAt(index), name = blockState.key?.toNamespacedString();
         if (stored.properties?.half === "upper" && (name === "minecraft:tall_grass" || name === "minecraft:large_fern")) position[1]--;
@@ -564,8 +604,14 @@ export class Chunk<SectionMeshing extends boolean = false> {
                 }
             }
         }
-        const next = entries.length || fluids ? await SectionMesh.buildAsync(entries, this.sectionModels.maxAtlasSize, fluids,
-            light ? { light, ambientLight: this.ambientLight } : undefined) : undefined;
+        let next: SectionMesh | undefined;
+        try {
+            next = entries.length || fluids ? await SectionMesh.buildAsync(entries, this.sectionModels.maxAtlasSize, fluids,
+                { light, ambientLight: this.ambientLight, ambientOcclusion: this.ambientOcclusionCells }) : undefined;
+        } catch (error) {
+            if (generation === this.meshGeneration) this.meshDirty = true;
+            throw error;
+        }
         if (generation !== this.meshGeneration) {
             next?.dispose();
             return;
@@ -594,6 +640,8 @@ export class Chunk<SectionMeshing extends boolean = false> {
         this.hiddenBlocks.clear();
         this.fluidCells.fill(0);
         this.waterTints = undefined;
+        this.ambientOcclusionCells = undefined;
+        this.ambientOcclusionPending = false;
         this.data.clear();
         this.biomes = undefined;
         if (notify) {

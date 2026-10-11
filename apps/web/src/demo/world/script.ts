@@ -47,18 +47,18 @@ function fail(error: unknown, action?: () => void): void {
     report(error instanceof Error ? error.message : String(error), true);
 }
 
-function runChange(task: () => Promise<void>): void {
+function runChange(task: () => Promise<void>, message = "Loading world…"): void {
     switching = true;
     updateId++;
     element<HTMLFieldSetElement>("source-controls").disabled = true;
     element<HTMLFieldSetElement>("view-controls").disabled = true;
-    report("Loading world…");
+    report(message);
     changeQueue = changeQueue.then(async () => {
         if (disposed) return;
         try {
             await task();
         } catch (error) {
-            fail(error, () => runChange(task));
+            fail(error, () => runChange(task, message));
         } finally {
             switching = false;
             element<HTMLFieldSetElement>("source-controls").disabled = false;
@@ -75,7 +75,8 @@ async function replaceSource(next: Source, center?: { x: number; z: number; y: n
     const dimension = select("dimension").value;
     world = new MineRenderWorld(renderer.scene, {
         sectionMeshing: true, renderEntities: input("render-entities").checked, savedLighting: input("saved-lighting").checked,
-        ambientLight: dimension === "minecraft:the_nether" ? 0.1 : dimension === "minecraft:the_end" ? 0.25 : 0
+        ambientLight: dimension === "minecraft:the_nether" ? 0.1 : dimension === "minecraft:the_end" ? 0.25 : 0,
+        ambientOcclusion: input("ambient-occlusion").checked
     });
     if (active !== next) active?.clearCache?.();
     active = next;
@@ -304,6 +305,13 @@ select("dimension").addEventListener("change", () => {
 });
 select("load-radius").addEventListener("change", () => runChange(() => replaceSource(active!)));
 input("saved-lighting").addEventListener("change", () => runChange(() => replaceSource(active!)));
+input("ambient-occlusion").addEventListener("change", () => {
+    const enabled = input("ambient-occlusion").checked;
+    runChange(async () => {
+        await world.setAmbientOcclusion(enabled);
+        await updateWorld(true);
+    }, "Updating ambient occlusion…");
+});
 input("render-entities").addEventListener("change", () => runChange(() => select("dimension").disabled
     ? replaceSource(active!) : openDimension(select("dimension").value, true)));
 element("apply-version").addEventListener("click", () => runChange(async () => {

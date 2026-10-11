@@ -252,3 +252,66 @@ test("section ambient light sets a minimum for block and fluid colors while pres
         });
     }
 });
+
+test("ambient occlusion shades boundary corners, blocks diagonal leaks and preserves saved light and tint", t => {
+    const source = input();
+    source.count = 1;
+    source.indices[0] = 0;
+    source.cullMasks[0] = 0;
+    source.templateData[0] = template(0);
+    source.templateData[0].colors.fill(0.5);
+    source.light = new Uint8Array(5832).fill(10);
+    source.ambientOcclusion = new Uint8Array(5832);
+    const cell = (x: number, y: number, z: number) => (y + 1) * 324 + (z + 1) * 18 + x + 1;
+    source.ambientOcclusion[cell(1, 1, 0)] = 1;
+    source.ambientOcclusion[cell(0, 1, 1)] = 1;
+    const original = structuredClone(source);
+    const [page] = buildSectionGeometry(source);
+    for (let vertex = 8; vertex < 12; vertex++) {
+        const positiveX = page.positions[vertex * 3] > 0;
+        const positiveZ = page.positions[vertex * 3 + 2] > 0;
+        const ao = positiveX && positiveZ ? 0.4 : positiveX || positiveZ ? 0.8 : 1;
+        t.true(Math.abs(page.colors[vertex * 3] - ao / 6) < 1e-7);
+    }
+    source.ambientOcclusion[cell(1, 1, 1)] = 1;
+    t.deepEqual(buildSectionGeometry(source)[0].colors.slice(24, 36), page.colors.slice(24, 36));
+    t.deepEqual(original.templateData, source.templateData);
+    source.templateData[0].ambientOcclusion = false;
+    t.true(buildSectionGeometry(source)[0].colors.every(value => Math.abs(value - 1 / 6) < 1e-7));
+});
+
+test("ambient occlusion interpolates boundary partial faces and skips inset or oblique faces", t => {
+    const source = input();
+    source.count = 1;
+    source.indices[0] = 0;
+    source.cullMasks[0] = 0;
+    source.templateData[0] = template(0);
+    source.ambientOcclusion = new Uint8Array(5832);
+    source.ambientOcclusion[343 + 324 + 1] = 1;
+    const data = source.templateData[0];
+    for (let vertex = 0; vertex < data.positions.length / 3; vertex++) data.positions[vertex * 3] *= 0.5;
+    const [page] = buildSectionGeometry(source);
+    for (let vertex = 8; vertex < 12; vertex++) {
+        t.true(Math.abs(page.colors[vertex * 3] - (page.positions[vertex * 3] > 0 ? 0.85 : 0.95)) < 1e-7);
+    }
+    t.true(page.colors.slice(0, 24).every(value => value === 1));
+    for (let vertex = 8; vertex < 12; vertex++) {
+        data.normals[vertex * 3] = Math.SQRT1_2;
+        data.normals[vertex * 3 + 1] = Math.SQRT1_2;
+    }
+    t.true(buildSectionGeometry(source)[0].colors.slice(24, 36).every(value => value === 1));
+});
+
+test("ambient occlusion ignores fluid faces and rejects invalid neighborhoods", t => {
+    const source = input();
+    source.count = 0;
+    source.fluids = { cells: new Uint8Array(5832), water: { atlas: 0, still: [0, 0, 2, 2], flow: [0, 0, 2, 2], tint: [0.25, 0.5, 0.75] } };
+    source.fluids.cells[343] = 16;
+    const baseline = buildSectionGeometry(source);
+    source.ambientOcclusion = new Uint8Array(5832).fill(1);
+    t.deepEqual(buildSectionGeometry(source), baseline);
+    for (const ambientOcclusion of [new Uint8Array(27), new Uint8Array(5832).fill(2)]) {
+        t.throws(() => buildSectionGeometry({ ...source, ambientOcclusion }), { instanceOf: RangeError,
+            message: "Section ambient occlusion must cover an 18×18×18 neighborhood with zero or one per cell" });
+    }
+});

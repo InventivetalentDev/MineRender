@@ -7,7 +7,7 @@ import { BlockStateProperties } from "../model/block/BlockStateProperties";
 import { BlockStateResolver } from "../model/block/BlockStateResolver";
 import { BlockTints } from "../model/block/BlockTints";
 import { FluidKind } from "../model/fluid/FluidGeometry";
-import { Model, TripleArray } from "../model/Model";
+import { BlockModel, Model, TripleArray } from "../model/Model";
 import { ModelCulling } from "../model/ModelCulling";
 import { ModelObject } from "../model/scene/ModelObject";
 import { TextureAtlas } from "../texture/TextureAtlas";
@@ -191,7 +191,7 @@ export class SectionModels {
             const template: SectionMeshTemplate = {
                 geometry, atlas, cullFaces: new Uint8Array(cullFaces),
                 occludes: ModelCulling.isOpaqueFullCube(atlas) && ModelCulling.toLocalMask(63, rotation) === 63,
-                layer: atlas.hasTranslucency ? 1 : 0
+                layer: atlas.hasTranslucency ? 1 : 0, ambientOcclusion: (model as BlockModel).ambientocclusion !== false
             };
             this.templates.add(template);
             return template;
