@@ -475,7 +475,7 @@ const source = new AnvilWorldSource(async (x, z, signal) =&gt; {
     return response.ok ? response.arrayBuffer() : undefined;
 });
 const streamer = new WorldStreamer(world, source, { loadRadius: 2, unloadRadius: 3 });
-await streamer.updatePosition(renderer.controls!.target);   // call again whenever the view moves
+await streamer.updatePosition(renderer.orbitControls!.target);   // call again whenever the view moves
 await streamer.dispose();                                    // unloads its columns</code></pre>
                 <p>Bulk placement resolves each block state once and yields to the page every few milliseconds, and section meshes are built in a worker when your bundle keeps the package's <code>section.worker</code> file next to the module. The world has no lighting, biome colors or level of detail.</p>
             </article>
