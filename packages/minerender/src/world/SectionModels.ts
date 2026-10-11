@@ -1,4 +1,4 @@
-import { BufferAttribute, BufferGeometry, Matrix4, Mesh, Vector3 } from "three";
+import { BufferAttribute, BufferGeometry, Euler, Matrix4, Mesh, Vector3 } from "three";
 import { AssetKey } from "../assets/AssetKey";
 import { Models } from "../assets/Models";
 import { CUBE_FACES, CUBE_FACE_OFFSETS } from "../CubeFace";
@@ -14,9 +14,16 @@ import { TextureAtlas } from "../texture/TextureAtlas";
 import { UVMapper } from "../UVMapper";
 import { SectionMeshTemplate } from "./SectionMesh";
 
+interface PreparedVariant {
+    model: Model;
+    atlas: TextureAtlas;
+    rotation: Euler;
+}
+
 interface PreparedState {
+    state: BlockStateProperties;
     groups: (BlockStateVariant | BlockStateVariant[])[];
-    templates: Map<BlockStateVariant, SectionMeshTemplate>;
+    choices: Map<BlockStateVariant, PreparedVariant>;
 }
 
 // Section meshes supply the material; templates only need the existing model geometry pipeline.
@@ -72,26 +79,49 @@ export class SectionModels {
     }
 
     /** Returns templates for the matched parts, or `undefined` when the block needs an individual render object. */
-    public async get(blockState: BlockState, properties: BlockStateProperties = {}, position?: Readonly<TripleArray>): Promise<SectionMeshTemplate[] | undefined> {
-        const variantPosition: TripleArray | undefined = position ? [...position] : undefined;
-        return (await this.prepareState(blockState, properties))?.pick(variantPosition);
+    public async get(blockState: BlockState, properties: BlockStateProperties = {},
+                     position?: Readonly<TripleArray>, biome?: string): Promise<SectionMeshTemplate[] | undefined> {
+        const biomePosition: TripleArray | undefined = position ? [...position] : undefined;
+        const prepared = await this.state(blockState, properties);
+        if (!prepared) return undefined;
+        return Promise.all(prepared.groups.map(async group => {
+            const variant = BlockStateResolver.choose(group, biomePosition);
+            const choice = prepared.choices.get(variant)!;
+            const tints = await BlockTints.get(blockState.key, prepared.state, choice.model, undefined,
+                () => BlockTints.getBiomeColor(blockState.key, biome, biomePosition));
+            return this.template(variant, choice, tints);
+        }));
     }
 
-    /** Resolves section templates once, with a synchronous weighted choice for each cell. */
-    public async prepareState(blockState: BlockState, properties: BlockStateProperties = {}): Promise<{ pick(position?: Readonly<TripleArray>): SectionMeshTemplate[] } | undefined> {
+    /** Resolves section templates for one tint palette, with a synchronous weighted choice for each cell. */
+    public async prepareState(blockState: BlockState, properties: BlockStateProperties = {},
+                              biomeColor?: number | (() => Promise<number | undefined>)):
+        Promise<{ pick(position?: Readonly<TripleArray>): SectionMeshTemplate[] } | undefined> {
+        const prepared = await this.state(blockState, properties);
+        if (!prepared) return undefined;
+        let color: Promise<number | undefined> | undefined;
+        const resolveColor = typeof biomeColor === "function" ? () => color ??= biomeColor() : biomeColor;
+        const templates = new Map<BlockStateVariant, SectionMeshTemplate>();
+        await Promise.all([...prepared.choices].map(async ([variant, choice]) => {
+            const tints = await BlockTints.get(blockState.key, prepared.state, choice.model, undefined, resolveColor);
+            templates.set(variant, await this.template(variant, choice, tints));
+        }));
+        return { pick: (position?: Readonly<TripleArray>) => prepared.groups.map(group => templates.get(BlockStateResolver.choose(group, position))!) };
+    }
+
+    private async state(blockState: BlockState, properties: BlockStateProperties): Promise<PreparedState | undefined> {
         let states = this.states.get(blockState);
         if (!states) this.states.set(blockState, states = new Map());
         const key = JSON.stringify(Object.entries(properties).sort(([a], [b]) => a.localeCompare(b)));
-        const prepared = await cached(states, key, () => this.prepare(blockState, properties));
-        if (!prepared) return undefined;
-        return { pick: (position?: Readonly<TripleArray>) => prepared.groups.map(group => prepared.templates.get(BlockStateResolver.choose(group, position))!) };
+        return cached(states, key, () => this.prepare(blockState, properties));
     }
 
     /** Returns the shared still/flow atlas used by per-block fluid objects. */
     public fluidAtlas(kind: FluidKind, root?: string): Promise<TextureAtlas> {
-        return cached(this.fluidAtlases, kind, async () => {
+        const key = new AssetKey("minecraft", kind, "models", "fluid", "assets", ".json", root);
+        return cached(this.fluidAtlases, key.serialize(), async () => {
             const atlas = await UVMapper.getAtlas({
-                key: new AssetKey("minecraft", kind, "models", "fluid", "assets", ".json", root),
+                key,
                 textures: { still: `minecraft:block/${kind}_still`, flow: `minecraft:block/${kind}_flow` },
                 elements: []
             });
@@ -104,63 +134,68 @@ export class SectionModels {
         const state = { ...await BlockStateResolver.defaults(blockState), ...properties };
         const groups = BlockStateResolver.matching(blockState, state);
         if (!groups.length) return undefined;
-        const templates = new Map<BlockStateVariant, SectionMeshTemplate>();
+        const prepared = new Map<BlockStateVariant, PreparedVariant>();
         for (const group of groups) {
             const choices = Array.isArray(group) ? group : [group];
             if (!choices.length) return undefined;
             for (const variant of choices) {
                 if (!variant.model) return undefined;
-                const model = await Models.getMerged(AssetKey.parse("models", variant.model));
+                const modelKey = AssetKey.parse("models", variant.model);
+                modelKey.root = blockState.key?.root;
+                const model = await Models.getMerged(modelKey);
                 if (!model?.elements?.length) return undefined;
                 const atlas = await UVMapper.getAtlas(model);
                 const rotation = BlockStateResolver.rotation(variant);
                 if (!atlas
                     || atlas.image.width > this.maxAtlasSize || atlas.image.height > this.maxAtlasSize) return undefined;
-                const tints = await BlockTints.get(blockState.key, state, model);
-                let models = this.models.get(model);
-                if (!models) this.models.set(model, models = new Map());
-                const key = JSON.stringify([rotation.x, rotation.y, rotation.z, variant.uvlock, tints]);
-                const template = await cached(models, key, async () => {
-                    const object = new SectionModel(model, {
-                        instanceMeshes: false, mergeMeshes: true, tints,
-                        uvLockRotation: variant.uvlock && (rotation.x !== 0 || rotation.y !== 0)
-                            ? [rotation.x, rotation.y, rotation.z] : undefined
-                    });
-                    await object.init();
-                    let geometry = (object.children[0] as Mesh).geometry;
-                    geometry.applyMatrix4(new Matrix4().makeRotationFromEuler(rotation));
-                    object.clear();
-                    const keep: boolean[] = [];
-                    const cullFaces: number[] = [];
-                    for (const element of atlas.model.elements!) {
-                        for (const face of CUBE_FACES) {
-                            const data = element.faces[face];
-                            keep.push(data !== undefined);
-                            if (!data) continue;
-                            const local = CUBE_FACES.findIndex(name => name === data.cullface);
-                            if (local < 0) {
-                                cullFaces.push(0);
-                                continue;
-                            }
-                            const normal = new Vector3(...CUBE_FACE_OFFSETS[local]).applyEuler(rotation);
-                            const world = CUBE_FACE_OFFSETS.findIndex(([x, y, z]) =>
-                                Math.abs(normal.x - x) < 1e-6 && Math.abs(normal.y - y) < 1e-6 && Math.abs(normal.z - z) < 1e-6);
-                            cullFaces.push(world < 0 ? 0 : 1 << world);
-                        }
-                    }
-                    geometry = compactQuads(geometry, keep);
-                    const template: SectionMeshTemplate = {
-                        geometry, atlas, cullFaces: new Uint8Array(cullFaces),
-                        occludes: ModelCulling.isOpaqueFullCube(atlas) && ModelCulling.toLocalMask(63, rotation) === 63,
-                        layer: atlas.hasTranslucency ? 1 : 0
-                    };
-                    this.templates.add(template);
-                    return template;
-                });
-                templates.set(variant, template);
+                prepared.set(variant, { model, atlas, rotation });
             }
         }
-        return { groups, templates };
+        return { state, groups, choices: prepared };
+    }
+
+    private async template(variant: BlockStateVariant, { model, atlas, rotation }: PreparedVariant,
+                           tints?: Record<number, number>): Promise<SectionMeshTemplate> {
+        let models = this.models.get(model);
+        if (!models) this.models.set(model, models = new Map());
+        const key = JSON.stringify([rotation.x, rotation.y, rotation.z, variant.uvlock, tints]);
+        return cached(models, key, async () => {
+            const object = new SectionModel(model, {
+                instanceMeshes: false, mergeMeshes: true, tints,
+                uvLockRotation: variant.uvlock && (rotation.x !== 0 || rotation.y !== 0)
+                    ? [rotation.x, rotation.y, rotation.z] : undefined
+            });
+            await object.init();
+            let geometry = (object.children[0] as Mesh).geometry;
+            geometry.applyMatrix4(new Matrix4().makeRotationFromEuler(rotation));
+            object.clear();
+            const keep: boolean[] = [];
+            const cullFaces: number[] = [];
+            for (const element of atlas.model.elements!) {
+                for (const face of CUBE_FACES) {
+                    const data = element.faces[face];
+                    keep.push(data !== undefined);
+                    if (!data) continue;
+                    const local = CUBE_FACES.findIndex(name => name === data.cullface);
+                    if (local < 0) {
+                        cullFaces.push(0);
+                        continue;
+                    }
+                    const normal = new Vector3(...CUBE_FACE_OFFSETS[local]).applyEuler(rotation);
+                    const world = CUBE_FACE_OFFSETS.findIndex(([x, y, z]) =>
+                        Math.abs(normal.x - x) < 1e-6 && Math.abs(normal.y - y) < 1e-6 && Math.abs(normal.z - z) < 1e-6);
+                    cullFaces.push(world < 0 ? 0 : 1 << world);
+                }
+            }
+            geometry = compactQuads(geometry, keep);
+            const template: SectionMeshTemplate = {
+                geometry, atlas, cullFaces: new Uint8Array(cullFaces),
+                occludes: ModelCulling.isOpaqueFullCube(atlas) && ModelCulling.toLocalMask(63, rotation) === 63,
+                layer: atlas.hasTranslucency ? 1 : 0
+            };
+            this.templates.add(template);
+            return template;
+        });
     }
 
     /** Disposes prepared geometry and clears this world's template caches. */

@@ -1,6 +1,6 @@
 import { installMineRenderDataFixtures } from "./helpers/minerender-data";
 import test, { ExecutionContext } from "ava";
-import { BoxGeometry, DoubleSide, Float32BufferAttribute, FrontSide, Group, Matrix4, Mesh, ShaderMaterial, Texture } from "three";
+import { BoxGeometry, Color, DoubleSide, Float32BufferAttribute, FrontSide, Group, Matrix4, Mesh, ShaderMaterial, Texture } from "three";
 import { CanvasImage } from "../src/canvas/CanvasImage";
 import { CompatCanvas } from "../src/canvas/CanvasCompat";
 import { Env, EnvProvider } from "../src/Env";
@@ -136,6 +136,37 @@ for (const transparent of [false, true]) {
     });
 }
 
+test.serial("merged fluids retain each water cell's linear tint and leave lava white", t => {
+    fixture(t);
+    const atlas = new TextureAtlas({}, new CanvasImage(4, 2), { still: [2, 2], flow: [2, 2] },
+        { still: [0, 0], flow: [2, 0] }, false, {}, true, true);
+    const cells = new Uint8Array(18 ** 3), waterTints = new Float32Array(4096 * 3);
+    cells[18 * 18 + 18 + 1] = 16;
+    cells[4 * 324 + 8 * 18 + 6] = 16;
+    cells[10 * 324 + 15 * 18 + 13] = 32;
+    waterTints.set([0.25, 0.5, 0.75]);
+    waterTints.set([0, 0.75, 0.25], (5 + 7 * 16 + 3 * 256) * 3);
+    const section = SectionMesh.build([], 4, { cells, waterTints, water: atlas, lava: atlas });
+    const fallback = SectionMesh.build([], 4, { cells, water: atlas, lava: atlas });
+    t.teardown(() => { section.dispose(); fallback.dispose(); });
+    t.is(section.children.length, 2);
+    const water = (section.children[0] as Mesh).geometry.getAttribute("color");
+    t.is(water.count, 48);
+    for (let vertex = 0; vertex < water.count; vertex++) {
+        t.deepEqual([water.getX(vertex), water.getY(vertex), water.getZ(vertex)],
+            vertex < 24 ? [0.25, 0.5, 0.75] : [0, 0.75, 0.25]);
+    }
+    const lava = (section.children[1] as Mesh).geometry.getAttribute("color");
+    t.true(Array.from(lava.array).every(value => value === 1));
+    const blue = Array.from(new Float32Array(new Color(0x3f76e4).toArray()));
+    const fallbackColors = (fallback.children[0] as Mesh).geometry.getAttribute("color");
+    t.deepEqual(Array.from(fallbackColors.array).slice(0, 3), blue);
+    t.deepEqual(Array.from(fallbackColors.array).slice(-3), blue);
+    t.throws(() => SectionMesh.build([], 4, { cells, water: atlas, waterTints: new Float32Array(3) }), {
+        instanceOf: RangeError, message: "Section water tints must contain RGB for 4096 cells"
+    });
+});
+
 test.serial("animated section pages redraw once per tick, dirty their scene and unsubscribe on disposal", t => {
     let draws = 0;
     const calls: (string | number)[][] = [];
@@ -215,7 +246,7 @@ test.serial("async section builds use the shared worker without copying its geom
     const worker = Object.assign(target, {
         postMessage({ id, input }: { id: number; input: SectionGeometryInput }) {
             queueMicrotask(() => {
-                const pages = buildSectionGeometry(input);
+                const pages = buildSectionGeometry(structuredClone(input));
                 results.push(pages);
                 target.dispatchEvent(new MessageEvent("message", { data: { id, type: "pages", pages } }));
             });
@@ -226,9 +257,12 @@ test.serial("async section builds use the shared worker without copying its geom
     const first = create(), second = create();
     first.geometry.applyMatrix4(new Matrix4().makeRotationY(Math.PI / 2));
     const entries = [{ index: 1, template: first, cullMask: 1 }, { index: 16, template: second, cullMask: 0 }];
-    const fluids = { cells: new Uint8Array(18 ** 3), water: new TextureAtlas({}, new CanvasImage(2, 2),
+    const fluids = { cells: new Uint8Array(18 ** 3), waterTints: new Float32Array(4096 * 3), water: new TextureAtlas({}, new CanvasImage(2, 2),
         { still: [1, 2], flow: [1, 2] }, { still: [0, 0], flow: [1, 0] }, false, {}, true, true) };
     fluids.cells[18 * 18 + 18 + 1] = 16;
+    fluids.cells[3 * 324 + 4 * 18 + 5] = 16;
+    fluids.waterTints.set([0.25, 0.5, 0.75]);
+    fluids.waterTints.set([0.75, 0.25, 0.5], (4 + 3 * 16 + 2 * 256) * 3);
     const expected = [SectionMesh.build(entries, 4, fluids), SectionMesh.build([...entries].reverse(), 4, fluids)];
     const actual = await Promise.all([SectionMesh.buildAsync(entries, 4, fluids), SectionMesh.buildAsync([...entries].reverse(), 4, fluids)]);
     t.teardown(() => [...expected, ...actual].forEach(section => section.dispose()));

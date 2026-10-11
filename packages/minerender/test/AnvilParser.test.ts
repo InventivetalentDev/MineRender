@@ -574,7 +574,7 @@ test("Anvil decodes both Add nibbles and applies custom mappings before exact ve
     t.deepEqual(external.sections[0].data.get(0), cells.get(0));
 });
 
-test.serial("numeric Anvil mappings preserve active sources and reject changes during external reads", async t => {
+test.serial("numeric Anvil mappings use the active sources after external reads", async t => {
     const originalRoot = AssetLoader.ROOT, sources = [...AssetLoader["_SOURCES"]];
     t.teardown(() => { AssetLoader.ROOT = originalRoot; AssetLoader["_SOURCES"] = sources; });
     t.teardown(installMineRenderDataFixtures(root => ({ legacyBlocks: { blocks: {
@@ -596,9 +596,9 @@ test.serial("numeric Anvil mappings preserve active sources and reject changes d
                 return deflateSync(writeUncompressed(nbt));
             } };
             const input = region({ nbt, external: true });
-            await t.throwsAsync(all ? AnvilParser.parse(input, options) : AnvilParser.parseChunk(input, 31, 30, options), {
-                message: /Asset sources changed.*retry/
-            });
+            const parsed = all ? (await AnvilParser.parse(input, options)).chunks[0]
+                : (await AnvilParser.parseChunk(input, 31, 30, options))!;
+            t.is(parsed.sections[0].data.get(0)?.type, changeVersion ? "minecraft:short_grass" : "minecraft:grass");
         }
     }
     roots.length = 0;

@@ -2,7 +2,9 @@ import { installMineRenderDataFixtures } from "./helpers/minerender-data";
 import test, { ExecutionContext } from "ava";
 import { Color, Mesh, MeshBasicMaterial } from "three";
 import { AssetKey } from "../src/assets/AssetKey";
+import { Biomes } from "../src/assets/Biomes";
 import { Models } from "../src/assets/Models";
+import { MineRenderData } from "../src/assets/MineRenderData";
 import { ModelTextures } from "../src/assets/ModelTextures";
 import { Caching } from "../src/cache/Caching";
 import { CUBE_FACES } from "../src/CubeFace";
@@ -15,7 +17,7 @@ import { TextureAtlas } from "../src/texture/TextureAtlas";
 import { UVMapper } from "../src/UVMapper";
 import type { CanvasImage } from "../src/canvas/CanvasImage";
 import type { ExtractableImageData } from "../src/ExtractableImageData";
-import type { Model } from "../src/model/Model";
+import type { Model, TripleArray } from "../src/model/Model";
 
 const key = (path: string, namespace = "minecraft", root?: string) =>
     new AssetKey(namespace, path, "blockstates", undefined, "assets", ".json", root);
@@ -125,6 +127,117 @@ test.serial("redstone power and stem age choose state-dependent colors", async t
         t.deepEqual(await BlockTints.get(key(name), { age: "0" }, model), { 0: 0x00ff00 });
         t.deepEqual(await BlockTints.get(key(name), { age: "7" }, model), { 0: 0xe0c71c });
     }
+});
+
+test.serial("biome colors replace eligible preview colors without changing fixed colors or explicit tints", async t => {
+    const { calls } = colormap(t);
+    const model = cube([0, 1]);
+    for (const name of ["grass_block", "sugar_cane", "oak_leaves", "mangrove_leaves", "leaf_litter", "water_cauldron"]) {
+        t.deepEqual(await BlockTints.get(key(name), {}, model, undefined, 0xabcdef), { 0: 0xabcdef, 1: 0xabcdef });
+        t.deepEqual(await BlockTints.get(key(name), {}, model, { 0: 0 }, 0xabcdef), { 0: 0, 1: 0xabcdef });
+    }
+    for (const name of ["pink_petals", "wildflowers"]) {
+        t.deepEqual(await BlockTints.get(key(name), {}, model, undefined, 0xabcdef), { 1: 0xabcdef });
+        t.deepEqual(await BlockTints.get(key(name), {}, model, { 0: 0 }, 0xabcdef), { 0: 0, 1: 0xabcdef });
+    }
+    for (const [name, color] of [["spruce_leaves", 0x619961], ["birch_leaves", 0x80a755], ["lily_pad", 0x71c35c],
+        ["attached_melon_stem", 0xe0c71c], ["redstone_wire", 0x4c0000], ["melon_stem", 0x00ff00]] as const) {
+        t.deepEqual(await BlockTints.get(key(name), {}, cube(), undefined, 0xabcdef), { 0: color });
+    }
+    t.is(await BlockTints.get(key("stone"), {}, model, undefined, 0xabcdef), undefined);
+    t.deepEqual(await BlockTints.get(key("sugar_cane"), {}, cube()), { 0: 0xffffff });
+    t.is(calls.length, 0);
+});
+
+test.serial("biome lookups use each block's tint rule, asset root and position without requesting fixed or unknown colors", async t => {
+    const original = Biomes.getColor;
+    const calls: Parameters<typeof Biomes.getColor>[] = [];
+    Biomes.getColor = async (...args) => { calls.push(args); return args[0] === "test:missing" ? undefined : 0x123456; };
+    t.teardown(() => { Biomes.getColor = original; });
+    for (const [name, kind] of [["grass_block", "grass"], ["sugar_cane", "grass"], ["pink_petals", "grass"], ["oak_leaves", "foliage"],
+        ["mangrove_leaves", "foliage"], ["leaf_litter", "dry_foliage"], ["water_cauldron", "water"]] as const) {
+        const block = key(name, "minecraft", "https://assets.example/pack");
+        t.is(await BlockTints.getBiomeColor(block, "test:biome", [-17, -2, 23]), 0x123456);
+        t.deepEqual(calls.at(-1), ["test:biome", kind, block, -17, 23]);
+    }
+    t.is(await BlockTints.getBiomeColor(key("oak_leaves"), "test:missing"), undefined);
+    const count = calls.length;
+    for (const block of [undefined, key("stone"), key("spruce_leaves"), key("birch_leaves"), key("lily_pad"),
+        key("redstone_wire"), key("melon_stem"), key("oak_leaves", "test")]) {
+        t.is(await BlockTints.getBiomeColor(block, "test:biome"), undefined);
+    }
+    t.is(await BlockTints.getBiomeColor(key("grass_block")), undefined);
+    t.is(calls.length, count);
+});
+
+test.serial("versioned tint metadata selects biome sources without a bundled block ID table", async t => {
+    const restore = installMineRenderDataFixtures(root => ({ blockTints: {
+        "test:plant": { source: "constant", color: 0x123456, biome: root.endsWith("first") ? "foliage" : "water" },
+        "test:grass": { source: "grass" },
+        "test:fixed": { source: "constant", color: 0xabcdef }
+    } }));
+    const original = Biomes.getColor;
+    const calls: Parameters<typeof Biomes.getColor>[] = [];
+    Biomes.getColor = async (...args) => { calls.push(args); return 0x345678; };
+    t.teardown(() => { restore(); Biomes.getColor = original; });
+    const first = key("plant", "test", "https://assets.example/first");
+    const second = key("plant", "test", "https://assets.example/second");
+    t.is(await BlockTints.biomeSource(first), "foliage");
+    t.is(await BlockTints.biomeSource(second), "water");
+    t.is(await BlockTints.biomeSource(key("grass", "test")), "grass");
+    t.is(await BlockTints.biomeSource(key("fixed", "test")), undefined);
+    t.is(await BlockTints.biomeSource(key("oak_leaves")), undefined);
+    const position: TripleArray = [-17, 3, 4];
+    const pending = BlockTints.getBiomeColor(first, "custom:valley", position);
+    position[0] = 42;
+    t.is(await pending, 0x345678);
+    t.deepEqual(calls, [["custom:valley", "foliage", first, -17, 4]]);
+    t.deepEqual(await BlockTints.get(first, {}, cube(), undefined, () => BlockTints.getBiomeColor(first, "custom:valley")), { 0: 0x345678 });
+    t.deepEqual(await BlockTints.get(key("fixed", "test"), {}, cube(), undefined,
+        async () => { throw new Error("Fixed colors do not need biome lookups"); }), { 0: 0xabcdef });
+});
+
+test.serial("explicit and unused tint indices skip versioned metadata and biome requests", async t => {
+    const original = MineRenderData.get;
+    MineRenderData.get = async () => { throw new Error("Unused tints must not request rendering data"); };
+    t.teardown(() => { MineRenderData.get = original; });
+    const unexpected = async () => { throw new Error("Unused tints must not request biome colors"); };
+    t.is(await BlockTints.get(key("grass_block"), {}, cube([-1, undefined]), undefined, unexpected), undefined);
+    t.deepEqual(await BlockTints.get(key("grass_block"), {}, cube([0, 1]), { 0: 0, 1: 0xabcdef }, unexpected), { 0: 0, 1: 0xabcdef });
+});
+
+test.serial("standalone blocks do not load unused biome colors when tints are explicit or absent from the model", async t => {
+    const originals = { model: Models.getMerged, atlas: UVMapper.getAtlas, material: Materials.getImage,
+        shaded: Materials.createShadedCanvasMaterial, biome: Biomes.getColor };
+    const material = new MeshBasicMaterial(), scene = new MineRenderScene();
+    let model = cube([0, 1]);
+    const image = { width: 16, height: 16, canvas: {} } as CanvasImage;
+    Caching.clear();
+    Models.getMerged = async () => model;
+    UVMapper.getAtlas = async value => new TextureAtlas(value, image, { side: [16, 16] }, { side: [0, 0] }, false, {}, false);
+    Materials.getImage = Materials.createShadedCanvasMaterial = () => material;
+    Biomes.getColor = async () => { throw new Error("The model does not need a biome color"); };
+    t.teardown(() => {
+        Models.getMerged = originals.model;
+        UVMapper.getAtlas = originals.atlas;
+        Materials.getImage = originals.material;
+        Materials.createShadedCanvasMaterial = originals.shaded;
+        Biomes.getColor = originals.biome;
+        scene.traverse(object => { if ((object as Mesh).isMesh) (object as Mesh).geometry.dispose(); });
+        material.dispose();
+        Caching.clear();
+    });
+    const blockstate = { key: key("grass_block"), variants: { "": { model: "test:block/shared" } } };
+    const first = await scene.addBlock(blockstate, { applyDefaultState: false, instanceMeshes: false,
+        biome: "test:unavailable", tints: { 0: 0, 1: 0xabcdef } }) as BlockObject;
+    const colors = ((first["_models"][0] as ModelObject).children[0] as Mesh).geometry.getAttribute("color");
+    t.is(new Color().fromBufferAttribute(colors, 0).getHex(), 0);
+    t.is(new Color().fromBufferAttribute(colors, 4).getHex(), 0xabcdef);
+    model = cube([-1, undefined]);
+    const second = await scene.addBlock(blockstate, { applyDefaultState: false, instanceMeshes: false,
+        biome: "test:unavailable" }) as BlockObject;
+    const plain = ((second["_models"][0] as ModelObject).children[0] as Mesh).geometry.getAttribute("color");
+    t.is(plain, undefined);
 });
 
 test.serial("changing block state updates automatic colors without recoloring another shared instance", async t => {
