@@ -1,6 +1,6 @@
 import { Block } from "../model/block/Block";
 import { BlockObject } from "../model/block/scene/BlockObject";
-import { Vector3 } from "three";
+import { Color, Vector3 } from "three";
 import { Maybe } from "../util/util";
 import { BlockInfo } from "./BlockInfo";
 import { ChunkData } from "./ChunkData";
@@ -16,6 +16,10 @@ import { FluidKind, getBlockFluidState } from "../model/fluid/FluidGeometry";
 import { fluidKindOf } from "../model/fluid/FluidQuads";
 import { BlockState } from "../model/block/BlockState";
 import { CUBE_FACE_OFFSETS } from "../CubeFace";
+import { BlockTints } from "../model/block/BlockTints";
+import { Biomes } from "../assets/Biomes";
+
+const WATER_TINT = new Color(0x3f76e4).toArray() as TripleArray;
 
 /**
  * A 16×16×16 block section and its render objects.
@@ -36,6 +40,8 @@ export class Chunk<SectionMeshing extends boolean = false> {
     private readonly hiddenBlocks = new Set<number>();
     private readonly fluidCells = new Uint8Array(4096);
     private readonly blockPosition = new Vector3();
+    private waterTints?: Float32Array;
+    private biomes?: readonly string[];
     private sectionMesh?: SectionMesh;
     private meshDirty = false;
     private meshGeneration = 0;
@@ -43,7 +49,9 @@ export class Chunk<SectionMeshing extends boolean = false> {
     constructor(scene: MineRenderScene, x: number, y: number, z: number,
                 private readonly onBlocksChanged?: (positions: Vector3[]) => Promise<void>,
                 private readonly sectionModels?: SectionModels,
-                private readonly neighborCell?: (x: number, y: number, z: number) => number) {
+                private readonly neighborCell?: (x: number, y: number, z: number) => number,
+                private readonly biomeAt?: (x: number, y: number, z: number) => Maybe<string>,
+                private readonly onBiomesChanged?: (biomes?: readonly string[]) => Promise<void>) {
         this.scene = scene;
         this.x = x;
         this.y = y;
@@ -63,6 +71,64 @@ export class Chunk<SectionMeshing extends boolean = false> {
         const pos = this.blockPosition.set(posOrX.x - this.x * 16, posOrX.y - this.y * 16, posOrX.z - this.z * 16);
         const index = Chunk.chunkPosToBlockIndex(pos);
         return this.renderedBlocks.get(index);
+    }
+
+    /** Returns the saved 4-block biome sample at integer world block coordinates, or `undefined` if absent. */
+    public getBiomeAt(x: number, y: number, z: number): Maybe<string>;
+    public getBiomeAt(pos: Vector3): Maybe<string>;
+    public getBiomeAt(pos: TripleArray): Maybe<string>;
+    public getBiomeAt(posOrX: number | Vector3 | TripleArray, y?: number, z?: number): Maybe<string> {
+        if (typeof posOrX === "number") return this.getBiomeAt(new Vector3(posOrX, y, z));
+        if (isTripleArray(posOrX)) return this.getBiomeAt(new Vector3(...posOrX));
+        const pos = this.worldPosToChunkPos(posOrX);
+        Chunk.chunkPosToBlockIndex(pos);
+        return this.biomeAt ? this.biomeAt(posOrX.x, posOrX.y, posOrX.z)
+            : this.biomes?.[Math.floor(pos.x / 4) + Math.floor(pos.z / 4) * 4 + Math.floor(pos.y / 4) * 16];
+    }
+
+    /** Copies 64 biome IDs in x + z * 4 + y * 16 order and refreshes placed blocks. Omit the array to clear biome data. */
+    public setBiomes(biomes?: readonly string[]): Promise<void> {
+        const copy = biomes ? [...biomes] : undefined;
+        if (copy && (copy.length !== 64 || !copy.every(id => typeof id === "string" && id.length > 0))) {
+            throw new RangeError("Section biomes must contain 64 nonempty biome IDs");
+        }
+        if (this.onBiomesChanged) return this.onBiomesChanged(copy);
+        this.biomes = copy;
+        return this.refreshBiomes();
+    }
+
+    /** Rebuilds biome-tinted blocks while preserving hidden blocks and unrelated render objects. */
+    public async refreshBiomes(): Promise<void> {
+        const affected = new Map<string, Promise<boolean>>();
+        const blocks: { index: number; block: Block }[] = [];
+        for (const index of this.renderedBlocks.keys()) {
+            const block = this.data.get(index)!;
+            const stateKey = ChunkData.paletteKey(block);
+            let matches = affected.get(stateKey);
+            if (!matches) {
+                const key = AssetKey.parse("blockstates", block.type);
+                matches = BlockStates.get(key).then(async state => {
+                    const origin = state?.key ?? key;
+                    const [source, fluid] = await Promise.all([BlockTints.biomeSource(origin), getBlockFluidState(origin, block.properties)]);
+                    return !!source || fluid?.kind === "water";
+                });
+                affected.set(stateKey, matches);
+            }
+            if (await matches) blocks.push({ index, block });
+        }
+        if (!blocks.length) return;
+        const hidden = new Set(this.hiddenBlocks);
+        try {
+            await this.placeBlocks(blocks);
+        } finally {
+            for (const index of hidden) {
+                this.hiddenBlocks.add(index);
+                this.renderedBlocks.get(index)?.object?.setVisible(false);
+            }
+            const positions = blocks.map(({ index }) => new Vector3(...this.positionAt(index)));
+            if (this.onBlocksChanged) await this.onBlocksChanged(positions);
+            else await this.rebuildSectionMesh();
+        }
     }
 
     /**
@@ -114,16 +180,16 @@ export class Chunk<SectionMeshing extends boolean = false> {
                 nbt: block.nbt === undefined ? undefined : structuredClone(block.nbt)
             } : undefined
         }));
-        const states = new Map(placements.filter(({ key }) => key !== undefined).map(({ key, block }) => [key!, block!]));
-        const settled = await Promise.allSettled([...states.values()].map(async stored => {
-            const blockState = await BlockStates.get(AssetKey.parse("blockstates", stored.type));
-            const perBlock = !blockState || !this.sectionModels
-                || !!(blockState.key && BlockEntities.entry(await BlockEntities.getIndex(blockState.key.root), blockState.key.toNamespacedString()));
-            const fluid = await getBlockFluidState(blockState?.key, stored.properties);
-            const prepared = perBlock || fluid?.renderModel === false ? undefined
-                : await this.sectionModels!.prepareState(blockState!, stored.properties);
-            return { blockState, perBlock, fluid, prepared, stored };
-        }));
+        const states = new Map<string, { stored: Block; indices: number[] }>();
+        for (const { index, key, block } of placements) {
+            if (key === undefined) continue;
+            let state = states.get(key);
+            if (!state) states.set(key, state = { stored: block!, indices: [] });
+            state.indices.push(index);
+        }
+        const biomes = new Map<string, Promise<boolean>>();
+        const settled = await Promise.allSettled([...states.values()].map(({ stored, indices }) =>
+            this.resolveState(stored, indices, biomes)));
         const resolutions = new Map([...states.keys()].map((key, i) => [key, settled[i]]));
         const positions: Vector3[] = [];
         let failed = false, failure: unknown;
@@ -144,7 +210,8 @@ export class Chunk<SectionMeshing extends boolean = false> {
                 if (!readBlock) continue;
                 const resolved = resolutions.get(key!)!;
                 if (resolved.status === "rejected") throw resolved.reason;
-                const { blockState, perBlock, fluid, prepared, stored } = resolved.value;
+                const { blockState, perBlock, fluid, prepared, contexts, stored } = resolved.value;
+                const context = contexts.get(index);
                 if (!blockState) {
                     this.data.assign(index, 0);
                     continue;
@@ -152,9 +219,10 @@ export class Chunk<SectionMeshing extends boolean = false> {
                 const variantPosition = worldPos.toArray();
                 if (fluid) {
                     this.fluidCells[index] = (fluid.kind === "water" ? 16 : 32) | Math.min(fluid.level, 8);
+                    if (fluid.kind === "water") this.setWaterTint(index, context?.waterTint);
                     this.meshDirty = true;
                 }
-                const templates = perBlock ? undefined : fluid?.renderModel === false ? [] : prepared?.pick(variantPosition);
+                const templates = perBlock ? undefined : fluid?.renderModel === false ? [] : (context?.prepared ?? prepared)?.pick(variantPosition);
                 if (templates) {
                     this.sectionBlocks.set(index, templates.map(template => ({ index, template, cullMask: 0 })));
                     this.meshDirty = true;
@@ -164,7 +232,8 @@ export class Chunk<SectionMeshing extends boolean = false> {
                         instanceMeshes: true,
                         maxInstanceCount: 2000,
                         initialState: stored.properties,
-                        variantPosition
+                        variantPosition, biome: context?.biome,
+                        biomePosition: this.biomePosition(index, blockState, stored)
                     }) as BlockObject;
                     object.setPosition(MineRenderWorld.worldToScenePosition(worldPos));
                 }
@@ -186,29 +255,25 @@ export class Chunk<SectionMeshing extends boolean = false> {
         for (const info of this.renderedBlocks.values()) info.object?.removeFromScene();
         this.sectionBlocks.clear();
         this.fluidCells.fill(0);
+        this.waterTints = undefined;
         this.renderedBlocks.clear();
         this.hiddenBlocks.clear();
         this.meshDirty = true;
         this.data.copyFrom(data);
 
-        const ids = new Set<number>();
+        const ids = new Map<number, number[]>();
         for (let index = 0; index < 4096; index++) {
             const id = this.data.idAt(index);
-            if (id) ids.add(id);
+            if (!id) continue;
+            let indices = ids.get(id);
+            if (!indices) ids.set(id, indices = []);
+            indices.push(index);
         }
-        const palette = [...ids];
-        const settled = await Promise.allSettled(palette.map(async id => {
-            const state = this.data.stateAt(id)!;
-            const blockState = await BlockStates.get(AssetKey.parse("blockstates", state.type));
-            const perBlock = !blockState || !this.sectionModels
-                || !!(blockState.key && BlockEntities.entry(await BlockEntities.getIndex(blockState.key.root), blockState.key.toNamespacedString()));
-            const fluid = await getBlockFluidState(blockState?.key, state.properties);
-            const prepared = perBlock || fluid?.renderModel === false ? undefined
-                : await this.sectionModels!.prepareState(blockState!, state.properties);
-            return { blockState, perBlock, fluid, prepared };
-        }));
+        const palette = [...ids.keys()], biomes = new Map<string, Promise<boolean>>();
+        const settled = await Promise.allSettled(palette.map(id =>
+            this.resolveState(this.data.stateAt(id)!, ids.get(id)!, biomes)));
         const resolutions = new Map(palette.map((id, i) => [id, settled[i]]));
-        const perBlocks: { index: number; blockState: BlockState }[] = [];
+        const perBlocks: { index: number; blockState: BlockState; biome?: string }[] = [];
         let failed = false, failure: unknown;
         for (let index = 0; index < 4096; index++) {
             const id = this.data.idAt(index);
@@ -216,21 +281,25 @@ export class Chunk<SectionMeshing extends boolean = false> {
             try {
                 const resolved = resolutions.get(id)!;
                 if (resolved.status === "rejected") throw resolved.reason;
-                const { blockState, perBlock, fluid, prepared } = resolved.value;
+                const { blockState, perBlock, fluid, prepared, contexts } = resolved.value;
+                const context = contexts.get(index);
                 if (!blockState) {
                     this.data.assign(index, 0);
                     this.fluidCells[index] = 0;
                     continue;
                 }
-                if (fluid) this.fluidCells[index] = (fluid.kind === "water" ? 16 : 32) | Math.min(fluid.level, 8);
+                if (fluid) {
+                    this.fluidCells[index] = (fluid.kind === "water" ? 16 : 32) | Math.min(fluid.level, 8);
+                    if (fluid.kind === "water") this.setWaterTint(index, context?.waterTint);
+                }
                 const variantPosition: TripleArray = [this.x * 16 + index % 16,
                     this.y * 16 + Math.floor(index / 256), this.z * 16 + Math.floor(index / 16) % 16];
-                const templates = perBlock ? undefined : fluid?.renderModel === false ? [] : prepared?.pick(variantPosition);
+                const templates = perBlock ? undefined : fluid?.renderModel === false ? [] : (context?.prepared ?? prepared)?.pick(variantPosition);
                 if (templates) {
                     this.sectionBlocks.set(index, templates.map(template => ({ index, template, cullMask: 0 })));
                     this.meshDirty = true;
                 } else {
-                    perBlocks.push({ index, blockState });
+                    perBlocks.push({ index, blockState, biome: context?.biome });
                 }
                 const readBlock = this.data.snapshot(index)!;
                 this.renderedBlocks.set(index, { get block() { return readBlock(); }, object: undefined } as BlockInfo<SectionMeshing>);
@@ -241,7 +310,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
                 failed = true;
             }
         }
-        for (const { index, blockState } of perBlocks) {
+        for (const { index, blockState, biome } of perBlocks) {
             let object: BlockObject | undefined;
             try {
                 object = await this.scene.addBlock(blockState, {
@@ -249,8 +318,8 @@ export class Chunk<SectionMeshing extends boolean = false> {
                     instanceMeshes: true,
                     maxInstanceCount: 2000,
                     initialState: this.data.stateAt(this.data.idAt(index))!.properties,
-                    variantPosition: [this.x * 16 + index % 16,
-                        this.y * 16 + Math.floor(index / 256), this.z * 16 + Math.floor(index / 16) % 16]
+                    variantPosition: this.positionAt(index), biome,
+                    biomePosition: this.biomePosition(index, blockState, this.data.stateAt(this.data.idAt(index))!)
                 }) as BlockObject;
                 object.setPosition(new Vector3(this.x * 256 + index % 16 * 16,
                     this.y * 256 + Math.floor(index / 256) * 16, this.z * 256 + Math.floor(index / 16) % 16 * 16));
@@ -265,6 +334,78 @@ export class Chunk<SectionMeshing extends boolean = false> {
             }
         }
         if (failed) throw failure;
+    }
+
+    private positionAt(index: number): TripleArray {
+        return [this.x * 16 + index % 16, this.y * 16 + Math.floor(index / 256), this.z * 16 + Math.floor(index / 16) % 16];
+    }
+
+    private biomePosition(index: number, blockState: BlockState, stored: Block): TripleArray {
+        const position = this.positionAt(index), name = blockState.key?.toNamespacedString();
+        if (stored.properties?.half === "upper" && (name === "minecraft:tall_grass" || name === "minecraft:large_fern")) position[1]--;
+        return position;
+    }
+
+    private async resolveState(stored: Block, indices: readonly number[], biomes: Map<string, Promise<boolean>>) {
+        const blockState = await BlockStates.get(AssetKey.parse("blockstates", stored.type));
+        const perBlock = !blockState || !this.sectionModels
+            || !!(blockState.key && BlockEntities.entry(await BlockEntities.getIndex(blockState.key.root), blockState.key.toNamespacedString()));
+        const fluid = await getBlockFluidState(blockState?.key, stored.properties);
+        const hasBiomes = this.getBiomeAt(this.x * 16, this.y * 16, this.z * 16) !== undefined
+            || this.biomeAt?.(this.x * 16, this.y * 16 - 1, this.z * 16) !== undefined;
+        const source = hasBiomes && blockState ? await BlockTints.biomeSource(blockState.key) : undefined;
+        const prepare = (color?: () => Promise<number | undefined>) => perBlock || fluid?.renderModel === false ? undefined
+            : this.sectionModels!.prepareState(blockState!, stored.properties, color);
+        type Context = { biome?: string; prepared?: Awaited<ReturnType<SectionModels["prepareState"]>>; waterTint?: TripleArray };
+        const contexts = new Map<number, Context>();
+        const groups = new Map<string, { biome: string; position: TripleArray; indices: number[] }>();
+        if (blockState && (source || fluid?.kind === "water")) {
+            for (const index of indices) {
+                const position = this.biomePosition(index, blockState, stored);
+                const biome = this.biomeAt ? this.biomeAt(...position)
+                    : position[1] >= this.y * 16 ? this.getBiomeAt(position) : undefined;
+                if (!biome) continue;
+                const key = JSON.stringify(source === "grass" ? [biome, position[0], position[2]] : [biome]);
+                let group = groups.get(key);
+                if (!group) groups.set(key, group = { biome, position, indices: [] });
+                group.indices.push(index);
+            }
+        }
+        const groupedCount = [...groups.values()].reduce((sum, group) => sum + group.indices.length, 0);
+        const prepared = groupedCount < indices.length ? await prepare() : undefined;
+        await Promise.all([...groups.values()].map(async ({ biome, position, indices }) => {
+            const available = () => {
+                const key = JSON.stringify([biome, blockState?.key?.root]);
+                let found = biomes.get(key);
+                if (!found) {
+                    found = Biomes.get(biome, blockState?.key).then(value => value !== undefined);
+                    biomes.set(key, found);
+                }
+                return found;
+            };
+            const context: Context = { biome };
+            if (perBlock) {
+                if (!await available()) context.biome = undefined;
+            } else {
+                context.prepared = await prepare(async () => await available()
+                    ? BlockTints.getBiomeColor(blockState?.key, biome, position) : undefined);
+                if (fluid?.kind === "water" && await available()) {
+                    const color = await Biomes.getColor(biome, "water", blockState?.key);
+                    if (color !== undefined && color !== 0x3f76e4) context.waterTint = new Color(color).toArray() as TripleArray;
+                }
+            }
+            for (const index of indices) contexts.set(index, context);
+        }));
+        return { blockState, perBlock, fluid, prepared, contexts, stored };
+    }
+
+    private setWaterTint(index: number, tint?: TripleArray): void {
+        if (!this.sectionModels || (!this.waterTints && tint === undefined)) return;
+        if (!this.waterTints) {
+            this.waterTints = new Float32Array(4096 * 3);
+            for (let cell = 0; cell < 4096; cell++) this.waterTints.set(WATER_TINT, cell * 3);
+        }
+        this.waterTints.set(tint ?? WATER_TINT, index * 3);
     }
 
     /** Changes visibility at world block coordinates while preserving the block's data. */
@@ -383,7 +524,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
             if (block && !block.object) origins.set(kind, block.block.type);
         }
         if (origins.size) {
-            fluids = { cells: new Uint8Array(18 * 18 * 18) };
+            fluids = { cells: new Uint8Array(18 * 18 * 18), waterTints: this.waterTints?.slice() };
             for (let y = -1; y <= 16; y++) {
                 for (let z = -1; z <= 16; z++) {
                     for (let x = -1; x <= 16; x++) {
@@ -429,8 +570,13 @@ export class Chunk<SectionMeshing extends boolean = false> {
         this.renderedBlocks.clear();
         this.hiddenBlocks.clear();
         this.fluidCells.fill(0);
+        this.waterTints = undefined;
         this.data.clear();
-        if (notify) await this.onBlocksChanged?.(positions);
+        this.biomes = undefined;
+        if (notify) {
+            await this.onBiomesChanged?.(undefined);
+            await this.onBlocksChanged?.(positions);
+        }
     }
 
     public async dispose(): Promise<void> {

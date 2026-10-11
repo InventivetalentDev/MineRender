@@ -1,7 +1,8 @@
 import test, { ExecutionContext } from "ava";
-import { Mesh, MeshBasicMaterial, Vector3 } from "three";
+import { Color, Mesh, MeshBasicMaterial, Vector3 } from "three";
 import { AssetKey } from "../src/assets/AssetKey";
 import { BlockEntities } from "../src/assets/BlockEntities";
+import { Biomes } from "../src/assets/Biomes";
 import { BlockStates } from "../src/assets/BlockStates";
 import { Entities } from "../src/assets/Entities";
 import { Models } from "../src/assets/Models";
@@ -13,10 +14,12 @@ import { isInstanceReference } from "../src/instance/InstanceReference";
 import { Materials } from "../src/Materials";
 import { BlockState } from "../src/model/block/BlockState";
 import { BlockObject } from "../src/model/block/scene/BlockObject";
+import { BlockTints } from "../src/model/block/BlockTints";
 import { createFluidGeometry, resolveBlockFluidState } from "../src/model/fluid/FluidGeometry";
 import { Model, TripleArray } from "../src/model/Model";
 import { ModelObject } from "../src/model/scene/ModelObject";
 import { MineRenderScene } from "../src/renderer/MineRenderScene";
+import { Colormaps } from "../src/texture/Colormaps";
 import { TextureAtlas } from "../src/texture/TextureAtlas";
 import { Ticker } from "../src/Ticker";
 import { BatchedExecutor } from "../src/util/BatchedExecutor";
@@ -54,12 +57,13 @@ function fixture<SectionMeshing extends boolean = false>(t: ExecutionContext, op
         return atlases.get(model);
     };
     Materials.getImage = Materials.createShadedCanvasMaterial = () => material;
-    const addModel = (name: string, options: { height?: number; transparent?: boolean; translucent?: boolean; animated?: boolean; cullable?: CubeFace[] } = {}) => {
+    const addModel = (name: string, options: { height?: number; transparent?: boolean; translucent?: boolean; animated?: boolean; cullable?: CubeFace[]; tintindex?: number } = {}) => {
         const model: Model = {
             key: new AssetKey("test", name, "models", "block"), textures: { side: "block/stone" },
             elements: [{ from: [0, 0, 0], to: [16, options.height ?? 16, 16],
                 faces: Object.fromEntries(CUBE_FACES.map(face => [face, {
-                    texture: "#side", cullface: (options.cullable ?? CUBE_FACES).includes(face) ? face : undefined
+                    texture: "#side", tintindex: options.tintindex,
+                    cullface: (options.cullable ?? CUBE_FACES).includes(face) ? face : undefined
                 }])),
                 mappedUv: CUBE_FACES.flatMap(() => [0, 1, 1, 1, 0, 0, 1, 0]) }]
         };
@@ -159,6 +163,22 @@ for (const sectionMeshing of [false, true]) {
             t.is(world.getBiomeAt(-32, -16, -16), expected[0]);
             await world.setBlockAt(-32, -16, -16, undefined);
             t.is(world.getBiomeAt(-32, -16, -16), expected[0]);
+            const section = world.getChunkAt(new Vector3(-32, -16, -16))!;
+            const replacement = Array(64).fill("test:replacement");
+            const replacing = section.setBiomes(replacement);
+            replacement[0] = "test:changed";
+            await replacing;
+            t.is(section.getBiomeAt(-32, -16, -16), "test:replacement");
+            for (const invalid of [Array(63).fill("test:biome"), Array(65).fill("test:biome"), Array(64).fill(""), Array<string>(64)]) {
+                t.throws(() => section.setBiomes(invalid));
+                t.is(section.getBiomeAt(-32, -16, -16), "test:replacement");
+            }
+            await section.setBiomes(undefined);
+            t.is(world.getBiomeAt(-32, -16, -16), undefined);
+            await section.setBiomes(expected);
+            await section.clear();
+            t.is(world.getBiomeAt(-32, -16, -16), undefined);
+            await world.placeChunk(column, executor);
             await world.placeChunk({ x: -2, z: -1, sections: [{ y: -1, data }] }, executor);
             t.is(world.getBiomeAt(-32, -16, -16), undefined);
             t.is(world.getBiomeAt(-32, 0, -16), undefined);
@@ -205,6 +225,256 @@ function assertFluidPositions(t: ExecutionContext, world: MineRenderWorld<boolea
     t.true(actual.every((value, index) => Math.abs(value - expected[index]) < 0.00002));
     return actual;
 }
+
+for (const sectionMeshing of [false, true]) {
+    test.serial(`untinted blocks do not request biome definitions or colors (sectionMeshing=${sectionMeshing})`, async t => {
+        const { world, states } = fixture(t, { sectionMeshing });
+        const originals = { get: Biomes.get, color: Biomes.getColor };
+        Biomes.get = async () => { throw new Error("Untinted blocks must not load biome definitions"); };
+        Biomes.getColor = async () => { throw new Error("Untinted blocks must not load biome colors"); };
+        t.teardown(() => { Biomes.get = originals.get; Biomes.getColor = originals.color; });
+        states.set("minecraft:stone", { key: AssetKey.parse("blockstates", "stone"), variants: { "": { model: "test:block/cube" } } });
+        const data = new ChunkData();
+        data.set(0, { type: "stone" });
+        await world.placeChunk({ x: 0, z: 0, sections: [{ y: 0, data, biomes: Array(64).fill("test:biome") }] });
+        const placed = world.getBlockAt(0, 0, 0)!;
+        await world.getChunkAt(new Vector3())!.setBiomes(Array(64).fill("test:replacement"));
+        t.is(world.getBlockAt(0, 0, 0)!.block.type, "minecraft:stone");
+        t.is(world.getBiomeAt(0, 0, 0), "test:replacement");
+        t.is(world.getBlockAt(0, 0, 0), placed);
+    });
+
+    test.serial(`biomes color shared block states independently and refresh after replacement (sectionMeshing=${sectionMeshing})`, async t => {
+        const { world, scene, states, addModel } = fixture(t, { sectionMeshing });
+        const originals = { get: Biomes.get, color: Biomes.getColor };
+        const calls: Parameters<typeof Biomes.getColor>[] = [];
+        Biomes.get = async id => id === "test:missing" ? undefined : { temperature: 0.8, downfall: 0.4, effects: {} };
+        Biomes.getColor = async (...args) => {
+            calls.push(args);
+            return args[0] === "test:first" ? 0x123456 : args[0] === "test:second" ? 0xabcdef : undefined;
+        };
+        t.teardown(() => { Biomes.get = originals.get; Biomes.getColor = originals.color; });
+        addModel("tinted", { tintindex: 0 });
+        const blockKey = AssetKey.parse("blockstates", "oak_leaves");
+        const blockState = { key: blockKey, variants: { "": { model: "test:block/tinted" } } };
+        states.set("minecraft:oak_leaves", blockState);
+        const data = new ChunkData();
+        data.set(0, { type: "oak_leaves" });
+        data.set(8, { type: "oak_leaves" });
+        const biomes = Array(64).fill("test:first");
+        biomes[2] = "test:second";
+        const column = { x: -2, z: -1, sections: [{ y: -1, data, biomes }] };
+        const colorsAt = (x: number) => {
+            const object = world.getBlockAt(x, -16, -16)?.object;
+            if (object) {
+                const colors = geometryOf(object).getAttribute("color");
+                return [...new Set(Array.from({ length: colors.count }, (_, index) => new Color().fromBufferAttribute(colors, index).getHex()))];
+            }
+            const section = scene.children.find(child => child instanceof SectionMesh && child.position.x === -512)!;
+            const result = new Set<number>(), localX = (x + 32) * 16;
+            for (const child of section?.children ?? []) {
+                const geometry = (child as Mesh).geometry, positions = geometry.getAttribute("position"), colors = geometry.getAttribute("color");
+                for (let index = 0; index < positions.count; index++) {
+                    if (Math.abs(positions.getX(index) - localX) <= 8) result.add(new Color().fromBufferAttribute(colors, index).getHex());
+                }
+            }
+            return [...result];
+        };
+        await world.placeChunk(column);
+        t.deepEqual(colorsAt(-32), [0x123456]);
+        t.deepEqual(colorsAt(-24), [0xabcdef]);
+        t.true(calls.some(([id, kind, origin, x, z]) => id === "test:first" && kind === "foliage" && origin === blockKey && x === -32 && z === -16));
+        t.true(calls.some(([id, kind, origin, x, z]) => id === "test:second" && kind === "foliage" && origin === blockKey && x === -24 && z === -16));
+        t.is(world.getBlockAt(-32, -16, -16)!.object === undefined, sectionMeshing);
+        const secondObject = world.getBlockAt(-24, -16, -16)!.object;
+        if (secondObject) t.not(modelOf(world.getBlockAt(-32, -16, -16)!.object!), modelOf(secondObject));
+        await world.unloadChunkColumn(-2, -1);
+        await world.placeChunk(column);
+        t.deepEqual(colorsAt(-32), [0x123456]);
+        t.deepEqual(colorsAt(-24), [0xabcdef]);
+
+        const chunk = world.getChunkAt(new Vector3(-32, -16, -16))!;
+        await world.setBlockVisibleAt([-32, -16, -16], false);
+        scene.dirty = false;
+        const changed = Array(64).fill("test:second");
+        changed[2] = "test:missing";
+        const replacing = chunk.setBiomes(changed);
+        changed[0] = "test:first";
+        await replacing;
+        t.true(scene.dirty);
+        t.false(chunk.isBlockVisibleAt(new Vector3(-32, -16, -16)));
+        t.deepEqual(world.getBlockAt(-32, -16, -16)!.block, { type: "minecraft:oak_leaves" });
+        t.deepEqual(colorsAt(-24), [0x48b518]);
+        await world.setBlockVisibleAt([-32, -16, -16], true);
+        t.deepEqual(colorsAt(-32), [0xabcdef]);
+        t.deepEqual(colorsAt(-24), [0x48b518]);
+        await chunk.setBiomes(undefined);
+        t.deepEqual(colorsAt(-32), [0x48b518]);
+        t.deepEqual(colorsAt(-24), [0x48b518]);
+        await world.placeChunk(column);
+        t.deepEqual(colorsAt(-32), [0x123456]);
+        t.deepEqual(colorsAt(-24), [0xabcdef]);
+    });
+
+    test.serial(`waterlogged foliage and water keep distinct biome colors through neighbor edits (sectionMeshing=${sectionMeshing})`, async t => {
+        const { world, scene, states, addModel } = fixture(t, { sectionMeshing });
+        const originals = { get: Biomes.get, color: Biomes.getColor };
+        Biomes.get = async id => id === "test:missing" ? undefined : { temperature: 0.8, downfall: 0.4, effects: {} };
+        Biomes.getColor = async (id, kind) => kind === "water" ? id === "test:first" ? 0x123456 : 0xabcdef : 0x246824;
+        t.teardown(() => { Biomes.get = originals.get; Biomes.getColor = originals.color; });
+        addModel("leaves", { tintindex: 0, transparent: true });
+        states.set("minecraft:oak_leaves", { key: AssetKey.parse("blockstates", "oak_leaves"),
+            variants: { "": { model: "test:block/leaves" } } });
+        const data = new ChunkData();
+        data.set(0, { type: "oak_leaves", properties: { waterlogged: "true" } });
+        data.set(1, { type: "water" });
+        data.set(8, { type: "water" });
+        const biomes = Array(64).fill("test:first");
+        biomes[2] = "test:second";
+        await world.placeChunk({ x: -2, z: -1, sections: [{ y: -1, data, biomes }] });
+        const color = (x: number, part = 0) => {
+            if (!sectionMeshing) return new Color().fromBufferAttribute(geometryOf(world.getBlockAt(x, -16, -16)!.object!, part).getAttribute("color"), 0).getHex();
+            if (x === -32 && part === 0) return new Color().fromBufferAttribute(templateOf(world, [x, -16, -16]).geometry.getAttribute("color"), 0).getHex();
+            const section = scene.children.find(child => child instanceof SectionMesh && child.position.x === -512)!;
+            const geometry = (section.children.at(-1) as Mesh).geometry;
+            const positions = geometry.getAttribute("position"), normals = geometry.getAttribute("normal"), colors = geometry.getAttribute("color");
+            for (let index = 0; index < positions.count; index += 4) {
+                if (normals.getY(index) <= 0) continue;
+                const centerX = Array.from({ length: 4 }, (_, corner) => positions.getX(index + corner)).reduce((sum, value) => sum + value, 0) / 4;
+                if (Math.abs(centerX - (x + 32) * 16) > 0.001) continue;
+                const color = new Color().fromBufferAttribute(colors, index).getHex();
+                for (let corner = 1; corner < 4; corner++) t.is(new Color().fromBufferAttribute(colors, index + corner).getHex(), color);
+                return color;
+            }
+            t.fail(`No fluid surface at x=${x}`);
+        };
+        t.deepEqual([color(-32), color(-32, 1), color(-31), color(-24)], [0x246824, 0x123456, 0x123456, 0xabcdef]);
+        if (!sectionMeshing) t.not(modelOf(world.getBlockAt(-31, -16, -16)!.object!), modelOf(world.getBlockAt(-24, -16, -16)!.object!));
+        else for (const x of [-32, -31, -24]) t.is(world.getBlockAt(x, -16, -16)!.object, undefined);
+        await world.setBlockAt(-31, -16, -16, undefined);
+        t.deepEqual([color(-32), color(-32, 1), color(-24)], [0x246824, 0x123456, 0xabcdef]);
+        await world.setBlockVisibleAt([-24, -16, -16], false);
+        await world.getChunkAt(new Vector3(-32, -16, -16))!.setBiomes(Array(64).fill("test:second"));
+        t.false(world.getChunkAt(new Vector3(-24, -16, -16))!.isBlockVisibleAt(new Vector3(-24, -16, -16)));
+        await world.setBlockVisibleAt([-24, -16, -16], true);
+        t.deepEqual([color(-32), color(-32, 1), color(-24)], [0x246824, 0xabcdef, 0xabcdef]);
+        await world.getChunkAt(new Vector3(-32, -16, -16))!.setBiomes(undefined);
+        t.deepEqual([color(-32), color(-32, 1), color(-24)], [0x48b518, 0x3f76e4, 0x3f76e4]);
+        biomes[2] = "test:missing";
+        await world.unloadChunkColumn(-2, -1);
+        await world.placeChunk({ x: -2, z: -1, sections: [{ y: -1, data, biomes }] });
+        t.deepEqual([color(-32), color(-32, 1), color(-24)], [0x246824, 0x123456, 0x3f76e4]);
+    });
+}
+
+for (const sectionMeshing of [false, true]) test.serial(`untinted resource-pack models skip biome colors (sectionMeshing=${sectionMeshing})`, async t => {
+    const { world, states, addModel } = fixture(t, { sectionMeshing });
+    const originals = { get: Biomes.get, color: Biomes.getColor, grass: Colormaps.grassColor };
+    Biomes.get = async () => ({ temperature: 0.8, downfall: 0.4, effects: {} });
+    Biomes.getColor = async () => { throw new Error("Untinted models must not request biome colors"); };
+    Colormaps.grassColor = async () => { throw new Error("Untinted models must not request colormaps"); };
+    t.teardown(() => { Biomes.get = originals.get; Biomes.getColor = originals.color; Colormaps.grassColor = originals.grass; });
+    addModel("untinted_leaves", { transparent: true });
+    states.set("minecraft:grass_block", { key: AssetKey.parse("blockstates", "grass_block"),
+        variants: { "": { model: "test:block/cube" } } });
+    states.set("minecraft:oak_leaves", { key: AssetKey.parse("blockstates", "oak_leaves"),
+        variants: { "": { model: "test:block/untinted_leaves" } } });
+    const data = new ChunkData();
+    data.set(0, { type: "grass_block" });
+    data.set(2, { type: "oak_leaves" });
+    await world.placeChunk({ x: 0, z: 0, sections: [{ y: 0, data, biomes: Array(64).fill("test:biome") }] });
+    for (const x of [0, 2]) t.is(world.getBlockAt(x, 0, 0)!.object === undefined, sectionMeshing);
+});
+
+test.serial("palette placement resolves each foliage biome once before filling a section", async t => {
+    const { world, scene, states, addModel } = fixture(t, { sectionMeshing: true });
+    const originals = { state: BlockStates.get, get: Biomes.get, color: Biomes.getColor };
+    let statesLoaded = 0, definitionsLoaded = 0, colorsLoaded = 0;
+    BlockStates.get = async key => { statesLoaded++; return originals.state(key); };
+    Biomes.get = async () => { definitionsLoaded++; return { temperature: 0.8, downfall: 0.4, effects: {} }; };
+    Biomes.getColor = async id => { colorsLoaded++; return id === "test:first" ? 0x123456 : 0xabcdef; };
+    t.teardown(() => { BlockStates.get = originals.state; Biomes.get = originals.get; Biomes.getColor = originals.color; });
+    addModel("leaves", { tintindex: 0 });
+    states.set("minecraft:oak_leaves", { key: AssetKey.parse("blockstates", "oak_leaves"),
+        variants: { "": { model: "test:block/leaves" } } });
+    const data = new ChunkData();
+    for (let index = 0; index < 4096; index++) data.set(index, { type: "oak_leaves" });
+    const biomes = Array.from({ length: 64 }, (_, index) => index % 4 < 2 ? "test:first" : "test:second");
+    await world.placeChunk({ x: 0, z: 0, sections: [{ y: 0, data, biomes }] });
+    t.deepEqual([statesLoaded, definitionsLoaded, colorsLoaded], [1, 2, 2]);
+    const section = scene.children.find(child => child instanceof SectionMesh)!;
+    const colors = (section.children[0] as Mesh).geometry.getAttribute("color");
+    t.deepEqual(new Set(Array.from({ length: colors.count }, (_, index) => new Color().fromBufferAttribute(colors, index).getHex())),
+        new Set([0x123456, 0xabcdef]));
+    t.is(world.getBlockAt(15, 15, 15)!.object, undefined);
+});
+
+for (const sectionMeshing of [false, true]) test.serial(`worlds without biome samples skip biome tint rules (sectionMeshing=${sectionMeshing})`, async t => {
+    const { world, place } = fixture(t, { sectionMeshing });
+    const source = BlockTints.biomeSource;
+    BlockTints.biomeSource = async () => { throw new Error("No biome rules are needed without biome samples"); };
+    t.teardown(() => { BlockTints.biomeSource = source; });
+    await place([0, 0, 0]);
+    const data = new ChunkData();
+    data.set(0, { type: "test:cube" });
+    await world.placeChunk({ x: 1, z: 0, sections: [{ y: 0, data }] });
+    t.truthy(world.getBlockAt(0, 0, 0));
+    t.truthy(world.getBlockAt(16, 0, 0));
+});
+
+test.serial("upper tall plants sample the lower block's biome across a section boundary", async t => {
+    const { world, states, addModel } = fixture(t, { sectionMeshing: true });
+    const originals = { get: Biomes.get, color: Biomes.getColor, grass: Colormaps.grassColor };
+    Biomes.get = async () => ({ temperature: 0.8, downfall: 0.4, effects: {} });
+    Biomes.getColor = async id => id === "test:lower" ? 0x123456 : 0xabcdef;
+    Colormaps.grassColor = async () => 0x654321;
+    t.teardown(() => { Biomes.get = originals.get; Biomes.getColor = originals.color; Colormaps.grassColor = originals.grass; });
+    addModel("plant", { tintindex: 0, height: 12, transparent: true });
+    for (const type of ["tall_grass", "large_fern"]) {
+        states.set(`minecraft:${type}`, { key: AssetKey.parse("blockstates", type), variants: { "": { model: "test:block/plant" } } });
+    }
+    const lower = new ChunkData(), upper = new ChunkData();
+    for (const [x, type] of ["tall_grass", "large_fern"].entries()) {
+        lower.set(15 * 256 + x * 4, { type, properties: { half: "lower" } });
+        upper.set(x * 4, { type, properties: { half: "upper" } });
+    }
+    await world.placeChunk({ x: -1, z: -1, sections: [
+        { y: 0, data: upper, biomes: Array(64).fill("test:upper") },
+        { y: -1, data: lower, biomes: Array(64).fill("test:lower") }
+    ] });
+    const assertColors = (color: number) => {
+        for (const x of [-16, -12]) {
+            for (const y of [-1, 0]) {
+                const geometry = templateOf(world, [x, y, -16]).geometry;
+                t.is(new Color().fromBufferAttribute(geometry.getAttribute("color"), 0).getHex(), color);
+            }
+        }
+    };
+    assertColors(0x123456);
+    await world.setBlockVisibleAt([-12, 0, -16], false);
+    const upperChunk = world.getChunkAt(new Vector3(-12, 0, -16))!;
+    const lowerChunk = world.getChunkAt(new Vector3(-16, -1, -16))!;
+    await lowerChunk.setBiomes(Array(64).fill("test:high"));
+    assertColors(0xabcdef);
+    t.false(upperChunk.isBlockVisibleAt(new Vector3(-12, 0, -16)));
+    await lowerChunk.setBiomes(undefined);
+    assertColors(0x654321);
+    t.false(upperChunk.isBlockVisibleAt(new Vector3(-12, 0, -16)));
+    await world.setBlockVisibleAt([-12, 0, -16], true);
+    t.true(upperChunk.isBlockVisibleAt(new Vector3(-12, 0, -16)));
+    await world.placeChunk({ x: -1, z: -1, sections: [
+        { y: 0, data: upper }, { y: -1, data: lower, biomes: Array(64).fill("test:lower") }
+    ] });
+    assertColors(0x123456);
+    await world.setBlockVisibleAt([-12, 0, -16], false);
+    await world.getChunkAt(new Vector3(-16, -1, -16))!.clear();
+    for (const x of [-16, -12]) {
+        const geometry = templateOf(world, [x, 0, -16]).geometry;
+        t.is(new Color().fromBufferAttribute(geometry.getAttribute("color"), 0).getHex(), 0x654321);
+        t.is(world.getBlockAt(x, -1, -16), undefined);
+    }
+    t.false(world.getChunkAt(new Vector3(-12, 0, -16))!.isBlockVisibleAt(new Vector3(-12, 0, -16)));
+});
 
 test.serial("opaque neighbors cull shared faces across signed chunk borders and restore them when cleared or replaced", async t => {
     const { world, place, addModel } = fixture(t);
