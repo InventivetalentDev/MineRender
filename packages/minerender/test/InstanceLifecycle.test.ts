@@ -236,19 +236,3 @@ test("the manager shares pending creation, allocates after its first reference i
     await t.throwsAsync(manager.getOrCreate("retry", async () => { throw error; }), { is: error });
     t.is((await manager.getOrCreate("retry", () => owner)).instanceable, owner);
 });
-
-test("pruning unused pools rechecks callers already awaiting the old cache entry", async t => {
-    const manager = new InstanceManager();
-    const first = fixture(t), second = fixture(t);
-    (await manager.getOrCreate("shared", () => first)).dispose();
-    const direct = manager.get("shared");
-    const replacement = manager.getOrCreate("shared", () => second);
-    t.is(manager.pruneUnused(() => true), 1);
-    t.is(await direct, undefined);
-    const reference = await replacement;
-    t.is(reference.instanceable, second);
-    t.deepEqual(reference.getMatrix(), new Matrix4());
-    t.is(manager.pruneUnused(() => true), 0);
-    t.is(first.parent, null);
-    t.throws(() => first.nextInstance(), { instanceOf: MineRenderError });
-});

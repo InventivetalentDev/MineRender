@@ -22,7 +22,6 @@ import { EntityObject } from "../../entity/scene/EntityObject";
 import { GuiLight } from "../GuiLight";
 import { ItemTints } from "../ItemTints";
 import { ItemGlint } from "../ItemGlint";
-import { copyFaceLight, lightBrightness, quadLightIndex } from "../../world/_light/FaceLight";
 
 
 const p = prefix("ModelObject");
@@ -57,7 +56,6 @@ export class ModelObject extends SceneObject {
         this.hasGlint = !item.parts && (!item.special || specialType === "shield" || specialType === "trident") && ItemGlint.enabled(item.components, item.itemId);
         if (item.special || item.parts || this.hasGlint) this.options.instanceMeshes = false;
         if (this.options.tints) this.options.tints = { ...this.options.tints };
-        this.options.light = copyFaceLight(options?.light);
         this.addEventListener("added", () => this.updateAnimationSubscription());
         this.addEventListener("removed", () => this.updateAnimationSubscription());
     }
@@ -201,12 +199,12 @@ export class ModelObject extends SceneObject {
                         UVMapper.lockUvs(elGeo, el.faces, this.atlas!, new Euler(...this.options.uvLockRotation));
                     }
                     UVMapper.setAtlasUvBounds(elGeo, el.faces, this.atlas!);
-                    if (this.options.tints || this.options.light) {
+                    if (this.options.tints) {
                         const colors = new Float32Array(elGeo.getAttribute("position").count * 3).fill(1);
                         for (const [faceIndex, faceName] of CUBE_FACES.entries()) {
                             const tintIndex = el.faces[faceName]?.tintindex;
                             if (tintIndex === undefined || tintIndex < 0) continue;
-                            const tint = this.options.tints?.[tintIndex];
+                            const tint = this.options.tints[tintIndex];
                             if (tint === undefined) continue;
                             const color = new Color(tint);
                             for (let vertex = 0; vertex < 4; vertex++) {
@@ -228,17 +226,6 @@ export class ModelObject extends SceneObject {
                     if (this.hasGlint) ItemGlint.mapUvs(elGeo, el.faces, this.atlas!, (this.originalModel as ItemModel).itemId, this.options.displayPosition);
 
                     elGeo.applyMatrix4(new Matrix4().makeTranslation(-8, -8, -8));
-                    if (this.options.light) {
-                        const positions = elGeo.getAttribute("position").array;
-                        const normals = elGeo.getAttribute("normal").array;
-                        const colors = elGeo.getAttribute("color");
-                        for (let quad = 0; quad < 6; quad++) {
-                            const brightness = lightBrightness(this.options.light[quadLightIndex(positions, normals, quad)]);
-                            for (let vertex = quad * 4; vertex < quad * 4 + 4; vertex++) {
-                                colors.setXYZ(vertex, colors.getX(vertex) * brightness, colors.getY(vertex) * brightness, colors.getZ(vertex) * brightness);
-                            }
-                        }
-                    }
                     if (displayTransform) DisplayTransforms.apply(elGeo, displayTransform);
 
                     if (this.options.mergeMeshes) {
@@ -381,8 +368,6 @@ export interface ModelObjectOptions extends SceneObjectOptions {
     tints?: Record<number, number>;
     /** Hidden neighbor directions in CUBE_FACES order, before the model's block rotation. */
     cullMask?: number;
-    /** Saved light levels in model-local center, east, west, up, down, south, north order. Omission preserves preview brightness. */
-    light?: readonly number[];
 }
 
 export function isModelObject(obj: any): obj is ModelObject {

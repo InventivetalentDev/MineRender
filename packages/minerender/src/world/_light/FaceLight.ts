@@ -1,14 +1,3 @@
-/** Copies levels in center, east, west, up, down, south, north order; 255 means unknown/full brightness. */
-export function copyFaceLight(light?: readonly number[]): number[] | undefined {
-    if (light === undefined) return undefined;
-    const levels = Array.from(light);
-    if (levels.length !== 7 || levels.some(level => !Number.isInteger(level) || (level !== 255 && (level < 0 || level > 15)))) {
-        throw new RangeError("Block light must contain seven levels from 0 to 15 or 255");
-    }
-    const normalized = levels.map(level => level === 255 ? 15 : level);
-    return normalized.every(level => level === 15) ? undefined : normalized;
-}
-
 /** Converts a saved light level to linear brightness; unknown samples retain preview brightness. */
 export function lightBrightness(level: number): number {
     return level === 255 ? 1 : level / (60 - 3 * level);

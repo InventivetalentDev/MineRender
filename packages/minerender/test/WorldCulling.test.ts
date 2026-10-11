@@ -200,7 +200,7 @@ for (const sectionMeshing of [false, true]) {
 for (const sectionMeshing of [false, true]) {
     for (const batched of [false, true]) {
         test.serial(`saved light survives air-only placement and edits, then clears with its section or column (sectionMeshing=${sectionMeshing}, batched=${batched})`, async t => {
-            const { world, place } = fixture(t, { sectionMeshing, savedLighting: true });
+            const { world, place } = fixture(t, { sectionMeshing, savedLighting: sectionMeshing });
             const executor = batched ? new BatchedExecutor(1, 1) : undefined;
             t.teardown(() => executor?.stop());
             const block = Buffer.from(Array.from({ length: 2048 }, (_, index) => index * 13 + 7));
@@ -260,15 +260,12 @@ for (const sectionMeshing of [false, true]) {
     }
 }
 
-for (const sectionMeshing of [false, true]) {
+for (const sectionMeshing of [true]) {
     test.serial(`blocks above saved sky arrays keep full brightness without inferring sky in block-only columns (sectionMeshing=${sectionMeshing})`, async t => {
         const { world, scene, place } = fixture(t, { sectionMeshing, savedLighting: true });
         const colors = () => {
-            const object = world.getBlockAt(8, 40, 8)?.object;
             const section = scene.children.find(child => child instanceof SectionMesh);
-            const geometry = object ? geometryOf(object) : (section!.children[0] as Mesh).geometry;
-            const color = geometry.getAttribute("color");
-            return color ? Array.from(color.array) : Array<number>(geometry.getAttribute("position").count * 3).fill(1);
+            return Array.from((section!.children[0] as Mesh).geometry.getAttribute("color").array);
         };
         await place([8, 40, 8]);
         const unlit = colors(), data = new ChunkData(), block = new Uint8Array(2048);
@@ -287,6 +284,7 @@ for (const sectionMeshing of [false, true]) {
 
 test.serial("saved light remains available without rendering and invalid replacement arrays preserve the existing column", async t => {
     const { world } = fixture(t);
+    t.throws(() => new MineRenderWorld(world.scene, { savedLighting: true }), { instanceOf: TypeError, message: "savedLighting requires sectionMeshing" });
     const data = new ChunkData();
     data.set(0, { type: "test:cube" });
     const column = { x: 0, z: 0, lightValid: false, sections: [

@@ -38,6 +38,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
     private culling?: Promise<void>;
 
     constructor(scene: MineRenderScene, options: MineRenderWorldOptions<SectionMeshing> = {}) {
+        if (options.savedLighting && !options.sectionMeshing) throw new TypeError("savedLighting requires sectionMeshing");
         this.scene = scene;
         this.savedLighting = options.savedLighting ?? false;
         if (options.sectionMeshing) this.sectionModels = new SectionModels(options.maxAtlasSize);
@@ -401,7 +402,6 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
             await chunk.dispose();
         }
         this.sectionModels?.clear();
-        if (this.savedLighting) this.scene.pruneLightingInstances();
     }
 
     private updateCulling(positions: Vector3[]): Promise<void> {
@@ -470,7 +470,6 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                 }
             } finally {
                 this.culling = undefined;
-                if (this.savedLighting) this.scene.pruneLightingInstances();
             }
         });
     }
@@ -565,7 +564,7 @@ export interface MineRenderWorldOptions<SectionMeshing extends boolean = boolean
     renderEntities?: boolean;
     /** Merge static opaque cubes into section meshes. Merged blocks have no individual object. */
     sectionMeshing?: SectionMeshing;
-    /** Shade blocks and fluids with saved sky/block light. Missing or invalid data keeps preview brightness. Defaults to false. */
+    /** Shade blocks and fluids with saved sky/block light. Missing or invalid data keeps preview brightness. Defaults to false. Requires `sectionMeshing`. */
     savedLighting?: boolean;
     /** Maximum width and height of each section atlas page, in pixels. */
     maxAtlasSize?: number;

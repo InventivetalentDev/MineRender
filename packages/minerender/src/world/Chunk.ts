@@ -232,9 +232,9 @@ export class Chunk<SectionMeshing extends boolean = false> {
                     object = await this.scene.addBlock(blockState, {
                         mergeMeshes: true,
                         instanceMeshes: true,
-                        maxInstanceCount: this.lightAt ? 50 : 2000,
+                        maxInstanceCount: 2000,
                         initialState: stored.properties,
-                        variantPosition, biome: context?.biome, light: this.lightProfile(index),
+                        variantPosition, biome: context?.biome,
                         biomePosition: this.biomePosition(index, blockState, stored)
                     }) as BlockObject;
                     object.setPosition(MineRenderWorld.worldToScenePosition(worldPos));
@@ -318,9 +318,9 @@ export class Chunk<SectionMeshing extends boolean = false> {
                 object = await this.scene.addBlock(blockState, {
                     mergeMeshes: true,
                     instanceMeshes: true,
-                    maxInstanceCount: this.lightAt ? 50 : 2000,
+                    maxInstanceCount: 2000,
                     initialState: this.data.stateAt(this.data.idAt(index))!.properties,
-                    variantPosition: this.positionAt(index), biome, light: this.lightProfile(index),
+                    variantPosition: this.positionAt(index), biome,
                     biomePosition: this.biomePosition(index, blockState, this.data.stateAt(this.data.idAt(index))!)
                 }) as BlockObject;
                 object.setPosition(new Vector3(this.x * 256 + index % 16 * 16,
@@ -342,20 +342,11 @@ export class Chunk<SectionMeshing extends boolean = false> {
         return [this.x * 16 + index % 16, this.y * 16 + Math.floor(index / 256), this.z * 16 + Math.floor(index / 16) % 16];
     }
 
-    private lightProfile(index: number): number[] | undefined {
-        if (!this.lightAt) return undefined;
-        const [x, y, z] = this.positionAt(index);
-        return [this.lightAt(x, y, z), ...CUBE_FACE_OFFSETS.map(([dx, dy, dz]) => this.lightAt!(x + dx, y + dy, z + dz))];
-    }
-
     /** Refreshes saved lighting after adjacent columns load or unload, including columns with only light data. */
     public async refreshLight(indices?: Iterable<number>): Promise<void> {
         if (!this.lightAt) return;
         for (const index of indices ?? this.renderedBlocks.keys()) {
-            const info = this.renderedBlocks.get(index);
-            if (!info) continue;
-            if (info.object) await info.object.setLight(this.lightProfile(index));
-            else this.meshDirty = true;
+            if (this.renderedBlocks.has(index)) this.meshDirty = true;
         }
     }
 
