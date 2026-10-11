@@ -256,7 +256,9 @@ test.serial("async section builds use the shared worker without copying its geom
     const create = fixture(t, () => { workers++; return worker; });
     const first = create(), second = create();
     first.geometry.applyMatrix4(new Matrix4().makeRotationY(Math.PI / 2));
-    const entries = [{ index: 1, template: first, cullMask: 1 }, { index: 16, template: second, cullMask: 0 }];
+    first.biomeTint = new Uint8Array([1, 0, 1, 0, 1, 0]);
+    const entries = [{ index: 1, template: first, cullMask: 1, biomeTint: [0.25, 0.5, 0.75] as [number, number, number] },
+        { index: 16, template: second, cullMask: 0 }];
     const fluids = { cells: new Uint8Array(18 ** 3), waterTints: new Float32Array(4096 * 3), water: new TextureAtlas({}, new CanvasImage(2, 2),
         { still: [1, 2], flow: [1, 2] }, { still: [0, 0], flow: [1, 0] }, false, {}, true, true) };
     fluids.cells[18 * 18 + 18 + 1] = 16;

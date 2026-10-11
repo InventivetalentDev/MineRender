@@ -2,6 +2,7 @@ import { installMineRenderDataFixtures } from "./helpers/minerender-data";
 import test, { ExecutionContext } from "ava";
 import { Mesh, MeshBasicMaterial } from "three";
 import { AssetKey } from "../src/assets/AssetKey";
+import { BlockEntities } from "../src/assets/BlockEntities";
 import { Models } from "../src/assets/Models";
 import { Caching } from "../src/cache/Caching";
 import { CUBE_FACES } from "../src/CubeFace";
@@ -11,6 +12,7 @@ import { ModelGenerator } from "../src/model/ModelGenerator";
 import { ModelObject } from "../src/model/scene/ModelObject";
 import { MineRenderScene } from "../src/renderer/MineRenderScene";
 import { TextureAtlas } from "../src/texture/TextureAtlas";
+import { SectionModels } from "../src/world/SectionModels";
 import { UVMapper } from "../src/UVMapper";
 import type { CanvasImage } from "../src/canvas/CanvasImage";
 import type { ItemModel, Model } from "../src/model/Model";
@@ -140,3 +142,83 @@ test("generated item front and back faces retain the tint index of each texture 
 let restoreData: () => void;
 test.before(() => { restoreData = installMineRenderDataFixtures(); });
 test.after.always(() => restoreData());
+
+test.serial("world biome colors remain lazy, preserve explicit tints and use disposable small instance pools", async t => {
+    const { scene, model, atlas } = fixture(t);
+    t.teardown(installMineRenderDataFixtures(() => ({ blockTints: {
+        "test:tinted_block": { source: "constant", color: 0x008000, biome: "foliage", untinted: [1] }
+    } })));
+    const state = { key: new AssetKey("test", "tinted_block", "blockstates"), variants: { "": { model: "test:block/tinted_cube" } } };
+    const originalIndex = BlockEntities.getIndex;
+    BlockEntities.getIndex = async () => ({});
+    t.teardown(() => { BlockEntities.getIndex = originalIndex; });
+    const calls: string[] = [];
+    const biomeColor = async (kind: string) => { calls.push(kind); return 0xff0000; };
+    const override = await scene.addBlock(state, { applyDefaultState: false, biomeColor, tints: { 0: 0, 2: 0, 3: 0 } });
+    t.deepEqual(calls, []);
+    const blended = await scene.addBlock(state, { applyDefaultState: false, biomeColor, tints: { 0: 0 }, maxInstanceCount: 2000 });
+    t.deepEqual(calls, ["foliage"]);
+    const object = (blended["_models"][0] as InstanceReference<ModelObject>).instanceable;
+    t.is(object.options.biomeTint, true);
+    t.false("biomeColor" in object.options);
+    t.false("biomeColor" in (override["_models"][0] as InstanceReference<ModelObject>).instanceable.options);
+    t.is(object.options.maxInstanceCount, 50);
+    t.deepEqual([0, 1, 2, 3, 4, 5].map(face => attribute(object, "color").slice(face * 12, face * 12 + 3)),
+        [[0, 0, 0], [1, 1, 1], [1, 0, 0], [1, 1, 1], [1, 1, 1], [1, 0, 0]]);
+    const preview = await scene.addModel(model, { tints: object.options.tints });
+    t.not((preview as InstanceReference<ModelObject>).instanceable, object);
+    preview.removeFromScene();
+    t.is(scene.pruneBiomeTintInstances(), 0);
+    blended.removeFromScene();
+    t.is(scene.pruneBiomeTintInstances(), 1);
+    t.true(scene.children.includes((preview as InstanceReference<ModelObject>).instanceable));
+    t.is(object.textureAtlas, atlas);
+    override.removeFromScene();
+});
+
+test.serial("section biome placements share templates and mark only automatic tint quads", async t => {
+    const { model } = fixture(t);
+    t.teardown(installMineRenderDataFixtures(() => ({ blockTints: {
+        "test:tinted_block": { source: "constant", color: 0x008000, biome: "foliage", untinted: [1] }
+    } })));
+    const state = { key: new AssetKey("test", "tinted_block", "blockstates"), variants: { "": { model: "test:block/tinted_cube" } } };
+    const models = new SectionModels();
+    t.teardown(() => models.clear());
+    const prepared = await models.prepareState(state, {}, undefined, true);
+    const again = await models.prepareState(state, {}, undefined, true);
+    t.true(prepared!.biomeTint);
+    const template = prepared!.pick([0, 0, 0])[0];
+    t.is(again!.pick([1, 0, 0])[0], template);
+    t.deepEqual([...template.biomeTint!], [1, 0, 1, 0, 0, 1]);
+    t.is(models["templates"].size, 1);
+    const colors = template.geometry.getAttribute("color");
+    t.true(colors.getY(0) > 0 && colors.getY(0) < 1);
+    t.deepEqual([colors.getX(4), colors.getY(4), colors.getZ(4)], [1, 1, 1]);
+    model.elements![0].faces = { up: { texture: "#side" } };
+    const untintedState = { ...state, variants: { "": { model: "test:block/plain_cube" } } };
+    t.is((await models.prepareState(untintedState, {}, undefined, true))!.biomeTint, undefined);
+});
+
+
+test.serial("per-block water uses blended colors unless an explicit tint bypasses the sampler", async t => {
+    const { scene, atlas } = fixture(t);
+    atlas.positions.still = atlas.positions.flow = [0, 0];
+    atlas.sizes.still = atlas.sizes.flow = [16, 16];
+    const state = { key: new AssetKey("minecraft", "water", "blockstates") };
+    const calls: string[] = [];
+    const biomeColor = async (kind: string) => { calls.push(kind); return 0xff0000; };
+    const water = await scene.addBlock(state, { applyDefaultState: false, biomeColor, maxInstanceCount: 2000 });
+    const object = (water["_fluidModel"] as InstanceReference<ModelObject>).instanceable;
+    t.deepEqual(calls, ["water"]);
+    t.true(object.options.biomeTint);
+    t.false("biomeColor" in object.options);
+    t.is(object.options.maxInstanceCount, 50);
+    t.deepEqual(attribute(object, "color").slice(0, 3), [1, 0, 0]);
+    const explicit = await scene.addBlock(state, { applyDefaultState: false, biomeColor, tints: { 0: 0 } });
+    t.deepEqual(calls, ["water"]);
+    t.false("biomeColor" in (explicit["_fluidModel"] as InstanceReference<ModelObject>).instanceable.options);
+    t.deepEqual(attribute((explicit["_fluidModel"] as InstanceReference<ModelObject>).instanceable, "color").slice(0, 3), [0, 0, 0]);
+    water.removeFromScene();
+    t.is(scene.pruneBiomeTintInstances(), 1);
+    explicit.removeFromScene();
+});

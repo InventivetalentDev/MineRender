@@ -12,6 +12,8 @@ export interface SectionMeshTemplate {
     geometry: BufferGeometry;
     atlas: TextureAtlas;
     cullFaces: Uint8Array;
+    /** Quads that accept a placement's biome tint, stored as zero or one. */
+    biomeTint?: Uint8Array;
     occludes: boolean;
     /** Whether the model permits corner shading from neighboring full cubes. */
     ambientOcclusion?: boolean;
@@ -23,6 +25,8 @@ export interface SectionMeshEntry {
     index: number;
     template: SectionMeshTemplate;
     cullMask: number;
+    /** Linear RGB replacing automatic biome colors on eligible quads. */
+    biomeTint?: readonly [number, number, number];
 }
 
 /** Fluid cells for one section and the shared atlases of the kinds present. */
@@ -48,7 +52,11 @@ function toInput(entries: readonly SectionMeshEntry[], maxAtlasSize: number, flu
         cullMasks: new Uint8Array(entries.length), templateData: [], atlases: [], maxAtlasSize, ...lighting
     };
     for (let i = 0; i < entries.length; i++) {
-        const { index, template, cullMask } = entries[i];
+        const { index, template, cullMask, biomeTint } = entries[i];
+        if (biomeTint) {
+            input.biomeTints ??= new Float32Array(entries.length * 3).fill(NaN);
+            input.biomeTints.set(biomeTint, i * 3);
+        }
         let id = templateIds.get(template);
         if (id === undefined) {
             let atlas = atlasIds.get(template.atlas);
@@ -69,7 +77,7 @@ function toInput(entries: readonly SectionMeshEntry[], maxAtlasSize: number, flu
                 data = {
                     quads, positions: new Float32Array(quads * 12), normals: new Float32Array(quads * 12), uvs: new Float32Array(quads * 8),
                     uvBounds: new Float32Array(quads * 16), colors: new Float32Array(quads * 12), indices: new Uint16Array(quads * 6),
-                    cullFaces: new Uint8Array(template.cullFaces), atlas: 0, layer: template.layer, ambientOcclusion: template.ambientOcclusion
+                    cullFaces: new Uint8Array(template.cullFaces), biomeTint: template.biomeTint ? new Uint8Array(template.biomeTint) : undefined, atlas: 0, layer: template.layer, ambientOcclusion: template.ambientOcclusion
                 };
                 const normal = template.geometry.getAttribute("normal");
                 const uv = template.geometry.getAttribute("uv");

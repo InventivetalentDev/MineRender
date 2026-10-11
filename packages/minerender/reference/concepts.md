@@ -187,9 +187,19 @@ Numeric mappings do not reconstruct states that depend on neighbors or block-ent
 
 Modern Anvil sections retain their biome palettes as 64 IDs in `section.biomes`, ordered by `x + z * 4 + y * 16`. Each sample covers 4×4×4 blocks. `placeChunk` copies these samples, including in air-only sections. Call `world.getBiomeAt(x, y, z)` with integer world block coordinates to read the saved ID, or `undefined` when biome data is absent. Block edits preserve samples; replacing or unloading the column removes its previous biome data.
 
-World blocks use these samples for grass, foliage, dry foliage, and water colors in both rendering modes, including multiple water colors within a merged section. Biome definitions come from the selected version's `data/<namespace>/worldgen/biome/` directory, with colors sampled from resource-pack colormaps or explicit biome effects. Grass colors include dark forest and swamp modifiers; swamp colors use world block coordinates. Waterlogged blocks keep separate model and water colors. Missing biome data or definitions retain preview colors; source errors reject placement. Older numeric `Biomes` arrays, biome blending, and world-seed-based biome sampling remain unsupported.
+World blocks use these samples for grass, foliage, dry foliage, and water colors in both rendering modes, including multiple water colors within a merged section. Biome definitions come from the selected version's `data/<namespace>/worldgen/biome/` directory, with colors sampled from resource-pack colormaps or explicit biome effects. Grass colors include dark forest and swamp modifiers; swamp colors use world block coordinates. Waterlogged blocks keep separate model and water colors. Missing biome data or definitions retain preview colors; source errors reject placement. Older numeric `Biomes` arrays and world-seed-based biome sampling remain unsupported.
 
 Await `chunk.setBiomes(samples)` to replace a section's samples and refresh its placed blocks, including tall-plant halves in the section above. Hidden blocks remain hidden. For standalone previews, pass `biome` and optional `biomePosition: [x, y, z]` to `scene.addBlock`; explicit `tints` still take precedence.
+
+Set `biomeBlendRadius` to an integer from `0` to `7` to smooth grass, foliage, dry-foliage, and water colors across biome borders. The radius is in blocks; `0` disables blending and is the default. Read it through `world.biomeBlendRadius`, or update loaded terrain without reloading the source:
+
+```ts
+const world = new MineRenderWorld(renderer.scene, { sectionMeshing: true, biomeBlendRadius: 3 });
+await world.placeChunk(chunk);
+await world.setBiomeBlendRadius(0);
+```
+
+Blending averages colors over a horizontal square at the sampled block's height in both rendering modes. It leaves `getBiomeAt` unchanged, honors explicit tints, and works with saved lighting and ambient occlusion. Missing neighbors are excluded; a missing center biome or definition retains preview colors. Biome edits and column loading or unloading refresh affected borders. Colors are cached and updated with terrain, with no per-frame averaging. Larger radii add update work; per-block rendering can also create more instance groups and draw calls.
 
 Enable `savedLighting` together with `sectionMeshing` to shade blocks and fluids from imported light data:
 

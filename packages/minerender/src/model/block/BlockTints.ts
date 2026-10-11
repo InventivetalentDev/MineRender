@@ -25,7 +25,7 @@ export class BlockTints {
 
     /** Resolves used tint indices from biome or preview colors; explicit tints take precedence. */
     public static async get(key: AssetKey | undefined, state: BlockStateProperties, model: Model,
-                            tints?: Record<number, number>, biomeColor?: number | (() => Promise<number | undefined>)): Promise<Record<number, number> | undefined> {
+                            tints?: Record<number, number>, biomeColor?: number | ((kind: BiomeColorKind) => Promise<number | undefined>)): Promise<Record<number, number> | undefined> {
         if (!key) return tints;
         const candidates = (model.elements ?? []).flatMap(element => Object.values(element.faces))
             .some(face => face?.tintindex !== undefined && face.tintindex >= 0 && tints?.[face.tintindex] === undefined);
@@ -45,7 +45,7 @@ export class BlockTints {
         if (!indices.size) return tints;
 
         const source = rule.biome ?? (rule.source === "grass" ? "grass" : undefined);
-        const biome = source ? typeof biomeColor === "function" ? await biomeColor() : biomeColor : undefined;
+        const biome = source ? typeof biomeColor === "function" ? await biomeColor(source) : biomeColor : undefined;
         let color: number;
         if (biome !== undefined) {
             color = biome;

@@ -13,6 +13,7 @@ export interface SectionTemplateData {
     colors: Float32Array;
     indices: Uint16Array;
     cullFaces: Uint8Array;
+    biomeTint?: Uint8Array;
     atlas: number;
     layer: number;
     ambientOcclusion?: boolean;
@@ -49,6 +50,8 @@ export interface SectionGeometryInput {
     indices: Uint16Array;
     templates: Uint16Array;
     cullMasks: Uint8Array;
+    /** Linear RGB per placement; three NaN values preserve the template's colors. */
+    biomeTints?: Float32Array;
     templateData: SectionTemplateData[];
     atlases: SectionAtlasSize[];
     maxAtlasSize: number;
@@ -79,9 +82,10 @@ export interface SectionGeometryPage {
 
 /** Builds section-local geometry from visible quads, with bounded atlas pages per layer. */
 export function buildSectionGeometry(input: SectionGeometryInput): SectionGeometryPage[] {
-    const { count, indices, templates, cullMasks, templateData, atlases, maxAtlasSize, fluids, light, ambientLight, ambientOcclusion } = input;
+    const { count, indices, templates, cullMasks, templateData, atlases, maxAtlasSize, fluids, light, ambientLight, ambientOcclusion, biomeTints } = input;
     if (!Number.isInteger(maxAtlasSize) || maxAtlasSize < 1) throw new RangeError("Section atlas size must be a positive integer");
     if (count > indices.length || count > templates.length || count > cullMasks.length) throw new RangeError("Section entry count exceeds its arrays");
+    if (biomeTints && biomeTints.length !== count * 3) throw new RangeError("Section biome tints must contain RGB for each placement");
     if (fluids && fluids.cells.length !== 5832) throw new RangeError("Section fluid cells must cover an 18×18×18 neighborhood");
     if (fluids?.waterTints && fluids.waterTints.length !== 4096 * 3) throw new RangeError("Section water tints must contain RGB for 4096 cells");
     if (light && (light.length !== 5832 || light.some(level => level > 15 && level !== 255))) {
@@ -98,7 +102,8 @@ export function buildSectionGeometry(input: SectionGeometryInput): SectionGeomet
         const { quads } = template;
         if (template.positions.length !== quads * 12 || template.normals.length !== quads * 12 ||
             template.uvs.length !== quads * 8 || template.uvBounds.length !== quads * 16 ||
-            template.colors.length !== quads * 12 || template.indices.length !== quads * 6 || template.cullFaces.length !== quads) {
+            template.colors.length !== quads * 12 || template.indices.length !== quads * 6 || template.cullFaces.length !== quads ||
+            (template.biomeTint && (template.biomeTint.length !== quads || template.biomeTint.some(value => value > 1)))) {
             throw new RangeError("Section template arrays do not match its quad count");
         }
     }
@@ -209,6 +214,7 @@ export function buildSectionGeometry(input: SectionGeometryInput): SectionGeomet
                 if (ambientMask) quadAmbientOcclusion(template.positions, template.normals, quad, ambientMask, cornerBrightness!);
                 const brightness = light ? lightBrightness(light[lightIndex + LIGHT_SAMPLE_OFFSETS[
                     quadLightIndex(template.positions, template.normals, quad)]], ambientLight) : 1;
+                const tint = biomeTints && template.biomeTint?.[quad] && !Number.isNaN(biomeTints[entry * 3]) ? entry * 3 : undefined;
                 const start = vertex;
                 for (let corner = 0; corner < 4; corner++, vertex++) {
                     const source = quad * 4 + corner;
@@ -225,9 +231,9 @@ export function buildSectionGeometry(input: SectionGeometryInput): SectionGeomet
                     uvBounds[vertex * 4 + 2] = mapU(template.uvBounds[source * 4 + 2]);
                     uvBounds[vertex * 4 + 3] = mapV(template.uvBounds[source * 4 + 3]);
                     const factor = brightness * (ambientMask ? cornerBrightness![corner] : 1);
-                    colors[vertex * 3] = template.colors[source * 3] * factor;
-                    colors[vertex * 3 + 1] = template.colors[source * 3 + 1] * factor;
-                    colors[vertex * 3 + 2] = template.colors[source * 3 + 2] * factor;
+                    colors[vertex * 3] = (tint === undefined ? template.colors[source * 3] : biomeTints![tint]) * factor;
+                    colors[vertex * 3 + 1] = (tint === undefined ? template.colors[source * 3 + 1] : biomeTints![tint + 1]) * factor;
+                    colors[vertex * 3 + 2] = (tint === undefined ? template.colors[source * 3 + 2] : biomeTints![tint + 2]) * factor;
                 }
                 for (let corner = 0; corner < 6; corner++) outputIndices[indexOffset++] = start + template.indices[quad * 6 + corner];
             }

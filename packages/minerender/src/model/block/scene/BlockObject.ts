@@ -19,7 +19,7 @@ import { MineRenderData } from "../../../assets/MineRenderData";
 import { BlockEntities, ResolvedBlockEntity } from "../../../assets/BlockEntities";
 import { Entities } from "../../../assets/Entities";
 import type { EntityObject } from "../../../entity/scene/EntityObject";
-import { Biomes } from "../../../assets/Biomes";
+import { Biomes, BiomeColorKind } from "../../../assets/Biomes";
 import type { TripleArray } from "../../Model";
 
 /** Controls the model parts selected by a blockstate. Create it through {@link MineRenderScene.addBlock}. */
@@ -279,9 +279,11 @@ export class BlockObject extends SceneObject {
         const fluidKey = `${surface.key}|${tint ?? "default"}`;
         if (this._fluidKey === fluidKey) return;
         const key = new AssetKey("minecraft", `${kind}/${surface.key}`, "models", "fluid", "assets", ".json", this.blockState.key?.root);
+        const { biomeColor, ...modelOptions } = this.options;
         const replacement = await this.scene.addSceneObject({ key },
             () => new FluidModelObject(kind, surface.sample, this.blockState.key, {
-                ...this.options, tints: tint === undefined ? this.options.tints : { ...this.options.tints, 0: tint }
+                ...modelOptions, biomeTint: !!biomeColor && this.waterTint !== undefined,
+                tints: tint === undefined ? this.options.tints : { ...this.options.tints, 0: tint }
             }));
         const previous = this._fluidModel;
         const matrix = previous ? this.getModelMatrix(previous) : new Matrix4().makeTranslation(...this.position.toArray());
@@ -324,8 +326,10 @@ export class BlockObject extends SceneObject {
         // TODO: try to reuse models instead of just removing them and creating new ones
         this.clearModels();
 
-        this.waterTint = this.fluidKind === "water" && this.options.biome && this.options.tints?.[0] === undefined
-            ? await Biomes.getColor(this.options.biome, "water", this.blockState.key) : undefined;
+        this.waterTint = this.fluidKind === "water" && this.options.tints?.[0] === undefined
+            ? this.options.biomeColor ? await this.options.biomeColor("water")
+                : this.options.biome ? await Biomes.getColor(this.options.biome, "water", this.blockState.key) : undefined
+            : undefined;
 
         if (resolveBlockFluidState(this.blockState.key, this.state, this._fluidRules)?.renderModel === false) {
             await this.updateFluid(this._fluidSampler);
@@ -390,10 +394,16 @@ export class BlockObject extends SceneObject {
         const modelKey = AssetKey.parse("models", variant.model!);
         modelKey.root = this.blockState.key?.root;
         const model = await Models.getMerged(modelKey);
+        let biomeTint = false;
+        const { biomeColor, ...modelOptions } = this.options;
+        const tints = model ? await BlockTints.get(this.blockState.key, this.state, model, this.options.tints, async kind => {
+            if (!biomeColor) return BlockTints.getBiomeColor(this.blockState.key, this.options.biome, this.biomePosition);
+            const color = await biomeColor(kind);
+            biomeTint = color !== undefined;
+            return color;
+        }) : this.options.tints;
         const options: Partial<ModelObjectOptions> = {
-            ...this.options,
-            tints: model ? await BlockTints.get(this.blockState.key, this.state, model, this.options.tints,
-                () => BlockTints.getBiomeColor(this.blockState.key, this.options.biome, this.biomePosition)) : this.options.tints,
+            ...modelOptions, tints, biomeTint,
             uvLockRotation: variant.uvlock && (rotation.x !== 0 || rotation.y !== 0)
                 ? [rotation.x, rotation.y, rotation.z] : undefined,
             cullMask: this.options.displayPosition ? 0 : ModelCulling.toLocalMask(this._cullMask, rotation)
@@ -555,6 +565,8 @@ export interface BlockObjectOptions extends ModelObjectOptions {
     variantPosition?: TripleArray;
     /** Saved biome ID used for automatic grass, foliage, and water colors. */
     biome?: string;
+    /** Supplies automatic biome colors lazily; explicit tints bypass the callback. */
+    biomeColor?: (kind: BiomeColorKind) => Promise<number | undefined>;
     /** World block coordinates used by biome grass modifiers. Copied at construction; defaults to the origin. */
     biomePosition?: TripleArray;
 }
