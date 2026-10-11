@@ -11,6 +11,8 @@ import { AssetParser } from "./source/parser/AssetParsers";
 import { DisplayPosition } from "../model/DisplayPosition";
 import { DYE_COLORS } from "./BannerPatterns";
 import { ItemDefaults } from "../model/ItemDefaults";
+import { MineRenderData } from "./MineRenderData";
+import { ItemTints } from "../model/ItemTints";
 
 /** Caller-supplied item-preview state passed to {@link Models.getMerged}. */
 export interface ItemModelContext {
@@ -30,7 +32,7 @@ export interface ItemModelContext {
 export class Models {
 
     // Bump when the shape of cached item models changes.
-    private static readonly ITEM_CACHE_VERSION = "item-v7";
+    private static readonly ITEM_CACHE_VERSION = "item-v8";
     private static _persistentCache: PersistentCache | undefined;
 
     // opened lazily: touching the store at import time would hit IndexedDB/disk just for loading
@@ -49,20 +51,32 @@ export class Models {
     }
 
     public static async loadAndMerge(key: AssetKey, context: ItemModelContext = {}): Promise<Maybe<Model>> {
+        const checkSources = this.sourceCheck();
         const model = key.type === "item" ? await this.getItemModel(key, context) : await this.getRaw(key);
         if (!model) {
             return undefined;
         }
-        return ModelMerger.mergeWithParents(model);
+        const merged = await ModelMerger.mergeWithParents(model);
+        checkSources();
+        return merged;
     }
 
     private static async getItemModel(key: AssetKey, context: ItemModelContext = {}): Promise<Maybe<Model>> {
+        const checkSources = this.sourceCheck();
         const preview = this.snapshotContext(key, context);
+        const dataKey = await this.applyDefaults(key, preview);
+        checkSources();
+        return this.getPreparedItemModel(key, preview, dataKey);
+    }
+
+    private static async getPreparedItemModel(key: AssetKey, preview: Required<ItemModelContext>, dataKey: string): Promise<Maybe<Model>> {
+        const checkSources = this.sourceCheck();
         const itemId = `${key.namespace}:${key.path}`;
         const itemKey = new AssetKey(key.namespace, key.path, "items", undefined, key.rootType, ".json", key.root);
-        const cacheKey = itemKey.serialize() + this.contextKey(preview);
+        const cacheKey = itemKey.serialize() + this.contextKey(preview) + dataKey;
         const model = await this.PERSISTENT_CACHE.getOrLoad(`${this.ITEM_CACHE_VERSION}:${AssetLoader.persistentKey(cacheKey)}`, async () => {
             const result = await AssetLoader.getFirst<Model & { model?: ItemModelNode }>([itemKey, key], AssetParser.JSON);
+            checkSources();
             if (!result) return undefined;
             if (result.key.assetType !== "items") return { ...result.asset, key, itemId, components: preview.components } as ItemModel;
 
@@ -83,8 +97,11 @@ export class Models {
                 // Relative texture paths belong to the referenced model's namespace.
                 return { ...model, itemId, components: preview.components, ...(selected.special && { special: selected.special }), ...(selected.tints && { tints: selected.tints }) } as ItemModel;
             };
-            return load(this.selectItemModel(result.asset.model, key, preview));
+            const model = await load(this.selectItemModel(result.asset.model, key, preview));
+            checkSources();
+            return model;
         });
+        checkSources();
         const restore = (model: ItemModel): ItemModel => ({
             ...model, key: Object.assign(new AssetKey("", ""), model.key),
             ...(model.parts && { parts: model.parts.map(restore) })
@@ -137,11 +154,6 @@ export class Models {
             if (Object.prototype.hasOwnProperty.call(components, component)) throw new Error(`Duplicate item-preview component: ${component}`);
             components[component] = this.snapshotJson(value);
         }
-        if (key.type === "item") {
-            for (const [id, value] of Object.entries(ItemDefaults.get(`${key.namespace}:${key.path}`))) {
-                if (!Object.prototype.hasOwnProperty.call(components, id)) components[id] = value;
-            }
-        }
         const itemReferences: Record<string, AssetKey> = {};
         for (const [id, value] of Object.entries(context.itemReferences ?? {})) {
             const reference = this.contextIdentifier(id);
@@ -153,6 +165,29 @@ export class Models {
             itemReferences[reference] = Object.assign(new AssetKey("", ""), value, { root: value.root ?? key.root });
         }
         return { displayContext, properties, components, count, itemReferences };
+    }
+
+    private static async applyDefaults(key: AssetKey, preview: Required<ItemModelContext>): Promise<string> {
+        if (key.type !== "item") return "";
+        const root = AssetLoader.ROOT, scope = AssetLoader.persistentScope;
+        const resolved = await MineRenderData.resolve(key.root);
+        const defaults = await ItemDefaults.get(`${key.namespace}:${key.path}`, key.root);
+        preview.components = { ...defaults, ...preview.components };
+        if (resolved.manifest.dataVersion < 3337 && key.namespace === DEFAULT_NAMESPACE
+            && ["potion", "splash_potion", "lingering_potion"].includes(key.path)
+            && !Object.prototype.hasOwnProperty.call(preview.components, "minecraft:enchantment_glint_override")
+            && await ItemTints.hasPotionEffects(preview.components["minecraft:potion_contents"], key.root)) {
+            preview.components["minecraft:enchantment_glint_override"] = true;
+        }
+        if (AssetLoader.ROOT !== root || AssetLoader.persistentScope !== scope) throw new Error("Asset sources changed while loading item defaults; retry the request");
+        return `|data:${resolved.root}:${resolved.manifest.datasets.itemDefaults?.sha256}:${resolved.manifest.datasets.potionColors?.sha256}`;
+    }
+
+    private static sourceCheck(): () => void {
+        const root = AssetLoader.ROOT, scope = AssetLoader.persistentScope;
+        return () => {
+            if (AssetLoader.ROOT !== root || AssetLoader.persistentScope !== scope) throw new Error("Asset sources changed while loading item models; retry the request");
+        };
     }
 
     private static contextKey(context: Required<ItemModelContext>): string {
@@ -347,13 +382,14 @@ export class Models {
     /**
      * Loads a model and resolves its parent chain. Returns `undefined` when the model is missing.
      * Item keys default to GUI context and a stack count of 1. Unresolved conditions are false and numeric properties are zero.
-     * Vanilla 1.21.11 stack-size, durability, and glint defaults apply unless components override them.
+     * Versioned stack-size, durability, and glint defaults apply unless components override them.
      * Pass `context` to supply component values, property overrides, and item references for a preview.
      * Composite items retain independently merged children in `ItemModel.parts`.
      *
      * @param key - Model key, for example `AssetKey.parse("models", "minecraft:item/diamond_sword")`.
      */
     public static async getMerged(key: AssetKey, context: ItemModelContext = {}): Promise<Maybe<Model>> {
+        const checkSources = this.sourceCheck();
         if (!key.assetType) {
             key.assetType = "models";
         }
@@ -361,11 +397,18 @@ export class Models {
             key.extension = ".json";
         }
         const preview = this.snapshotContext(key, context);
-        const keyStr = key.serialize() + (key.type === "item" ? this.contextKey(preview) : "");
-        return Caching.mergedModelCache.get(keyStr, k => {
+        const dataKey = await this.applyDefaults(key, preview);
+        checkSources();
+        const keyStr = AssetLoader.persistentKey(key.serialize() + (key.type === "item" ? this.contextKey(preview) + dataKey : ""));
+        const model = await Caching.mergedModelCache.get(keyStr, async () => {
             //TODO: persistent cache
-            return Models.loadAndMerge(key, preview);
+            const raw = key.type === "item" ? await this.getPreparedItemModel(key, preview, dataKey) : await this.getRaw(key);
+            const merged = raw ? await ModelMerger.mergeWithParents(raw) : undefined;
+            checkSources();
+            return merged;
         });
+        checkSources();
+        return model;
     }
 
     /** Alias for {@link getMerged}. */

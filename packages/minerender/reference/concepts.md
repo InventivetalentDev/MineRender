@@ -30,13 +30,32 @@ World edits such as `setBlockAt`, `placeMultiBlock`, and `clear` also return pro
 
 With `sectionMeshing: true`, changed sections rebuild after the placement promise resolves. The browser build prepares section geometry in a Web Worker when the bundle keeps `section.worker` beside the module; otherwise it builds synchronously. See [Browser and Node.js](./platforms.md#capability-boundaries).
 
+## Versioned registry data
+
+`AssetLoader.setVersion(version)` selects both vanilla assets and the registry data used for item defaults, potion colors, block properties, preview tints, fluids, dyes, and legacy numeric mappings. These datasets load from `assets.mcasset.cloud/<version>/minerender-data/` when needed.
+
+When the exact dataset version is missing, MineRender selects the nearest published patch in the same release line, preferring the older patch on a tie. Otherwise it uses the latest earlier published release. Automatic fallback supports releases from 1.16.5 onward; an unpublished snapshot rejects. Models and textures retain the requested asset version. A missing dataset or failed request rejects rather than returning an empty registry.
+
+Inspect the selected registry version with `resolve`:
+
+```ts
+AssetLoader.setVersion("1.21.6");
+const data = await MineRenderData.resolve();
+console.log(data.requestedVersion, data.version);
+const defaults = await ItemDefaults.get("minecraft:diamond_sword");
+```
+
+Pass an explicit asset root as the second argument to `MineRenderData.get(dataset, root)` or `ItemDefaults.get(itemId, root)` when loading another version or a mirror. `SchematicParser`, `AnvilParser`, and `AnvilWorldSource` accept `root` in their options to select the target registry for numeric block mappings; the file's DataVersion does not choose or migrate that target.
+
+The former synchronous data lookups now return promises: `ItemDefaults.get`, `ItemTints.getPotionList`, `getBlockFluidState`, `getFluidKind`, and `resolveLegacyBlock`. For repeated synchronous calculations, load `fluids` or `legacyBlocks` once with `MineRenderData.get` and pass the table to `resolveBlockFluidState` or `resolveLegacyBlockState`. Rendering and parser entry points await their data automatically. `BannerPatterns.getColors(root?)` provides versioned texture dyes; `DYE_COLORS` and `BannerPatterns.getColor` retain the fixed 1.21.11 palette for compatibility and are deprecated.
+
 ## Redrawing after changes
 
 [Renderer](/api/index/classes/Renderer) draws only when the scene is dirty, `render.renderAlways` is enabled, an `onFrame` subscription is active, or a video is recording. Calling `start()` runs this loop; it does not force an unchanged scene to redraw continuously.
 
 MineRender setters such as `setPosition` notify the scene. When you change a three.js property directly, such as a named part's `rotation` or `visible`, call the owning [SceneObject](/api/index/classes/SceneObject)'s `notifyDirty()` or set `renderer.scene.dirty = true`. The loop draws the change on its next eligible frame.
 
-Built-in controls created with `controls.enabled` handle redraw notifications. Register controls you create yourself with `renderer.registerEventDispatcher(...)` so their change events mark the renderer dirty.
+Built-in controls created with `controls.enabled` handle redraw notifications. `controls.mode` selects `orbit` (OrbitControls, the default) or `fly`, creative-style flight with WASD, space/shift, control to sprint, mouse look through pointer lock or dragging, the wheel to change speed, and a touch joystick on the left half of the canvas. `renderer.orbitControls` and `renderer.flyControls` return the active one, and `renderer.setControlsMode(...)` switches at runtime while keeping the camera in place. Register controls you create yourself with `renderer.registerEventDispatcher(...)` so their change events mark the renderer dirty.
 
 For continuous animation, use `renderer.onFrame(...)`. Its synchronous callback runs before each draw and keeps rendering active. `render.fpsLimit` caps these draws; its default is `60`, and a nonpositive value disables the cap. The first callback after subscribing or restarting receives `delta: 0`. Call the returned unsubscribe function when the animation ends.
 

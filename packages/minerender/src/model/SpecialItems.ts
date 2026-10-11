@@ -1,7 +1,7 @@
 import { Euler, Matrix4, MeshBasicMaterial } from "three";
 import { AssetKey, isResourceLocation } from "../assets/AssetKey";
 import { Entities } from "../assets/Entities";
-import { BannerPatterns, DYE_COLORS } from "../assets/BannerPatterns";
+import { BannerPatterns, type DyeColor } from "../assets/BannerPatterns";
 import { DecoratedPots } from "../assets/DecoratedPots";
 import { ModelTextures } from "../assets/ModelTextures";
 import { CubeFace } from "../CubeFace";
@@ -113,8 +113,10 @@ export class SpecialItems {
             case "minecraft:shield":
             case "shield": {
                 const banner = special.type === "banner" || special.type === "minecraft:banner";
-                const color = banner ? BannerPatterns.getColor(special.color) : components["minecraft:base_color"] === undefined
-                    ? undefined : BannerPatterns.getColor(components["minecraft:base_color"]);
+                const colors = await BannerPatterns.getColors(root);
+                const dye = banner ? special.color : components["minecraft:base_color"];
+                if (dye !== undefined && (typeof dye !== "string" || !Object.prototype.hasOwnProperty.call(colors, dye))) throw new Error(`Unsupported dye color ${dye}`);
+                const color = dye === undefined ? undefined : colors[dye as DyeColor];
                 const patterns = await BannerPatterns.getLayers(components["minecraft:banner_patterns"], banner ? "banner" : "shield", root);
                 const patterned = banner || color !== undefined || patterns.length > 0;
                 const baseTexture = texture(banner ? "banner_base" : patterned ? "shield_base" : "shield_base_nopattern", "");
@@ -140,7 +142,7 @@ export class SpecialItems {
                 }
                 const tints: Record<string, number> = {};
                 if (patterned) {
-                    const draws = [{ texture: texture(`${banner ? "banner" : "shield"}/base`, ""), color: color ?? DYE_COLORS.white }, ...patterns];
+                    const draws = [{ texture: texture(`${banner ? "banner" : "shield"}/base`, ""), color: color ?? colors.white }, ...patterns];
                     draws.forEach((draw, index) => {
                         const name = index === 0 ? "pattern_base" : `pattern_${index - 1}`;
                         layers[name] = { key: draw.texture, texture: draw.texture, layer: overlay, render: "no_outline", tint: name };

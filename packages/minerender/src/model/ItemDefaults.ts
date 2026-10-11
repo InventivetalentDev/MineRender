@@ -1,12 +1,11 @@
-import itemDefaults from "./itemDefaults.json";
+import { MineRenderData } from "../assets/MineRenderData";
 
-/** Bundled vanilla 1.21.11 item components; unlisted items stack to 64. */
+/** Item components extracted from the selected Minecraft version; unlisted items stack to 64. */
 export class ItemDefaults {
     /** Returns a fresh map with namespaced component IDs; unlisted items get max_stack_size 64. */
-    public static get(itemId: string): Record<string, number | boolean> {
-        const id = itemId.replace(/^minecraft:/, "");
-        if (!Object.prototype.hasOwnProperty.call(itemDefaults, id)) return { "minecraft:max_stack_size": 64 };
-        return Object.fromEntries(Object.entries(itemDefaults[id as keyof typeof itemDefaults])
-            .map(([component, value]) => [`minecraft:${component}`, value]));
+    public static async get(itemId: string, root?: string): Promise<Record<string, unknown>> {
+        const id = itemId.includes(":") ? itemId : `minecraft:${itemId}`;
+        const defaults = await MineRenderData.get("itemDefaults", root);
+        return Object.prototype.hasOwnProperty.call(defaults, id) ? structuredClone(defaults[id]) : { "minecraft:max_stack_size": 64 };
     }
 }

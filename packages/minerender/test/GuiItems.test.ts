@@ -1,3 +1,4 @@
+import { installMineRenderDataFixtures } from "./helpers/minerender-data";
 import test, { ExecutionContext } from "ava";
 import { Box3, ClampToEdgeWrapping, Color, CustomBlending, EqualDepth, LinearFilter, Matrix4, Mesh, MeshBasicMaterial, NearestFilter, OneFactor, Raycaster, RepeatWrapping, ShaderMaterial, SrcColorFactor, Vector3, ZeroFactor } from "three";
 import { AssetKey } from "../src/assets/AssetKey";
@@ -580,3 +581,7 @@ test.serial("special GUI items include nested poses in local bounds and own only
     gui.dispose(); gui.dispose();
     t.deepEqual([geometryDisposals, materialDisposals, sharedDisposals, textureDisposals], [1, 1, 0, 0]);
 });
+
+let restoreData: () => void;
+test.before(() => { restoreData = installMineRenderDataFixtures(); });
+test.after.always(() => restoreData());

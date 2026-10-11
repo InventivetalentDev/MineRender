@@ -1,3 +1,4 @@
+import { installMineRenderDataFixtures } from "./helpers/minerender-data";
 import test, { ExecutionContext } from "ava";
 import { BoxGeometry, InstancedMesh, MeshBasicMaterial, Vector3 } from "three";
 import type { Compound, NBT } from "prismarine-nbt";
@@ -15,6 +16,10 @@ import { BatchedExecutor } from "../src/util/BatchedExecutor";
 import { MineRenderWorld } from "../src/world/MineRenderWorld";
 
 const block = { type: "test:stone" };
+
+let restoreData: () => void;
+test.before(() => { restoreData = installMineRenderDataFixtures(); });
+test.after.always(() => restoreData());
 
 function fixture(t: ExecutionContext) {
     const originals = { state: BlockStates.get, defaults: BlockStates.getDefaultState, model: Models.getMerged, init: ModelObject.prototype.init };

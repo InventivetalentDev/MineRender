@@ -1,3 +1,4 @@
+import { installMineRenderDataFixtures } from "./helpers/minerender-data";
 import test, { ExecutionContext } from "ava";
 import { BoxGeometry, InstancedMesh, Matrix4, MeshBasicMaterial, Vector3 } from "three";
 import { AssetKey } from "../src/assets/AssetKey";
@@ -127,6 +128,10 @@ test("placement turns the translated model about the block's vertical centre axi
     t.deepEqual(round(new Vector3(0, 0, -1).transformDirection(matrix)), [1, 0, 0]);
     t.deepEqual(round(new Vector3(3, 2, 1).applyMatrix4(BlockEntities.matrix({ parts: [], rotation: 0, translation: [0, 0, 0] }))), [3, 2, 1]);
 });
+
+let restoreData: () => void;
+test.before(() => { restoreData = installMineRenderDataFixtures(); });
+test.after.always(() => restoreData());
 
 function fixture(t: ExecutionContext, options?: Partial<MineRenderWorldOptions<boolean>>) {
     const originals = {
