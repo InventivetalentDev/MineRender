@@ -1,14 +1,4 @@
 const AXIS_STRIDES = [1, 9, 3] as const;
-const UNUSED_SAMPLES = (1 << 13) | (1 << 12) | (1 << 14) | (1 << 4) | (1 << 22) | (1 << 10) | (1 << 16);
-
-/** Normalizes a 3×3×3 opaque-neighbor mask, indexed by (dy + 1) * 9 + (dz + 1) * 3 + dx + 1. */
-export function normalizeAmbientOcclusion(mask?: number): number | undefined {
-    if (mask === undefined) return undefined;
-    if (!Number.isInteger(mask) || mask < 0 || mask > 0x7ffffff) {
-        throw new RangeError("Ambient occlusion must be a 27-bit neighbor mask");
-    }
-    return (mask & ~UNUSED_SAMPLES) || undefined;
-}
 
 /** Reads the edge and corner blockers around one cell in an 18×18×18 section neighborhood. */
 export function sectionAmbientOcclusionMask(cells: Uint8Array, center: number): number {

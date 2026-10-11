@@ -170,7 +170,7 @@ Rendering uses the brighter of sky and block light with a neutral daylight brigh
 
 `savedLighting` defaults to `false`. When enabled, missing sections and lighting marked invalid by the save retain preview brightness. Modern saves without a lighting-validity flag count as invalid. Block edits and visibility changes preserve the saved samples without recalculating light. Light propagation, entity and block-entity lighting, and dimension-, weather-, or time-dependent lightmap colors are not applied.
 
-Enable `ambientOcclusion` to darken block corners near opaque full-cube neighbors. It works in both rendering modes, with or without saved lighting:
+Enable `ambientOcclusion` to darken block corners near opaque full-cube neighbors. It requires `sectionMeshing` and works with or without saved lighting:
 
 ```ts
 const world = new MineRenderWorld(renderer.scene, { sectionMeshing: true, ambientOcclusion: true });
@@ -180,7 +180,7 @@ await world.setAmbientOcclusion(false); // Rebuilds loaded terrain without reloa
 
 Ambient occlusion defaults to `false`; `world.ambientOcclusion` reports the setting. It shades axis-aligned faces on block boundaries and honors a model's `ambientocclusion: false`. Inset and non-axis-aligned faces keep their existing shading. Partial boundary faces interpolate full-face corners; this does not reproduce exact vanilla shading for partial shapes. Light-emitting blocks are not automatically exempt. Block edits, visibility changes, and chunk loading or unloading refresh affected corners, including across section boundaries. Fluids, entities, and block entities are unchanged.
 
-Enabling ambient occlusion adds work during placement and geometry updates, with no extra per-frame rendering pass. Per-block rendering can also create more instance groups, increasing memory use and draw calls. Keep it disabled when load or edit performance matters more than corner shading.
+Enabling ambient occlusion adds work during placement and geometry updates, with no extra per-frame rendering pass. Keep it disabled when load or edit performance matters more than corner shading.
 
 ## Ownership and cleanup
 
