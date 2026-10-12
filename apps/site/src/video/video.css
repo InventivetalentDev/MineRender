@@ -38,7 +38,8 @@ html, body { margin: 0; padding: 0; background: #000; }
     text-align: center;
 }
 .overlay-title.is-upper { justify-content: flex-start; padding-top: calc(var(--u) * 13); }
-.overlay-logo { width: calc(var(--u) * 9); height: calc(var(--u) * 9); margin-bottom: calc(var(--u) * 1.5); }
+/* The logo is taller than wide; size by height so it is never stretched. */
+.overlay-logo { height: calc(var(--u) * 10); width: auto; margin-bottom: calc(var(--u) * 1.5); }
 .overlay-heading { font-family: var(--font-display); font-weight: 800; font-size: 9em; line-height: 1; letter-spacing: -0.02em; }
 .overlay-title.is-compact .overlay-heading { font-size: 7em; }
 .overlay-subheading { margin-top: calc(var(--u) * 1.2); font-size: 3em; color: var(--ink-soft); font-weight: 500; }
