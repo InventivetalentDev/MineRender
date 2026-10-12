@@ -59,7 +59,7 @@ function structureBounds(structure: MultiBlockStructure): Box3 {
 const vanilla: Example = {
     id: "structure-vanilla",
     title: "Vanilla structure files",
-    description: "Structure .nbt files are parsed in the browser and placed into a world in batches. Section meshing merges block models and fluids into meshes per 16³ section, with neighbor faces culled; block entities stay individual objects.",
+    description: "Structure .nbt files are parsed in the browser and placed into a world. Section meshing merges block models and fluids into meshes per 16³ section, with neighbor faces culled; block entities stay individual objects.",
     renderer: {
         camera: {
             position: [230, 170, 230] as [number, number, number],
@@ -122,7 +122,7 @@ const key = new AssetKey("minecraft", "village/plains/houses/plains_small_house_
 const nbt = await AssetLoader.get(key, AssetParser.NBT);
 const structure = await StructureParser.parse(nbt!);
 
-// Section meshing merges static block models per 16³ section and culls hidden faces
+// Section meshing merges block models and fluids per 16³ section and culls hidden faces
 const world = new MineRenderWorld(renderer.scene, { sectionMeshing: true });
 await world.placeMultiBlock(structure);`
     }
@@ -426,7 +426,7 @@ renderer.orbitControls!.addEventListener("change", () => void streamer.updatePos
 export const structures: ExampleGroup = {
     id: "structures",
     title: "Structures & worlds",
-    lead: "Load structure, schematic, and region files, stream chunks around the view, or place blocks from code. Sections can be merged into single meshes built off the main thread.",
+    lead: "Load structure, schematic, and region files, stream chunks around the view, or place blocks from code. Section meshing merges each 16³ section into a few meshes, built in a worker when available.",
     playgrounds: [{ url: "https://beta.minerender.org/demo/structure/", label: "Structure playground" }, { url: "https://beta.minerender.org/demo/world/", label: "World streaming demo" }],
     examples: [vanilla, ownFile, streaming, flying, programmatic]
 };
