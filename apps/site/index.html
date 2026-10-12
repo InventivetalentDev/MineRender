@@ -121,7 +121,7 @@
                 <span class="feature-icon" data-icon="node"></span>
                 <div>
                     <h3>Browser and Node</h3>
-                    <p>Separate entry points install the platform pieces for each side. Asset loading, model merging and structure parsing run in Node as well as in the browser.</p>
+                    <p>Render interactive scenes in the browser or PNG images in Node. <code>NodeRenderer.create()</code> creates a native WebGL 2 context; both platforms share the asset and scene APIs.</p>
                     <a href="#node">Using it in Node</a>
                 </div>
             </li>
@@ -136,8 +136,8 @@
             <li class="feature">
                 <span class="feature-icon" data-icon="versions"></span>
                 <div>
-                    <h3>Any game version</h3>
-                    <p>Defaults to Minecraft 1.21.11, including the modern item definitions. Switch versions with one call; caches are keyed by version.</p>
+                    <h3>Versioned assets and game data</h3>
+                    <p>Defaults to Minecraft 1.21.11, including modern item definitions. Switch versions with one call; item defaults, potion colors, block states and other registry data follow the selected version, with fallback to a published release when needed.</p>
                     <a href="#assets">Choosing a game version</a>
                 </div>
             </li>
@@ -145,7 +145,7 @@
                 <span class="feature-icon" data-icon="tint"></span>
                 <div>
                     <h3>Tints, display poses and item state</h3>
-                    <p>Grass and leaves get their preview colors, rotated blockstates keep their texture orientation, and item models can take any of the game's display transforms. Item definitions read data components, so dyed armor, banners, shields and bundles render as in the game.</p>
+                    <p>Grass and leaves get their preview colors, rotated blockstates keep their texture orientation, and items use the game's display transforms. Supplied components select item models, banner patterns, potion colors and enchantment glint.</p>
                     <a href="#items">See display poses</a>
                 </div>
             </li>
@@ -185,7 +185,7 @@
                 <span class="feature-icon" data-icon="world"></span>
                 <div>
                     <h3>Worlds, not just structures</h3>
-                    <p>Chunks with signed coordinates, face culling against opaque neighbors, and optional section meshing that merges static blocks into one mesh per 16³ section. Loads structure, schematic and Anvil region files, and streams chunk columns around the camera.</p>
+                    <p>Stream chunk columns around the camera, fly through a world, and color grass, foliage and water from saved biomes. Optional section meshing combines block models, animated textures and fluids into meshes per 16³ section, with hidden faces culled.</p>
                     <a href="#structures">See structures and worlds</a>
                 </div>
             </li>
@@ -193,7 +193,7 @@
                 <span class="feature-icon" data-icon="gui"></span>
                 <div>
                     <h3>GUIs with items, text and recipes</h3>
-                    <p>Inventory screens and HUD elements are built from texture layers, bitmap text and item models in their GUI pose. Helpers lay out crafting recipes, container backgrounds, boss bars, book pages and tooltips.</p>
+                    <p>Build inventory screens and HUD elements from textures, bitmap text and item models with stack counts and durability bars. Helpers lay out crafting recipes, container backgrounds, boss bars, book pages and tooltips.</p>
                     <a href="#guis">See GUIs</a>
                 </div>
             </li>
@@ -329,7 +329,8 @@ renderer.dispose();</code></pre>
                     <tr><td><code>render.renderAlways</code></td><td><code>false</code></td><td>Render every frame instead of only when the scene is dirty.</td></tr>
                     <tr><td><code>render.stats</code></td><td><code>false</code></td><td>Show a stats.js overlay.</td></tr>
                     <tr><td><code>composer.enabled</code></td><td><code>true</code></td><td>Route output through a post-processing composer. Disable for the fastest path.</td></tr>
-                    <tr><td><code>controls.enabled</code></td><td><code>false</code></td><td>Create renderer-owned orbit controls, available as <code>renderer.controls</code>.</td></tr>
+                    <tr><td><code>controls.enabled</code></td><td><code>false</code></td><td>Create renderer-owned controls, available as <code>renderer.controls</code>.</td></tr>
+                    <tr><td><code>controls.mode</code></td><td><code>"orbit"</code></td><td>Use <code>"fly"</code> for creative-style flight. Switch at runtime with <code>renderer.setControlsMode()</code>.</td></tr>
                     <tr><td><code>debug.grid</code>, <code>debug.axes</code></td><td><code>false</code></td><td>Add grid and axes helpers.</td></tr>
                     </tbody>
                 </table>
@@ -374,7 +375,8 @@ await Entities.getPassList(key);   // [{ layer: "wool", when: "not_sheared", tin
 const model = await Entities.getEntity(key, undefined, { when: ["not_sheared"] });
 const sheep = await scene.addEntity(model!, { tints: { wool_color: 0xf9801d } });
 sheep.getLayerGroup("wool")!.visible = false;   // every layer is a group</code></pre>
-                <p>Item definitions take the game's item state. Pass data components, item-model properties, a stack count and item references to <code>Models.getMerged</code>; GUI item layers accept the same <code>context</code>. Dyed armor, banner patterns, shields, shulker boxes, bundles and tridents resolve from it. Bundled vanilla 1.21.11 stack-size, durability, and glint defaults apply unless overridden by supplied components. Supply any other components a selector reads.</p>
+                <p>Item definitions take the game's item state. Pass data components, item-model properties, a stack count and item references to <code>Models.getMerged</code>; GUI item layers accept the same <code>context</code>. Dyed armor, banner patterns, shields, shulker boxes, bundles and tridents resolve from it. Versioned registry data supplies vanilla stack-size, durability and glint defaults; supplied components override them. Supply any other components a selector reads.</p>
+                <p>Potion colors come from supplied potion IDs and custom effects, unless <code>custom_color</code> overrides them. Compasses and clocks use projected enchantment glint; normal compasses also glint when <code>lodestone_tracker</code> is present.</p>
                 <pre><code data-lang="ts">const shield = await Models.getMerged(new AssetKey("minecraft", "shield", "models", "item"), {
     components: {
         "minecraft:base_color": "blue",
@@ -392,11 +394,11 @@ warden.playAnimation(animations!.roar, { loop: true, speed: 1 });
 const stop = renderer.onFrame(({ delta }) => warden.advanceAnimation(delta));
 warden.setAnimationTime(1.5);   // or pose at an explicit time
 warden.stopAnimation();         // restores the default pose</code></pre>
-                <p>GUIs take ordered layers in GUI pixels, with y growing down: texture crops, or item models in their GUI display pose. <code>gui.bounds</code> reports the drawn area for fitting an orthographic camera, <code>GuiHelper.inventorySlot</code> turns a slot index into a position, and <code>GuiHelper.recipe</code> lays out a crafting recipe. Text layers draw bitmap fonts from the resource pack, and <code>GuiHelper.container</code>, <code>bossBar</code>, <code>book</code> and <code>tooltip</code> return ready layer lists.</p>
+                <p>GUIs take ordered texture, item and text layers in GUI pixels, with y growing down. Item layers draw stack counts and durability bars from their <code>context</code>; set <code>decorations: false</code> to hide both. <code>gui.bounds</code> reports the drawn area for fitting an orthographic camera, <code>GuiHelper.inventorySlot</code> turns a slot index into a position, and <code>GuiHelper.recipe</code> lays out a crafting recipe, including the result count. Text layers draw bitmap fonts from the resource pack, and <code>GuiHelper.container</code>, <code>bossBar</code>, <code>book</code> and <code>tooltip</code> return ready layer lists.</p>
                 <pre><code data-lang="ts">const gui = await scene.addGui([
     { texture: "minecraft:gui/container/generic_54", crop: [0, 0, 176, 222] },
-    { item: "minecraft:item/apple", position: GuiHelper.inventorySlot(0, [8, 18]) },
-    { item: "minecraft:item/grass_block", position: GuiHelper.inventorySlot(1, [8, 18]), tints: { 0: 0x91bd59 } }
+    { item: "minecraft:item/apple", position: GuiHelper.inventorySlot(0, [8, 18]), context: { count: 16 } },
+    { item: "minecraft:item/diamond_pickaxe", position: GuiHelper.inventorySlot(1, [8, 18]), context: { components: { damage: 400 } } }
 ]);
 
 const table = await scene.addGui(GuiHelper.recipe(recipeJson, {
@@ -443,7 +445,8 @@ AssetLoader.addSource("pack", new HostedAssetSource("https://cdn.example/pack"))
 // In-memory caches
 Caching.clear();
 await Models.clearCache();</code></pre>
-                <p>Resource-pack ZIPs work in the browser through <code>BrowserArchiveProxy</code> and <code>ArchiveAssetSource</code>; see <a href="#resource-packs">the example</a>. Persistent caches (IndexedDB in browsers, a directory in Node) are keyed by asset root, so versions never collide.</p>
+                <p>Resource-pack ZIPs work in the browser through <code>BrowserArchiveProxy</code> and <code>ArchiveAssetSource</code>; see <a href="#resource-packs">the example</a>. Persistent caches (IndexedDB in browsers, a directory in Node) separate asset roots and source configurations.</p>
+                <p>Registry data uses the selected version when published. Otherwise it selects the nearest published patch in the same release line, then the latest earlier release, or the oldest available release for older versions. Unpublished snapshots reject. This fallback changes registry data only; models and textures keep the requested version. <code>await MineRenderData.resolve()</code> reports the requested and selected versions.</p>
             </article>
 
             <article id="worlds" class="doc">
@@ -462,7 +465,7 @@ const nbt = await NBTHelper.fromBuffer(bytes);
 await world.placeMultiBlock(await StructureParser.parse(nbt));
 await world.placeMultiBlock(await SchematicParser.parse(nbt));
 
-// Java region files (1.13+): list the stored chunks, then place one at its world position
+// Java region files: list the stored chunks, then place one at its world position
 const chunks = AnvilParser.getChunkList(regionBytes);
 const chunk = await AnvilParser.parseChunk(regionBytes, chunks[0].x, chunks[0].z);
 await world.placeChunk(chunk!);
@@ -477,7 +480,8 @@ const source = new AnvilWorldSource(async (x, z, signal) =&gt; {
 const streamer = new WorldStreamer(world, source, { loadRadius: 2, unloadRadius: 3 });
 await streamer.updatePosition(renderer.orbitControls!.target);   // call again whenever the view moves
 await streamer.dispose();                                    // unloads its columns</code></pre>
-                <p>Bulk placement resolves each block state once and yields to the page every few milliseconds, and section meshes are built in a worker when your bundle keeps the package's <code>section.worker</code> file next to the module. The world has no lighting, biome colors or level of detail.</p>
+                <p>The library also loads Sponge <code>.schem</code> files through <code>SpongeSchematicParser</code> and Litematica <code>.litematic</code> files through <code>LitematicaParser</code>. Anvil loading supports numeric and paletted chunks, LZ4 compression, external <code>.mcc</code> payloads and separate entity regions when the source has the corresponding readers.</p>
+                <p>Bulk placement resolves each distinct block state once per group; parsed chunk columns load directly from their palettes. Section meshes are built in a worker when your bundle keeps the package's <code>section.worker</code> file next to the module. Saved modern Anvil biomes supply grass, foliage and water colors. Lighting, biome blending and level of detail remain unsupported.</p>
             </article>
 
             <article id="export" class="doc">
@@ -509,20 +513,26 @@ shutdown();</code></pre>
 
             <article id="node" class="doc">
                 <h3>Node</h3>
-                <p>
-                    The <code>node</code> export condition installs a platform provider backed by <code>node-canvas</code> and <code>node-persist</code>.
-                    Asset loading, model merging, atlas generation and structure parsing work in Node. The Node entry does not create a WebGL context, so drawing to an image there needs one from a package such as headless-gl.
-                </p>
-                <pre><code data-lang="ts">import { AssetKey, AssetLoader, AssetParser, Models, StructureParser, shutdown } from "minerender";
+                <p><code>NodeRenderer.create()</code> creates a native WebGL 2 context without a browser DOM. <code>renderToBuffer()</code> draws a fresh frame and returns PNG bytes. Use Node.js 22.12 or later with working native <code>canvas</code> and <code>gl</code> dependencies; headless Linux also needs Mesa and an X server such as Xvfb. See the <a href="https://beta-docs.minerender.org/platforms">platform setup guide</a>.</p>
+                <p>Save this as <code>render.mjs</code> beside a Minecraft <code>skin.png</code>, then run <code>node render.mjs</code>.</p>
+                <pre><code data-lang="js">import { readFile, writeFile } from "node:fs/promises";
+import { NodeRenderer, shutdown } from "minerender/node";
 
-const sword = await Models.getMerged(new AssetKey("minecraft", "diamond_sword", "models", "item", "assets"));
-console.log(sword?.elements?.length, "elements");
-
-const key = new AssetKey("minecraft", "igloo/top", "structure", undefined, "data", ".nbt");
-const structure = await StructureParser.parse((await AssetLoader.get(key, AssetParser.NBT))!);
-console.log(structure.size, structure.blocks.length, "blocks");
-
-shutdown(); // let the process exit</code></pre>
+const renderer = await NodeRenderer.create({
+    width: 256,
+    height: 256,
+    camera: { position: [40, 30, 60], lookingAt: [0, 16, 0] }
+});
+try {
+    const skin = await readFile("skin.png");
+    await renderer.scene.addSkin(`data:image/png;base64,${skin.toString("base64")}`);
+    await writeFile("render.png", await renderer.renderToBuffer({ trim: true }));
+} finally {
+    renderer.dispose();
+    shutdown();
+}</code></pre>
+                <p>Native rendering disables antialiasing; <code>render.pixelRatio</code> increases output resolution. Node renderers draw on demand with <code>renderOnce()</code> or <code>renderToBuffer()</code>. Use those methods instead of <code>start()</code> or <code>toImage()</code>.</p>
+                <p>To render over HTTP, run the repository's <a href="https://github.com/InventivetalentDev/MineRender/tree/main/apps/api">rendering API</a>. Submit a scene document to <code>POST /v1/renders</code>, then use the returned PNG URL while the image remains cached.</p>
             </article>
 
             <article id="performance" class="doc">
@@ -531,7 +541,7 @@ shutdown(); // let the process exit</code></pre>
                     <li><strong>One renderer per visible area.</strong> Browsers limit WebGL contexts. This page keeps at most two alive and swaps the rest for snapshots.</li>
                     <li><strong>Dispose what scrolls away</strong> and recreate it on demand. Assets stay cached, so the second load is quick.</li>
                     <li><strong>Leave instancing on</strong> for repeated models, and set <code>maxInstanceCount</code> above the number of copies you expect.</li>
-                    <li><strong>Turn on <code>sectionMeshing</code></strong> for worlds and large structures. Static blocks become one mesh per section, built in a worker when the bundle ships <code>section.worker</code>.</li>
+                    <li><strong>Turn on <code>sectionMeshing</code></strong> for worlds and large structures. Block models, animated textures and fluids share meshes per section, with one mesh per atlas page. Geometry builds in a worker when the bundle ships <code>section.worker</code>.</li>
                     <li><strong>Disable the composer</strong> when you do not need post-processing, and keep <code>pixelRatio</code> at 1 unless you need sharper output.</li>
                     <li><strong>Lower <code>fpsLimit</code></strong> on busy pages. The dirty flag already skips idle frames.</li>
                 </ul>
@@ -652,7 +662,7 @@ AssetLoader.addSource("my-pack", new ArchiveAssetSource(archive));</code></pre>
                 </div>
             </article>
         </div>
-        <p class="section-note">V1 stays online for recipe rendering and the per-frame render events.</p>
+        <p class="section-note">V2 supports recipe rendering through <code>GuiHelper.recipe()</code> and per-frame callbacks through <code>renderer.onFrame()</code>. The V1 website and bundles remain available for existing integrations.</p>
     </section>
 
 </main>

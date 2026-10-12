@@ -172,7 +172,7 @@ const RECIPES: Record<string, { label: string; recipe: GuiRecipe; resolve?: stri
 const recipe: Example = {
     id: "gui-recipe",
     title: "Crafting recipes",
-    description: "GuiHelper.recipe turns a vanilla recipe JSON into crafting-table layers. Tags and alternatives need a concrete item from the caller. Stack counts are not drawn.",
+    description: "GuiHelper.recipe turns a vanilla recipe JSON into crafting-table layers, including the result's stack count. Tags and alternatives need a concrete item from the caller.",
     renderer: GUI_RENDERER,
     placeholder: "/placeholder-block.png",
     async setup(context) {
@@ -310,6 +310,7 @@ export const guis: ExampleGroup = {
     playgrounds: [{ url: "https://beta.minerender.org/demo/gui/", label: "GUI playground" }],
     examples: [chest, hotbar, recipe, layouts],
     notes: [
+        "Item layers show stack counts and durability bars from their context. Vanilla durability defaults come from versioned registry data; supplied components override them. Set decorations to false to hide labels and bars.",
         "Text uses the resource pack's bitmap fonts. Unihex and TrueType providers, translations and right-to-left shaping are not supported; missing glyphs draw as boxes."
     ]
 };
