@@ -295,8 +295,8 @@ export const items: ExampleGroup = {
     playgrounds: [{ url: "https://beta.minerender.org/demo/item/", label: "Item playground" }, { url: "https://beta.minerender.org/demo/custom_model/", label: "Custom model playground" }],
     examples: [{ ...generated, title: "Generated item models" }, poses, components, blockItem, custom],
     notes: [
-        "Item previews default to the GUI display context. Special renderers support chests, beds, mob and player heads, shulker boxes, banners, shields, tridents, conduits, decorated pots and copper golem statues.",
-        "Versioned registry data supplies vanilla stack-size, durability and glint defaults. Supplied components override them; supply any other components a selector reads. Explicit tints override automatic colors.",
-        "Potion and tipped-arrow colors use supplied potion IDs and custom effects with visible particles. A custom color overrides the effect colors."
+        "Item previews default to the GUI display context. Chests, beds, mob and player heads, shulker boxes, banners, shields, tridents, conduits, decorated pots and copper golem statues use their special renderers.",
+        "Stack size, durability and glint use the vanilla defaults for the selected version unless you pass the component. Supply any other components a selector reads. Explicit tints override automatic colors.",
+        "Potion and tipped-arrow colors come from the potion ID and custom effects with visible particles; a custom color overrides them."
     ]
 };

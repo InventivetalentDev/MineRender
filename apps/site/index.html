@@ -121,7 +121,7 @@
                 <span class="feature-icon" data-icon="node"></span>
                 <div>
                     <h3>Browser and Node</h3>
-                    <p>Render interactive scenes in the browser or PNG images in Node. <code>NodeRenderer.create()</code> creates a native WebGL 2 context; both platforms share the asset and scene APIs.</p>
+                    <p>Render interactive scenes in the browser or PNG images in Node. <code>NodeRenderer.create()</code> opens a native WebGL 2 context; both platforms share the asset and scene APIs.</p>
                     <a href="#node">Using it in Node</a>
                 </div>
             </li>
@@ -136,8 +136,8 @@
             <li class="feature">
                 <span class="feature-icon" data-icon="versions"></span>
                 <div>
-                    <h3>Versioned assets and game data</h3>
-                    <p>Defaults to Minecraft 1.21.11, including modern item definitions. Switch versions with one call; item defaults, potion colors, block states and other registry data follow the selected version, with fallback to a published release when needed.</p>
+                    <h3>Any game version</h3>
+                    <p>Defaults to Minecraft 1.21.11, including modern item definitions. Switch versions with one call; item defaults, potion colors and block tints follow the selected version, and caches are keyed by version.</p>
                     <a href="#assets">Choosing a game version</a>
                 </div>
             </li>
@@ -185,7 +185,7 @@
                 <span class="feature-icon" data-icon="world"></span>
                 <div>
                     <h3>Worlds, not just structures</h3>
-                    <p>Stream chunk columns around the camera, fly through a world, and color grass, foliage and water from saved biomes. Optional section meshing combines block models, animated textures and fluids into meshes per 16³ section, with hidden faces culled.</p>
+                    <p>Loads structure, schematic, Litematica and Anvil region files, streams chunk columns around the camera, and colors grass, foliage and water from saved biomes. Optional section meshing merges each 16³ section into a few meshes with hidden faces culled.</p>
                     <a href="#structures">See structures and worlds</a>
                 </div>
             </li>
@@ -375,8 +375,7 @@ await Entities.getPassList(key);   // [{ layer: "wool", when: "not_sheared", tin
 const model = await Entities.getEntity(key, undefined, { when: ["not_sheared"] });
 const sheep = await scene.addEntity(model!, { tints: { wool_color: 0xf9801d } });
 sheep.getLayerGroup("wool")!.visible = false;   // every layer is a group</code></pre>
-                <p>Item definitions take the game's item state. Pass data components, item-model properties, a stack count and item references to <code>Models.getMerged</code>; GUI item layers accept the same <code>context</code>. Dyed armor, banner patterns, shields, shulker boxes, bundles and tridents resolve from it. Versioned registry data supplies vanilla stack-size, durability and glint defaults; supplied components override them. Supply any other components a selector reads.</p>
-                <p>Potion colors come from supplied potion IDs and custom effects, unless <code>custom_color</code> overrides them. Compasses and clocks use projected enchantment glint; normal compasses also glint when <code>lodestone_tracker</code> is present.</p>
+                <p>Item definitions take the game's item state. Pass data components, item-model properties, a stack count and item references to <code>Models.getMerged</code>; GUI item layers accept the same <code>context</code>. Dyed armor, banner patterns, shields, shulker boxes, bundles and tridents resolve from it. Stack size, durability and glint use the vanilla defaults for the selected version unless you pass the component. Supply any other components a selector reads.</p>
                 <pre><code data-lang="ts">const shield = await Models.getMerged(new AssetKey("minecraft", "shield", "models", "item"), {
     components: {
         "minecraft:base_color": "blue",
@@ -445,8 +444,8 @@ AssetLoader.addSource("pack", new HostedAssetSource("https://cdn.example/pack"))
 // In-memory caches
 Caching.clear();
 await Models.clearCache();</code></pre>
-                <p>Resource-pack ZIPs work in the browser through <code>BrowserArchiveProxy</code> and <code>ArchiveAssetSource</code>; see <a href="#resource-packs">the example</a>. Persistent caches (IndexedDB in browsers, a directory in Node) separate asset roots and source configurations.</p>
-                <p>Registry data uses the selected version when published. Otherwise it selects the nearest published patch in the same release line, then the latest earlier release, or the oldest available release for older versions. Unpublished snapshots reject. This fallback changes registry data only; models and textures keep the requested version. <code>await MineRenderData.resolve()</code> reports the requested and selected versions.</p>
+                <p>Resource-pack ZIPs work in the browser through <code>BrowserArchiveProxy</code> and <code>ArchiveAssetSource</code>; see <a href="#resource-packs">the example</a>. Persistent caches (IndexedDB in browsers, a directory in Node) are keyed by asset root and source set, so versions and resource packs never collide.</p>
+                <p>Registry data such as item defaults and potion colors is published per release. If the selected version has none, the nearest earlier release's data is used; models and textures keep the requested version. <code>MineRenderData.resolve()</code> reports which one was picked.</p>
             </article>
 
             <article id="worlds" class="doc">
@@ -480,8 +479,8 @@ const source = new AnvilWorldSource(async (x, z, signal) =&gt; {
 const streamer = new WorldStreamer(world, source, { loadRadius: 2, unloadRadius: 3 });
 await streamer.updatePosition(renderer.orbitControls!.target);   // call again whenever the view moves
 await streamer.dispose();                                    // unloads its columns</code></pre>
-                <p>The library also loads Sponge <code>.schem</code> files through <code>SpongeSchematicParser</code> and Litematica <code>.litematic</code> files through <code>LitematicaParser</code>. Anvil loading supports numeric and paletted chunks, LZ4 compression, external <code>.mcc</code> payloads and separate entity regions when the source has the corresponding readers.</p>
-                <p>Bulk placement resolves each distinct block state once per group; parsed chunk columns load directly from their palettes. Section meshes are built in a worker when your bundle keeps the package's <code>section.worker</code> file next to the module. Saved modern Anvil biomes supply grass, foliage and water colors. Lighting, biome blending and level of detail remain unsupported.</p>
+                <p>The library also loads Sponge <code>.schem</code> files through <code>SpongeSchematicParser</code> and Litematica <code>.litematic</code> files through <code>LitematicaParser</code>. Anvil loading reads numeric and paletted chunks with gzip, zlib or LZ4 compression; the optional <code>readExternalChunk</code> and <code>readEntityRegion</code> callbacks add external <code>.mcc</code> payloads and the separate entity region files.</p>
+                <p>Bulk placement resolves each block state once and yields to the page every few milliseconds, and section meshes are built in a worker when your bundle keeps the package's <code>section.worker</code> file next to the module. Saved biomes supply grass, foliage and water colors. The world has no lighting, biome blending or level of detail.</p>
             </article>
 
             <article id="export" class="doc">
@@ -513,7 +512,7 @@ shutdown();</code></pre>
 
             <article id="node" class="doc">
                 <h3>Node</h3>
-                <p><code>NodeRenderer.create()</code> creates a native WebGL 2 context without a browser DOM. <code>renderToBuffer()</code> draws a fresh frame and returns PNG bytes. Use Node.js 22.12 or later with working native <code>canvas</code> and <code>gl</code> dependencies; headless Linux also needs Mesa and an X server such as Xvfb. See the <a href="https://beta-docs.minerender.org/platforms">platform setup guide</a>.</p>
+                <p><code>NodeRenderer.create()</code> opens a native WebGL 2 context without a browser DOM. <code>renderToBuffer()</code> draws a fresh frame and returns PNG bytes. Use Node.js 22.12 or later with working native <code>canvas</code> and <code>gl</code> dependencies; headless Linux also needs Mesa and an X server such as Xvfb. See the <a href="https://beta-docs.minerender.org/platforms">platform setup guide</a>.</p>
                 <p>Save this as <code>render.mjs</code> beside a Minecraft <code>skin.png</code>, then run <code>node render.mjs</code>.</p>
                 <pre><code data-lang="js">import { readFile, writeFile } from "node:fs/promises";
 import { NodeRenderer, shutdown } from "minerender/node";
@@ -531,7 +530,7 @@ try {
     renderer.dispose();
     shutdown();
 }</code></pre>
-                <p>Native rendering disables antialiasing; <code>render.pixelRatio</code> increases output resolution. Node renderers draw on demand with <code>renderOnce()</code> or <code>renderToBuffer()</code>. Use those methods instead of <code>start()</code> or <code>toImage()</code>.</p>
+                <p>Native rendering disables antialiasing; <code>render.pixelRatio</code> increases output resolution. <code>start()</code> and <code>toImage()</code> are not available in Node.</p>
                 <p>To render over HTTP, run the repository's <a href="https://github.com/InventivetalentDev/MineRender/tree/main/apps/api">rendering API</a>. Submit a scene document to <code>POST /v1/renders</code>, then use the returned PNG URL while the image remains cached.</p>
             </article>
 
@@ -541,7 +540,7 @@ try {
                     <li><strong>One renderer per visible area.</strong> Browsers limit WebGL contexts. This page keeps at most two alive and swaps the rest for snapshots.</li>
                     <li><strong>Dispose what scrolls away</strong> and recreate it on demand. Assets stay cached, so the second load is quick.</li>
                     <li><strong>Leave instancing on</strong> for repeated models, and set <code>maxInstanceCount</code> above the number of copies you expect.</li>
-                    <li><strong>Turn on <code>sectionMeshing</code></strong> for worlds and large structures. Block models, animated textures and fluids share meshes per section, with one mesh per atlas page. Geometry builds in a worker when the bundle ships <code>section.worker</code>.</li>
+                    <li><strong>Turn on <code>sectionMeshing</code></strong> for worlds and large structures. Each section becomes a few meshes instead of thousands of instances, built in a worker when the bundle ships <code>section.worker</code>.</li>
                     <li><strong>Disable the composer</strong> when you do not need post-processing, and keep <code>pixelRatio</code> at 1 unless you need sharper output.</li>
                     <li><strong>Lower <code>fpsLimit</code></strong> on busy pages. The dirty flag already skips idle frames.</li>
                 </ul>
@@ -662,7 +661,6 @@ AssetLoader.addSource("my-pack", new ArchiveAssetSource(archive));</code></pre>
                 </div>
             </article>
         </div>
-        <p class="section-note">V2 supports recipe rendering through <code>GuiHelper.recipe()</code> and per-frame callbacks through <code>renderer.onFrame()</code>. The V1 website and bundles remain available for existing integrations.</p>
     </section>
 
 </main>

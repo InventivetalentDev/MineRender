@@ -59,7 +59,7 @@ function structureBounds(structure: MultiBlockStructure): Box3 {
 const vanilla: Example = {
     id: "structure-vanilla",
     title: "Vanilla structure files",
-    description: "Structure .nbt files are parsed in the browser and placed into a world. Section meshes combine block models and fluids per 16³ section, preserve animated textures and cull neighbor faces; block entities stay individual objects.",
+    description: "Structure .nbt files are parsed in the browser and placed into a world. Section meshing merges block models and fluids into meshes per 16³ section, with neighbor faces culled; block entities stay individual objects.",
     renderer: {
         camera: {
             position: [230, 170, 230] as [number, number, number],
@@ -426,7 +426,7 @@ renderer.orbitControls!.addEventListener("change", () => void streamer.updatePos
 export const structures: ExampleGroup = {
     id: "structures",
     title: "Structures & worlds",
-    lead: "Load structure, schematic, and region files, stream chunks around the view, or place blocks from code. Section meshing combines block models and fluids into meshes, built in a worker when available.",
+    lead: "Load structure, schematic, and region files, stream chunks around the view, or place blocks from code. Section meshing merges each 16³ section into a few meshes, built in a worker when available.",
     playgrounds: [{ url: "https://beta.minerender.org/demo/structure/", label: "Structure playground" }, { url: "https://beta.minerender.org/demo/world/", label: "World streaming demo" }],
     examples: [vanilla, ownFile, streaming, flying, programmatic]
 };

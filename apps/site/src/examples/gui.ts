@@ -310,7 +310,7 @@ export const guis: ExampleGroup = {
     playgrounds: [{ url: "https://beta.minerender.org/demo/gui/", label: "GUI playground" }],
     examples: [chest, hotbar, recipe, layouts],
     notes: [
-        "Item layers show stack counts and durability bars from their context. Vanilla durability defaults come from versioned registry data; supplied components override them. Set decorations to false to hide labels and bars.",
+        "Item layers draw stack counts and durability bars from their context; durability falls back to the selected version's vanilla value. Set decorations to false to hide both.",
         "Text uses the resource pack's bitmap fonts. Unihex and TrueType providers, translations and right-to-left shaping are not supported; missing glyphs draw as boxes."
     ]
 };
