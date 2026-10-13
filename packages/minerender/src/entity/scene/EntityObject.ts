@@ -2,7 +2,7 @@ import { SceneObject } from "../../renderer/SceneObject";
 import { SceneObjectOptions } from "../../renderer/SceneObjectOptions";
 import { Caching } from "../../cache/Caching";
 import merge from "ts-deepmerge";
-import { Color, Euler, Matrix4, Object3D } from "three";
+import { Color, Object3D } from "three";
 import type { BufferGeometry, ColorRepresentation, Material, Mesh, MeshBasicMaterial } from "three";
 import { Ticker } from "../../Ticker";
 import { addWireframeToMesh } from "../../util/model";
@@ -215,26 +215,29 @@ export class EntityObject extends SceneObject {
         if (this.meshesCreated && !force) return;
 
         const modelRoot = new Object3D();
+        let transformNode = modelRoot;
         // Keep Minecraft's model coordinates separate from caller placement and scale.
         const transform = this.options.flip === undefined ? this.entity.transform : undefined;
         if (transform) {
-            const matrix = new Matrix4();
-            for (const op of transform) {
-                const operation = new Matrix4();
-                if ("scale" in op) operation.makeScale(...op.scale);
-                else if ("translate" in op) operation.makeTranslation(...op.translate);
-                else operation.makeRotationFromEuler(new Euler(...op.rotate, "ZYX"));
-                matrix.multiply(operation);
+            // One position, rotation and scale cannot express nonuniform scale followed by rotation.
+            // Nested nodes preserve each operation and avoid manual matrices, which leave bounds stale.
+            for (const [index, op] of transform.entries()) {
+                if (index > 0) {
+                    const child = new Object3D();
+                    transformNode.add(child);
+                    transformNode = child;
+                }
+                if ("scale" in op) transformNode.scale.set(...op.scale);
+                else if ("translate" in op) transformNode.position.set(...op.translate);
+                else transformNode.rotation.set(...op.rotate, "ZYX");
             }
-            // Published transforms have no shear. Three skips world-matrix updates for manual matrices, leaving bounds stale after callers move the entity.
-            matrix.decompose(modelRoot.position, modelRoot.quaternion, modelRoot.scale);
         } else if (this.options.flip ?? true) {
             modelRoot.scale.set(-1, -1, 1);
         }
         this.add(modelRoot);
         Object.entries(this.entityLayers).forEach(([name, layer], index) => {
             const group = this.createGroup(`layer:${name}`);
-            modelRoot.add(group);
+            transformNode.add(group);
             const inward = !Materials.entityModeCulls(layer.render ?? layer.layer.render);
             this.createPart("root", layer.layer.root, group, layer.layer.texture, Materials.MISSING_TEXTURE, index, inward, this.options.faces?.[name]);
         });
