@@ -3,7 +3,6 @@ import { SSAARenderPass, OBJExporter, GLTFExporter, PLYExporter } from "threejs-
 import EffectComposer, { ShaderPass, CopyShader } from "@johh/three-effectcomposer";
 import * as THREE from "three";
 import OnScreen from "onscreen";
-import * as $ from "jquery";
 import Stats from "stats.js";
 import { trimCanvas, DEFAULT_ROOT } from "./functions";
 
@@ -54,8 +53,7 @@ export const defaultOptions = {
     frameRateLimit: -1,
     enableStats: false,
     pauseHidden: true,
-    forceContext: false,
-    sendStats: true
+    forceContext: false
 };
 
 /**
@@ -160,33 +158,6 @@ export default class Render {
         console.log((PRODUCTION ? "PRODUCTION" : "DEVELOPMENT") + " build");
         console.log("Built @ " + BUILD_DATE);
         console.log(" ");
-
-        if (renderObj.options.sendStats) {
-            // Send stats
-
-            let iframe = false;
-            try {
-                iframe = window.self !== window.top;
-            } catch (e) {
-                return true;
-            }
-            let hostname;
-            try{
-                hostname = new URL(iframe ? document.referrer : window.location).hostname;
-            }catch (e) {
-                console.warn("Failed to get hostname");
-            }
-
-            $.post({
-                url: "https://minerender.org/stats.php",
-                data: {
-                    action: "init",
-                    type: renderObj.renderType,
-                    host: hostname,
-                    source: (iframe ? "iframe" : "javascript")
-                }
-            });
-        }
 
         // Scene INIT
         let scene = new THREE.Scene();
