@@ -351,6 +351,6 @@ test("per-placement biome tints preserve unmarked quads and combine with saved l
     t.deepEqual(page.colors.slice(72), fallback.colors.slice(72));
     t.deepEqual(source, original);
     t.throws(() => buildSectionGeometry({ ...source, biomeTints: new Float32Array(3) }), { instanceOf: RangeError });
-    source.templateData[0].biomeTint = new Uint8Array([2]);
+    source.templateData[0].biomeTint = new Uint8Array(1);
     t.throws(() => buildSectionGeometry(source), { instanceOf: RangeError });
 });

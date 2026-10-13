@@ -41,8 +41,8 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
     private ambientOcclusionPending = false;
     private _biomeBlendRadius: number;
     private biomeBlend?: BiomeBlend;
-    private readonly pendingBiomes = new Set<Chunk<SectionMeshing>>();
-    private biomeRefreshing?: Promise<void>;
+    private readonly pendingBiomes = new Map<Chunk<SectionMeshing>, { x: number; z: number }[] | undefined>();
+    private biomeRefreshing?: Promise<Map<Chunk<SectionMeshing>, unknown>>;
     private readonly sectionModels?: SectionModels;
     private readonly entities?: WorldEntities;
     private readonly pendingCulling = new Map<Chunk<SectionMeshing>, Set<number> | "all">();
@@ -56,6 +56,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         }
         this._biomeBlendRadius = options.biomeBlendRadius ?? 0;
         validateBiomeBlendRadius(this._biomeBlendRadius);
+        if (this._biomeBlendRadius > 0 && !options.sectionMeshing) throw new TypeError("biomeBlendRadius requires sectionMeshing");
         if (this._biomeBlendRadius) this.biomeBlend = new BiomeBlend((x, y, z) => this.getBiomeAt(x, y, z), this._biomeBlendRadius);
         this.scene = scene;
         this.savedLighting = options.savedLighting ?? false;
@@ -110,49 +111,59 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
     /** Refreshes loaded grass, foliage, and water colors without reloading their source chunks. */
     public async setBiomeBlendRadius(radius: number): Promise<void> {
         validateBiomeBlendRadius(radius);
+        if (radius > 0 && !this.sectionModels) throw new TypeError("biomeBlendRadius requires sectionMeshing");
         if (radius !== this._biomeBlendRadius) {
             this._biomeBlendRadius = radius;
             this.biomeBlend?.clear();
             this.biomeBlend = radius ? new BiomeBlend((x, y, z) => this.getBiomeAt(x, y, z), radius) : undefined;
-            for (const chunk of this._chunks.values()) this.pendingBiomes.add(chunk);
+            for (const chunk of this._chunks.values()) this.pendingBiomes.set(chunk, undefined);
         }
-        await this.refreshBiomes();
+        const failures = await this.refreshBiomes();
+        if (failures.size) throw failures.values().next().value;
     }
 
-    private markBiomesChanged(x: number, z: number, y?: number, includeColumn = true): void {
-        if (!this.biomeBlend) return;
+    private markBiomesChanged(x: number, z: number, y?: number, includeColumn = true): Chunk<SectionMeshing>[] {
+        const queued: Chunk<SectionMeshing>[] = [];
+        if (!this.biomeBlend) return queued;
         this.biomeBlend.invalidateColumn(x, z);
         for (const chunk of this._chunks.values()) {
             if (Math.abs(chunk.x - x) > 1 || Math.abs(chunk.z - z) > 1
                 || !includeColumn && chunk.x === x && chunk.z === z
                 || y !== undefined && chunk.y !== y && chunk.y !== y + 1) continue;
-            this.pendingBiomes.add(chunk);
+            queued.push(chunk);
+            if (!this.pendingBiomes.has(chunk)) this.pendingBiomes.set(chunk, []);
+            const columns = this.pendingBiomes.get(chunk);
+            if (columns && !columns.some(column => column.x === x && column.z === z)) columns.push({ x, z });
         }
+        return queued;
     }
 
-    private refreshBiomes(): Promise<void> {
-        if (!this.pendingBiomes.size) return this.biomeRefreshing ?? Promise.resolve();
+    private async refreshBiomes(): Promise<Map<Chunk<SectionMeshing>, unknown>> {
+        if (this.biomeRefreshing) await this.biomeRefreshing;
+        if (!this.pendingBiomes.size) return new Map();
         return this.biomeRefreshing ??= Promise.resolve().then(async () => {
+            const failures = new Map<Chunk<SectionMeshing>, unknown>();
+            const batch = [...this.pendingBiomes.keys()];
             let sliceStart = performance.now();
             try {
-                while (this.pendingBiomes.size) {
-                    const chunk = this.pendingBiomes.values().next().value!;
+                for (const chunk of batch) {
+                    const columns = this.pendingBiomes.get(chunk);
                     this.pendingBiomes.delete(chunk);
                     if (this._chunks.get(`${chunk.x}_${chunk.y}_${chunk.z}`) !== chunk) continue;
                     try {
-                        await chunk.refreshBiomes();
+                        await chunk.refreshBiomes(columns);
                     } catch (error) {
-                        this.pendingBiomes.add(chunk);
-                        throw error;
+                        failures.set(chunk, error);
+                        if (this._chunks.get(`${chunk.x}_${chunk.y}_${chunk.z}`) === chunk) this.pendingBiomes.set(chunk, undefined);
                     }
                     if (performance.now() - sliceStart > 8) {
                         await yieldToEventLoop();
                         sliceStart = performance.now();
                     }
                 }
+                return failures;
             } finally {
                 this.biomeRefreshing = undefined;
-                this.scene.pruneBiomeTintInstances();
             }
         });
     }
@@ -362,7 +373,6 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         if (!chunk.sections.every(section => Number.isSafeInteger(section.y))) {
             throw new RangeError("Chunk section coordinates must be safe integers");
         }
-        await this.biomeRefreshing;
         const lights = new Map<number, SectionLightData>();
         for (const section of chunk.sections) {
             const light = section.light ?? (chunk.lightValid === true ? {} : undefined);
@@ -440,7 +450,8 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
             await placeEntities?.();
         } finally {
             this.markBiomesChanged(chunk.x, chunk.z, undefined, false);
-            await this.refreshBiomes();
+            const failures = await this.refreshBiomes();
+            if (failures.size) console.warn("Failed to refresh biome colors", failures.values().next().value);
             await this.updateCulling([...changes.values()]);
         }
     }
@@ -454,12 +465,12 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
             throw new RangeError("Chunk column coordinates must be integers");
         }
         this.entities?.clearColumn(x, z);
-        await this.biomeRefreshing;
         await this.culling;
         try {
             await this.clearChunkColumn(x, z);
         } finally {
-            await this.refreshBiomes();
+            const failures = await this.refreshBiomes();
+            if (failures.size) console.warn("Failed to refresh biome colors", failures.values().next().value);
             await this.updateCulling([]);
         }
     }
@@ -510,7 +521,6 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
     /** Removes all chunks and releases their blocks, section meshes, and owned entities. */
     public async clear(): Promise<void> {
         this.entities?.clear();
-        await this.biomeRefreshing;
         await this.culling;
         const chunks = [...this._chunks.values()];
         this._chunks.clear();
@@ -524,7 +534,6 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
             await chunk.dispose();
         }
         this.sectionModels?.clear();
-        if (this.biomeBlend) this.scene.pruneBiomeTintInstances();
     }
 
     private updateCulling(positions: Vector3[]): Promise<void> {
@@ -607,7 +616,6 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                 }
             } finally {
                 this.culling = undefined;
-                if (this.biomeBlend || this.biomeRefreshing) this.scene.pruneBiomeTintInstances();
             }
         });
     }
@@ -635,8 +643,9 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                         if (!column?.size) this.biomes.delete(columnKey);
                     }
                     if (this.biomeBlend) {
-                        this.markBiomesChanged(x, z, y);
-                        await this.refreshBiomes();
+                        const queued = this.markBiomesChanged(x, z, y);
+                        const failures = await this.refreshBiomes();
+                        for (const chunk of queued) if (failures.has(chunk)) throw failures.get(chunk);
                     } else {
                         await chunk!.refreshBiomes();
                         // Upper tall-plant halves at the boundary sample the section below.
@@ -713,7 +722,7 @@ export interface MineRenderWorldOptions<SectionMeshing extends boolean = boolean
     ambientLight?: number;
     /** Bake corner shading from neighboring opaque full cubes. Defaults to false; no per-frame shading pass is added. Requires `sectionMeshing`. */
     ambientOcclusion?: boolean;
-    /** Average neighboring biome colors within this horizontal radius, from 0 to 7 blocks. Defaults to 0 (off). */
+    /** Average neighboring biome colors within this horizontal radius, from 0 to 7 blocks. Defaults to 0 (off). Requires `sectionMeshing`. */
     biomeBlendRadius?: number;
     /** Maximum width and height of each section atlas page, in pixels. */
     maxAtlasSize?: number;

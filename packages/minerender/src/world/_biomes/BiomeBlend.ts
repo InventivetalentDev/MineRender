@@ -10,7 +10,7 @@ const MAX_TILES = 256;
 interface ColorTile {
     x: number;
     z: number;
-    colors: Promise<Int32Array>;
+    colors: Promise<{ colors: Int32Array; failures: Map<string, unknown> }>;
 }
 
 export function validateBiomeBlendRadius(radius: number): void {
@@ -26,26 +26,18 @@ export class BiomeBlend {
     private generation = Caching.generation;
     private _radius: number;
 
-    constructor(private readonly biomeAt: (x: number, y: number, z: number) => string | undefined, radius = 0) {
+    constructor(private readonly biomeAt: (x: number, y: number, z: number) => string | undefined, radius: number) {
         validateBiomeBlendRadius(radius);
         this._radius = radius;
     }
 
     get radius(): number { return this._radius; }
 
-    setRadius(radius: number): void {
-        validateBiomeBlendRadius(radius);
-        if (radius === this._radius) return;
-        this._radius = radius;
-        this.clear();
-    }
-
     clear(): void { this.tiles.clear(); }
 
     invalidateColumn(x: number, z: number): void {
-        const distance = this._radius === 0 ? 0 : 1;
         for (const [key, tile] of this.tiles) {
-            if (Math.abs(tile.x - x) <= distance && Math.abs(tile.z - z) <= distance) this.tiles.delete(key);
+            if (Math.abs(tile.x - x) <= 1 && Math.abs(tile.z - z) <= 1) this.tiles.delete(key);
         }
     }
 
@@ -53,7 +45,6 @@ export class BiomeBlend {
         const [x, y, z] = position;
         const biome = this.biomeAt(x, y, z);
         if (biome === undefined) return undefined;
-        if (this._radius === 0) return Biomes.getColor(biome, kind, origin, x, z);
         if (this.generation !== Caching.generation) {
             this.clear();
             this.generation = Caching.generation;
@@ -69,7 +60,7 @@ export class BiomeBlend {
             const snapshot = new AssetKey("minecraft", "", undefined, undefined, "assets", ".json", root);
             const colors = this.buildTile(kind, snapshot, tileX, quartY, tileZ, this._radius).then(result => {
                 if (!result.complete && this.tiles.get(key)?.colors === colors) this.tiles.delete(key);
-                return result.colors;
+                return result;
             }, error => {
                 if (this.tiles.get(key)?.colors === colors) this.tiles.delete(key);
                 throw error;
@@ -78,7 +69,9 @@ export class BiomeBlend {
             this.tiles.set(key, tile);
             if (this.tiles.size > MAX_TILES) this.tiles.delete(this.tiles.keys().next().value!);
         }
-        const color = (await tile.colors)[(z - tileZ * 16) * 16 + x - tileX * 16];
+        const result = await tile.colors;
+        if (result.failures.has(biome)) throw result.failures.get(biome);
+        const color = result.colors[(z - tileZ * 16) * 16 + x - tileX * 16];
         return color === -1 ? undefined : color;
     }
 
@@ -101,7 +94,15 @@ export class BiomeBlend {
                 }
             }
         }
-        const loaded = new Map(await Promise.all([...biomes].map(async ([id, color]) => [id, await color] as const)));
+        const failures = new Map<string, unknown>();
+        const loaded = new Map(await Promise.all([...biomes].map(async ([id, color]) => {
+            try {
+                return [id, await color] as const;
+            } catch (error) {
+                failures.set(id, error);
+                return [id, { color: undefined, swamp: false }] as const;
+            }
+        })));
         const complete = [...loaded.values()].every(value => value.swamp || value.color !== undefined);
         const samples = new Int32Array(size * size).fill(-1);
         const sums = Array.from({ length: 4 }, () => new Uint32Array(stride * stride));
@@ -136,6 +137,6 @@ export class BiomeBlend {
                     | Math.floor(sum(sums[1]) / count) << 8 | Math.floor(sum(sums[2]) / count);
             }
         }
-        return { colors, complete };
+        return { colors, complete, failures };
     }
 }

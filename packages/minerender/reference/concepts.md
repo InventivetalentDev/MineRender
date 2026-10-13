@@ -191,7 +191,7 @@ World blocks use these samples for grass, foliage, dry foliage, and water colors
 
 Await `chunk.setBiomes(samples)` to replace a section's samples and refresh its placed blocks, including tall-plant halves in the section above. Hidden blocks remain hidden. For standalone previews, pass `biome` and optional `biomePosition: [x, y, z]` to `scene.addBlock`; explicit `tints` still take precedence.
 
-Set `biomeBlendRadius` to an integer from `0` to `7` to smooth grass, foliage, dry-foliage, and water colors across biome borders. The radius is in blocks; `0` disables blending and is the default. Read it through `world.biomeBlendRadius`, or update loaded terrain without reloading the source:
+Set `biomeBlendRadius` together with `sectionMeshing` to an integer from `0` to `7` to smooth grass, foliage, dry-foliage, and water colors across biome borders. The radius is in blocks; `0` disables blending and is the default. Read it through `world.biomeBlendRadius`, or update loaded terrain without reloading the source:
 
 ```ts
 const world = new MineRenderWorld(renderer.scene, { sectionMeshing: true, biomeBlendRadius: 3 });
@@ -199,7 +199,7 @@ await world.placeChunk(chunk);
 await world.setBiomeBlendRadius(0);
 ```
 
-Blending averages colors over a horizontal square at the sampled block's height in both rendering modes. It leaves `getBiomeAt` unchanged, honors explicit tints, and works with saved lighting and ambient occlusion. Missing neighbors are excluded; a missing center biome or definition retains preview colors. Biome edits and column loading or unloading refresh affected borders. Colors are cached and updated with terrain, with no per-frame averaging. Larger radii add update work; per-block rendering can also create more instance groups and draw calls.
+Blending averages colors over a horizontal square at the sampled block's height. It applies to section meshes; blocks that keep individual objects, such as block entities, keep unblended colors. It leaves `getBiomeAt` unchanged, honors explicit tints, and works with saved lighting and ambient occlusion. Missing neighbors, and neighbors whose biome fails to load, are excluded; a missing center biome or definition retains preview colors. Biome edits and column loading or unloading refresh only the neighboring cells whose color changes. Colors are cached and updated with terrain, with no per-frame averaging. Larger radii add update work.
 
 Enable `savedLighting` together with `sectionMeshing` to shade blocks and fluids from imported light data:
 

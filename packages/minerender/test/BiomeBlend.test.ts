@@ -6,7 +6,7 @@ import { swampGrassColor } from "../src/assets/_biomes/SwampGrassColor";
 import { Caching } from "../src/cache/Caching";
 import { HostedAssetSource } from "../src/assets/source/HostedAssetSource";
 import type { TripleArray } from "../src/model/Model";
-import { BiomeBlend, validateBiomeBlendRadius } from "../src/world/_biomes/BiomeBlend";
+import { BiomeBlend } from "../src/world/_biomes/BiomeBlend";
 
 function fixture(t: ExecutionContext) {
     const originalGet = Biomes.get, originalColor = Biomes.getColor, originalRoot = AssetLoader.ROOT;
@@ -45,9 +45,8 @@ function average(radius: number, x: number, z: number, colorAt: (x: number, z: n
 test.serial("biome blend averages sRGB bytes across signed borders and quart-height samples", async t => {
     const { colors, calls } = fixture(t);
     const biomeAt = (x: number, y: number, z: number) => (Math.floor(x / 4) + Math.floor(y / 4) + Math.floor(z / 4)) % 2 === 0 ? "red" : "blue";
-    const blend = new BiomeBlend(biomeAt, 1);
     for (const radius of [1, 2, 7]) {
-        blend.setRadius(radius);
+        const blend = new BiomeBlend(biomeAt, radius);
         for (const position of [[0, 0, 0], [15, 3, 15], [16, 4, -1], [-16, -1, -17], [-1, -4, -1]] as TripleArray[]) {
             const [x, y, z] = position;
             t.is(await blend.getColor("water", undefined, position), average(radius, x, z, (px, pz) => colors.get(biomeAt(px, y, pz))));
@@ -70,27 +69,6 @@ test.serial("biome blend shares tile loads and computes each biome color once pe
     t.is(calls.length, 4);
     await blend.getColor("dry_foliage", undefined, [1, 4, 1]);
     t.is(calls.length, 6);
-});
-
-test.serial("radius zero performs only the center lookup and validates radius changes", async t => {
-    const { calls } = fixture(t);
-    let reads = 0;
-    const blend = new BiomeBlend(() => { reads++; return "red"; });
-    t.is(await blend.getColor("water", undefined, [-1, -1, -1]), 0xff0102);
-    t.is(reads, 1);
-    t.is(calls.length, 1);
-    for (const radius of [-1, 8, 0.5, NaN, Infinity, -Infinity, "2" as unknown as number]) {
-        t.throws(() => validateBiomeBlendRadius(radius), { message: /integer from 0 to 7/ });
-        t.throws(() => new BiomeBlend(() => "red", radius), { message: /integer from 0 to 7/ });
-        t.throws(() => blend.setRadius(radius), { message: /integer from 0 to 7/ });
-        t.is(blend.radius, 0);
-    }
-    blend.setRadius(1);
-    await blend.getColor("water", undefined, [0, 0, 0]);
-    blend.setRadius(0);
-    reads = 0;
-    await blend.getColor("water", undefined, [0, 0, 0]);
-    t.is(reads, 1);
 });
 
 test.serial("missing centers retain preview colors and unavailable neighbors are excluded", async t => {
@@ -153,7 +131,7 @@ test.serial("column invalidation refreshes neighboring tiles while retaining dis
     const values = await Promise.all(positions.map(position => blend.getColor("water", undefined, position)));
     t.deepEqual(values, [0xff0102, 0x123456, 0x123456, 0xff0102]);
     t.is(calls.length, 6);
-    blend.setRadius(2);
+    blend.clear();
     t.is(await blend.getColor("water", undefined, positions[0]), 0x123456);
     t.is(calls.length, 7);
 });
@@ -198,4 +176,19 @@ test.serial("biome tile cache evicts least recently used entries at its bound", 
     t.is(calls.length, 257);
     await blend.getColor("water", undefined, [16, 0, 0]);
     t.is(calls.length, 258);
+});
+
+test.serial("failed neighbor colors are excluded and incomplete tiles retry", async t => {
+    fixture(t);
+    const failure = new Error("neighbor color failed"), originalColor = Biomes.getColor;
+    let attempts = 0;
+    Biomes.getColor = async (id, ...args) => {
+        if (id === "blue") { attempts++; throw failure; }
+        return originalColor(id, ...args);
+    };
+    const blend = new BiomeBlend(x => x < 0 ? "red" : "blue", 1);
+    t.is(await blend.getColor("water", undefined, [-1, 0, 0]), 0xff0102);
+    t.is(await blend.getColor("water", undefined, [-1, 0, 0]), 0xff0102);
+    t.is(attempts, 2);
+    await t.throwsAsync(blend.getColor("water", undefined, [0, 0, 0]), { is: failure });
 });

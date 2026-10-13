@@ -56,7 +56,6 @@ export class ModelObject extends SceneObject {
         this.hasGlint = !item.parts && (!item.special || specialType === "shield" || specialType === "trident") && ItemGlint.enabled(item.components, item.itemId);
         if (item.special || item.parts || this.hasGlint) this.options.instanceMeshes = false;
         if (this.options.tints) this.options.tints = { ...this.options.tints };
-        if (this.options.biomeTint) this.options.maxInstanceCount = Math.min(this.options.maxInstanceCount, 50);
         this.addEventListener("added", () => this.updateAnimationSubscription());
         this.addEventListener("removed", () => this.updateAnimationSubscription());
     }
@@ -373,8 +372,6 @@ export interface ModelObjectOptions extends SceneObjectOptions {
     uvLockRotation?: TripleArray;
     /** sRGB 0xRRGGBB colors by face tint index, overriding automatic item or block preview colors. */
     tints?: Record<number, number>;
-    /** Marks world biome-color pools for bounded initial capacity and cleanup after color changes. */
-    biomeTint?: boolean;
     /** Hidden neighbor directions in CUBE_FACES order, before the model's block rotation. */
     cullMask?: number;
 }

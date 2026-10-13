@@ -103,7 +103,7 @@ export function buildSectionGeometry(input: SectionGeometryInput): SectionGeomet
         if (template.positions.length !== quads * 12 || template.normals.length !== quads * 12 ||
             template.uvs.length !== quads * 8 || template.uvBounds.length !== quads * 16 ||
             template.colors.length !== quads * 12 || template.indices.length !== quads * 6 || template.cullFaces.length !== quads ||
-            (template.biomeTint && (template.biomeTint.length !== quads || template.biomeTint.some(value => value > 1)))) {
+            (template.biomeTint && template.biomeTint.length !== quads)) {
             throw new RangeError("Section template arrays do not match its quad count");
         }
     }
