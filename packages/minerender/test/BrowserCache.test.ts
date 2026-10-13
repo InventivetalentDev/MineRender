@@ -1,6 +1,7 @@
 import test from "ava";
 import localforage from "localforage";
 import { BrowserCache } from "../src/env/browser/BrowserCache";
+import { BrowserEnv } from "../src/env/browser/BrowserEnv";
 
 function store() {
     const values = new Map<string, unknown>();
@@ -71,4 +72,16 @@ test("browser cache propagates failed writes and keeps using opened storage", as
     t.deepEqual([...values.entries()], [["persisted", "old"]]);
     await cache.clear();
     t.is(await cache.length(), 0);
+});
+
+test.serial("browser environment opens a lazy cache without a storage driver", async t => {
+    const warn = console.warn, warnings: unknown[][] = [];
+    console.warn = (...args) => { warnings.push(args); };
+    t.teardown(() => { console.warn = warn; });
+    const cache = new BrowserEnv().openCache("minerender-lazy-no-storage", 1);
+    t.is(warnings.length, 0);
+    await cache.put("asset", "stored");
+    t.is(await cache.get("asset"), "stored");
+    t.is(warnings.length, 1);
+    t.true(warnings[0][2] instanceof Error);
 });

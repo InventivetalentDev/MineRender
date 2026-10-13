@@ -6,10 +6,18 @@ import { Env } from "../Env";
 import { Requests } from "../request/Requests";
 import { WrappedImage } from "../WrappedImage";
 import { ExtractableImageData } from "../ExtractableImageData";
-import { Buffer } from "buffer";
 import { prefix } from "../util/log";
 
 const p = prefix("ImageLoader");
+
+function toBase64(bytes: Uint8Array): string {
+    let binary = "";
+    // Chunking keeps large images within the function argument limit.
+    for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+        binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+    }
+    return btoa(binary);
+}
 
 /** Encoded image bytes with dimensions and format detected from the file header. */
 export interface ImageInfo {
@@ -17,7 +25,7 @@ export interface ImageInfo {
     width: number;
     height: number;
     type?: string;
-    data: Buffer;
+    data: Uint8Array;
 }
 
 /** Fetches and decodes images through the active browser or Node environment provider. */
@@ -75,7 +83,7 @@ export class ImageLoader {
     public static async infoToCanvasData(info: ImageInfo): Promise<ExtractableImageData> {
         const type = info.type === "jpg" ? "jpeg" : info.type ?? "png";
         // Both browser and Node images accept data URLs; src remains provenance, not a second fetch.
-        const image = await ImageLoader.loadAsync(`data:image/${type};base64,${info.data.toString("base64")}`);
+        const image = await ImageLoader.loadAsync(`data:image/${type};base64,${toBase64(info.data)}`);
         const canvas = createCanvas(info.width, info.height);
         const context = canvas.getContext("2d") as CanvasRenderingContext2D;
         context.drawImage(image as CanvasImageSource, 0, 0);
@@ -110,7 +118,7 @@ export class ImageLoader {
 
     public static async processResponse(response: Pick<RequestResponse<ArrayBuffer>, "data" | "url">): Promise<ImageInfo> {
         const src = response.url;
-        const data = Buffer.from(response.data);
+        const data = new Uint8Array(response.data);
         const { width, height, type } = Env.provider.imageSize(data);
         if (!width || !height) {
             throw new Error("Invalid or unsupported image dimensions");

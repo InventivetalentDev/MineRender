@@ -51,7 +51,7 @@ export class HostedAssetSource extends AssetSource {
             request.responseType = "arraybuffer";
         },
         parse(response: RequestResponse): Promise<Maybe<NBTAsset>> {
-            return NBTHelper.fromBuffer(Buffer.from(response.data));
+            return NBTHelper.fromBuffer(response.data);
         }
     }
     static readonly IMAGE: ResponseParser<TextureAsset> = {

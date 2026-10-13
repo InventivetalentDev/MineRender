@@ -44,7 +44,7 @@ test.serial("embedded image bytes decode without requests and retain the image i
         const info = await ImageLoader.getInfo(src);
         t.deepEqual([info.width, info.height, info.type], [2, 1, "png"]);
         t.is(info.src, src);
-        t.deepEqual(info.data, inlinePng);
+        t.deepEqual(info.data, new Uint8Array(inlinePng));
         t.is(await ImageLoader.getInfo(src), info);
     }
     t.deepEqual(requests, []);
@@ -64,7 +64,7 @@ test.serial("invalid embedded images reject without caching while remote images 
         return { data: Uint8Array.from(inlinePng).buffer, url: request.url };
     }) as typeof Requests.genericRequest;
     const src = "https://example.invalid/image.png";
-    t.deepEqual((await ImageLoader.getInfo(src)).data, inlinePng);
+    t.deepEqual((await ImageLoader.getInfo(src)).data, new Uint8Array(inlinePng));
     t.deepEqual(requests, [src]);
 });
 
@@ -76,7 +76,7 @@ test.serial("an embedded image decode failure evicts its bytes and can be retrie
     const decoded = { width: 2, height: 1, data: {} as CanvasRenderingContext2D };
     let decodes = 0;
     ImageLoader.infoToCanvasData = async info => {
-        t.deepEqual(info.data, inlinePng);
+        t.deepEqual(info.data, new Uint8Array(inlinePng));
         if (++decodes === 1) {
             throw error;
         }
