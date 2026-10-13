@@ -1,6 +1,7 @@
 import { MeshBasicMaterial } from "three";
 import { AssetKey, isResourceLocation } from "../assets/AssetKey";
 import { ModelTextures } from "../assets/ModelTextures";
+import { base64ToBytes } from "../util/_internal/base64";
 import { md5 } from "../util/util";
 import { Skins } from "./Skins";
 import { SkinTextures } from "./SkinTextures";
@@ -90,7 +91,7 @@ export class PlayerHeadTextures {
         const value = properties.find(property => property.name === "textures")?.value;
         if (!value || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}(?:==)?|[A-Za-z0-9+/]{3}=?)?$/.test(value)) return undefined;
         try {
-            const textures = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(value), char => char.charCodeAt(0)))).textures;
+            const textures = JSON.parse(new TextDecoder().decode(base64ToBytes(value))).textures;
             if (!textures || typeof textures !== "object" || Array.isArray(textures)) return undefined;
             for (const texture of Object.values(textures) as { url?: unknown }[]) {
                 if (!texture || typeof texture.url !== "string" || !/^https?:\/\//.test(texture.url)) return undefined;

@@ -24,7 +24,15 @@ export class AssetLoader {
     /** Default asset base URL. Use {@link setVersion} to select a Minecraft version. */
     static ROOT: string = DEFAULT_ROOT;
 
-    private static _SOURCES: AssetSourceReference[] = [];
+    private static sources: AssetSourceReference[] | undefined;
+
+    private static get _SOURCES(): AssetSourceReference[] {
+        return this.sources ??= [{ key: "mcassets", source: new HostedAssetSource(this.ROOT, { retryDefaults: false }) }];
+    }
+
+    private static set _SOURCES(sources: AssetSourceReference[]) {
+        this.sources = sources;
+    }
 
     /** Used when a registered source cannot identify its content, so nothing persists past this session. */
     private static readonly SESSION_SCOPE = `session:${Date.now().toString(36)}:${Math.random().toString(36).slice(2)}`;
@@ -97,10 +105,6 @@ export class AssetLoader {
             }
         }
         return undefined;
-    }
-
-    static {
-        this.addSource("mcassets", new HostedAssetSource(this.ROOT, { retryDefaults: false }));
     }
 
     /** Loads from all sources and returns defined results in priority order. Any source failure rejects the call. */

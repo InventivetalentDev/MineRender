@@ -1,3 +1,4 @@
+import { base64ToBytes, bytesToBase64 } from "../util/_internal/base64";
 import { parseSceneDocument, type SceneDocument } from "./SceneDocument";
 
 /** Maximum UTF-8 JSON size and compressed size for a scene link. */
@@ -31,11 +32,7 @@ async function readBounded(stream: ReadableStream<Uint8Array>, label: string): P
 }
 
 function encodeBase64(bytes: Uint8Array): string {
-    let binary = "";
-    for (let offset = 0; offset < bytes.length; offset += 32768) {
-        binary += String.fromCharCode(...bytes.subarray(offset, offset + 32768));
-    }
-    return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    return bytesToBase64(bytes).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
 /** Validates a scene and encodes its UTF-8 JSON as `v1.<unpadded base64url>`, using zlib-wrapped deflate. */
@@ -59,8 +56,7 @@ export async function decodeSceneDocument(value: string): Promise<SceneDocument>
     if (!/^[A-Za-z0-9_-]+$/.test(encoded) || encoded.length % 4 === 1) {
         throw new Error("Invalid scene base64url encoding");
     }
-    const binary = atob(encoded.replace(/-/g, "+").replace(/_/g, "/"));
-    const compressed = Uint8Array.from(binary, character => character.charCodeAt(0));
+    const compressed = base64ToBytes(encoded.replace(/-/g, "+").replace(/_/g, "/"));
     if (encodeBase64(compressed) !== encoded) throw new Error("Invalid scene base64url encoding");
     let bytes: Uint8Array;
     try {

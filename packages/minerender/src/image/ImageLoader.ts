@@ -6,18 +6,10 @@ import { Env } from "../Env";
 import { Requests } from "../request/Requests";
 import { WrappedImage } from "../WrappedImage";
 import { ExtractableImageData } from "../ExtractableImageData";
+import { base64ToBytes, bytesToBase64 } from "../util/_internal/base64";
 import { prefix } from "../util/log";
 
 const p = prefix("ImageLoader");
-
-function toBase64(bytes: Uint8Array): string {
-    let binary = "";
-    // Chunking keeps large images within the function argument limit.
-    for (let offset = 0; offset < bytes.length; offset += 0x8000) {
-        binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
-    }
-    return btoa(binary);
-}
 
 /** Encoded image bytes with dimensions and format detected from the file header. */
 export interface ImageInfo {
@@ -83,7 +75,7 @@ export class ImageLoader {
     public static async infoToCanvasData(info: ImageInfo): Promise<ExtractableImageData> {
         const type = info.type === "jpg" ? "jpeg" : info.type ?? "png";
         // Both browser and Node images accept data URLs; src remains provenance, not a second fetch.
-        const image = await ImageLoader.loadAsync(`data:image/${type};base64,${toBase64(info.data)}`);
+        const image = await ImageLoader.loadAsync(`data:image/${type};base64,${bytesToBase64(info.data)}`);
         const canvas = createCanvas(info.width, info.height);
         const context = canvas.getContext("2d") as CanvasRenderingContext2D;
         context.drawImage(image as CanvasImageSource, 0, 0);
@@ -142,14 +134,14 @@ export class ImageLoader {
                 throw new Error("Invalid image data URL");
             }
             // Percent escapes represent image bytes, which need not be valid UTF-8.
-            let bytes = url.href.slice(comma + 1).replace(/%([\da-f]{2})/gi,
+            const bytes = url.href.slice(comma + 1).replace(/%([\da-f]{2})/gi,
                 (_, hex: string) => String.fromCharCode(parseInt(hex, 16)));
-            if (/; *base64 *$/i.test(url.href.slice(5, comma))) {
-                bytes = atob(bytes);
-            }
+            const data = /; *base64 *$/i.test(url.href.slice(5, comma))
+                ? base64ToBytes(bytes)
+                : Uint8Array.from(bytes, char => char.charCodeAt(0));
             return this.processResponse({
                 url: src,
-                data: Uint8Array.from(bytes, char => char.charCodeAt(0)).buffer
+                data: data.buffer
             });
         }
 

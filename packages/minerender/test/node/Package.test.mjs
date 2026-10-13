@@ -14,6 +14,7 @@ test.after.always(() => {
 
 for (const [format, library] of [["ESM", esm], ["CJS", cjs]]) {
     test.serial(`${format} Node package creates a native renderer and exports PNG bytes`, async t => {
+        t.is(library.Env.provider.name, "node");
         t.is(typeof library.NodeRenderer, "function");
         t.false("NodeRenderer" in browser);
         const renderer = await library.NodeRenderer.create({ width: 12, height: 8 });
