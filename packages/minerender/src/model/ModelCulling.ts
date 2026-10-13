@@ -3,7 +3,7 @@ import { CUBE_FACE_OFFSETS, CUBE_FACES } from "../CubeFace";
 import { TextureAtlas } from "../texture/TextureAtlas";
 import { Maybe } from "../util/util";
 
-/** Identifies fully opaque cubes and maps neighbor visibility to model-local face masks. */
+/** Identifies full cubes and maps neighbor visibility to model-local face masks. */
 export class ModelCulling {
 
     /** Rotates a world-direction bit mask into model space. Bits follow {@link CUBE_FACES}. */
@@ -19,9 +19,9 @@ export class ModelCulling {
         return localMask;
     }
 
-    /** Whether a model fills one block with opaque faces and can hide adjacent block faces. */
-    public static isOpaqueFullCube(atlas: Maybe<TextureAtlas>): boolean {
-        if (!atlas || atlas.hasTransparency !== false || atlas.model.elements?.length !== 1) return false;
+    /** Whether a model fills one block with six complete mapped faces. */
+    public static isFullCube(atlas: Maybe<TextureAtlas>): boolean {
+        if (!atlas || atlas.model.elements?.length !== 1) return false;
         const element = atlas.model.elements[0];
         if (element.from.length !== 3 || !element.from.every(value => value === 0)
             || element.to.length !== 3 || !element.to.every(value => value === 16)
@@ -45,6 +45,11 @@ export class ModelCulling {
             }
             return true;
         });
+    }
+
+    /** Whether a model fills one block with opaque faces and can hide adjacent block faces. */
+    public static isOpaqueFullCube(atlas: Maybe<TextureAtlas>): boolean {
+        return atlas?.hasTransparency === false && this.isFullCube(atlas);
     }
 
 }

@@ -63,6 +63,18 @@ test("world masks follow cardinal block rotations and ignore non-cardinal transf
     t.is(ModelCulling.toLocalMask(63, new Euler(0, Math.PI / 4, 0)), 0);
 });
 
+test("full cube geometry accepts transparent textures but not partial elements", t => {
+    const transparent = atlas(cube(), true);
+    const partial = cube();
+    partial.elements![0].to[1] = 8;
+    t.true(ModelCulling.isFullCube(atlas()));
+    t.true(ModelCulling.isFullCube(transparent));
+    t.false(ModelCulling.isFullCube(atlas(partial, true)));
+    t.false(ModelCulling.isFullCube(undefined));
+    t.true(ModelCulling.isOpaqueFullCube(atlas()));
+    t.false(ModelCulling.isOpaqueFullCube(transparent));
+});
+
 test("only complete cubes with opaque mapped face textures prove occlusion", t => {
     t.true(ModelCulling.isOpaqueFullCube(atlas()));
     t.false(ModelCulling.isOpaqueFullCube(undefined));

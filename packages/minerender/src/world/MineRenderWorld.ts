@@ -487,10 +487,13 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                     for (const [chunk, indices] of batch) {
                         const neighbors = CUBE_FACE_OFFSETS.map(([x, y, z]) =>
                             this._chunks.get(`${chunk.x + x}_${chunk.y + y}_${chunk.z + z}`));
-                        const masks = chunk.updateCullMasks(indices === "all" ? undefined : indices, (x, y, z) => {
+                        const masks = chunk.updateCullMasks(indices === "all" ? undefined : indices, (x, y, z, sameBlock) => {
                             const lx = x - chunk.x * 16, ly = y - chunk.y * 16, lz = z - chunk.z * 16;
                             const section = neighbors[lx >= 16 ? 0 : lx < 0 ? 1 : ly >= 16 ? 2 : ly < 0 ? 3 : lz >= 16 ? 4 : 5];
-                            return section?.isOccludingIndex((ly & 15) * 256 + (lz & 15) * 16 + (lx & 15)) ?? false;
+                            if (!section) return false;
+                            const i = (ly & 15) * 256 + (lz & 15) * 16 + (lx & 15);
+                            return section.isOccludingIndex(i)
+                                || (sameBlock !== undefined && section.transparentCubeTypeIndex(i) === sameBlock);
                         });
                         const fluidIndices = indices === "all" ? (function* () {
                             for (let index = 0; index < 4096; index++) yield index;

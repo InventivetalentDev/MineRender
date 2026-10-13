@@ -188,9 +188,11 @@ export class SectionModels {
                 }
             }
             geometry = compactQuads(geometry, keep);
+            const axisAligned = ModelCulling.toLocalMask(63, rotation) === 63;
             const template: SectionMeshTemplate = {
                 geometry, atlas, cullFaces: new Uint8Array(cullFaces),
-                occludes: ModelCulling.isOpaqueFullCube(atlas) && ModelCulling.toLocalMask(63, rotation) === 63,
+                occludes: ModelCulling.isOpaqueFullCube(atlas) && axisAligned,
+                transparentCube: atlas.hasTransparency && ModelCulling.isFullCube(atlas) && axisAligned,
                 layer: atlas.hasTranslucency ? 1 : 0, ambientOcclusion: (model as BlockModel).ambientocclusion !== false
             };
             this.templates.add(template);
