@@ -2,7 +2,7 @@ import { SceneObject } from "../../renderer/SceneObject";
 import { SceneObjectOptions } from "../../renderer/SceneObjectOptions";
 import { Caching } from "../../cache/Caching";
 import merge from "ts-deepmerge";
-import { Color, Euler, Matrix4, Object3D } from "three";
+import { Color, Object3D } from "three";
 import type { BufferGeometry, ColorRepresentation, Material, Mesh, MeshBasicMaterial } from "three";
 import { Ticker } from "../../Ticker";
 import { addWireframeToMesh } from "../../util/model";
@@ -121,14 +121,15 @@ export class EntityObject extends SceneObject {
 
     /**
      * Plays a clip from {@link Entities.getAnimations}, replacing all active clips.
-     * Offsets apply to the baked pose in the clip's layer (`main` by default), including repeated draws of that layer.
+     * Offsets apply to the baked pose in the clip's layer (`main` by default) and its repeated draws.
+     * A `main` clip also poses every selected layer without a clip of its own.
      * The object owns no clock: call {@link advanceAnimation} per frame, or {@link setAnimationTime}.
      */
     public playAnimation(animation: EntityAnimation, options?: EntityAnimationOptions): void {
         this.playAnimations([animation], options);
     }
 
-    /** Plays one clip per selected geometry layer, with a shared clock and no blending between clips. */
+    /** Plays clips with a shared clock and no blending. Selected layers without their own clip follow `main`. */
     public playAnimations(animations: readonly EntityAnimation[], options?: EntityAnimationOptions): void {
         const targets = new Set<string>();
         const selections = animations.map(animation => {
@@ -139,6 +140,8 @@ export class EntityObject extends SceneObject {
             if (!names.length) throw new Error(`Entity ${this.entity.id} has no selected animation layer "${layer}"`);
             return { animation, names };
         });
+        const main = selections.find(({ animation }) => (animation.layer ?? "main") === "main");
+        if (main) main.names.push(...Object.keys(this.entityLayers).filter(name => !targets.has(name.split("#")[0])));
         this.createMeshes();
         this.stopAnimation();
         for (const { animation, names } of selections) {
@@ -212,26 +215,29 @@ export class EntityObject extends SceneObject {
         if (this.meshesCreated && !force) return;
 
         const modelRoot = new Object3D();
+        let transformNode = modelRoot;
         // Keep Minecraft's model coordinates separate from caller placement and scale.
         const transform = this.options.flip === undefined ? this.entity.transform : undefined;
         if (transform) {
-            for (const op of transform) {
-                const matrix = new Matrix4();
-                if ("scale" in op) matrix.makeScale(...op.scale);
-                else if ("translate" in op) matrix.makeTranslation(...op.translate);
-                else matrix.makeRotationFromEuler(new Euler(...op.rotate, "ZYX"));
-                modelRoot.matrix.multiply(matrix);
+            // One position, rotation and scale cannot express nonuniform scale followed by rotation.
+            // Nested nodes preserve each operation and avoid manual matrices, which leave bounds stale.
+            for (const [index, op] of transform.entries()) {
+                if (index > 0) {
+                    const child = new Object3D();
+                    transformNode.add(child);
+                    transformNode = child;
+                }
+                if ("scale" in op) transformNode.scale.set(...op.scale);
+                else if ("translate" in op) transformNode.position.set(...op.translate);
+                else transformNode.rotation.set(...op.rotate, "ZYX");
             }
-            // The composed matrix may not decompose into position, rotation and scale.
-            modelRoot.matrixWorldNeedsUpdate = true;
-            modelRoot.matrixAutoUpdate = false;
         } else if (this.options.flip ?? true) {
             modelRoot.scale.set(-1, -1, 1);
         }
         this.add(modelRoot);
         Object.entries(this.entityLayers).forEach(([name, layer], index) => {
             const group = this.createGroup(`layer:${name}`);
-            modelRoot.add(group);
+            transformNode.add(group);
             const inward = !Materials.entityModeCulls(layer.render ?? layer.layer.render);
             this.createPart("root", layer.layer.root, group, layer.layer.texture, Materials.MISSING_TEXTURE, index, inward, this.options.faces?.[name]);
         });
