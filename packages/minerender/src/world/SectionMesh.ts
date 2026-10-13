@@ -34,14 +34,15 @@ export interface SectionFluids {
 const templateCache = new WeakMap<SectionMeshTemplate, SectionTemplateData>();
 const WATER_TINT = new Color(0x3f76e4).toArray() as [number, number, number];
 
-function toInput(entries: readonly SectionMeshEntry[], maxAtlasSize: number, fluids?: SectionFluids): { input: SectionGeometryInput; atlases: TextureAtlas[] } {
+function toInput(entries: readonly SectionMeshEntry[], maxAtlasSize: number, fluids?: SectionFluids,
+                 lighting?: Pick<SectionGeometryInput, "light" | "ambientLight">): { input: SectionGeometryInput; atlases: TextureAtlas[] } {
     if (!Number.isInteger(maxAtlasSize) || maxAtlasSize < 1) throw new RangeError("Section atlas size must be a positive integer");
     const atlases: TextureAtlas[] = [];
     const atlasIds = new Map<TextureAtlas, number>();
     const templateIds = new Map<SectionMeshTemplate, number>();
     const input: SectionGeometryInput = {
         count: entries.length, indices: new Uint16Array(entries.length), templates: new Uint16Array(entries.length),
-        cullMasks: new Uint8Array(entries.length), templateData: [], atlases: [], maxAtlasSize
+        cullMasks: new Uint8Array(entries.length), templateData: [], atlases: [], maxAtlasSize, ...lighting
     };
     for (let i = 0; i < entries.length; i++) {
         const { index, template, cullMask } = entries[i];
@@ -118,14 +119,16 @@ export class SectionMesh extends Group {
     private readonly ownedMeshes: { mesh: Mesh<BufferGeometry, Material>; texture?: Texture; unsubscribe: (() => void)[] }[] = [];
 
     /** Builds section-local meshes from visible quads. `maxAtlasSize` limits each atlas dimension in pixels. */
-    public static build(entries: readonly SectionMeshEntry[], maxAtlasSize = 2048, fluids?: SectionFluids): SectionMesh {
-        const { input, atlases } = toInput(entries, maxAtlasSize, fluids);
+    public static build(entries: readonly SectionMeshEntry[], maxAtlasSize = 2048, fluids?: SectionFluids,
+                        lighting?: Pick<SectionGeometryInput, "light" | "ambientLight">): SectionMesh {
+        const { input, atlases } = toInput(entries, maxAtlasSize, fluids, lighting);
         return this.fromPages(buildSectionGeometry(input), atlases);
     }
 
     /** Builds section-local meshes in a browser worker when available, with synchronous fallback. */
-    public static async buildAsync(entries: readonly SectionMeshEntry[], maxAtlasSize = 2048, fluids?: SectionFluids): Promise<SectionMesh> {
-        const { input, atlases } = toInput(entries, maxAtlasSize, fluids);
+    public static async buildAsync(entries: readonly SectionMeshEntry[], maxAtlasSize = 2048, fluids?: SectionFluids,
+                                   lighting?: Pick<SectionGeometryInput, "light" | "ambientLight">): Promise<SectionMesh> {
+        const { input, atlases } = toInput(entries, maxAtlasSize, fluids, lighting);
         const worker = SectionWorker.shared();
         const pages = worker ? await worker.build(input).catch(() => buildSectionGeometry(input)) : buildSectionGeometry(input);
         return this.fromPages(pages, atlases);

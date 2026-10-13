@@ -197,6 +197,116 @@ for (const sectionMeshing of [false, true]) {
     }
 }
 
+for (const sectionMeshing of [false, true]) {
+    for (const batched of [false, true]) {
+        test.serial(`saved light survives air-only placement and edits, then clears with its section or column (sectionMeshing=${sectionMeshing}, batched=${batched})`, async t => {
+            const { world, place } = fixture(t, { sectionMeshing, savedLighting: sectionMeshing });
+            const executor = batched ? new BatchedExecutor(1, 1) : undefined;
+            t.teardown(() => executor?.stop());
+            const block = Buffer.from(Array.from({ length: 2048 }, (_, index) => index * 13 + 7));
+            const sky = Uint8Array.from({ length: 2048 }, (_, index) => index * 7 + 11);
+            const expectedBlock = new Uint8Array(block), expectedSky = sky.slice();
+            const air = new ChunkData(), blocks = new ChunkData();
+            blocks.set(0, { type: "test:cube" });
+            const column = { x: -2, z: -1, lightValid: true, sections: [
+                { y: -1, data: blocks, light: { block: new Uint8Array(2048).fill(0x43) } },
+                { y: -2, data: air, light: { block, sky } },
+                { y: 0, data: air }
+            ] };
+            await world.placeChunk(column, executor);
+            t.is(world.getChunkAt(new Vector3(-32, -32, -16)), undefined);
+            block.fill(0);
+            sky.fill(0);
+            for (const index of [0, 1, 15, 16, 255, 256, 2047, 2048, 4094, 4095]) {
+                const position = new Vector3(-32 + index % 16, -32 + Math.floor(index / 256), -16 + Math.floor(index / 16) % 16);
+                const shift = (index & 1) * 4;
+                const expected = { block: (expectedBlock[index >> 1] >> shift) & 15, sky: (expectedSky[index >> 1] >> shift) & 15 };
+                t.deepEqual(world.getLightAt(position), expected);
+                t.deepEqual(world.getLightAt(position.toArray()), expected);
+            }
+            t.deepEqual(world.getLightAt(-32, -16, -16), { block: 3, sky: 15 });
+            t.deepEqual(world.getLightAt(-31, -16, -16), { block: 4, sky: 15 });
+            t.deepEqual(world.getLightAt(-32, 0, -16), { block: 0, sky: 15 });
+            t.deepEqual(world.getLightAt(-32, 40, -16), { block: 0, sky: 15 });
+            for (const position of [[-33, -32, -16], [-32, -33, -16], [-32, -32, -17]] as TripleArray[]) {
+                t.is(world.getLightAt(position), undefined);
+            }
+            for (const position of [new Vector3(-32.5, -32, -16), new Vector3(NaN, 0, 0)]) {
+                t.throws(() => world.getLightAt(position), { instanceOf: RangeError });
+            }
+            const expected = { block: 7, sky: 11 };
+            world.getLightAt(-32, -32, -16)!.block = 0;
+            await place([-32, -32, -16]);
+            await world.setBlockVisibleAt([-32, -32, -16], false);
+            t.deepEqual(world.getLightAt(-32, -32, -16), expected);
+            await world.setBlockVisibleAt([-32, -32, -16], true);
+            await world.setBlockAt(-32, -32, -16, undefined);
+            t.deepEqual(world.getLightAt(-32, -32, -16), expected);
+            await world.getChunkAt(new Vector3(-32, -32, -16))!.clear();
+            t.is(world.getLightAt(-32, -32, -16), undefined);
+            t.deepEqual(world.getLightAt(-32, -16, -16), { block: 3, sky: 0 });
+            await world.placeChunk({ x: -2, z: -1, sections: [{ y: -1, data: blocks }] }, executor);
+            t.is(world.getLightAt(-32, -16, -16), undefined);
+            t.is(world.getLightAt(-32, 0, -16), undefined);
+            await world.placeChunk(column, executor);
+            await world.unloadChunkColumn(-2, -1);
+            t.is(world.getLightAt(-32, -16, -16), undefined);
+            t.is(world.getLightAt(-32, -32, -16), undefined);
+            await world.placeChunk(column, executor);
+            await world.clear();
+            t.is(world.getLightAt(-32, -16, -16), undefined);
+            t.is(world.getLightAt(-32, -32, -16), undefined);
+        });
+    }
+}
+
+test.serial("blocks above saved sky arrays keep full brightness while block-only columns use ambient light", async t => {
+    const { world, scene, place } = fixture(t, { sectionMeshing: true, savedLighting: true, ambientLight: 0.25 });
+    const colors = () => {
+        const section = scene.children.find(child => child instanceof SectionMesh);
+        return Array.from((section!.children[0] as Mesh).geometry.getAttribute("color").array);
+    };
+    await place([8, 40, 8]);
+    const unlit = colors(), data = new ChunkData(), block = new Uint8Array(2048);
+    t.true(unlit.some(value => value > 0));
+    for (const sky of [new Uint8Array(2048), undefined]) {
+        await world.placeChunk({ x: 0, z: 0, lightValid: true, sections: [
+            { y: 0, data, light: { block, sky } },
+            { y: 2, data, light: { block } }
+        ] });
+        await place([8, 40, 8]);
+        t.deepEqual(world.getLightAt(8, 40, 8), { block: 0, sky: sky ? 15 : 0 });
+        t.deepEqual(colors(), sky ? unlit : unlit.map(value => value * 0.25));
+    }
+});
+
+test.serial("saved light remains available without rendering and invalid replacement arrays preserve the existing column", async t => {
+    const { world } = fixture(t);
+    t.throws(() => new MineRenderWorld(world.scene, { savedLighting: true }), { instanceOf: TypeError, message: "savedLighting requires sectionMeshing" });
+    for (const ambientLight of [-0.1, 1.1, NaN]) {
+        t.throws(() => new MineRenderWorld(world.scene, { ambientLight }), {
+            instanceOf: RangeError, message: "ambientLight must be a number from 0 to 1"
+        });
+    }
+    const data = new ChunkData();
+    data.set(0, { type: "test:cube" });
+    const column = { x: 0, z: 0, lightValid: false, sections: [
+        { y: 0, data, light: { sky: new Uint8Array(2048).fill(0x87) } }
+    ] };
+    await world.placeChunk(column);
+    t.deepEqual(world.getLightAt(0, 0, 0), { block: 0, sky: 7 });
+    const placed = world.getBlockAt(0, 0, 0);
+    for (const channel of ["block", "sky"]) {
+        for (const bytes of [new Uint8Array(2047), new Uint8Array(2049), Array(2048).fill(0)]) {
+            await t.throwsAsync(world.placeChunk({ ...column, sections: [
+                { y: 0, data, light: { [channel]: bytes as unknown as Uint8Array } }
+            ] }), { instanceOf: RangeError, message: `Section ${channel} light must contain 2048 packed bytes` });
+            t.is(world.getBlockAt(0, 0, 0), placed);
+            t.deepEqual(world.getLightAt(0, 0, 0), { block: 0, sky: 7 });
+        }
+    }
+});
+
 function assertFluidPositions(t: ExecutionContext, world: MineRenderWorld<boolean>, scene: MineRenderScene, positions: TripleArray[]): number[] {
     const origin = new Vector3(...positions[0]).divideScalar(16).floor().multiplyScalar(256);
     const section = scene.children.find(child => child instanceof SectionMesh && child.position.equals(origin));

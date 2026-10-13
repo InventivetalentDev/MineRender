@@ -10,4 +10,5 @@ export * from './SectionMesh';
 export * from './SectionModels';
 export * from './SectionWorker';
 export * from './WorldChunkSource';
+export * from './WorldLight';
 export * from './WorldStreamer';
