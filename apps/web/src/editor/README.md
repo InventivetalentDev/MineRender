@@ -51,6 +51,15 @@ textures remain URLs. Weighted block model alternatives are selected again on lo
 The document does not include custom resource packs, editor tool settings, arbitrary
 JavaScript, or user-authored geometry.
 
+**Copy embed** copies iframe HTML with the scene, Minecraft version, camera, and
+background. The dialog also lets you copy the HTML manually if clipboard access is
+unavailable. Embeds use the shared scene schema; scene JSON must fit within 1 MiB
+before compression, including imported skin and cape PNGs. Remote textures need
+CORS access from the embed host. Set `EMBED_URL` when building the web workspace to
+use another host or a local embed server; the default is
+`https://beta.minerender.org/embed/`. See the [embed workspace README](../../../embed/README.md)
+for local development and deployment commands.
+
 Use **GUI layers** to add, edit, reorder, or remove texture, item, and text layers,
 or to insert the layers of a chest background, boss bar, book page, or tooltip. The
 controls expose positions, sizes, and each layer's content, including an item layer's
