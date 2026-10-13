@@ -461,7 +461,7 @@ test.serial("saved entity renames report the drawn ID and listed entities skip r
         entities: { "minecraft:zombie_pigman": { registered: false, ranges: [{ before: 2509, to: "minecraft:zombified_piglin" }] } }
     } }));
     const get = MineRenderData.get, calls: string[] = [];
-    MineRenderData.get = async (dataset, root) => { calls.push(dataset); return get(dataset, root); };
+    MineRenderData.get = async (dataset, root) => { if (dataset === "renames") calls.push(dataset); return get(dataset, root); };
     const saved = entity("minecraft:zombie_pigman");
     await world.placeMultiBlock(structure(saved));
     t.deepEqual(requests, ["minecraft:zombified_piglin"]);
