@@ -4,12 +4,9 @@ import { AssetParser } from "./source/parser/AssetParsers";
 import { Caching } from "../cache/Caching";
 import type { BlockStatePropertyDefaults } from "../model/block/BlockStateProperties";
 import type { BiomeColorKind } from "./Biomes";
-
 import type { RenameKind } from "./Renames";
 
 export interface MineRenderDatasets {
-    renames: { format: "data-fixer-renames"; baseDataVersion: number }
-        & Record<RenameKind, Record<string, { registered: boolean; ranges: { before: number; to: string }[] }>>;
     itemDefaults: Record<string, Record<string, unknown>>;
     potionColors: {
         effects: Record<string, number>;
@@ -23,6 +20,8 @@ export interface MineRenderDatasets {
     fluids: Record<string, { kind: "water" | "lava"; renderModel: boolean; levelProperty?: string }>;
     dyes: Record<string, { id: number; textureDiffuseColor: number; fireworkColor: number; textColor: number }>;
     legacyBlocks: { blocks: Record<string, string> };
+    renames: { format: "data-fixer-renames"; baseDataVersion: number }
+        & Record<RenameKind, Record<string, { registered: boolean; ranges: { before: number; to: string }[] }>>;
 }
 
 export interface MineRenderDataManifest {

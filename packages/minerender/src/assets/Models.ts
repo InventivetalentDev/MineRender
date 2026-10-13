@@ -379,12 +379,12 @@ export class Models {
         if (!key.extension) {
             key.extension = ".json";
         }
+        const preview = this.snapshotContext(key, context);
         if (key.type === "item") {
             const renamed = await Renames.key("items", key);
-            const replacement = renamed && await this.getMerged(renamed, context);
+            const replacement = renamed && await this.getMerged(renamed, preview);
             if (replacement) return replacement;
         }
-        const preview = this.snapshotContext(key, context);
         const dataKey = await this.applyDefaults(key, preview);
         const keyStr = AssetLoader.persistentKey(key.serialize() + (key.type === "item" ? this.contextKey(preview) + dataKey : ""));
         const model = await Caching.mergedModelCache.get(keyStr, async () => {

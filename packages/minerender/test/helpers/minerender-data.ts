@@ -3,7 +3,7 @@ import { MineRenderData } from "../../src/assets/MineRenderData";
 import type { MineRenderDataManifest, MineRenderDatasets } from "../../src/assets/MineRenderData";
 
 export const mineRenderDataFixtures: MineRenderDatasets = {
-    renames: { format: "data-fixer-renames", baseDataVersion: 1451, blocks: {}, items: {}, entities: {} },
+    renames: { format: "data-fixer-renames", baseDataVersion: 1519, blocks: {}, items: {}, entities: {} },
     itemDefaults: {
         "minecraft:diamond_pickaxe": {"minecraft:damage": 0, "minecraft:max_damage": 1561, "minecraft:max_stack_size": 1},
         "minecraft:compass": {"minecraft:max_stack_size": 64},

@@ -8,7 +8,7 @@ import { installMineRenderDataFixtures, mineRenderDataManifest } from "./helpers
 const chain = { registered: false, ranges: [{ before: 4541, to: "minecraft:iron_chain" }] };
 const slab = { registered: true, ranges: [{ before: 1802, to: "minecraft:smooth_stone_slab" }] };
 const renames: MineRenderDatasets["renames"] = {
-    format: "data-fixer-renames", baseDataVersion: 1451,
+    format: "data-fixer-renames", baseDataVersion: 1519,
     blocks: { "minecraft:chain": chain, "minecraft:stone_slab": slab,
         "minecraft:old": { registered: false, ranges: [{ before: 2000, to: "minecraft:first" }, { before: 3000, to: "minecraft:last" }] } },
     items: { "minecraft:chain": chain }, entities: {}
@@ -40,10 +40,10 @@ test.serial("rename ranges use exclusive boundaries and reject versions before t
     t.teardown(installMineRenderDataFixtures({ renames }));
     t.is(await Renames.resolve("blocks", "minecraft:chain", 4540), "minecraft:iron_chain");
     t.is(await Renames.resolve("blocks", "minecraft:chain", 4541), undefined);
-    t.is(await Renames.resolve("blocks", "minecraft:old", 1451), "minecraft:first");
+    t.is(await Renames.resolve("blocks", "minecraft:old", 1519), "minecraft:first");
     t.is(await Renames.resolve("blocks", "minecraft:old", 2000), "minecraft:last");
     t.is(await Renames.resolve("blocks", "minecraft:old", 3000), undefined);
-    t.is(await Renames.resolve("blocks", "minecraft:chain", 1450), undefined);
+    t.is(await Renames.resolve("blocks", "minecraft:chain", 1518), undefined);
 });
 
 test.serial("unversioned renames use the last target and preserve registered and inherited IDs", async t => {
@@ -112,4 +112,16 @@ test.serial("item keys load the replacement model and report its item ID", async
     const model = await Models.getMerged(new AssetKey("minecraft", "chain", "models", "item"));
     t.is(model?.itemId, "minecraft:iron_chain");
     t.true(calls.every(path => path === "iron_chain"));
+});
+
+test.serial("renamed items snapshot caller context before loading the replacement", async t => {
+    t.teardown(installMineRenderDataFixtures({ renames }));
+    AssetLoader.addSource("items", new DataSource(key => key.assetType === "items"
+        ? { model: { type: "minecraft:model", model: "minecraft:item/iron_chain" } } : { elements: [] }));
+    const context = { components: { custom_data: { nested: [1] } } };
+    const pending = Models.getMerged(new AssetKey("minecraft", "chain", "models", "item"), context);
+    context.components.custom_data.nested[0] = 2;
+    const model = await pending;
+    t.is(model?.itemId, "minecraft:iron_chain");
+    t.deepEqual(model?.components?.["minecraft:custom_data"], { nested: [1] });
 });

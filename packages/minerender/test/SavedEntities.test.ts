@@ -453,12 +453,11 @@ for (const operation of ["clear", "unload"] as const) {
     });
 }
 
-
 test.serial("saved entity renames report the drawn ID and listed entities skip rename lookups", async t => {
     const { world, requests } = pickingFixture(t);
     Entities.getEntityList = async () => ["zombified_piglin", "cow"];
     t.teardown(installMineRenderDataFixtures({ renames: {
-        format: "data-fixer-renames", baseDataVersion: 1451, blocks: {}, items: {},
+        format: "data-fixer-renames", baseDataVersion: 1519, blocks: {}, items: {},
         entities: { "minecraft:zombie_pigman": { registered: false, ranges: [{ before: 2509, to: "minecraft:zombified_piglin" }] } }
     } }));
     const get = MineRenderData.get, calls: string[] = [];
