@@ -71,6 +71,25 @@ test.serial("faces without texture references keep fallback UVs while textured f
     t.deepEqual(uv.slice(16, 24), [0, 1, 0.25, 1, 0, 0.75, 0.25, 0.75]);
 });
 
+test.serial("faces resolve texture references through other variables", async t => {
+    stubTextures(t);
+    // block/template_chain uses "#all" -> "#texture"; block/orientable uses "#down" -> "#bottom" -> "#top".
+    const atlas = (await UVMapper.createAtlas({
+        textures: { texture: "block/iron_chain", all: "#texture", top: "block/furnace_top", bottom: "#top", down: "#bottom", loop: "#loop" },
+        elements: [{
+            from: [0, 0, 0], to: [16, 16, 16],
+            faces: { east: { texture: "#all" }, down: { texture: "#down" } }
+        }]
+    }))!;
+
+    t.deepEqual(atlas.positions.texture, [16, 0]);
+    t.deepEqual(atlas.positions.all, [16, 0]);
+    t.deepEqual(atlas.positions.top, [0, 16]);
+    t.deepEqual(atlas.positions.down, [0, 16]);
+    t.is(atlas.positions.loop, undefined);
+    t.deepEqual(atlas.model.elements![0].mappedUv!.slice(0, 8), [0.5, 1, 1, 1, 0.5, 0.5, 1, 0.5]);
+});
+
 test.serial("atlases bake UVs onto their own element copies, not onto elements shared through a parent", async t => {
     stubTextures(t);
     // Both merged models reference the same element objects, as models inheriting block/cube do.
