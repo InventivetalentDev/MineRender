@@ -59,7 +59,7 @@ function structureBounds(structure: MultiBlockStructure): Box3 {
 const vanilla: Example = {
     id: "structure-vanilla",
     title: "Vanilla structure files",
-    description: "Structure .nbt files are parsed in the browser and placed into a world in batches. Section meshing merges block models and fluids into meshes per 16³ section, with neighbor faces culled; block entities stay individual objects.",
+    description: "Structure .nbt files are parsed in the browser and placed into a world. Section meshing merges block models and fluids into meshes per 16³ section, with neighbor faces culled; block entities stay individual objects.",
     renderer: {
         camera: {
             position: [230, 170, 230] as [number, number, number],
@@ -122,7 +122,7 @@ const key = new AssetKey("minecraft", "village/plains/houses/plains_small_house_
 const nbt = await AssetLoader.get(key, AssetParser.NBT);
 const structure = await StructureParser.parse(nbt!);
 
-// Section meshing merges static block models per 16³ section and culls hidden faces
+// Section meshing merges block models and fluids per 16³ section and culls hidden faces
 const world = new MineRenderWorld(renderer.scene, { sectionMeshing: true });
 await world.placeMultiBlock(structure);`
     }
@@ -373,7 +373,7 @@ async function streamAround(context: ExampleContext, center: Vector3): Promise<(
 const flying: Example = {
     id: "structure-flying",
     title: "Fly through the terrain",
-    description: "Creative-style flight: click the view, then W/A/S/D move, space rises, shift descends, control sprints, and the mouse looks around. Scroll to change the speed, as in spectator mode. On touch screens, the left half is a joystick and the right half looks.",
+    description: "Creative-style flight: click the view, then W/A/S/D move, space rises, shift descends, R sprints, and the mouse looks around. Scroll to change the speed, as in spectator mode. On touch screens, the left half is a joystick and the right half looks.",
     renderer: {
         camera: {
             position: [128, 220, 300] as [number, number, number],
@@ -397,7 +397,7 @@ const flying: Example = {
         esm: `${esmRenderer("ChunkData", "MineRenderWorld", "WorldStreamer")}
 
 // controls.mode: "fly" replaces OrbitControls with creative-style flight.
-// WASD moves along the view direction, space/shift move vertically, control sprints,
+// WASD moves along the view direction, space/shift move vertically, R sprints,
 // the mouse looks around (click to capture it, Esc releases), and the wheel changes the speed.
 const renderer = new Renderer({
     camera: { position: [128, 220, 300], lookingAt: [128, 100, 128], far: 10000 },
@@ -416,15 +416,17 @@ const streamer = new WorldStreamer(world, terrain, { loadRadius: 2, unloadRadius
 await streamer.updatePosition(renderer.camera.position);
 fly.addEventListener("change", () => void streamer.updatePosition(renderer.camera.position));
 
-// Switch modes at runtime; the camera stays where it is
-renderer.setControlsMode("orbit");`
+// Switch modes at runtime; the camera stays where it is.
+// The switch creates a new controls object, so add listeners and settings again.
+renderer.setControlsMode("orbit");
+renderer.orbitControls!.addEventListener("change", () => void streamer.updatePosition(renderer.orbitControls!.target));`
     }
 };
 
 export const structures: ExampleGroup = {
     id: "structures",
     title: "Structures & worlds",
-    lead: "Load structure, schematic, and region files, stream chunks around the view, or place blocks from code. Sections can be merged into single meshes built off the main thread.",
+    lead: "Load structure, schematic, and region files, stream chunks around the view, or place blocks from code. Section meshing merges each 16³ section into a few meshes, built in a worker when available.",
     playgrounds: [{ url: "https://beta.minerender.org/demo/structure/", label: "Structure playground" }, { url: "https://beta.minerender.org/demo/world/", label: "World streaming demo" }],
     examples: [vanilla, ownFile, streaming, flying, programmatic]
 };

@@ -284,6 +284,7 @@ export class Renderer implements Disposable {
     /**
      * Replaces renderer-owned controls with the selected mode, keeping the camera where it is.
      * Switching to orbit controls targets the point the camera looks at, at the previous orbit distance.
+     * The previous controls object is disposed, so its listeners and settings do not carry over.
      * Returns the new controls, or undefined when controls were disabled at construction or after disposal.
      */
     public setControlsMode(mode: ControlsMode): Maybe<RendererControls> {
