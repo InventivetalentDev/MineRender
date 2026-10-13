@@ -21,7 +21,8 @@ export default defineConfig({
                 items: [
                     { text: "Overview", link: "/" },
                     { text: "Rendering & ownership", link: "/concepts" },
-                    { text: "Browser & Node", link: "/platforms" }
+                    { text: "Browser & Node", link: "/platforms" },
+                    { text: "Iframe embeds", link: "/embeds" }
                 ]
             },
             ...apiSidebar

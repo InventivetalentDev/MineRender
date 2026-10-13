@@ -177,6 +177,32 @@ World blocks use these samples for grass, foliage, dry foliage, and water colors
 
 Await `chunk.setBiomes(samples)` to replace a section's samples and refresh its placed blocks, including tall-plant halves in the section above. Hidden blocks remain hidden. For standalone previews, pass `biome` and optional `biomePosition: [x, y, z]` to `scene.addBlock`; explicit `tints` still take precedence.
 
+Enable `savedLighting` together with `sectionMeshing` to shade blocks and fluids from imported light data:
+
+```ts
+const world = new MineRenderWorld(renderer.scene, { sectionMeshing: true, savedLighting: true });
+await world.placeChunk(chunk);
+const light = world.getLightAt(x, y, z); // { block, sky }, each from 0 to 15, or undefined
+```
+
+Anvil sections retain packed `BlockLight` and `SkyLight` arrays in `section.light`, including light-only sections. Each channel has 2,048 bytes: the cell index is `x + 16*z + 256*y`, with the even cell in the low nibble. An omitted channel in a saved section is zero, and an absent section has unknown light. Above a column's highest saved sky-light array, sky light is 15, as in vanilla; a column without any sky-light array has none. `placeChunk` copies the arrays, and column replacement, unloading, or clearing removes them. `getLightAt` returns stored values even when the save marks them invalid. `savedLighting` without `sectionMeshing` throws.
+
+Rendering uses the brighter of sky and block light with a neutral daylight brightness curve, multiplied by the existing face shading and biome colors. `ambientLight`, from 0 to 1 and 0 by default, sets a minimum brightness the way a dimension type's `ambient_light` does. Vanilla uses 0.1 for the Nether and 0.25 for the End. Boundary faces sample the adjacent cell; inset faces sample their own cell. Water and lava use the brighter of their cell and the cell above, or below for bottom faces. Loading or unloading adjacent columns refreshes these samples.
+
+`savedLighting` defaults to `false`. When enabled, missing sections and lighting marked invalid by the save retain preview brightness. Modern saves without a lighting-validity flag count as invalid. Block edits and visibility changes preserve the saved samples without recalculating light. Light propagation, entity and block-entity lighting, and dimension-, weather-, or time-dependent lightmap colors are not applied.
+
+Enable `ambientOcclusion` to darken block corners near opaque full-cube neighbors. It requires `sectionMeshing` and works with or without saved lighting:
+
+```ts
+const world = new MineRenderWorld(renderer.scene, { sectionMeshing: true, ambientOcclusion: true });
+await world.placeChunk(chunk);
+await world.setAmbientOcclusion(false); // Rebuilds loaded terrain without reloading the source.
+```
+
+Ambient occlusion defaults to `false`; `world.ambientOcclusion` reports the setting. It shades axis-aligned faces on block boundaries and honors a model's `ambientocclusion: false`. Inset and non-axis-aligned faces keep their existing shading. Partial boundary faces interpolate full-face corners; this does not reproduce exact vanilla shading for partial shapes. Light-emitting blocks are not automatically exempt. Block edits, visibility changes, and chunk loading or unloading refresh affected corners, including across section boundaries. Fluids, entities, and block entities are unchanged.
+
+Enabling ambient occlusion adds work during placement and geometry updates, with no extra per-frame rendering pass. Keep it disabled when load or edit performance matters more than corner shading.
+
 ## Ownership and cleanup
 
 Choose cleanup according to the resource you own:

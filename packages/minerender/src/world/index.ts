@@ -11,4 +11,5 @@ export * from './SectionModels';
 export * from './SectionWorker';
 export * from './WorldBlockIntersection';
 export * from './WorldChunkSource';
+export * from './WorldLight';
 export * from './WorldStreamer';

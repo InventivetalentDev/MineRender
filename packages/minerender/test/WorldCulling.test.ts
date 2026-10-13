@@ -217,6 +217,143 @@ function templateOf(world: MineRenderWorld<boolean>, position: TripleArray) {
     return chunk["sectionBlocks"].get(Chunk.chunkPosToBlockIndex(chunk.worldPosToChunkPos(point)))![0].template;
 }
 
+function topCornerColors(world: MineRenderWorld<true>, position: TripleArray): number[] {
+    const point = new Vector3(...position), chunk = world.getChunkAt(point)!;
+    const geometries = chunk["sectionMesh"]!.children.map(child => (child as Mesh).geometry);
+    const [x, y, z] = chunk.worldPosToChunkPos(point).multiplyScalar(16).toArray();
+    const colors: { x: number; z: number; color: number }[] = [];
+    for (const geometry of geometries) {
+        const positions = geometry.getAttribute("position"), normals = geometry.getAttribute("normal");
+        const color = geometry.getAttribute("color");
+        for (let vertex = 0; vertex < positions.count; vertex++) {
+            if (normals.getY(vertex) !== 1 || positions.getY(vertex) !== y + 8
+                || Math.abs(positions.getX(vertex) - x) !== 8 || Math.abs(positions.getZ(vertex) - z) !== 8) continue;
+            colors.push({ x: positions.getX(vertex), z: positions.getZ(vertex), color: color?.getX(vertex) ?? 1 });
+        }
+    }
+    return colors.sort((a, b) => a.x - b.x || a.z - b.z).map(({ color }) => +color.toFixed(4));
+}
+
+test.serial("ambient occlusion defaults off and toggles loaded section geometry", async t => {
+    const { world, place } = fixture(t, { sectionMeshing: true });
+    const target: TripleArray = [0, 0, 0];
+    const block = await place(target);
+    const chunk = world.getChunkAt(new Vector3(...target))!;
+    const build = chunk["buildAmbientOcclusionCells"].bind(chunk);
+    let builds = 0;
+    chunk["buildAmbientOcclusionCells"] = () => { builds++; return build(); };
+    await place([1, 1, 1]);
+    t.false(world.ambientOcclusion);
+    t.deepEqual(topCornerColors(world, target), [1, 1, 1, 1]);
+    await world.setAmbientOcclusion(false);
+    t.is(builds, 0);
+    t.is(chunk["ambientOcclusionCells"], undefined);
+    await world.setAmbientOcclusion(true);
+    t.true(world.ambientOcclusion);
+    t.is(world.getBlockAt(target), block);
+    t.deepEqual(topCornerColors(world, target), [1, 1, 1, 0.8]);
+    const previousBuilds = builds;
+    await world.setAmbientOcclusion(true);
+    t.is(builds, previousBuilds);
+    await world.setAmbientOcclusion(false);
+    t.deepEqual(topCornerColors(world, target), [1, 1, 1, 1]);
+    t.is(chunk["ambientOcclusionCells"], undefined);
+    const disabledBuilds = builds;
+    await world.setBlockAt([1, 1, 1], undefined);
+    t.is(builds, disabledBuilds);
+    await t.throwsAsync(world.setAmbientOcclusion(1 as unknown as boolean), { instanceOf: TypeError });
+    t.false(world.ambientOcclusion);
+});
+
+test.serial("ambient occlusion refreshes signed corner boundaries on visibility, replacement, column reload, and clear", async t => {
+    const { world, place, addModel } = fixture(t, { sectionMeshing: true, ambientOcclusion: true });
+    addModel("partial", { height: 8 });
+    addModel("transparent", { transparent: true });
+    const target: TripleArray = [-1, -1, -1], blocker: TripleArray = [0, 0, 0];
+    await place(target);
+    t.deepEqual(topCornerColors(world, target), [1, 1, 1, 1]);
+    await place(blocker);
+    t.deepEqual(topCornerColors(world, target), [1, 1, 1, 0.8]);
+    await world.setBlockVisibleAt(blocker, false);
+    t.deepEqual(topCornerColors(world, target), [1, 1, 1, 1]);
+    t.is(world.getBlockAt(blocker)!.block.type, "test:cube");
+    await world.setBlockVisibleAt(blocker, true);
+    t.deepEqual(topCornerColors(world, target), [1, 1, 1, 0.8]);
+    for (const type of ["partial", "transparent"]) {
+        await place(blocker, type);
+        t.deepEqual(topCornerColors(world, target), [1, 1, 1, 1]);
+    }
+    const data = new ChunkData();
+    data.set(0, { type: "test:cube" });
+    const column = { x: 0, z: 0, sections: [{ y: 0, data }] };
+    await world.placeChunk(column);
+    t.deepEqual(topCornerColors(world, target), [1, 1, 1, 0.8]);
+    await world.unloadChunkColumn(0, 0);
+    t.deepEqual(topCornerColors(world, target), [1, 1, 1, 1]);
+    await world.placeChunk(column);
+    t.deepEqual(topCornerColors(world, target), [1, 1, 1, 0.8]);
+    await world.getChunkAt(new Vector3(...blocker))!.clear();
+    t.deepEqual(topCornerColors(world, target), [1, 1, 1, 1]);
+});
+
+test.serial("ambient occlusion respects model opt-outs and multiplies saved lighting", async t => {
+    const { world, addModel } = fixture(t, { sectionMeshing: true, ambientOcclusion: true, savedLighting: true });
+    Object.assign(addModel("flat"), { ambientocclusion: false });
+    const data = new ChunkData();
+    data.set(0, { type: "test:cube" });
+    data.set(1 + 16 + 256, { type: "test:cube" });
+    data.set(4, { type: "test:flat" });
+    data.set(5 + 16 + 256, { type: "test:cube" });
+    await world.placeChunk({ x: 0, z: 0, lightValid: true,
+        sections: [{ y: 0, data, light: { sky: new Uint8Array(2048).fill(0xaa) } }] });
+    t.deepEqual(topCornerColors(world, [0, 0, 0]), [0.3333, 0.3333, 0.3333, 0.2667]);
+    t.deepEqual(topCornerColors(world, [4, 0, 0]), [0.3333, 0.3333, 0.3333, 0.3333]);
+    await world.setAmbientOcclusion(false);
+    t.deepEqual(topCornerColors(world, [0, 0, 0]), [0.3333, 0.3333, 0.3333, 0.3333]);
+    t.deepEqual(world.getLightAt(0, 0, 0), { block: 0, sky: 10 });
+});
+
+test.serial("a newer ambient-occlusion toggle wins while the earlier section rebuild is pending", async t => {
+    const { world, place } = fixture(t, { sectionMeshing: true });
+    await place([0, 0, 0]);
+    await place([1, 1, 1]);
+    const chunk = world.getChunkAt(new Vector3())!, build = SectionMesh.buildAsync;
+    let release!: () => void, entered!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const started = new Promise<void>(resolve => { entered = resolve; });
+    let first = true;
+    SectionMesh.buildAsync = async (...args) => {
+        if (first) { first = false; entered(); await gate; }
+        return build.call(SectionMesh, ...args);
+    };
+    t.teardown(() => { release(); SectionMesh.buildAsync = build; });
+    const enabled = world.setAmbientOcclusion(true);
+    await started;
+    const disabled = world.setAmbientOcclusion(false);
+    release();
+    await Promise.all([enabled, disabled]);
+    t.false(world.ambientOcclusion);
+    t.is(chunk["ambientOcclusionCells"], undefined);
+    t.deepEqual(topCornerColors(world, [0, 0, 0]), [1, 1, 1, 1]);
+});
+
+test.serial("an ambient-occlusion toggle retries a failed section rebuild", async t => {
+    const { world, place } = fixture(t, { sectionMeshing: true });
+    await place([0, 0, 0]);
+    await place([1, 1, 1]);
+    const build = SectionMesh.buildAsync;
+    let failed = false;
+    SectionMesh.buildAsync = async (...args) => {
+        if (!failed) { failed = true; throw new Error("section rebuild failed"); }
+        return build.call(SectionMesh, ...args);
+    };
+    t.teardown(() => { SectionMesh.buildAsync = build; });
+    await t.throwsAsync(world.setAmbientOcclusion(true), { message: "section rebuild failed" });
+    t.deepEqual(topCornerColors(world, [0, 0, 0]), [1, 1, 1, 1]);
+    await world.setAmbientOcclusion(true);
+    t.deepEqual(topCornerColors(world, [0, 0, 0]), [1, 1, 1, 0.8]);
+});
+
 for (const sectionMeshing of [false, true]) {
     for (const batched of [false, true]) {
         test.serial(`biomes survive air-only placement and block edits, then clear with their column (sectionMeshing=${sectionMeshing}, batched=${batched})`, async t => {
@@ -299,6 +436,121 @@ for (const sectionMeshing of [false, true]) {
         });
     }
 }
+
+for (const sectionMeshing of [false, true]) {
+    for (const batched of [false, true]) {
+        test.serial(`saved light survives air-only placement and edits, then clears with its section or column (sectionMeshing=${sectionMeshing}, batched=${batched})`, async t => {
+            const { world, place } = fixture(t, { sectionMeshing, savedLighting: sectionMeshing });
+            const executor = batched ? new BatchedExecutor(1, 1) : undefined;
+            t.teardown(() => executor?.stop());
+            const block = Buffer.from(Array.from({ length: 2048 }, (_, index) => index * 13 + 7));
+            const sky = Uint8Array.from({ length: 2048 }, (_, index) => index * 7 + 11);
+            const expectedBlock = new Uint8Array(block), expectedSky = sky.slice();
+            const air = new ChunkData(), blocks = new ChunkData();
+            blocks.set(0, { type: "test:cube" });
+            const column = { x: -2, z: -1, lightValid: true, sections: [
+                { y: -1, data: blocks, light: { block: new Uint8Array(2048).fill(0x43) } },
+                { y: -2, data: air, light: { block, sky } },
+                { y: 0, data: air }
+            ] };
+            await world.placeChunk(column, executor);
+            t.is(world.getChunkAt(new Vector3(-32, -32, -16)), undefined);
+            block.fill(0);
+            sky.fill(0);
+            for (const index of [0, 1, 15, 16, 255, 256, 2047, 2048, 4094, 4095]) {
+                const position = new Vector3(-32 + index % 16, -32 + Math.floor(index / 256), -16 + Math.floor(index / 16) % 16);
+                const shift = (index & 1) * 4;
+                const expected = { block: (expectedBlock[index >> 1] >> shift) & 15, sky: (expectedSky[index >> 1] >> shift) & 15 };
+                t.deepEqual(world.getLightAt(position), expected);
+                t.deepEqual(world.getLightAt(position.toArray()), expected);
+            }
+            t.deepEqual(world.getLightAt(-32, -16, -16), { block: 3, sky: 15 });
+            t.deepEqual(world.getLightAt(-31, -16, -16), { block: 4, sky: 15 });
+            t.deepEqual(world.getLightAt(-32, 0, -16), { block: 0, sky: 15 });
+            t.deepEqual(world.getLightAt(-32, 40, -16), { block: 0, sky: 15 });
+            for (const position of [[-33, -32, -16], [-32, -33, -16], [-32, -32, -17]] as TripleArray[]) {
+                t.is(world.getLightAt(position), undefined);
+            }
+            for (const position of [new Vector3(-32.5, -32, -16), new Vector3(NaN, 0, 0)]) {
+                t.throws(() => world.getLightAt(position), { instanceOf: RangeError });
+            }
+            const expected = { block: 7, sky: 11 };
+            world.getLightAt(-32, -32, -16)!.block = 0;
+            await place([-32, -32, -16]);
+            await world.setBlockVisibleAt([-32, -32, -16], false);
+            t.deepEqual(world.getLightAt(-32, -32, -16), expected);
+            await world.setBlockVisibleAt([-32, -32, -16], true);
+            await world.setBlockAt(-32, -32, -16, undefined);
+            t.deepEqual(world.getLightAt(-32, -32, -16), expected);
+            await world.getChunkAt(new Vector3(-32, -32, -16))!.clear();
+            t.is(world.getLightAt(-32, -32, -16), undefined);
+            t.deepEqual(world.getLightAt(-32, -16, -16), { block: 3, sky: 0 });
+            await world.placeChunk({ x: -2, z: -1, sections: [{ y: -1, data: blocks }] }, executor);
+            t.is(world.getLightAt(-32, -16, -16), undefined);
+            t.is(world.getLightAt(-32, 0, -16), undefined);
+            await world.placeChunk(column, executor);
+            await world.unloadChunkColumn(-2, -1);
+            t.is(world.getLightAt(-32, -16, -16), undefined);
+            t.is(world.getLightAt(-32, -32, -16), undefined);
+            await world.placeChunk(column, executor);
+            await world.clear();
+            t.is(world.getLightAt(-32, -16, -16), undefined);
+            t.is(world.getLightAt(-32, -32, -16), undefined);
+        });
+    }
+}
+
+test.serial("blocks above saved sky arrays keep full brightness while block-only columns use ambient light", async t => {
+    const { world, scene, place } = fixture(t, { sectionMeshing: true, savedLighting: true, ambientLight: 0.25 });
+    const colors = () => {
+        const section = scene.children.find(child => child instanceof SectionMesh);
+        return Array.from((section!.children[0] as Mesh).geometry.getAttribute("color").array);
+    };
+    await place([8, 40, 8]);
+    const unlit = colors(), data = new ChunkData(), block = new Uint8Array(2048);
+    t.true(unlit.some(value => value > 0));
+    for (const sky of [new Uint8Array(2048), undefined]) {
+        await world.placeChunk({ x: 0, z: 0, lightValid: true, sections: [
+            { y: 0, data, light: { block, sky } },
+            { y: 2, data, light: { block } }
+        ] });
+        await place([8, 40, 8]);
+        t.deepEqual(world.getLightAt(8, 40, 8), { block: 0, sky: sky ? 15 : 0 });
+        t.deepEqual(colors(), sky ? unlit : unlit.map(value => value * 0.25));
+    }
+});
+
+test.serial("saved light remains available without rendering and invalid replacement arrays preserve the existing column", async t => {
+    const { world } = fixture(t);
+    t.throws(() => new MineRenderWorld(world.scene, { savedLighting: true }), { instanceOf: TypeError, message: "savedLighting requires sectionMeshing" });
+    const expected = { instanceOf: TypeError, message: "ambientOcclusion requires sectionMeshing" };
+    t.throws(() => new MineRenderWorld(world.scene, { ambientOcclusion: true }), expected);
+    await t.throwsAsync(world.setAmbientOcclusion(true), expected);
+    await t.notThrowsAsync(world.setAmbientOcclusion(false));
+    t.false(world.ambientOcclusion);
+    for (const ambientLight of [-0.1, 1.1, NaN]) {
+        t.throws(() => new MineRenderWorld(world.scene, { ambientLight }), {
+            instanceOf: RangeError, message: "ambientLight must be a number from 0 to 1"
+        });
+    }
+    const data = new ChunkData();
+    data.set(0, { type: "test:cube" });
+    const column = { x: 0, z: 0, lightValid: false, sections: [
+        { y: 0, data, light: { sky: new Uint8Array(2048).fill(0x87) } }
+    ] };
+    await world.placeChunk(column);
+    t.deepEqual(world.getLightAt(0, 0, 0), { block: 0, sky: 7 });
+    const placed = world.getBlockAt(0, 0, 0);
+    for (const channel of ["block", "sky"]) {
+        for (const bytes of [new Uint8Array(2047), new Uint8Array(2049), Array(2048).fill(0)]) {
+            await t.throwsAsync(world.placeChunk({ ...column, sections: [
+                { y: 0, data, light: { [channel]: bytes as unknown as Uint8Array } }
+            ] }), { instanceOf: RangeError, message: `Section ${channel} light must contain 2048 packed bytes` });
+            t.is(world.getBlockAt(0, 0, 0), placed);
+            t.deepEqual(world.getLightAt(0, 0, 0), { block: 0, sky: 7 });
+        }
+    }
+});
 
 function assertFluidPositions(t: ExecutionContext, world: MineRenderWorld<boolean>, scene: MineRenderScene, positions: TripleArray[]): number[] {
     const origin = new Vector3(...positions[0]).divideScalar(16).floor().multiplyScalar(256);
