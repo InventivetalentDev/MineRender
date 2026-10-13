@@ -34,3 +34,6 @@ Run `yarn doc` to build the API reference into `packages/minerender/docs/`, or
 `yarn doc:dev` for a live preview. Hand-written pages live in `packages/minerender/reference/`.
 
 See [AGENTS.md](./AGENTS.md) for architecture, contributor conventions, and publishing instructions.
+
+## Credits
+- [Andre601](https://github.com/Andre601) for the V2 logo
