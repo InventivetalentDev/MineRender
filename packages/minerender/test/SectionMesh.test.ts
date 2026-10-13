@@ -1,6 +1,6 @@
 import { installMineRenderDataFixtures } from "./helpers/minerender-data";
 import test, { ExecutionContext } from "ava";
-import { BoxGeometry, Color, DoubleSide, Float32BufferAttribute, FrontSide, Group, Matrix4, Mesh, ShaderMaterial, Texture } from "three";
+import { BoxGeometry, Color, DoubleSide, Float32BufferAttribute, FrontSide, Group, Matrix4, Mesh, Raycaster, ShaderMaterial, Texture, Vector3 } from "three";
 import { CanvasImage } from "../src/canvas/CanvasImage";
 import { CompatCanvas } from "../src/canvas/CanvasCompat";
 import { Env, EnvProvider } from "../src/Env";
@@ -280,6 +280,11 @@ test.serial("async section builds use the shared worker without copying its geom
             t.is(geometry.getAttribute(name).array.buffer, values.buffer);
         }
         t.is(geometry.getIndex()!.array.buffer, page.indices.buffer);
+        for (const [x, z, index] of [[16, 0, 1], [0, 16, 16], [64, 48, 564]]) {
+            const ray = new Raycaster(new Vector3(x, 100, z), new Vector3(0, -1, 0));
+            const hit = ray.intersectObject(actual[i], true)[0];
+            t.is(actual[i].getBlockIndex(hit), index);
+        }
     }
 });
 

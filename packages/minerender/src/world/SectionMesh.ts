@@ -5,6 +5,7 @@ import type { MineRenderScene } from "../renderer/MineRenderScene";
 import { TextureAtlas } from "../texture/TextureAtlas";
 import { buildSectionGeometry, SectionGeometryInput, SectionGeometryPage, SectionTemplateData } from "./SectionGeometry";
 import { SectionWorker } from "./SectionWorker";
+import type { Intersection } from "three";
 
 /** Shared quad geometry and atlas data prepared for section merging. */
 export interface SectionMeshTemplate {
@@ -119,6 +120,13 @@ function toInput(entries: readonly SectionMeshEntry[], maxAtlasSize: number, flu
 export class SectionMesh extends Group {
 
     private readonly ownedMeshes: { mesh: Mesh<BufferGeometry, Material>; texture?: Texture; unsubscribe: (() => void)[] }[] = [];
+    private readonly blockIndices = new Map<Mesh, Uint16Array>();
+
+    /** Returns the owning section cell for a triangle hit on this mesh's merged geometry. */
+    public getBlockIndex(hit: Intersection): number | undefined {
+        if (hit.faceIndex === undefined || hit.faceIndex === null) return undefined;
+        return this.blockIndices.get(hit.object as Mesh)?.[Math.floor(hit.faceIndex / 2)];
+    }
 
     /** Builds section-local meshes from visible quads. `maxAtlasSize` limits each atlas dimension in pixels. */
     public static build(entries: readonly SectionMeshEntry[], maxAtlasSize = 2048, fluids?: SectionFluids,
@@ -166,6 +174,7 @@ export class SectionMesh extends Group {
             const texture = (material as ShaderMaterial).uniforms?.map?.value ?? (material as MeshBasicMaterial).map;
             const mesh = new Mesh(geometry, material);
             section.add(mesh);
+            section.blockIndices.set(mesh, page.blockIndices);
             const unsubscribe: (() => void)[] = [];
             for (const { atlas: id, x, y } of page.placements) {
                 const atlas = atlases[id];
@@ -192,6 +201,7 @@ export class SectionMesh extends Group {
             mesh.material.dispose();
             texture?.dispose();
         }
+        this.blockIndices.clear();
         this.removeFromParent();
         super.dispose();
     }

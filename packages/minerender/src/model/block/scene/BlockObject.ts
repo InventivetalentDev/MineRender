@@ -111,6 +111,11 @@ export class BlockObject extends SceneObject {
         return this._entities;
     }
 
+    /** Model placements drawn for this block, including its fluid surface. */
+    public get models(): readonly (ModelObject | InstanceReference<ModelObject>)[] {
+        return this._models;
+    }
+
     /** Sets visibility for this block's model instances and block entities. */
     public setVisible(visible: boolean): void {
         this.visible = visible;

@@ -35,6 +35,7 @@ test("section geometry retains baked rotation, tint and atlas UVs", t => {
     const page = pages[0];
     t.is(page.positions.length / 3, 44);
     t.is(page.indices.length, 66);
+    t.deepEqual(Array.from(page.blockIndices), [...Array(5).fill(1), ...Array(6).fill(16)]);
     const positions = Array.from({ length: 3 }, (_, axis) => Array.from(page.positions).filter((_, index) => index % 3 === axis));
     t.deepEqual(positions.map(axis => Math.min(...axis)), [-8, -8, -8]);
     t.deepEqual(positions.map(axis => Math.max(...axis)), [24, 8, 24]);
@@ -60,6 +61,7 @@ test("section geometry pages overflowing atlases and retains untagged faces", t 
     t.is(pages.length, 2);
     t.deepEqual(pages.map(page => [page.width, page.height]), [[2, 2], [2, 2]]);
     t.deepEqual(pages.map(page => page.indices.length), [12, 6]);
+    t.deepEqual(pages.map(page => Array.from(page.blockIndices)), [[1, 256], [16]]);
     t.deepEqual(pages.map(page => page.placements), [[{ atlas: 0, x: 0, y: 0 }], [{ atlas: 1, x: 0, y: 0 }]]);
 });
 
@@ -68,10 +70,10 @@ test("section geometry exposes every output array buffer for transfer", t => {
     source.maxAtlasSize = 2;
     const pages = buildSectionGeometry(source);
     const buffers = sectionGeometryTransferables(pages);
-    t.is(buffers.length, pages.length * 6);
+    t.is(buffers.length, pages.length * 7);
     let index = 0;
     for (const page of pages) {
-        for (const array of [page.positions, page.normals, page.uvs, page.uvBounds, page.colors, page.indices]) t.is(buffers[index++], array.buffer);
+        for (const array of [page.positions, page.normals, page.uvs, page.uvBounds, page.colors, page.indices, page.blockIndices]) t.is(buffers[index++], array.buffer);
     }
 });
 
@@ -127,6 +129,7 @@ test("section fluid pages emit only inner cells and map both sprites and tint", 
     t.deepEqual([page.width, page.height], [8, 4]);
     t.deepEqual(page.placements, [{ atlas: 2, x: 0, y: 0 }]);
     t.is(page.indices.length, 36);
+    t.deepEqual(Array.from(page.blockIndices), Array(6).fill(832));
     t.is(page.positions[0], -8);
     t.is(page.positions[2], 56);
     t.deepEqual(Array.from(page.indices.slice(0, 6)), [0, 1, 2, 0, 2, 3]);
@@ -140,6 +143,7 @@ test("section fluid pages emit only inner cells and map both sprites and tint", 
     cells[cell(-1, 3, 4)] = cells[cell(-1, 4, 4)] = 16;
     const [border] = buildSectionGeometry(source);
     t.is(border.indices.length, 30);
+    t.deepEqual(Array.from(border.blockIndices), Array(5).fill(832));
     t.true(border.positions[1] > page.positions[1]);
     t.true(Math.abs(border.positions[1] - (48 + 8 - 0.016)) < 1e-5);
     cells.fill(16);
