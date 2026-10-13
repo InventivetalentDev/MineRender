@@ -36,7 +36,7 @@ With `sectionMeshing: true`, changed sections rebuild after the placement promis
 
 When the exact dataset version is missing, MineRender selects the nearest published patch in the same release line, preferring the older patch on a tie. Otherwise it uses the latest earlier published release. Releases older than the published data use the oldest available release; an unpublished snapshot rejects. Models and textures retain the requested asset version. A missing dataset or failed request rejects rather than returning an empty registry.
 
-`BlockStates.get`, item keys in `Models.getMerged`, and saved world entities replace older IDs through the optional `renames` dataset. An ID the selected version still registers keeps its meaning, and stored world data keeps the input's ID. Published data without this dataset applies no renames; it is the only dataset whose absence does not reject. `Renames.resolve(kind, id, dataVersion?, root?)` returns the replacement directly and accepts the input's DataVersion when the caller knows it.
+`BlockStates.get`, item keys in `Models.getMerged`, and saved world entities replace older IDs through the optional `renames` dataset. An ID the selected version still registers keeps its meaning, and stored world data keeps the input's ID. Published data without this dataset applies no renames and does not reject. `Renames.resolve(kind, id, dataVersion?, root?)` returns the replacement directly and accepts the input's DataVersion when the caller knows it.
 
 Inspect the selected registry version with `resolve`:
 
