@@ -22,6 +22,12 @@ export class DisplayTransforms {
 
     /** Build a display pose for geometry already centered at the model's [8, 8, 8] pivot. */
     public static getMatrix(display: Model["display"], position: DisplayPosition): Matrix4 {
+        const transform = this.getTransform(display, position);
+        return new Matrix4().compose(transform.position, transform.quaternion, transform.scale);
+    }
+
+    /** Position, rotation, and scale of a display pose for geometry already centered at the model's [8, 8, 8] pivot. */
+    public static getTransform(display: Model["display"], position: DisplayPosition): { position: Vector3; quaternion: Quaternion; scale: Vector3 } {
         const transform = this.withHandFallbacks(display)?.[position] ?? {};
         const left = position === DisplayPosition.FIRSTPERSON_LEFTHAND || position === DisplayPosition.THIRDPERSON_LEFTHAND;
         const sign = left ? -1 : 1;
@@ -31,7 +37,7 @@ export class DisplayTransforms {
         const translation = new Vector3(...(transform.translation ?? [0, 0, 0])).clampScalar(-80, 80);
         translation.x *= sign;
         const scale = new Vector3(...(transform.scale ?? [1, 1, 1])).clampScalar(-4, 4);
-        return new Matrix4().compose(translation, rotation, scale);
+        return { position: translation, quaternion: rotation, scale };
     }
 
     /** Transforms geometry in place and reverses triangle winding when the matrix reflects it. */
