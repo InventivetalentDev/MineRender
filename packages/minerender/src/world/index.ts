@@ -12,4 +12,5 @@ export * from './SectionWorker';
 export * from './WorldBlockIntersection';
 export * from './WorldChunkSource';
 export * from './WorldEntityIntersection';
+export * from './WorldLight';
 export * from './WorldStreamer';

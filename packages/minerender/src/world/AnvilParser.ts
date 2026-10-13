@@ -6,6 +6,7 @@ import { resolveLegacyBlockState } from "../model/multiblock/LegacyBlocks";
 import { MineRenderData } from "../assets/MineRenderData";
 import { NBTHelper } from "../nbt/NBTHelper";
 import { ChunkData } from "./ChunkData";
+import type { SectionLightData } from "./WorldLight";
 import { decodeAnvilLz4 } from "./_compression/Lz4";
 
 type CompoundValue = Compound["value"];
@@ -49,6 +50,8 @@ export interface AnvilChunk {
     x: number;
     z: number;
     dataVersion?: number;
+    /** Whether the save marks its lighting as complete. Unknown for numeric legacy chunks without a validity flag. */
+    lightValid?: boolean;
     /** DataVersion of the separate entity-region record; `dataVersion` belongs to the terrain. */
     entityDataVersion?: number;
     sections: {
@@ -56,6 +59,8 @@ export interface AnvilChunk {
         data: ChunkData;
         /** 64 saved biome IDs, indexed by x + z * 4 + y * 16 at 4-block resolution. */
         biomes?: readonly string[];
+        /** Saved block and sky light, including light-only sections outside the terrain. */
+        light?: SectionLightData;
     }[];
     entities?: MultiBlockEntity[];
 }
@@ -224,9 +229,18 @@ export class AnvilParser {
         const { root, expected } = await this.readNBT(data, location, options);
         const level = root.Level?.type === "compound" ? root.Level.value : root;
         const dataVersion = root.DataVersion?.type === "int" ? root.DataVersion.value : undefined;
+        const sections = this.compounds(level.sections ?? level.Sections, "sections");
+        const lightFlagName = level.isLightOn ? "isLightOn" : "LightPopulated";
+        const lightFlag = level[lightFlagName];
+        if (lightFlag && (lightFlag.type !== "byte" || (lightFlag.value !== 0 && lightFlag.value !== 1))) {
+            throw new MineRenderError(`Anvil ${lightFlagName} must be a byte containing 0 or 1`);
+        }
+        // Modern saves invalidate lighting by removing isLightOn; numeric legacy saves may omit their flag.
+        const modernLighting = root.Level?.type !== "compound" || sections.some(section => section.Palette || section.BlockStates || section.block_states);
+        const lightValid = lightFlag ? lightFlag.value === 1 : modernLighting ? false : undefined;
         const chunk: AnvilChunk = {
             x: this.integer(level.xPos, "xPos"), z: this.integer(level.zPos, "zPos"),
-            dataVersion, sections: []
+            dataVersion, sections: [], ...(lightValid !== undefined ? { lightValid } : {})
         };
         if (((chunk.x % 32) + 32) % 32 !== location.x || ((chunk.z % 32) + 32) % 32 !== location.z) {
             throw new MineRenderError("Anvil chunk coordinates do not match its region location");
@@ -236,7 +250,7 @@ export class AnvilParser {
         }
         const numericStates = new Map<number, Block | undefined>();
         let legacyMappings: Readonly<Record<string, string>> | undefined;
-        for (const section of this.compounds(level.sections ?? level.Sections, "sections")) {
+        for (const section of sections) {
             const y = this.integer(section.Y, "section Y");
             let data: ChunkData;
             if (section.Blocks || section.Data || section.Add) {
@@ -267,7 +281,8 @@ export class AnvilParser {
             }
             if (chunk.sections.some(section => section.y === y)) throw new MineRenderError(`Duplicate Anvil section Y ${y}`);
             const biomes = this.biomes(section.biomes);
-            chunk.sections.push({ y, data, ...(biomes ? { biomes } : {}) });
+            const light = this.light(section, y, chunk.lightValid);
+            chunk.sections.push({ y, data, ...(biomes ? { biomes } : {}), ...(light ? { light } : {}) });
         }
         for (const entry of this.compounds(level.block_entities ?? level.TileEntities, "block entities")) {
             const x = this.integer(entry.x, "block entity x") - chunk.x * 16;
@@ -324,6 +339,19 @@ export class AnvilParser {
             }
             return { position: [...position.value.value] as [number, number, number], nbt: { type: "compound", value } };
         });
+    }
+
+    private static light(section: CompoundValue, y: number, valid?: boolean): SectionLightData | undefined {
+        const light: SectionLightData = {};
+        for (const [name, channel] of [["BlockLight", "block"], ["SkyLight", "sky"]] as const) {
+            const tag = section[name];
+            if (!tag) continue;
+            if (tag.type !== "byteArray" || !Array.isArray(tag.value) || tag.value.length !== 2048) {
+                throw new MineRenderError(`Anvil section ${y} ${name} must contain 2048 bytes`);
+            }
+            light[channel] = Uint8Array.from(tag.value);
+        }
+        return light.block || light.sky || valid ? light : undefined;
     }
 
     private static biomes(tag: NBTTag): string[] | undefined {

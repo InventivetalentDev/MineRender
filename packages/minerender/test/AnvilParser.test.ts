@@ -694,8 +694,96 @@ test("Anvil rejects malformed palettes instead of silently replacing them with a
     const unknownVersion = chunk([{ Y: int(0), Palette: list(Array.from({ length: 17 }, () => ({ Name: string("minecraft:stone") }))),
         BlockStates: longs(Array<bigint>(342).fill(0n)) }], { modern: false, version: null });
     await t.throwsAsync(() => AnvilParser.parse(region({ nbt: unknownVersion })), { message: /DataVersion is required/ });
-    const lightingOnly = await AnvilParser.parse(region({ nbt: chunk([{ Y: int(0), BlockLight: { type: "byteArray", value: [0] } }]) }));
+    const lightingOnly = await AnvilParser.parse(region({ nbt: chunk([{ Y: int(0), BlockLight: bytes(Array(2048).fill(0)) }]) }));
     t.is(lightingOnly.chunks[0].sections[0].data.get(0), undefined);
+});
+
+test("Anvil preserves packed block and sky light in numeric and paletted sections", async t => {
+    const block = Array.from({ length: 2048 }, (_, index) => (index % 256) - 128);
+    const sky = Array.from({ length: 2048 }, (_, index) => 127 - (index % 256));
+    const encodings = [
+        { modern: false, version: 1343, state: { Blocks: bytes(Array(4096).fill(1)) } },
+        { modern: false, version: 2730, state: { Palette: list([{ Name: string("minecraft:stone") }]) } },
+        { modern: true, version: 2865, state: { block_states: compound({ palette: list([{ Name: string("minecraft:stone") }]) }) } }
+    ];
+    for (const { modern, version, state } of encodings) {
+        const parsed = (await AnvilParser.parseChunk(region({ nbt: chunk([
+            { Y: int(-4), ...state, BlockLight: bytes(block), SkyLight: bytes(sky) }
+        ], { modern, version, extra: { [modern ? "isLightOn" : "LightPopulated"]: { type: "byte", value: 0 } } }) }), 31, 30))!;
+        t.is(parsed.sections[0].y, -4);
+        t.false(parsed.lightValid);
+        t.is(parsed.sections[0].data.get(4095)?.type, "minecraft:stone");
+        t.deepEqual(parsed.sections[0].light, { block: Uint8Array.from(block), sky: Uint8Array.from(sky) });
+    }
+});
+
+test("Anvil retains light-only sections and distinguishes missing light channels from saved darkness", async t => {
+    const zeros = bytes(Array(2048).fill(0));
+    const parsed = (await AnvilParser.parseChunk(region({ nbt: chunk([
+        { Y: int(-5), SkyLight: zeros },
+        { Y: int(-4), BlockLight: zeros },
+        { ...uniform("minecraft:air"), Y: int(-3), BlockLight: zeros, SkyLight: zeros },
+        { Y: int(-2) }
+    ]) }), 31, 30))!;
+    t.deepEqual(parsed.sections.map(section => section.y), [-5, -4, -3, -2]);
+    t.deepEqual(parsed.sections.map(section => section.light), [
+        { sky: new Uint8Array(2048) },
+        { block: new Uint8Array(2048) },
+        { block: new Uint8Array(2048), sky: new Uint8Array(2048) },
+        undefined
+    ]);
+    t.true(parsed.sections.every(section => section.data.get(0) === undefined));
+    parsed.sections[0].light!.sky![0] = 255;
+    t.is(parsed.sections[2].light!.sky![0], 0);
+});
+
+test("Anvil preserves light validity and recognizes omitted zero channels only in completed lighting", async t => {
+    for (const modern of [false, true]) {
+        const name = modern ? "isLightOn" : "LightPopulated";
+        for (const value of [undefined, 0, 1]) {
+            const extra: Tags = value === undefined ? {} : { [name]: { type: "byte", value } };
+            const parsed = (await AnvilParser.parseChunk(region({ nbt: chunk([
+                uniform(), { Y: int(-3) }
+            ], { modern, extra }) }), 31, 30))!;
+            t.is(parsed.lightValid, value === 1);
+            t.deepEqual(parsed.sections.map(section => section.light), value === 1 ? [{}, {}] : [undefined, undefined]);
+        }
+        for (const value of [int(1), { type: "byte" as const, value: 2 }]) {
+            await t.throwsAsync(() => AnvilParser.parse(region({ nbt: chunk([uniform()], { modern, extra: { [name]: value } }) })), {
+                message: `Anvil ${name} must be a byte containing 0 or 1`
+            });
+        }
+    }
+});
+
+test("Anvil marks modern arrays without a validity flag stale while leaving numeric legacy validity unknown", async t => {
+    const light = bytes(Array(2048).fill(-1));
+    const states = [
+        { Blocks: bytes(Array(4096).fill(1)) },
+        { Palette: list([{ Name: string("minecraft:stone") }]) },
+        { block_states: compound({ palette: list([{ Name: string("minecraft:stone") }]) }) }
+    ];
+    for (const modern of [false, true]) {
+        for (const state of states) {
+            const parsed = (await AnvilParser.parseChunk(region({ nbt: chunk([
+                { Y: int(-4), ...state, BlockLight: light }
+            ], { modern }) }), 31, 30))!;
+            t.is(parsed.lightValid, !modern && "Blocks" in state ? undefined : false);
+            t.deepEqual(parsed.sections[0].light, { block: new Uint8Array(2048).fill(255) });
+        }
+    }
+});
+
+test("Anvil rejects malformed light arrays in terrain and light-only sections", async t => {
+    for (const name of ["BlockLight", "SkyLight"]) {
+        for (const value of [int(0), bytes([]), bytes(Array(2047).fill(0)), bytes(Array(2049).fill(0))]) {
+            for (const state of [{}, uniform()]) {
+                await t.throwsAsync(() => AnvilParser.parse(region({ nbt: chunk([
+                    { ...state, Y: int(-4), [name]: value }
+                ]) })), { message: `Anvil section -4 ${name} must contain 2048 bytes` });
+            }
+        }
+    }
 });
 
 test("Anvil preserves uniform biome IDs in air-only sections and leaves absent or legacy biome data unknown", async t => {

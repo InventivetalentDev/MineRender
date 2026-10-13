@@ -41,7 +41,10 @@ const options = {
     outdir: args.production ? 'dist' : 'src',
     entryNames: '[dir]/[name].bundle',
     format: 'esm',
-    define: { MINERENDER_PLAYGROUND_HOME: JSON.stringify(args.production ? "/demo/" : "../../") },
+    define: {
+        MINERENDER_PLAYGROUND_HOME: JSON.stringify(args.production ? "/demo/" : "../../"),
+        MINERENDER_EMBED_URL: JSON.stringify(process.env.EMBED_URL ?? "https://beta.minerender.org/embed/"),
+    },
     plugins: [
         polyfillNode({
             polyfills: { zlib: true },

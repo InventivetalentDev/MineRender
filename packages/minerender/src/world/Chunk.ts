@@ -51,13 +51,17 @@ export class Chunk<SectionMeshing extends boolean = false> {
     private sectionMesh?: SectionMesh;
     private meshDirty = false;
     private meshGeneration = 0;
+    private ambientOcclusionCells?: Uint8Array;
 
     constructor(scene: MineRenderScene, x: number, y: number, z: number,
                 private readonly onBlocksChanged?: (positions: Vector3[]) => Promise<void>,
                 private readonly sectionModels?: SectionModels,
                 private readonly neighborCell?: (x: number, y: number, z: number) => number,
                 private readonly biomeAt?: (x: number, y: number, z: number) => Maybe<string>,
-                private readonly onBiomesChanged?: (biomes?: readonly string[]) => Promise<void>) {
+                private readonly onBiomesChanged?: (biomes?: readonly string[]) => Promise<void>,
+                private readonly lightAt?: (x: number, y: number, z: number) => number,
+                private readonly onLightCleared?: () => Promise<void>,
+                private readonly ambientLight = 0) {
         this.scene = scene;
         this.x = x;
         this.y = y;
@@ -418,6 +422,38 @@ export class Chunk<SectionMeshing extends boolean = false> {
         return [this.x * 16 + index % 16, this.y * 16 + Math.floor(index / 256), this.z * 16 + Math.floor(index / 16) % 16];
     }
 
+    /** Refreshes saved lighting after adjacent columns load or unload, including columns with only light data. */
+    public async refreshLight(indices?: Iterable<number>): Promise<void> {
+        if (!this.lightAt) return;
+        for (const index of indices ?? this.renderedBlocks.keys()) {
+            if (this.renderedBlocks.has(index)) this.meshDirty = true;
+        }
+    }
+
+    /** Refreshes baked corner shading after edits or a world setting change. Disabled chunks keep no AO neighborhood. */
+    public refreshAmbientOcclusion(enabled: boolean): void {
+        if (!enabled && !this.ambientOcclusionCells) return;
+        const cells = enabled ? this.buildAmbientOcclusionCells() : undefined;
+        if (cells?.some((value, index) => value !== this.ambientOcclusionCells?.[index])
+            || !!cells !== !!this.ambientOcclusionCells) this.meshDirty = true;
+        this.ambientOcclusionCells = cells;
+    }
+
+    private buildAmbientOcclusionCells(): Uint8Array {
+        const cells = new Uint8Array(18 * 18 * 18);
+        for (let y = -1; y <= 16; y++) {
+            for (let z = -1; z <= 16; z++) {
+                for (let x = -1; x <= 16; x++) {
+                    const inner = x >= 0 && x < 16 && y >= 0 && y < 16 && z >= 0 && z < 16;
+                    cells[(y + 1) * 324 + (z + 1) * 18 + x + 1] = inner
+                        ? Number(this.isOccludingIndex(y * 256 + z * 16 + x))
+                        : Number(!!((this.neighborCell?.(this.x * 16 + x, this.y * 16 + y, this.z * 16 + z) ?? 0) & 64));
+                }
+            }
+        }
+        return cells;
+    }
+
     private biomePosition(index: number, blockState: BlockState, stored: Block): TripleArray {
         const position = this.positionAt(index), name = blockState.key?.toNamespacedString();
         if (stored.properties?.half === "upper" && (name === "minecraft:tall_grass" || name === "minecraft:large_fern")) position[1]--;
@@ -620,7 +656,25 @@ export class Chunk<SectionMeshing extends boolean = false> {
                 fluids[kind] = await this.sectionModels.fluidAtlas(kind, state?.key?.root);
             }
         }
-        const next = entries.length || fluids ? await SectionMesh.buildAsync(entries, this.sectionModels.maxAtlasSize, fluids) : undefined;
+        let light: Uint8Array | undefined;
+        if (this.lightAt) {
+            light = new Uint8Array(18 * 18 * 18);
+            for (let y = -1; y <= 16; y++) {
+                for (let z = -1; z <= 16; z++) {
+                    for (let x = -1; x <= 16; x++) {
+                        light[(y + 1) * 324 + (z + 1) * 18 + x + 1] = this.lightAt(this.x * 16 + x, this.y * 16 + y, this.z * 16 + z);
+                    }
+                }
+            }
+        }
+        let next: SectionMesh | undefined;
+        try {
+            next = entries.length || fluids ? await SectionMesh.buildAsync(entries, this.sectionModels.maxAtlasSize, fluids,
+                { light, ambientLight: this.ambientLight, ambientOcclusion: this.ambientOcclusionCells }) : undefined;
+        } catch (error) {
+            if (generation === this.meshGeneration) this.meshDirty = true;
+            throw error;
+        }
         if (generation !== this.meshGeneration) {
             next?.dispose();
             return;
@@ -650,10 +704,12 @@ export class Chunk<SectionMeshing extends boolean = false> {
         this.hiddenBlocks.clear();
         this.fluidCells.fill(0);
         this.waterTints = undefined;
+        this.ambientOcclusionCells = undefined;
         this.data.clear();
         this.biomes = undefined;
         if (notify) {
             await this.onBiomesChanged?.(undefined);
+            await this.onLightCleared?.();
             await this.onBlocksChanged?.(positions);
         }
     }
