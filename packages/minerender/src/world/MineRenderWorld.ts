@@ -15,6 +15,7 @@ import { SectionModels } from "./SectionModels";
 import { WorldEntities } from "./_entities/WorldEntities";
 import { fluidKindOf } from "../model/fluid/FluidQuads";
 import type { WorldBlockIntersection } from "./WorldBlockIntersection";
+import type { WorldEntityIntersection } from "./WorldEntityIntersection";
 import { copySectionLight, sampleSectionLight, SavedLightSample, SectionLightData } from "./WorldLight";
 
 //TODO: maybe make this an Object3D to add children
@@ -61,6 +62,15 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
      */
     public raycast(raycaster: Raycaster): WorldBlockIntersection | undefined {
         return Chunk.raycast(this._chunks.values(), raycaster);
+    }
+
+    /**
+     * Returns the nearest visible mob geometry hit when renderEntities is enabled.
+     * Respects layers and near/far; compare its distance with raycast() to account for blocks.
+     * Texture alpha does not change triangle intersections.
+     */
+    public raycastEntities(raycaster: Raycaster): WorldEntityIntersection | undefined {
+        return this.entities?.raycast(raycaster);
     }
 
     /** Whether neighboring opaque cubes shade block-face corners. Defaults to false. */

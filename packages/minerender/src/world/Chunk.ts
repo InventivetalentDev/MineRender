@@ -1,6 +1,6 @@
 import { Block } from "../model/block/Block";
 import { BlockObject } from "../model/block/scene/BlockObject";
-import { Color, Matrix3, Matrix4, Mesh, Object3D, Raycaster, Vector3 } from "three";
+import { Color, Mesh, Object3D, Raycaster, Vector3 } from "three";
 import { Maybe } from "../util/util";
 import { BlockInfo } from "./BlockInfo";
 import { ChunkData } from "./ChunkData";
@@ -21,8 +21,8 @@ import { Biomes } from "../assets/Biomes";
 import { isInstanceReference } from "../instance/InstanceReference";
 import type { InstanceReference } from "../instance/InstanceReference";
 import type { ModelObject } from "../model/scene/ModelObject";
-import { isInstancedMesh, isMesh } from "../util/three";
 import type { WorldBlockIntersection } from "./WorldBlockIntersection";
+import { hitNormal, pickableMeshes, visibleHits } from "./_picking/Picking";
 
 const WATER_TINT = new Color(0x3f76e4).toArray() as TripleArray;
 
@@ -79,18 +79,8 @@ export class Chunk<SectionMeshing extends boolean = false> {
         const meshes = (root: Object3D, scene: MineRenderScene): Mesh[] => {
             const cached = roots.get(root);
             if (cached) return cached;
-            const result: Mesh[] = [];
+            const result = pickableMeshes(root, scene, raycaster);
             roots.set(root, result);
-            let attached = false;
-            for (let parent: Object3D | null = root; parent; parent = parent.parent) {
-                if (!parent.visible) return result;
-                if (parent === scene) attached = true;
-            }
-            if (!attached) return result;
-            root.updateWorldMatrix(true, true);
-            root.traverseVisible(object => {
-                if (isMesh(object) && raycaster.layers.test(object.layers)) result.push(object);
-            });
             return result;
         };
         const add = (root: Object3D, owner: Owner, reference?: InstanceReference<ModelObject>) => {
@@ -121,11 +111,8 @@ export class Chunk<SectionMeshing extends boolean = false> {
                 }
             }
         }
-        for (const hit of raycaster.intersectObjects([...targets.keys()], false)) {
-            if (!hit.face) continue;
+        for (const hit of visibleHits(raycaster, [...targets.keys()])) {
             const mesh = hit.object as Mesh;
-            const material = Array.isArray(mesh.material) ? mesh.material[hit.face.materialIndex] : mesh.material;
-            if (!material?.visible) continue;
             const entry = targets.get(mesh)!;
             let owner = entry.owners.get(hit.instanceId) ?? entry.owners.get(undefined);
             if (entry.section) {
@@ -135,18 +122,12 @@ export class Chunk<SectionMeshing extends boolean = false> {
             if (!owner || owner.chunk.hiddenBlocks.has(owner.index)) continue;
             const info = owner.chunk.renderedBlocks.get(owner.index);
             if (!info) continue;
-            const matrix = mesh.matrixWorld.clone();
-            if (isInstancedMesh(mesh) && hit.instanceId !== undefined) {
-                const instance = new Matrix4();
-                mesh.getMatrixAt(hit.instanceId, instance);
-                matrix.multiply(instance);
-            }
             return {
                 position: new Vector3(owner.chunk.x * 16 + owner.index % 16,
                     owner.chunk.y * 16 + Math.floor(owner.index / 256), owner.chunk.z * 16 + Math.floor(owner.index / 16) % 16),
                 block: info.block,
                 point: hit.point.clone(),
-                normal: hit.face.normal.clone().applyNormalMatrix(new Matrix3().getNormalMatrix(matrix)),
+                normal: hitNormal(hit),
                 distance: hit.distance
             };
         }

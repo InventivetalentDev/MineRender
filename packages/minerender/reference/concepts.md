@@ -128,6 +128,18 @@ The option defaults to `false`. With `renderEntities`, supported mobs render at 
 
 The world owns these entity objects. Replacing or unloading a chunk column disposes its entities, including structure entities positioned within that column. `await world.clear()` removes all of them.
 
+Use `world.raycastEntities(raycaster)` to inspect the nearest visible rendered mob. The hit includes its canonical `type` (such as `minecraft:pig`), a copy of its saved fractional `position` in block units, and its live `object`. The `point`, `normal`, and `distance` fields use the same units as block hits. Hidden or detached entities and objects owned by another world are excluded. Picking respects the raycaster's layers and distance range and tests geometry, including transparent texture pixels.
+
+Compare the block and entity hit distances to select whichever is in front:
+
+```ts
+const block = world.raycast(raycaster);
+const entity = world.raycastEntities(raycaster);
+const hit = entity && (!block || entity.distance < block.distance) ? entity : block;
+```
+
+Without `renderEntities`, or when no rendered mob is hit, `raycastEntities` returns `undefined`.
+
 ## Streaming a Java world
 
 Use a dedicated `MineRenderWorld` with `sectionMeshing: true` and a `WorldStreamer` to render nearby chunk columns. This example reads one dimension's terrain and entity regions at region coordinates:

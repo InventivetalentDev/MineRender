@@ -1,8 +1,8 @@
 import {
     AnvilParser, AnvilWorldSource, AssetLoader, ChunkData, MineRenderWorld, Renderer, WorldStreamer,
-    type AnvilChunk, type AnvilExternalChunkReader, type WorldChunkSource
+    type AnvilChunk, type AnvilExternalChunkReader, type WorldChunkSource, type WorldEntityIntersection
 } from "minerender";
-import { Box3, Box3Helper, Color, Raycaster, Vector2, Vector3, type OrthographicCamera, type PerspectiveCamera } from "three";
+import { Box3, Box3Helper, Color, Raycaster, Vector2, Vector3, type Mesh, type Object3D, type OrthographicCamera, type PerspectiveCamera } from "three";
 
 interface RegionFile { x: number; z: number; file: File }
 interface Dimension { label: string; regions: Map<string, RegionFile>; entityRegions: Map<string, RegionFile>; externalChunks: Map<string, File> }
@@ -35,7 +35,7 @@ let requestedCenter = "";
 let updateId = 0;
 let retryAction: (() => void) | undefined;
 let lastStats = 0;
-let selectedPosition: Vector3 | undefined;
+let selection: { kind: "block"; position: Vector3 } | { kind: "entity"; hit: WorldEntityIntersection } | undefined;
 const selectionBounds = new Box3();
 const selectionOutline = new Box3Helper(selectionBounds, 0xffe66b);
 selectionOutline.name = "world-block-selection";
@@ -48,25 +48,50 @@ const activePointers = new Set<number>();
 let gesture: { id: number; x: number; y: number; travel: number; locked: boolean; picks: boolean } | undefined;
 
 function clearSelection(): void {
-    selectedPosition = undefined;
+    selection = undefined;
     selectionOutline.visible = false;
-    element("block-info").textContent = "No block selected.";
+    element("block-info").textContent = "Nothing selected.";
     renderer.scene.dirty = true;
 }
 
 function refreshSelection(): void {
-    if (!selectedPosition) return;
-    const block = world.getBlockAt(selectedPosition)?.block;
-    if (!block || !world.getChunkAt(selectedPosition)?.isBlockVisibleAt(selectedPosition)) { clearSelection(); return; }
-    const properties = Object.entries(block.properties ?? {}).sort(([a], [b]) => a.localeCompare(b));
-    const biome = world.getBiomeAt(selectedPosition);
-    const text = [`Block: ${block.type}`, `Coordinates: ${selectedPosition.toArray().join(", ")}`,
-        `Properties: ${properties.length ? properties.map(([name, value]) => `${name}=${value}`).join(", ") : "none"}`,
-        ...(biome ? [`Biome: ${biome}`] : [])].join("\n");
+    if (!selection) return;
+    let text: string;
+    if (selection.kind === "entity") {
+        const { object, type, position } = selection.hit;
+        let attached = false;
+        for (let parent: Object3D | null = object; parent; parent = parent.parent) {
+            if (!parent.visible) { clearSelection(); return; }
+            if (parent === renderer.scene) { attached = true; break; }
+        }
+        if (!attached) { clearSelection(); return; }
+        object.updateWorldMatrix(true, true);
+        selectionBounds.makeEmpty();
+        object.traverseVisible(child => {
+            const mesh = child as Mesh;
+            if (!mesh.isMesh || !renderer.camera.layers.test(mesh.layers)) return;
+            if (!(Array.isArray(mesh.material) ? mesh.material : [mesh.material]).some(material => material.visible)) return;
+            if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
+            if (mesh.geometry.boundingBox) selectionBounds.union(mesh.geometry.boundingBox.clone().applyMatrix4(mesh.matrixWorld));
+        });
+        if (selectionBounds.isEmpty()) { clearSelection(); return; }
+        selectionBounds.expandByScalar(.025);
+        renderer.scene.dirty = true;
+        text = `Entity: ${type}\nPosition: ${position.toArray().join(", ")}`;
+    } else {
+        const { position } = selection;
+        const block = world.getBlockAt(position)?.block;
+        if (!block || !world.getChunkAt(position)?.isBlockVisibleAt(position)) { clearSelection(); return; }
+        const properties = Object.entries(block.properties ?? {}).sort(([a], [b]) => a.localeCompare(b));
+        const biome = world.getBiomeAt(position);
+        text = [`Block: ${block.type}`, `Coordinates: ${position.toArray().join(", ")}`,
+            `Properties: ${properties.length ? properties.map(([name, value]) => `${name}=${value}`).join(", ") : "none"}`,
+            ...(biome ? [`Biome: ${biome}`] : [])].join("\n");
+    }
     if (element("block-info").textContent !== text) element("block-info").textContent = text;
 }
 
-function pickBlock(event: PointerEvent, locked: boolean): void {
+function pickObject(event: PointerEvent, locked: boolean): void {
     const rect = canvas.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
     if (!locked && (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom)) return;
@@ -77,10 +102,13 @@ function pickBlock(event: PointerEvent, locked: boolean): void {
     raycaster.setFromCamera(pointer, camera);
     raycaster.near = camera.near;
     raycaster.far = camera.far;
-    const hit = world.raycast(raycaster);
-    if (!hit) { clearSelection(); return; }
-    selectedPosition = hit.position.clone();
-    selectionBounds.setFromCenterAndSize(MineRenderWorld.worldToScenePosition(selectedPosition), new Vector3(16.05, 16.05, 16.05));
+    const block = world.raycast(raycaster);
+    const entity = world.raycastEntities(raycaster);
+    if (entity && (!block || entity.distance < block.distance)) selection = { kind: "entity", hit: entity };
+    else if (block) {
+        selection = { kind: "block", position: block.position };
+        selectionBounds.setFromCenterAndSize(MineRenderWorld.worldToScenePosition(block.position), new Vector3(16.05, 16.05, 16.05));
+    } else { clearSelection(); return; }
     selectionOutline.visible = true;
     refreshSelection();
     renderer.scene.dirty = true;
@@ -109,7 +137,7 @@ function pointerUp(event: PointerEvent): void {
     const click = gesture;
     gesture = undefined;
     if (!click.locked) click.travel += Math.hypot(event.clientX - click.x, event.clientY - click.y);
-    if (click.picks && click.travel <= 4 && !activePointers.size && !switching && !disposed) pickBlock(event, click.locked);
+    if (click.picks && click.travel <= 4 && !activePointers.size && !switching && !disposed) pickObject(event, click.locked);
 }
 
 function cancelGesture(): void {

@@ -1,6 +1,6 @@
 import { installMineRenderDataFixtures } from "./helpers/minerender-data";
 import test, { ExecutionContext } from "ava";
-import { Object3D, Vector3 } from "three";
+import { BoxGeometry, Mesh, MeshBasicMaterial, Object3D, Raycaster, Vector3 } from "three";
 import type { Compound } from "prismarine-nbt";
 import { AssetKey } from "../src/assets/AssetKey";
 import { BlockStates } from "../src/assets/BlockStates";
@@ -78,6 +78,124 @@ function fixture(t: ExecutionContext, renderEntities = true, init?: (object: Ent
     const objects = () => scene.children.filter((child): child is EntityObject => (child as EntityObject).isEntityObject);
     return { world, scene, requests, initialized, disposed, missing, objects };
 }
+
+function pickingFixture(t: ExecutionContext, init?: (object: EntityObject) => Promise<void>) {
+    const geometry = new BoxGeometry(8, 8, 8);
+    t.teardown(() => geometry.dispose());
+    return fixture(t, true, async object => {
+        const material = new MeshBasicMaterial();
+        t.teardown(() => material.dispose());
+        object.children[0].add(new Mesh(geometry, material));
+        await init?.(object);
+    });
+}
+
+test.serial("entity picking returns the nearest mob, copied saved metadata and scene-space hit data", async t => {
+    const { world, scene, objects } = pickingFixture(t);
+    const saved = entity("zombie", [-16.25, 2, -0.5], 90);
+    await world.placeMultiBlock(structure(saved, entity("cow", [-16.25, 2, -2.5])));
+    saved.position.fill(99);
+    (saved.nbt as Compound).value.id = { type: "string", value: "pig" };
+    const ray = new Raycaster(new Vector3(-268, 24, 64), new Vector3(0, 0, -1));
+    const hit = world.raycastEntities(ray)!;
+    t.is(hit.type, "minecraft:zombie");
+    t.is(hit.object, objects()[0]);
+    t.deepEqual(hit.position.toArray(), [-16.25, 2, -0.5]);
+    t.deepEqual(hit.point.toArray(), [-268, 24, -12]);
+    t.true(hit.normal.distanceTo(new Vector3(0, 0, 1)) < 1e-10);
+    t.is(hit.distance, 76);
+    hit.position.set(0, 0, 0);
+    t.deepEqual(world.raycastEntities(ray)!.position.toArray(), [-16.25, 2, -0.5]);
+    scene.scale.set(2, 3, 4);
+    scene.rotation.x = Math.PI / 2;
+    scene.position.set(10, 20, 30);
+    ray.set(new Vector3(-526, -236, 102), new Vector3(0, 1, 0));
+    const transformed = world.raycastEntities(ray)!;
+    t.is(transformed.object, hit.object);
+    t.true(transformed.point.distanceTo(new Vector3(-526, 68, 102)) < 1e-10);
+    t.true(transformed.normal.distanceTo(new Vector3(0, -1, 0)) < 1e-10);
+    t.true(Math.abs(transformed.distance - 304) < 1e-10);
+});
+
+test.serial("entity picking excludes foreign worlds, standalone entities and detached roots", async t => {
+    const { world, scene, objects } = pickingFixture(t);
+    await world.placeMultiBlock(structure(entity()));
+    const own = objects()[0];
+    const foreign = new MineRenderWorld(scene, { renderEntities: true });
+    t.teardown(() => foreign.clear());
+    await foreign.placeMultiBlock(structure(entity("pig", [0.5, 1, 2.5])));
+    const other = objects()[1];
+    const standalone = new EntityObject(own.entity);
+    standalone.position.set(0, 8, 64);
+    await standalone.init();
+    scene.add(standalone);
+    t.teardown(() => { standalone.removeFromScene(); standalone.dispose(); });
+    const ray = new Raycaster(new Vector3(0, 8, 100), new Vector3(0, 0, -1));
+    t.is(world.raycastEntities(ray)!.object, own);
+    t.is(foreign.raycastEntities(ray)!.object, other);
+    own.removeFromScene();
+    t.is(world.raycastEntities(ray), undefined);
+    scene.add(own);
+    t.is(world.raycastEntities(ray)!.object, own);
+});
+
+test.serial("entity picking respects ancestor and material visibility, layers and near/far", async t => {
+    const { world, scene, objects } = pickingFixture(t);
+    await world.placeMultiBlock(structure(entity(), entity("cow", [0.5, 1, -1.5])));
+    const [near, far] = objects();
+    const group = near.children[0], mesh = group.children[0] as Mesh<BoxGeometry, MeshBasicMaterial>;
+    const ray = new Raycaster(new Vector3(0, 8, 100), new Vector3(0, 0, -1));
+    for (const target of [near, group, mesh, mesh.material]) {
+        target.visible = false;
+        t.is(world.raycastEntities(ray)!.object, far);
+        target.visible = true;
+    }
+    scene.visible = false;
+    t.is(world.raycastEntities(ray), undefined);
+    scene.visible = true;
+    mesh.layers.set(1);
+    t.is(world.raycastEntities(ray)!.object, far);
+    ray.layers.set(1);
+    t.is(world.raycastEntities(ray)!.object, near);
+    mesh.layers.set(0);
+    ray.layers.set(0);
+    ray.near = 97;
+    t.is(world.raycastEntities(ray)!.object, far);
+    ray.far = 127;
+    t.is(world.raycastEntities(ray), undefined);
+    ray.near = 0;
+    t.is(world.raycastEntities(ray)!.object, near);
+});
+
+test.serial("entity picking follows column replacement, unloading and clearing", async t => {
+    t.timeout(3000);
+    const gate = deferred(), started = deferred();
+    const { world, disposed } = pickingFixture(t, async object => {
+        if (object.entity.id === "minecraft:zombie") { started.resolve(); await gate.promise; }
+    });
+    t.teardown(() => gate.resolve());
+    const column = { x: -2, z: 3, sections: [] };
+    const ray = new Raycaster(new Vector3(0, 8, 100), new Vector3(0, 0, -1));
+    await world.placeChunk({ ...column, entities: [entity("cow")] });
+    const first = world.raycastEntities(ray)!.object;
+    const pending = world.placeChunk({ ...column, entities: [entity()] });
+    await started.promise;
+    t.is(world.raycastEntities(ray), undefined);
+    t.true(disposed.includes(first));
+    await world.unloadChunkColumn(column.x, column.z);
+    await world.placeChunk({ ...column, entities: [entity("pig")] });
+    const replacement = world.raycastEntities(ray)!;
+    gate.resolve();
+    await pending;
+    t.is(world.raycastEntities(ray)!.object, replacement.object);
+    t.is(replacement.type, "minecraft:pig");
+    await world.unloadChunkColumn(column.x, column.z);
+    t.is(world.raycastEntities(ray), undefined);
+    await world.placeChunk({ ...column, entities: [entity("cow")] });
+    t.is(world.raycastEntities(ray)!.type, "minecraft:cow");
+    await world.clear();
+    t.is(world.raycastEntities(ray), undefined);
+});
 
 async function appearanceFixture(t: ExecutionContext) {
     const getEntity = Entities.getEntity;
@@ -188,6 +306,7 @@ test.serial("saved entities remain data only unless rendering is enabled", async
     t.deepEqual(requests, []);
     t.deepEqual(scene.children, []);
     t.deepEqual(saved, original);
+    t.is(world.raycastEntities(new Raycaster()), undefined);
 });
 
 test.serial("saved entities align fractional positions to block corners and turn from +Z towards -X", async t => {
