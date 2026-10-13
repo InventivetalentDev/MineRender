@@ -3,6 +3,7 @@ import { MineRenderData } from "../../src/assets/MineRenderData";
 import type { MineRenderDataManifest, MineRenderDatasets } from "../../src/assets/MineRenderData";
 
 export const mineRenderDataFixtures: MineRenderDatasets = {
+    renames: { format: "data-fixer-renames", baseDataVersion: 1451, blocks: {}, items: {}, entities: {} },
     itemDefaults: {
         "minecraft:diamond_pickaxe": {"minecraft:damage": 0, "minecraft:max_damage": 1561, "minecraft:max_stack_size": 1},
         "minecraft:compass": {"minecraft:max_stack_size": 64},
@@ -229,7 +230,7 @@ export const mineRenderDataFixtures: MineRenderDatasets = {
 
 export function mineRenderDataManifest(version = "1.21.11"): MineRenderDataManifest {
     const files = { itemDefaults: "item-defaults", potionColors: "potion-colors", blockStates: "block-states",
-        blockTints: "block-tints", fluids: "fluids", dyes: "dyes", legacyBlocks: "legacy-blocks" };
+        blockTints: "block-tints", fluids: "fluids", dyes: "dyes", legacyBlocks: "legacy-blocks", renames: "renames" };
     return {
         schemaVersion: 1, minecraftVersion: version, dataVersion: 4671,
         datasets: Object.fromEntries(Object.entries(files).map(([dataset, file]) => [dataset,

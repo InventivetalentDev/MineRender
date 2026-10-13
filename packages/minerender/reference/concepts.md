@@ -32,9 +32,11 @@ With `sectionMeshing: true`, changed sections rebuild after the placement promis
 
 ## Versioned registry data
 
-`AssetLoader.setVersion(version)` selects both vanilla assets and the registry data used for item defaults, potion colors, block properties, preview tints, fluids, dyes, and legacy numeric mappings. These datasets load from `assets.mcasset.cloud/<version>/minerender-data/` when needed.
+`AssetLoader.setVersion(version)` selects both vanilla assets and the registry data used for item defaults, potion colors, block properties, preview tints, fluids, dyes, legacy numeric mappings, and renamed IDs. These datasets load from `assets.mcasset.cloud/<version>/minerender-data/` when needed.
 
 When the exact dataset version is missing, MineRender selects the nearest published patch in the same release line, preferring the older patch on a tie. Otherwise it uses the latest earlier published release. Releases older than the published data use the oldest available release; an unpublished snapshot rejects. Models and textures retain the requested asset version. A missing dataset or failed request rejects rather than returning an empty registry.
+
+`BlockStates.get`, item keys in `Models.getMerged`, and saved world entities replace older IDs through the optional `renames` dataset. An ID the selected version still registers keeps its meaning, and stored world data keeps the input's ID. Published data without this dataset applies no renames, the one exception to missing datasets rejecting. `Renames.resolve(kind, id, dataVersion?, root?)` returns the replacement directly and accepts the input's DataVersion when the caller knows it.
 
 Inspect the selected registry version with `resolve`:
 

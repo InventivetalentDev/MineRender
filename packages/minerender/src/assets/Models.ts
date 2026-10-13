@@ -1,3 +1,4 @@
+import { Renames } from "./Renames";
 import { ItemModel, ItemTintSource, Model, SpecialItemRenderer } from "../model/Model";
 import { Caching } from "../cache/Caching";
 import { Maybe } from "../util/util";
@@ -377,6 +378,11 @@ export class Models {
         }
         if (!key.extension) {
             key.extension = ".json";
+        }
+        if (key.type === "item") {
+            const renamed = await Renames.key("items", key);
+            const replacement = renamed && await this.getMerged(renamed, context);
+            if (replacement) return replacement;
         }
         const preview = this.snapshotContext(key, context);
         const dataKey = await this.applyDefaults(key, preview);

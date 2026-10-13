@@ -1,3 +1,4 @@
+import { Renames } from "../../assets/Renames";
 import { Entities } from "../../assets/Entities";
 import { EntityObject } from "../../entity/scene/EntityObject";
 import type { MultiBlockEntity } from "../../model/multiblock/MultiBlockStructure";
@@ -57,8 +58,11 @@ export class WorldEntities {
                 try {
                     if (!current()) return;
                     const models = await Entities.getEntityList();
-                    if (!models.includes(placement.key.path) || !current()) return;
-                    const model = await Entities.getEntity(placement.key, placement.texture, { when: placement.when });
+                    // An ID the entity dataset does not list may be an older name for one it lists.
+                    const renamed = models.includes(placement.key.path) ? undefined : await Renames.key("entities", placement.key);
+                    const key = renamed && models.includes(renamed.path) ? renamed : placement.key;
+                    if (!models.includes(key.path) || !current()) return;
+                    const model = await Entities.getEntity(key, placement.texture, { when: placement.when });
                     if (!model || !current()) return;
                     let tints = placement.tints;
                     if (placement.woolDye) {
@@ -76,7 +80,7 @@ export class WorldEntities {
                     object.rotation.y = placement.yaw;
                     await object.init();
                     if (!current()) return;
-                    placement.owner.set(object, { type: placement.key.toNamespacedString(), position: placement.position });
+                    placement.owner.set(object, { type: key.toNamespacedString(), position: placement.position });
                     this.scene.add(object);
                 } catch (error) {
                     console.warn(`Could not draw saved entity ${placement.key.toNamespacedString()}, skipping it`, error);
