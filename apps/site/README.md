@@ -24,6 +24,15 @@ The site is static and deploys as a Cloudflare Worker with assets only (`wrangle
 - `src/showcase/Showcase.ts` renders one example group: chips to pick an example, a single viewport, and the code panel.
 - `src/icons.ts` draws the 8×8 pixel icons used in the feature list.
 
+## Announcement video
+
+`video.html` is a render stage, not part of the deployed site (Vite only builds `index.html`). `yarn video` renders the timeline in `src/video/timeline.ts` to `apps/site/.video/hero.mp4`; pass `--timeline vertical --size 1080x1920` for the portrait cut, `--shots id,id` for a subset, `--headed` to render through a visible Chrome with the real GPU (recommended for the final render; headless uses SwiftShader), and `--fps`, `--transition`, or `--out` to adjust the encode. Headed renders emulate the viewport at half size with device scale 2 (`--scale`), so the window fits a laptop screen while the frames stay full resolution. `--supersample 2` renders at twice the size and scales down in ffmpeg, which smooths cutout textures such as leaves at four times the GPU cost. ffmpeg must be on the path.
+
+- `scripts/render-video.mjs` first runs `scripts/render-document.mjs`, which renders `src/video/scene-document.json` to a PNG with the Node renderer (`--skip-node` reuses the last one), then starts a Vite dev server, opens the stage in Chrome through puppeteer-core, loads one shot at a time, steps it frame by frame, and pipes screenshots into ffmpeg. Per-shot clips are joined with crossfades. The page receives the repository root as a `/@fs/` URL so shots can show that PNG and other files outside `public/`.
+- `scripts/virtual-clock.js` is injected before any page script. It replaces timers, `performance.now`, and `requestAnimationFrame` so time only advances when the driver steps a frame; while a shot loads, time runs normally so request queues work. Loading time never appears in the video.
+- `src/video/shots/*.ts` define shots: `prepare()` loads assets, `update(t)` sets the camera, poses, and overlay for one frame. Shots can reuse the site examples through `runExample()`. Anything that must swap on an exact frame (skins, poses, entity states) is built up front and toggled through visibility. Nothing in the stage uses CSS transitions; every visual change goes through `update()` so it is deterministic.
+- Opening `/video.html` in a normal browser (`yarn dev:site`) plays the timeline in real time as a preview.
+
 ## Design notes
 
 Fonts: Bricolage Grotesque for headings, IBM Plex Sans for text, IBM Plex Mono for code. Colours come from the subject (stone, paper, ink, moss, sprout, loam) and are defined once as tokens at the top of `src/style.css`, with a dark variant. The hero stage is the only element with a hard offset shadow; everything else uses hairlines.

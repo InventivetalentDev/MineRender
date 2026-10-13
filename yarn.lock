@@ -1635,6 +1635,7 @@ __metadata:
   dependencies:
     "@types/three": "npm:~0.186.0"
     minerender: "workspace:*"
+    puppeteer-core: "npm:^23.11.1"
     three: "npm:^0.186.1"
     typescript: "npm:~5.6.3"
     vite: "npm:^4.4.5"

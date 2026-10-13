@@ -1,0 +1,131 @@
+/* Video stage. No CSS transitions or animations anywhere: every visual change is driven per frame
+   from the shot's update() so the virtual clock controls it. */
+:root {
+    --font-display: "Bricolage Grotesque", "IBM Plex Sans", system-ui, sans-serif;
+    --font-body: "IBM Plex Sans", system-ui, sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+    --ink: #e8ebe6;
+    --ink-soft: #a3aca4;
+    --moss: #7cc65f;
+    --code-bg: #0f1311;
+}
+
+html, body { margin: 0; padding: 0; background: #000; }
+
+.stage {
+    position: relative;
+    overflow: hidden;
+    background: radial-gradient(ellipse at 50% 35%, #232a26 0%, #161a18 55%, #0d100e 100%);
+    color: var(--ink);
+    font-family: var(--font-body);
+    /* --u is 1/100 of the stage height, so layout and text scale with the output size. */
+    --u: calc(var(--stage-height) / 100);
+    font-size: var(--u);
+}
+.stage-surface { position: absolute; inset: 0; }
+.stage-surface canvas { display: block; }
+
+.overlay { position: absolute; inset: 0; pointer-events: none; }
+.overlay > * { opacity: 0; }
+
+.overlay-title {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+.overlay-title.is-upper { justify-content: flex-start; padding-top: calc(var(--u) * 13); }
+/* The logo is taller than wide; size by height so it is never stretched. */
+.overlay-logo { height: calc(var(--u) * 10); width: auto; margin-bottom: calc(var(--u) * 1.5); }
+.overlay-heading { font-family: var(--font-display); font-weight: 800; font-size: 9em; line-height: 1; letter-spacing: -0.02em; }
+.overlay-title.is-compact .overlay-heading { font-size: 7em; }
+.overlay-subheading { margin-top: calc(var(--u) * 1.2); font-size: 3em; color: var(--ink-soft); font-weight: 500; }
+
+.overlay-caption {
+    position: absolute;
+    left: calc(var(--u) * 6); bottom: calc(var(--u) * 7);
+    max-width: calc(var(--u) * 80);
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 5em;
+    white-space: pre-line;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    text-shadow: 0 0.1em 0.6em rgba(0, 0, 0, 0.6);
+}
+.overlay-caption .accent { color: var(--moss); }
+
+.overlay-code {
+    position: absolute;
+    right: calc(var(--u) * 6); bottom: calc(var(--u) * 7);
+    margin: 0;
+    padding: 0.9em 1.1em;
+    background: color-mix(in srgb, var(--code-bg) 88%, transparent);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0.6em;
+    font-family: var(--font-mono);
+    font-size: 2.3em;
+    line-height: 1.5;
+    color: #e9ede6;
+    white-space: pre;
+}
+
+.overlay-caption.is-upper { bottom: auto; top: calc(var(--u) * 10); }
+.overlay-code.is-left { right: auto; left: calc(var(--u) * 6); }
+.overlay-code.is-top { bottom: auto; top: calc(var(--u) * 7); }
+
+.overlay-image {
+    position: absolute;
+    right: calc(var(--u) * 7); top: 50%;
+    transform: translateY(-50%);
+    max-width: calc(var(--u) * 64);
+    max-height: calc(var(--u) * 60);
+    border-radius: calc(var(--u) * 1.2);
+    background: #8a928a;
+    padding: calc(var(--u) * 2);
+    box-shadow: 0 calc(var(--u) * 2) calc(var(--u) * 6) rgba(0, 0, 0, 0.35);
+    opacity: 0;
+}
+
+.overlay-brand {
+    position: absolute;
+    left: calc(var(--u) * 6); top: calc(var(--u) * 4);
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: 1.6em;
+    letter-spacing: 0.02em;
+    color: var(--ink-soft);
+    text-shadow: 0 0.1em 0.5em rgba(0, 0, 0, 0.5);
+}
+
+.overlay-stat {
+    position: absolute;
+    right: calc(var(--u) * 6); top: calc(var(--u) * 5);
+    font-family: var(--font-mono);
+    font-size: 2.2em;
+    color: var(--ink-soft);
+    text-align: right;
+}
+.overlay-credit {
+    position: absolute;
+    left: 0; right: 0; bottom: calc(var(--u) * 3.5);
+    text-align: center;
+    font-size: 1.9em;
+    color: var(--ink-soft);
+}
+
+.stage.is-portrait .overlay-caption { left: calc(var(--u) * 4); right: calc(var(--u) * 4); bottom: calc(var(--u) * 14); max-width: none; font-size: 4em; }
+.stage.is-portrait .overlay-caption.is-upper { bottom: auto; top: calc(var(--u) * 8); }
+.stage.is-portrait .overlay-code { left: calc(var(--u) * 4); right: calc(var(--u) * 4); bottom: calc(var(--u) * 4); font-size: 1.5em; white-space: pre-wrap; overflow-wrap: anywhere; }
+/* Portrait frames keep their subject in the middle, so code goes to the top unless the shot asked for the lower left (the Node shot's image is up there). */
+.stage.is-portrait .overlay-code:not(.is-left) { bottom: auto; top: calc(var(--u) * 5); }
+.stage.is-portrait .overlay-image { left: 50%; right: auto; top: calc(var(--u) * 24); transform: translateX(-50%); max-width: calc(var(--u) * 48); max-height: calc(var(--u) * 40); }
+.stage.is-portrait .overlay-stat { right: calc(var(--u) * 4); top: auto; bottom: calc(var(--u) * 8); }
+/* Portrait shots put code along the top, so the mark moves to the lower right corner. */
+.stage.is-portrait .overlay-brand { left: auto; top: auto; right: calc(var(--u) * 4); bottom: calc(var(--u) * 2); font-size: 1.3em; }
+.stage.is-portrait .overlay-credit { bottom: calc(var(--u) * 4); font-size: 1.6em; }
+.stage.is-portrait .overlay-heading { font-size: 7em; }
+.stage.is-portrait .overlay-title.is-compact .overlay-heading { font-size: 5em; }

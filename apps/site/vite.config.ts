@@ -41,6 +41,8 @@ export default defineConfig({
     },
     server: {
         port: 5176,
-        strictPort: true
+        strictPort: true,
+        // The video driver renders for minutes at a time; a hot reload mid-render would restart the stage.
+        hmr: process.env.MINERENDER_VIDEO ? false : undefined
     }
 });

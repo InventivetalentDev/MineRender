@@ -1,6 +1,6 @@
 import { AssetKey, BasicAssetKey, BlockStates, DisplayPosition, Entities, Models } from "minerender";
 import type { Example } from "./types";
-import { STEVE_TEXTURE, esmRenderer, standOn } from "./shared";
+import { STEVE_TEXTURE, esmRenderer } from "./shared";
 import { pose } from "./skins";
 
 /**
@@ -25,7 +25,8 @@ export const composed: Example = {
             if (!state || signal.aborted) return;
             const object = await scene.addBlock(state);
             if (signal.aborted) return;
-            object.setPosition(object.getPosition().set(x * 16, y * 16, z * 16));
+            // Block models are centred on their position; +8 puts the floor's top face at y = 0, where entities stand.
+            object.setPosition(object.getPosition().set(x * 16, y * 16 + 8, z * 16));
         };
 
         const floor: Promise<unknown>[] = [];
@@ -57,8 +58,8 @@ export const composed: Example = {
         if (signal.aborted) return;
         if ("position" in creeper) {
             creeper.position.set(20, 0, -8);
-            creeper.rotation.y = -0.8;
-            standOn(creeper);
+            // Entities face +Z with their feet at the origin; turn the creeper towards the camera.
+            creeper.rotation.y = 0.5;
         }
 
         const sword = await Models.getMerged(new AssetKey("minecraft", "diamond_sword", "models", "item", "assets"));
@@ -79,7 +80,7 @@ const grass = await BlockStates.get(AssetKey.parse("blockstates", "grass_block")
 for (let x = -2; x <= 2; x++) {
     for (let z = -2; z <= 2; z++) {
         const block = await scene.addBlock(grass!);
-        block.setPosition(block.getPosition().set(x * 16, -16, z * 16));
+        block.setPosition(block.getPosition().set(x * 16, -8, z * 16)); // centred models: top face at y = 0
     }
 }
 
