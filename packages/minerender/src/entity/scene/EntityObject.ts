@@ -121,14 +121,15 @@ export class EntityObject extends SceneObject {
 
     /**
      * Plays a clip from {@link Entities.getAnimations}, replacing all active clips.
-     * Offsets apply to the baked pose in the clip's layer (`main` by default), including repeated draws of that layer.
+     * Offsets apply to the baked pose in the clip's layer (`main` by default) and its repeated draws.
+     * A `main` clip also poses every selected layer without a clip of its own.
      * The object owns no clock: call {@link advanceAnimation} per frame, or {@link setAnimationTime}.
      */
     public playAnimation(animation: EntityAnimation, options?: EntityAnimationOptions): void {
         this.playAnimations([animation], options);
     }
 
-    /** Plays one clip per selected geometry layer, with a shared clock and no blending between clips. */
+    /** Plays clips with a shared clock and no blending. Selected layers without their own clip follow `main`. */
     public playAnimations(animations: readonly EntityAnimation[], options?: EntityAnimationOptions): void {
         const targets = new Set<string>();
         const selections = animations.map(animation => {
@@ -139,6 +140,8 @@ export class EntityObject extends SceneObject {
             if (!names.length) throw new Error(`Entity ${this.entity.id} has no selected animation layer "${layer}"`);
             return { animation, names };
         });
+        const main = selections.find(({ animation }) => (animation.layer ?? "main") === "main");
+        if (main) main.names.push(...Object.keys(this.entityLayers).filter(name => !targets.has(name.split("#")[0])));
         this.createMeshes();
         this.stopAnimation();
         for (const { animation, names } of selections) {
@@ -215,16 +218,16 @@ export class EntityObject extends SceneObject {
         // Keep Minecraft's model coordinates separate from caller placement and scale.
         const transform = this.options.flip === undefined ? this.entity.transform : undefined;
         if (transform) {
+            const matrix = new Matrix4();
             for (const op of transform) {
-                const matrix = new Matrix4();
-                if ("scale" in op) matrix.makeScale(...op.scale);
-                else if ("translate" in op) matrix.makeTranslation(...op.translate);
-                else matrix.makeRotationFromEuler(new Euler(...op.rotate, "ZYX"));
-                modelRoot.matrix.multiply(matrix);
+                const operation = new Matrix4();
+                if ("scale" in op) operation.makeScale(...op.scale);
+                else if ("translate" in op) operation.makeTranslation(...op.translate);
+                else operation.makeRotationFromEuler(new Euler(...op.rotate, "ZYX"));
+                matrix.multiply(operation);
             }
-            // The composed matrix may not decompose into position, rotation and scale.
-            modelRoot.matrixWorldNeedsUpdate = true;
-            modelRoot.matrixAutoUpdate = false;
+            // Published transforms have no shear. Three skips world-matrix updates for manual matrices, leaving bounds stale after callers move the entity.
+            matrix.decompose(modelRoot.position, modelRoot.quaternion, modelRoot.scale);
         } else if (this.options.flip ?? true) {
             modelRoot.scale.set(-1, -1, 1);
         }
