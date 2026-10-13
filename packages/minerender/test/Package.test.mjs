@@ -2,6 +2,7 @@ import test from "ava";
 import { createHash } from "node:crypto";
 import { existsSync, globSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildSync } from "esbuild";
 import * as esm from "minerender/browser";
@@ -34,6 +35,31 @@ test("an esbuild bundle of part of the browser build initializes what it imports
     });
     const module = await import("data:text/javascript;base64," + Buffer.from(result.outputFiles[0].contents).toString("base64"));
     t.is(module.default, "a:b");
+});
+
+test("renderer and skin static imports exclude non-skin modules and dependencies", t => {
+    const root = resolve(import.meta.dirname, "../dist/browser/esm");
+    const pending = ["renderer/Renderer.mjs", "skin/scene/SkinObject.mjs"].map(file => resolve(root, file));
+    const visited = new Set(), bare = new Set();
+    while (pending.length) {
+        const file = pending.pop();
+        if (visited.has(file)) continue;
+        visited.add(file);
+        const source = readFileSync(file, "utf8");
+        for (const match of source.matchAll(/^\s*(?:import\s+(?:[^"'();]+?\s+from\s+)?|export\s+[^"'();]+?\s+from\s+)["']([^"']+)["']/gm)) {
+            const specifier = match[1];
+            if (specifier.startsWith(".")) pending.push(resolve(dirname(file), specifier));
+            else bare.add(specifier);
+        }
+    }
+    for (const file of ["model/scene/ModelObject.mjs", "model/block/scene/BlockObject.mjs",
+        "entity/scene/EntityObject.mjs", "gui/scene/GuiObject.mjs", "UVMapper.mjs", "assets/AssetLoader.mjs"]) {
+        t.false(visited.has(resolve(root, file)), file);
+    }
+    for (const specifier of ["@zip.js/zip.js", "localforage", "buffer", "crypto-js",
+        "three/examples/jsm/exporters/GLTFExporter.js"]) {
+        t.false(bare.has(specifier), specifier);
+    }
 });
 
 for (const [format, library] of [["ESM", esm], ["CJS", cjs]]) {

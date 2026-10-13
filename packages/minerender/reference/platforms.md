@@ -22,6 +22,18 @@ If your tool needs an explicit entry, use `minerender/browser` or `minerender/no
 
 The script-tag build is `dist/bundle.js`, exposed by the package as `minerender/bundle`. It provides the browser global `MineRender` and includes three.js. Consumers of the ESM and CommonJS builds need the package's three.js peer dependency.
 
+## Bundle size
+
+The browser ESM build ships one file per module. The package declares `sideEffects` so bundlers can drop code your application does not import. `scene.addModel`, `addBlock`, `addEntity`, and `addGui` load their object code on the first call.
+
+Use static named imports in a module your application loads lazily:
+
+```ts
+import { Renderer } from "minerender";
+```
+
+Rollup, which Vite uses for production builds, keeps every exported class in that chunk when the application uses `await import("minerender")`.
+
 ## Platform requirements
 
 The supported environments have these requirements:

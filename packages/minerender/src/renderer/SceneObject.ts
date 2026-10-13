@@ -1,7 +1,7 @@
 import { BoxGeometry, Color, EdgesGeometry, Euler, InstancedBufferAttribute, InstancedMesh, LineBasicMaterial, LineSegments, Matrix4, Mesh, Object3D, Quaternion, Scene, Vector3 } from "three";
 import { ModelElement, ModelFaces } from "../model/ModelElement";
 import { Geometries } from "../Geometries";
-import { UVMapper } from "../UVMapper";
+import { facesToUvArray } from "../util/_internal/cubeUv";
 import { DoubleArray, TripleArray } from "../model/Model";
 import { Axis, axisToVec3 } from "../Axis";
 import type { BufferGeometry, Material, Object3DEventMap } from "three";
@@ -207,7 +207,7 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
     //<editor-fold desc="GEOMETRIES">
 
     protected _getBoxGeometryFromDimensions([width, height, depth]: TripleArray, faces: ModelFaces, originalTextureSize: DoubleArray, actualTextureSize: DoubleArray): BoxGeometry {
-        const uv = UVMapper.facesToUvArray(faces, originalTextureSize, actualTextureSize);
+        const uv = facesToUvArray(faces, originalTextureSize, actualTextureSize);
         return Geometries.getBox({
             width,
             height,
