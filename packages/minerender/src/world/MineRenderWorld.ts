@@ -33,6 +33,8 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
     private readonly highestSkySection = new Map<string, number>();
     private readonly savedLighting: boolean;
     private readonly ambientLight: number;
+    private _ambientOcclusion: boolean;
+    private ambientOcclusionPending = false;
     private readonly sectionModels?: SectionModels;
     private readonly entities?: WorldEntities;
     private readonly pendingCulling = new Map<Chunk<SectionMeshing>, Set<number> | "all">();
@@ -40,14 +42,36 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
 
     constructor(scene: MineRenderScene, options: MineRenderWorldOptions<SectionMeshing> = {}) {
         if (options.savedLighting && !options.sectionMeshing) throw new TypeError("savedLighting requires sectionMeshing");
+        if (options.ambientOcclusion && !options.sectionMeshing) throw new TypeError("ambientOcclusion requires sectionMeshing");
         if (options.ambientLight !== undefined && (!Number.isFinite(options.ambientLight) || options.ambientLight < 0 || options.ambientLight > 1)) {
             throw new RangeError("ambientLight must be a number from 0 to 1");
         }
         this.scene = scene;
         this.savedLighting = options.savedLighting ?? false;
         this.ambientLight = options.ambientLight ?? 0;
+        this._ambientOcclusion = options.ambientOcclusion ?? false;
         if (options.sectionMeshing) this.sectionModels = new SectionModels(options.maxAtlasSize);
         if (options.renderEntities) this.entities = new WorldEntities(scene);
+    }
+
+    /** Whether neighboring opaque cubes shade block-face corners. Defaults to false. */
+    public get ambientOcclusion(): boolean {
+        return this._ambientOcclusion;
+    }
+
+    /** Rebuilds loaded blocks with or without corner shading. Block data and saved lighting are preserved. */
+    public async setAmbientOcclusion(enabled: boolean): Promise<void> {
+        if (typeof enabled !== "boolean") throw new TypeError("Ambient occlusion must be a boolean");
+        if (enabled && !this.sectionModels) throw new TypeError("ambientOcclusion requires sectionMeshing");
+        if (enabled === this._ambientOcclusion && !this.ambientOcclusionPending) {
+            await this.culling;
+            return;
+        }
+        this._ambientOcclusion = enabled;
+        this.ambientOcclusionPending = true;
+        for (const chunk of this._chunks.values()) this.pendingCulling.set(chunk, "all");
+        await this.updateCulling([]);
+        this.ambientOcclusionPending = false;
     }
 
     /** Returns a placed block at world block coordinates, or `undefined` for an empty position. */
@@ -415,7 +439,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
             const cx = Math.floor(pos.x / 16), cy = Math.floor(pos.y / 16), cz = Math.floor(pos.z / 16);
             const chunk = this._chunks.get(`${cx}_${cy}_${cz}`);
             const lx = pos.x - cx * 16, ly = pos.y - cy * 16, lz = pos.z - cz * 16;
-            // Fluid corner heights and flow also depend on diagonal neighbors and their vertical neighbors.
+            // Fluid surfaces and ambient occlusion also depend on edge and corner neighbors.
             for (let y = -1; y <= 1; y++) {
                 for (let z = -1; z <= 1; z++) {
                     for (let x = -1; x <= 1; x++) {
@@ -427,7 +451,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                         let pending = this.pendingCulling.get(section);
                         if (pending === "all" || pending?.has(index)) continue;
                         if (Math.abs(x) + Math.abs(y) + Math.abs(z) > 1
-                            && !section.isFluidIndex(index)) continue;
+                            && !this._ambientOcclusion && !section.isFluidIndex(index)) continue;
                         if (!pending) this.pendingCulling.set(section, pending = new Set());
                         pending.add(index);
                     }
@@ -436,6 +460,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         }
         // Adjacent batched placements share one drain so they cannot replace the same model concurrently.
         return this.culling ??= Promise.resolve().then(async () => {
+            let sliceStart = performance.now();
             try {
                 while (this.pendingCulling.size) {
                     const batch = [...this.pendingCulling];
@@ -470,6 +495,11 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                         }
                         for (const [index, mask] of masks) await chunk.setCullMaskIndex(index, mask);
                         await chunk.refreshLight(indices === "all" ? undefined : indices);
+                        chunk.refreshAmbientOcclusion(this._ambientOcclusion);
+                        if ((this._ambientOcclusion || this.ambientOcclusionPending) && performance.now() - sliceStart > 8) {
+                            await yieldToEventLoop();
+                            sliceStart = performance.now();
+                        }
                     }
                     await Promise.all(batch.map(([chunk]) => chunk.rebuildSectionMesh()));
                 }
@@ -573,6 +603,8 @@ export interface MineRenderWorldOptions<SectionMeshing extends boolean = boolean
     savedLighting?: boolean;
     /** Minimum brightness for saved lighting, from 0 to 1, like a dimension type's `ambient_light`. Defaults to 0. */
     ambientLight?: number;
+    /** Bake corner shading from neighboring opaque full cubes. Defaults to false; no per-frame shading pass is added. Requires `sectionMeshing`. */
+    ambientOcclusion?: boolean;
     /** Maximum width and height of each section atlas page, in pixels. */
     maxAtlasSize?: number;
 }

@@ -1,5 +1,6 @@
 import { buildFluidQuads, fluidKindOf } from "../model/fluid/FluidQuads";
 import type { FluidKind, FluidQuads } from "../model/fluid/FluidQuads";
+import { quadAmbientOcclusion, sectionAmbientOcclusionMask } from "./_light/AmbientOcclusion";
 import { fluidLightLevel, LIGHT_SAMPLE_OFFSETS, lightBrightness, quadLightIndex } from "./_light/FaceLight";
 
 /** Static model geometry as quads: four vertices per quad, in quad order. */
@@ -14,6 +15,7 @@ export interface SectionTemplateData {
     cullFaces: Uint8Array;
     atlas: number;
     layer: number;
+    ambientOcclusion?: boolean;
 }
 
 /** The pixel dimensions and animation state of a source atlas. */
@@ -55,6 +57,8 @@ export interface SectionGeometryInput {
     light?: Uint8Array;
     /** Minimum brightness for known light levels, from 0 to 1. */
     ambientLight?: number;
+    /** Opaque full cubes in an 18×18×18 neighborhood, stored as zero or one. */
+    ambientOcclusion?: Uint8Array;
 }
 
 /** Merged quads and source-atlas placements for one atlas page. */
@@ -73,7 +77,7 @@ export interface SectionGeometryPage {
 
 /** Builds section-local geometry from visible quads, with bounded atlas pages per layer. */
 export function buildSectionGeometry(input: SectionGeometryInput): SectionGeometryPage[] {
-    const { count, indices, templates, cullMasks, templateData, atlases, maxAtlasSize, fluids, light, ambientLight } = input;
+    const { count, indices, templates, cullMasks, templateData, atlases, maxAtlasSize, fluids, light, ambientLight, ambientOcclusion } = input;
     if (!Number.isInteger(maxAtlasSize) || maxAtlasSize < 1) throw new RangeError("Section atlas size must be a positive integer");
     if (count > indices.length || count > templates.length || count > cullMasks.length) throw new RangeError("Section entry count exceeds its arrays");
     if (fluids && fluids.cells.length !== 5832) throw new RangeError("Section fluid cells must cover an 18×18×18 neighborhood");
@@ -84,6 +88,10 @@ export function buildSectionGeometry(input: SectionGeometryInput): SectionGeomet
     if (ambientLight !== undefined && (!Number.isFinite(ambientLight) || ambientLight < 0 || ambientLight > 1)) {
         throw new RangeError("Section ambient light must be a number from 0 to 1");
     }
+    if (ambientOcclusion && (ambientOcclusion.length !== 5832 || ambientOcclusion.some(value => value > 1))) {
+        throw new RangeError("Section ambient occlusion must cover an 18×18×18 neighborhood with zero or one per cell");
+    }
+    const cornerBrightness = ambientOcclusion ? new Float32Array(4) : undefined;
     for (const template of templateData) {
         const { quads } = template;
         if (template.positions.length !== quads * 12 || template.normals.length !== quads * 12 ||
@@ -190,8 +198,11 @@ export function buildSectionGeometry(input: SectionGeometryInput): SectionGeomet
             const offsetY = Math.floor(indices[entry] / 256) * 16;
             const offsetZ = (Math.floor(indices[entry] / 16) % 16) * 16;
             const lightIndex = (offsetY / 16 + 1) * 324 + (offsetZ / 16 + 1) * 18 + offsetX / 16 + 1;
+            const ambientMask = ambientOcclusion && template.ambientOcclusion !== false
+                ? sectionAmbientOcclusionMask(ambientOcclusion, lightIndex) : 0;
             for (let quad = 0; quad < template.quads; quad++) {
                 if (cullMasks[entry] & template.cullFaces[quad]) continue;
+                if (ambientMask) quadAmbientOcclusion(template.positions, template.normals, quad, ambientMask, cornerBrightness!);
                 const brightness = light ? lightBrightness(light[lightIndex + LIGHT_SAMPLE_OFFSETS[
                     quadLightIndex(template.positions, template.normals, quad)]], ambientLight) : 1;
                 const start = vertex;
@@ -209,9 +220,10 @@ export function buildSectionGeometry(input: SectionGeometryInput): SectionGeomet
                     uvBounds[vertex * 4 + 1] = mapV(template.uvBounds[source * 4 + 1]);
                     uvBounds[vertex * 4 + 2] = mapU(template.uvBounds[source * 4 + 2]);
                     uvBounds[vertex * 4 + 3] = mapV(template.uvBounds[source * 4 + 3]);
-                    colors[vertex * 3] = template.colors[source * 3] * brightness;
-                    colors[vertex * 3 + 1] = template.colors[source * 3 + 1] * brightness;
-                    colors[vertex * 3 + 2] = template.colors[source * 3 + 2] * brightness;
+                    const factor = brightness * (ambientMask ? cornerBrightness![corner] : 1);
+                    colors[vertex * 3] = template.colors[source * 3] * factor;
+                    colors[vertex * 3 + 1] = template.colors[source * 3 + 1] * factor;
+                    colors[vertex * 3 + 2] = template.colors[source * 3 + 2] * factor;
                 }
                 for (let corner = 0; corner < 6; corner++) outputIndices[indexOffset++] = start + template.indices[quad * 6 + corner];
             }
