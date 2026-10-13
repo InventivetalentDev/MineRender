@@ -189,16 +189,6 @@ export class BlockObject extends SceneObject {
         });
     }
 
-    public get isTransparentFullCube(): boolean {
-        if (!this.visible) {
-            return false;
-        }
-        return this._models.some(model => {
-            const object = isInstanceReference(model) ? model.instanceable : model;
-            return object.isTransparentFullCube && this.getModelCullMask(model, 63) === 63;
-        });
-    }
-
     private getModelMatrix(model: ModelObject | InstanceReference<ModelObject>): Matrix4 {
         if (isInstanceReference(model)) return model.getMatrix();
         if (model.matrixAutoUpdate) model.updateMatrix();

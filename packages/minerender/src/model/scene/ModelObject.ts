@@ -165,10 +165,6 @@ export class ModelObject extends SceneObject {
         return !this.options.displayPosition && ModelCulling.isOpaqueFullCube(this.atlas);
     }
 
-    public get isTransparentFullCube(): boolean {
-        return !this.options.displayPosition && this.atlas?.hasTransparency === true && ModelCulling.isFullCube(this.atlas);
-    }
-
     //TODO: support for replacing textures
 
     protected async loadTextures(): Promise<void> {

@@ -23,6 +23,7 @@ import type { InstanceReference } from "../instance/InstanceReference";
 import type { ModelObject } from "../model/scene/ModelObject";
 import type { WorldBlockIntersection } from "./WorldBlockIntersection";
 import { hitNormal, pickableMeshes, visibleHits } from "./_picking/Picking";
+import { BlockCullingData, BlockCullingRule, blockCullingRule, skipsBlockFace } from "./_culling/BlockCulling";
 
 const WATER_TINT = new Color(0x3f76e4).toArray() as TripleArray;
 
@@ -551,6 +552,11 @@ export class Chunk<SectionMeshing extends boolean = false> {
         return this.renderedBlocks.has(index) && !this.hiddenBlocks.has(index);
     }
 
+    /** Stored state of a rendered, visible cell, or `undefined`. */
+    public visibleBlockIndex(index: number): Maybe<Pick<Block, "type" | "properties">> {
+        return this.isBlockVisibleIndex(index) ? this.data.stateAt(this.data.idAt(index)) : undefined;
+    }
+
     /** Fluid kind bits and level of a cell, or 0. Hidden cells report 0. */
     public fluidByteIndex(index: number): number {
         return this.hiddenBlocks.has(index) ? 0 : this.fluidCells[index];
@@ -572,37 +578,37 @@ export class Chunk<SectionMeshing extends boolean = false> {
                 ?? this.renderedBlocks.get(index)?.object?.isOccluding ?? false);
     }
 
-    /** Block type of a visible transparent full cube, such as glass, or `undefined` for any other cell. */
-    public transparentCubeTypeIndex(index: number): string | undefined {
-        if (this.hiddenBlocks.has(index)) return undefined;
-        const transparentCube = this.sectionBlocks.get(index)?.some(entry => entry.template.transparentCube)
-            ?? this.renderedBlocks.get(index)?.object?.isTransparentFullCube ?? false;
-        if (!transparentCube) return undefined;
-        const type = this.data.stateAt(this.data.idAt(index))?.type;
-        // Vanilla keeps the inner faces of cutout leaves.
-        return type?.endsWith("leaves") ? undefined : type;
-    }
-
     public async setCullMaskAt(pos: Vector3, mask: number): Promise<void> {
         await this.setCullMaskIndex(Chunk.chunkPosToBlockIndex(this.worldPosToChunkPos(pos)), mask);
     }
 
-    /** Recomputes section masks and returns changed per-block masks. Omit indices to visit every cell.
-     * The callback receives the current transparent cube's block type when present. */
-    public updateCullMasks(indices: Iterable<number> | undefined, occludes: (x: number, y: number, z: number, sameBlock?: string) => boolean): [number, number][] {
+    /**
+     * Recomputes section masks and returns changed per-block masks. Omit indices to visit every cell.
+     * `culling` supplies neighbor face rules; `blockAt` supplies visible states outside this chunk.
+     */
+    public updateCullMasks(indices: Iterable<number> | undefined, occludes: (x: number, y: number, z: number) => boolean,
+        culling?: BlockCullingData, blockAt?: (x: number, y: number, z: number) => Maybe<Pick<Block, "type" | "properties">>): [number, number][] {
         const changed: [number, number][] = [];
+        const rules: (BlockCullingRule | null | undefined)[] = [];
         for (const index of indices ?? this.fluidCells.keys()) {
             if (!this.isBlockVisibleIndex(index)) continue;
             const x = index % 16, y = Math.floor(index / 256), z = Math.floor(index / 16) % 16;
-            const sameBlock = this.transparentCubeTypeIndex(index);
+            const id = this.data.idAt(index);
+            let rule = rules[id];
+            if (culling && rule === undefined) rules[id] = rule = blockCullingRule(culling, this.data.stateAt(id)!.type) ?? null;
+            const block = rule ? this.data.stateAt(id)! : undefined;
             let mask = 0;
             for (let face = 0; face < CUBE_FACE_OFFSETS.length; face++) {
                 const [dx, dy, dz] = CUBE_FACE_OFFSETS[face];
                 const nx = x + dx, ny = y + dy, nz = z + dz;
                 const inner = nx >= 0 && nx < 16 && ny >= 0 && ny < 16 && nz >= 0 && nz < 16;
                 if (inner ? this.isOccludingIndex(ny * 256 + nz * 16 + nx)
-                    || (sameBlock !== undefined && this.transparentCubeTypeIndex(ny * 256 + nz * 16 + nx) === sameBlock)
-                    : occludes(this.x * 16 + nx, this.y * 16 + ny, this.z * 16 + nz, sameBlock)) mask |= 1 << face;
+                    : occludes(this.x * 16 + nx, this.y * 16 + ny, this.z * 16 + nz)) mask |= 1 << face;
+                else if (rule) {
+                    const neighbor = inner ? this.visibleBlockIndex(ny * 256 + nz * 16 + nx)
+                        : blockAt?.(this.x * 16 + nx, this.y * 16 + ny, this.z * 16 + nz);
+                    if (neighbor && skipsBlockFace(culling!, rule, block!, neighbor, face)) mask |= 1 << face;
+                }
             }
             if (this.fluidCells[index]) this.meshDirty = true;
             const entries = this.sectionBlocks.get(index);

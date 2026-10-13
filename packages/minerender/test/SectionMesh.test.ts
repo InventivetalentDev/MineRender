@@ -35,7 +35,7 @@ function fixture(t: ExecutionContext, createWorker?: EnvProvider["createWorker"]
         const geometry = new BoxGeometry(16, 16, 16);
         geometries.push(geometry);
         return { geometry, atlas: new TextureAtlas({}, new CanvasImage(2, 2), {}, {}, false, {}, layer === 1, layer === 1),
-            cullFaces: new Uint8Array([1, 2, 4, 8, 16, 32]), occludes: layer === 0, transparentCube: false, layer };
+            cullFaces: new Uint8Array([1, 2, 4, 8, 16, 32]), occludes: layer === 0, layer };
     };
 }
 

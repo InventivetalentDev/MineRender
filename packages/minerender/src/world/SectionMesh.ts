@@ -13,8 +13,6 @@ export interface SectionMeshTemplate {
     atlas: TextureAtlas;
     cullFaces: Uint8Array;
     occludes: boolean;
-    /** The model fills one block with non-opaque faces and hides shared faces of same-block neighbors. */
-    transparentCube: boolean;
     /** Whether the model permits corner shading from neighboring full cubes. */
     ambientOcclusion?: boolean;
     layer: 0 | 1;
