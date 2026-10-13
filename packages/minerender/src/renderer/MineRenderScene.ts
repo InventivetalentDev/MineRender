@@ -1,7 +1,7 @@
 import { Event, Object3D, Scene } from "three";
 import type { Object3DEventMap } from "three";
 import {isSceneObject, SceneObject} from "./SceneObject";
-import merge from "ts-deepmerge";
+import { merge } from "../util/_internal/merge";
 import { Model } from "../model/Model";
 import { isModelObject, ModelObject, ModelObjectOptions } from "../model/scene/ModelObject";
 import { InstanceReference } from "../instance/InstanceReference";

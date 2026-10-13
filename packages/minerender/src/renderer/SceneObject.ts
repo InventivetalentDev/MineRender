@@ -12,7 +12,7 @@ import { MineRenderError } from "../error/MineRenderError";
 import { isMesh } from "../util/three";
 import { Disposable, isDisposable } from "../Disposable";
 import { SceneObjectOptions } from "./SceneObjectOptions";
-import merge from "ts-deepmerge";
+import { merge } from "../util/_internal/merge";
 import { Instanceable } from "../instance/Instanceable";
 import type { MineRenderScene } from "./MineRenderScene";
 import { Transformable } from "../Transformable";

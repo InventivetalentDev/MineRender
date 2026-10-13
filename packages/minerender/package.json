@@ -3,8 +3,8 @@
   "version": "2.1.0-alpha.123",
   "description": "Interactive 3D renders of Minecraft skins, models, blocks, entities and worlds",
   "main": "./dist/node/index.js",
-  "module": "./dist/browser/index.mjs",
-  "browser": "./dist/browser/index.mjs",
+  "module": "./dist/browser/esm/index.browser.mjs",
+  "browser": "./dist/browser/esm/index.browser.mjs",
   "types": "./dist/browser/index.d.ts",
   "unpkg": "./dist/bundle.js",
   "jsdelivr": "./dist/bundle.js",
@@ -12,8 +12,8 @@
     ".": {
       "browser": {
         "import": {
-          "types": "./dist/browser/index.d.mts",
-          "default": "./dist/browser/index.mjs"
+          "types": "./dist/browser/esm/index.browser.d.mts",
+          "default": "./dist/browser/esm/index.browser.mjs"
         },
         "require": {
           "types": "./dist/browser/index.d.ts",
@@ -32,8 +32,8 @@
       },
       "default": {
         "import": {
-          "types": "./dist/browser/index.d.mts",
-          "default": "./dist/browser/index.mjs"
+          "types": "./dist/browser/esm/index.browser.d.mts",
+          "default": "./dist/browser/esm/index.browser.mjs"
         },
         "require": {
           "types": "./dist/browser/index.d.ts",
@@ -43,8 +43,8 @@
     },
     "./browser": {
       "import": {
-        "types": "./dist/browser/index.d.mts",
-        "default": "./dist/browser/index.mjs"
+        "types": "./dist/browser/esm/index.browser.d.mts",
+        "default": "./dist/browser/esm/index.browser.mjs"
       },
       "require": {
         "types": "./dist/browser/index.d.ts",
@@ -64,6 +64,16 @@
     "./bundle": "./dist/bundle.js",
     "./package.json": "./package.json"
   },
+  "sideEffects": [
+    "./dist/browser/esm/**/index.mjs",
+    "./dist/browser/esm/index.browser.mjs",
+    "./dist/browser/esm/env/browser/register.mjs",
+    "./dist/browser/index.js",
+    "./dist/node/index.js",
+    "./dist/node/index.mjs",
+    "./dist/bundle.js",
+    "./src/**"
+  ],
   "files": [
     "dist",
     "README.md",

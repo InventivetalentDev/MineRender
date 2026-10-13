@@ -1,7 +1,7 @@
 import { SceneObject } from "../../renderer/SceneObject";
 import { SceneObjectOptions } from "../../renderer/SceneObjectOptions";
 import { Caching } from "../../cache/Caching";
-import merge from "ts-deepmerge";
+import { merge } from "../../util/_internal/merge";
 import { Color, Euler, Matrix4, Object3D } from "three";
 import type { BufferGeometry, ColorRepresentation, Material, Mesh, MeshBasicMaterial } from "three";
 import { Ticker } from "../../Ticker";

@@ -5,7 +5,7 @@ import { classicSkinTextureCoordinates, SkinTextureCoordinates, slimSkinTextureC
 import { classicSkinGeometries, SkinGeometries, slimSkinGeometries } from "../SkinGeometries";
 import { Axis } from "../../Axis";
 import { Materials } from "../../Materials";
-import merge from "ts-deepmerge";
+import { merge } from "../../util/_internal/merge";
 import { SceneObjectOptions } from "../../renderer/SceneObjectOptions";
 import { DeepPartial, toRadians } from "../../util/util";
 import { SkinTextures } from "../SkinTextures";

@@ -1,10 +1,40 @@
 import test from "ava";
 import { createHash } from "node:crypto";
+import { existsSync, globSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
+import { buildSync } from "esbuild";
 import * as esm from "minerender/browser";
 import { BoxGeometry, Mesh, MeshBasicMaterial } from "three";
 
 const cjs = createRequire(import.meta.url)("minerender/browser");
+
+test("package sideEffects entries match files", t => {
+    const root = new URL("../", import.meta.url);
+    const pkg = JSON.parse(readFileSync(new URL("package.json", root), "utf8"));
+    for (const entry of pkg.sideEffects) {
+        t.true(entry.includes("*")
+            ? globSync(entry, { cwd: fileURLToPath(root) }).length > 0
+            : existsSync(new URL(entry, root)), entry);
+    }
+});
+
+test("an esbuild bundle of part of the browser build initializes what it imports", async t => {
+    const result = buildSync({
+        stdin: {
+            contents: 'import { AssetKey } from "minerender/browser"; export default new AssetKey("a", "b").toNamespacedString();',
+            resolveDir: fileURLToPath(new URL("./", import.meta.url))
+        },
+        bundle: true,
+        write: false,
+        format: "esm",
+        platform: "browser",
+        external: ["zlib"],
+        logLevel: "silent"
+    });
+    const module = await import("data:text/javascript;base64," + Buffer.from(result.outputFiles[0].contents).toString("base64"));
+    t.is(module.default, "a:b");
+});
 
 for (const [format, library] of [["ESM", esm], ["CJS", cjs]]) {
     test(`${format} package exports geometry without browser globals`, t => {

@@ -13,7 +13,7 @@ import { RequestError, Requests } from "../../request";
 import { AssetLoader } from "../AssetLoader";
 import { AssetParser } from "./parser";
 import { ResponseParser } from "./parser";
-import merge from "ts-deepmerge";
+import { merge } from "../../util/_internal/merge";
 
 const p = prefix("HostedAssetSource");
 

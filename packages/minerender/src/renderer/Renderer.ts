@@ -1,6 +1,6 @@
 import { AxesHelper, Camera, EventDispatcher, GridHelper, OrthographicCamera, PCFShadowMap, PerspectiveCamera, SRGBColorSpace, Vector3, WebGLRenderer } from "three";
 import {MineRenderScene} from "./MineRenderScene";
-import merge from "ts-deepmerge";
+import { merge } from "../util/_internal/merge";
 import Stats from "stats.js";
 import { BloomEffect, EffectComposer,  RenderPass, SSAOEffect, } from "postprocessing";
 import {DeepPartial, isVector3, Maybe} from "../util/util";
