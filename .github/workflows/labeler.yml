@@ -1,0 +1,19 @@
+name: "Pull Request Labeler"
+on:
+  pull_request_target:
+  workflow_dispatch:
+    inputs:
+      pr-number:
+        description: "Pull request number to label"
+        required: true
+
+jobs:
+  labeler:
+    permissions:
+      contents: read
+      pull-requests: write
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/labeler@v7
+      with:
+        pr-number: ${{ inputs.pr-number }}
