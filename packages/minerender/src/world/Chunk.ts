@@ -185,11 +185,13 @@ export class Chunk<SectionMeshing extends boolean = false> {
 
     private async refreshBiomeBlocks(columns?: readonly { x: number; z: number }[]): Promise<void> {
         const blend = columns && this.biomeBlend?.();
+        // Individual objects keep their own biome's unblended color, so only a change to their own column affects them.
+        const ownColumn = columns?.some(column => column.x === this.x && column.z === this.z);
         const affected = new Map<string, Promise<boolean>>();
         const blocks: { index: number; block: Block }[] = [];
         for (const index of this.renderedBlocks.keys()) {
             if (blend) {
-                if (this.objectBlocks.has(index)) continue;
+                if (this.objectBlocks.has(index) && !ownColumn) continue;
                 const [x, , z] = this.positionAt(index), radius = blend.radius;
                 if (!columns!.some(column => x >= column.x * 16 - radius && x <= column.x * 16 + 15 + radius
                     && z >= column.z * 16 - radius && z <= column.z * 16 + 15 + radius)) continue;
@@ -227,7 +229,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
                     const tintChanged = !!current !== !!tint || tint?.some((value, channel) => value !== current?.[channel]);
                     const waterChanged = fluid?.kind === "water" && (context?.waterTint ?? WATER_TINT).some((value, channel) =>
                         Math.fround(value) !== (this.waterTints?.[entry.index * 3 + channel] ?? Math.fround(WATER_TINT[channel])));
-                    if (tintChanged || waterChanged) blocks.push(entry);
+                    if (this.objectBlocks.has(entry.index) || tintChanged || waterChanged) blocks.push(entry);
                 }
             }
         }
@@ -529,7 +531,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
 
     private async resolveState(stored: Block, indices: readonly number[], biomes: Map<string, Promise<boolean>>) {
         const blockState = await BlockStates.get(AssetKey.parse("blockstates", stored.type));
-        const perBlock = !blockState || !this.sectionModels
+        let perBlock = !blockState || !this.sectionModels
             || !!(blockState.key && BlockEntities.entry(await BlockEntities.getIndex(blockState.key.root), blockState.key.toNamespacedString()));
         const fluid = await getBlockFluidState(blockState?.key, stored.properties);
         const hasBiomes = this.getBiomeAt(this.x * 16, this.y * 16, this.z * 16) !== undefined
@@ -548,21 +550,26 @@ export class Chunk<SectionMeshing extends boolean = false> {
         if (blend && !perBlock && blockState && (source || fluid?.kind === "water")) {
             const prepared = fluid?.renderModel === false ? undefined
                 : await this.sectionModels!.prepareState(blockState, stored.properties, undefined, true);
-            await Promise.all(indices.map(async index => {
-                const position = this.biomePosition(index, blockState, stored);
-                const biomeColor = (kind: BiomeColorKind) => blend.getColor(kind, blockState.key, position);
-                const context: Context = {};
-                if (source && prepared?.biomeTint) {
-                    const color = await biomeColor(source);
-                    if (color !== undefined) context.tint = new Color(color).toArray() as TripleArray;
-                }
-                if (fluid?.kind === "water") {
-                    const color = await biomeColor("water");
-                    if (color !== undefined && color !== 0x3f76e4) context.waterTint = new Color(color).toArray() as TripleArray;
-                }
-                contexts.set(index, context);
-            }));
-            return { blockState, perBlock, fluid, prepared, contexts, stored };
+            if (!prepared && fluid?.renderModel !== false) {
+                // A model that cannot join the section mesh becomes an individual object with its own biome's color.
+                perBlock = true;
+            } else {
+                await Promise.all(indices.map(async index => {
+                    const position = this.biomePosition(index, blockState, stored);
+                    const biomeColor = (kind: BiomeColorKind) => blend.getColor(kind, blockState.key, position);
+                    const context: Context = {};
+                    if (source && prepared?.biomeTint) {
+                        const color = await biomeColor(source);
+                        if (color !== undefined) context.tint = new Color(color).toArray() as TripleArray;
+                    }
+                    if (fluid?.kind === "water") {
+                        const color = await biomeColor("water");
+                        if (color !== undefined && color !== 0x3f76e4) context.waterTint = new Color(color).toArray() as TripleArray;
+                    }
+                    contexts.set(index, context);
+                }));
+                return { blockState, perBlock, fluid, prepared, contexts, stored };
+            }
         }
         const groups = new Map<string, { biome: string; position: TripleArray; indices: number[] }>();
         if (blockState && (source || fluid?.kind === "water")) {

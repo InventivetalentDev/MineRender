@@ -2010,8 +2010,8 @@ test.serial("implicit water retains aquatic plants, hides bubble-column models a
     t.is(scene.stats.instanceCount, 0);
 });
 
-function biomeBlendFixture(t: ExecutionContext, radius = 0) {
-    const setup = fixture(t, { sectionMeshing: true, biomeBlendRadius: radius });
+function biomeBlendFixture(t: ExecutionContext, radius = 0, options: MineRenderWorldOptions<true> = {}) {
+    const setup = fixture(t, { sectionMeshing: true, biomeBlendRadius: radius, ...options });
     setup.addModel("blend_leaves", { tintindex: 0, transparent: true });
     setup.states.set("minecraft:oak_leaves", { key: AssetKey.parse("blockstates", "oak_leaves"),
         variants: { "": { model: "test:block/blend_leaves" } } });
@@ -2141,6 +2141,46 @@ test.serial(`blended waterlogged foliage uses separate tint kinds and refreshes 
     await world.getChunkAt(new Vector3())!.setBiomes(undefined);
     t.is(colorAt([7, 0, 8]), 0x48b518);
     t.is(colorAt([7, 0, 8], 1), 0x3f76e4);
+});
+
+test.serial("blended worlds color atlas fallback objects with their own biome", async t => {
+    const { world } = biomeBlendFixture(t, 1, { maxAtlasSize: 8 });
+    const data = new ChunkData();
+    data.set(15, { type: "oak_leaves" });
+    await world.placeChunk({ x: 0, z: 0, sections: [{ y: 0, data, biomes: Array(64).fill("test:red") }] });
+    const object = world.getBlockAt(15, 0, 0)!.object!;
+    t.truthy(object);
+    t.is(new Color().fromBufferAttribute(geometryOf(object).getAttribute("color"), 0).getHex(), 0xff0000);
+    await world.placeChunk({ x: 1, z: 0, sections: [{ y: 0, data: new ChunkData(), biomes: Array(64).fill("test:blue") }] });
+    t.is(world.getBlockAt(15, 0, 0)!.object, object);
+    t.is(new Color().fromBufferAttribute(geometryOf(object).getAttribute("color"), 0).getHex(), 0xff0000);
+    await world.getChunkAt(new Vector3())!.setBiomes(Array(64).fill("test:blue"));
+    const refreshed = world.getBlockAt(15, 0, 0)!.object!;
+    t.is(new Color().fromBufferAttribute(geometryOf(refreshed).getAttribute("color"), 0).getHex(), 0x0000ff);
+});
+
+test.serial("blended worlds refresh individual objects only when their own biome changes", async t => {
+    const { world, states, addModel } = biomeBlendFixture(t, 1);
+    addModel("entity", { height: 8 });
+    states.set("test:entity", { key: AssetKey.parse("blockstates", "test:entity"), variants: { "": { model: "test:block/entity" } } });
+    const getEntity = Entities.getEntity, applyTextures = EntityObject.prototype["applyTextures"];
+    BlockEntities.getIndex = async () => ({ "test:entity": { parts: [{ model: "test:entity" }] } });
+    Entities.getEntity = async key => ({ id: key.toNamespacedString(), key, layer: { texture: [16, 16], root: {
+        pose: { offset: [0, 0, 0], rotation: [0, 0, 0] }, cubes: [], children: {}
+    } } });
+    EntityObject.prototype["applyTextures"] = async () => undefined;
+    t.teardown(() => { Entities.getEntity = getEntity; EntityObject.prototype["applyTextures"] = applyTextures; });
+    const data = new ChunkData();
+    data.set(15, { type: "test:entity", properties: { waterlogged: "true" } });
+    await world.placeChunk({ x: 0, z: 0, sections: [{ y: 0, data, biomes: Array(64).fill("test:red") }] });
+    const object = world.getBlockAt(15, 0, 0)!.object!;
+    t.is(new Color().fromBufferAttribute(geometryOf(object, 1).getAttribute("color"), 0).getHex(), 0x00ff00);
+    await world.placeChunk({ x: 1, z: 0, sections: [{ y: 0, data: new ChunkData(), biomes: Array(64).fill("test:blue") }] });
+    t.is(world.getBlockAt(15, 0, 0)!.object, object);
+    t.is(new Color().fromBufferAttribute(geometryOf(object, 1).getAttribute("color"), 0).getHex(), 0x00ff00);
+    await world.getChunkAt(new Vector3())!.setBiomes(Array(64).fill("test:blue"));
+    const refreshed = world.getBlockAt(15, 0, 0)!.object!;
+    t.is(new Color().fromBufferAttribute(geometryOf(refreshed, 1).getAttribute("color"), 0).getHex(), 0x0000ff);
 });
 
 test.serial(`enabled biome blending skips untinted replacement models`, async t => {
