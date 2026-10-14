@@ -4,11 +4,13 @@
   "description": "MineRender demo and manual test pages",
   "scripts": {
     "build": "node ./build.mjs",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.benchmark.json",
     "bundle": "node ./build.mjs",
     "dev": "node ./build.mjs --serve",
     "typecheck:editor": "tsc -p tsconfig.editor.json",
     "check": "node ./scripts/check-pages.mjs",
+    "benchmark:world": "node ./scripts/benchmark-world.mjs",
+    "typecheck:benchmark": "tsc -p tsconfig.benchmark.json",
     "build:production": "yarn typecheck && yarn typecheck:editor && node ./build.mjs --production",
     "deploy": "yarn build:production && wrangler deploy",
     "preview:cf": "yarn build:production && wrangler dev"

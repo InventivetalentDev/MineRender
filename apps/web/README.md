@@ -11,6 +11,8 @@ yarn workspace @minerender/web check       # loads every page and preset in head
 
 `check` starts the dev server on its own, reports the status line and console errors per page, and saves screenshots to `.screenshots/`. It uses the installed Google Chrome; set `CHROME_PATH` for another binary.
 
+For repeatable local-save streaming measurements, use the [world benchmark](benchmarks/README.md). It records cold and warm asset runs, source and placement timings, frame-callback gaps, JavaScript heap samples, and the exact world files used.
+
 ## Pages
 
 These paths are relative to the development server root:
