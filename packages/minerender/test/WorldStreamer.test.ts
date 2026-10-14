@@ -1,3 +1,4 @@
+import { installMineRenderDataFixtures } from "./helpers/minerender-data";
 import test from "ava";
 import type { AnvilChunk } from "../src/world/AnvilParser";
 import { WorldStreamer } from "../src/world/WorldStreamer";
@@ -16,6 +17,7 @@ const chunk = (x: number, z: number): AnvilChunk => ({ x, z, sections: [] });
 const key = (x: number, z: number) => `${x},${z}`;
 
 test("streaming retains biome-only sections until eviction and restores them on return", async t => {
+    t.teardown(installMineRenderDataFixtures());
     const world = new MineRenderWorld(new MineRenderScene());
     const reads: string[] = [];
     const source = { getChunk: async (x: number, z: number): Promise<AnvilChunk> => {
