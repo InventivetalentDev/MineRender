@@ -168,7 +168,7 @@ const animation: EntityAnimation = {
     }
 };
 
-test("playback targets the named layer and its repeated draws without changing other layers", t => {
+test("main playback poses repeated draws and layers without their own clip", t => {
     const { object, state, wasDirty } = fixture(t);
     const rest = { root: [1, 2, 3, 0, 0, 0, 1, 1, 1], body: [0, -21, 0, 0.1, 0.2, 0.3, 1, 2, 1], head: [0, -13, 0, 0, 0, 0, 1, 1, 1] };
 
@@ -180,12 +180,11 @@ test("playback targets the named layer and its repeated draws without changing o
 
     object.setAnimationTime(1);
     t.true(wasDirty());
-    for (const layer of ["main", "main#2"]) {
+    for (const layer of ["main", "main#2", "wool"]) {
         t.deepEqual(state("root", layer), [1, 6, 3, 0, 0, 0, 1, 1, 1]);
         t.deepEqual(state("body", layer), [1, -19, 3, 0.6, -0.05, 0.425, 0.75, 2, 0.5]);
         t.deepEqual(state("head", layer), rest.head);
     }
-    for (const [name, values] of Object.entries(rest)) t.deepEqual(state(name, "wool"), values);
     // Offsets add to vanilla's Euler angles: translate, rotate Z, then Y, then X, then scale.
     const body = object.getGroupByName("body", "main")!;
     body.updateMatrix();
@@ -204,7 +203,9 @@ test("playback targets the named layer and its repeated draws without changing o
     object.stopAnimation();
     t.is(object.animation, undefined);
     t.true(wasDirty());
-    for (const [name, values] of Object.entries(rest)) t.deepEqual(state(name, "main#2"), values);
+    for (const layer of ["main#2", "wool"]) {
+        for (const [name, values] of Object.entries(rest)) t.deepEqual(state(name, layer), values);
+    }
     object.stopAnimation();
     object.setAnimationTime(1);
     object.advanceAnimation(1);
@@ -263,6 +264,11 @@ test("layer clips share playback time, validate before replacing, and restore th
     t.deepEqual(object.activeAnimations, []);
     t.is(object.animation, undefined);
     t.deepEqual(state("body", "wool").slice(0, 3), [4, 5, 6]);
+    t.deepEqual(state("body").slice(0, 3), [0, -21, 0]);
+
+    object.playAnimation(wool);
+    object.setAnimationTime(1);
+    t.deepEqual(state("body", "wool").slice(0, 3), [0, -17, 0]);
     t.deepEqual(state("body").slice(0, 3), [0, -21, 0]);
 });
 

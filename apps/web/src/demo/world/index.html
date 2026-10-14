@@ -33,7 +33,11 @@
             <p class="control-note">Saved lighting shades terrain using the world’s stored light. Missing or invalid light data keeps preview brightness.</p>
             <label class="control-checkbox"><span>Ambient occlusion</span><input id="ambient-occlusion" type="checkbox"></label>
             <p class="control-note">Darkens block corners near solid neighbors. Enabling it rebuilds loaded terrain and adds work when chunks or blocks change.</p>
-            <p id="source-info" class="control-note">Procedural terrain with no world download.</p>
+            <label for="biome-blend-radius">Biome blend radius (blocks)</label>
+            <input id="biome-blend-radius" type="range" min="0" max="7" step="1" value="0" aria-describedby="biome-blend-note">
+            <output id="biome-blend-value" for="biome-blend-radius" aria-label="Blend radius in blocks">0</output>
+            <p id="biome-blend-note" class="control-note">Smooths grass, foliage, and water colors across biome borders. Zero disables blending; larger radii add work when terrain changes.</p>
+            <p id="source-info" class="control-note">Procedural terrain with a plains/desert biome border and no world download.</p>
             <label>Minecraft asset version<input id="asset-version" value="1.21.11" spellcheck="false"></label>
             <button id="apply-version" type="button">Apply version</button>
             <p class="control-note">World files stay in your browser. Models and textures load from the asset CDN. For pre-1.13 numeric worlds, keep the default modern assets; otherwise, choose your world's version.</p>

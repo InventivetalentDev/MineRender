@@ -11,6 +11,7 @@ import { ModelGenerator } from "../src/model/ModelGenerator";
 import { ModelObject } from "../src/model/scene/ModelObject";
 import { MineRenderScene } from "../src/renderer/MineRenderScene";
 import { TextureAtlas } from "../src/texture/TextureAtlas";
+import { SectionModels } from "../src/world/SectionModels";
 import { UVMapper } from "../src/UVMapper";
 import type { CanvasImage } from "../src/canvas/CanvasImage";
 import type { ItemModel, Model } from "../src/model/Model";
@@ -140,3 +141,26 @@ test("generated item front and back faces retain the tint index of each texture 
 let restoreData: () => void;
 test.before(() => { restoreData = installMineRenderDataFixtures(); });
 test.after.always(() => restoreData());
+
+test.serial("section biome placements share templates and mark only automatic tint quads", async t => {
+    const { model } = fixture(t);
+    t.teardown(installMineRenderDataFixtures(() => ({ blockTints: {
+        "test:tinted_block": { source: "constant", color: 0x008000, biome: "foliage", untinted: [1] }
+    } })));
+    const state = { key: new AssetKey("test", "tinted_block", "blockstates"), variants: { "": { model: "test:block/tinted_cube" } } };
+    const models = new SectionModels();
+    t.teardown(() => models.clear());
+    const prepared = await models.prepareState(state, {}, undefined, true);
+    const again = await models.prepareState(state, {}, undefined, true);
+    t.true(prepared!.biomeTint);
+    const template = prepared!.pick([0, 0, 0])[0];
+    t.is(again!.pick([1, 0, 0])[0], template);
+    t.deepEqual([...template.biomeTint!], [1, 0, 1, 0, 0, 1]);
+    t.is(models["templates"].size, 1);
+    const colors = template.geometry.getAttribute("color");
+    t.true(colors.getY(0) > 0 && colors.getY(0) < 1);
+    t.deepEqual([colors.getX(4), colors.getY(4), colors.getZ(4)], [1, 1, 1]);
+    model.elements![0].faces = { up: { texture: "#side" } };
+    const untintedState = { ...state, variants: { "": { model: "test:block/plain_cube" } } };
+    t.is((await models.prepareState(untintedState, {}, undefined, true))!.biomeTint, undefined);
+});

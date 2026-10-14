@@ -88,17 +88,23 @@ export class ModelObject extends SceneObject {
         const special = (this.originalModel as ItemModel).special;
         if (special) {
             const parts = await SpecialItems.getParts(special, this.originalModel.key?.root, (this.originalModel as ItemModel).components);
-            const transform = this.options.displayPosition
-                ? DisplayTransforms.getMatrix(this.originalModel.display, this.options.displayPosition) : new Matrix4();
-            transform.multiply(new Matrix4().makeTranslation(-8, -8, -8));
+            // A separate display node preserves zero scales without decomposing a singular matrix.
+            // Use SceneObject so disposal reaches the parts.
+            const display = new SceneObject();
+            if (this.options.displayPosition) {
+                const transform = DisplayTransforms.getTransform(this.originalModel.display, this.options.displayPosition);
+                display.position.copy(transform.position);
+                display.quaternion.copy(transform.quaternion);
+                display.scale.copy(transform.scale);
+            }
+            this.add(display);
+            const offset = new Matrix4().makeTranslation(-8, -8, -8);
             try {
                 const targets: { mesh: Mesh; parent?: Mesh }[] = [];
                 for (const part of parts) {
                     const object = new EntityObject(part.model, { flip: false, wireframe: this.options.wireframe, tints: part.tints, faces: part.faces });
-                    object.matrix.copy(transform).multiply(part.transform);
-                    object.matrixWorldNeedsUpdate = true;
-                    object.matrixAutoUpdate = false;
-                    this.add(object);
+                    object.matrix.multiplyMatrices(offset, part.transform).decompose(object.position, object.quaternion, object.scale);
+                    display.add(object);
                     await object.init(part.material);
                     object.iterateAllMeshes(mesh => {
                         const source = mesh.material as MeshBasicMaterial;

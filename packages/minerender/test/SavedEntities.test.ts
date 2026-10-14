@@ -4,6 +4,7 @@ import { BoxGeometry, Mesh, MeshBasicMaterial, Object3D, Raycaster, Vector3 } fr
 import type { Compound } from "prismarine-nbt";
 import { AssetKey } from "../src/assets/AssetKey";
 import { BlockStates } from "../src/assets/BlockStates";
+import { MineRenderData } from "../src/assets/MineRenderData";
 import { Entities } from "../src/assets/Entities";
 import { Caching } from "../src/cache/Caching";
 import type { EntityModelFile } from "../src/entity/EntityModel";
@@ -451,3 +452,23 @@ for (const operation of ["clear", "unload"] as const) {
         t.deepEqual(requests, []);
     });
 }
+
+test.serial("saved entity renames report the drawn ID and listed entities skip rename lookups", async t => {
+    const { world, requests } = pickingFixture(t);
+    Entities.getEntityList = async () => ["zombified_piglin", "cow"];
+    t.teardown(installMineRenderDataFixtures({ renames: {
+        format: "data-fixer-renames", baseDataVersion: 1519, blocks: {}, items: {},
+        entities: { "minecraft:zombie_pigman": { registered: false, ranges: [{ before: 2509, to: "minecraft:zombified_piglin" }] } }
+    } }));
+    const get = MineRenderData.get, calls: string[] = [];
+    MineRenderData.get = async (dataset, root) => { if (dataset === "renames") calls.push(dataset); return get(dataset, root); };
+    const saved = entity("minecraft:zombie_pigman");
+    await world.placeMultiBlock(structure(saved));
+    t.deepEqual(requests, ["minecraft:zombified_piglin"]);
+    t.is(world.raycastEntities(new Raycaster(new Vector3(0, 8, 100), new Vector3(0, 0, -1)))?.type, "minecraft:zombified_piglin");
+    t.deepEqual(saved, entity("minecraft:zombie_pigman"));
+    t.deepEqual(calls, ["renames"]);
+    calls.length = 0;
+    await world.placeMultiBlock(structure(entity("cow")));
+    t.deepEqual(calls, []);
+});

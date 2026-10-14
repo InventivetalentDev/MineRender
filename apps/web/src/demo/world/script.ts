@@ -200,7 +200,8 @@ async function replaceSource(next: Source, center?: { x: number; z: number; y: n
     world = new MineRenderWorld(renderer.scene, {
         sectionMeshing: true, renderEntities: input("render-entities").checked, savedLighting: input("saved-lighting").checked,
         ambientLight: dimension === "minecraft:the_nether" ? 0.1 : dimension === "minecraft:the_end" ? 0.25 : 0,
-        ambientOcclusion: input("ambient-occlusion").checked
+        ambientOcclusion: input("ambient-occlusion").checked,
+        biomeBlendRadius: input("biome-blend-radius").valueAsNumber
     });
     if (active !== next) active?.clearCache?.();
     active = next;
@@ -285,7 +286,9 @@ const sample: Source = {
                     }
                 }
             }
-            return { x, z, sections: [{ y: 0, data }] };
+            const biomes = Array.from({ length: 64 }, (_, index) => x * 16 + (index % 4) * 4 < 8
+                ? "minecraft:plains" : "minecraft:desert");
+            return { x, z, sections: [{ y: 0, data, biomes }] };
         }
     }
 };
@@ -421,7 +424,7 @@ for (const id of ["world-folder", "region-files"]) input(id).addEventListener("c
 element("sample").addEventListener("click", () => runChange(async () => {
     select("dimension").replaceChildren(new Option("Sample terrain"));
     select("dimension").disabled = true;
-    element("source-info").textContent = "Procedural terrain with no world download.";
+    element("source-info").textContent = "Procedural terrain with a plains/desert biome border and no world download.";
     await replaceSource(sample, { x: 0, z: 0, y: 5 });
 }));
 select("dimension").addEventListener("change", () => {
@@ -436,6 +439,16 @@ input("ambient-occlusion").addEventListener("change", () => {
         await world.setAmbientOcclusion(enabled);
         await updateWorld(true);
     }, "Updating ambient occlusion…");
+});
+input("biome-blend-radius").addEventListener("input", () => {
+    element<HTMLOutputElement>("biome-blend-value").value = input("biome-blend-radius").value;
+});
+input("biome-blend-radius").addEventListener("change", () => {
+    const radius = input("biome-blend-radius").valueAsNumber;
+    runChange(async () => {
+        await world.setBiomeBlendRadius(radius);
+        await updateWorld(true);
+    }, "Updating biome blending…");
 });
 input("render-entities").addEventListener("change", () => runChange(() => select("dimension").disabled
     ? replaceSource(active!) : openDimension(select("dimension").value, true)));

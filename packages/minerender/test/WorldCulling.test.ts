@@ -1,3 +1,4 @@
+import { installMineRenderDataFixtures, mineRenderDataFixtures } from "./helpers/minerender-data";
 import test, { ExecutionContext } from "ava";
 import { Color, Mesh, MeshBasicMaterial, Raycaster, Vector3 } from "three";
 import { AssetKey } from "../src/assets/AssetKey";
@@ -5,6 +6,7 @@ import { BlockEntities } from "../src/assets/BlockEntities";
 import { Biomes } from "../src/assets/Biomes";
 import { BlockStates } from "../src/assets/BlockStates";
 import { Entities } from "../src/assets/Entities";
+import { MineRenderData } from "../src/assets/MineRenderData";
 import { Models } from "../src/assets/Models";
 import { Caching } from "../src/cache/Caching";
 import { CUBE_FACES, CubeFace } from "../src/CubeFace";
@@ -32,7 +34,6 @@ import { buildSectionGeometry, SectionGeometryInput } from "../src/world/Section
 import { SectionWorker } from "../src/world/SectionWorker";
 import type { CanvasImage } from "../src/canvas/CanvasImage";
 import type { CompatCanvas } from "../src/canvas/CanvasCompat";
-import { installMineRenderDataFixtures, mineRenderDataFixtures } from "./helpers/minerender-data";
 
 function fixture<SectionMeshing extends boolean = false>(t: ExecutionContext, options: MineRenderWorldOptions<SectionMeshing> = {}) {
     t.teardown(installMineRenderDataFixtures());
@@ -107,6 +108,21 @@ const geometryOf = (block: BlockObject, index = 0) => (modelOf(block, index).chi
 const indexCount = (block: BlockObject, index = 0) => {
     const geometry = geometryOf(block, index);
     return geometry.index?.count ?? geometry.getAttribute("position")?.count ?? 0;
+};
+const cullMaskAt = (world: MineRenderWorld<boolean>, position: TripleArray) => {
+    const point = new Vector3(...position);
+    const object = world.getBlockAt(point)!.object;
+    if (object) return object.cullMask;
+    const chunk = world.getChunkAt(point)!;
+    const index = Chunk.chunkPosToBlockIndex(chunk.worldPosToChunkPos(point));
+    return chunk["sectionBlocks"].get(index)![0].cullMask;
+};
+const renderedIndexCountAt = (world: MineRenderWorld<boolean>, position: TripleArray) => {
+    const point = new Vector3(...position);
+    const object = world.getBlockAt(point)!.object;
+    if (object) return indexCount(object);
+    return world.getChunkAt(point)!["sectionMesh"]!.children.reduce((sum, child) =>
+        sum + (child as Mesh).geometry.getIndex()!.count, 0);
 };
 
 for (const sectionMeshing of [false, true]) {
@@ -854,6 +870,150 @@ test.serial("opaque neighbors cull shared faces across signed chunk borders and 
     t.is(indexCount(left.object), 36);
     t.is(world.getBlockAt(-17, -1, -1), left);
 });
+
+const sameBlockCulling = {
+    profiles: [{ type: "same_block" }], blocks: { "test:glass": 0, "test:tinted_glass": 0 }
+};
+
+for (const sectionMeshing of [false, true]) {
+    test.serial(`same transparent cubes cull shared faces within and across chunks (sectionMeshing=${sectionMeshing})`, async t => {
+        const { world, addModel, place } = fixture(t, { sectionMeshing });
+        t.teardown(installMineRenderDataFixtures({ blockCulling: sameBlockCulling }));
+        addModel("glass", { transparent: true });
+        await place([-1, 0, 0], "glass");
+        await place([0, 0, 0], "glass");
+        t.deepEqual([-1, 0].map(x => cullMaskAt(world, [x, 0, 0])), [1, 2]);
+        t.deepEqual([-1, 0].map(x => renderedIndexCountAt(world, [x, 0, 0])), [30, 30]);
+        await world.setBlockAt(0, 0, 0, undefined);
+        t.is(cullMaskAt(world, [-1, 0, 0]), 0);
+        t.is(renderedIndexCountAt(world, [-1, 0, 0]), 36);
+        await place([2, 0, 0], "glass");
+        await place([3, 0, 0], "glass");
+        t.deepEqual([2, 3].map(x => cullMaskAt(world, [x, 0, 0])), [1, 2]);
+        t.is(renderedIndexCountAt(world, [2, 0, 0]), sectionMeshing ? 60 : 30);
+    });
+
+    test.serial(`different transparent cube types keep shared faces (sectionMeshing=${sectionMeshing})`, async t => {
+        const { world, addModel, place } = fixture(t, { sectionMeshing });
+        t.teardown(installMineRenderDataFixtures({ blockCulling: sameBlockCulling }));
+        addModel("glass", { transparent: true });
+        addModel("tinted_glass", { transparent: true });
+        await place([0, 0, 0], "glass");
+        await place([1, 0, 0], "tinted_glass");
+        t.deepEqual([0, 1].map(x => cullMaskAt(world, [x, 0, 0])), [0, 0]);
+        t.is(renderedIndexCountAt(world, [0, 0, 0]), sectionMeshing ? 72 : 36);
+    });
+
+    test.serial(`opaque cubes hide transparent faces but keep their own (sectionMeshing=${sectionMeshing})`, async t => {
+        const { world, addModel, place } = fixture(t, { sectionMeshing });
+        t.teardown(installMineRenderDataFixtures({ blockCulling: sameBlockCulling }));
+        addModel("glass", { transparent: true });
+        await place([0, 0, 0], "glass");
+        await place([1, 0, 0]);
+        t.deepEqual([0, 1].map(x => cullMaskAt(world, [x, 0, 0])), [1, 0]);
+        t.is(renderedIndexCountAt(world, [0, 0, 0]), sectionMeshing ? 66 : 30);
+        if (!sectionMeshing) t.is(renderedIndexCountAt(world, [1, 0, 0]), 36);
+    });
+
+    test.serial(`hidden transparent cubes stop hiding their neighbor (sectionMeshing=${sectionMeshing})`, async t => {
+        const { world, addModel, place } = fixture(t, { sectionMeshing });
+        t.teardown(installMineRenderDataFixtures({ blockCulling: sameBlockCulling }));
+        addModel("glass", { transparent: true });
+        await place([0, 0, 0], "glass");
+        await place([1, 0, 0], "glass");
+        t.deepEqual([0, 1].map(x => cullMaskAt(world, [x, 0, 0])), [1, 2]);
+        t.is(renderedIndexCountAt(world, [0, 0, 0]), sectionMeshing ? 60 : 30);
+        await world.setBlockVisibleAt([1, 0, 0], false);
+        t.is(cullMaskAt(world, [0, 0, 0]), 0);
+        t.is(renderedIndexCountAt(world, [0, 0, 0]), 36);
+        await world.setBlockVisibleAt([1, 0, 0], true);
+        t.deepEqual([0, 1].map(x => cullMaskAt(world, [x, 0, 0])), [1, 2]);
+        t.is(renderedIndexCountAt(world, [0, 0, 0]), sectionMeshing ? 60 : 30);
+    });
+
+    test.serial(`cutout leaves keep shared faces (sectionMeshing=${sectionMeshing})`, async t => {
+        const { world, addModel, place } = fixture(t, { sectionMeshing });
+        t.teardown(installMineRenderDataFixtures({ blockCulling: {
+            profiles: [{ type: "leaves" }], blocks: { "test:oak_leaves": 0 }
+        } }));
+        addModel("oak_leaves", { transparent: true });
+        await place([0, 0, 0], "oak_leaves");
+        await place([1, 0, 0], "oak_leaves");
+        t.deepEqual([0, 1].map(x => cullMaskAt(world, [x, 0, 0])), [0, 0]);
+        t.is(renderedIndexCountAt(world, [0, 0, 0]), sectionMeshing ? 72 : 36);
+    });
+
+    test.serial(`unlisted transparent cubes keep shared faces (sectionMeshing=${sectionMeshing})`, async t => {
+        const { world, addModel, place } = fixture(t, { sectionMeshing });
+        t.teardown(installMineRenderDataFixtures({ blockCulling: { profiles: [], blocks: {} } }));
+        addModel("glass", { transparent: true });
+        await place([0, 0, 0], "glass");
+        await place([1, 0, 0], "glass");
+        t.deepEqual([0, 1].map(x => cullMaskAt(world, [x, 0, 0])), [0, 0]);
+        t.is(renderedIndexCountAt(world, [0, 0, 0]), sectionMeshing ? 72 : 36);
+    });
+
+    test.serial(`same_block rules apply to partial models (sectionMeshing=${sectionMeshing})`, async t => {
+        const { world, addModel, place } = fixture(t, { sectionMeshing });
+        t.teardown(installMineRenderDataFixtures({ blockCulling: {
+            profiles: [{ type: "same_block" }], blocks: { "test:partial": 0 }
+        } }));
+        addModel("partial", { transparent: true, height: 8 });
+        await place([0, 0, 0], "partial");
+        await place([1, 0, 0], "partial");
+        t.deepEqual([0, 1].map(x => cullMaskAt(world, [x, 0, 0])), [1, 2]);
+        t.is(renderedIndexCountAt(world, [0, 0, 0]), sectionMeshing ? 60 : 30);
+    });
+
+    test.serial(`vertical rules only hide stacked faces (sectionMeshing=${sectionMeshing})`, async t => {
+        const { world, addModel, place } = fixture(t, { sectionMeshing });
+        t.teardown(installMineRenderDataFixtures({ blockCulling: {
+            profiles: [{ type: "same_block_vertical" }], blocks: { "test:roots": 0 }
+        } }));
+        addModel("roots", { transparent: true });
+        for (const position of [[0, 0, 0], [0, 1, 0], [1, 0, 0]] as TripleArray[]) await place(position, "roots");
+        t.deepEqual([[0, 0, 0], [0, 1, 0], [1, 0, 0]].map(p => cullMaskAt(world, p as TripleArray)), [4, 8, 0]);
+        t.is(renderedIndexCountAt(world, [0, 0, 0]), sectionMeshing ? 96 : 30);
+    });
+
+    test.serial(`connected rules require facing properties or stacked blocks (sectionMeshing=${sectionMeshing})`, async t => {
+        const { world, addModel, place } = fixture(t, { sectionMeshing });
+        t.teardown(installMineRenderDataFixtures({ blockCulling: {
+            profiles: [{ type: "connected" }], blocks: { "test:pane": 0 }
+        } }));
+        addModel("pane", { transparent: true });
+        await place([15, 0, 0], "pane");
+        await world.setBlockAt([16, 0, 0], { type: "test:pane", properties: { west: "true" } });
+        t.deepEqual([15, 16].map(x => cullMaskAt(world, [x, 0, 0])), [0, 0]);
+        await world.setBlockAt([15, 0, 0], { type: "test:pane", properties: { east: true } });
+        t.deepEqual([15, 16].map(x => cullMaskAt(world, [x, 0, 0])), [1, 2]);
+        t.is(renderedIndexCountAt(world, [15, 0, 0]), 30);
+        await place([16, 0, 0], "pane");
+        t.deepEqual([15, 16].map(x => cullMaskAt(world, [x, 0, 0])), [0, 0]);
+        await place([15, 1, 0], "pane");
+        t.deepEqual([0, 1].map(y => cullMaskAt(world, [15, y, 0])), [4, 8]);
+        t.is(renderedIndexCountAt(world, [15, 0, 0]), sectionMeshing ? 60 : 30);
+    });
+
+    test.serial(`missing culling dataset permits placement without shared-face rules (sectionMeshing=${sectionMeshing})`, async t => {
+        const { world, addModel, place } = fixture(t, { sectionMeshing });
+        t.teardown(installMineRenderDataFixtures({ blockCulling: {
+            profiles: [{ type: "same_block" }], blocks: { "test:glass": 0 }
+        } }));
+        const resolve = MineRenderData.resolve;
+        MineRenderData.resolve = async root => {
+            const resolved = await resolve(root);
+            delete resolved.manifest.datasets.blockCulling;
+            return resolved;
+        };
+        t.teardown(() => { MineRenderData.resolve = resolve; });
+        addModel("glass", { transparent: true });
+        await place([0, 0, 0], "glass");
+        await place([1, 0, 0], "glass");
+        t.deepEqual([0, 1].map(x => cullMaskAt(world, [x, 0, 0])), [0, 0]);
+        t.is(renderedIndexCountAt(world, [0, 0, 0]), sectionMeshing ? 72 : 36);
+    });
+}
 
 test.serial("instance pools separate cull masks while matching masks retain shared geometry and atlas data", async t => {
     const { world, scene, place } = fixture(t);
@@ -1848,4 +2008,395 @@ test.serial("implicit water retains aquatic plants, hides bubble-column models a
     }
     await world.clear();
     t.is(scene.stats.instanceCount, 0);
+});
+
+function biomeBlendFixture(t: ExecutionContext, radius = 0, options: MineRenderWorldOptions<true> = {}) {
+    const setup = fixture(t, { sectionMeshing: true, biomeBlendRadius: radius, ...options });
+    setup.addModel("blend_leaves", { tintindex: 0, transparent: true });
+    setup.states.set("minecraft:oak_leaves", { key: AssetKey.parse("blockstates", "oak_leaves"),
+        variants: { "": { model: "test:block/blend_leaves" } } });
+    const originals = { get: Biomes.get, color: Biomes.getColor };
+    Biomes.get = async id => id === "test:missing" ? undefined : { temperature: 0.8, downfall: 0.4, effects: {} };
+    Biomes.getColor = async (id, kind) => id === "test:missing" ? undefined
+        : kind === "water" ? id === "test:red" ? 0x00ff00 : 0x0000ff
+            : id === "test:red" ? 0xff0000 : 0x0000ff;
+    t.teardown(() => { Biomes.get = originals.get; Biomes.getColor = originals.color; });
+    const colorAt = (position: TripleArray, part = 0) => {
+        const chunk = setup.world.getChunkAt(new Vector3(...position))!;
+        const local = chunk.worldPosToChunkPos(new Vector3(...position)).multiplyScalar(16);
+        const matches: { height: number; color: number }[] = [];
+        for (const mesh of chunk["sectionMesh"]!.children as Mesh[]) {
+            const positions = mesh.geometry.getAttribute("position"), normals = mesh.geometry.getAttribute("normal"), colors = mesh.geometry.getAttribute("color");
+            for (let index = 0; index < positions.count; index += 4) {
+                if (normals.getY(index) <= 0) continue;
+                const x = [0, 1, 2, 3].reduce((sum, offset) => sum + positions.getX(index + offset), 0) / 4;
+                const z = [0, 1, 2, 3].reduce((sum, offset) => sum + positions.getZ(index + offset), 0) / 4;
+                if (Math.abs(x - local.x) > 0.001 || Math.abs(z - local.z) > 0.001) continue;
+                matches.push({ height: positions.getY(index), color: new Color().fromBufferAttribute(colors, index).getHex() });
+            }
+        }
+        return matches.sort((a, b) => b.height - a.height)[part]?.color;
+    };
+    return { ...setup, colorAt };
+}
+
+test.serial("biome blend radius validates before mutation and defaults to an idle unblended path", async t => {
+    const { world, scene, place } = fixture(t);
+    t.is(world.biomeBlendRadius, 0);
+    t.is(world["biomeBlend"], undefined);
+    await place([0, 0, 0]);
+    const object = world.getBlockAt(0, 0, 0)!.object;
+    for (const radius of [-1, 8, 0.5, NaN, Infinity, "2" as unknown as number]) {
+        t.throws(() => new MineRenderWorld(scene, { biomeBlendRadius: radius }), { instanceOf: RangeError });
+        await t.throwsAsync(world.setBiomeBlendRadius(radius), { instanceOf: RangeError });
+        t.is(world.biomeBlendRadius, 0);
+        t.is(world.getBlockAt(0, 0, 0)!.object, object);
+    }
+    t.throws(() => new MineRenderWorld(scene, { biomeBlendRadius: 1 }), {
+        instanceOf: TypeError, message: "biomeBlendRadius requires sectionMeshing"
+    });
+    await t.throwsAsync(world.setBiomeBlendRadius(1), {
+        instanceOf: TypeError, message: "biomeBlendRadius requires sectionMeshing"
+    });
+    await world.setBiomeBlendRadius(0);
+    t.is(world.getBlockAt(0, 0, 0)!.object, object);
+    t.is(world["biomeBlend"], undefined);
+});
+
+test.serial(`biome blending refreshes signed borders on air-only loads, replacement and unload`, async t => {
+    const { world, colorAt } = biomeBlendFixture(t, 1);
+    const data = new ChunkData();
+    data.set(15 + 8 * 16, { type: "oak_leaves" });
+    await world.placeChunk({ x: -1, z: -1, sections: [{ y: 0, data, biomes: Array(64).fill("test:red") }] });
+    const position: TripleArray = [-1, 0, -8];
+    t.is(colorAt(position), 0xff0000);
+    const neighbor = { x: 0, z: -1, sections: [{ y: 0, data: new ChunkData(), biomes: Array(64).fill("test:blue") }] };
+    await world.placeChunk(neighbor);
+    t.is(colorAt(position), 0xaa0055);
+    t.is(world.getBiomeAt(position), "test:red");
+    t.is(world.getChunkAt(new Vector3(0, 0, -8)), undefined);
+    await world.placeChunk({ ...neighbor, sections: [{ ...neighbor.sections[0], biomes: Array(64).fill("test:red") }] });
+    t.is(colorAt(position), 0xff0000);
+    await world.placeChunk(neighbor);
+    t.is(colorAt(position), 0xaa0055);
+    await world.unloadChunkColumn(0, -1);
+    t.is(colorAt(position), 0xff0000);
+    await world.placeChunk(neighbor);
+    t.is(colorAt(position), 0xaa0055);
+    await world.clear();
+    t.is(world["biomeBlend"]!["tiles"].size, 0);
+});
+
+test.serial(`biome radius toggles preserve hidden blocks, raw samples and unrelated objects`, async t => {
+    const { world, colorAt } = biomeBlendFixture(t);
+    const data = new ChunkData();
+    data.set(7 + 8 * 16, { type: "oak_leaves" });
+    data.set(0, { type: "test:cube" });
+    const biomes = Array.from({ length: 64 }, (_, index) => index % 4 < 2 ? "test:red" : "test:blue");
+    await world.placeChunk({ x: 0, z: 0, sections: [{ y: 0, data, biomes }] });
+    const position: TripleArray = [7, 0, 8], chunk = world.getChunkAt(new Vector3(...position))!;
+    const unrelated = world.getBlockAt(0, 0, 0)!.object;
+    t.is(colorAt(position), 0xff0000);
+    await world.setBlockVisibleAt(position, false);
+    await world.setBiomeBlendRadius(1);
+    t.false(chunk.isBlockVisibleAt(new Vector3(...position)));
+    t.deepEqual(world.getBlockAt(position)!.block, { type: "minecraft:oak_leaves" });
+    await world.setBlockVisibleAt(position, true);
+    t.is(colorAt(position), 0xaa0055);
+    const template = templateOf(world, position);
+    await world.setBiomeBlendRadius(7);
+    t.is(colorAt(position), 0x880077);
+    t.is(templateOf(world, position), template);
+    for (let repeat = 0; repeat < 3; repeat++) {
+        await world.setBiomeBlendRadius(0);
+        t.is(colorAt(position), 0xff0000);
+        t.is(world["biomeBlend"], undefined);
+        await world.setBiomeBlendRadius(1);
+        t.is(colorAt(position), 0xaa0055);
+    }
+    await Promise.all([world.setBiomeBlendRadius(2), world.setBiomeBlendRadius(0), world.setBiomeBlendRadius(1)]);
+    t.is(world.biomeBlendRadius, 1);
+    t.is(colorAt(position), 0xaa0055);
+    const before = world.getBlockAt(position)!.object, section = chunk["sectionMesh"];
+    await world.setBiomeBlendRadius(1);
+    t.is(world.getBlockAt(position)!.object, before);
+    t.is(chunk["sectionMesh"], section);
+    t.is(world.getBlockAt(0, 0, 0)!.object, unrelated);
+    t.is(world.getBiomeAt(position), "test:red");
+});
+
+test.serial(`blended waterlogged foliage uses separate tint kinds and refreshes setBiomes`, async t => {
+    const { world, colorAt } = biomeBlendFixture(t, 1);
+    const data = new ChunkData();
+    data.set(7 + 8 * 16, { type: "oak_leaves", properties: { waterlogged: "true" } });
+    data.set(7 + 10 * 16, { type: "water" });
+    const biomes = Array.from({ length: 64 }, (_, index) => index % 4 < 2 ? "test:red" : "test:blue");
+    await world.placeChunk({ x: 0, z: 0, sections: [{ y: 0, data, biomes }] });
+    t.is(colorAt([7, 0, 8]), 0xaa0055);
+    t.is(colorAt([7, 0, 8], 1), 0x00aa55);
+    t.is(colorAt([7, 0, 10]), 0x00aa55);
+    await world.getChunkAt(new Vector3())!.setBiomes(Array(64).fill("test:blue"));
+    t.is(colorAt([7, 0, 8]), 0x0000ff);
+    t.is(colorAt([7, 0, 8], 1), 0x0000ff);
+    await world.getChunkAt(new Vector3())!.setBiomes(undefined);
+    t.is(colorAt([7, 0, 8]), 0x48b518);
+    t.is(colorAt([7, 0, 8], 1), 0x3f76e4);
+});
+
+test.serial("blended worlds color atlas fallback objects with their own biome", async t => {
+    const { world } = biomeBlendFixture(t, 1, { maxAtlasSize: 8 });
+    const data = new ChunkData();
+    data.set(15, { type: "oak_leaves" });
+    await world.placeChunk({ x: 0, z: 0, sections: [{ y: 0, data, biomes: Array(64).fill("test:red") }] });
+    const object = world.getBlockAt(15, 0, 0)!.object!;
+    t.truthy(object);
+    t.is(new Color().fromBufferAttribute(geometryOf(object).getAttribute("color"), 0).getHex(), 0xff0000);
+    await world.placeChunk({ x: 1, z: 0, sections: [{ y: 0, data: new ChunkData(), biomes: Array(64).fill("test:blue") }] });
+    t.is(world.getBlockAt(15, 0, 0)!.object, object);
+    t.is(new Color().fromBufferAttribute(geometryOf(object).getAttribute("color"), 0).getHex(), 0xff0000);
+    await world.getChunkAt(new Vector3())!.setBiomes(Array(64).fill("test:blue"));
+    const refreshed = world.getBlockAt(15, 0, 0)!.object!;
+    t.is(new Color().fromBufferAttribute(geometryOf(refreshed).getAttribute("color"), 0).getHex(), 0x0000ff);
+});
+
+test.serial("blended worlds refresh individual objects only when their own biome changes", async t => {
+    const { world, states, addModel } = biomeBlendFixture(t, 1);
+    addModel("entity", { height: 8 });
+    states.set("test:entity", { key: AssetKey.parse("blockstates", "test:entity"), variants: { "": { model: "test:block/entity" } } });
+    const getEntity = Entities.getEntity, applyTextures = EntityObject.prototype["applyTextures"];
+    BlockEntities.getIndex = async () => ({ "test:entity": { parts: [{ model: "test:entity" }] } });
+    Entities.getEntity = async key => ({ id: key.toNamespacedString(), key, layer: { texture: [16, 16], root: {
+        pose: { offset: [0, 0, 0], rotation: [0, 0, 0] }, cubes: [], children: {}
+    } } });
+    EntityObject.prototype["applyTextures"] = async () => undefined;
+    t.teardown(() => { Entities.getEntity = getEntity; EntityObject.prototype["applyTextures"] = applyTextures; });
+    const data = new ChunkData();
+    data.set(15, { type: "test:entity", properties: { waterlogged: "true" } });
+    await world.placeChunk({ x: 0, z: 0, sections: [{ y: 0, data, biomes: Array(64).fill("test:red") }] });
+    const object = world.getBlockAt(15, 0, 0)!.object!;
+    t.is(new Color().fromBufferAttribute(geometryOf(object, 1).getAttribute("color"), 0).getHex(), 0x00ff00);
+    await world.placeChunk({ x: 1, z: 0, sections: [{ y: 0, data: new ChunkData(), biomes: Array(64).fill("test:blue") }] });
+    t.is(world.getBlockAt(15, 0, 0)!.object, object);
+    t.is(new Color().fromBufferAttribute(geometryOf(object, 1).getAttribute("color"), 0).getHex(), 0x00ff00);
+    await world.getChunkAt(new Vector3())!.setBiomes(Array(64).fill("test:blue"));
+    const refreshed = world.getBlockAt(15, 0, 0)!.object!;
+    t.is(new Color().fromBufferAttribute(geometryOf(refreshed, 1).getAttribute("color"), 0).getHex(), 0x0000ff);
+});
+
+test.serial(`enabled biome blending skips untinted replacement models`, async t => {
+    const { world, states, addModel } = fixture(t, { sectionMeshing: true, biomeBlendRadius: 7 });
+    addModel("plain");
+    states.set("minecraft:oak_leaves", { key: AssetKey.parse("blockstates", "oak_leaves"), variants: { "": { model: "test:block/plain" } } });
+    const originals = { get: Biomes.get, color: Biomes.getColor };
+    Biomes.get = Biomes.getColor = async () => { throw new Error("Untinted replacement must not sample biome colors"); };
+    t.teardown(() => { Biomes.get = originals.get; Biomes.getColor = originals.color; });
+    const data = new ChunkData();
+    data.set(0, { type: "oak_leaves" });
+    await world.placeChunk({ x: 0, z: 0, sections: [{ y: 0, data, biomes: Array(64).fill("test:red") }] });
+    await world.setBiomeBlendRadius(1);
+    t.truthy(world.getBlockAt(0, 0, 0));
+    t.is(world["biomeBlend"]!["tiles"].size, 0);
+});
+
+test.serial(`failed biome radius refresh retains blocks and retries the requested radius`, async t => {
+    const { world, colorAt } = biomeBlendFixture(t);
+    const data = new ChunkData();
+    data.set(7 + 8 * 16, { type: "oak_leaves" });
+    const biomes = Array.from({ length: 64 }, (_, index) => index % 4 < 2 ? "test:red" : "test:blue");
+    await world.placeChunk({ x: 0, z: 0, sections: [{ y: 0, data, biomes }] });
+    const color = Biomes.getColor;
+    Biomes.getColor = async () => { throw new Error("Biome color failed"); };
+    await t.throwsAsync(world.setBiomeBlendRadius(1), { message: "Biome color failed" });
+    t.deepEqual(world.getBlockAt(7, 0, 8)!.block, { type: "minecraft:oak_leaves" });
+    Biomes.getColor = color;
+    await world.setBiomeBlendRadius(1);
+    t.is(world.biomeBlendRadius, 1);
+    t.is(colorAt([7, 0, 8]), 0xaa0055);
+});
+
+
+test.serial(`biome radius changes wait for pending column placement`, async t => {
+    const { world, colorAt } = biomeBlendFixture(t, 1);
+    const originalColor = Biomes.getColor;
+    let release!: () => void, started!: () => void;
+    const waiting = new Promise<void>(resolve => { release = resolve; });
+    const began = new Promise<void>(resolve => { started = resolve; });
+    Biomes.getColor = async (...args) => { started(); await waiting; return originalColor(...args); };
+    const data = new ChunkData();
+    data.set(7 + 8 * 16, { type: "oak_leaves" });
+    const placing = world.placeChunk({ x: 0, z: 0, sections: [{ y: 0, data,
+        biomes: Array.from({ length: 64 }, (_, index) => index % 4 < 2 ? "test:red" : "test:blue") }] });
+    await began;
+    const changing = world.setBiomeBlendRadius(0);
+    release();
+    await Promise.all([placing, changing]);
+    t.is(world.biomeBlendRadius, 0);
+    t.is(colorAt([7, 0, 8]), 0xff0000);
+});
+
+test.serial(`edits during biome refresh preserve the replacement block`, async t => {
+    const { world } = biomeBlendFixture(t);
+    const data = new ChunkData();
+    data.set(7 + 8 * 16, { type: "oak_leaves" });
+    await world.placeChunk({ x: 0, z: 0, sections: [{ y: 0, data,
+        biomes: Array.from({ length: 64 }, (_, index) => index % 4 < 2 ? "test:red" : "test:blue") }] });
+    const originalColor = Biomes.getColor;
+    let release!: () => void, started!: () => void;
+    const waiting = new Promise<void>(resolve => { release = resolve; });
+    const began = new Promise<void>(resolve => { started = resolve; });
+    Biomes.getColor = async (...args) => { started(); await waiting; return originalColor(...args); };
+    const changing = world.setBiomeBlendRadius(1);
+    await began;
+    let edited = false;
+    const editing = world.setBlockAt([7, 0, 8], { type: "test:cube", nbt: { kept: true } }).then(() => { edited = true; });
+    await new Promise<void>(resolve => setImmediate(resolve));
+    t.false(edited);
+    t.is(world.getBlockAt(7, 0, 8)!.block.type, "minecraft:oak_leaves");
+    release();
+    await Promise.all([changing, editing]);
+    t.deepEqual(world.getBlockAt(7, 0, 8)!.block, { type: "test:cube", nbt: { kept: true } });
+});
+
+
+test.serial(`visibility changes during biome refresh survive color replacement`, async t => {
+    const { world } = biomeBlendFixture(t);
+    const data = new ChunkData();
+    data.set(7 + 8 * 16, { type: "oak_leaves" });
+    await world.placeChunk({ x: 0, z: 0, sections: [{ y: 0, data,
+        biomes: Array.from({ length: 64 }, (_, index) => index % 4 < 2 ? "test:red" : "test:blue") }] });
+    const originalColor = Biomes.getColor;
+    let release!: () => void, started!: () => void;
+    const waiting = new Promise<void>(resolve => { release = resolve; });
+    const began = new Promise<void>(resolve => { started = resolve; });
+    Biomes.getColor = async (...args) => { started(); await waiting; return originalColor(...args); };
+    const changing = world.setBiomeBlendRadius(1);
+    await began;
+    const hiding = world.setBlockVisibleAt([7, 0, 8], false);
+    release();
+    await Promise.all([changing, hiding]);
+    const chunk = world.getChunkAt(new Vector3(7, 0, 8))!;
+    t.false(chunk.isBlockVisibleAt(new Vector3(7, 0, 8)));
+    t.is(world.getBlockAt(7, 0, 8)!.block.type, "minecraft:oak_leaves");
+});
+
+test.serial("failed neighbor biomes do not reject column operations or distant biome edits", async t => {
+    const { world, colorAt, place } = biomeBlendFixture(t, 1);
+    const data = new ChunkData();
+    data.set(15 + 8 * 16, { type: "oak_leaves" });
+    await world.placeChunk({ x: 0, z: 0, sections: [{ y: 0, data, biomes: Array(64).fill("test:red") }] });
+    const original = Biomes.getColor, failure = new Error("biome color failed");
+    Biomes.getColor = async (id, ...args) => {
+        if (id === "test:bad") throw failure;
+        return original(id, ...args);
+    };
+    const neighbor = new ChunkData();
+    neighbor.set(0, { type: "test:cube" });
+    await world.placeChunk({ x: 1, z: 0, sections: [{ y: 0, data: neighbor, biomes: Array(64).fill("test:bad") }] });
+    t.is(colorAt([15, 0, 8]), 0xff0000);
+    // A failing center stays queued while unrelated operations complete.
+    await t.throwsAsync(world.getChunkAt(new Vector3())!.setBiomes(Array(64).fill("test:bad")), { is: failure });
+    const warnings: unknown[][] = [], warn = console.warn;
+    console.warn = (...args) => { warnings.push(args); };
+    t.teardown(() => { console.warn = warn; });
+    await world.placeChunk({ x: 5, z: 5, sections: [{ y: 0, data: neighbor, biomes: Array(64).fill("test:red") }] });
+    t.truthy(world.getBlockAt(80, 0, 80));
+    await world.unloadChunkColumn(5, 5);
+    t.is(world.getBlockAt(80, 0, 80), undefined);
+    await place([160, 0, 160]);
+    await world.getChunkAt(new Vector3(160, 0, 160))!.setBiomes(Array(64).fill("test:blue"));
+    t.is(world.getBiomeAt(160, 0, 160), "test:blue");
+    t.is(colorAt([15, 0, 8]), 0xff0000);
+    t.is(warnings.length, 2);
+    t.true(warnings.every(args => args[1] === failure));
+});
+
+test.serial("clear and column operations during a failing radius refresh take effect", async t => {
+    const { world, place } = biomeBlendFixture(t);
+    const data = new ChunkData();
+    data.set(7 + 8 * 16, { type: "oak_leaves" });
+    await world.placeChunk({ x: 0, z: 0, sections: [{ y: 0, data, biomes: Array(64).fill("test:red") }] });
+    await place([144, 0, 144]);
+    const original = Biomes.getColor;
+    let fail!: (error: Error) => void, started!: () => void;
+    const began = new Promise<void>(resolve => { started = resolve; });
+    Biomes.getColor = () => { started(); return new Promise<number>((_, reject) => { fail = reject; }); };
+    const changing = t.throwsAsync(world.setBiomeBlendRadius(1), { message: "biome failed" });
+    await began;
+    const clearing = world.clear();
+    const placing = world.placeChunk({ x: 5, z: 5, sections: [{ y: 0, data, biomes: Array(64).fill("test:red") }] });
+    const unloading = world.unloadChunkColumn(9, 9);
+    Biomes.getColor = original;
+    fail(new Error("biome failed"));
+    await Promise.all([changing, clearing, placing, unloading]);
+    t.is(world.getBlockAt(7, 0, 8), undefined);
+    t.truthy(world.getBlockAt(87, 0, 88));
+    t.is(world.getBlockAt(144, 0, 144), undefined);
+});
+
+test.serial("column refreshes skip uniform colors and replace only changed border cells", async t => {
+    const { world, colorAt } = biomeBlendFixture(t, 2);
+    const data = new ChunkData();
+    for (let x = 0; x < 16; x++) data.set(x + 8 * 16, { type: "oak_leaves" });
+    await world.placeChunk({ x: 0, z: 0, sections: [{ y: 0, data, biomes: Array(64).fill("test:red") }] });
+    await world.placeChunk({ x: -1, z: 0, sections: [{ y: 0, data, biomes: Array(64).fill("test:red") }] });
+    const chunk = world.getChunkAt(new Vector3())!, distant = world.getChunkAt(new Vector3(-16, 0, 0))!;
+    const mesh = chunk["sectionMesh"], distantMesh = distant["sectionMesh"];
+    const replaced: number[] = [], replace = chunk["replaceBlocks"].bind(chunk);
+    chunk["replaceBlocks"] = async (blocks, preserve) => {
+        replaced.push(...blocks.map(block => block.index));
+        return replace(blocks, preserve);
+    };
+    const neighbor = { x: 1, z: 0, sections: [{ y: 0, data: new ChunkData(), biomes: Array(64).fill("test:red") }] };
+    await world.placeChunk(neighbor);
+    t.deepEqual(replaced, []);
+    t.is(chunk["sectionMesh"], mesh);
+    t.is(distant["sectionMesh"], distantMesh);
+    await world.placeChunk({ ...neighbor, sections: [{ ...neighbor.sections[0], biomes: Array(64).fill("test:blue") }] });
+    t.deepEqual(replaced, [14 + 8 * 16, 15 + 8 * 16]);
+    t.is(colorAt([13, 0, 8]), 0xff0000);
+    t.is(colorAt([14, 0, 8]), 0xcc0033);
+    t.is(colorAt([15, 0, 8]), 0x990066);
+    t.is(distant["sectionMesh"], distantMesh);
+    replaced.length = 0;
+    await world.unloadChunkColumn(1, 0);
+    t.deepEqual(replaced, [14 + 8 * 16, 15 + 8 * 16]);
+    t.is(colorAt([15, 0, 8]), 0xff0000);
+});
+
+test.serial("section biome edits refresh tinted cells in adjacent columns", async t => {
+    const { world, colorAt } = biomeBlendFixture(t, 1);
+    const data = new ChunkData();
+    data.set(15 + 8 * 16, { type: "oak_leaves" });
+    await world.placeChunk({ x: 0, z: 0, sections: [{ y: 0, data, biomes: Array(64).fill("test:red") }] });
+    await world.placeChunk({ x: 1, z: 0, sections: [{ y: 0, data, biomes: Array(64).fill("test:red") }] });
+    await world.getChunkAt(new Vector3(16, 0, 0))!.setBiomes(Array(64).fill("test:blue"));
+    t.is(colorAt([15, 0, 8]), 0xaa0055);
+    t.is(colorAt([31, 0, 8]), 0x0000ff);
+});
+
+test.serial("blended tall plant upper halves sample the section below", async t => {
+    const { world, states, colorAt } = biomeBlendFixture(t, 1);
+    const grass = Colormaps.grassColor;
+    Colormaps.grassColor = async () => 0x654321;
+    t.teardown(() => { Colormaps.grassColor = grass; });
+    states.set("minecraft:tall_grass", { key: AssetKey.parse("blockstates", "tall_grass"),
+        variants: { "": { model: "test:block/blend_leaves" } } });
+    const upper = new ChunkData();
+    upper.set(15 + 8 * 16, { type: "tall_grass", properties: { half: "upper" } });
+    await world.placeChunk({ x: 0, z: 0, sections: [
+        { y: 0, data: new ChunkData(), biomes: Array(64).fill("test:red") },
+        { y: 1, data: upper, biomes: Array(64).fill("test:blue") }
+    ] });
+    t.is(colorAt([15, 16, 8]), 0xff0000);
+    await world.placeChunk({ x: 1, z: 0, sections: [{ y: 0, data: new ChunkData(), biomes: Array(64).fill("test:blue") }] });
+    t.is(colorAt([15, 16, 8]), 0xaa0055);
+});
+
+test.serial("default blended water does not allocate a water tint buffer", async t => {
+    const { world } = biomeBlendFixture(t, 1);
+    Biomes.getColor = async () => 0x3f76e4;
+    const data = new ChunkData();
+    data.set(0, { type: "water" });
+    await world.placeChunk({ x: 0, z: 0, sections: [{ y: 0, data, biomes: Array(64).fill("test:red") }] });
+    t.is(world.getChunkAt(new Vector3())!["waterTints"], undefined);
 });

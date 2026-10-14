@@ -212,11 +212,15 @@ export class UVMapper {
     }
 
     public static fillMissingTextureKeys<T>(textures: ModelTextures, target: { [k: string]: T }): { [k: string]: T } {
-        for (let faceName of CUBE_FACES) {
-            let v = textures[faceName];
-            if (v && v.startsWith("#")) {
-                target[faceName] = target[v.substr(1)];
+        for (const key in textures) {
+            // Follow references such as "#all" -> "#texture" to the variable that names a texture.
+            let name = key;
+            const seen = new Set<string>();
+            while (textures[name]?.startsWith("#") && !seen.has(name)) {
+                seen.add(name);
+                name = textures[name].substr(1);
             }
+            if (name !== key) target[key] = target[name];
         }
         return target;
     }

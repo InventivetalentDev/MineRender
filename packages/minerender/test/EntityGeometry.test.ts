@@ -1,5 +1,5 @@
 import test, { ExecutionContext } from "ava";
-import { Box3, Euler, LineSegments, Mesh, MeshBasicMaterial, Raycaster, Vector3 } from "three";
+import { Box3, Euler, LineSegments, Matrix4, Mesh, MeshBasicMaterial, Raycaster, Scene, Vector3 } from "three";
 import { AssetKey, BasicAssetKey } from "../src/assets/AssetKey";
 import { ModelTextures } from "../src/assets/ModelTextures";
 import { Caching } from "../src/cache/Caching";
@@ -98,6 +98,54 @@ test.serial("the dataset transform replaces the flip unless the caller sets it",
     t.deepEqual(corner(undefined), [-1, -2, 3]);
     t.deepEqual(corner(living, { flip: true }), [-1, -2, 3]);
     t.deepEqual(corner(living, { flip: false }), [1, 2, 3]);
+});
+
+test.serial("entity transforms preserve nonuniform scale followed by rotation and translation", t => {
+    fixture(t);
+    const transform: EntityTransformOp[] = [{ scale: [1, 2, 1] }, { rotate: [0, 0, Math.PI / 4] }, { translate: [3, 0, 0] }];
+    const object = new EntityObject({ key: new BasicAssetKey("minecraft", "fixture"), id: "minecraft:fixture", transform, layer: { texture: [64, 32], root: part({ cubes: [cube] }) } });
+    object["createMeshes"]();
+    t.teardown(() => object.dispose());
+    const matrix = new Matrix4().makeScale(1, 2, 1)
+        .multiply(new Matrix4().makeRotationZ(Math.PI / 4))
+        .multiply(new Matrix4().makeTranslation(3, 0, 0));
+    const corner = new Vector3(...cube.origin);
+    t.deepEqual(coordinates(object.getLayerGroup("main")!.localToWorld(corner.clone())),
+        coordinates(corner.applyMatrix4(matrix)));
+});
+
+test.serial("entity transforms with zero scale flatten bounds without NaN", t => {
+    fixture(t);
+    const transform: EntityTransformOp[] = [{ scale: [1, 0, 1] }, { translate: [0, 5, 0] }];
+    const object = new EntityObject({ key: new BasicAssetKey("minecraft", "fixture"), id: "minecraft:fixture", transform, layer: { texture: [64, 32], root: part({ cubes: [cube] }) } });
+    object["createMeshes"]();
+    t.teardown(() => object.dispose());
+    const bounds = new Box3().setFromObject(object);
+    t.deepEqual(coordinates(bounds.min), [1, 0, 3]);
+    t.deepEqual(coordinates(bounds.max), [3, 0, 7]);
+});
+
+test.serial("entity bounds follow caller transforms before the scene updates its matrices", t => {
+    fixture(t);
+    const living: EntityTransformOp[] = [{ rotate: [0, Math.PI, 0] }, { scale: [-1, -1, 1] }, { translate: [0, -24.016, 0] }];
+    const object = new EntityObject({ key: new BasicAssetKey("minecraft", "fixture"), id: "minecraft:fixture", transform: living, layer: { texture: [64, 32], root: part({ cubes: [cube] }) } });
+    object["createMeshes"]();
+    t.teardown(() => object.dispose());
+    const scene = new Scene();
+    scene.add(object);
+
+    const unscaled = new Box3().setFromObject(object);
+    object.position.set(100, 10, 20);
+    object.rotation.y = Math.PI;
+    object.scale.setScalar(0.5);
+    const bounds = new Box3().setFromObject(object);
+    scene.updateMatrixWorld(true);
+    const updated = new Box3().setFromObject(object);
+
+    t.deepEqual(coordinates(bounds.min), coordinates(updated.min));
+    t.deepEqual(coordinates(bounds.max), coordinates(updated.max));
+    t.deepEqual(coordinates(bounds.getSize(new Vector3())), coordinates(unscaled.getSize(new Vector3()).multiplyScalar(0.5)));
+    t.is(coordinates(bounds.min)[1], coordinates(unscaled.min)[1] * 0.5 + object.position.y);
 });
 
 test.serial("cube growth preserves vanilla UV dimensions and mirrored cubes swap side faces and reverse U", t => {

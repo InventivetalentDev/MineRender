@@ -1,6 +1,6 @@
 import { installMineRenderDataFixtures } from "./helpers/minerender-data";
 import test, { ExecutionContext } from "ava";
-import { Box3, DoubleSide, FrontSide, Mesh, MeshBasicMaterial, ShaderMaterial, Texture, Vector3 } from "three";
+import { Box3, DoubleSide, FrontSide, Mesh, MeshBasicMaterial, Object3D, ShaderMaterial, Texture, Vector3 } from "three";
 import { AssetKey, BasicAssetKey } from "../src/assets/AssetKey";
 import { AssetLoader } from "../src/assets/AssetLoader";
 import { BannerPatterns, DYE_COLORS } from "../src/assets/BannerPatterns";
@@ -27,6 +27,7 @@ import { UVMapper } from "../src/UVMapper";
 import { SkinTextures } from "../src/skin/SkinTextures";
 
 const coordinates = (v: Vector3) => v.toArray().map(value => Math.round(value * 1e6) / 1e6 + 0);
+const specialPart = (object: Object3D, index = 0) => object.children[0].children[index] as EntityObject;
 const part = (children: Record<string, EntityModelPart> = {}, origin?: TripleArray, size: TripleArray = [8, 8, 8]): EntityModelPart => ({
     pose: { offset: [0, 0, 0], rotation: [0, 0, 0] },
     cubes: origin ? [{ origin, size, uv: [0, 0] }] : [], children
@@ -175,6 +176,25 @@ test.serial("special chest previews preserve texture origins, pose the lid, and 
     t.is(ownedMaterialDisposed, 1);
 });
 
+test.serial("special item bounds follow caller transforms before the scene updates its matrices", async t => {
+    const { create } = fixture(t);
+    const special: SpecialItemRenderer = { type: "minecraft:chest", texture: "normal" };
+    const object = await create(special, {
+        gui: { rotation: [30, 45, 0], translation: [2, 3, 4], scale: [0.5, 0.25, 0.5] }
+    });
+    const before = new Box3().setFromObject(object);
+    object.position.set(100, 20, -30);
+    object.rotation.y = Math.PI / 3;
+    object.scale.set(2, 3, 0.5);
+    const moved = new Box3().setFromObject(object);
+    object.updateWorldMatrix(false, true, true);
+    const updated = new Box3().setFromObject(object);
+    t.deepEqual([coordinates(moved.min), coordinates(moved.max)], [coordinates(updated.min), coordinates(updated.max)]);
+    t.notDeepEqual([coordinates(moved.min), coordinates(moved.max)], [coordinates(before.min), coordinates(before.max)]);
+    const hidden = await create(special, { gui: { scale: [0, 0, 0] } });
+    t.deepEqual(coordinates(new Box3().setFromObject(hidden).getSize(new Vector3())), [0, 0, 0]);
+});
+
 test.serial("special beds join both halves before applying the inherited item display pose", async t => {
     const { create, requests, textures } = fixture(t);
     const object = await create({ type: "minecraft:bed", texture: "custom:blue" }, {
@@ -207,7 +227,7 @@ test.serial("player-head items keep the hat, skin materials, inherited display, 
         [[-4.25, -8.25, -4.25], [4.25, 0.25, 4.25]], [[-0.125, -1.125, 1.875], [4.125, 3.125, 6.125]]
     ]);
     for (const [index, object] of [first, second].entries()) {
-        const entity = object.children[0] as EntityObject;
+        const entity = specialPart(object);
         const head = entity.getMeshByName("head")!;
         const hat = entity.getMeshByName("hat")!;
         const material = head.material as MeshBasicMaterial;
@@ -246,7 +266,7 @@ test.serial("trident and conduit specials select their vanilla layers, solid mat
     t.deepEqual(textures.map(key => key.toNamespacedString()), ["minecraft:entity/trident", "minecraft:entity/conduit/base"]);
     t.true(requests.every(request => (request.key as AssetKey).root === "https://example.test/pack"));
     t.true(textures.every(key => key.root === "https://example.test/pack"));
-    const entities = [trident, conduit].map(object => object.children[0] as EntityObject);
+    const entities = [trident, conduit].map(object => specialPart(object));
     t.deepEqual(entities.map(entity => Object.keys(entity.entity.layers!)), [["main"], ["shell"]]);
     t.deepEqual(entities.map(entity => coordinates(new Vector3(1, 2, 3).applyMatrix4(entity.matrix))), [[-7, -10, -11], [1, 2, 3]]);
     const bounds = [trident, conduit].map(object => new Box3().setFromObject(object));
@@ -270,7 +290,7 @@ test.serial("decorated pots map component order to outward side planes while ret
     const { create, requests, models } = fixture(t);
     const decorations = ["archer_pottery_sherd", "prize_pottery_sherd", "arms_up_pottery_sherd", "skull_pottery_sherd"];
     const object = await create({ type: "minecraft:decorated_pot" }, undefined, { "minecraft:pot_decorations": decorations });
-    const entity = object.children[0] as EntityObject;
+    const entity = specialPart(object);
     t.false(object.isInstanced);
     t.deepEqual(requests.map(request => [request.key.path, request.options?.layer]), [["decorated_pot_base", "main"], ["decorated_pot_sides", "main"]]);
     t.deepEqual(Object.keys(entity.entity.layers!), ["base", "front", "back", "left", "right"]);
@@ -313,7 +333,7 @@ test.serial("plain and partial pot decorations use fallback sides and reject mal
     }
     t.is(requests.length, 0);
     const plain = await create({ type: "decorated_pot" });
-    const sides = (plain.children[0] as EntityObject).entity.layers!;
+    const sides = specialPart(plain).entity.layers!;
     t.true(["front", "back", "left", "right"].every(side => sides[side].texture!.path === "decorated_pot/decorated_pot_side"));
     const partial = DecoratedPots.getSideTextures(["flow_pottery_sherd", "minecraft:brick", "minecraft:diamond"]);
     t.deepEqual(Object.values(partial).map(key => key.path), ["decorated_pot/flow_pottery_pattern", ...new Array(3).fill("decorated_pot/decorated_pot_side")]);
@@ -337,7 +357,7 @@ test.serial("copper-golem statue poses share entity texture keys, preserve liter
     ];
     for (const [index, pose] of poses.entries()) {
         const object = await create({ type: "minecraft:copper_golem_statue", pose, texture: textureIds[index] });
-        const entity = object.children[0] as EntityObject;
+        const entity = specialPart(object);
         t.false(object.isInstanced);
         t.is(requests[index].key.path, pose === "standing" ? "copper_golem" : `copper_golem_${pose}`);
         t.is(requests[index].options?.layer, "main");
@@ -406,7 +426,7 @@ test.serial("banner passes keep the pole untinted and apply one fixed flag pose 
         "minecraft:base_color": "blue",
         "minecraft:banner_patterns": [{ pattern: { asset_id: "stripe_bottom", translation_key: "pattern.stripe" }, color: "white" }]
     });
-    const entity = object.children[0] as EntityObject;
+    const entity = specialPart(object);
     t.deepEqual(requests[0].options?.layers, ["main", "flag"]);
     t.deepEqual(Object.keys(entity.entity.layers!), ["main", "flag", "pattern_base", "pattern_0"]);
     t.is(entity.entity.render, "solid");
@@ -441,7 +461,7 @@ test.serial("shield decoration switches the base texture and draws masks only on
     t.deepEqual(requests.map(request => request.texture!.toNamespacedString()), [
         "minecraft:entity/shield_base_nopattern", "minecraft:entity/shield_base", "minecraft:entity/shield_base"
     ]);
-    const entities = [plain, dyed, decorated].map(object => object.children[0] as EntityObject);
+    const entities = [plain, dyed, decorated].map(object => specialPart(object));
     t.deepEqual(entities.map(entity => Object.keys(entity.entity.layers!)), [["main"], ["main", "pattern_base"], ["main", "pattern_base", "pattern_0"]]);
     t.deepEqual(entities.map(entity => (entity.getMeshByName("handle", "main")!.material as MeshBasicMaterial).color.getHex()), [0xffffff, 0xffffff, 0xffffff]);
     t.deepEqual(entities.slice(1).map(entity => (entity.getMeshByName("plate", "pattern_base")!.material as MeshBasicMaterial).color.getHex()), [0x3c44aa, 0xf9fffe]);
@@ -464,7 +484,7 @@ test.serial("shield glint covers the plain plate and the decorated handle once w
     })) });
     const off = await create({ type: "shield" }, undefined, { ...enchantments, enchantment_glint_override: false });
     for (const [index, object] of [plain, empty, dyed, decorated, off].entries()) {
-        const entity = object.children[0] as EntityObject;
+        const entity = specialPart(object);
         const meshes: Mesh[] = [];
         object.iterateAllMeshes(mesh => meshes.push(mesh));
         const passes = meshes.filter(mesh => mesh.userData.minerenderItemGlint);
@@ -486,7 +506,7 @@ test.serial("shield glint covers the plain plate and the decorated handle once w
         object.updateMatrixWorld(true);
         t.deepEqual(platePass.matrixWorld.elements, plate.matrixWorld.elements);
     }
-    t.is(Object.keys((decorated.children[0] as EntityObject).entity.layers!).length, 18);
+    t.is(Object.keys(specialPart(decorated).entity.layers!).length, 18);
     const glintRequests = textures.filter(key => key.getFullPath() === "misc/enchanted_glint_item");
     t.is(glintRequests.length, 1);
     t.true(glintRequests.every(key => key.root === "https://example.test/pack"));
@@ -534,7 +554,7 @@ test.serial("multipart special items share one glint material and ticker and dis
     const trident = await create({ type: "trident" }, undefined, { enchantment_glint_override: true });
     const passes: Mesh[] = [];
     trident.iterateAllMeshes(mesh => { if (mesh.userData.minerenderItemGlint) passes.push(mesh); });
-    t.is(trident.children.length, 2);
+    t.is(trident.children[0].children.length, 2);
     t.is(passes.length, 10);
     const material = passes[0].material as ShaderMaterial;
     t.true(passes.every(pass => pass.material === material));
@@ -604,7 +624,7 @@ test.serial("composite shield components keep independent colors and dispose own
     const before = JSON.stringify(model);
     const object = await new MineRenderScene().addModel(model, { instanceMeshes: true, displayPosition: DisplayPosition.GUI }) as ModelObject;
     objects.push(object);
-    const entities = object.children.map(child => child.children[0] as EntityObject);
+    const entities = object.children.map(child => specialPart(child));
     const palettes = entities.map(entity => entity.getMeshByName("plate", "pattern_base")!.material as MeshBasicMaterial);
     t.deepEqual(palettes.map(material => material.color.getHex()), [0xb02e26, 0x3c44aa]);
     t.not(palettes[0].customProgramCacheKey(), "special-item-side");

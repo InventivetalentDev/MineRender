@@ -12,4 +12,5 @@ export * from './Fonts';
 export * from './MineRenderData';
 export * from './ModelTextures';
 export * from './Models';
+export * from './Renames';
 export * from './source';
