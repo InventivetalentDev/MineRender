@@ -1,9 +1,18 @@
+feature:
+- head-branch: '^feat/'
+fix:
+- head-branch: '^fix/'
+refactor:
+- head-branch: '^refactor/'
+chore:
+- head-branch: '^chore/'
 library:
 - changed-files:
   - all-globs-to-any-file: ['packages/minerender/**', '!packages/minerender/reference/**']
 docs:
 - changed-files:
   - any-glob-to-any-file: ['packages/minerender/reference/**', 'packages/minerender/README.md', 'README.md']
+- head-branch: '^docs/'
 api:
 - changed-files:
   - any-glob-to-any-file: 'apps/api/**'
