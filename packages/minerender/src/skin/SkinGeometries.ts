@@ -1,6 +1,6 @@
 import { SkinPart } from "./SkinPart";
 import { TripleArray } from "../model/Model";
-import merge from "ts-deepmerge";
+import { merge } from "../util/_internal/merge";
 
 export type SkinGeometries = Record<SkinPart, TripleArray>;
 

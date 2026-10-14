@@ -1,7 +1,7 @@
-import { Buffer } from "buffer";
 import { MeshBasicMaterial } from "three";
 import { AssetKey, isResourceLocation } from "../assets/AssetKey";
 import { ModelTextures } from "../assets/ModelTextures";
+import { base64ToBytes } from "../util/_internal/base64";
 import { md5 } from "../util/util";
 import { Skins } from "./Skins";
 import { SkinTextures } from "./SkinTextures";
@@ -91,7 +91,7 @@ export class PlayerHeadTextures {
         const value = properties.find(property => property.name === "textures")?.value;
         if (!value || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}(?:==)?|[A-Za-z0-9+/]{3}=?)?$/.test(value)) return undefined;
         try {
-            const textures = JSON.parse(Buffer.from(value, "base64").toString("utf8")).textures;
+            const textures = JSON.parse(new TextDecoder().decode(base64ToBytes(value))).textures;
             if (!textures || typeof textures !== "object" || Array.isArray(textures)) return undefined;
             for (const texture of Object.values(textures) as { url?: unknown }[]) {
                 if (!texture || typeof texture.url !== "string" || !/^https?:\/\//.test(texture.url)) return undefined;
@@ -108,10 +108,15 @@ export class PlayerHeadTextures {
 
     private static offlineUuid(name?: string): number[] {
         if (name === undefined) return [0, 0, 0, 0];
-        const bytes = Buffer.from(md5(`OfflinePlayer:${name}`), "hex");
+        const hex = md5(`OfflinePlayer:${name}`);
+        const bytes = new Uint8Array(16);
+        for (let i = 0; i < bytes.length; i++) {
+            bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+        }
         bytes[6] = (bytes[6] & 0x0f) | 0x30;
         bytes[8] = (bytes[8] & 0x3f) | 0x80;
-        return [0, 4, 8, 12].map(offset => bytes.readInt32BE(offset));
+        const view = new DataView(bytes.buffer);
+        return [0, 4, 8, 12].map(offset => view.getInt32(offset));
     }
 
     private static uuidString(words: number[]): string {

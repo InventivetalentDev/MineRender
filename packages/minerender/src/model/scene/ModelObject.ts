@@ -8,7 +8,7 @@ import { BoxGeometry, BoxHelper, BufferAttribute, Color, DoubleSide, EdgesGeomet
 import { mergeBufferGeometries } from "../../three/BufferGeometryUtils";
 import { SceneObjectOptions } from "../../renderer/SceneObjectOptions";
 import { addBox3WireframeToObject, addWireframeToMesh, addWireframeToObject, applyElementRotation } from "../../util/model";
-import merge from "ts-deepmerge";
+import { merge } from "../../util/_internal/merge";
 import type { BufferGeometry, Texture } from "three";
 import { BlockObject } from "../block/scene/BlockObject";
 import { prefix } from "../../util/log";

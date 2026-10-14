@@ -6,7 +6,7 @@ import { Env } from "../Env";
 import { Requests } from "../request/Requests";
 import { WrappedImage } from "../WrappedImage";
 import { ExtractableImageData } from "../ExtractableImageData";
-import { Buffer } from "buffer";
+import { base64ToBytes, bytesToBase64 } from "../util/_internal/base64";
 import { prefix } from "../util/log";
 
 const p = prefix("ImageLoader");
@@ -17,7 +17,7 @@ export interface ImageInfo {
     width: number;
     height: number;
     type?: string;
-    data: Buffer;
+    data: Uint8Array;
 }
 
 /** Fetches and decodes images through the active browser or Node environment provider. */
@@ -75,7 +75,7 @@ export class ImageLoader {
     public static async infoToCanvasData(info: ImageInfo): Promise<ExtractableImageData> {
         const type = info.type === "jpg" ? "jpeg" : info.type ?? "png";
         // Both browser and Node images accept data URLs; src remains provenance, not a second fetch.
-        const image = await ImageLoader.loadAsync(`data:image/${type};base64,${info.data.toString("base64")}`);
+        const image = await ImageLoader.loadAsync(`data:image/${type};base64,${bytesToBase64(info.data)}`);
         const canvas = createCanvas(info.width, info.height);
         const context = canvas.getContext("2d") as CanvasRenderingContext2D;
         context.drawImage(image as CanvasImageSource, 0, 0);
@@ -110,7 +110,7 @@ export class ImageLoader {
 
     public static async processResponse(response: Pick<RequestResponse<ArrayBuffer>, "data" | "url">): Promise<ImageInfo> {
         const src = response.url;
-        const data = Buffer.from(response.data);
+        const data = new Uint8Array(response.data);
         const { width, height, type } = Env.provider.imageSize(data);
         if (!width || !height) {
             throw new Error("Invalid or unsupported image dimensions");
@@ -134,14 +134,14 @@ export class ImageLoader {
                 throw new Error("Invalid image data URL");
             }
             // Percent escapes represent image bytes, which need not be valid UTF-8.
-            let bytes = url.href.slice(comma + 1).replace(/%([\da-f]{2})/gi,
+            const bytes = url.href.slice(comma + 1).replace(/%([\da-f]{2})/gi,
                 (_, hex: string) => String.fromCharCode(parseInt(hex, 16)));
-            if (/; *base64 *$/i.test(url.href.slice(5, comma))) {
-                bytes = atob(bytes);
-            }
+            const data = /; *base64 *$/i.test(url.href.slice(5, comma))
+                ? base64ToBytes(bytes)
+                : Uint8Array.from(bytes, char => char.charCodeAt(0));
             return this.processResponse({
                 url: src,
-                data: Uint8Array.from(bytes, char => char.charCodeAt(0)).buffer
+                data: data.buffer
             });
         }
 

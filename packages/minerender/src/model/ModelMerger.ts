@@ -1,6 +1,6 @@
 import { BUILTIN_ENTITY, ItemModel, Model } from "./Model";
 import { Models } from "../assets/Models";
-import merge from "ts-deepmerge";
+import { merge } from "../util/_internal/merge";
 import { Assets } from "../assets/Assets";
 import { AssetKey } from "../assets/AssetKey";
 import { DisplayTransforms } from "./DisplayTransforms";

@@ -13,7 +13,7 @@ import { RequestError, Requests } from "../../request";
 import { AssetLoader } from "../AssetLoader";
 import { AssetParser } from "./parser";
 import { ResponseParser } from "./parser";
-import merge from "ts-deepmerge";
+import { merge } from "../../util/_internal/merge";
 
 const p = prefix("HostedAssetSource");
 
@@ -51,7 +51,7 @@ export class HostedAssetSource extends AssetSource {
             request.responseType = "arraybuffer";
         },
         parse(response: RequestResponse): Promise<Maybe<NBTAsset>> {
-            return NBTHelper.fromBuffer(Buffer.from(response.data));
+            return NBTHelper.fromBuffer(response.data);
         }
     }
     static readonly IMAGE: ResponseParser<TextureAsset> = {

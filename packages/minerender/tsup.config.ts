@@ -1,7 +1,10 @@
 import { defineConfig, Options } from "tsup";
 import { polyfillNode } from "esbuild-plugin-polyfill-node";
+import type { Plugin } from "esbuild";
+import { existsSync } from "node:fs";
+import path from "node:path";
 
-// Three passes, one per delivery format. They differ in which entry they start from, which is what
+// The passes differ in which entry they start from, which is what
 // makes the browser/Node split work: src/index.browser.ts registers the DOM EnvProvider and can
 // never reach src/env/node, so `canvas`, `node-persist` and `image-size` stay out of the browser
 // graph entirely. See src/Env.ts.
@@ -24,18 +27,70 @@ const browserDefines = {
     "process.env.NODE_ENV": JSON.stringify(process.env.NODE_ENV || "production")
 };
 
+// Keep relative imports as imports naming the emitted .mjs file, because Node resolves
+// neither extensions nor directory indexes.
+const perModule: Plugin = {
+    name: "per-module",
+    setup(build) {
+        build.onResolve({ filter: /^\.\.?\// }, args => {
+            if (args.kind === "entry-point") return;
+            const base = path.resolve(args.resolveDir, args.path);
+            const source = [base + ".ts", base + ".js", path.join(base, "index.ts")].find(file => existsSync(file));
+            if (!source) return;
+            let relative = path.relative(args.resolveDir, source).replace(/\.(ts|js)$/, ".mjs").replace(/\\/g, "/");
+            if (!relative.startsWith(".")) relative = "./" + relative;
+            return { path: relative, external: true };
+        });
+    }
+};
+
 export default defineConfig([
-    // ESM + CJS for bundlers (Vite, webpack, rollup). Dependencies stay external.
+    // CJS for consumers using require. Dependencies stay external.
     {
         ...shared,
         name: "browser",
-        entry: { index: "src/index.browser.ts", "section.worker": "src/env/browser/section.worker.ts" },
+        entry: { index: "src/index.browser.ts" },
         dts: { entry: { index: "src/index.browser.ts" } },
         outDir: "dist/browser",
-        format: ["esm", "cjs"],
+        format: ["cjs"],
         platform: "browser",
         target: "es2020",
         external: ["three"],
+        esbuildOptions(options) {
+            options.define = { ...options.define, ...browserDefines };
+        }
+    },
+
+    // Preserve module boundaries so bundlers can remove unused browser code.
+    {
+        ...shared,
+        name: "browser-esm",
+        entry: [
+            "src/**/*.ts", "src/**/*.js", "!src/**/*.d.ts", "!src/env/node/**",
+            "!src/index.node.ts", "!src/env/browser/section.worker.ts", "!src/_model/**", "!src/lib/**"
+        ],
+        dts: { entry: { "index.browser": "src/index.browser.ts" } },
+        outDir: "dist/browser/esm",
+        format: ["esm"],
+        platform: "browser",
+        target: "es2020",
+        noExternal: ["ts-deepmerge"],
+        esbuildPlugins: [perModule],
+        esbuildOptions(options) {
+            options.define = { ...options.define, ...browserDefines };
+        }
+    },
+
+    // BrowserEnv resolves the worker next to its own module.
+    {
+        ...shared,
+        name: "browser-worker",
+        entry: { "env/browser/section.worker": "src/env/browser/section.worker.ts" },
+        outDir: "dist/browser/esm",
+        format: ["esm"],
+        platform: "browser",
+        target: "es2020",
+        dts: false,
         esbuildOptions(options) {
             options.define = { ...options.define, ...browserDefines };
         }

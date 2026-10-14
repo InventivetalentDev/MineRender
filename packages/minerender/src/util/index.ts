@@ -3,5 +3,6 @@ export * from './BatchedExecutor';
 export * from './log';
 export * from './model';
 export * from './performance';
+export * from './sha';
 export * from './three';
 export * from './util';

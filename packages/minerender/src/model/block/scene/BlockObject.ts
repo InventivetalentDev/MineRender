@@ -4,7 +4,7 @@ import { SceneObjectOptions } from "../../../renderer/SceneObjectOptions";
 import { isModelObject, ModelObject, ModelObjectOptions } from "../../scene/ModelObject";
 import { Caching } from "../../../cache/Caching";
 import { Models } from "../../../assets/Models";
-import merge from "ts-deepmerge";
+import { merge } from "../../../util/_internal/merge";
 import { Euler, Matrix4, Quaternion, Vector3 } from "three";
 import { Maybe } from "../../../util/util";
 import { MineRenderError } from "../../../error/MineRenderError";

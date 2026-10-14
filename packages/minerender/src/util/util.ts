@@ -1,28 +1,14 @@
-// Node ESM exposes the CommonJS crypto-js API through its default export.
-import CryptoJS from "crypto-js";
+// Node ESM needs the explicit .js extension for the CommonJS hash module.
+import MD5 from "crypto-js/md5.js";
 import { Vector3 } from "three";
 
 export const changeEvent = { type: 'change' as const };
 
 export type Maybe<T> = T | undefined;
 
-// crypto-js runs identically in both environments, so these deliberately do not go through Env -
-// using it here would pull Node's `crypto` into the browser graph for no benefit.
-
+// MD5 runs in both environments without pulling Node's crypto into the browser graph.
 export function md5(str: string): string {
-    return CryptoJS.MD5(str).toString(CryptoJS.enc.Hex);
-}
-
-export function sha1(str: string): string {
-    return CryptoJS.SHA1(str).toString(CryptoJS.enc.Hex);
-}
-
-export function sha256(str: string): string {
-    return CryptoJS.SHA256(str).toString(CryptoJS.enc.Hex);
-}
-
-export function sha512(str: string): string {
-    return CryptoJS.SHA512(str).toString(CryptoJS.enc.Hex);
+    return MD5(str).toString();
 }
 
 export function base64encode(str: string): string {

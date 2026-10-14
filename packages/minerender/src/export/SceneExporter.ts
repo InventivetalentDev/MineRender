@@ -2,7 +2,6 @@ import { BufferGeometry, ClampToEdgeWrapping, Color, DataTexture, Float32BufferA
 import { OBJExporter } from "three/examples/jsm/exporters/OBJExporter.js";
 import { PLYExporter } from "three/examples/jsm/exporters/PLYExporter.js";
 import type { PLYExporterOptions } from "three/examples/jsm/exporters/PLYExporter.js";
-import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter.js";
 import { MineRenderError } from "../error/MineRenderError";
 import { DisplayTransforms } from "../model/DisplayTransforms";
 import { createCanvas } from "../canvas/CanvasCompat";
@@ -56,6 +55,7 @@ export class SceneExporter {
         }
         const snapshot = createSnapshot(root, true);
         try {
+            const { GLTFExporter } = await import("three/examples/jsm/exporters/GLTFExporter.js");
             return await new GLTFExporter().parseAsync(snapshot.scene, {
                 binary: options.binary ?? false,
                 maxTextureSize: options.maxTextureSize ?? Infinity

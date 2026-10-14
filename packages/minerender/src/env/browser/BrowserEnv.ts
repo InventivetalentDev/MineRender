@@ -1,9 +1,24 @@
-import localforage from "localforage";
 import { Env, EnvProvider, ImageSizeInfo } from "../../Env";
 import type { CompatCanvas, CompatImage } from "../../canvas/CanvasCompat";
 import type { PersistentCache } from "../../cache/PersistentCache";
 import { BrowserCache } from "./BrowserCache";
 import { probeImageSize } from "./probeImageSize";
+
+/** A LocalForage that imports the library and opens the store on the first call. */
+function lazyLocalForage(options: LocalForageOptions): LocalForage {
+    let instance: Promise<LocalForage> | undefined;
+    const store = () => instance ??= import("localforage").then(module => module.default.createInstance(options));
+    return {
+        ready: (...args: Parameters<LocalForage["ready"]>) => store().then(value => value.ready(...args)),
+        getItem: (...args: Parameters<LocalForage["getItem"]>) => store().then(value => value.getItem(...args)),
+        setItem: (...args: Parameters<LocalForage["setItem"]>) => store().then(value => value.setItem(...args)),
+        removeItem: (...args: Parameters<LocalForage["removeItem"]>) => store().then(value => value.removeItem(...args)),
+        clear: (...args: Parameters<LocalForage["clear"]>) => store().then(value => value.clear(...args)),
+        length: (...args: Parameters<LocalForage["length"]>) => store().then(value => value.length(...args)),
+        keys: (...args: Parameters<LocalForage["keys"]>) => store().then(value => value.keys(...args)),
+        iterate: (...args: Parameters<LocalForage["iterate"]>) => store().then(value => value.iterate(...args))
+    } as LocalForage;
+}
 
 /**
  * {@link EnvProvider} backed by the DOM. Uses nothing outside of standard browser APIs and
@@ -33,7 +48,7 @@ export class BrowserEnv implements EnvProvider {
     }
 
     openCache(name: string, version: number): PersistentCache {
-        return new BrowserCache(localforage.createInstance({
+        return new BrowserCache(lazyLocalForage({
             // IndexedDB schema upgrades retain records; each cache generation needs its own database.
             name: name + version,
             version: version

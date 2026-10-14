@@ -1,24 +1,40 @@
 import { Event, Object3D, Scene } from "three";
 import type { Object3DEventMap } from "three";
 import {isSceneObject, SceneObject} from "./SceneObject";
-import merge from "ts-deepmerge";
+import { merge } from "../util/_internal/merge";
 import { Model } from "../model/Model";
-import { isModelObject, ModelObject, ModelObjectOptions } from "../model/scene/ModelObject";
+import type { ModelObject, ModelObjectOptions } from "../model/scene/ModelObject";
 import { InstanceReference } from "../instance/InstanceReference";
 import { SceneStats } from "../SceneStats";
 import { BasicMinecraftAsset, MinecraftAsset } from "../MinecraftAsset";
 import { SceneObjectOptions } from "./SceneObjectOptions";
 import { BlockState } from "../model/block/BlockState";
-import { BlockObject, BlockObjectOptions, isBlockObject } from "../model/block/scene/BlockObject";
+import type { BlockObject, BlockObjectOptions } from "../model/block/scene/BlockObject";
 import { InstanceManager } from "../instance/InstanceManager";
 import { DeepPartial, sleep } from "../util/util";
 import { SkinObject, SkinObjectOptions } from "../skin/scene/SkinObject";
-import { EntityObject, EntityObjectOptions } from "../entity/scene/EntityObject";
+import type { EntityObject, EntityObjectOptions } from "../entity/scene/EntityObject";
 import { EntityModel } from "../entity/EntityModel";
 import { AssetKey, isAssetKey } from "../assets/AssetKey";
 import { GuiLayer } from "../gui/GuiLayer";
-import { GuiObject, GuiObjectOptions } from "../gui/scene/GuiObject";
-import { ItemTints } from "../model/ItemTints";
+import type { GuiObject, GuiObjectOptions } from "../gui/scene/GuiObject";
+
+// Importing these guards from the object modules would load those modules with the scene.
+function isModelObject(obj: unknown): obj is ModelObject {
+    return (obj as ModelObject).isModelObject;
+}
+
+function isBlockObject(obj: unknown): obj is BlockObject {
+    return (obj as BlockObject).isBlockObject;
+}
+
+// Loaded on first use, then reused: a repeated import() costs microseconds, and world
+// placement calls these methods once per block.
+let ModelObjectClass: typeof ModelObject | undefined;
+let BlockObjectClass: typeof BlockObject | undefined;
+let EntityObjectClass: typeof EntityObject | undefined;
+let GuiObjectClass: typeof GuiObject | undefined;
+let ItemTintsClass: typeof import("../model/ItemTints").ItemTints | undefined;
 
 /** A Three.js scene that initializes Minecraft objects and tracks changes that need a redraw. */
 export class MineRenderScene extends Scene {
@@ -107,7 +123,10 @@ export class MineRenderScene extends Scene {
         // but we also need to get the options that have been merged with the defaults properly
         // so maybe to the option merging _somewhere_ else, not in the object constructor
         const obj = await objectSupplier();
-        if (isModelObject(obj)) obj.options.tints = await ItemTints.get(obj.originalModel, obj.options.tints);
+        if (isModelObject(obj)) {
+            const ItemTints = ItemTintsClass ??= (await import("../model/ItemTints")).ItemTints;
+            obj.options.tints = await ItemTints.get(obj.originalModel, obj.options.tints);
+        }
         if (obj?.options?.instanceMeshes && asset.key &&  (<AssetKey>asset.key)?.assetType === "models"/*TODO*/) {
             // Geometry options need separate instance pools while sharing the texture atlas.
             let key = asset.key.serialize();
@@ -148,6 +167,7 @@ export class MineRenderScene extends Scene {
      * @returns The model, or a reference to one placement of a shared model.
      */
     public async addModel(model: Model, options?: Partial<ModelObjectOptions>, parent: Object3D = this): Promise<ModelObject | InstanceReference<ModelObject>> {
+        const ModelObject = ModelObjectClass ??= (await import("../model/scene/ModelObject")).ModelObject;
         return this.addSceneObject<Model, ModelObject, ModelObjectOptions>(model, () => new ModelObject(model, options), options, parent);
     }
 
@@ -157,6 +177,7 @@ export class MineRenderScene extends Scene {
      * Use the returned object's `setPosition` method to move all of its model parts.
      */
     public async addBlock(blockState: BlockState, options?: Partial<BlockObjectOptions>, parent: Object3D = this): Promise<BlockObject | InstanceReference<BlockObject>> {
+        const BlockObject = BlockObjectClass ??= (await import("../model/block/scene/BlockObject")).BlockObject;
         return this.addSceneObject<BlockState, BlockObject, BlockObjectOptions>(blockState, () => new BlockObject(blockState, options), options, parent);
     }
 
@@ -182,6 +203,7 @@ export class MineRenderScene extends Scene {
 
     /** Adds an entity loaded with {@link Entities.getEntity}, using its selected layers and textures. */
     public async addEntity(entity: EntityModel, options?: Partial<EntityObjectOptions>, parent: Object3D = this): Promise<EntityObject | InstanceReference<EntityObject>> {
+        const EntityObject = EntityObjectClass ??= (await import("../entity/scene/EntityObject")).EntityObject;
         return this.addSceneObject<EntityModel, EntityObject, EntityObjectOptions>(entity, () => new EntityObject(entity, options), options, parent);
     }
 
@@ -190,6 +212,7 @@ export class MineRenderScene extends Scene {
      * Layer positions start at the top left, with positive GUI y pointing down.
      */
     public async addGui(layers: readonly GuiLayer[], options?: Partial<GuiObjectOptions>, parent: Object3D = this): Promise<GuiObject> {
+        const GuiObject = GuiObjectClass ??= (await import("../gui/scene/GuiObject")).GuiObject;
         const obj = new GuiObject(layers, options);
         obj.scene = this;
         await obj.init();
