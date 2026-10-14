@@ -5,6 +5,7 @@ import { ModelTextures } from "./ModelTextures";
 import { Caching } from "../cache/Caching";
 import type { CompatCanvas } from "../canvas/CanvasCompat";
 import type { MinecraftAsset } from "../MinecraftAsset";
+import type { UnihexProvider } from "./_fonts/Unihex";
 
 /** A glyph's source pixels and layout metrics. Glyphs without an image contribute spacing only. */
 export interface BitmapGlyph {
@@ -17,6 +18,10 @@ export interface BitmapGlyph {
     scale: number;
     ascent: number;
     advance: number;
+    /** Extra advance and drawing offset for bold text, in GUI pixels. Defaults to 1. */
+    boldOffset?: number;
+    /** Shadow displacement in GUI pixels. Defaults to 1. */
+    shadowOffset?: number;
 }
 
 /** Character-to-glyph lookup assembled from the active resource-pack fonts. */
@@ -47,17 +52,17 @@ interface ReferenceProvider extends ProviderOptions {
 }
 
 interface UnsupportedProvider extends ProviderOptions {
-    type: "unihex" | "minecraft:unihex" | "ttf" | "minecraft:ttf";
+    type: "ttf" | "minecraft:ttf";
 }
 
 interface FontAsset extends MinecraftAsset {
-    providers: (BitmapProvider | SpaceProvider | ReferenceProvider | UnsupportedProvider)[];
+    providers: (BitmapProvider | SpaceProvider | ReferenceProvider | (UnihexProvider & ProviderOptions) | UnsupportedProvider)[];
 }
 
-/** Loads Minecraft bitmap, space, and reference font providers for GUI text. */
+/** Loads Minecraft bitmap, Unihex, space, and reference font providers for GUI text. */
 export class Fonts {
 
-    /** Combines font definitions in source-priority order. Unsupported Unihex and TrueType providers are skipped. */
+    /** Combines font definitions in source-priority order. TrueType providers are skipped. */
     public static async get(key: AssetKey | string = "minecraft:default"): Promise<BitmapFont> {
         const fontKey = typeof key === "string" ? AssetKey.parse("font", key) : key;
         return (await Caching.fontCache.get(fontKey.serialize(), () => this.load(fontKey, [])))!;
@@ -89,6 +94,9 @@ export class Fonts {
                         break;
                     case "reference": case "minecraft:reference":
                         provided = (await this.load(this.relatedKey("font", provider.id, key), [...parents, serialized])).glyphs;
+                        break;
+                    case "unihex": case "minecraft:unihex":
+                        provided = await (await import("./_fonts/Unihex")).loadUnihex(provider, key);
                         break;
                     default:
                         continue;

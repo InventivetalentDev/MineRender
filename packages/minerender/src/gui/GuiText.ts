@@ -78,7 +78,7 @@ export async function layoutGuiText(text: GuiText, options: GuiTextOptions = {})
                 continue;
             }
             const glyph = font.glyphs.get(character);
-            const advance = (glyph?.advance ?? 6) + (style.bold ? 1 : 0);
+            const advance = (glyph?.advance ?? 6) + (style.bold ? glyph?.boldOffset ?? 1 : 0);
             line.push({ character, glyph, advance, style, x: 0, y: 0 });
             width += advance;
             while (width > maxWidth && line.length > 1) {
@@ -109,7 +109,7 @@ export function createGuiTextGeometry(layout: GuiTextLayout, shadow = true): { i
                 batches.push(batch);
             }
             const color = new Color(isShadow ? (style.color & 0xfcfcfc) >> 2 : style.color);
-            const offset = isShadow ? 1 : 0;
+            const offset = isShadow ? glyph?.shadowOffset ?? 1 : 0;
             const top = glyph ? 7 - glyph.ascent : 0;
             const height = glyph ? glyph.height * glyph.scale : 8;
             const width = glyph ? glyph.width * glyph.scale : 5;
@@ -127,7 +127,7 @@ export function createGuiTextGeometry(layout: GuiTextLayout, shadow = true): { i
                 for (let i = 0; i < 4; i++) batch!.colors.push(color.r, color.g, color.b);
                 batch!.indices.push(base, base + 2, base + 1, base + 2, base + 3, base + 1);
             };
-            for (const boldOffset of style.bold ? [0, 1] : [0]) {
+            for (const boldOffset of style.bold ? [0, glyph?.boldOffset ?? 1] : [0]) {
                 if (glyph) quad(0, top, width, top + height, boldOffset);
                 else {
                     quad(0, 0, 5, 1, boldOffset); quad(0, 7, 5, 8, boldOffset);

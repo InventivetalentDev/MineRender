@@ -7,5 +7,6 @@ export enum AssetParser {
     IMAGE = "image",
     LIST = "list",
     JSON = "json",
+    BINARY = "binary",
 
 }

@@ -73,6 +73,40 @@ test.serial("text geometry keeps bitmap UVs while applying bold, italic, shadow,
     unshadowed.forEach(batch => batch.geometry.dispose());
 });
 
+test.serial("Unihex text wraps with half-pixel bold advances and draws scaled pixels with matching shadow offsets", async t => {
+    const { image, glyphs } = fixture(t);
+    let imageReads = 0;
+    const glyph: BitmapGlyph = { x: 16, y: 8, width: 4, height: 16, scale: 0.5, ascent: 7, advance: 3,
+        boldOffset: 0.5, shadowOffset: 0.5 };
+    Object.defineProperty(glyph, "image", { get: () => { imageReads++; return image; } });
+    glyphs.set("A", glyph);
+    const layout = await layoutGuiText("AA", { bold: true, maxWidth: 6 });
+    t.deepEqual(layout.lineWidths, [3.5, 3.5]);
+    t.deepEqual([layout.width, layout.height], [3.5, 18]);
+    t.deepEqual(layout.glyphs.map(entry => [entry.character, entry.x, entry.y, entry.advance]), [
+        ["A", 0, 0, 3.5], ["A", 0, 9, 3.5]
+    ]);
+    t.is(imageReads, 0);
+    const batches = createGuiTextGeometry(layout);
+    t.teardown(() => batches.forEach(batch => batch.geometry.dispose()));
+    t.is(batches.length, 2);
+    t.true(batches.every(batch => batch.image === image));
+    const [shadow, foreground] = batches.map(batch => batch.geometry);
+    t.deepEqual(Array.from(foreground.getAttribute("position").array).slice(0, 24).map(value => value || 0), [
+        0, 0, 0, 2, 0, 0, 0, -8, 0, 2, -8, 0,
+        0.5, 0, 0, 2.5, 0, 0, 0.5, -8, 0, 2.5, -8, 0
+    ]);
+    const frontPosition = foreground.getAttribute("position"), shadowPosition = shadow.getAttribute("position");
+    for (let index = 0; index < frontPosition.count; index++) {
+        t.is(shadowPosition.getX(index), frontPosition.getX(index) + 0.5);
+        t.is(shadowPosition.getY(index), frontPosition.getY(index) - 0.5);
+    }
+    t.deepEqual(Array.from(foreground.getAttribute("uv").array).slice(0, 8), [
+        0.25, 0.75, 0.3125, 0.75, 0.25, 0.25, 0.3125, 0.25
+    ]);
+    t.is(foreground.index!.count, 24);
+});
+
 test.serial("GUI text bounds include styled overhang and disposal releases only the object's render resources", async t => {
     const { image, glyphs } = fixture(t);
     const scene = new MineRenderScene();

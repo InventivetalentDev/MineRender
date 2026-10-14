@@ -146,6 +146,9 @@ export class GuiObject extends SceneObject {
             material.vertexColors = true;
             this.textMaterials.set(image, material);
             this.ownedMaterials.add(material);
+        } else if (material.map) {
+            // A shared font atlas can gain glyphs while other GUI layers load.
+            material.map.needsUpdate = true;
         }
         return material;
     }
