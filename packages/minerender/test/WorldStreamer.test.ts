@@ -46,8 +46,10 @@ function fixture(options: { loadRadius?: number; unloadRadius?: number } = { loa
     get?: (x: number, z: number, signal?: AbortSignal) => Promise<AnvilChunk | undefined>;
     place?: (value: AnvilChunk) => Promise<void>;
     unload?: (x: number, z: number) => Promise<void>;
+    unloadColumns?: (columns: readonly { x: number; z: number }[]) => Promise<void>;
 } = {}) {
     const events: string[] = [], resident = new Set<string>();
+    const bulkCalls: { x: number; z: number }[][] = [];
     let active = 0, peak = 0;
     async function operation<T>(event: string, action: () => Promise<T>): Promise<T> {
         events.push(event);
@@ -71,7 +73,15 @@ function fixture(options: { loadRadius?: number; unloadRadius?: number } = { loa
             resident.delete(key(x, z));
         })
     };
-    return { streamer: new WorldStreamer(world, source, options), events, resident, peak: () => peak, world, source };
+    if (hooks.unloadColumns) Object.assign(world, {
+        unloadChunkColumns: (columns: readonly { x: number; z: number }[]) => operation("unload-many", async () => {
+            const requested = columns.map(position => ({ ...position }));
+            bulkCalls.push(requested);
+            await hooks.unloadColumns!(columns);
+            for (const { x, z } of requested) resident.delete(key(x, z));
+        })
+    });
+    return { streamer: new WorldStreamer(world, source, options), events, resident, bulkCalls, peak: () => peak, world, source };
 }
 
 test("streaming validates bounded radii and floors signed scene coordinates into chunk coordinates", async t => {
@@ -614,6 +624,234 @@ test("disposal attempts every owned column and can retry failed cleanup", async 
     t.deepEqual([...setup.resident], ["0,0"]);
     await setup.streamer.dispose();
     t.deepEqual([...setup.resident], []);
+    t.deepEqual(setup.streamer.loadedChunks, []);
+    await t.throwsAsync(() => setup.streamer.update(0, 0));
+});
+
+test("streaming groups obsolete columns while keeping neighbors inside the retention radius", async t => {
+    const setup = fixture({ loadRadius: 1, unloadRadius: 2 }, { unloadColumns: async () => {} });
+    await setup.streamer.update(0, 0);
+    await setup.streamer.update(1, 0);
+    t.is(setup.resident.size, 12);
+    t.deepEqual(setup.bulkCalls, []);
+    setup.events.length = 0;
+    await setup.streamer.update(2, 0);
+    t.is(setup.bulkCalls.length, 1);
+    t.deepEqual(setup.bulkCalls[0].map(({ x, z }) => key(x, z)).sort(), ["-1,-1", "-1,0", "-1,1"]);
+    t.is(setup.events[0], "unload-many");
+    t.true(setup.events[1].startsWith("get:"));
+    t.false(setup.events.some(event => event.startsWith("unload:")));
+    t.is(setup.resident.size, 12);
+    t.true(setup.resident.has("0,0"));
+    t.true(setup.resident.has("3,0"));
+    t.true(setup.streamer.loadedChunks.every(({ x, z }) => Math.abs(x - 2) <= 2 && Math.abs(z) <= 2));
+    await setup.streamer.dispose();
+    t.is(setup.bulkCalls.length, 2);
+    t.is(setup.bulkCalls[1].length, 12);
+    t.deepEqual([...setup.resident], []);
+    t.deepEqual(setup.streamer.loadedChunks, []);
+    t.is(setup.peak(), 1);
+});
+
+test("failed bulk unloading preserves every owner and passes fresh coordinates on retry", async t => {
+    for (const retryCenter of [0, 6]) {
+        const error = new Error("one column failed");
+        let fail = true;
+        const setup = fixture({ loadRadius: 1, unloadRadius: 1 }, { unloadColumns: async columns => {
+            if (fail) {
+                fail = false;
+                for (const { x, z } of columns.slice(1)) setup.resident.delete(key(x, z));
+                columns[0].x = 999;
+                throw error;
+            }
+        } });
+        await setup.streamer.update(0, 0);
+        await t.throwsAsync(setup.streamer.update(6, 0), { is: error });
+        t.is(setup.resident.size, 1);
+        t.deepEqual(setup.streamer.loadedChunks, []);
+        t.is(setup.bulkCalls[0].length, 9);
+        t.false(setup.events.includes("get:6,0"));
+        await setup.streamer.update(retryCenter, 0);
+        t.deepEqual(setup.bulkCalls[1], setup.bulkCalls[0]);
+        t.is(setup.resident.size, 9);
+        t.true(setup.streamer.loadedChunks.every(({ x, z }) => Math.abs(x - retryCenter) <= 1 && Math.abs(z) <= 1));
+        t.is(setup.streamer.pendingChunks, 0);
+        t.is(setup.peak(), 1);
+        await setup.streamer.dispose();
+    }
+});
+
+test("an awaited bulk unload rechecks the latest center, including a return to the removed area", async t => {
+    t.timeout(3000);
+    for (const target of [0, 10]) {
+        const gate = deferred(), started = deferred();
+        let first = true;
+        const setup = fixture({ loadRadius: 1, unloadRadius: 1 }, { unloadColumns: async () => {
+            if (first) {
+                first = false;
+                started.resolve();
+                await gate.promise;
+            }
+        } });
+        t.teardown(() => gate.resolve());
+        await setup.streamer.update(0, 0);
+        setup.events.length = 0;
+        const away = setup.streamer.update(6, 0);
+        await started.promise;
+        const latest = setup.streamer.update(target, 0);
+        t.deepEqual(setup.events, ["unload-many"]);
+        gate.resolve();
+        await Promise.all([away, latest]);
+        t.is(setup.bulkCalls.length, 1);
+        t.is(setup.bulkCalls[0].length, 9);
+        t.is(setup.events.filter(event => event.startsWith("get:")).length, 9);
+        t.false(setup.events.includes("get:6,0"));
+        t.true(setup.events.includes(`get:${target},0`));
+        t.is(setup.streamer.loadedChunks.length, 9);
+        t.true(setup.streamer.loadedChunks.every(({ x, z }) => Math.abs(x - target) <= 1 && Math.abs(z) <= 1));
+        t.is(setup.peak(), 1);
+        await setup.streamer.dispose();
+    }
+});
+
+test("disposal waits for an active bulk unload without loading or repeating removed columns", async t => {
+    t.timeout(3000);
+    const gate = deferred(), started = deferred();
+    const setup = fixture({ loadRadius: 1, unloadRadius: 1 }, { unloadColumns: async () => {
+        started.resolve();
+        await gate.promise;
+    } });
+    t.teardown(() => gate.resolve());
+    await setup.streamer.update(0, 0);
+    setup.events.length = 0;
+    const update = setup.streamer.update(6, 0);
+    await started.promise;
+    let disposed = false;
+    const dispose = setup.streamer.dispose().then(() => { disposed = true; });
+    await Promise.resolve();
+    t.false(disposed);
+    t.deepEqual(setup.events, ["unload-many"]);
+    gate.resolve();
+    await Promise.all([update, dispose]);
+    t.deepEqual(setup.events, ["unload-many"]);
+    t.is(setup.bulkCalls.length, 1);
+    t.deepEqual([...setup.resident], []);
+    t.deepEqual(setup.streamer.loadedChunks, []);
+    t.is(setup.streamer.pendingChunks, 0);
+    t.is(setup.peak(), 1);
+});
+
+test("bulk disposal aborts a source read before unloading retained owners", async t => {
+    t.timeout(3000);
+    const gate = deferred<AnvilChunk>(), started = deferred();
+    let activeSignal: AbortSignal | undefined;
+    const setup = fixture({ loadRadius: 0, unloadRadius: 1 }, {
+        get: async (x, z, signal) => {
+            if (x === 1) {
+                activeSignal = signal;
+                signal?.addEventListener("abort", () => gate.reject(signal.reason), { once: true });
+                started.resolve();
+                return gate.promise;
+            }
+            return chunk(x, z);
+        },
+        unloadColumns: async () => {}
+    });
+    t.teardown(() => gate.resolve(chunk(1, 0)));
+    await setup.streamer.update(0, 0);
+    const update = setup.streamer.update(1, 0);
+    await started.promise;
+    await Promise.all([update, setup.streamer.dispose()]);
+    t.true(activeSignal?.aborted);
+    t.deepEqual(setup.events, ["get:0,0", "place:0,0", "get:1,0", "unload-many"]);
+    t.deepEqual(setup.bulkCalls, [[{ x: 0, z: 0 }]]);
+    t.deepEqual([...setup.resident], []);
+    t.deepEqual(setup.streamer.failedChunks, []);
+    t.deepEqual(setup.streamer.loadedChunks, []);
+    t.is(setup.peak(), 1);
+});
+
+test("bulk disposal waits for active placement and groups the completed owner with retained columns", async t => {
+    t.timeout(3000);
+    const gate = deferred(), started = deferred();
+    const setup = fixture({ loadRadius: 0, unloadRadius: 1 }, {
+        place: async value => {
+            if (value.x === 1) {
+                started.resolve();
+                await gate.promise;
+            }
+        },
+        unloadColumns: async () => {}
+    });
+    t.teardown(() => gate.resolve());
+    await setup.streamer.update(0, 0);
+    const update = setup.streamer.update(1, 0);
+    await started.promise;
+    const dispose = setup.streamer.dispose();
+    t.deepEqual(setup.bulkCalls, []);
+    gate.resolve();
+    await Promise.all([update, dispose]);
+    t.deepEqual(setup.bulkCalls, [[{ x: 0, z: 0 }, { x: 1, z: 0 }]]);
+    t.deepEqual([...setup.resident], []);
+    t.deepEqual(setup.streamer.loadedChunks, []);
+    t.is(setup.peak(), 1);
+});
+
+test("failed bulk disposal retries the whole group after partial removal", async t => {
+    const error = new Error("cleanup failed");
+    let fail = true;
+    const setup = fixture({ loadRadius: 1, unloadRadius: 1 }, { unloadColumns: async columns => {
+        if (fail) {
+            fail = false;
+            for (const { x, z } of columns.slice(1)) setup.resident.delete(key(x, z));
+            throw error;
+        }
+    } });
+    await setup.streamer.update(0, 0);
+    await t.throwsAsync(setup.streamer.dispose(), { is: error });
+    t.is(setup.bulkCalls.length, 1);
+    t.is(setup.bulkCalls[0].length, 9);
+    t.is(setup.resident.size, 1);
+    t.deepEqual(setup.streamer.loadedChunks, []);
+    await setup.streamer.dispose();
+    t.deepEqual(setup.bulkCalls[1], setup.bulkCalls[0]);
+    t.deepEqual([...setup.resident], []);
+    t.deepEqual(setup.streamer.loadedChunks, []);
+    t.is(setup.peak(), 1);
+    await t.throwsAsync(() => setup.streamer.update(0, 0));
+});
+
+test("bulk disposal preserves null or undefined rejections and remains retryable", async t => {
+    for (const error of [null, undefined]) {
+        let fail = true;
+        const setup = fixture(undefined, { unloadColumns: async () => {
+            if (fail) {
+                fail = false;
+                throw error;
+            }
+        } });
+        await setup.streamer.update(0, 0);
+        let rejected = false;
+        try {
+            await setup.streamer.dispose();
+        } catch (failure) {
+            rejected = true;
+            t.is(failure, error);
+        }
+        t.true(rejected);
+        t.deepEqual(setup.streamer.loadedChunks, []);
+        await setup.streamer.dispose();
+        t.deepEqual([...setup.resident], []);
+        t.is(setup.bulkCalls.length, 2);
+    }
+});
+
+test("disposing an empty bulk-capable streamer does not call world unload methods", async t => {
+    const setup = fixture(undefined, { unloadColumns: async () => {} });
+    await setup.streamer.dispose();
+    await setup.streamer.dispose();
+    t.deepEqual(setup.events, []);
+    t.deepEqual(setup.bulkCalls, []);
     t.deepEqual(setup.streamer.loadedChunks, []);
     await t.throwsAsync(() => setup.streamer.update(0, 0));
 });

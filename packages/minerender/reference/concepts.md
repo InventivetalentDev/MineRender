@@ -179,6 +179,10 @@ The streamer aborts obsolete reads and active reads during disposal. Source call
 
 Source errors appear in `failedChunks` while other columns continue loading. Call `await stream.retryFailedChunks()` to retry them. Placement or unloading failures reject the update.
 
+Use `await world.unloadChunkColumns([{ x: -1, z: 0 }, { x: 0, z: 0 }])` to remove several columns and refresh surviving faces, fluids, saved lighting, ambient occlusion, and biome colors together. Coordinates are absolute chunk columns. The method validates and copies the whole input before removal, ignores duplicates and missing columns, and attempts every requested removal. Failed section clears keep their resources owned for a later unload retry or `world.clear()`.
+
+The streamer groups obsolete columns and disposal cleanup through this method. Custom world adapters can provide `unloadChunkColumns` to use the same grouping, or retain the existing `unloadChunkColumn` method. A rejected bulk unload keeps its column ownership for retry and invalidates the group's loaded entries, because some columns may already have been removed. The next update finishes that cleanup before loading the latest requested area.
+
 Await `stream.dispose()` before editing or clearing the world; it unloads its columns and leaves the world and source caller-owned.
 
 Numeric and paletted Java chunks support gzip, zlib, LZ4, and uncompressed payloads, including external `.mcc` files. Pre-1.13 numeric chunks use the same block mappings as legacy schematics. Pass `legacyMappings: { "id:metadata": "namespace:block[property=value]" }` to `AnvilParser.parse`, `AnvilParser.parseChunk`, or `AnvilWorldSource` to override those mappings. Set `lenient: true` to try metadata 0 for unmapped numeric states and skip unknown IDs; malformed arrays still fail validation.

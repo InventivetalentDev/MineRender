@@ -31,6 +31,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
     public readonly scene: MineRenderScene;
 
     private readonly _chunks: Map<string, Chunk<SectionMeshing>> = new Map();
+    private readonly pendingUnloads = new Set<Chunk<SectionMeshing>>();
     private readonly biomes = new Map<string, Map<number, readonly string[]>>();
     private readonly light = new Map<string, Map<number, SectionLightData>>();
     private readonly lightValidity = new Map<string, boolean>();
@@ -138,8 +139,14 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         return queued;
     }
 
-    private async refreshBiomes(): Promise<Map<Chunk<SectionMeshing>, unknown>> {
-        if (this.biomeRefreshing) await this.biomeRefreshing;
+    private async refreshBiomes(deferCulling = false): Promise<Map<Chunk<SectionMeshing>, unknown>> {
+        if (this.biomeRefreshing) {
+            await this.biomeRefreshing;
+            if (!deferCulling) {
+                if (this.pendingCulling.size) await this.updateCulling([]);
+                else await this.culling;
+            }
+        }
         if (!this.pendingBiomes.size) return new Map();
         return this.biomeRefreshing ??= Promise.resolve().then(async () => {
             const failures = new Map<Chunk<SectionMeshing>, unknown>();
@@ -151,7 +158,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                     this.pendingBiomes.delete(chunk);
                     if (this._chunks.get(`${chunk.x}_${chunk.y}_${chunk.z}`) !== chunk) continue;
                     try {
-                        await chunk.refreshBiomes(columns);
+                        await chunk.refreshBiomes(columns, deferCulling);
                     } catch (error) {
                         failures.set(chunk, error);
                         if (this._chunks.get(`${chunk.x}_${chunk.y}_${chunk.z}`) === chunk) this.pendingBiomes.set(chunk, undefined);
@@ -461,18 +468,50 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
      * Coordinates match AnvilChunk.x/z, not block positions. Missing columns are ignored.
      */
     public async unloadChunkColumn(x: number, z: number): Promise<void> {
-        if (!Number.isInteger(x) || !Number.isInteger(z)) {
-            throw new RangeError("Chunk column coordinates must be integers");
+        return this.unloadChunkColumns([{ x, z }]);
+    }
+
+    /**
+     * Removes chunk columns together and refreshes surviving neighbors once.
+     * Coordinates are absolute chunk columns. Duplicate and missing columns are ignored.
+     * Every removal is attempted after validation; failed section clears remain owned for retry.
+     */
+    public async unloadChunkColumns(positions: readonly { x: number; z: number }[]): Promise<void> {
+        const columns = new Map<string, { x: number; z: number }>();
+        for (const position of positions) {
+            const { x, z } = position ?? {};
+            if (!Number.isInteger(x) || !Number.isInteger(z)) {
+                throw new RangeError("Chunk column coordinates must be integers");
+            }
+            columns.set(`${x}_${z}`, { x, z });
         }
-        this.entities?.clearColumn(x, z);
+        if (!columns.size) return;
         await this.culling;
+        let failed = false, failure: unknown;
+        const recordFailure = (error: unknown) => {
+            if (!failed) failure = error;
+            failed = true;
+        };
+        let sliceStart = performance.now();
         try {
-            await this.clearChunkColumn(x, z);
+            for (const { x, z } of columns.values()) {
+                try { this.entities?.clearColumn(x, z); } catch (error) { recordFailure(error); }
+                try { await this.clearChunkColumn(x, z); } catch (error) { recordFailure(error); }
+                if (performance.now() - sliceStart > 8) {
+                    await yieldToEventLoop();
+                    sliceStart = performance.now();
+                }
+            }
+        } catch (error) {
+            recordFailure(error);
         } finally {
-            const failures = await this.refreshBiomes();
-            if (failures.size) console.warn("Failed to refresh biome colors", failures.values().next().value);
-            await this.updateCulling([]);
+            try {
+                const failures = await this.refreshBiomes(true);
+                if (failures.size) console.warn("Failed to refresh biome colors", failures.values().next().value);
+            } catch (error) { recordFailure(error); }
+            try { await this.updateCulling([]); } catch (error) { recordFailure(error); }
         }
+        if (failed) throw failure;
     }
 
     private async clearChunkColumn(x: number, z: number): Promise<void> {
@@ -484,14 +523,26 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         this.light.delete(`${x}_${z}`);
         this.lightValidity.delete(`${x}_${z}`);
         this.highestSkySection.delete(`${x}_${z}`);
-        const previous = [...this._chunks.entries()].filter(([, section]) => section.x === x && section.z === z);
-        for (const [key, section] of previous) {
-            this._chunks.delete(key);
+        const previous = new Set([...this._chunks.values(), ...this.pendingUnloads].filter(section => section.x === x && section.z === z));
+        let failed = false, failure: unknown;
+        for (const section of previous) {
+            const key = `${section.x}_${section.y}_${section.z}`;
+            if (this._chunks.get(key) === section) this._chunks.delete(key);
             this.pendingCulling.delete(section);
             this.pendingBiomes.delete(section);
-            await section.clear(false);
-            this.markSectionChanged(section);
+            try {
+                await section.clear(false);
+                this.pendingUnloads.delete(section);
+            } catch (error) {
+                // Keep failed clears reachable without making removed block data visible again.
+                this.pendingUnloads.add(section);
+                if (!failed) failure = error;
+                failed = true;
+            } finally {
+                this.markSectionChanged(section);
+            }
         }
+        if (failed) throw failure;
     }
 
     private markSectionChanged(chunk: { x: number; y: number; z: number }): void {
@@ -522,7 +573,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
     public async clear(): Promise<void> {
         this.entities?.clear();
         await this.culling;
-        const chunks = [...this._chunks.values()];
+        const chunks = new Set([...this._chunks.values(), ...this.pendingUnloads]);
         this._chunks.clear();
         this.biomes.clear();
         this.biomeBlend?.clear();
@@ -530,13 +581,22 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         this.light.clear();
         this.lightValidity.clear();
         this.highestSkySection.clear();
+        let failed = false, failure: unknown;
         for (const chunk of chunks) {
-            await chunk.dispose();
+            try {
+                await chunk.dispose();
+                this.pendingUnloads.delete(chunk);
+            } catch (error) {
+                this.pendingUnloads.add(chunk);
+                if (!failed) failure = error;
+                failed = true;
+            }
         }
+        if (failed) throw failure;
         this.sectionModels?.clear();
     }
 
-    private updateCulling(positions: Vector3[]): Promise<void> {
+    private updateCulling(positions: Vector3[], defer = false): Promise<void> {
         const neighbor = new Vector3();
         for (const pos of positions) {
             const cx = Math.floor(pos.x / 16), cy = Math.floor(pos.y / 16), cz = Math.floor(pos.z / 16);
@@ -561,6 +621,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                 }
             }
         }
+        if (defer) return Promise.resolve();
         // Adjacent batched placements share one drain so they cannot replace the same model concurrently.
         return this.culling ??= Promise.resolve().then(async () => {
             let sliceStart = performance.now();
@@ -626,7 +687,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         if (typeof chunk === "undefined") {
             const x = Math.floor(pos.x / 16), y = Math.floor(pos.y / 16), z = Math.floor(pos.z / 16);
             chunk = new Chunk<SectionMeshing>(this.scene, x, y, z,
-                positions => this.updateCulling(positions), this.sectionModels, (x, y, z) => {
+                (positions, defer) => this.updateCulling(positions, defer), this.sectionModels, (x, y, z) => {
                     const cx = Math.floor(x / 16), cy = Math.floor(y / 16), cz = Math.floor(z / 16);
                     const section = this._chunks.get(`${cx}_${cy}_${cz}`);
                     const index = (y - cy * 16) * 256 + (z - cz * 16) * 16 + x - cx * 16;
