@@ -71,6 +71,22 @@ Recording runs in real time. Keep the tab visible; browser scheduling and `rende
 
 Only one video can record per renderer. A stopped renderer starts for the recording and stops again afterward. Pass an `AbortSignal` as `signal` to cancel. Calling `stop()` or disposing the renderer also cancels the recording and rejects its promise. Calling `start()` while the renderer is running leaves the recording active.
 
+## Entity animation blending
+
+`Entities.getAnimations(modelKey)` loads native and sampled vanilla clips. `entity.playAnimation(clip, options)` plays one clip; `entity.playAnimations(clips, options)` plays several with a shared clock. Call `entity.advanceAnimation(delta)` from `renderer.onFrame`, or set an explicit time with `entity.setAnimationTime(seconds)` before a capture.
+
+Pass `weights` in clip order to combine animations on the same geometry layer. Each weight must be finite and nonnegative, and the array must have one entry per clip. Omitted weights default to `1`. Given walking and head-look clips, apply both and adjust the look strength without restarting playback:
+
+```ts
+entity.playAnimations([walk, look], { weights: [1, 0.5] });
+const unsubscribe = renderer.onFrame(({ delta }) => entity.advanceAnimation(delta));
+entity.setAnimationWeights([1, 0.25]);
+```
+
+Each update adds the weighted position, Euler-angle, and scale offsets to the baked part pose. Weights are not normalized: `[1, 1]` adds both clips at full strength, while `[0.25, 0.75]` blends between their offsets. A zero weight contributes no offset. `activeAnimations` and `animationWeights` retain the input clip order. Without a `loop` override, each clip uses its own loop flag; `speed` and time are shared.
+
+A clip targets its `layer`, which defaults to `main`, including repeated draws of that geometry. The main-layer blend also poses selected layers without clips of their own. An explicit layer clip takes precedence, including when its weight is zero. Call `unsubscribe()` when playback ends; `entity.stopAnimation()` restores the caller's pose from before playback. Automatic gameplay-state selection, part visibility changes, and animated renderer transforms remain unsupported.
+
 ## Item state
 
 `Models.getMerged(key, context)` evaluates an item definition with the supplied [ItemModelContext](/api/index/interfaces/ItemModelContext): data `components`, item-model `properties`, a stack `count`, a `displayContext`, and `itemReferences` for nodes such as `minecraft:bundle/selected_item`. The same state selects models, special renderers, and automatic tints.

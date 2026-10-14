@@ -39,7 +39,7 @@ legacy website cleanup is a separate task.
 | Screenshots, video & 3D export | toImage(trim,mime), toObj/toGLTF/toPLY | Fresh captures with trim/MIME/quality, real-time browser video recording, static OBJ/PLY, and textured browser glTF/GLB snapshots | complete |
 | Asset loading & resource packs | swappable assetRoot, fallback | Ordered source selection, ZIP pack overlays and filters, failure-evicting caches, and contextual errors; defaults to 1.21.11, ZIPs browser-only | high |
 | Per-frame animation API | `<type>Render` CustomEvents | `onFrame` subscriptions with time/delta, FPS limiting, pause/resume, and disposal | complete |
-| Entity keyframe animations | none | Native and sampled procedural clips with synchronized, layer-specific playback and caller-driven time; runtime state selection, blending, visibility, and animated renderer transforms remain | partial |
+| Entity keyframe animations | none | Native and sampled procedural clips with synchronized, layer-specific playback, additive clip weights, live weight changes, and caller-driven time; runtime state selection, visibility, and animated renderer transforms remain | partial |
 | Scene documents & editor | n/a | Versioned scene JSON with item state, atomic document loading, and a browser editor with transforms, GUI layouts, import, and image, video, and model export | complete |
 | Embeds & website | minerender.org + iframe embeds | V2 website, hosted playgrounds and scene editor, consumer examples, API reference, and scene-driven iframe embeds with editor copy support; embed Worker deployment remains | low |
 | **Large-scale worlds (V2 goal)** | n/a | Paletted signed chunks, opt-in section meshes for static models of any shape built in a browser worker, grouped bulk placement, neighbor face culling, block visibility, camera-driven chunk streaming with bounded retention, and opt-in saved sky/block lighting, corner ambient occlusion, and biome blending; partial-shape ambient occlusion, light propagation, and LOD remain | high |
@@ -89,7 +89,7 @@ Small, high-impact: (1) ~~`Axis.X = "X"` → lowercase (x-rotations silently no-
 
 Default textures and root transforms come from the versioned entity dataset; callers can override textures and select conditional passes. `flip: false` explicitly keeps raw model space rather than applying the dataset transform. The old `res/tools` intermediary-name remapping task is superseded by the `minecraft-entity-models` dataset integration.
 
-~~Play native and sampled procedural clips with synchronized, layer-specific playback.~~ Runtime gameplay state selection, animation blending, visibility changes, and animated renderer transforms remain.
+~~Play native and sampled procedural clips with synchronized, layer-specific playback.~~ ~~Blend clips within a layer with explicit weights and update weights without restarting playback.~~ Runtime gameplay state selection, visibility changes, and animated renderer transforms remain.
 
 Regenerate and publish the `1.21.11` entity dataset with the procedural clips from [minecraft-entity-models #7](https://github.com/InventivetalentDev/minecraft-entity-models/pull/7), then verify hosted clips through `Entities.getAnimations`. As checked on 2026-10-09, the published branch predates that merge and contains only 17 native animation files, with no `animations/minecraft/chest.json`.
 

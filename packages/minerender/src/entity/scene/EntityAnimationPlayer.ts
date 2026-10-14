@@ -1,6 +1,7 @@
 import { Euler, Vector3 } from "three";
 import type { Object3D } from "three";
-import { EntityAnimation, sampleEntityAnimation } from "../EntityAnimation";
+import { ENTITY_ANIMATION_CHANNELS, EntityAnimation, sampleEntityAnimation } from "../EntityAnimation";
+import type { EntityAnimationPose } from "../EntityAnimation";
 import type { EntityModelPart } from "../EntityModel";
 
 /** Playback settings passed to {@link EntityObject.playAnimation}, {@link EntityObject.playAnimations}, or {@link EntityAnimationPlayer.play}. */
@@ -11,6 +12,8 @@ export interface EntityAnimationOptions {
     speed?: number;
     /** Start time in seconds; defaults to 0. */
     time?: number;
+    /** Nonnegative finite weights in clip order; defaults to 1 per clip. Offsets add without normalizing weights. */
+    weights?: readonly number[];
 }
 
 const ZERO: readonly number[] = [0, 0, 0];
@@ -27,20 +30,29 @@ interface AnimatedPart {
 }
 
 /**
- * Poses part groups from a keyframe animation the way vanilla does: every update restores the
- * default pose of each animated part, then adds the sampled offsets to its position, Euler angles and scale.
+ * Poses part groups from keyframe animations: every update restores the default pose of each
+ * animated part, then adds weighted sampled offsets to its position, Euler angles and scale.
  * It owns no timer; the owner advances it.
  */
 export class EntityAnimationPlayer {
 
     private parts: AnimatedPart[] = [];
-    private _animation?: EntityAnimation;
+    private _animations: EntityAnimation[] = [];
+    private _weights: number[] = [];
+    private loops: boolean[] = [];
     private _time = 0;
-    private loop = false;
     private speed = 1;
 
     get animation(): EntityAnimation | undefined {
-        return this._animation;
+        return this._animations[0];
+    }
+
+    get animations(): readonly EntityAnimation[] {
+        return this._animations.slice();
+    }
+
+    get weights(): readonly number[] {
+        return this._weights.slice();
     }
 
     get time(): number {
@@ -53,17 +65,27 @@ export class EntityAnimationPlayer {
      */
     play(layers: Object3D[], animation: EntityAnimation, options: EntityAnimationOptions = {},
          poses?: ReadonlyMap<Object3D, EntityModelPart["pose"]>): void {
+        this.playAnimations(layers, [animation], options, poses);
+    }
+
+    /** Starts clips on the same parts and shared clock, adding their weighted offsets to the baked pose. */
+    playAnimations(layers: Object3D[], animations: readonly EntityAnimation[], options: EntityAnimationOptions = {},
+                   poses?: ReadonlyMap<Object3D, EntityModelPart["pose"]>): void {
+        const weights = this.validateWeights(options.weights ?? animations.map(() => 1), animations.length);
         this.stop();
-        this._animation = animation;
+        this._animations = animations.slice();
+        this._weights = weights;
+        if (!animations.length) return;
         this._time = options.time ?? 0;
-        this.loop = options.loop ?? animation.loop;
+        this.loops = animations.map(animation => options.loop ?? animation.loop);
         this.speed = options.speed ?? 1;
         for (const layer of layers) {
             const objects: Object3D[] = [];
             if (poses) {
                 layer.traverse(object => { if (poses.has(object)) objects.push(object); });
             } else {
-                for (const bone of Object.keys(animation.bones)) {
+                const bones = new Set(animations.flatMap(animation => Object.keys(animation.bones)));
+                for (const bone of bones) {
                     const object = layer.getObjectByName(`group:${bone}`);
                     if (object) objects.push(object);
                 }
@@ -84,7 +106,7 @@ export class EntityAnimationPlayer {
 
     /** Restores the poses from before playback. Returns whether an animation was active. */
     stop(): boolean {
-        if (!this._animation) return false;
+        if (!this._animations.length) return false;
         for (const part of this.parts) {
             part.object.position.copy(part.position);
             part.object.rotation.copy(part.rotation);
@@ -97,13 +119,15 @@ export class EntityAnimationPlayer {
     /** Forgets the animation without touching the parts, for parts that no longer exist. */
     clear(): void {
         this.parts = [];
-        this._animation = undefined;
+        this._animations = [];
+        this._weights = [];
+        this.loops = [];
         this._time = 0;
     }
 
     /** Applies the pose at an absolute playback time. Returns `false` when no clip is active. */
     setTime(seconds: number): boolean {
-        if (!this._animation) return false;
+        if (!this._animations.length) return false;
         this._time = seconds;
         this.apply();
         return true;
@@ -114,8 +138,39 @@ export class EntityAnimationPlayer {
         return this.setTime(this._time + deltaSeconds * this.speed);
     }
 
+    /** Changes weights in clip order and reapplies the current time without restarting playback. */
+    setWeights(weights: readonly number[]): boolean {
+        const validated = this.validateWeights(weights, this._animations.length);
+        if (!this._animations.length) return false;
+        this._weights = validated;
+        this.apply();
+        return true;
+    }
+
+    private validateWeights(weights: readonly number[], count: number): number[] {
+        const values = Array.from(weights);
+        if (values.length !== count || values.some(weight => !Number.isFinite(weight) || weight < 0)) {
+            throw new Error("Animation weights must match the clip count and contain only finite nonnegative numbers");
+        }
+        return values;
+    }
+
     private apply(): void {
-        const pose = sampleEntityAnimation(this._animation!, this._time, this.loop);
+        const pose: EntityAnimationPose = Object.create(null);
+        for (let i = 0; i < this._animations.length; i++) {
+            const weight = this._weights[i];
+            if (weight === 0) continue;
+            const sampled = sampleEntityAnimation(this._animations[i], this._time, this.loops[i]);
+            for (const [bone, channels] of Object.entries(sampled)) {
+                const blended = pose[bone] ??= {};
+                for (const channel of ENTITY_ANIMATION_CHANNELS) {
+                    const value = channels[channel];
+                    if (!value) continue;
+                    const target = blended[channel] ??= [0, 0, 0];
+                    for (let axis = 0; axis < 3; axis++) target[axis] += value[axis] * weight;
+                }
+            }
+        }
         for (const part of this.parts) {
             const { position = ZERO, rotation = ZERO, scale = ZERO } = pose[part.bone] ?? {};
             part.object.position.set(part.basePosition.x + position[0], part.basePosition.y + position[1], part.basePosition.z + position[2]);
