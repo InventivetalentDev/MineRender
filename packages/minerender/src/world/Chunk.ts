@@ -17,7 +17,8 @@ import { fluidKindOf } from "../model/fluid/FluidQuads";
 import { BlockState } from "../model/block/BlockState";
 import { CUBE_FACE_OFFSETS } from "../CubeFace";
 import { BlockTints } from "../model/block/BlockTints";
-import { Biomes } from "../assets/Biomes";
+import { Biomes, BiomeColorKind } from "../assets/Biomes";
+import { BiomeBlend } from "./_biomes/BiomeBlend";
 import { isInstanceReference } from "../instance/InstanceReference";
 import type { InstanceReference } from "../instance/InstanceReference";
 import type { ModelObject } from "../model/scene/ModelObject";
@@ -53,6 +54,8 @@ export class Chunk<SectionMeshing extends boolean = false> {
     private meshDirty = false;
     private meshGeneration = 0;
     private ambientOcclusionCells?: Uint8Array;
+    private readonly blockChanges = new Set<Promise<unknown>>();
+    private biomeChange?: Promise<unknown>;
 
     constructor(scene: MineRenderScene, x: number, y: number, z: number,
                 private readonly onBlocksChanged?: (positions: Vector3[]) => Promise<void>,
@@ -62,7 +65,8 @@ export class Chunk<SectionMeshing extends boolean = false> {
                 private readonly onBiomesChanged?: (biomes?: readonly string[]) => Promise<void>,
                 private readonly lightAt?: (x: number, y: number, z: number) => number,
                 private readonly onLightCleared?: () => Promise<void>,
-                private readonly ambientLight = 0) {
+                private readonly ambientLight = 0,
+                private readonly biomeBlend?: () => BiomeBlend | undefined) {
         this.scene = scene;
         this.x = x;
         this.y = y;
@@ -175,10 +179,23 @@ export class Chunk<SectionMeshing extends boolean = false> {
     }
 
     /** Rebuilds biome-tinted blocks while preserving hidden blocks and unrelated render objects. */
-    public async refreshBiomes(): Promise<void> {
+    public refreshBiomes(columns?: readonly { x: number; z: number }[]): Promise<void> {
+        return this.changeBlocks(() => this.refreshBiomeBlocks(columns), true);
+    }
+
+    private async refreshBiomeBlocks(columns?: readonly { x: number; z: number }[]): Promise<void> {
+        const blend = columns && this.biomeBlend?.();
+        // Individual objects keep their own biome's unblended color, so only a change to their own column affects them.
+        const ownColumn = columns?.some(column => column.x === this.x && column.z === this.z);
         const affected = new Map<string, Promise<boolean>>();
         const blocks: { index: number; block: Block }[] = [];
         for (const index of this.renderedBlocks.keys()) {
+            if (blend) {
+                if (this.objectBlocks.has(index) && !ownColumn) continue;
+                const [x, , z] = this.positionAt(index), radius = blend.radius;
+                if (!columns!.some(column => x >= column.x * 16 - radius && x <= column.x * 16 + 15 + radius
+                    && z >= column.z * 16 - radius && z <= column.z * 16 + 15 + radius)) continue;
+            }
             const block = this.data.get(index)!;
             const stateKey = ChunkData.paletteKey(block);
             let matches = affected.get(stateKey);
@@ -193,10 +210,33 @@ export class Chunk<SectionMeshing extends boolean = false> {
             }
             if (await matches) blocks.push({ index, block });
         }
+        if (blend) {
+            const groups = new Map<string, typeof blocks>();
+            for (const entry of blocks) {
+                const key = ChunkData.paletteKey(entry.block);
+                let group = groups.get(key);
+                if (!group) groups.set(key, group = []);
+                group.push(entry);
+            }
+            blocks.length = 0;
+            const biomes = new Map<string, Promise<boolean>>();
+            for (const group of groups.values()) {
+                const { contexts, fluid } = await this.resolveState(group[0].block, group.map(entry => entry.index), biomes);
+                for (const entry of group) {
+                    const context = contexts.get(entry.index);
+                    const current = this.sectionBlocks.get(entry.index)?.[0]?.biomeTint;
+                    const tint = context?.tint;
+                    const tintChanged = !!current !== !!tint || tint?.some((value, channel) => value !== current?.[channel]);
+                    const waterChanged = fluid?.kind === "water" && (context?.waterTint ?? WATER_TINT).some((value, channel) =>
+                        Math.fround(value) !== (this.waterTints?.[entry.index * 3 + channel] ?? Math.fround(WATER_TINT[channel])));
+                    if (this.objectBlocks.has(entry.index) || tintChanged || waterChanged) blocks.push(entry);
+                }
+            }
+        }
         if (!blocks.length) return;
         const hidden = new Set(this.hiddenBlocks);
         try {
-            await this.placeBlocks(blocks);
+            await this.replaceBlocks(blocks, true);
         } finally {
             for (const index of hidden) {
                 this.hiddenBlocks.add(index);
@@ -248,6 +288,23 @@ export class Chunk<SectionMeshing extends boolean = false> {
 
     /** Places cells in input order and returns changed world positions without refreshing neighbors. */
     public async placeBlocks(blocks: readonly { index: number; block: Maybe<Block> }[]): Promise<Vector3[]> {
+        return this.changeBlocks(() => this.replaceBlocks(blocks));
+    }
+
+    private changeBlocks<T>(change: () => Promise<T>, refreshBiomes = false): Promise<T> {
+        // Color refreshes snapshot existing blocks; edits on either side of that snapshot must retain their order.
+        const before = refreshBiomes ? Promise.allSettled(this.blockChanges) : this.biomeChange;
+        const result = before ? before.catch(() => undefined).then(change) : change();
+        const pending = result.finally(() => {
+            this.blockChanges.delete(pending);
+            if (this.biomeChange === pending) this.biomeChange = undefined;
+        });
+        this.blockChanges.add(pending);
+        if (refreshBiomes) this.biomeChange = pending;
+        return pending;
+    }
+
+    private async replaceBlocks(blocks: readonly { index: number; block: Maybe<Block> }[], preserveDataOnFailure = false): Promise<Vector3[]> {
         const placements = blocks.map(({ index, block }) => ({
             index,
             key: block && !ChunkData.isAir(block) ? ChunkData.paletteKey(block) : undefined,
@@ -268,6 +325,10 @@ export class Chunk<SectionMeshing extends boolean = false> {
         const settled = await Promise.allSettled([...states.values()].map(({ stored, indices }) =>
             this.resolveState(stored, indices, biomes)));
         const resolutions = new Map([...states.keys()].map((key, i) => [key, settled[i]]));
+        if (preserveDataOnFailure) {
+            const rejected = settled.find(result => result.status === "rejected");
+            if (rejected?.status === "rejected") throw rejected.reason;
+        }
         const positions: Vector3[] = [];
         let failed = false, failure: unknown;
         for (const { index, key, block } of placements) {
@@ -302,7 +363,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
                 }
                 const templates = perBlock ? undefined : fluid?.renderModel === false ? [] : (context?.prepared ?? prepared)?.pick(variantPosition);
                 if (templates) {
-                    this.sectionBlocks.set(index, templates.map(template => ({ index, template, cullMask: 0 })));
+                    this.sectionBlocks.set(index, templates.map(template => ({ index, template, cullMask: 0, biomeTint: context?.tint })));
                     this.meshDirty = true;
                 } else {
                     object = await this.scene.addBlock(blockState, {
@@ -318,7 +379,10 @@ export class Chunk<SectionMeshing extends boolean = false> {
                 this.renderedBlocks.set(index, { get block() { return readBlock(); }, object } as BlockInfo<SectionMeshing>);
                 if (object) this.objectBlocks.add(index);
             } catch (error) {
-                this.data.assign(index, 0);
+                if (preserveDataOnFailure && readBlock) {
+                    // Keep saved block data available for a failed color refresh to retry.
+                    this.renderedBlocks.set(index, { get block() { return readBlock(); }, object: undefined } as BlockInfo<SectionMeshing>);
+                } else this.data.assign(index, 0);
                 this.fluidCells[index] = 0;
                 object?.removeFromScene();
                 if (!failed) failure = error;
@@ -330,7 +394,11 @@ export class Chunk<SectionMeshing extends boolean = false> {
     }
 
     /** Replaces every cell from parsed section data. The caller refreshes neighbor culling. */
-    public async placeSection(data: ChunkData): Promise<void> {
+    public placeSection(data: ChunkData): Promise<void> {
+        return this.changeBlocks(() => this.replaceSection(data));
+    }
+
+    private async replaceSection(data: ChunkData): Promise<void> {
         for (const info of this.renderedBlocks.values()) info.object?.removeFromScene();
         this.sectionBlocks.clear();
         this.fluidCells.fill(0);
@@ -376,7 +444,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
                     this.y * 16 + Math.floor(index / 256), this.z * 16 + Math.floor(index / 16) % 16];
                 const templates = perBlock ? undefined : fluid?.renderModel === false ? [] : (context?.prepared ?? prepared)?.pick(variantPosition);
                 if (templates) {
-                    this.sectionBlocks.set(index, templates.map(template => ({ index, template, cullMask: 0 })));
+                    this.sectionBlocks.set(index, templates.map(template => ({ index, template, cullMask: 0, biomeTint: context?.tint })));
                     this.meshDirty = true;
                 } else {
                     perBlocks.push({ index, blockState, biome: context?.biome });
@@ -463,7 +531,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
 
     private async resolveState(stored: Block, indices: readonly number[], biomes: Map<string, Promise<boolean>>) {
         const blockState = await BlockStates.get(AssetKey.parse("blockstates", stored.type));
-        const perBlock = !blockState || !this.sectionModels
+        let perBlock = !blockState || !this.sectionModels
             || !!(blockState.key && BlockEntities.entry(await BlockEntities.getIndex(blockState.key.root), blockState.key.toNamespacedString()));
         const fluid = await getBlockFluidState(blockState?.key, stored.properties);
         const hasBiomes = this.getBiomeAt(this.x * 16, this.y * 16, this.z * 16) !== undefined
@@ -471,8 +539,38 @@ export class Chunk<SectionMeshing extends boolean = false> {
         const source = hasBiomes && blockState ? await BlockTints.biomeSource(blockState.key) : undefined;
         const prepare = (color?: () => Promise<number | undefined>) => perBlock || fluid?.renderModel === false ? undefined
             : this.sectionModels!.prepareState(blockState!, stored.properties, color);
-        type Context = { biome?: string; prepared?: Awaited<ReturnType<SectionModels["prepareState"]>>; waterTint?: TripleArray };
+        type Context = {
+            biome?: string;
+            prepared?: Awaited<ReturnType<SectionModels["prepareState"]>>;
+            tint?: TripleArray;
+            waterTint?: TripleArray;
+        };
         const contexts = new Map<number, Context>();
+        const blend = this.biomeBlend?.();
+        if (blend && !perBlock && blockState && (source || fluid?.kind === "water")) {
+            const prepared = fluid?.renderModel === false ? undefined
+                : await this.sectionModels!.prepareState(blockState, stored.properties, undefined, true);
+            if (!prepared && fluid?.renderModel !== false) {
+                // A model that cannot join the section mesh becomes an individual object with its own biome's color.
+                perBlock = true;
+            } else {
+                await Promise.all(indices.map(async index => {
+                    const position = this.biomePosition(index, blockState, stored);
+                    const biomeColor = (kind: BiomeColorKind) => blend.getColor(kind, blockState.key, position);
+                    const context: Context = {};
+                    if (source && prepared?.biomeTint) {
+                        const color = await biomeColor(source);
+                        if (color !== undefined) context.tint = new Color(color).toArray() as TripleArray;
+                    }
+                    if (fluid?.kind === "water") {
+                        const color = await biomeColor("water");
+                        if (color !== undefined && color !== 0x3f76e4) context.waterTint = new Color(color).toArray() as TripleArray;
+                    }
+                    contexts.set(index, context);
+                }));
+                return { blockState, perBlock, fluid, prepared, contexts, stored };
+            }
+        }
         const groups = new Map<string, { biome: string; position: TripleArray; indices: number[] }>();
         if (blockState && (source || fluid?.kind === "water")) {
             for (const index of indices) {
@@ -524,7 +622,12 @@ export class Chunk<SectionMeshing extends boolean = false> {
     }
 
     /** Changes visibility at world block coordinates while preserving the block's data. */
-    public async setBlockVisibleAt(pos: Vector3, visible: boolean): Promise<void> {
+    public setBlockVisibleAt(pos: Vector3, visible: boolean): Promise<void> {
+        const position = pos.clone();
+        return this.changeBlocks(() => this.setBlockVisibility(position, visible));
+    }
+
+    private async setBlockVisibility(pos: Vector3, visible: boolean): Promise<void> {
         const index = Chunk.chunkPosToBlockIndex(this.worldPosToChunkPos(pos));
         const block = this.renderedBlocks.get(index);
         if (!block || visible === !this.hiddenBlocks.has(index)) {
@@ -710,6 +813,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
 
     /** Removes stored blocks and render objects. Set `notify` to false to skip the owning world's update. */
     public async clear(notify = true): Promise<void> {
+        if (this.blockChanges.size) await Promise.allSettled(this.blockChanges);
         const positions = notify && this.onBlocksChanged ? [...this.renderedBlocks.keys()].map(index => this.chunkPosToWorldPos(
             new Vector3(index % 16, Math.floor(index / 256), Math.floor(index / 16) % 16)
         )) : [];

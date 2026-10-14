@@ -16,6 +16,7 @@ import { WorldEntities } from "./_entities/WorldEntities";
 import { fluidKindOf } from "../model/fluid/FluidQuads";
 import type { WorldBlockIntersection } from "./WorldBlockIntersection";
 import type { WorldEntityIntersection } from "./WorldEntityIntersection";
+import { BiomeBlend, validateBiomeBlendRadius } from "./_biomes/BiomeBlend";
 import { copySectionLight, sampleSectionLight, SavedLightSample, SectionLightData } from "./WorldLight";
 import { loadBlockCulling } from "./_culling/BlockCulling";
 
@@ -38,6 +39,10 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
     private readonly ambientLight: number;
     private _ambientOcclusion: boolean;
     private ambientOcclusionPending = false;
+    private _biomeBlendRadius: number;
+    private biomeBlend?: BiomeBlend;
+    private readonly pendingBiomes = new Map<Chunk<SectionMeshing>, { x: number; z: number }[] | undefined>();
+    private biomeRefreshing?: Promise<Map<Chunk<SectionMeshing>, unknown>>;
     private readonly sectionModels?: SectionModels;
     private readonly entities?: WorldEntities;
     private readonly pendingCulling = new Map<Chunk<SectionMeshing>, Set<number> | "all">();
@@ -49,6 +54,10 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         if (options.ambientLight !== undefined && (!Number.isFinite(options.ambientLight) || options.ambientLight < 0 || options.ambientLight > 1)) {
             throw new RangeError("ambientLight must be a number from 0 to 1");
         }
+        this._biomeBlendRadius = options.biomeBlendRadius ?? 0;
+        validateBiomeBlendRadius(this._biomeBlendRadius);
+        if (this._biomeBlendRadius > 0 && !options.sectionMeshing) throw new TypeError("biomeBlendRadius requires sectionMeshing");
+        if (this._biomeBlendRadius) this.biomeBlend = new BiomeBlend((x, y, z) => this.getBiomeAt(x, y, z), this._biomeBlendRadius);
         this.scene = scene;
         this.savedLighting = options.savedLighting ?? false;
         this.ambientLight = options.ambientLight ?? 0;
@@ -92,6 +101,71 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         for (const chunk of this._chunks.values()) this.pendingCulling.set(chunk, "all");
         await this.updateCulling([]);
         this.ambientOcclusionPending = false;
+    }
+
+    /** Horizontal biome-color sampling radius, from 0 to 7 blocks. Zero disables blending. */
+    public get biomeBlendRadius(): number {
+        return this._biomeBlendRadius;
+    }
+
+    /** Refreshes loaded grass, foliage, and water colors without reloading their source chunks. */
+    public async setBiomeBlendRadius(radius: number): Promise<void> {
+        validateBiomeBlendRadius(radius);
+        if (radius > 0 && !this.sectionModels) throw new TypeError("biomeBlendRadius requires sectionMeshing");
+        if (radius !== this._biomeBlendRadius) {
+            this._biomeBlendRadius = radius;
+            this.biomeBlend?.clear();
+            this.biomeBlend = radius ? new BiomeBlend((x, y, z) => this.getBiomeAt(x, y, z), radius) : undefined;
+            for (const chunk of this._chunks.values()) this.pendingBiomes.set(chunk, undefined);
+        }
+        const failures = await this.refreshBiomes();
+        if (failures.size) throw failures.values().next().value;
+    }
+
+    private markBiomesChanged(x: number, z: number, y?: number, includeColumn = true): Chunk<SectionMeshing>[] {
+        const queued: Chunk<SectionMeshing>[] = [];
+        if (!this.biomeBlend) return queued;
+        this.biomeBlend.invalidateColumn(x, z);
+        for (const chunk of this._chunks.values()) {
+            if (Math.abs(chunk.x - x) > 1 || Math.abs(chunk.z - z) > 1
+                || !includeColumn && chunk.x === x && chunk.z === z
+                || y !== undefined && chunk.y !== y && chunk.y !== y + 1) continue;
+            queued.push(chunk);
+            if (!this.pendingBiomes.has(chunk)) this.pendingBiomes.set(chunk, []);
+            const columns = this.pendingBiomes.get(chunk);
+            if (columns && !columns.some(column => column.x === x && column.z === z)) columns.push({ x, z });
+        }
+        return queued;
+    }
+
+    private async refreshBiomes(): Promise<Map<Chunk<SectionMeshing>, unknown>> {
+        if (this.biomeRefreshing) await this.biomeRefreshing;
+        if (!this.pendingBiomes.size) return new Map();
+        return this.biomeRefreshing ??= Promise.resolve().then(async () => {
+            const failures = new Map<Chunk<SectionMeshing>, unknown>();
+            const batch = [...this.pendingBiomes.keys()];
+            let sliceStart = performance.now();
+            try {
+                for (const chunk of batch) {
+                    const columns = this.pendingBiomes.get(chunk);
+                    this.pendingBiomes.delete(chunk);
+                    if (this._chunks.get(`${chunk.x}_${chunk.y}_${chunk.z}`) !== chunk) continue;
+                    try {
+                        await chunk.refreshBiomes(columns);
+                    } catch (error) {
+                        failures.set(chunk, error);
+                        if (this._chunks.get(`${chunk.x}_${chunk.y}_${chunk.z}`) === chunk) this.pendingBiomes.set(chunk, undefined);
+                    }
+                    if (performance.now() - sliceStart > 8) {
+                        await yieldToEventLoop();
+                        sliceStart = performance.now();
+                    }
+                }
+                return failures;
+            } finally {
+                this.biomeRefreshing = undefined;
+            }
+        });
     }
 
     /** Returns a placed block at world block coordinates, or `undefined` for an empty position. */
@@ -375,6 +449,9 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
             }
             await placeEntities?.();
         } finally {
+            this.markBiomesChanged(chunk.x, chunk.z, undefined, false);
+            const failures = await this.refreshBiomes();
+            if (failures.size) console.warn("Failed to refresh biome colors", failures.values().next().value);
             await this.updateCulling([...changes.values()]);
         }
     }
@@ -392,12 +469,15 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         try {
             await this.clearChunkColumn(x, z);
         } finally {
+            const failures = await this.refreshBiomes();
+            if (failures.size) console.warn("Failed to refresh biome colors", failures.values().next().value);
             await this.updateCulling([]);
         }
     }
 
     private async clearChunkColumn(x: number, z: number): Promise<void> {
         this.biomes.delete(`${x}_${z}`);
+        this.markBiomesChanged(x, z, undefined, false);
         if (this.savedLighting) {
             for (const y of this.light.get(`${x}_${z}`)?.keys() ?? []) this.markSectionChanged({ x, y, z });
         }
@@ -408,6 +488,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         for (const [key, section] of previous) {
             this._chunks.delete(key);
             this.pendingCulling.delete(section);
+            this.pendingBiomes.delete(section);
             await section.clear(false);
             this.markSectionChanged(section);
         }
@@ -444,6 +525,8 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         const chunks = [...this._chunks.values()];
         this._chunks.clear();
         this.biomes.clear();
+        this.biomeBlend?.clear();
+        this.pendingBiomes.clear();
         this.light.clear();
         this.lightValidity.clear();
         this.highestSkySection.clear();
@@ -559,9 +642,15 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                         column?.delete(y);
                         if (!column?.size) this.biomes.delete(columnKey);
                     }
-                    await chunk!.refreshBiomes();
-                    // Upper tall-plant halves at the boundary sample the section below.
-                    await this._chunks.get(`${x}_${y + 1}_${z}`)?.refreshBiomes();
+                    if (this.biomeBlend) {
+                        const queued = this.markBiomesChanged(x, z, y);
+                        const failures = await this.refreshBiomes();
+                        for (const chunk of queued) if (failures.has(chunk)) throw failures.get(chunk);
+                    } else {
+                        await chunk!.refreshBiomes();
+                        // Upper tall-plant halves at the boundary sample the section below.
+                        await this._chunks.get(`${x}_${y + 1}_${z}`)?.refreshBiomes();
+                    }
                 }, this.savedLighting ? (x, y, z) => this.lightLevelAt(x, y, z) : undefined, async () => {
                     if (this._chunks.get(key) !== chunk) return;
                     const columnKey = `${x}_${z}`, column = this.light.get(columnKey);
@@ -575,7 +664,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                         this.markSectionChanged(chunk!);
                         await this.updateCulling([]);
                     }
-                }, this.ambientLight);
+                }, this.ambientLight, () => this.biomeBlend);
             this._chunks.set(key, chunk);
         }
         return chunk;
@@ -633,6 +722,8 @@ export interface MineRenderWorldOptions<SectionMeshing extends boolean = boolean
     ambientLight?: number;
     /** Bake corner shading from neighboring opaque full cubes. Defaults to false; no per-frame shading pass is added. Requires `sectionMeshing`. */
     ambientOcclusion?: boolean;
+    /** Average neighboring biome colors within this horizontal radius, from 0 to 7 blocks. Defaults to 0 (off). Requires `sectionMeshing`. */
+    biomeBlendRadius?: number;
     /** Maximum width and height of each section atlas page, in pixels. */
     maxAtlasSize?: number;
 }

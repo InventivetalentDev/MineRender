@@ -23,6 +23,11 @@ import type { Biome } from "../assets/Biomes";
 /** Shared in-memory caches for loaded assets and render resources. Persistent stores are managed separately. */
 export class Caching {
 
+    private static _generation = 0;
+
+    /** Changes when shared assets are cleared, so derived caches can discard their old values. */
+    public static get generation(): number { return this._generation; }
+
     static readonly rawImageCache: AsyncLoadingCache<CacheKey, ImageInfo> = Caches.builder()
         .expireAfterWrite(Time.minutes(10))
         .expireAfterAccess(Time.minutes(5))
@@ -162,6 +167,7 @@ export class Caching {
 
     /** Invalidates in-memory entries so later lookups reload them. Persisted entries are retained. */
     public static clear() {
+        this._generation++;
         for (const cache of this.all) {
             cache.invalidateAll();
         }
@@ -174,6 +180,7 @@ export class Caching {
      * Use {@link shutdown} to also stop requests and the shared Ticker.
      */
     public static end() {
+        this._generation++;
         for (const cache of this.all) {
             cache.invalidateAll();
             cache.end();

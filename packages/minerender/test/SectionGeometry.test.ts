@@ -319,3 +319,38 @@ test("ambient occlusion ignores fluid faces and rejects invalid neighborhoods", 
             message: "Section ambient occlusion must cover an 18×18×18 neighborhood with zero or one per cell" });
     }
 });
+
+
+test("per-placement biome tints preserve unmarked quads and combine with saved light and ambient occlusion", t => {
+    const source = input();
+    source.count = 2;
+    source.indices[0] = 0;
+    source.indices[1] = 1;
+    source.templates.fill(0);
+    source.cullMasks.fill(0);
+    source.templateData = [template(0)];
+    source.templateData[0].colors.fill(0.5);
+    source.templateData[0].biomeTint = new Uint8Array([0, 0, 1, 0, 0, 0]);
+    source.biomeTints = new Float32Array([0.25, 0.5, 0.75, NaN, NaN, NaN]);
+    source.light = new Uint8Array(5832).fill(10);
+    source.ambientOcclusion = new Uint8Array(5832);
+    source.ambientOcclusion[343 + 324 + 1] = 1;
+    source.ambientOcclusion[343 + 324 + 18] = 1;
+    const original = structuredClone(source);
+    const [page] = buildSectionGeometry(source);
+    for (let vertex = 8; vertex < 12; vertex++) {
+        const positiveX = page.positions[vertex * 3] > 0;
+        const positiveZ = page.positions[vertex * 3 + 2] > 0;
+        const ao = positiveX && positiveZ ? 0.4 : positiveX || positiveZ ? 0.8 : 1;
+        for (let channel = 0; channel < 3; channel++) {
+            t.true(Math.abs(page.colors[vertex * 3 + channel] - [0.25, 0.5, 0.75][channel] * ao / 3) < 1e-7);
+        }
+    }
+    t.true(Math.abs(page.colors[12 * 3] - 1 / 6) < 1e-7);
+    const fallback = buildSectionGeometry({ ...source, biomeTints: undefined })[0];
+    t.deepEqual(page.colors.slice(72), fallback.colors.slice(72));
+    t.deepEqual(source, original);
+    t.throws(() => buildSectionGeometry({ ...source, biomeTints: new Float32Array(3) }), { instanceOf: RangeError });
+    source.templateData[0].biomeTint = new Uint8Array(1);
+    t.throws(() => buildSectionGeometry(source), { instanceOf: RangeError });
+});

@@ -93,20 +93,25 @@ export class SectionModels {
         }));
     }
 
-    /** Resolves section templates for one tint palette, with a synchronous weighted choice for each cell. */
+    /** Resolves shared templates; dynamic biome tints are supplied on section placements instead of cached geometry. */
     public async prepareState(blockState: BlockState, properties: BlockStateProperties = {},
-                              biomeColor?: number | (() => Promise<number | undefined>)):
-        Promise<{ pick(position?: Readonly<TripleArray>): SectionMeshTemplate[] } | undefined> {
+                              biomeColor?: number | (() => Promise<number | undefined>), dynamicBiomeTint = false):
+        Promise<{ pick(position?: Readonly<TripleArray>): SectionMeshTemplate[]; biomeTint?: boolean } | undefined> {
         const prepared = await this.state(blockState, properties);
         if (!prepared) return undefined;
         let color: Promise<number | undefined> | undefined;
         const resolveColor = typeof biomeColor === "function" ? () => color ??= biomeColor() : biomeColor;
         const templates = new Map<BlockStateVariant, SectionMeshTemplate>();
+        const source = dynamicBiomeTint && await BlockTints.biomeSource(blockState.key);
         await Promise.all([...prepared.choices].map(async ([variant, choice]) => {
             const tints = await BlockTints.get(blockState.key, prepared.state, choice.model, undefined, resolveColor);
-            templates.set(variant, await this.template(variant, choice, tints));
+            const biomeTints = source ? await BlockTints.get(blockState.key, prepared.state, choice.model, undefined, 0xffffff) : undefined;
+            templates.set(variant, await this.template(variant, choice, tints, biomeTints));
         }));
-        return { pick: (position?: Readonly<TripleArray>) => prepared.groups.map(group => templates.get(BlockStateResolver.choose(group, position))!) };
+        return {
+            pick: (position?: Readonly<TripleArray>) => prepared.groups.map(group => templates.get(BlockStateResolver.choose(group, position))!),
+            biomeTint: source ? [...templates.values()].some(template => template.biomeTint?.some(value => value === 1)) || undefined : undefined
+        };
     }
 
     private async state(blockState: BlockState, properties: BlockStateProperties): Promise<PreparedState | undefined> {
@@ -155,10 +160,10 @@ export class SectionModels {
     }
 
     private async template(variant: BlockStateVariant, { model, atlas, rotation }: PreparedVariant,
-                           tints?: Record<number, number>): Promise<SectionMeshTemplate> {
+                           tints?: Record<number, number>, biomeTints?: Record<number, number>): Promise<SectionMeshTemplate> {
         let models = this.models.get(model);
         if (!models) this.models.set(model, models = new Map());
-        const key = JSON.stringify([rotation.x, rotation.y, rotation.z, variant.uvlock, tints]);
+        const key = JSON.stringify([rotation.x, rotation.y, rotation.z, variant.uvlock, tints, biomeTints]);
         return cached(models, key, async () => {
             const object = new SectionModel(model, {
                 instanceMeshes: false, mergeMeshes: true, tints,
@@ -171,11 +176,13 @@ export class SectionModels {
             object.clear();
             const keep: boolean[] = [];
             const cullFaces: number[] = [];
+            const biomeTint: number[] | undefined = biomeTints ? [] : undefined;
             for (const element of atlas.model.elements!) {
                 for (const face of CUBE_FACES) {
                     const data = element.faces[face];
                     keep.push(data !== undefined);
                     if (!data) continue;
+                    biomeTint?.push(Number(data.tintindex !== undefined && biomeTints?.[data.tintindex] !== undefined));
                     const local = CUBE_FACES.findIndex(name => name === data.cullface);
                     if (local < 0) {
                         cullFaces.push(0);
@@ -190,6 +197,7 @@ export class SectionModels {
             geometry = compactQuads(geometry, keep);
             const template: SectionMeshTemplate = {
                 geometry, atlas, cullFaces: new Uint8Array(cullFaces),
+                biomeTint: biomeTint?.some(Boolean) ? new Uint8Array(biomeTint) : undefined,
                 occludes: ModelCulling.isOpaqueFullCube(atlas) && ModelCulling.toLocalMask(63, rotation) === 63,
                 layer: atlas.hasTranslucency ? 1 : 0, ambientOcclusion: (model as BlockModel).ambientocclusion !== false
             };
