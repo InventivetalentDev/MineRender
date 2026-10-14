@@ -44,6 +44,7 @@ test.serial("section faces retain baked rotation, tint and atlas UVs without cha
     const first = create(), second = create();
     first.geometry.applyMatrix4(new Matrix4().makeRotationY(Math.PI / 2));
     first.geometry.setAttribute("color", new Float32BufferAttribute(Array.from({ length: 24 }, () => [0.25, 0.5, 0.75]).flat(), 3));
+    first.geometry.setAttribute("shade", new Float32BufferAttribute([0, 1, 0, 1, 0, 1].flatMap(value => Array(4).fill(value)), 1));
     first.geometry.setAttribute("uvBounds", new Float32BufferAttribute(Array.from({ length: 24 }, () => [0.25, 0.25, 0.75, 0.75]).flat(), 4));
     const source = first.geometry.toJSON();
     let sourceDisposals = 0;
@@ -65,6 +66,7 @@ test.serial("section faces retain baked rotation, tint and atlas UVs without cha
     t.true(Math.abs(geometry.getAttribute("normal").getZ(0) - 1) < 1e-6);
     t.deepEqual(Array.from(geometry.getAttribute("color").array).slice(0, 3), [0.25, 0.5, 0.75]);
     t.deepEqual(Array.from(geometry.getAttribute("color").array).slice(-3), [1, 1, 1]);
+    t.deepEqual(Array.from(geometry.getAttribute("shade").array), [...[1, 0, 1, 0, 1].flatMap(value => Array(4).fill(value)), ...Array(24).fill(1)]);
     t.deepEqual([texture.image.width, texture.image.height], [4, 2]);
     t.deepEqual([geometry.getAttribute("uv").getX(0), geometry.getAttribute("uv").getY(0)], [0, 1]);
     t.deepEqual([geometry.getAttribute("uv").getX(20), geometry.getAttribute("uv").getY(20)], [0.5, 1]);
@@ -133,6 +135,7 @@ for (const transparent of [false, true]) {
         t.true(material.forceSinglePass);
         t.is(material.depthWrite, !transparent);
         t.true(material.vertexColors);
+        t.deepEqual(Array.from((section.children[0] as Mesh).geometry.getAttribute("shade").array), Array(24).fill(1));
     });
 }
 
@@ -257,6 +260,7 @@ test.serial("async section builds use the shared worker without copying its geom
     const first = create(), second = create();
     first.geometry.applyMatrix4(new Matrix4().makeRotationY(Math.PI / 2));
     first.biomeTint = new Uint8Array([1, 0, 1, 0, 1, 0]);
+    first.geometry.setAttribute("shade", new Float32BufferAttribute([0, 1, 0, 1, 0, 1].flatMap(value => Array(4).fill(value)), 1));
     const entries = [{ index: 1, template: first, cullMask: 1, biomeTint: [0.25, 0.5, 0.75] as [number, number, number] },
         { index: 16, template: second, cullMask: 0 }];
     const fluids = { cells: new Uint8Array(18 ** 3), waterTints: new Float32Array(4096 * 3), water: new TextureAtlas({}, new CanvasImage(2, 2),
@@ -277,8 +281,11 @@ test.serial("async section builds use the shared worker without copying its geom
     for (let i = 0; i < actual.length; i++) {
         const geometry = (actual[i].children[0] as Mesh).geometry;
         const page = results[i][0];
+        const visibleShade = [1, 0, 1, 0, 1].flatMap(value => Array(4).fill(value));
+        t.deepEqual(Array.from(geometry.getAttribute("shade").array), i === 0
+            ? [...visibleShade, ...Array(24).fill(1)] : [...Array(24).fill(1), ...visibleShade]);
         for (const [name, values] of Object.entries({ position: page.positions, normal: page.normals,
-            uv: page.uvs, uvBounds: page.uvBounds, color: page.colors })) {
+            uv: page.uvs, uvBounds: page.uvBounds, color: page.colors, shade: page.shade })) {
             t.is(geometry.getAttribute(name).array.buffer, values.buffer);
         }
         t.is(geometry.getIndex()!.array.buffer, page.indices.buffer);

@@ -142,7 +142,7 @@ let restoreData: () => void;
 test.before(() => { restoreData = installMineRenderDataFixtures(); });
 test.after.always(() => restoreData());
 
-test.serial("section biome placements share templates and mark only automatic tint quads", async t => {
+test.serial("section biome placements share templates and preserve tint and shade flags", async t => {
     const { model } = fixture(t);
     t.teardown(installMineRenderDataFixtures(() => ({ blockTints: {
         "test:tinted_block": { source: "constant", color: 0x008000, biome: "foliage", untinted: [1] }
@@ -156,11 +156,17 @@ test.serial("section biome placements share templates and mark only automatic ti
     const template = prepared!.pick([0, 0, 0])[0];
     t.is(again!.pick([1, 0, 0])[0], template);
     t.deepEqual([...template.biomeTint!], [1, 0, 1, 0, 0, 1]);
+    t.deepEqual(Array.from(template.geometry.getAttribute("shade").array), Array(24).fill(1));
     t.is(models["templates"].size, 1);
     const colors = template.geometry.getAttribute("color");
     t.true(colors.getY(0) > 0 && colors.getY(0) < 1);
     t.deepEqual([colors.getX(4), colors.getY(4), colors.getZ(4)], [1, 1, 1]);
     model.elements![0].faces = { up: { texture: "#side" } };
+    model.elements!.push({ ...model.elements![0], shade: false, faces: { north: { texture: "#side" } } });
     const untintedState = { ...state, variants: { "": { model: "test:block/plain_cube" } } };
-    t.is((await models.prepareState(untintedState, {}, undefined, true))!.biomeTint, undefined);
+    const plain = await models.prepareState(untintedState, {}, undefined, true);
+    t.is(plain!.biomeTint, undefined);
+    const geometry = plain!.pick([0, 0, 0])[0].geometry;
+    t.is(geometry.getAttribute("position").count, 8);
+    t.deepEqual(Array.from(geometry.getAttribute("shade").array), [1, 1, 1, 1, 0, 0, 0, 0]);
 });

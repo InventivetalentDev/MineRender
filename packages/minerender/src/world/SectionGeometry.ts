@@ -11,6 +11,7 @@ export interface SectionTemplateData {
     uvs: Float32Array;
     uvBounds: Float32Array;
     colors: Float32Array;
+    shade?: Float32Array;
     indices: Uint16Array;
     cullFaces: Uint8Array;
     biomeTint?: Uint8Array;
@@ -75,6 +76,7 @@ export interface SectionGeometryPage {
     uvs: Float32Array;
     uvBounds: Float32Array;
     colors: Float32Array;
+    shade: Float32Array;
     indices: Uint32Array;
     /** Owning section cell for each quad; each quad contributes two consecutive triangles. */
     blockIndices: Uint16Array;
@@ -103,6 +105,7 @@ export function buildSectionGeometry(input: SectionGeometryInput): SectionGeomet
         if (template.positions.length !== quads * 12 || template.normals.length !== quads * 12 ||
             template.uvs.length !== quads * 8 || template.uvBounds.length !== quads * 16 ||
             template.colors.length !== quads * 12 || template.indices.length !== quads * 6 || template.cullFaces.length !== quads ||
+            (template.shade && template.shade.length !== quads * 4) ||
             (template.biomeTint && template.biomeTint.length !== quads)) {
             throw new RangeError("Section template arrays do not match its quad count");
         }
@@ -193,6 +196,7 @@ export function buildSectionGeometry(input: SectionGeometryInput): SectionGeomet
         }
         const positions = new Float32Array(faces * 12), normals = new Float32Array(faces * 12);
         const uvs = new Float32Array(faces * 8), uvBounds = new Float32Array(faces * 16), colors = new Float32Array(faces * 12);
+        const shade = new Float32Array(faces * 4).fill(1);
         const outputIndices = new Uint32Array(faces * 6);
         const blockIndices = new Uint16Array(faces);
         let vertex = 0, indexOffset = 0;
@@ -224,6 +228,7 @@ export function buildSectionGeometry(input: SectionGeometryInput): SectionGeomet
                     normals[vertex * 3] = template.normals[source * 3];
                     normals[vertex * 3 + 1] = template.normals[source * 3 + 1];
                     normals[vertex * 3 + 2] = template.normals[source * 3 + 2];
+                    shade[vertex] = template.shade?.[source] ?? 1;
                     uvs[vertex * 2] = mapU(template.uvs[source * 2]);
                     uvs[vertex * 2 + 1] = mapV(template.uvs[source * 2 + 1]);
                     uvBounds[vertex * 4] = mapU(template.uvBounds[source * 4]);
@@ -270,11 +275,11 @@ export function buildSectionGeometry(input: SectionGeometryInput): SectionGeomet
                 indexOffset += 6;
             }
         }
-        return { layer: page.layer, width: page.width, height: page.height, placements: page.placements, positions, normals, uvs, uvBounds, colors, indices: outputIndices, blockIndices };
+        return { layer: page.layer, width: page.width, height: page.height, placements: page.placements, positions, normals, uvs, uvBounds, colors, shade, indices: outputIndices, blockIndices };
     });
 }
 
 /** Returns the buffers behind each page's typed arrays for transfer to another thread. */
 export function sectionGeometryTransferables(pages: readonly SectionGeometryPage[]): ArrayBuffer[] {
-    return pages.flatMap(page => [page.positions.buffer, page.normals.buffer, page.uvs.buffer, page.uvBounds.buffer, page.colors.buffer, page.indices.buffer, page.blockIndices.buffer]);
+    return pages.flatMap(page => [page.positions.buffer, page.normals.buffer, page.uvs.buffer, page.uvBounds.buffer, page.colors.buffer, page.shade.buffer, page.indices.buffer, page.blockIndices.buffer]);
 }
