@@ -1,3 +1,4 @@
+import { installMineRenderDataFixtures } from "./helpers/minerender-data";
 import test from "ava";
 import { AssetKey, AssetLoader, AssetParser, AssetSource, BlockStates, Caching, HostedAssetSource, shutdown } from "../src";
 import { ArchiveAssetSource } from "../src/assets/source/archive/ArchiveAssetSource";
@@ -21,6 +22,10 @@ class MemoryCache extends PersistentCache<Map<string, unknown>> {
     async keys(): Promise<string[]> { return [...this.backing.keys()]; }
     async forEach<T>(callback: (value: T, key: string) => void): Promise<void> { this.backing.forEach((v, k) => callback(v as T, k)); }
 }
+
+let restoreData: () => void;
+test.before(() => { restoreData = installMineRenderDataFixtures(); });
+test.after.always(() => restoreData());
 
 const originalSources = [...AssetLoader["_SOURCES"]];
 const originalRoot = AssetLoader.ROOT;

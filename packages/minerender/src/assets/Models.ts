@@ -1,3 +1,4 @@
+import { Renames } from "./Renames";
 import { ItemModel, ItemTintSource, Model, SpecialItemRenderer } from "../model/Model";
 import { Caching } from "../cache/Caching";
 import { Maybe } from "../util/util";
@@ -379,6 +380,11 @@ export class Models {
             key.extension = ".json";
         }
         const preview = this.snapshotContext(key, context);
+        if (key.type === "item") {
+            const renamed = await Renames.key("items", key);
+            const replacement = renamed && await this.getMerged(renamed, preview);
+            if (replacement) return replacement;
+        }
         const dataKey = await this.applyDefaults(key, preview);
         const keyStr = AssetLoader.persistentKey(key.serialize() + (key.type === "item" ? this.contextKey(preview) + dataKey : ""));
         const model = await Caching.mergedModelCache.get(keyStr, async () => {

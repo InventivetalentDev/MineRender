@@ -4,6 +4,7 @@ import { AssetParser } from "./source/parser/AssetParsers";
 import { Caching } from "../cache/Caching";
 import type { BlockStatePropertyDefaults } from "../model/block/BlockStateProperties";
 import type { BiomeColorKind } from "./Biomes";
+import type { RenameKind } from "./Renames";
 
 export interface MineRenderDatasets {
     itemDefaults: Record<string, Record<string, unknown>>;
@@ -24,6 +25,8 @@ export interface MineRenderDatasets {
     fluids: Record<string, { kind: "water" | "lava"; renderModel: boolean; levelProperty?: string }>;
     dyes: Record<string, { id: number; textureDiffuseColor: number; fireworkColor: number; textColor: number }>;
     legacyBlocks: { blocks: Record<string, string> };
+    renames: { format: "data-fixer-renames"; baseDataVersion: number }
+        & Record<RenameKind, Record<string, { registered: boolean; ranges: { before: number; to: string }[] }>>;
 }
 
 export interface MineRenderDataManifest {
@@ -153,6 +156,10 @@ export class MineRenderData {
         if (dataset === "potionColors") return object(data.effects) && Object.values(data.effects).every(Number.isInteger)
             && object(data.potions) && Object.values(data.potions).every(effects => Array.isArray(effects)
                 && effects.every(effect => object(effect) && typeof effect.id === "string" && Number.isInteger(effect.amplifier)));
+        if (dataset === "renames") return data.format === "data-fixer-renames" && Number.isInteger(data.baseDataVersion)
+            && ["blocks", "items", "entities"].every(kind => object(data[kind]) && Object.values(data[kind]).every(entry =>
+                object(entry) && typeof entry.registered === "boolean" && Array.isArray(entry.ranges) && entry.ranges.length > 0
+                && entry.ranges.every(range => object(range) && Number.isInteger(range.before) && typeof range.to === "string")));
         if (dataset === "legacyBlocks") return object(data.blocks) && Object.values(data.blocks).every(value => typeof value === "string");
         if (dataset === "blockCulling") return Array.isArray(data.profiles)
             && data.profiles.every(profile => object(profile) && typeof profile.type === "string")

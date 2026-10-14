@@ -9,6 +9,7 @@ import { PersistentCache } from "../cache/PersistentCache";
 import { AssetParser } from "./source/parser/AssetParsers";
 import { ListAsset } from "../ListAsset";
 import { MinecraftAsset } from "../MinecraftAsset";
+import { Renames } from "./Renames";
 import { MineRenderData } from "./MineRenderData";
 
 /** Loads blockstate definitions and the property defaults used to select block models. */
@@ -58,6 +59,11 @@ export class BlockStates {
         if (!key.extension) {
             key.extension = ".json";
         }
+        // An ID from an older version loads its replacement. The registry fallback can select a table
+        // newer than the assets, so a missing replacement keeps the original ID.
+        const renamed = await Renames.key("blocks", key);
+        const replacement = renamed && await this.get(renamed);
+        if (replacement) return replacement;
         const keyStr = key.serialize();
         return Caching.blockStateCache.get(keyStr, k => {
             return this.PERSISTENT_CACHE.getOrLoad(AssetLoader.persistentKey(keyStr), k1 => {
