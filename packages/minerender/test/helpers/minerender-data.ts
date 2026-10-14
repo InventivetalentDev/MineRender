@@ -164,6 +164,7 @@ export const mineRenderDataFixtures: MineRenderDatasets = {
         "minecraft:water_cauldron": {"color": 4159204, "source": "constant", "biome": "water"},
         "minecraft:wildflowers": {"source": "grass", "untinted": [0]},
     },
+    blockCulling: { profiles: [], blocks: {} },
     fluids: {
         "minecraft:bubble_column": {"kind": "water", "renderModel": false},
         "minecraft:kelp": {"kind": "water", "renderModel": true},
@@ -230,7 +231,7 @@ export const mineRenderDataFixtures: MineRenderDatasets = {
 
 export function mineRenderDataManifest(version = "1.21.11"): MineRenderDataManifest {
     const files = { itemDefaults: "item-defaults", potionColors: "potion-colors", blockStates: "block-states",
-        blockTints: "block-tints", fluids: "fluids", dyes: "dyes", legacyBlocks: "legacy-blocks", renames: "renames" };
+        blockTints: "block-tints", blockCulling: "block-culling", fluids: "fluids", dyes: "dyes", legacyBlocks: "legacy-blocks", renames: "renames" };
     return {
         schemaVersion: 1, minecraftVersion: version, dataVersion: 4671,
         datasets: Object.fromEntries(Object.entries(files).map(([dataset, file]) => [dataset,

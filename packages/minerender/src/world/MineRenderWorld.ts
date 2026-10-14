@@ -17,6 +17,7 @@ import { fluidKindOf } from "../model/fluid/FluidQuads";
 import type { WorldBlockIntersection } from "./WorldBlockIntersection";
 import type { WorldEntityIntersection } from "./WorldEntityIntersection";
 import { copySectionLight, sampleSectionLight, SavedLightSample, SectionLightData } from "./WorldLight";
+import { loadBlockCulling } from "./_culling/BlockCulling";
 
 //TODO: maybe make this an Object3D to add children
 /**
@@ -481,16 +482,24 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         return this.culling ??= Promise.resolve().then(async () => {
             let sliceStart = performance.now();
             try {
+                const culling = await loadBlockCulling();
                 while (this.pendingCulling.size) {
                     const batch = [...this.pendingCulling];
                     this.pendingCulling.clear();
                     for (const [chunk, indices] of batch) {
                         const neighbors = CUBE_FACE_OFFSETS.map(([x, y, z]) =>
                             this._chunks.get(`${chunk.x + x}_${chunk.y + y}_${chunk.z + z}`));
-                        const masks = chunk.updateCullMasks(indices === "all" ? undefined : indices, (x, y, z) => {
+                        const neighborAt = (x: number, y: number, z: number): [Maybe<Chunk<SectionMeshing>>, number] => {
                             const lx = x - chunk.x * 16, ly = y - chunk.y * 16, lz = z - chunk.z * 16;
                             const section = neighbors[lx >= 16 ? 0 : lx < 0 ? 1 : ly >= 16 ? 2 : ly < 0 ? 3 : lz >= 16 ? 4 : 5];
-                            return section?.isOccludingIndex((ly & 15) * 256 + (lz & 15) * 16 + (lx & 15)) ?? false;
+                            return [section, (ly & 15) * 256 + (lz & 15) * 16 + (lx & 15)];
+                        };
+                        const masks = chunk.updateCullMasks(indices === "all" ? undefined : indices, (x, y, z) => {
+                            const [section, i] = neighborAt(x, y, z);
+                            return section?.isOccludingIndex(i) ?? false;
+                        }, culling, (x, y, z) => {
+                            const [section, i] = neighborAt(x, y, z);
+                            return section?.visibleBlockIndex(i);
                         });
                         const fluidIndices = indices === "all" ? (function* () {
                             for (let index = 0; index < 4096; index++) yield index;

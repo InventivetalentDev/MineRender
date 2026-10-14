@@ -17,6 +17,11 @@ export interface MineRenderDatasets {
         untinted?: number[];
         biome?: BiomeColorKind;
     }>;
+    blockCulling: {
+        profiles: { type: string; group?: string; kind?: string }[];
+        blocks: Record<string, number>;
+        groups?: Record<string, string[]>;
+    };
     fluids: Record<string, { kind: "water" | "lava"; renderModel: boolean; levelProperty?: string }>;
     dyes: Record<string, { id: number; textureDiffuseColor: number; fireworkColor: number; textColor: number }>;
     legacyBlocks: { blocks: Record<string, string> };
@@ -156,6 +161,11 @@ export class MineRenderData {
                 object(entry) && typeof entry.registered === "boolean" && Array.isArray(entry.ranges) && entry.ranges.length > 0
                 && entry.ranges.every(range => object(range) && Number.isInteger(range.before) && typeof range.to === "string")));
         if (dataset === "legacyBlocks") return object(data.blocks) && Object.values(data.blocks).every(value => typeof value === "string");
+        if (dataset === "blockCulling") return Array.isArray(data.profiles)
+            && data.profiles.every(profile => object(profile) && typeof profile.type === "string")
+            && object(data.blocks) && Object.values(data.blocks).every(index => Number.isInteger(index) && index >= 0 && index < data.profiles.length)
+            && (data.groups === undefined || object(data.groups) && Object.values(data.groups).every(group =>
+                Array.isArray(group) && group.every(type => typeof type === "string")));
         return Object.values(data).every(value => {
             if (!object(value)) return false;
             switch (dataset) {

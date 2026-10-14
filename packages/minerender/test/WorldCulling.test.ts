@@ -1,3 +1,4 @@
+import { installMineRenderDataFixtures, mineRenderDataFixtures } from "./helpers/minerender-data";
 import test, { ExecutionContext } from "ava";
 import { Color, Mesh, MeshBasicMaterial, Raycaster, Vector3 } from "three";
 import { AssetKey } from "../src/assets/AssetKey";
@@ -5,6 +6,7 @@ import { BlockEntities } from "../src/assets/BlockEntities";
 import { Biomes } from "../src/assets/Biomes";
 import { BlockStates } from "../src/assets/BlockStates";
 import { Entities } from "../src/assets/Entities";
+import { MineRenderData } from "../src/assets/MineRenderData";
 import { Models } from "../src/assets/Models";
 import { Caching } from "../src/cache/Caching";
 import { CUBE_FACES, CubeFace } from "../src/CubeFace";
@@ -32,7 +34,6 @@ import { buildSectionGeometry, SectionGeometryInput } from "../src/world/Section
 import { SectionWorker } from "../src/world/SectionWorker";
 import type { CanvasImage } from "../src/canvas/CanvasImage";
 import type { CompatCanvas } from "../src/canvas/CanvasCompat";
-import { installMineRenderDataFixtures, mineRenderDataFixtures } from "./helpers/minerender-data";
 
 function fixture<SectionMeshing extends boolean = false>(t: ExecutionContext, options: MineRenderWorldOptions<SectionMeshing> = {}) {
     t.teardown(installMineRenderDataFixtures());
@@ -107,6 +108,21 @@ const geometryOf = (block: BlockObject, index = 0) => (modelOf(block, index).chi
 const indexCount = (block: BlockObject, index = 0) => {
     const geometry = geometryOf(block, index);
     return geometry.index?.count ?? geometry.getAttribute("position")?.count ?? 0;
+};
+const cullMaskAt = (world: MineRenderWorld<boolean>, position: TripleArray) => {
+    const point = new Vector3(...position);
+    const object = world.getBlockAt(point)!.object;
+    if (object) return object.cullMask;
+    const chunk = world.getChunkAt(point)!;
+    const index = Chunk.chunkPosToBlockIndex(chunk.worldPosToChunkPos(point));
+    return chunk["sectionBlocks"].get(index)![0].cullMask;
+};
+const renderedIndexCountAt = (world: MineRenderWorld<boolean>, position: TripleArray) => {
+    const point = new Vector3(...position);
+    const object = world.getBlockAt(point)!.object;
+    if (object) return indexCount(object);
+    return world.getChunkAt(point)!["sectionMesh"]!.children.reduce((sum, child) =>
+        sum + (child as Mesh).geometry.getIndex()!.count, 0);
 };
 
 for (const sectionMeshing of [false, true]) {
@@ -854,6 +870,150 @@ test.serial("opaque neighbors cull shared faces across signed chunk borders and 
     t.is(indexCount(left.object), 36);
     t.is(world.getBlockAt(-17, -1, -1), left);
 });
+
+const sameBlockCulling = {
+    profiles: [{ type: "same_block" }], blocks: { "test:glass": 0, "test:tinted_glass": 0 }
+};
+
+for (const sectionMeshing of [false, true]) {
+    test.serial(`same transparent cubes cull shared faces within and across chunks (sectionMeshing=${sectionMeshing})`, async t => {
+        const { world, addModel, place } = fixture(t, { sectionMeshing });
+        t.teardown(installMineRenderDataFixtures({ blockCulling: sameBlockCulling }));
+        addModel("glass", { transparent: true });
+        await place([-1, 0, 0], "glass");
+        await place([0, 0, 0], "glass");
+        t.deepEqual([-1, 0].map(x => cullMaskAt(world, [x, 0, 0])), [1, 2]);
+        t.deepEqual([-1, 0].map(x => renderedIndexCountAt(world, [x, 0, 0])), [30, 30]);
+        await world.setBlockAt(0, 0, 0, undefined);
+        t.is(cullMaskAt(world, [-1, 0, 0]), 0);
+        t.is(renderedIndexCountAt(world, [-1, 0, 0]), 36);
+        await place([2, 0, 0], "glass");
+        await place([3, 0, 0], "glass");
+        t.deepEqual([2, 3].map(x => cullMaskAt(world, [x, 0, 0])), [1, 2]);
+        t.is(renderedIndexCountAt(world, [2, 0, 0]), sectionMeshing ? 60 : 30);
+    });
+
+    test.serial(`different transparent cube types keep shared faces (sectionMeshing=${sectionMeshing})`, async t => {
+        const { world, addModel, place } = fixture(t, { sectionMeshing });
+        t.teardown(installMineRenderDataFixtures({ blockCulling: sameBlockCulling }));
+        addModel("glass", { transparent: true });
+        addModel("tinted_glass", { transparent: true });
+        await place([0, 0, 0], "glass");
+        await place([1, 0, 0], "tinted_glass");
+        t.deepEqual([0, 1].map(x => cullMaskAt(world, [x, 0, 0])), [0, 0]);
+        t.is(renderedIndexCountAt(world, [0, 0, 0]), sectionMeshing ? 72 : 36);
+    });
+
+    test.serial(`opaque cubes hide transparent faces but keep their own (sectionMeshing=${sectionMeshing})`, async t => {
+        const { world, addModel, place } = fixture(t, { sectionMeshing });
+        t.teardown(installMineRenderDataFixtures({ blockCulling: sameBlockCulling }));
+        addModel("glass", { transparent: true });
+        await place([0, 0, 0], "glass");
+        await place([1, 0, 0]);
+        t.deepEqual([0, 1].map(x => cullMaskAt(world, [x, 0, 0])), [1, 0]);
+        t.is(renderedIndexCountAt(world, [0, 0, 0]), sectionMeshing ? 66 : 30);
+        if (!sectionMeshing) t.is(renderedIndexCountAt(world, [1, 0, 0]), 36);
+    });
+
+    test.serial(`hidden transparent cubes stop hiding their neighbor (sectionMeshing=${sectionMeshing})`, async t => {
+        const { world, addModel, place } = fixture(t, { sectionMeshing });
+        t.teardown(installMineRenderDataFixtures({ blockCulling: sameBlockCulling }));
+        addModel("glass", { transparent: true });
+        await place([0, 0, 0], "glass");
+        await place([1, 0, 0], "glass");
+        t.deepEqual([0, 1].map(x => cullMaskAt(world, [x, 0, 0])), [1, 2]);
+        t.is(renderedIndexCountAt(world, [0, 0, 0]), sectionMeshing ? 60 : 30);
+        await world.setBlockVisibleAt([1, 0, 0], false);
+        t.is(cullMaskAt(world, [0, 0, 0]), 0);
+        t.is(renderedIndexCountAt(world, [0, 0, 0]), 36);
+        await world.setBlockVisibleAt([1, 0, 0], true);
+        t.deepEqual([0, 1].map(x => cullMaskAt(world, [x, 0, 0])), [1, 2]);
+        t.is(renderedIndexCountAt(world, [0, 0, 0]), sectionMeshing ? 60 : 30);
+    });
+
+    test.serial(`cutout leaves keep shared faces (sectionMeshing=${sectionMeshing})`, async t => {
+        const { world, addModel, place } = fixture(t, { sectionMeshing });
+        t.teardown(installMineRenderDataFixtures({ blockCulling: {
+            profiles: [{ type: "leaves" }], blocks: { "test:oak_leaves": 0 }
+        } }));
+        addModel("oak_leaves", { transparent: true });
+        await place([0, 0, 0], "oak_leaves");
+        await place([1, 0, 0], "oak_leaves");
+        t.deepEqual([0, 1].map(x => cullMaskAt(world, [x, 0, 0])), [0, 0]);
+        t.is(renderedIndexCountAt(world, [0, 0, 0]), sectionMeshing ? 72 : 36);
+    });
+
+    test.serial(`unlisted transparent cubes keep shared faces (sectionMeshing=${sectionMeshing})`, async t => {
+        const { world, addModel, place } = fixture(t, { sectionMeshing });
+        t.teardown(installMineRenderDataFixtures({ blockCulling: { profiles: [], blocks: {} } }));
+        addModel("glass", { transparent: true });
+        await place([0, 0, 0], "glass");
+        await place([1, 0, 0], "glass");
+        t.deepEqual([0, 1].map(x => cullMaskAt(world, [x, 0, 0])), [0, 0]);
+        t.is(renderedIndexCountAt(world, [0, 0, 0]), sectionMeshing ? 72 : 36);
+    });
+
+    test.serial(`same_block rules apply to partial models (sectionMeshing=${sectionMeshing})`, async t => {
+        const { world, addModel, place } = fixture(t, { sectionMeshing });
+        t.teardown(installMineRenderDataFixtures({ blockCulling: {
+            profiles: [{ type: "same_block" }], blocks: { "test:partial": 0 }
+        } }));
+        addModel("partial", { transparent: true, height: 8 });
+        await place([0, 0, 0], "partial");
+        await place([1, 0, 0], "partial");
+        t.deepEqual([0, 1].map(x => cullMaskAt(world, [x, 0, 0])), [1, 2]);
+        t.is(renderedIndexCountAt(world, [0, 0, 0]), sectionMeshing ? 60 : 30);
+    });
+
+    test.serial(`vertical rules only hide stacked faces (sectionMeshing=${sectionMeshing})`, async t => {
+        const { world, addModel, place } = fixture(t, { sectionMeshing });
+        t.teardown(installMineRenderDataFixtures({ blockCulling: {
+            profiles: [{ type: "same_block_vertical" }], blocks: { "test:roots": 0 }
+        } }));
+        addModel("roots", { transparent: true });
+        for (const position of [[0, 0, 0], [0, 1, 0], [1, 0, 0]] as TripleArray[]) await place(position, "roots");
+        t.deepEqual([[0, 0, 0], [0, 1, 0], [1, 0, 0]].map(p => cullMaskAt(world, p as TripleArray)), [4, 8, 0]);
+        t.is(renderedIndexCountAt(world, [0, 0, 0]), sectionMeshing ? 96 : 30);
+    });
+
+    test.serial(`connected rules require facing properties or stacked blocks (sectionMeshing=${sectionMeshing})`, async t => {
+        const { world, addModel, place } = fixture(t, { sectionMeshing });
+        t.teardown(installMineRenderDataFixtures({ blockCulling: {
+            profiles: [{ type: "connected" }], blocks: { "test:pane": 0 }
+        } }));
+        addModel("pane", { transparent: true });
+        await place([15, 0, 0], "pane");
+        await world.setBlockAt([16, 0, 0], { type: "test:pane", properties: { west: "true" } });
+        t.deepEqual([15, 16].map(x => cullMaskAt(world, [x, 0, 0])), [0, 0]);
+        await world.setBlockAt([15, 0, 0], { type: "test:pane", properties: { east: true } });
+        t.deepEqual([15, 16].map(x => cullMaskAt(world, [x, 0, 0])), [1, 2]);
+        t.is(renderedIndexCountAt(world, [15, 0, 0]), 30);
+        await place([16, 0, 0], "pane");
+        t.deepEqual([15, 16].map(x => cullMaskAt(world, [x, 0, 0])), [0, 0]);
+        await place([15, 1, 0], "pane");
+        t.deepEqual([0, 1].map(y => cullMaskAt(world, [15, y, 0])), [4, 8]);
+        t.is(renderedIndexCountAt(world, [15, 0, 0]), sectionMeshing ? 60 : 30);
+    });
+
+    test.serial(`missing culling dataset permits placement without shared-face rules (sectionMeshing=${sectionMeshing})`, async t => {
+        const { world, addModel, place } = fixture(t, { sectionMeshing });
+        t.teardown(installMineRenderDataFixtures({ blockCulling: {
+            profiles: [{ type: "same_block" }], blocks: { "test:glass": 0 }
+        } }));
+        const resolve = MineRenderData.resolve;
+        MineRenderData.resolve = async root => {
+            const resolved = await resolve(root);
+            delete resolved.manifest.datasets.blockCulling;
+            return resolved;
+        };
+        t.teardown(() => { MineRenderData.resolve = resolve; });
+        addModel("glass", { transparent: true });
+        await place([0, 0, 0], "glass");
+        await place([1, 0, 0], "glass");
+        t.deepEqual([0, 1].map(x => cullMaskAt(world, [x, 0, 0])), [0, 0]);
+        t.is(renderedIndexCountAt(world, [0, 0, 0]), sectionMeshing ? 72 : 36);
+    });
+}
 
 test.serial("instance pools separate cull masks while matching masks retain shared geometry and atlas data", async t => {
     const { world, scene, place } = fixture(t);
