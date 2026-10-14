@@ -12,7 +12,7 @@ export interface EntityAnimation {
     /** Seconds. */
     length: number;
     loop: boolean;
-    /** Geometry layer targeted by this clip; defaults to `main`. */
+    /** Geometry layer targeted by this clip; defaults to `main`. A `main` clip also poses selected layers without their own clip. */
     layer?: string;
     /** Part name anywhere in a layer; `root` is the layer's root part. */
     bones: Record<string, EntityAnimationBone>;
