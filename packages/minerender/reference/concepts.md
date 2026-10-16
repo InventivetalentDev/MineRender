@@ -18,7 +18,7 @@ Use the units expected by the API you call:
 
 For GUI camera fitting, use [GuiObject](/api/index/classes/GuiObject)'s `bounds`. It includes item-model overhang as well as layer rectangles, in GUI coordinates.
 
-GUI text accepts literal Unicode strings or styled text runs. [Fonts](/api/index/classes/Fonts) loads bitmap, Unihex, space, and reference providers from the selected assets and resource packs. Unihex ZIPs use vanilla glyph metrics and size overrides, with shared atlas pages allocated as glyphs are drawn. TrueType fonts, translation keys, and right-to-left shaping remain unsupported.
+GUI text accepts literal Unicode strings or styled text runs. [Fonts](/api/index/classes/Fonts) loads bitmap, Unihex, space, and reference providers from the selected assets and resource packs. Unihex ZIPs use vanilla glyph metrics and size overrides, with shared atlas pages allocated as glyphs are drawn. A Unihex file downloads only when text needs a character that earlier providers lack, so plain ASCII text in the default font never loads `unifont.zip`. TrueType fonts, translation keys, and right-to-left shaping remain unsupported.
 
 `render.pixelRatio` sets drawing-buffer pixels per CSS pixel, with a default of `1`. It changes image-export resolution; layout and inspector picking use CSS pixels.
 

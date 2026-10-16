@@ -27,6 +27,8 @@ export interface BitmapGlyph {
 /** Character-to-glyph lookup assembled from the active resource-pack fonts. */
 export interface BitmapFont {
     glyphs: Map<string, BitmapGlyph>;
+    /** Resolves characters through the font providers before measuring or drawing them. */
+    resolve?(characters: string): Promise<void>;
 }
 
 interface ProviderOptions {
@@ -80,6 +82,7 @@ export class Fonts {
         const stack = await AssetLoader.getAll<FontAsset>(key, AssetParser.JSON);
         if (stack.length === 0) throw new Error(`Could not load font ${key.toNamespacedString()}`);
         const glyphs = new Map<string, BitmapGlyph>();
+        const providers: (Map<string, BitmapGlyph> | ((characters: string) => Promise<Map<string, BitmapGlyph>>))[] = [];
         for (const asset of stack) {
             for (const provider of asset.providers) {
                 if (provider.filter?.uniform || provider.filter?.jp) continue;
@@ -93,20 +96,37 @@ export class Fonts {
                             { x: 0, y: 0, width: 0, height: 0, scale: 1, ascent: 0, advance }]));
                         break;
                     case "reference": case "minecraft:reference":
-                        provided = (await this.load(this.relatedKey("font", provider.id, key), [...parents, serialized])).glyphs;
+                        const reference = await this.load(this.relatedKey("font", provider.id, key), [...parents, serialized]);
+                        if (reference.resolve) {
+                            providers.push(async characters => { await reference.resolve!(characters); return reference.glyphs; });
+                            continue;
+                        }
+                        provided = reference.glyphs;
                         break;
                     case "unihex": case "minecraft:unihex":
-                        provided = await (await import("./_fonts/Unihex")).loadUnihex(provider, key);
-                        break;
+                        providers.push(async characters => (await import("./_fonts/Unihex")).loadUnihex(provider, key, characters));
+                        continue;
                     default:
                         continue;
                 }
-                for (const [character, glyph] of provided) {
+                if (providers.every(provider => provider instanceof Map)) for (const [character, glyph] of provided) {
                     if (character !== "\0" && !glyphs.has(character)) glyphs.set(character, glyph);
                 }
+                providers.push(provided);
             }
         }
-        return { glyphs };
+        return { glyphs, resolve: providers.every(provider => provider instanceof Map) ? undefined : async characters => {
+            const remaining = new Set([...characters].filter(character => character !== "\0" && character !== "\n"
+                && character !== "\r" && !glyphs.has(character)));
+            for (const provider of providers) {
+                if (!remaining.size) break;
+                const provided = provider instanceof Map ? provider : await provider([...remaining].join(""));
+                for (const character of remaining) {
+                    const glyph = provided.get(character);
+                    if (glyph) { glyphs.set(character, glyph); remaining.delete(character); }
+                }
+            }
+        } };
     }
 
     private static async bitmap(provider: BitmapProvider, fontKey: AssetKey): Promise<Map<string, BitmapGlyph>> {

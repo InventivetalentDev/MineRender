@@ -146,3 +146,17 @@ test.serial("GUI text bounds include styled overhang and disposal releases only 
     t.is(glyphs.get("W")!.image, image);
     t.is(other.getGroupByName("other")!.children.length, 2);
 });
+
+test.serial("text resolves every run before measuring deferred glyphs", async t => {
+    const { glyphs } = fixture(t);
+    const glyph = glyphs.get("😀")!;
+    glyphs.delete("😀");
+    Fonts.get = async () => ({ glyphs, resolve: async characters => {
+        t.is(characters, "W😀");
+        await Promise.resolve();
+        glyphs.set("😀", glyph);
+    } });
+    const layout = await layoutGuiText([{ text: "W" }, { text: "😀" }], { maxWidth: 10 });
+    t.deepEqual(layout.lineWidths, [7, 5]);
+    t.is(layout.glyphs[1].glyph, glyph);
+});

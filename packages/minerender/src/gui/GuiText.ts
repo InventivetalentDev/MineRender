@@ -57,6 +57,7 @@ export async function layoutGuiText(text: GuiText, options: GuiTextOptions = {})
     }
     const font = await Fonts.get(options.font);
     const runs = typeof text === "string" ? [{ text }] : text;
+    await font.resolve?.(runs.map(run => run.text).join(""));
     const glyphs: PositionedGuiGlyph[] = [], lineWidths: number[] = [];
     let line: PositionedGuiGlyph[] = [], width = 0;
     let trailingNewline = false;

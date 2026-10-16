@@ -15,6 +15,8 @@ import { AssetParser } from "./parser";
 import { ResponseParser } from "./parser";
 import { merge } from "../../util/_internal/merge";
 
+const BINARY_TIMEOUT = 60_000;
+
 const p = prefix("HostedAssetSource");
 
 const DEFAULT_OPTIONS: HostedAssetSourceOptions = {
@@ -78,6 +80,7 @@ export class HostedAssetSource extends AssetSource {
     }
     static readonly BINARY: ResponseParser<BinaryAsset> = {
         config(request: RequestConfig) {
+            request.timeout = BINARY_TIMEOUT;
             request.responseType = "arraybuffer";
         },
         parse(response: RequestResponse): BinaryAsset {

@@ -3,6 +3,7 @@ import { TextReader, Uint8ArrayWriter, ZipWriter } from "@zip.js/zip.js";
 import { Env, type EnvProvider } from "../src/Env";
 import { AssetKey } from "../src/assets/AssetKey";
 import { AssetLoader } from "../src/assets/AssetLoader";
+import { layoutGuiText, createGuiTextGeometry } from "../src/gui/GuiText";
 import { Fonts } from "../src/assets/Fonts";
 import { AssetSource } from "../src/assets/source/AssetSource";
 import { AssetParser } from "../src/assets/source/parser/AssetParsers";
@@ -88,7 +89,7 @@ test.serial("font stacks preserve source and provider precedence through referen
     }));
     AssetLoader.addSource("high", new StubSource((key, parser) => {
         requests.push(`high:${key.toNamespacedString()}`);
-        if (key.extension === ".zip") {
+        if (key.path.endsWith(".zip")) {
             t.is(parser, AssetParser.BINARY);
             return archive;
         }
@@ -107,9 +108,10 @@ test.serial("font stacks preserve source and provider precedence through referen
         return undefined;
     }));
     const font = await Fonts.get();
+    await font.resolve!("ACDΩB");
     t.deepEqual([...font.glyphs].map(([character, glyph]) => [character, glyph.advance]), [["A", 2], ["C", 7], ["D", 6], ["Ω", 4], ["B", 4]]);
     t.is(font.glyphs.get("A")!.image, undefined);
-    t.deepEqual(requests, ["high:minecraft:default", "low:minecraft:default", "high:custom:extra", "low:custom:extra", "high:minecraft:font/unifont"]);
+    t.deepEqual(requests, ["high:minecraft:default", "low:minecraft:default", "high:custom:extra", "low:custom:extra", "high:minecraft:font/unifont.zip"]);
 });
 
 test.serial("Unihex glyphs retain widths, overrides, codepoints, root, and pixels without rasterizing during loading", async t => {
@@ -137,6 +139,7 @@ test.serial("Unihex glyphs retain widths, overrides, codepoints, root, and pixel
     }));
     const key = new AssetKey("custom", "label", "font", undefined, "assets", ".json", "https://pack.example/custom");
     const font = await Fonts.get(key);
+    await font.resolve!("ABC😀DE");
     t.deepEqual([...font.glyphs.keys()], ["A", "B", "C", "😀", "D", "E"]);
     t.deepEqual([...font.glyphs.values()].map(glyph => [glyph.width, glyph.height, glyph.scale, glyph.ascent, glyph.advance]), [
         [4, 16, 0.5, 7, 3], [16, 16, 0.5, 7, 9], [24, 16, 0.5, 7, 13],
@@ -148,7 +151,7 @@ test.serial("Unihex glyphs retain widths, overrides, codepoints, root, and pixel
     const binary = requests[1];
     t.is(binary.parser, AssetParser.BINARY);
     t.deepEqual([binary.key.assetType, binary.key.type, binary.key.path, binary.key.extension, binary.key.root],
-        [undefined, "font", "nested/unifont", ".zip", key.root]);
+        [undefined, "font", "nested/unifont.zip", "", key.root]);
     t.is(binary.key.namespace, "paint");
     const glyph = font.glyphs.get("A")!;
     t.deepEqual([glyph.boldOffset, glyph.shadowOffset], [0.5, 0.5]);
@@ -191,6 +194,7 @@ test.serial("Unihex atlas rollover preserves rendered glyphs and override column
         { providers: [{ type: "unihex", hex_file: "font/unifont.zip",
             size_overrides: [{ from: "∑", to: "−", left: -2, right: 34 }] }] }));
     const font = await Fonts.get();
+    await font.resolve!(characters.join("") + "∑");
     t.is(canvases.length, 0);
     const first = font.glyphs.get(characters[0])!;
     const image = first.image as CompatCanvas & { pixels: Uint8ClampedArray };
@@ -217,24 +221,35 @@ test.serial("Unihex atlas rollover preserves rendered glyphs and override column
     t.deepEqual(alpha.flatMap((value, index) => value ? [index] : []), [2, 9]);
 });
 
-test.serial("missing and malformed Unihex archives reject and can be retried after repair", async t => {
+test.serial("missing and malformed Unihex archives warn and can be retried after repair", async t => {
+    const warn = console.warn, warnings: unknown[][] = [];
+    console.warn = (...args) => { warnings.push(args); };
+    t.teardown(() => { console.warn = warn; });
     let archive: { data: Uint8Array } | undefined;
     AssetLoader.addSource("test", new StubSource((_key, parser) => parser === AssetParser.BINARY ? archive :
         { providers: [{ type: "unihex", hex_file: "minecraft:font/unifont.zip" }] }));
-    await t.throwsAsync(Fonts.get());
+    const font = await Fonts.get();
+    await font.resolve!("A");
+    t.false(font.glyphs.has("A"));
     for (const contents of [
         "0041:FF", hexGlyph("0041", Array(16).fill("ff")),
         `\n${hexGlyph("0041", Array(16).fill("FF"))}`,
         `${hexGlyph("0041", Array(16).fill("FF"))}\r\n`
     ]) {
         archive = await unihexArchive({ "glyphs.hex": contents });
-        await t.throwsAsync(Fonts.get());
+        await font.resolve!("A");
+        t.false(font.glyphs.has("A"));
     }
     archive = await unihexArchive({ "glyphs.hex": `${hexGlyph("0041", Array(16).fill("FF"))}\n` });
-    t.is((await Fonts.get()).glyphs.get("A")!.advance, 5);
+    t.is(warnings.length, 5);
+    t.true(warnings.every(args => String(args[0]).includes("minecraft:font/unifont.zip")));
+    await font.resolve!("A");
+    t.is(font.glyphs.get("A")!.advance, 5);
     Caching.clear();
     archive = await unihexArchive({ "empty.hex": "", "readme.txt": "No glyphs." });
-    t.is((await Fonts.get()).glyphs.size, 0);
+    const empty = await Fonts.get();
+    await empty.resolve!("A");
+    t.is(empty.glyphs.size, 0);
 });
 
 test.serial("bitmap glyphs use codepoint cells, alpha widths, height and ascent while retaining the font root", async t => {
@@ -304,4 +319,72 @@ test.serial("missing font files and reference cycles reject without leaving reje
     await t.throwsAsync(Fonts.get("custom:first"), { message: "Cyclic font reference: custom:first" });
     repaired = true;
     t.is((await Fonts.get("custom:first")).glyphs.get(" ")!.advance, 4);
+});
+
+test.serial("bitmap text skips a referenced Unihex file and fonts share its parsed records", async t => {
+    const archive = await unihexArchive({ "glyphs.hex": hexGlyph("03A9", Array(16).fill("FF")) });
+    const image = sheet("ascii", 8, 8, [[3, 0]]);
+    let loads = 0;
+    AssetLoader.addSource("test", new StubSource((key, parser) => {
+        if (parser === AssetParser.BINARY) { loads++; return archive; }
+        if (parser === AssetParser.IMAGE) return image;
+        return { providers: key.path === "default" ? [
+            { type: "bitmap", file: "font/ascii.png", ascent: 7, chars: ["A"] },
+            { type: "reference", id: "custom:unicode" }
+        ] : [{ type: "unihex", hex_file: "pack:font/glyphs.bin" }] };
+    }));
+    t.is((await layoutGuiText("AAA")).width, 15);
+    t.is(loads, 0);
+    const [layout] = await Promise.all([layoutGuiText("Ω"), layoutGuiText("Ω", { font: "custom:unicode" })]);
+    t.is(layout.width, 5);
+    t.is(loads, 1);
+    const fileKey = new AssetKey("pack", "glyphs.bin", undefined, "font", "assets", "").serialize();
+    const parsed = await Caching.unihexCache.getIfPresent(fileKey);
+    t.is(parsed!.rows.length, 16);
+    await layoutGuiText("ΩΩ");
+    t.is(loads, 1);
+    t.is(await Caching.unihexCache.getIfPresent(fileKey), parsed);
+    Caching.clear();
+    await layoutGuiText("Ω");
+    t.is(loads, 2);
+});
+
+test.serial("Unihex before bitmap wins and archive paths are used as written", async t => {
+    const archive = await unihexArchive({ "glyphs.hex": hexGlyph("0041", Array(16).fill("FF")) });
+    const image = sheet("ascii", 8, 8, [[1, 0]]);
+    AssetLoader.addSource("test", new StubSource((key, parser) => {
+        if (parser === AssetParser.BINARY) {
+            t.deepEqual([key.namespace, key.getFullPath(), key.extension], ["pack", "font/glyphs.bin", ""]);
+            return archive;
+        }
+        if (parser === AssetParser.IMAGE) return image;
+        return { providers: [{ type: "unihex", hex_file: "pack:font/glyphs.bin" },
+            { type: "bitmap", file: "font/ascii.png", ascent: 7, chars: ["A"] }] };
+    }));
+    t.is((await layoutGuiText("A")).width, 5);
+});
+
+test.serial("failing Unihex providers preserve other glyphs and draw missing-glyph boxes", async t => {
+    const archive = await unihexArchive({ "glyphs.hex": hexGlyph("03A9", Array(16).fill("FF")) });
+    const warn = console.warn, warnings: unknown[][] = [];
+    console.warn = (...args) => { warnings.push(args); };
+    t.teardown(() => { console.warn = warn; });
+    for (const invalidOverride of [false, true]) {
+        Caching.clear();
+        AssetLoader["_SOURCES"] = [];
+        AssetLoader.addSource("test", new StubSource((_key, parser) => parser === AssetParser.BINARY
+            ? (invalidOverride ? archive : undefined) : { providers: [
+                { type: "unihex", hex_file: "font/unifont.zip",
+                    size_overrides: invalidOverride ? [{ from: "Ω", to: "Ω", left: 0, right: 7 }] : [] },
+                { type: "space", advances: { A: 3 } }
+            ] }));
+        const layout = await layoutGuiText("AΩ");
+        t.deepEqual(layout.glyphs.map(entry => entry.advance), [3, 6]);
+        t.is(layout.glyphs[1].glyph, undefined);
+        const batches = createGuiTextGeometry(layout, false);
+        t.true(batches.some(batch => !batch.image && batch.geometry.index!.count > 0));
+        batches.forEach(batch => batch.geometry.dispose());
+    }
+    t.is(warnings.length, 2);
+    t.true(warnings.every(args => String(args[0]).includes("font/unifont.zip")));
 });
