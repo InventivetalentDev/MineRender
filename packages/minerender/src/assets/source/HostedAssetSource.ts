@@ -15,6 +15,8 @@ import { AssetParser } from "./parser";
 import { ResponseParser } from "./parser";
 import { merge } from "../../util/_internal/merge";
 
+const BINARY_TIMEOUT = 60_000;
+
 const p = prefix("HostedAssetSource");
 
 const DEFAULT_OPTIONS: HostedAssetSourceOptions = {
@@ -76,6 +78,15 @@ export class HostedAssetSource extends AssetSource {
             return response.data;
         }
     }
+    static readonly BINARY: ResponseParser<BinaryAsset> = {
+        config(request: RequestConfig) {
+            request.timeout = BINARY_TIMEOUT;
+            request.responseType = "arraybuffer";
+        },
+        parse(response: RequestResponse): BinaryAsset {
+            return { data: new Uint8Array(response.data as ArrayBuffer) };
+        }
+    }
 
     static readonly PARSER_MAP: Map<AssetParser, ResponseParser<any>> = new Map<AssetParser, ResponseParser<any>>([
         [AssetParser.MODEL, HostedAssetSource.MODEL],
@@ -85,6 +96,7 @@ export class HostedAssetSource extends AssetSource {
         [AssetParser.IMAGE, HostedAssetSource.IMAGE],
         [AssetParser.LIST, HostedAssetSource.LIST],
         [AssetParser.JSON, HostedAssetSource.JSON],
+        [AssetParser.BINARY, HostedAssetSource.BINARY],
     ]);
 
     /** Retries missing assets with the `minecraft` namespace and default root. Other failures reject. */
@@ -190,4 +202,9 @@ export class HostedAssetSource extends AssetSource {
 
 interface HostedAssetSourceOptions {
     retryDefaults: boolean;
+}
+
+/** Encoded asset bytes loaded without JSON or image decoding. */
+export interface BinaryAsset extends MinecraftAsset {
+    data: Uint8Array;
 }

@@ -67,7 +67,7 @@ export default defineConfig([
         name: "browser-esm",
         entry: [
             "src/**/*.ts", "src/**/*.js", "!src/**/*.d.ts", "!src/env/node/**",
-            "!src/index.node.ts", "!src/env/browser/section.worker.ts", "!src/_model/**", "!src/lib/**"
+            "!src/index.node.ts", "!src/env/browser/section.worker.ts"
         ],
         dts: { entry: { "index.browser": "src/index.browser.ts" } },
         outDir: "dist/browser/esm",

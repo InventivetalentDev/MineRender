@@ -17,7 +17,7 @@ import type { DoubleArray } from "../../model/Model";
 import type { Maybe } from "../../util/util";
 import { isMesh } from "../../util/three";
 import type { EntityAnimation } from "../EntityAnimation";
-import { EntityAnimationOptions, EntityAnimationPlayer } from "./EntityAnimationPlayer";
+import { EntityAnimationOptions, EntityAnimationPlayer, validateAnimationWeights } from "./EntityAnimationPlayer";
 
 /** Renders selected entity layers as named part groups. Create it through {@link MineRenderScene.addEntity}. */
 export class EntityObject extends SceneObject {
@@ -35,7 +35,7 @@ export class EntityObject extends SceneObject {
     private scrollTicker: Maybe<number>;
     /** Entity age in ticks, as vanilla's `ageInTicks`; drives the scrolling render modes. */
     public age: number = 0;
-    private readonly animationPlayers: EntityAnimationPlayer[] = [];
+    private readonly animationPlayers: { player: EntityAnimationPlayer, indices: number[] }[] = [];
     private readonly partPoses = new Map<Object3D, EntityModelPart["pose"]>();
 
     constructor(readonly entity: EntityModel, options?: Partial<EntityObjectOptions>) {
@@ -65,7 +65,7 @@ export class EntityObject extends SceneObject {
         this.geometries.clear();
         for (const dispose of this.disposeWireframes.splice(0)) dispose();
         // The animated part groups are removed with the children.
-        for (const player of this.animationPlayers.splice(0)) player.clear();
+        for (const { player } of this.animationPlayers.splice(0)) player.clear();
         this.partPoses.clear();
         super.disposeAndRemoveAllChildren();
     }
@@ -106,17 +106,30 @@ export class EntityObject extends SceneObject {
 
     /** The first active clip, until playback is stopped or the object is disposed. */
     public get animation(): Maybe<EntityAnimation> {
-        return this.animationPlayers[0]?.animation;
+        return this.animationPlayers[0]?.player.animation;
     }
 
-    /** Clips playing together, each targeting a separate geometry layer. */
+    /** Clips playing together, in the order passed to {@link playAnimations}. */
     public get activeAnimations(): readonly EntityAnimation[] {
-        return this.animationPlayers.map(player => player.animation!);
+        const animations: EntityAnimation[] = [];
+        for (const { player, indices } of this.animationPlayers) {
+            player.animations.forEach((animation, i) => { animations[indices[i]] = animation; });
+        }
+        return animations;
+    }
+
+    /** Weights of the active clips, in the same order as {@link activeAnimations}. */
+    public get animationWeights(): readonly number[] {
+        const weights: number[] = [];
+        for (const { player, indices } of this.animationPlayers) {
+            player.weights.forEach((weight, i) => { weights[indices[i]] = weight; });
+        }
+        return weights;
     }
 
     /** Seconds since the animation started, before looping. */
     public get animationTime(): number {
-        return this.animationPlayers[0]?.time ?? 0;
+        return this.animationPlayers[0]?.player.time ?? 0;
     }
 
     /**
@@ -129,45 +142,59 @@ export class EntityObject extends SceneObject {
         this.playAnimations([animation], options);
     }
 
-    /** Plays clips with a shared clock and no blending. Selected layers without their own clip follow `main`. */
+    /**
+     * Plays clips with a shared clock, adding their weighted offsets within each geometry layer.
+     * Weights default to 1 and are not normalized. Selected layers without their own clip follow `main`.
+     */
     public playAnimations(animations: readonly EntityAnimation[], options?: EntityAnimationOptions): void {
-        const targets = new Set<string>();
-        const selections = animations.map(animation => {
+        const weights = validateAnimationWeights(options?.weights ?? animations.map(() => 1), animations.length);
+        const selections = new Map<string, { animations: EntityAnimation[], names: string[], indices: number[] }>();
+        animations.forEach((animation, index) => {
             const layer = animation.layer ?? "main";
-            if (targets.has(layer)) throw new Error(`Multiple animations target layer "${layer}"`);
-            targets.add(layer);
             const names = Object.keys(this.entityLayers).filter(name => name.split("#")[0] === layer);
             if (!names.length) throw new Error(`Entity ${this.entity.id} has no selected animation layer "${layer}"`);
-            return { animation, names };
+            let selection = selections.get(layer);
+            if (!selection) selections.set(layer, selection = { animations: [], names, indices: [] });
+            selection.animations.push(animation);
+            selection.indices.push(index);
         });
-        const main = selections.find(({ animation }) => (animation.layer ?? "main") === "main");
-        if (main) main.names.push(...Object.keys(this.entityLayers).filter(name => !targets.has(name.split("#")[0])));
+        const main = selections.get("main");
+        if (main) main.names.push(...Object.keys(this.entityLayers).filter(name => !selections.has(name.split("#")[0])));
         this.createMeshes();
         this.stopAnimation();
-        for (const { animation, names } of selections) {
+        for (const { animations: clips, names, indices } of selections.values()) {
             const player = new EntityAnimationPlayer();
-            player.play(names.map(name => this.getLayerGroup(name)!), animation, options, this.partPoses);
-            this.animationPlayers.push(player);
+            player.playAnimations(names.map(name => this.getLayerGroup(name)!), clips,
+                { ...options, weights: indices.map(index => weights[index]) }, this.partPoses);
+            this.animationPlayers.push({ player, indices });
         }
+        this.notifyDirty();
+    }
+
+    /** Changes weights in active clip order, notifying the scene without restarting the shared clock. Has no effect without an animation. */
+    public setAnimationWeights(weights: readonly number[]): void {
+        if (!this.animationPlayers.length) return;
+        const values = validateAnimationWeights(weights, this.activeAnimations.length);
+        for (const { player, indices } of this.animationPlayers) player.setWeights(indices.map(index => values[index]));
         this.notifyDirty();
     }
 
     /** Stops all clips and restores the poses from before playback. */
     public stopAnimation(): void {
         const players = this.animationPlayers.splice(0);
-        for (const player of players) player.stop();
+        for (const { player } of players) player.stop();
         if (players.length) this.notifyDirty();
     }
 
     /** Poses the object at an explicit time in seconds. Has no effect without an animation. */
     public setAnimationTime(seconds: number): void {
-        for (const player of this.animationPlayers) player.setTime(seconds);
+        for (const { player } of this.animationPlayers) player.setTime(seconds);
         if (this.animationPlayers.length) this.notifyDirty();
     }
 
     /** Advances the animation by a frame delta in seconds, scaled by its speed. Has no effect without an animation. */
     public advanceAnimation(deltaSeconds: number): void {
-        for (const player of this.animationPlayers) player.advance(deltaSeconds);
+        for (const { player } of this.animationPlayers) player.advance(deltaSeconds);
         if (this.animationPlayers.length) this.notifyDirty();
     }
 

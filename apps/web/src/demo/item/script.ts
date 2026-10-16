@@ -588,7 +588,9 @@ async function load(ctx: DemoContext, state: ItemSettings): Promise<DemoContent>
         : direct ? Models.getRaw(key) : state.item === CUSTOM_MODEL_DATA_ITEM
         ? loadCustomModelData(key, context) : previewShulker ? loadShulkerPreview(key, context, state.shulkerOpenness, state.shulkerOrientation)
             : Models.getMerged(key, context);
-    const [loaded, list, patterns, dyeColors, defaults, potions] = await Promise.all([pending, Models.getItemList().catch(() => []),
+    // The custom-model-data and shulker previews swap a temporary asset source: registry lookups wait until it is removed.
+    const loaded = await pending;
+    const [list, patterns, dyeColors, defaults, potions] = await Promise.all([Models.getItemList().catch(() => []),
         hasBannerControls(state) ? BannerPatterns.getList().catch(() => []) : [],
         hasBannerControls(state) ? BannerPatterns.getColors() : {},
         direct ? {} : ItemDefaults.get(state.item), hasPotionControls(state) ? ItemTints.getPotionList() : []]);
