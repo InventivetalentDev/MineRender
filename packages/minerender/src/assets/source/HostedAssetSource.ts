@@ -8,7 +8,7 @@ import { ImageLoader } from "../../image";
 import { ListAsset } from "../../ListAsset";
 import { MinecraftAsset } from "../../MinecraftAsset";
 import { AssetKey } from "../AssetKey";
-import { DEFAULT_NAMESPACE } from "../Assets";
+import { DEFAULT_NAMESPACE } from "../AssetDefaults";
 import { RequestError, Requests } from "../../request";
 import { AssetLoader } from "../AssetLoader";
 import { AssetParser } from "./parser";
