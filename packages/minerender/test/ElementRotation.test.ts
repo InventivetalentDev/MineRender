@@ -17,11 +17,11 @@ test("JSON x-axis element rotations rotate geometry around their origin", t => {
 
 for (const axis of [Axis.X, Axis.Y, Axis.Z]) {
     test(`${axis}-axis element rescaling preserves the pivot and rotation-axis length`, t => {
-        for (const angle of [-45, -22.5, 22.5, 45]) {
+        for (const angle of [-90, -45, -22.5, 0, 22.5, 30, 45, 60]) {
             for (const rescale of [false, true]) {
                 const rotation: ElementRotation = { origin: [8, 8, 8], axis, angle, rescale };
                 const radians = angle * Math.PI / 180;
-                const scale = rescale ? 1 / Math.cos(radians) : 1;
+                const scale = rescale ? 1 / Math.max(Math.abs(Math.cos(radians)), Math.abs(Math.sin(radians))) : 1;
                 const cosine = 3 * Math.cos(radians) * scale;
                 const sine = 3 * Math.sin(radians) * scale;
                 const points = {
