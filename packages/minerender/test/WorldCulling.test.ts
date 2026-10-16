@@ -1581,6 +1581,103 @@ test.serial("unloading a chunk column rejects noninteger coordinates", async t =
     }
 });
 
+test.serial("bulk unloading skips meshes in removed columns and rebuilds a surviving border once", async t => {
+    const { world, scene, place } = fixture(t, { sectionMeshing: true });
+    for (const x of [15, 16, 31, 32]) await place([x, 0, 0]);
+    const survivor = world.getBlockAt(32, 0, 0);
+    const removed = [15, 16].map(x => world.getChunkAt(new Vector3(x, 0, 0))!["sectionMesh"]!);
+    t.is(renderedIndexCountAt(world, [32, 0, 0]), 30);
+    const build = SectionMesh.buildAsync;
+    let builds = 0;
+    SectionMesh.buildAsync = async function (...args) { builds++; return build.apply(this, args); };
+    t.teardown(() => { SectionMesh.buildAsync = build; });
+    await world.unloadChunkColumns([{ x: 0, z: 0 }, { x: 1, z: 0 }, { x: 0, z: 0 }]);
+    t.is(builds, 1);
+    t.is(renderedIndexCountAt(world, [32, 0, 0]), 36);
+    t.is(world.getBlockAt(32, 0, 0), survivor);
+    t.true(removed.every(section => section.parent === null && section.children.length === 0));
+    t.is(scene.children.filter(child => child instanceof SectionMesh).length, 1);
+    await world.unloadChunkColumns([{ x: 2, z: 0 }]);
+    t.is(builds, 1);
+    t.is(scene.children.filter(child => child instanceof SectionMesh).length, 0);
+});
+
+test.serial("bulk unloading retries a failed surviving neighbor rebuild on the next unload", async t => {
+    const { world, place } = fixture(t, { sectionMeshing: true });
+    for (const x of [15, 16, 31, 32]) await place([x, 0, 0]);
+    const survivor = world.getChunkAt(new Vector3(32, 0, 0))!;
+    const geometry = () => survivor["sectionMesh"]!.children.map(child => {
+        const geometry = (child as Mesh).geometry;
+        return {
+            indices: Array.from(geometry.index!.array),
+            positions: Array.from(geometry.getAttribute("position").array),
+            normals: Array.from(geometry.getAttribute("normal").array),
+            colors: Array.from(geometry.getAttribute("color").array)
+        };
+    });
+    const columns = [{ x: 0, z: 0 }, { x: 1, z: 0 }];
+    await world.unloadChunkColumns(columns);
+    const expected = geometry();
+    for (const x of [15, 16, 31]) await place([x, 0, 0]);
+    const previous = geometry();
+    t.notDeepEqual(previous, expected);
+    const build = SectionMesh.buildAsync, failure = new Error("neighbor rebuild failed");
+    let builds = 0;
+    SectionMesh.buildAsync = async function (...args) {
+        if (++builds === 1) throw failure;
+        return build.apply(this, args);
+    };
+    t.teardown(() => { SectionMesh.buildAsync = build; });
+    await t.throwsAsync(world.unloadChunkColumns(columns), { is: failure });
+    t.is(builds, 1);
+    t.deepEqual(geometry(), previous);
+    t.is(world.getBlockAt(15, 0, 0), undefined);
+    t.is(world.getBlockAt(16, 0, 0), undefined);
+    await world.unloadChunkColumns(columns);
+    t.is(builds, 2);
+    t.deepEqual(geometry(), expected);
+});
+
+test.serial("bulk unloading restores surviving fluid surfaces, saved lighting, and ambient occlusion in one rebuild", async t => {
+    const { world, scene } = fixture(t, { sectionMeshing: true, savedLighting: true, ambientOcclusion: true });
+    const data = new ChunkData();
+    data.set(15 + 12 * 16, { type: "test:cube" });
+    data.set(15 + 15 * 16, { type: "water", properties: { level: "4" } });
+    await world.placeChunk({ x: 0, z: 0, lightValid: true, sections: [
+        { y: 0, data, light: { sky: new Uint8Array(2048).fill(0xaa) } }
+    ] });
+    const survivor = world.getBlockAt(15, 0, 15);
+    const fluidPositions = () => assertFluidPositions(t, world, scene, [[15, 0, 15]]);
+    const colors = () => world.getChunkAt(new Vector3(15, 0, 12))!["sectionMesh"]!.children.map(child =>
+        Array.from((child as Mesh).geometry.getAttribute("color").array));
+    const isolatedFluid = fluidPositions(), isolatedColors = colors(), isolatedCorners = topCornerColors(world, [15, 0, 12]);
+    const east = new ChunkData(), diagonal = new ChunkData();
+    east.set(12 * 16 + 256, { type: "test:cube" });
+    east.set(13 * 16 + 256, { type: "test:cube" });
+    east.set(15 * 16, { type: "water" });
+    diagonal.set(0, { type: "water" });
+    for (const [z, neighbor] of [[0, east], [1, diagonal]] as const) {
+        await world.placeChunk({ x: 1, z, lightValid: true, sections: [
+            { y: 0, data: neighbor, light: { sky: new Uint8Array(2048).fill(0x44) } }
+        ] });
+    }
+    t.notDeepEqual(fluidPositions(), isolatedFluid);
+    t.notDeepEqual(topCornerColors(world, [15, 0, 12]), isolatedCorners);
+    const build = SectionMesh.buildAsync;
+    let builds = 0;
+    SectionMesh.buildAsync = async function (...args) { builds++; return build.apply(this, args); };
+    t.teardown(() => { SectionMesh.buildAsync = build; });
+    await world.unloadChunkColumns([{ x: 1, z: 0 }, { x: 1, z: 1 }]);
+    t.is(builds, 1);
+    t.deepEqual(fluidPositions(), isolatedFluid);
+    t.deepEqual(colors(), isolatedColors);
+    t.deepEqual(topCornerColors(world, [15, 0, 12]), isolatedCorners);
+    t.deepEqual(world.getLightAt(15, 0, 12), { block: 0, sky: 10 });
+    t.is(world.getLightAt(16, 0, 12), undefined);
+    t.is(world.getLightAt(16, 0, 16), undefined);
+    t.is(world.getBlockAt(15, 0, 15), survivor);
+});
+
 test.serial("standalone edits finish culling while another bulk placement is waiting for an asset", async t => {
     const { world, place, addModel } = fixture(t);
     addModel("delayed");
@@ -2040,6 +2137,69 @@ function biomeBlendFixture(t: ExecutionContext, radius = 0, options: MineRenderW
     };
     return { ...setup, colorAt };
 }
+
+test.serial("bulk unloading refreshes biome colors in each surviving section with one rebuild", async t => {
+    const { world, colorAt } = biomeBlendFixture(t, 1);
+    for (const z of [0, 1]) {
+        const data = new ChunkData();
+        data.set(15 + (z === 0 ? 15 : 0) * 16, { type: "oak_leaves" });
+        await world.placeChunk({ x: 0, z, sections: [{ y: 0, data, biomes: Array(64).fill("test:red") }] });
+        const neighbor = new ChunkData();
+        neighbor.set((z === 0 ? 15 : 0) * 16, { type: "test:cube" });
+        await world.placeChunk({ x: 1, z, sections: [{ y: 0, data: neighbor, biomes: Array(64).fill("test:blue") }] });
+    }
+    t.is(colorAt([15, 0, 15]), 0xaa0055);
+    t.is(colorAt([15, 0, 16]), 0xaa0055);
+    const build = SectionMesh.buildAsync;
+    const builds = new Map<number, number>();
+    SectionMesh.buildAsync = async function (...args) {
+        const key = args[0][0].index;
+        builds.set(key, (builds.get(key) ?? 0) + 1);
+        return build.apply(this, args);
+    };
+    t.teardown(() => { SectionMesh.buildAsync = build; });
+    await world.unloadChunkColumns([{ x: 1, z: 0 }, { x: 1, z: 1 }]);
+    t.deepEqual([...builds].sort((a, b) => a[0] - b[0]), [[15, 1], [255, 1]]);
+    t.is(colorAt([15, 0, 15]), 0xff0000);
+    t.is(colorAt([15, 0, 16]), 0xff0000);
+    t.is(world.getBiomeAt(16, 0, 8), undefined);
+    t.is(world.getBiomeAt(16, 0, 24), undefined);
+});
+
+test.serial("a biome setter joining bulk unloading waits for the resulting geometry", async t => {
+    t.timeout(3000);
+    const { world, colorAt } = biomeBlendFixture(t, 1);
+    const data = new ChunkData();
+    data.set(15 + 8 * 16, { type: "oak_leaves" });
+    await world.placeChunk({ x: 0, z: 0, sections: [{ y: 0, data, biomes: Array(64).fill("test:red") }] });
+    await world.placeChunk({ x: 1, z: 0, sections: [{ y: 0, data: new ChunkData(), biomes: Array(64).fill("test:blue") }] });
+    const color = Biomes.getColor, build = SectionMesh.buildAsync;
+    let releaseColor!: () => void, colorStarted!: () => void, releaseBuild!: () => void, buildStarted!: () => void;
+    const colorGate = new Promise<void>(resolve => { releaseColor = resolve; });
+    const beganColor = new Promise<void>(resolve => { colorStarted = resolve; });
+    const buildGate = new Promise<void>(resolve => { releaseBuild = resolve; });
+    const beganBuild = new Promise<void>(resolve => { buildStarted = resolve; });
+    Biomes.getColor = async (...args) => { colorStarted(); await colorGate; return color(...args); };
+    SectionMesh.buildAsync = async function (...args) { buildStarted(); await buildGate; return build.apply(this, args); };
+    t.teardown(() => {
+        releaseColor(); releaseBuild();
+        Biomes.getColor = color;
+        SectionMesh.buildAsync = build;
+    });
+    const unloading = world.unloadChunkColumns([{ x: 1, z: 0 }]);
+    await beganColor;
+    let changed = false;
+    const changing = world.setBiomeBlendRadius(1).then(() => { changed = true; });
+    releaseColor();
+    await beganBuild;
+    await new Promise<void>(resolve => setImmediate(resolve));
+    t.false(changed);
+    t.is(colorAt([15, 0, 8]), 0xaa0055);
+    releaseBuild();
+    await Promise.all([unloading, changing]);
+    t.true(changed);
+    t.is(colorAt([15, 0, 8]), 0xff0000);
+});
 
 test.serial("biome blend radius validates before mutation and defaults to an idle unblended path", async t => {
     const { world, scene, place } = fixture(t);

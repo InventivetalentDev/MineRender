@@ -36,6 +36,8 @@ The report separates these measurements:
 
 Each stop records loaded, pending, missing, and failed columns, drawing calls and triangles, Three.js geometry and texture counts, and evidence of worker replies or synchronous fallback. Cleanup is timed separately. Garbage collection runs after frame sampling, so its pause is excluded from streaming and frame measurements. Heap samples include shared assets and benchmark records that remain after world cleanup. The runner exits unsuccessfully for source failures or browser errors and preserves completed reports for inspection.
 
+Unloading records one operation per group of columns the streamer removes together, with its `columnCount` and `columns`.
+
 ## Compare runs
 
 Use the same unchanged save, asset version, route, radii, rendering options, viewport, GPU, Chrome build, and settle duration. Choose stops far enough apart to exceed the unload radius. Check that each stop loads terrain and that worker replies confirm the intended geometry path. Repeat the command at least three times and compare the spread before attributing a difference to a code change. CDN latency affects the first pass; warm asset results help separate it from placement costs.

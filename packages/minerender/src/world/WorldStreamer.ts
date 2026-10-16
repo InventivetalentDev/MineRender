@@ -35,7 +35,7 @@ export class WorldStreamer {
     private disposed = false;
 
     constructor(
-        private readonly world: Pick<MineRenderWorld<boolean>, "placeChunk" | "unloadChunkColumn">,
+        private readonly world: Pick<MineRenderWorld<boolean>, "placeChunk" | "unloadChunkColumns">,
         private readonly source: WorldChunkSource,
         options: WorldStreamerOptions = {}
     ) {
@@ -113,19 +113,12 @@ export class WorldStreamer {
         this.loading?.controller.abort();
         return this.disposal ??= Promise.resolve().then(async () => {
             await this.running?.catch(() => undefined);
-            let failure: unknown;
-            let failed = false;
-            for (const position of this.owned.values()) {
-                try {
-                    await this.unload(position);
-                } catch (error) {
-                    failed = true;
-                    failure ??= error;
-                }
+            try {
+                await this.unloadMany([...this.owned.values()]);
+            } finally {
+                this.missing.clear();
+                this.failed.clear();
             }
-            this.missing.clear();
-            this.failed.clear();
-            if (failed) throw failure;
         }).catch(error => {
             this.disposal = undefined;
             throw error;
@@ -142,10 +135,10 @@ export class WorldStreamer {
                     if (!this.within(position, this.unloadRadius)) this.failed.delete(key);
                 }
                 // Failed placements remain owned until cleanup succeeds, even inside the retained area.
-                const obsolete = [...this.owned.values()].find(position =>
+                const obsolete = [...this.owned.values()].filter(position =>
                     !this.loaded.has(this.key(position)) || !this.within(position, this.unloadRadius));
-                if (obsolete) {
-                    await this.unload(obsolete);
+                if (obsolete.length) {
+                    await this.unloadMany(obsolete);
                     continue;
                 }
                 const position = this.desired.find(position => this.needsLoad(position));
@@ -175,7 +168,7 @@ export class WorldStreamer {
                     this.loaded.set(this.key(position), position);
                 } catch (error) {
                     try {
-                        await this.unload(position);
+                        await this.unloadMany([position]);
                     } catch (cleanupError) {
                         const failure = error instanceof Error ? error : new Error(String(error));
                         try {
@@ -198,10 +191,19 @@ export class WorldStreamer {
         return !this.loaded.has(key) && !this.missing.has(key) && !this.failed.has(key);
     }
 
-    private async unload(position: ChunkPosition): Promise<void> {
-        await this.world.unloadChunkColumn(position.x, position.z);
-        this.owned.delete(this.key(position));
-        this.loaded.delete(this.key(position));
+    private async unloadMany(positions: readonly ChunkPosition[]): Promise<void> {
+        if (!positions.length) return;
+        try {
+            await this.world.unloadChunkColumns(positions.map(({ x, z }) => ({ x, z })));
+        } catch (error) {
+            // A rejected batch may have removed any subset; retry every owner before reloading it.
+            for (const position of positions) this.loaded.delete(this.key(position));
+            throw error;
+        }
+        for (const position of positions) {
+            this.owned.delete(this.key(position));
+            this.loaded.delete(this.key(position));
+        }
     }
 
     private validateChunk(chunk: AnvilChunk, position: ChunkPosition): void {

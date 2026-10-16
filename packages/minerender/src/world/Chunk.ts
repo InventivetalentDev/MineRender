@@ -58,7 +58,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
     private biomeChange?: Promise<unknown>;
 
     constructor(scene: MineRenderScene, x: number, y: number, z: number,
-                private readonly onBlocksChanged?: (positions: Vector3[]) => Promise<void>,
+                private readonly onBlocksChanged?: (positions: Vector3[], deferCulling?: boolean) => Promise<void>,
                 private readonly sectionModels?: SectionModels,
                 private readonly neighborCell?: (x: number, y: number, z: number) => number,
                 private readonly biomeAt?: (x: number, y: number, z: number) => Maybe<string>,
@@ -178,12 +178,15 @@ export class Chunk<SectionMeshing extends boolean = false> {
         return this.refreshBiomes();
     }
 
-    /** Rebuilds biome-tinted blocks while preserving hidden blocks and unrelated render objects. */
-    public refreshBiomes(columns?: readonly { x: number; z: number }[]): Promise<void> {
-        return this.changeBlocks(() => this.refreshBiomeBlocks(columns), true);
+    /**
+     * Rebuilds biome-tinted blocks while preserving hidden blocks and unrelated render objects.
+     * The owning world can defer neighbor culling until all affected chunks are refreshed.
+     */
+    public refreshBiomes(columns?: readonly { x: number; z: number }[], deferCulling = false): Promise<void> {
+        return this.changeBlocks(() => this.refreshBiomeBlocks(columns, deferCulling), true);
     }
 
-    private async refreshBiomeBlocks(columns?: readonly { x: number; z: number }[]): Promise<void> {
+    private async refreshBiomeBlocks(columns?: readonly { x: number; z: number }[], deferCulling = false): Promise<void> {
         const blend = columns && this.biomeBlend?.();
         // Individual objects keep their own biome's unblended color, so only a change to their own column affects them.
         const ownColumn = columns?.some(column => column.x === this.x && column.z === this.z);
@@ -243,7 +246,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
                 this.renderedBlocks.get(index)?.object?.setVisible(false);
             }
             const positions = blocks.map(({ index }) => new Vector3(...this.positionAt(index)));
-            if (this.onBlocksChanged) await this.onBlocksChanged(positions);
+            if (this.onBlocksChanged) await this.onBlocksChanged(positions, deferCulling);
             else await this.rebuildSectionMesh();
         }
     }

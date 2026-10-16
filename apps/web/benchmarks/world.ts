@@ -34,6 +34,8 @@ interface Operation {
     error?: string;
     x?: number;
     z?: number;
+    columnCount?: number;
+    columns?: { x: number; z: number }[];
     bytes?: number;
     dataVersion?: number;
     workerAttempted?: boolean;
@@ -251,7 +253,9 @@ async function runWorldBenchmark(config: WorldBenchmarkConfig) {
             });
             const streamer = new WorldStreamer({
                 placeChunk: chunk => timed("placement", { x: chunk.x, z: chunk.z }, () => world.placeChunk(chunk)),
-                unloadChunkColumn: (x, z) => timed("unload", { x, z }, () => world.unloadChunkColumn(x, z))
+                unloadChunkColumns: columns => timed("unload", {
+                    columnCount: columns.length, columns: columns.map(({ x, z }) => ({ x, z }))
+                }, () => world.unloadChunkColumns(columns))
             }, {
                 getChunk: (x, z, signal) => timed("source", { x, z }, () => source.getChunk(x, z, signal))
             }, { loadRadius: config.loadRadius, unloadRadius: config.unloadRadius });

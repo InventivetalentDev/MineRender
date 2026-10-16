@@ -205,6 +205,67 @@ test.serial("vanilla air removes blocks without loading assets or creating empty
     t.deepEqual(loads, ["test:stone", "custom:air"]);
 });
 
+test.serial("bulk column unloading accepts frozen signed coordinates and preserves unrelated instances", async t => {
+    const { world, scene } = fixture(t);
+    await world.setBlockAt(-17, -1, 0, block);
+    await world.setBlockAt(0, 16, 0, block);
+    const survivor = await world.setBlockAt(16, 0, 0, block);
+    const unrelated = await scene.addBlock({ variants: { "": { model: "test:block/shared" } } }, { applyDefaultState: false }) as BlockObject;
+    unrelated.setPosition(new Vector3(1000, 2000, 3000));
+    const positions = Object.freeze([
+        Object.freeze({ x: -2, z: 0 }), Object.freeze({ x: 0, z: 0 }),
+        Object.freeze({ x: -2, z: 0 }), Object.freeze({ x: 20, z: -20 })
+    ]);
+    await world.unloadChunkColumns(positions);
+    t.is(world.getBlockAt(-17, -1, 0), undefined);
+    t.is(world.getBlockAt(0, 16, 0), undefined);
+    t.is(world.getBlockAt(16, 0, 0), survivor);
+    t.deepEqual(unrelated.getPosition().toArray(), [1000, 2000, 3000]);
+    t.is(scene.stats.instanceCount, 2);
+    t.deepEqual(positions, [{ x: -2, z: 0 }, { x: 0, z: 0 }, { x: -2, z: 0 }, { x: 20, z: -20 }]);
+    scene.dirty = false;
+    await world.unloadChunkColumns([]);
+    t.false(scene.dirty);
+    t.is(scene.stats.instanceCount, 2);
+});
+
+test.serial("bulk column unloading validates every coordinate before removing any column", async t => {
+    const { world, scene } = fixture(t);
+    const first = await world.setBlockAt(0, 0, 0, block);
+    const second = await world.setBlockAt(16, 0, 0, block);
+    for (const value of [0.5, NaN, Infinity, -Infinity]) {
+        for (const invalid of [{ x: value, z: 0 }, { x: 1, z: value }]) {
+            await t.throwsAsync(world.unloadChunkColumns([{ x: 0, z: 0 }, invalid]), { instanceOf: RangeError });
+            t.is(world.getBlockAt(0, 0, 0), first);
+            t.is(world.getBlockAt(16, 0, 0), second);
+            t.is(scene.stats.instanceCount, 2);
+        }
+    }
+});
+
+test.serial("bulk column unloading snapshots its input before waiting for active culling", async t => {
+    const { world } = fixture(t);
+    await world.setBlockAt(-1, 0, 0, block);
+    const survivor = await world.setBlockAt(0, 0, 0, block);
+    await world.setBlockAt(16, 0, 0, block);
+    let release!: () => void;
+    world["culling"] = new Promise<void>(resolve => {
+        release = () => { world["culling"] = undefined; resolve(); };
+    });
+    t.teardown(() => release());
+    const positions = [{ x: -1, z: 0 }, { x: 1, z: 0 }];
+    const unloading = world.unloadChunkColumns(positions);
+    positions[0].x = 0;
+    positions.splice(1, 1, { x: 0, z: 0 });
+    t.truthy(world.getBlockAt(-1, 0, 0));
+    t.truthy(world.getBlockAt(16, 0, 0));
+    release();
+    await unloading;
+    t.is(world.getBlockAt(-1, 0, 0), undefined);
+    t.is(world.getBlockAt(16, 0, 0), undefined);
+    t.is(world.getBlockAt(0, 0, 0), survivor);
+});
+
 test.serial("world placement snapshots block data without changing BlockInfo or render object identity", async t => {
     const { world, scene } = fixture(t);
     const input = { type: "test:stone", properties: { facing: "north" }, nbt: { items: [{ count: 2 }], bytes: new Uint8Array([3, 4]) } };
