@@ -5,7 +5,7 @@ import { AssetLoader } from "./AssetLoader";
 import { AssetParser } from "./source";
 import { Maybe } from "../util";
 import { Caching } from "../cache/Caching";
-import { DEFAULT_NAMESPACE } from "./Assets";
+import { DEFAULT_NAMESPACE } from "./AssetDefaults";
 import type { ListAsset } from "../ListAsset";
 import { MineRenderError } from "../error/MineRenderError";
 import { ModelTextures } from "./ModelTextures";

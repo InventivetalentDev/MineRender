@@ -5,7 +5,7 @@ import { MinecraftAsset } from "../MinecraftAsset";
 import { ImageInfo, ImageLoader } from "../image/ImageLoader";
 import { MinecraftTextureMeta } from "../MinecraftTextureMeta";
 import { BlockState } from "../model/block/BlockState";
-import { DEFAULT_NAMESPACE, DEFAULT_ROOT } from "./Assets";
+import { DEFAULT_NAMESPACE, DEFAULT_ROOT } from "./AssetDefaults";
 import { ListAsset } from "../ListAsset";
 import { AssetKey } from "./AssetKey";
 import { NBTAsset, NBTHelper } from "../nbt/NBTHelper";

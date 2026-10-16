@@ -23,7 +23,7 @@ The private Yarn workspace root contains the public library and its consumers. U
 | `InventivetalentDev/MineRenderServer`  | V1-era headless render HTTP API (Express + headless-gl + patched node-canvas + three-png-stream under xvfb). Historical reference only; not imported. Its `GET /render/skin/[:texture]`, `GET /render/model/:type/:model`, `minerender-options` header, and MD5-keyed PNG cache are not compatibility requirements for the V2 API. |
 | [minecraft-entity-models](https://github.com/InventivetalentDev/minecraft-entity-models) | Per-model entity and block-entity geometry at `assets.mcasset.cloud/<version>/entity-models/<namespace>/<id>.json`. Registry and rendering data load separately from `minerender-data`. |
 | [minerender-data](https://github.com/InventivetalentDev/minerender-data) | Versioned item defaults, potion colors, block states, block tints, fluids, dyes, and legacy mappings at `assets.mcasset.cloud/<version>/minerender-data/`. |
-| `assets.mcasset.cloud` | Primary vanilla-asset CDN, defaults to MC **1.21.11** in `src/assets/Assets.ts` (`DEFAULT_ROOT`). Provides synthetic `_list.json` directory indexes that `getList()` APIs depend on. |
+| `assets.mcasset.cloud` | Primary vanilla-asset CDN, defaults to MC **1.21.11** in `src/assets/AssetDefaults.ts` (`DEFAULT_ROOT`). Provides synthetic `_list.json` directory indexes that `getList()` APIs depend on. |
 | `minecraft-skin-proxy.inventive.workers.dev` | Own Cloudflare worker for CORS-safe skin/cape/UUID lookups (`src/skin/Skins.ts`); also api.mineskin.org, api.capes.dev. |
 
 ## Build, test, publish

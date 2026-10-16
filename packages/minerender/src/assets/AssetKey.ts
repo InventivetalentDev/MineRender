@@ -1,5 +1,5 @@
 import { Serializable } from "../Serializable";
-import { DEFAULT_NAMESPACE } from "./Assets";
+import { DEFAULT_NAMESPACE } from "./AssetDefaults";
 import { AssetLoader } from "./AssetLoader";
 
 export type AssetType = "models" | "textures" | "blockstates" | string;
