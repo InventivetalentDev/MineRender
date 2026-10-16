@@ -1,14 +1,19 @@
 import type { Metadata, NBT, NBTFormat } from "prismarine-nbt";
 import { MinecraftAsset } from "../MinecraftAsset";
 
+// Code-split bundles, such as Vite's dev pre-bundling, expose a CommonJS module's exports only as `default`.
+function commonJsExports<T extends object>(module: T): T {
+    return (module as { default?: T }).default ?? module;
+}
+
 /** Decodes Named Binary Tag (NBT) data for structure and world parsers. */
 export class NBTHelper {
 
     /** Parses NBT bytes and preserves format and compression metadata. Omit `format` for automatic detection. */
     public static async fromBuffer(data: Uint8Array | ArrayBuffer, format?: NBTFormat): Promise<NBTAsset> {
-        const { Buffer } = await import("buffer");
+        const { Buffer } = commonJsExports(await import("buffer"));
         const buffer = Buffer.from(data instanceof Uint8Array ? data : new Uint8Array(data));
-        const prismarineNbt = await import("prismarine-nbt");
+        const prismarineNbt = commonJsExports(await import("prismarine-nbt"));
         const { parsed, type, metadata } = await prismarineNbt.parse(buffer, format);
         return Object.assign(parsed, {
             format: type,
