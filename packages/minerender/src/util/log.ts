@@ -21,6 +21,9 @@ export interface Logger {
     error(...args: unknown[]): void;
 }
 
+const levels: Record<LogThreshold, number> = { debug: 0, info: 1, warn: 2, error: 3, silent: 4 };
+const colors: Record<LogLevel, number> = { debug: 90, info: 36, warn: 33, error: 31 };
+
 let threshold: LogThreshold = "warn";
 let namespaces: Map<string, LogThreshold> | undefined;
 let logHandler: LogHandler | undefined;
@@ -43,8 +46,7 @@ export class Logging {
 /** Creates a logger whose messages are tagged and filtered as `namespace`. */
 export function logger(namespace: string): Logger {
     const write = (level: LogLevel, args: unknown[]): void => {
-        const levels: LogThreshold[] = ["debug", "info", "warn", "error", "silent"];
-        if (levels.indexOf(level) < levels.indexOf(namespaces?.get(namespace) ?? threshold)) return;
+        if (levels[level] < levels[namespaces?.get(namespace) ?? threshold]) return;
         if (logHandler) {
             logHandler(level, namespace, args);
             return;
@@ -58,7 +60,7 @@ export function logger(namespace: string): Logger {
         if (tagStyle === "browser") {
             console[level](`%cMineRender%c ${namespace}`, "background:#3c8527;color:#fff;border-radius:3px;padding:0 4px", "font-weight:bold", ...args);
         } else {
-            const color = { debug: 90, info: 36, warn: 33, error: 31 }[level];
+            const color = colors[level];
             const tag = `[minerender:${namespace}]`;
             console[level](tagStyle === "ansi" ? `\x1b[${color}m${tag}\x1b[0m` : tag, ...args);
         }
