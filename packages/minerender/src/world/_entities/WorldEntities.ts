@@ -8,6 +8,9 @@ import { BannerPatterns } from "../../assets/BannerPatterns";
 import { Mesh, Raycaster, Vector3 } from "three";
 import type { WorldEntityIntersection } from "../WorldEntityIntersection";
 import { hitNormal, pickableMeshes, visibleHits } from "../_picking/Picking";
+import { logger } from "../../util/log";
+
+const log = logger("WorldEntities");
 
 /** Owns static entity placements independently of the world's block sections. */
 export class WorldEntities {
@@ -83,7 +86,7 @@ export class WorldEntities {
                     placement.owner.set(object, { type: key.toNamespacedString(), position: placement.position });
                     this.scene.add(object);
                 } catch (error) {
-                    console.warn(`Could not draw saved entity ${placement.key.toNamespacedString()}, skipping it`, error);
+                    log.warn(`Could not draw saved entity ${placement.key.toNamespacedString()}, skipping it`, error);
                 } finally {
                     if (object && !placement.owner.has(object)) object.dispose();
                 }

@@ -13,6 +13,9 @@ import { SceneExporter, SceneGLTFExportOptions } from "../export/SceneExporter";
 import type { PLYExporterOptions } from "three/examples/jsm/exporters/PLYExporter.js";
 import { trimCanvas } from "../canvas/trimCanvas";
 import { VideoExporter, VideoExportOptions } from "../export/VideoExporter";
+import { logger } from "../util/log";
+
+const log = logger("Renderer");
 
 /**
  * Renders a Minecraft scene with a camera and an optional effects composer.
@@ -397,10 +400,10 @@ export class Renderer implements Disposable {
         this._element = element;
         this._element.appendChild(this.renderer.domElement);
         if (this.viewWidth == 0) {
-            console.warn('0 element width');
+            log.warn('0 element width');
         }
         if (this.viewHeight == 0) {
-            console.warn('0 element height');
+            log.warn('0 element height');
         }
         this.resize(this.viewWidth, this.viewHeight);
     }

@@ -7,6 +7,9 @@ import type { MinecraftAsset } from "../MinecraftAsset";
 import type { BlockStateProperties } from "../model/block/BlockStateProperties";
 import type { TripleArray } from "../model/Model";
 import type { Maybe } from "../util";
+import { logger } from "../util/log";
+
+const log = logger("BlockEntities");
 
 /** One model drawn by a block-entity renderer. */
 export interface BlockEntityPart {
@@ -57,7 +60,7 @@ export class BlockEntities {
             try {
                 return await AssetLoader.get<BlockEntityIndex>(key, AssetParser.JSON) ?? {};
             } catch (error) {
-                console.warn("Could not load the block entity index; block entities are drawn as plain block models", error);
+                log.warn("Could not load the block entity index; block entities are drawn as plain block models", error);
                 return {};
             }
         });

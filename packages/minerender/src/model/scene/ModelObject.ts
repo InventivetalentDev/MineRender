@@ -11,7 +11,7 @@ import { addBox3WireframeToObject, addWireframeToMesh, addWireframeToObject, app
 import { merge } from "../../util/_internal/merge";
 import type { BufferGeometry, Texture } from "three";
 import { BlockObject } from "../block/scene/BlockObject";
-import { prefix } from "../../util/log";
+import { logger } from "../../util/log";
 import { CUBE_FACES } from "../../CubeFace";
 import { DisplayPosition } from "../DisplayPosition";
 import { DisplayTransforms } from "../DisplayTransforms";
@@ -24,7 +24,7 @@ import { ItemTints } from "../ItemTints";
 import { ItemGlint } from "../ItemGlint";
 
 
-const p = prefix("ModelObject");
+const log = logger("ModelObject");
 
 //TODO: might want to abstract this out into a generic model, and create a separate class for Block models
 /** Builds render geometry from a merged Java model. Create it through {@link MineRenderScene.addModel}. */
@@ -192,6 +192,8 @@ export class ModelObject extends SceneObject {
                 this.atlas.model.elements?.forEach(el => {
                     const elGeo = this._getBoxGeometryFromElement(el).clone();
                     this.geometries.add(elGeo);
+                    elGeo.setAttribute("shade", new BufferAttribute(
+                        new Float32Array(elGeo.getAttribute("position").count).fill(!(this.originalModel as ItemModel).itemId && el.shade === false ? 0 : 1), 1));
                     if (this.options.cullMask) {
                         const indices = Array.from(elGeo.getIndex()!.array);
                         elGeo.setIndex(indices.filter((_, index) => {
@@ -244,10 +246,10 @@ export class ModelObject extends SceneObject {
                     }
                 });
             } else {
-                console.debug(p, this.atlas.model, "has no elements")
+                log.debug(this.atlas.model, "has no elements")
             }
         } else {
-            console.debug(p, "Missing atlas for", this);
+            log.debug("Missing atlas for", this);
         }
 
         if (this.options.mergeMeshes) {

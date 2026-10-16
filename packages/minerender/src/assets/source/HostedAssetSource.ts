@@ -1,21 +1,24 @@
 import { AssetLoadError, AssetSource } from "./AssetSource";
 import { BlockState, Model, TextureAsset } from "../../model";
 import type { RequestConfig, RequestResponse } from "../../request";
-import { Maybe, prefix } from "../../util";
+import { Maybe } from "../../util";
+import { logger } from "../../util/log";
 import { MinecraftTextureMeta } from "../../MinecraftTextureMeta";
 import { NBTAsset, NBTHelper } from "../../nbt";
 import { ImageLoader } from "../../image";
 import { ListAsset } from "../../ListAsset";
 import { MinecraftAsset } from "../../MinecraftAsset";
 import { AssetKey } from "../AssetKey";
-import { DEFAULT_NAMESPACE } from "../Assets";
+import { DEFAULT_NAMESPACE } from "../AssetDefaults";
 import { RequestError, Requests } from "../../request";
 import { AssetLoader } from "../AssetLoader";
 import { AssetParser } from "./parser";
 import { ResponseParser } from "./parser";
 import { merge } from "../../util/_internal/merge";
 
-const p = prefix("HostedAssetSource");
+const BINARY_TIMEOUT = 60_000;
+
+const log = logger("HostedAssetSource");
 
 const DEFAULT_OPTIONS: HostedAssetSourceOptions = {
     retryDefaults: true
@@ -76,6 +79,15 @@ export class HostedAssetSource extends AssetSource {
             return response.data;
         }
     }
+    static readonly BINARY: ResponseParser<BinaryAsset> = {
+        config(request: RequestConfig) {
+            request.timeout = BINARY_TIMEOUT;
+            request.responseType = "arraybuffer";
+        },
+        parse(response: RequestResponse): BinaryAsset {
+            return { data: new Uint8Array(response.data as ArrayBuffer) };
+        }
+    }
 
     static readonly PARSER_MAP: Map<AssetParser, ResponseParser<any>> = new Map<AssetParser, ResponseParser<any>>([
         [AssetParser.MODEL, HostedAssetSource.MODEL],
@@ -85,6 +97,7 @@ export class HostedAssetSource extends AssetSource {
         [AssetParser.IMAGE, HostedAssetSource.IMAGE],
         [AssetParser.LIST, HostedAssetSource.LIST],
         [AssetParser.JSON, HostedAssetSource.JSON],
+        [AssetParser.BINARY, HostedAssetSource.BINARY],
     ]);
 
     /** Retries missing assets with the `minecraft` namespace and default root. Other failures reject. */
@@ -94,7 +107,7 @@ export class HostedAssetSource extends AssetSource {
             return direct;
         }
         if (key.namespace !== DEFAULT_NAMESPACE) {
-            console.info(p, "Retrying", key, "with default namespace");
+            log.debug("Retrying", key, "with default namespace");
             // Try on the same host but with default minecraft: namespace
             const namespaceKey = new AssetKey(DEFAULT_NAMESPACE, key.path, key.assetType, key.type, key.rootType, key.extension, key.root);
             const namespaced = await this.load<T>(namespaceKey, parser);
@@ -102,7 +115,7 @@ export class HostedAssetSource extends AssetSource {
                 return namespaced;
             }
             if ((typeof key.root !== "undefined" && key.root !== AssetLoader.ROOT) || (typeof this.root !== "undefined" && this.root !== AssetLoader.ROOT)) {
-                console.info(p, "Retrying", key, "with default root+namespace");
+                log.debug("Retrying", key, "with default root+namespace");
                 // Try both defaults
                 const namespacedRootedKey = new AssetKey(DEFAULT_NAMESPACE, key.path, key.assetType, key.type, key.rootType, key.extension, AssetLoader.ROOT);
                 const namespacedRooted = await this.load<T>(namespacedRootedKey, parser);
@@ -111,7 +124,7 @@ export class HostedAssetSource extends AssetSource {
                 }
             }
         } else if ((typeof key.root !== "undefined" && key.root !== AssetLoader.ROOT) || (typeof this.root !== "undefined" && this.root !== AssetLoader.ROOT)) {
-            console.info(p, "Retrying", key, "with default root");
+            log.debug("Retrying", key, "with default root");
             // Try on default root
             const rootKey = new AssetKey(key.namespace, key.path, key.assetType, key.type, key.rootType, key.extension, AssetLoader.ROOT);
             const rooted = await this.load<T>(rootKey, parser);
@@ -124,9 +137,8 @@ export class HostedAssetSource extends AssetSource {
 
 
     protected async load<T extends MinecraftAsset>(key: AssetKey, parser: ResponseParser<T>): Promise<Maybe<T>> {
-        console.info(p, "Loading", key);
         const url = `${ this.assetBasePath(key) }${ key.type !== undefined ? key.type + '/' : '' }${ key.path }${ key.extension }`;
-        console.debug(p, url);
+        log.debug("Loading", url);
         const request: RequestConfig = { url };
         try {
             parser.config(request);
@@ -190,4 +202,9 @@ export class HostedAssetSource extends AssetSource {
 
 interface HostedAssetSourceOptions {
     retryDefaults: boolean;
+}
+
+/** Encoded asset bytes loaded without JSON or image decoding. */
+export interface BinaryAsset extends MinecraftAsset {
+    data: Uint8Array;
 }

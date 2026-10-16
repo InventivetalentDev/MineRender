@@ -2,7 +2,7 @@
 
 Track V1 feature parity and the remaining V2 work here. Commands and architecture are in [AGENTS.md](./AGENTS.md).
 
-Library paths below are relative to `packages/minerender/`; `res/` remains at the repository root.
+Library paths below are relative to `packages/minerender/`.
 
 ## Monorepo imports
 
@@ -12,8 +12,7 @@ Library paths below are relative to `packages/minerender/`; `res/` remains at th
 | MineRender/example-vite | `examples/vite/` | `1c2fc275d8b3dc9f6c8beb0bcf7d5538975b577d` |
 | MineRender/example-bundle | `examples/script-tag/` | `411044c1edf241bff8b919296a72183e53fcf709` |
 
-V1 `master`, tags, bundles, and website URLs must remain available. V2 targets `main`;
-legacy website cleanup is a separate task.
+V1 `master`, tags, bundles, and website URLs must remain available. V2 targets `main`.
 
 ## Feature-parity matrix (V1 → V2)
 
@@ -32,14 +31,14 @@ legacy website cleanup is a separate task.
 | Blockstate resolution | variants + weighted random + multipart AND/OR | Default states and model initialization awaited; multipart AND/OR and weighted alternatives supported; placement preserves rotations | complete |
 | Animated textures | frametime honored | Frame grids, sequences, durations, RGBA interpolation, and stationary-camera redraw | complete |
 | Entity rendering | 76 hosted models, mirror, inheritance | Versioned dataset, nested parts, mirrored UVs, conditional passes, render-mode materials, scrolling effects, and dataset transforms; runtime gameplay state selection remains | high |
-| GUI / inventory / recipes | full GuiRender + Positions + recipe() | Texture/item layers with count labels and durability bars, container presets, recipes, sprite scaling, styled bitmap text, supplied-text tooltips, boss bars, and book layouts; extended fonts and translations remain | medium |
+| GUI / inventory / recipes | full GuiRender + Positions + recipe() | Texture/item layers with count labels and durability bars, container presets, recipes, sprite scaling, styled bitmap and Unihex text, supplied-text tooltips, boss bars, and book layouts; TrueType fonts, translations, and right-to-left shaping remain | medium |
 | Structure (.nbt) loading | works via ModelConverter | Bounded placement, signed coordinates, slot cleanup, DataVersion and entity NBT preservation; supported block entities render, with opt-in saved mobs and selected appearance fields | high |
 | Legacy .schematic | full incl. AddBlocks nibbles | Numeric block IDs, metadata, AddBlocks, custom mappings, and block/entity NBT parsed; strict by default, with opt-in lenient fallback | complete |
 | Combined multi-renderer scene | CombinedRender wrapper | Superseded by design (one scene hosts all types) — **at parity** | — |
 | Screenshots, video & 3D export | toImage(trim,mime), toObj/toGLTF/toPLY | Fresh captures with trim/MIME/quality, real-time browser video recording, static OBJ/PLY, and textured browser glTF/GLB snapshots | complete |
 | Asset loading & resource packs | swappable assetRoot, fallback | Ordered source selection, ZIP pack overlays and filters, failure-evicting caches, and contextual errors; defaults to 1.21.11, ZIPs browser-only | high |
 | Per-frame animation API | `<type>Render` CustomEvents | `onFrame` subscriptions with time/delta, FPS limiting, pause/resume, and disposal | complete |
-| Entity keyframe animations | none | Native and sampled procedural clips with synchronized, layer-specific playback and caller-driven time; runtime state selection, blending, visibility, and animated renderer transforms remain | partial |
+| Entity keyframe animations | none | Native and sampled procedural clips with synchronized, layer-specific playback, additive clip weights, live weight changes, and caller-driven time; runtime state selection, visibility, and animated renderer transforms remain | partial |
 | Scene documents & editor | n/a | Versioned scene JSON with item state, atomic document loading, and a browser editor with transforms, GUI layouts, import, and image, video, and model export | complete |
 | Embeds & website | minerender.org + iframe embeds | V2 website, hosted playgrounds and scene editor, consumer examples, API reference, and scene-driven iframe embeds with editor copy support; embed Worker deployment remains | low |
 | **Large-scale worlds (V2 goal)** | n/a | Paletted signed chunks, opt-in section meshes for static models of any shape built in a browser worker, grouped bulk placement, neighbor face culling, block visibility, camera-driven chunk streaming with bounded retention, and opt-in saved sky/block lighting, corner ambient occlusion, and biome blending; partial-shape ambient occlusion, light propagation, and LOD remain | high |
@@ -82,14 +81,14 @@ legacy website cleanup is a separate task.
 Small, high-impact: (1) ~~`Axis.X = "X"` → lowercase (x-rotations silently no-op)~~; (2) ~~await `BlockStates.getDefaultState`~~; (3) ~~texPosition-undefined crash~~; (4) ~~ModelMerger: child `elements` must override, not concat~~; (5) ~~remove the 150ms rotation workaround and preserve multipart rotations during placement~~; (6) ~~multipart AND/OR + `apply` arrays + weighted variants~~; (7) ~~`AssetKey.parse` extension fallback + broken `isAssetKey`~~. Then ~~tintindex with explicit colors~~, ~~automatic block preview colors~~, ~~uvlock~~, ~~display transforms~~.
 
 ### 8. Skins and capes — medium
-~~Correct slim arm/sleeve UVs and preserve named parts, poses, visibility, and shared resources when switching classic/slim.~~ ~~Add 64×32 legacy layout and slim/legacy auto-detection.~~ ~~Match vanilla base opacity, overlay blending, dimensions, UVs, and joint pivots.~~ Consider sharing geometry construction with `EntityObject`; the unused `src/skin/playerModels.json` needs conversion from the legacy schema before reuse. ~~Add vanilla cape meshes wired to the existing `Skins.ts` resolvers.~~ ~~Add OptiFine/LabyMod layouts and capes.dev lookup.~~ Animated capes remain.
+~~Correct slim arm/sleeve UVs and preserve named parts, poses, visibility, and shared resources when switching classic/slim.~~ ~~Add 64×32 legacy layout and slim/legacy auto-detection.~~ ~~Match vanilla base opacity, overlay blending, dimensions, UVs, and joint pivots.~~ Consider sharing geometry construction with `EntityObject`. ~~Add vanilla cape meshes wired to the existing `Skins.ts` resolvers.~~ ~~Add OptiFine/LabyMod layouts and capes.dev lookup.~~ Animated capes remain.
 
 ### 9. Entity rendering completion — high
 ~~Recurse `ModelPart.children`.~~ ~~Implement `mirror`.~~ ~~Verify the face UVs and pivot translation.~~ ~~Compose selected entity layers with separate textures and named groups (e.g. sheep body and wool).~~ ~~Support dataset render passes, emissive and scrolling materials, tint overrides, and renderer-specific root transforms.~~ ~~Render supported block entities during block placement.~~
 
-Default textures and root transforms come from the versioned entity dataset; callers can override textures and select conditional passes. `flip: false` explicitly keeps raw model space rather than applying the dataset transform. The old `res/tools` intermediary-name remapping task is superseded by the `minecraft-entity-models` dataset integration.
+Default textures and root transforms come from the versioned entity dataset; callers can override textures and select conditional passes. `flip: false` explicitly keeps raw model space rather than applying the dataset transform.
 
-~~Play native and sampled procedural clips with synchronized, layer-specific playback.~~ Runtime gameplay state selection, animation blending, visibility changes, and animated renderer transforms remain.
+~~Play native and sampled procedural clips with synchronized, layer-specific playback.~~ ~~Blend clips within a layer with explicit weights and update weights without restarting playback.~~ Runtime gameplay state selection, visibility changes, and animated renderer transforms remain.
 
 Regenerate and publish the `1.21.11` entity dataset with the procedural clips from [minecraft-entity-models #7](https://github.com/InventivetalentDev/minecraft-entity-models/pull/7), then verify hosted clips through `Entities.getAnimations`. As checked on 2026-10-09, the published branch predates that merge and contains only 17 native animation files, with no `animations/minecraft/chest.json`.
 
@@ -120,11 +119,11 @@ Immediate fixes: ~~fix `getChunkAt` to use `Map.get(key)`~~; ~~remove the 4×4×
 ~~Add a world-format layer feeding chunk storage: `.mca` sector tables, section palettes and DataVersion; preserve NBT type/compression metadata; implement legacy `.schematic` ID/metadata and AddBlocks conversion; retain structure entities and DataVersion.~~ ~~Support custom legacy schematic mappings and opt-in lenient parsing.~~ ~~Decode Anvil LZ4 block streams with checksum validation.~~ ~~Read external `.mcc` payloads through caller-supplied readers and local world-folder imports.~~ ~~Decode pre-1.13 numeric Anvil chunks with shared schematic mappings, custom overrides, and opt-in lenient parsing.~~ ~~Load Sponge v2/v3 `.schem` files with local palettes, block states, offsets, block/entity NBT, and DataVersion; add playground and editor imports.~~ ~~Load Litematica v5–7 `.litematic` files with named regions, signed dimensions, relative placement, and preserved block/entity NBT; add playground and editor imports.~~ ~~Add opt-in rendering of supported saved mobs at their positions and yaw, with cleanup on column replacement, unloading, and world clearing.~~ Sponge biome and metadata import and DataVersion-based migration remain. ~~Load modern worlds' separate `entities/*.mca` files alongside terrain with shared cache limits and cancellation, including entity-only columns and world-folder imports.~~
 
 ### 14. GUI renderer parity — medium
-~~Implement `GuiObject`: layered textured planes with UV crop, pixel positioning, and ordered layers.~~ ~~Wire `scene.addGui(...)`, `inventorySlot`, and a chest demo with camera fitting.~~ ~~Add item models in the GUI display pose.~~ ~~Draw stack counts and supplied-component durability bars, preserve recipe output counts, and add an inventory-slot playground preview.~~ ~~Add shaped/shapeless recipe layouts and update crafting for the newer recipe format.~~ ~~Add modern GUI sprite scaling (stretch, tile, nine-slice).~~ ~~Render styled bitmap text and tooltips from supplied lines.~~ ~~Update V1's boss bar and book layouts for the newer texture paths, expose chest/crafting presets, and add playground controls.~~ Extend fonts with Unihex/TrueType providers, translated text, and right-to-left shaping.
+~~Implement `GuiObject`: layered textured planes with UV crop, pixel positioning, and ordered layers.~~ ~~Wire `scene.addGui(...)`, `inventorySlot`, and a chest demo with camera fitting.~~ ~~Add item models in the GUI display pose.~~ ~~Draw stack counts and supplied-component durability bars, preserve recipe output counts, and add an inventory-slot playground preview.~~ ~~Add shaped/shapeless recipe layouts and update crafting for the newer recipe format.~~ ~~Add modern GUI sprite scaling (stretch, tile, nine-slice).~~ ~~Render styled bitmap text and tooltips from supplied lines.~~ ~~Update V1's boss bar and book layouts for the newer texture paths, expose chest/crafting presets, and add playground controls.~~ ~~Load vanilla and resource-pack Unihex providers with size overrides, shared atlas pages, and matching text metrics.~~ TrueType providers, translated text, and right-to-left shaping remain.
 
 ### 15. Polish: exports, animation API, inspector, demos, docs — medium
 ~~Port toObj/toGLTF and toImage trim/mime.~~ ~~Add a per-frame callback integrated with the dirty flag (replaces V1's CustomEvent contract).~~ ~~Fix `SceneInspector` raycast normalization and select individual instances.~~ ~~Fix `SceneStatsDisplay`'s leaked interval.~~ ~~Fix animated-texture timing, frame grids/sequences, and stationary-camera redraw for all scenes sharing an atlas, respecting `fpsLimit`; stop unused atlas tickers.~~ ~~Add texture interpolation.~~
 
 ~~Build the V2 website with live examples.~~ ~~Rework the demos into configurable playgrounds.~~ ~~Add portable scene documents and a browser scene editor.~~ ~~Add TypeDoc/VitePress reference tooling and library API JSDoc.~~ ~~Host the playgrounds and editor on Cloudflare.~~ ~~Add browser video export with recording controls.~~
 
-~~Add scene-driven iframe embeds with shorthand URLs, portable scene links, and editor copy support.~~ Deploy the embed Worker at its configured V2 routes. Remove unused V1 website files from the V2 tree while preserving V1 delivery URLs. Extend existing regression coverage as remaining model and blockstate features land; keep the consumer API contract in AGENTS.md as the beta compatibility baseline.
+~~Add scene-driven iframe embeds with shorthand URLs, portable scene links, and editor copy support.~~ Deploy the embed Worker at its configured V2 routes. ~~Remove unused V1 website files from the V2 tree while preserving V1 delivery URLs.~~ Extend existing regression coverage as remaining model and blockstate features land; keep the consumer API contract in AGENTS.md as the beta compatibility baseline.

@@ -3,12 +3,12 @@ import { Intersection, Mesh, Object3D, Raycaster, Vector2 } from "three";
 import { isSceneObject, SceneObject } from "../renderer/SceneObject";
 import { Maybe, toDegrees, toRadians } from "../util/util";
 import { isTransformable, Transformable } from "../Transformable";
-import { prefix } from "../util/log";
+import { logger } from "../util/log";
 import { isMesh } from "../util/three";
 import { TextureAtlas } from "../texture";
 import { InstanceReference } from "../instance/InstanceReference";
 
-const p = prefix("SceneInspector");
+const log = logger("SceneInspector");
 
 const help = "<span>Ctrl/Cmd+Click to Select<br/></span><br/>";
 
@@ -128,7 +128,7 @@ export class SceneInspector {
     public selectObject(targetObject: Object3D, targetIntersection?: Intersection,
                         instance = this.getIntersectionInstance(targetIntersection)) {
         this.selectedObject = targetObject;
-        console.log(p, "selected", targetObject);
+        log.debug("selected", targetObject);
         this.redraw(targetObject, targetIntersection, instance);
     }
 

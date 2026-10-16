@@ -14,10 +14,10 @@ import { AnimatorFunction } from "./AnimatorFunction";
 import { MinecraftTextureMeta } from "./MinecraftTextureMeta";
 import { AssetKey } from "./assets/AssetKey";
 import { ModelGenerator } from "./model/ModelGenerator";
-import { prefix } from "./util/log";
+import { logger } from "./util/log";
 import { DEFAULT_UV, makeUv, makeUvCoords, setFaceUvInArray, setCubeFaceUvInArray, addCubeFaceUvToArray, facesToUvArray } from "./util/_internal/cubeUv";
 
-const p = prefix("UVMapper");
+const log = logger("UVMapper");
 
 export { DEFAULT_UV };
 const X = 0;
@@ -302,7 +302,7 @@ export class UVMapper {
         }
         const isItemModel = !("elements" in model);
 
-        console.debug(p, "Creating Atlas for", model.key);
+        log.debug("Creating Atlas for", model.key);
 
         if (model.textures) {
             const promises: Promise<void>[] = [];
@@ -317,7 +317,7 @@ export class UVMapper {
                     const assetKey = AssetKey.parse("textures", textureValue, model.key);
                     promises.push(ModelTextures.get(assetKey).then(asset => {
                         if (!asset) {
-                            console.warn(p, "Missing texture", assetKey)
+                            log.warn("Missing texture", assetKey)
                             return;
                         }
                         textureMap[textureKey] = new WrappedImage(asset);
@@ -329,8 +329,7 @@ export class UVMapper {
             }
             await Promise.all(promises);
             const textureCount = uniqueTextureNames.length;
-            console.debug(p, "Creating Atlas for", textureCount, "textures");
-            // console.log(model.textures)
+            log.debug("Creating Atlas for", textureCount, "textures");
 
             this.fillMissingTextureKeys(model.textures, textureMap);
             this.fillMissingTextureKeys(model.textures, metaMap);
@@ -367,12 +366,10 @@ export class UVMapper {
             }
             this.fillMissingTextureKeys(model.textures, sizes);
 
-            // console.log("sizes", sizes);
 
             const s = (Math.ceil(Math.sqrt(textureCount + 1))); // +1 for transparency
             const size = Math.ceil(s * maxWidth)
-            console.debug(p, "Atlas size:", size);
-            // console.log("size: " + size);
+            log.debug("Atlas size:", size);
             const squaredSize = size * size;
 
             const image = new CanvasImage(size, size);
@@ -459,10 +456,9 @@ export class UVMapper {
             }
             this.fillMissingTextureKeys(model.textures, positions);
 
-            // console.log("positions", positions);
 
             if (isItemModel) {
-                console.debug(p, "Generating item model for", model);
+                log.debug("Generating item model for", model);
                 model.elements = [];
                 for (let layerName of ModelGenerator.ITEM_LAYERS) {
                     const textureImage = textureMap[layerName];
@@ -475,7 +471,7 @@ export class UVMapper {
                             (frame % columns) * width, Math.floor(frame / columns) * height, width, height), layerName))
                     }
                 }
-                console.debug(p, "Item model elements", model.elements)
+                log.debug("Item model elements", model.elements)
             }
 
             if (!model.elements) {
@@ -493,7 +489,6 @@ export class UVMapper {
                     }
                     for (let faceIndex = 0; faceIndex < CUBE_FACES.length; faceIndex++) {
                         let faceName = CUBE_FACES[faceIndex];
-                        // console.log(faceName)
                         let face = element.faces[faceName];
                         if (!face) {
                             // set uv transparent
@@ -533,7 +528,6 @@ export class UVMapper {
                         br.y = 1 - br.y;
 
                         let uvs: QuadArray<Vector2> = [tl, tr, bl, br];
-                        // console.log("uvs", uvs);
                         this.setFaceUvInArrayV(uv, faceIndex * 4, uvs);
                     }
 
@@ -554,7 +548,7 @@ export class UVMapper {
                 hasTranslucency
             );
         } else {
-            console.warn(p, "Model does not have any textures", model);
+            log.warn("Model does not have any textures", model);
         }
         return undefined;
     }

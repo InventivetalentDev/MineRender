@@ -19,6 +19,9 @@ import type { WorldEntityIntersection } from "./WorldEntityIntersection";
 import { BiomeBlend, validateBiomeBlendRadius } from "./_biomes/BiomeBlend";
 import { copySectionLight, sampleSectionLight, SavedLightSample, SectionLightData } from "./WorldLight";
 import { loadBlockCulling } from "./_culling/BlockCulling";
+import { logger } from "../util/log";
+
+const log = logger("MineRenderWorld");
 
 //TODO: maybe make this an Object3D to add children
 /**
@@ -457,7 +460,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         } finally {
             this.markBiomesChanged(chunk.x, chunk.z, undefined, false);
             const failures = await this.refreshBiomes();
-            if (failures.size) console.warn("Failed to refresh biome colors", failures.values().next().value);
+            if (failures.size) log.warn("Failed to refresh biome colors", failures.values().next().value);
             await this.updateCulling([...changes.values()]);
         }
     }
@@ -497,7 +500,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
             }
         } finally {
             const failures = await this.refreshBiomes(true);
-            if (failures.size) console.warn("Failed to refresh biome colors", failures.values().next().value);
+            if (failures.size) log.warn("Failed to refresh biome colors", failures.values().next().value);
             await this.updateCulling([]);
         }
     }

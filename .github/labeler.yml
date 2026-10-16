@@ -31,9 +31,6 @@ apps:
 examples:
 - changed-files:
   - any-glob-to-any-file: 'examples/**'
-tools:
-- changed-files:
-  - any-glob-to-any-file: 'res/tools/**'
 ci:
 - changed-files:
   - any-glob-to-any-file: '.github/**'
