@@ -59,6 +59,30 @@ test("a code-split esbuild bundle of the browser build initializes AssetLoader.R
     t.true(module.DEFAULT_ROOT.length > 0);
 });
 
+test("a code-split esbuild bundle of the browser build parses NBT", async t => {
+    const dir = mkdtempSync(join(tmpdir(), "minerender-split-"));
+    t.teardown(() => rmSync(dir, { recursive: true, force: true }));
+    buildSync({
+        entryPoints: { index: resolve(import.meta.dirname, "../dist/browser/esm/index.browser.mjs") },
+        bundle: true,
+        splitting: true,
+        outdir: dir,
+        format: "esm",
+        platform: "browser",
+        // Use Node's Buffer so prismarine-nbt's instanceof checks match the global Buffer.
+        external: ["zlib", "assert", "buffer"],
+        // prismarine-nbt calls require("zlib"); esbuild's ESM output needs require in scope for external CommonJS requires.
+        banner: { js: 'import { createRequire } from "node:module"; const require = createRequire(import.meta.url);' },
+        logLevel: "silent"
+    });
+    const module = await import(pathToFileURL(join(dir, "index.js")).href);
+    const nbt = createRequire(import.meta.url)("prismarine-nbt");
+    const bytes = nbt.writeUncompressed(nbt.comp({ answer: nbt.int(42) }));
+    const parsed = await module.NBTHelper.fromBuffer(new Uint8Array(bytes));
+    t.is(parsed.value.answer.value, 42);
+    t.is(parsed.compression, "none");
+});
+
 test("every browser module can be imported first", async t => {
     const root = resolve(import.meta.dirname, "../dist/browser/esm");
     const files = globSync("**/*.mjs", { cwd: root })
