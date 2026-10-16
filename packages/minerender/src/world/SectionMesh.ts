@@ -76,13 +76,14 @@ function toInput(entries: readonly SectionMeshEntry[], maxAtlasSize: number, flu
                 }
                 data = {
                     quads, positions: new Float32Array(quads * 12), normals: new Float32Array(quads * 12), uvs: new Float32Array(quads * 8),
-                    uvBounds: new Float32Array(quads * 16), colors: new Float32Array(quads * 12), indices: new Uint16Array(quads * 6),
+                    uvBounds: new Float32Array(quads * 16), colors: new Float32Array(quads * 12), shade: new Float32Array(quads * 4), indices: new Uint16Array(quads * 6),
                     cullFaces: new Uint8Array(template.cullFaces), biomeTint: template.biomeTint ? new Uint8Array(template.biomeTint) : undefined, atlas: 0, layer: template.layer, ambientOcclusion: template.ambientOcclusion
                 };
                 const normal = template.geometry.getAttribute("normal");
                 const uv = template.geometry.getAttribute("uv");
                 const bounds = template.geometry.getAttribute("uvBounds");
                 const color = template.geometry.getAttribute("color");
+                const shade = template.geometry.getAttribute("shade");
                 for (let vertex = 0; vertex < quads * 4; vertex++) {
                     data.positions.set([position.getX(vertex), position.getY(vertex), position.getZ(vertex)], vertex * 3);
                     data.normals.set([normal.getX(vertex), normal.getY(vertex), normal.getZ(vertex)], vertex * 3);
@@ -90,6 +91,7 @@ function toInput(entries: readonly SectionMeshEntry[], maxAtlasSize: number, flu
                     data.uvBounds.set([bounds?.getX(vertex) ?? 0, bounds?.getY(vertex) ?? 0,
                         bounds?.getZ(vertex) ?? 1, bounds?.getW(vertex) ?? 1], vertex * 4);
                     data.colors.set([color?.getX(vertex) ?? 1, color?.getY(vertex) ?? 1, color?.getZ(vertex) ?? 1], vertex * 3);
+                    data.shade![vertex] = shade?.getX(vertex) ?? 1;
                 }
                 for (let i = 0; i < data.indices.length; i++) data.indices[i] = indices.getX(i) - 4 * Math.floor(i / 6);
                 templateCache.set(template, data);
@@ -167,6 +169,7 @@ export class SectionMesh extends Group {
             geometry.setAttribute("uv", new Float32BufferAttribute(page.uvs.buffer, 2));
             geometry.setAttribute("uvBounds", new Float32BufferAttribute(page.uvBounds.buffer, 4));
             geometry.setAttribute("color", new Float32BufferAttribute(page.colors.buffer, 3));
+            geometry.setAttribute("shade", new Float32BufferAttribute(page.shade.buffer, 1));
             geometry.setIndex(new Uint32BufferAttribute(page.indices.buffer, 1));
             geometry.computeBoundingBox();
             geometry.computeBoundingSphere();

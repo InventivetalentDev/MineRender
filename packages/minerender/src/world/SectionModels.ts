@@ -43,9 +43,9 @@ function cached<T>(map: Map<string, Promise<T>>, key: string, load: () => Promis
 function compactQuads(geometry: BufferGeometry, keep: boolean[]): BufferGeometry {
     const quads = keep.flatMap((kept, index) => kept ? [index] : []);
     const compact = new BufferGeometry();
-    for (const [name, size] of Object.entries({ position: 3, normal: 3, uv: 2, uvBounds: 4, color: 3 })) {
+    for (const [name, size] of Object.entries({ position: 3, normal: 3, uv: 2, uvBounds: 4, color: 3, shade: 1 })) {
         const source = geometry.getAttribute(name);
-        const defaults = name === "uvBounds" ? [0, 0, 1, 1] : name === "color" ? [1, 1, 1] : undefined;
+        const defaults = name === "uvBounds" ? [0, 0, 1, 1] : name === "color" ? [1, 1, 1] : name === "shade" ? [1] : undefined;
         const values = new Float32Array(quads.length * 4 * size);
         for (let q = 0; q < quads.length; q++) {
             for (let vertex = 0; vertex < 4; vertex++) {

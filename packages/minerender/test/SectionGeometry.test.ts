@@ -42,6 +42,7 @@ test("section geometry retains baked rotation, tint and atlas UVs", t => {
     t.true(Math.abs(page.normals[2] - 1) < 1e-6);
     t.deepEqual(Array.from(page.colors.slice(0, 3)), [0.25, 0.5, 0.75]);
     t.deepEqual(Array.from(page.colors.slice(-3)), [1, 1, 1]);
+    t.deepEqual(Array.from(page.shade), Array(44).fill(1));
     t.deepEqual([page.width, page.height], [4, 2]);
     t.deepEqual(page.placements, [{ atlas: 0, x: 0, y: 0 }, { atlas: 1, x: 2, y: 0 }]);
     t.deepEqual(Array.from(page.uvs.slice(0, 2)), [0, 1]);
@@ -49,6 +50,19 @@ test("section geometry retains baked rotation, tint and atlas UVs", t => {
     t.deepEqual(Array.from(page.uvBounds.slice(0, 4)), [0.125, 0.25, 0.375, 0.75]);
     t.deepEqual(Array.from(page.uvBounds.slice(80, 84)), [0.5, 0, 1, 1]);
     t.deepEqual(Array.from(page.indices.slice(0, 6)), [0, 2, 1, 2, 3, 1]);
+    t.deepEqual(source, original);
+});
+
+test("section geometry preserves visible shade flags without changing tint, light or ambient occlusion", t => {
+    const source = input();
+    source.light = new Uint8Array(5832).fill(10);
+    source.ambientOcclusion = new Uint8Array(5832).fill(1);
+    const [baseline] = buildSectionGeometry(source);
+    source.templateData[0].shade = new Float32Array([0, 1, 0, 1, 0, 1].flatMap(value => Array(4).fill(value)));
+    const original = structuredClone(source);
+    const [page] = buildSectionGeometry(source);
+    t.deepEqual(Array.from(page.shade), [...[1, 0, 1, 0, 1].flatMap(value => Array(4).fill(value)), ...Array(24).fill(1)]);
+    t.deepEqual({ ...page, shade: baseline.shade }, baseline);
     t.deepEqual(source, original);
 });
 
@@ -70,10 +84,10 @@ test("section geometry exposes every output array buffer for transfer", t => {
     source.maxAtlasSize = 2;
     const pages = buildSectionGeometry(source);
     const buffers = sectionGeometryTransferables(pages);
-    t.is(buffers.length, pages.length * 7);
+    t.is(buffers.length, pages.length * 8);
     let index = 0;
     for (const page of pages) {
-        for (const array of [page.positions, page.normals, page.uvs, page.uvBounds, page.colors, page.indices, page.blockIndices]) t.is(buffers[index++], array.buffer);
+        for (const array of [page.positions, page.normals, page.uvs, page.uvBounds, page.colors, page.shade, page.indices, page.blockIndices]) t.is(buffers[index++], array.buffer);
     }
 });
 
@@ -129,6 +143,7 @@ test("section fluid pages emit only inner cells and map both sprites and tint", 
     t.deepEqual([page.width, page.height], [8, 4]);
     t.deepEqual(page.placements, [{ atlas: 2, x: 0, y: 0 }]);
     t.is(page.indices.length, 36);
+    t.deepEqual(Array.from(page.shade), Array(24).fill(1));
     t.deepEqual(Array.from(page.blockIndices), Array(6).fill(832));
     t.is(page.positions[0], -8);
     t.is(page.positions[2], 56);
@@ -174,8 +189,9 @@ test("section geometry rejects invalid fluid neighborhoods and missing fluid atl
 test("section geometry validates every template array against its quad count", t => {
     const source = input();
     const data = source.templateData[0];
-    for (const field of ["positions", "normals", "uvs", "uvBounds", "colors", "indices", "cullFaces"] as const) {
-        t.throws(() => buildSectionGeometry({ ...source, templateData: [{ ...data, [field]: data[field].slice(1) }, source.templateData[1]] }), {
+    data.shade = new Float32Array(data.quads * 4).fill(1);
+    for (const field of ["positions", "normals", "uvs", "uvBounds", "colors", "shade", "indices", "cullFaces"] as const) {
+        t.throws(() => buildSectionGeometry({ ...source, templateData: [{ ...data, [field]: data[field]!.slice(1) }, source.templateData[1]] }), {
             instanceOf: RangeError, message: "Section template arrays do not match its quad count"
         });
     }
