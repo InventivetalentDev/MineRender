@@ -191,6 +191,7 @@ test("bone names inherited from Object.prototype keep independent blended offset
         position: [keyframe(0, [4, 8, -4])]
     }])) };
     player.playAnimations([layer], [clip, clip], { weights: [0.25, 0.5] });
+    player.setTime(0);
     for (const group of groups) t.deepEqual(rounded(group.position.toArray()), [3, 6, -3]);
     player.stop();
     for (const group of groups) t.deepEqual(group.position.toArray(), [0, 0, 0]);

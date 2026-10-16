@@ -171,12 +171,12 @@ export class EntityObject extends SceneObject {
         this.notifyDirty();
     }
 
-    /** Changes weights in active clip order, notifying the scene without restarting the shared clock. */
+    /** Changes weights in active clip order, notifying the scene without restarting the shared clock. Has no effect without an animation. */
     public setAnimationWeights(weights: readonly number[]): void {
         if (!this.animationPlayers.length) return;
         const values = validateAnimationWeights(weights, this.activeAnimations.length);
         for (const { player, indices } of this.animationPlayers) player.setWeights(indices.map(index => values[index]));
-        if (this.animationPlayers.length) this.notifyDirty();
+        this.notifyDirty();
     }
 
     /** Stops all clips and restores the poses from before playback. */
