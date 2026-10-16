@@ -21,6 +21,12 @@ export interface Logger {
     error(...args: unknown[]): void;
 }
 
+type Runtime = {
+    process?: { versions?: { node?: string }; stdout?: { isTTY?: boolean }; env?: Record<string, string | undefined> };
+    localStorage?: { getItem(key: string): string | null };
+};
+
+const runtime = globalThis as Runtime;
 const levels: Record<LogThreshold, number> = { debug: 0, info: 1, warn: 2, error: 3, silent: 4 };
 const colors: Record<LogLevel, number> = { debug: 90, info: 36, warn: 33, error: 31 };
 
@@ -31,6 +37,34 @@ let tagStyle: "plain" | "ansi" | "browser" | undefined;
 let switchRead = false;
 let switchThreshold: LogThreshold | undefined;
 let switchNamespaces: Map<string, LogThreshold> | undefined;
+
+function readSwitch(): void {
+    switchRead = true;
+    let value: string | null | undefined;
+    if (typeof runtime.process?.versions?.node === "string") {
+        value = runtime.process.env?.MINERENDER_LOG;
+    } else {
+        try {
+            value = runtime.localStorage?.getItem("minerender:log");
+        } catch {
+            // Sandboxed pages can deny access to storage.
+        }
+    }
+    if (value) {
+        for (const entry of value.split(",")) {
+            const separator = entry.indexOf("=");
+            const name = separator < 0 ? undefined : entry.slice(0, separator).trim();
+            const setting = (separator < 0 ? entry : entry.slice(separator + 1)).trim();
+            if (!Object.prototype.hasOwnProperty.call(levels, setting) || name === "") continue;
+            if (name === undefined) {
+                switchThreshold = setting as LogThreshold;
+            } else {
+                switchNamespaces ??= new Map();
+                switchNamespaces.set(name, setting as LogThreshold);
+            }
+        }
+    }
+}
 
 /** Global log settings for every MineRender logger. */
 export class Logging {
@@ -49,37 +83,7 @@ export class Logging {
 /** Creates a logger whose messages are tagged and filtered as `namespace`. */
 export function logger(namespace: string): Logger {
     const write = (level: LogLevel, args: unknown[]): void => {
-        const runtime = globalThis as {
-            process?: { versions?: { node?: string }; stdout?: { isTTY?: boolean }; env?: Record<string, string | undefined> };
-            localStorage?: { getItem(key: string): string | null };
-        };
-        if (!switchRead) {
-            switchRead = true;
-            let value: string | null | undefined;
-            if (typeof runtime.process?.versions?.node === "string") {
-                value = runtime.process.env?.MINERENDER_LOG;
-            } else {
-                try {
-                    value = runtime.localStorage?.getItem("minerender:log");
-                } catch {
-                    // Sandboxed pages can deny access to storage.
-                }
-            }
-            if (value) {
-                for (const entry of value.split(",")) {
-                    const separator = entry.indexOf("=");
-                    const name = separator < 0 ? undefined : entry.slice(0, separator).trim();
-                    const setting = (separator < 0 ? entry : entry.slice(separator + 1)).trim();
-                    if (!Object.prototype.hasOwnProperty.call(levels, setting) || name === "") continue;
-                    if (name === undefined) {
-                        switchThreshold = setting as LogThreshold;
-                    } else {
-                        switchNamespaces ??= new Map();
-                        switchNamespaces.set(name, setting as LogThreshold);
-                    }
-                }
-            }
-        }
+        if (!switchRead) readSwitch();
         if (levels[level] < levels[switchNamespaces?.get(namespace) ?? switchThreshold ?? namespaces?.get(namespace) ?? threshold]) return;
         if (logHandler) {
             logHandler(level, namespace, args);
