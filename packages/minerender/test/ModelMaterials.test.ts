@@ -9,7 +9,7 @@ import { ModelObject } from "../src/model/scene/ModelObject";
 import { TextureAtlas } from "../src/texture/TextureAtlas";
 import { UVMapper } from "../src/UVMapper";
 import type { CanvasImage } from "../src/canvas/CanvasImage";
-import type { Model } from "../src/model/Model";
+import type { ItemModel, Model } from "../src/model/Model";
 
 test.serial("model materials blend only partial alpha and keep transparent atlases double-sided", async t => {
     const originals = { atlas: UVMapper.getAtlas, material: Materials.getImage };
@@ -97,4 +97,38 @@ test.serial("element shading survives separate, merged and instanced meshes with
     t.false(base.hasAttribute("shade"));
     t.false(base.hasAttribute("color"));
     t.is(JSON.stringify(model), original);
+});
+
+test.serial("item previews retain directional shading while block models honor shade false", async t => {
+    const originals = { atlas: UVMapper.getAtlas, material: Materials.getImage };
+    const placeholder = new MeshBasicMaterial();
+    const objects: ModelObject[] = [];
+    Caching.clear();
+    Materials.getImage = () => placeholder;
+    t.teardown(() => {
+        for (const object of objects) object.dispose();
+        UVMapper.getAtlas = originals.atlas;
+        Materials.getImage = originals.material;
+        placeholder.dispose();
+        Caching.clear();
+    });
+    for (const itemId of ["test:shade_cube", undefined]) {
+        const model: ItemModel = {
+            itemId,
+            key: new AssetKey("test", "shade_cube", "models", "block"),
+            textures: { side: "block/stone" },
+            elements: [{
+                from: [0, 0, 0], to: [16, 16, 16], shade: false,
+                faces: Object.fromEntries(CUBE_FACES.map(face => [face, { texture: "#side" }])),
+                mappedUv: CUBE_FACES.flatMap(() => [0, 1, 1, 1, 0, 0, 1, 0])
+            }]
+        };
+        UVMapper.getAtlas = async () => new TextureAtlas(model, { width: 16, height: 16, canvas: {} } as CanvasImage,
+            { side: [16, 16] }, { side: [0, 0] }, false, {}, false);
+        const object = new ModelObject(model, { instanceMeshes: false });
+        objects.push(object);
+        await object.init();
+        const values = (object.children[0] as Mesh).geometry.getAttribute("shade");
+        t.deepEqual(Array.from(values.array), Array(24).fill(itemId ? 1 : 0));
+    }
 });

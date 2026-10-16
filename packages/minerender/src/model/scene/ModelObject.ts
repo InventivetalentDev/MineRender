@@ -193,7 +193,7 @@ export class ModelObject extends SceneObject {
                     const elGeo = this._getBoxGeometryFromElement(el).clone();
                     this.geometries.add(elGeo);
                     elGeo.setAttribute("shade", new BufferAttribute(
-                        new Float32Array(elGeo.getAttribute("position").count).fill(el.shade === false ? 0 : 1), 1));
+                        new Float32Array(elGeo.getAttribute("position").count).fill(!(this.originalModel as ItemModel).itemId && el.shade === false ? 0 : 1), 1));
                     if (this.options.cullMask) {
                         const indices = Array.from(elGeo.getIndex()!.array);
                         elGeo.setIndex(indices.filter((_, index) => {
