@@ -1,7 +1,7 @@
 import { TextWriter, Uint8ArrayReader, ZipReader } from "@zip.js/zip.js";
 import { AssetKey } from "../AssetKey";
 import { AssetLoader } from "../AssetLoader";
-import { DEFAULT_NAMESPACE } from "../Assets";
+import { DEFAULT_NAMESPACE } from "../AssetDefaults";
 import { Caching } from "../../cache/Caching";
 import { AssetParser } from "../source/parser/AssetParsers";
 import { createCanvas, type CompatCanvas } from "../../canvas/CanvasCompat";
