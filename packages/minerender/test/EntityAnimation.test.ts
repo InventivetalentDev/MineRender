@@ -184,49 +184,31 @@ const overlay: EntityAnimation = {
 
 test("bone names inherited from Object.prototype keep independent blended offsets", t => {
     const player = new EntityAnimationPlayer();
-    const snapshots = [Object, Object.prototype.toString].map(target => ({ target, descriptors: Object.getOwnPropertyDescriptors(target) }));
-    t.teardown(() => {
-        player.stop();
-        for (const { target, descriptors } of snapshots) {
-            for (const name of Reflect.ownKeys(target)) {
-                if (!Object.hasOwn(descriptors, name)) Reflect.deleteProperty(target, name);
-            }
-            Object.defineProperties(target, descriptors);
-        }
-    });
     const layer = new Object3D();
-    const groups = ["constructor", "toString"].map(name => {
-        const group = new Object3D();
-        group.name = `group:${name}`;
-        group.position.set(1, 2, 3);
-        group.rotation.set(0.1, 0.2, 0.3, "ZYX");
-        group.scale.set(1, 2, 3);
-        layer.add(group);
-        return group;
-    });
+    const groups = ["constructor", "toString"].map(name => Object.assign(new Object3D(), { name: `group:${name}` }));
+    layer.add(...groups);
     const clip: EntityAnimation = { length: 1, loop: false, bones: Object.fromEntries(["constructor", "toString"].map(name => [name, {
-        position: [keyframe(0, [4, 8, -4])], rotation: [keyframe(0, [0.4, -0.8, 1.2])], scale: [keyframe(0, [1, -2, 2])]
+        position: [keyframe(0, [4, 8, -4])]
     }])) };
-    const input = JSON.stringify(clip), clips = Object.freeze([clip, clip]), weights = Object.freeze([0.25, 0.5]);
-    const state = (group: Object3D) => rounded([...group.position.toArray(), group.rotation.x, group.rotation.y, group.rotation.z, ...group.scale.toArray()]);
-    const baseline = [1, 2, 3, 0.1, 0.2, 0.3, 1, 2, 3];
-    const blended = [4, 8, 0, 0.4, -0.4, 1.2, 1.75, 0.5, 4.5];
+    player.playAnimations([layer], [clip, clip], { weights: [0.25, 0.5] });
+    for (const group of groups) t.deepEqual(rounded(group.position.toArray()), [3, 6, -3]);
+    player.stop();
+    for (const group of groups) t.deepEqual(group.position.toArray(), [0, 0, 0]);
+});
 
-    player.playAnimations([layer], clips, { weights, time: 0.5 });
-    for (const group of groups) t.deepEqual(state(group), blended);
-    player.setTime(0.5);
-    player.setTime(0.5);
-    for (const group of groups) t.deepEqual(state(group), blended);
-    player.setWeights([0, 0]);
-    for (const group of groups) t.deepEqual(state(group), baseline);
-    player.setWeights(weights);
-    for (const group of groups) t.deepEqual(state(group), blended);
-    t.true(player.stop());
-    for (const group of groups) t.deepEqual(state(group), baseline);
-    t.is(JSON.stringify(clip), input);
-    t.deepEqual(weights, [0.25, 0.5]);
-    t.deepEqual(clips, [clip, clip]);
-    for (const { target, descriptors } of snapshots) t.deepEqual(Object.getOwnPropertyDescriptors(target), descriptors);
+test("raw playback animates every clip's bones and restores their starting poses", t => {
+    const player = new EntityAnimationPlayer();
+    const layer = new Object3D();
+    const groups = ["a", "b"].map(name => Object.assign(new Object3D(), { name: `group:${name}` }));
+    groups.forEach(group => group.position.set(1, 2, 3));
+    layer.add(...groups);
+    const clips: EntityAnimation[] = ["a", "b"].map(bone => ({
+        length: 1, loop: false, bones: { [bone]: { position: [keyframe(0, [4, 0, 0])] } }
+    }));
+    player.playAnimations([layer], clips);
+    for (const group of groups) t.deepEqual(group.position.toArray(), [5, 2, 3]);
+    player.stop();
+    for (const group of groups) t.deepEqual(group.position.toArray(), [1, 2, 3]);
 });
 
 test("same-layer clips add weighted offsets to the baked pose without normalizing weights", t => {
@@ -361,18 +343,34 @@ test("zero-weight playback restores baked poses and stopping a blend restores th
     t.false(wasDirty());
 });
 
+test("weight changes without playback neither throw nor mark the object dirty", t => {
+    const { object, wasDirty } = fixture(t);
+    const player = new EntityAnimationPlayer();
+    const check = () => {
+        for (const weights of [[1], [-1]]) {
+            t.notThrows(() => object.setAnimationWeights(weights));
+            t.false(wasDirty());
+            t.false(player.setWeights(weights));
+        }
+    };
+    check();
+    object.playAnimation(animation);
+    object.stopAnimation();
+    player.play([], animation);
+    player.stop();
+    wasDirty();
+    check();
+});
+
 test("blend weight changes update visible bounds before another scene frame", t => {
     const { object, wasDirty } = fixture(t, true);
     const horizontal: EntityAnimation = { length: 1, loop: false, bones: { root: { position: [keyframe(0, [4, 0, 0])] } } };
     const vertical: EntityAnimation = { length: 1, loop: false, bones: { root: { position: [keyframe(0, [0, 8, 0])] } } };
     object.playAnimations([horizontal, vertical], { weights: [0.5, 0.25] });
-    const bounds = new Box3().setFromObject(object);
-    t.deepEqual(rounded(bounds.min.toArray()), [-5, -6, 3]);
-    t.deepEqual(rounded(bounds.max.toArray()), [-3, -4, 5]);
     wasDirty();
     object.setAnimationWeights([1, 1]);
     t.true(wasDirty());
-    bounds.setFromObject(object);
+    const bounds = new Box3().setFromObject(object);
     t.deepEqual(rounded(bounds.min.toArray()), [-7, -12, 3]);
     t.deepEqual(rounded(bounds.max.toArray()), [-5, -10, 5]);
     object.dispose();

@@ -75,7 +75,7 @@ Only one video can record per renderer. A stopped renderer starts for the record
 
 `Entities.getAnimations(modelKey)` loads native and sampled vanilla clips. `entity.playAnimation(clip, options)` plays one clip; `entity.playAnimations(clips, options)` plays several with a shared clock. Call `entity.advanceAnimation(delta)` from `renderer.onFrame`, or set an explicit time with `entity.setAnimationTime(seconds)` before a capture.
 
-Pass `weights` in clip order to combine animations on the same geometry layer. Each weight must be finite and nonnegative, and the array must have one entry per clip. Omitted weights default to `1`. Given walking and head-look clips, apply both and adjust the look strength without restarting playback:
+Pass `weights` in clip order to combine animations on the same geometry layer. Each weight must be finite and nonnegative, and the array must have one entry per clip. Omitted weights default to `1`; without playback, `setAnimationWeights` does nothing. Given walking and head-look clips, apply both and adjust the look strength without restarting playback:
 
 ```ts
 entity.playAnimations([walk, look], { weights: [1, 0.5] });

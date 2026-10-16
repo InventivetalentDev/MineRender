@@ -30,17 +30,6 @@ const defaults: EntityState = {
     entity: "bat", selection: "auto", layers: ["main"], when: [], tints: {}, textures: {}, flip: "dataset",
     wireframe: false, hiddenParts: [], animations: [], weights: {}, playing: false, time: 0, speed: 1, loop: true
 };
-/** Caller-supplied head motion for the cow's hosted walk cycle. */
-const headLook: EntityAnimation = {
-    length: 4, loop: true,
-    bones: { head: { rotation: [
-        { time: 0, value: [0, 0, 0], interpolation: "linear" },
-        { time: 1, value: [0, 0.6, 0], interpolation: "linear" },
-        { time: 2, value: [0, 0, 0], interpolation: "linear" },
-        { time: 3, value: [0, -0.6, 0], interpolation: "linear" },
-        { time: 4, value: [0, 0, 0], interpolation: "linear" }
-    ] } }
-};
 let activeEntity: EntityObject | undefined;
 let activeCurrent: (() => boolean) | undefined;
 let activeParts: { key: string, object: Object3D }[] = [];
@@ -53,7 +42,7 @@ const app = new Playground<EntityState>({
     renderer: { camera: { near: 1, far: 2000, position: [50, 35, 50] } },
     presets: {
         bat: { label: "Bat (flying animation)", state: { animations: ["flying"], playing: true } },
-        blending: { label: "Cow (walk and look)", state: { entity: "cow", animations: ["walk_cycle", "head_look"], weights: { walk_cycle: 0.5, head_look: 1 }, playing: true } },
+        blending: { label: "Camel (walk and idle)", state: { entity: "camel", animations: ["walk", "idle"], weights: { walk: 0.5, idle: 1 }, playing: true } },
         charged: { label: "Charged creeper", state: { entity: "creeper", when: ["powered"] } },
         sheep: { label: "Orange sheep", state: { entity: "sheep", when: ["not_sheared", "dyed"], tints: { wool_color: "#f9801d" } } },
         breeze: { label: "Breeze (wind layer)", state: { entity: "breeze" } }
@@ -76,7 +65,6 @@ const app = new Playground<EntityState>({
         });
         if (!ctx.isCurrent()) return;
         if (!model) throw new Error(`Entity model not found: ${state.entity}`);
-        const clips = { ...animations, ...(model.id === "minecraft:cow" && { head_look: headLook }) };
         const object = new EntityObject(model, {
             tints: state.tints, wireframe: state.wireframe,
             flip: state.flip === "dataset" ? undefined : state.flip === "flip"
@@ -116,14 +104,14 @@ const app = new Playground<EntityState>({
                 }
                 object.notifyDirty();
             };
-            buildControls(app.state, layers, passes, model, clips);
+            buildControls(app.state, layers, passes, model, animations ?? {});
             document.getElementById("entity-suggestions")!.replaceChildren(...names.map(name => new Option(name)));
             controller?.refresh();
         };
         return {
             object,
             activate() {
-                controller = createPlayback(object, clips, drawnLayers, ctx.renderer, ctx.isCurrent);
+                controller = createPlayback(object, animations ?? {}, drawnLayers, ctx.renderer, ctx.isCurrent);
                 sync();
                 controller.apply(state.playing);
             },
@@ -145,9 +133,6 @@ const app = new Playground<EntityState>({
         for (const part of state.hiddenParts) code += `entity.getGroupByName(${JSON.stringify(part.split("/").pop())}).visible = false;\n`;
         if (state.animations.length) {
             code += `const animations = await MineRender.Entities.getAnimations(key) ?? {};\n`;
-            if (["cow", "minecraft:cow"].includes(state.entity.trim()) && state.animations.includes("head_look")) {
-                code += `animations.head_look = ${JSON.stringify(headLook, null, 4)};\n`;
-            }
             code += `entity.playAnimations([${state.animations.map(name => `animations[${JSON.stringify(name)}]`).join(", ")}], ${JSON.stringify({ loop: state.loop, speed: state.speed, time: state.time, weights: state.animations.map(name => state.weights?.[name] ?? 1) })});\n`;
             if (state.playing) code += `renderer.onFrame(({ delta }) => entity.advanceAnimation(delta));\n`;
         }
@@ -335,11 +320,11 @@ function createPlayback(object: EntityObject, animations: Record<string, EntityA
                 const weight = Math.max(0, Math.min(1, value));
                 range.value = number.value = String(weight);
                 if (!record({ weights: { ...app.state.weights, [name]: weight } })) return;
-                if (object.activeAnimations.length) object.setAnimationWeights(selectedClips().weights);
+                object.setAnimationWeights(selectedClips().weights);
             };
             range.addEventListener("input", () => change(range));
             number.addEventListener("change", () => change(number));
-            label.append(`${name} weight${name === "head_look" && animations[name] === headLook ? " (supplied clip)" : ""}`, range, number);
+            label.append(`${name} weight`, range, number);
             return label;
         }));
         input("entity-time").max = String(duration(clips) || 1);

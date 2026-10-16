@@ -68,10 +68,13 @@ export class EntityAnimationPlayer {
         this.playAnimations(layers, [animation], options, poses);
     }
 
-    /** Starts clips on the same parts and shared clock, adding their weighted offsets to the baked pose. */
+    /**
+     * Starts clips on matching parts with a shared clock. Weighted offsets add to the supplied baked poses
+     * or, without poses, to each animated part's pose when playback starts.
+     */
     playAnimations(layers: Object3D[], animations: readonly EntityAnimation[], options: EntityAnimationOptions = {},
                    poses?: ReadonlyMap<Object3D, EntityModelPart["pose"]>): void {
-        const weights = this.validateWeights(options.weights ?? animations.map(() => 1), animations.length);
+        const weights = validateAnimationWeights(options.weights ?? animations.map(() => 1), animations.length);
         this.stop();
         this._animations = animations.slice();
         this._weights = weights;
@@ -140,19 +143,11 @@ export class EntityAnimationPlayer {
 
     /** Changes weights in clip order and reapplies the current time without restarting playback. */
     setWeights(weights: readonly number[]): boolean {
-        const validated = this.validateWeights(weights, this._animations.length);
         if (!this._animations.length) return false;
+        const validated = validateAnimationWeights(weights, this._animations.length);
         this._weights = validated;
         this.apply();
         return true;
-    }
-
-    private validateWeights(weights: readonly number[], count: number): number[] {
-        const values = Array.from(weights);
-        if (values.length !== count || values.some(weight => !Number.isFinite(weight) || weight < 0)) {
-            throw new Error("Animation weights must match the clip count and contain only finite nonnegative numbers");
-        }
-        return values;
     }
 
     private apply(): void {
@@ -180,4 +175,13 @@ export class EntityAnimationPlayer {
         }
     }
 
+}
+
+/** @internal */
+export function validateAnimationWeights(weights: readonly number[], count: number): number[] {
+    const values = Array.from(weights);
+    if (values.length !== count || values.some(weight => !Number.isFinite(weight) || weight < 0)) {
+        throw new Error("Animation weights must match the clip count and contain only finite nonnegative numbers");
+    }
+    return values;
 }

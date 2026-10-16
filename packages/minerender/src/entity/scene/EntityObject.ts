@@ -17,7 +17,7 @@ import type { DoubleArray } from "../../model/Model";
 import type { Maybe } from "../../util/util";
 import { isMesh } from "../../util/three";
 import type { EntityAnimation } from "../EntityAnimation";
-import { EntityAnimationOptions, EntityAnimationPlayer } from "./EntityAnimationPlayer";
+import { EntityAnimationOptions, EntityAnimationPlayer, validateAnimationWeights } from "./EntityAnimationPlayer";
 
 /** Renders selected entity layers as named part groups. Create it through {@link MineRenderScene.addEntity}. */
 export class EntityObject extends SceneObject {
@@ -147,8 +147,7 @@ export class EntityObject extends SceneObject {
      * Weights default to 1 and are not normalized. Selected layers without their own clip follow `main`.
      */
     public playAnimations(animations: readonly EntityAnimation[], options?: EntityAnimationOptions): void {
-        const weights = Array.from(options?.weights ?? animations.map(() => 1));
-        this.validateAnimationWeights(weights, animations.length);
+        const weights = validateAnimationWeights(options?.weights ?? animations.map(() => 1), animations.length);
         const selections = new Map<string, { animations: EntityAnimation[], names: string[], indices: number[] }>();
         animations.forEach((animation, index) => {
             const layer = animation.layer ?? "main";
@@ -174,16 +173,10 @@ export class EntityObject extends SceneObject {
 
     /** Changes weights in active clip order, notifying the scene without restarting the shared clock. */
     public setAnimationWeights(weights: readonly number[]): void {
-        const values = Array.from(weights);
-        this.validateAnimationWeights(values, this.activeAnimations.length);
+        if (!this.animationPlayers.length) return;
+        const values = validateAnimationWeights(weights, this.activeAnimations.length);
         for (const { player, indices } of this.animationPlayers) player.setWeights(indices.map(index => values[index]));
         if (this.animationPlayers.length) this.notifyDirty();
-    }
-
-    private validateAnimationWeights(weights: readonly number[], count: number): void {
-        if (weights.length !== count || weights.some(weight => !Number.isFinite(weight) || weight < 0)) {
-            throw new Error("Animation weights must match the clip count and contain only finite nonnegative numbers");
-        }
     }
 
     /** Stops all clips and restores the poses from before playback. */
