@@ -16,8 +16,10 @@ interface EntityState {
     flip: "dataset" | "flip" | "raw";
     wireframe: boolean;
     hiddenParts: string[];
-    /** Clip names playing together, at most one per geometry layer. */
+    /** Clip names playing together, in the order passed to `playAnimations`. */
     animations: string[];
+    /** Clip weights by name; omitted entries use full weight. */
+    weights: Record<string, number>;
     playing: boolean;
     time: number;
     speed: number;
@@ -26,7 +28,7 @@ interface EntityState {
 
 const defaults: EntityState = {
     entity: "bat", selection: "auto", layers: ["main"], when: [], tints: {}, textures: {}, flip: "dataset",
-    wireframe: false, hiddenParts: [], animations: [], playing: false, time: 0, speed: 1, loop: true
+    wireframe: false, hiddenParts: [], animations: [], weights: {}, playing: false, time: 0, speed: 1, loop: true
 };
 let activeEntity: EntityObject | undefined;
 let activeCurrent: (() => boolean) | undefined;
@@ -40,6 +42,7 @@ const app = new Playground<EntityState>({
     renderer: { camera: { near: 1, far: 2000, position: [50, 35, 50] } },
     presets: {
         bat: { label: "Bat (flying animation)", state: { animations: ["flying"], playing: true } },
+        blending: { label: "Camel (walk and idle)", state: { entity: "camel", animations: ["walk", "idle"], weights: { walk: 0.5, idle: 1 }, playing: true } },
         charged: { label: "Charged creeper", state: { entity: "creeper", when: ["powered"] } },
         sheep: { label: "Orange sheep", state: { entity: "sheep", when: ["not_sheared", "dyed"], tints: { wool_color: "#f9801d" } } },
         breeze: { label: "Breeze (wind layer)", state: { entity: "breeze" } }
@@ -129,8 +132,8 @@ const app = new Playground<EntityState>({
         code += `const entity = await renderer.scene.addEntity(model${Object.keys(options).length ? `, ${JSON.stringify(options)}` : ""});\n`;
         for (const part of state.hiddenParts) code += `entity.getGroupByName(${JSON.stringify(part.split("/").pop())}).visible = false;\n`;
         if (state.animations.length) {
-            code += `const animations = await MineRender.Entities.getAnimations(key);\n`;
-            code += `entity.playAnimations([${state.animations.map(name => `animations[${JSON.stringify(name)}]`).join(", ")}], ${JSON.stringify({ loop: state.loop, speed: state.speed, time: state.time })});\n`;
+            code += `const animations = await MineRender.Entities.getAnimations(key) ?? {};\n`;
+            code += `entity.playAnimations([${state.animations.map(name => `animations[${JSON.stringify(name)}]`).join(", ")}], ${JSON.stringify({ loop: state.loop, speed: state.speed, time: state.time, weights: state.animations.map(name => state.weights?.[name] ?? 1) })});\n`;
             if (state.playing) code += `renderer.onFrame(({ delta }) => entity.advanceAnimation(delta));\n`;
         }
         return code;
@@ -156,6 +159,7 @@ app.controls.innerHTML = `
     <fieldset><legend>Animation</legend>
         <select id="entity-animation" multiple size="5" aria-label="Animations"></select>
         <p id="entity-animation-help" class="control-note"></p>
+        <div id="entity-animation-weights"></div>
         <div class="row"><button id="entity-play" type="button">Play</button><button id="entity-pause" type="button">Pause</button><button id="entity-replay" type="button">Replay</button><button id="entity-stop" type="button">Stop</button></div>
         <label for="entity-time">Time</label><input id="entity-time" type="range" min="0" max="1" step="0.01" value="0"><output id="entity-time-value">0.00 s</output>
         <label for="entity-speed">Speed</label><input id="entity-speed" type="number" min="0.05" max="5" step="0.05" value="1">
@@ -182,6 +186,8 @@ function validateState(state: EntityState) {
         || !["dataset", "flip", "raw"].includes(state.flip) || ![state.wireframe, state.playing, state.loop].every(value => typeof value === "boolean")
         || ![state.layers, state.when, state.hiddenParts, state.animations].every(strings)
         || !dictionary(state.textures) || !dictionary(state.tints)
+        || (state.weights !== undefined && (state.weights === null || typeof state.weights !== "object" || Array.isArray(state.weights)
+            || !Object.values(state.weights).every(weight => Number.isFinite(weight) && weight >= 0 && weight <= 1)))
         || !Number.isFinite(state.time) || state.time < 0 || !Number.isFinite(state.speed) || state.speed < 0.05 || state.speed > 5) {
         throw new Error("Invalid entity configuration.");
     }
@@ -268,7 +274,7 @@ function buildControls(state: EntityState, layers: string[], passes: EntityModel
     }));
     const names = Object.keys(animations);
     document.getElementById("entity-animation-help")!.textContent = names.length
-        ? (names.some(name => (animations[name].layer ?? "main") !== "main") ? "One clip per layer; Ctrl/Cmd+click selects several." : "")
+        ? "Ctrl/Cmd+click selects several clips. Each weight scales a clip's pose offsets; the offsets add together."
         : "No keyframe animations for this entity in the selected version.";
     input("entity-speed").value = String(state.speed);
     input("entity-loop").checked = state.loop;
@@ -276,15 +282,11 @@ function buildControls(state: EntityState, layers: string[], passes: EntityModel
 
 function createPlayback(object: EntityObject, animations: Record<string, EntityAnimation>, drawnLayers: string[], renderer: Renderer, isCurrent: () => boolean) {
     let unsubscribe: (() => void) | undefined;
-    /** The saved selection reduced to known clips on drawn layers, the last chosen clip per layer winning. */
-    const selectedClips = (): { names: string[], clips: EntityAnimation[] } => {
-        const byLayer = new Map<string, string>();
-        for (const name of app.state.animations) {
-            const clip = Object.prototype.hasOwnProperty.call(animations, name) ? animations[name] : undefined;
-            if (clip && drawnLayers.includes(clip.layer ?? "main")) byLayer.set(clip.layer ?? "main", name);
-        }
-        const names = [...byLayer.values()];
-        return { names, clips: names.map(name => animations[name]) };
+    /** The saved selection reduced to known clips on drawn layers, preserving the caller's order. */
+    const selectedClips = (): { names: string[], clips: EntityAnimation[], weights: number[] } => {
+        const names = app.state.animations.filter(name => Object.prototype.hasOwnProperty.call(animations, name)
+            && drawnLayers.includes(animations[name].layer ?? "main"));
+        return { names, clips: names.map(name => animations[name]), weights: names.map(name => app.state.weights?.[name] ?? 1) };
     };
     const duration = (clips: EntityAnimation[]) => Math.max(0, ...clips.map(clip => clip.length));
     const elapsed = () => {
@@ -297,8 +299,34 @@ function createPlayback(object: EntityObject, animations: Record<string, EntityA
         document.getElementById("entity-time-value")!.textContent = `${elapsed().toFixed(2)} s`;
     }
     function controls() {
-        const { names, clips } = selectedClips();
+        const { names, clips, weights } = selectedClips();
         for (const option of select("entity-animation").options) option.selected = names.includes(option.value);
+        document.getElementById("entity-animation-weights")!.replaceChildren(...names.map((name, index) => {
+            const label = document.createElement("label");
+            const range = document.createElement("input");
+            const number = document.createElement("input");
+            range.type = "range";
+            number.type = "number";
+            for (const control of [range, number]) {
+                control.min = "0";
+                control.max = "1";
+                control.step = "0.01";
+                control.value = String(weights[index]);
+                control.setAttribute("aria-label", `${name} weight`);
+            }
+            const change = (control: HTMLInputElement) => {
+                const value = Number(control.value);
+                if (!Number.isFinite(value)) return;
+                const weight = Math.max(0, Math.min(1, value));
+                range.value = number.value = String(weight);
+                if (!record({ weights: { ...app.state.weights, [name]: weight } })) return;
+                object.setAnimationWeights(selectedClips().weights);
+            };
+            range.addEventListener("input", () => change(range));
+            number.addEventListener("change", () => change(number));
+            label.append(`${name} weight`, range, number);
+            return label;
+        }));
         input("entity-time").max = String(duration(clips) || 1);
         input("entity-time").disabled = !clips.length;
         for (const id of ["entity-play", "entity-pause", "entity-replay", "entity-stop"]) (document.getElementById(id) as HTMLButtonElement).disabled = !clips.length;
@@ -306,7 +334,7 @@ function createPlayback(object: EntityObject, animations: Record<string, EntityA
     }
     function apply(playing: boolean) {
         pauseFrames();
-        const { names, clips } = selectedClips();
+        const { names, clips, weights } = selectedClips();
         if (!clips.length) {
             object.stopAnimation();
             app.record({ animations: [], playing: false, time: 0 });
@@ -318,7 +346,7 @@ function createPlayback(object: EntityObject, animations: Record<string, EntityA
         const speed = Math.min(5, Math.max(0.05, Number(app.state.speed) || 1));
         const time = Math.max(0, Math.min(length, Number(app.state.time) || 0));
         app.record({ animations: names, playing, speed, time });
-        object.playAnimations(clips, { time, speed, loop: app.state.loop });
+        object.playAnimations(clips, { time, speed, loop: app.state.loop, weights });
         if (playing) {
             unsubscribe = renderer.onFrame(({ delta }) => {
                 if (!isCurrent()) { pauseFrames(); return; }
@@ -352,7 +380,6 @@ select("entity-selection").addEventListener("change", () => update({ selection: 
 select("entity-flip").addEventListener("change", () => update({ flip: select("entity-flip").value as EntityState["flip"] }));
 input("entity-wireframe").addEventListener("change", () => update({ wireframe: input("entity-wireframe").checked }));
 select("entity-animation").addEventListener("change", () => {
-    // Newly chosen clips go last so they replace an earlier clip on the same layer.
     const chosen = Array.from(select("entity-animation").selectedOptions, option => option.value);
     const previous = app.state.animations.filter(name => chosen.includes(name));
     const animations = [...previous, ...chosen.filter(name => !previous.includes(name))];
