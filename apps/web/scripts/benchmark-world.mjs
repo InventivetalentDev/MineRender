@@ -17,13 +17,11 @@ const { values: args } = parseArgs({ options: {
     world: { type: "string" }, output: { type: "string" },
     dimension: { type: "string", default: "overworld" },
     version: { type: "string", default: "1.21.11" },
-    center: { type: "string" }, route: { type: "string" },
+    route: { type: "string" },
     "load-radius": { type: "string", default: "1" },
     "unload-radius": { type: "string", default: "2" },
     "settle-ms": { type: "string", default: "1000" },
-    "camera-height": { type: "string", default: "160" },
     "max-cached-regions": { type: "string", default: "4" },
-    "max-cached-bytes": { type: "string", default: String(64 * 1024 * 1024) },
     "biome-blend-radius": { type: "string", default: "0" },
     "no-section-meshing": { type: "boolean", default: false },
     "saved-lighting": { type: "boolean", default: false },
@@ -40,11 +38,10 @@ if (args.help) {
 
 --version VERSION              Minecraft asset version (default 1.21.11)
 --dimension overworld|nether|end
---center X,Z                   Starting chunk; default nearest populated chunk to 0,0
 --route '[[X,Z],[X,Z],...]'     Outbound chunk centers; return route is automatic
---load-radius N --unload-radius N --settle-ms N --camera-height N
+--load-radius N --unload-radius N --settle-ms N
 --saved-lighting --ambient-occlusion --biome-blend-radius N --render-entities
---no-section-meshing --max-cached-regions N --max-cached-bytes N
+--no-section-meshing --max-cached-regions N
 --software-rendering           Use SwiftShader instead of Chrome's selected GPU
 --headed --timeout-ms N --output REPORT.json
 
@@ -116,7 +113,6 @@ let output;
 const problems = [];
 try {
     if (!args.world) throw new Error("Supply --world SAVE_FOLDER; use --help for options");
-    if (args.center && args.route) throw new Error("Supply --center or --route, not both");
     const dimension = { overworld: "", nether: "DIM-1", end: "DIM1" }[args.dimension];
     if (dimension === undefined) throw new Error("--dimension must be overworld, nether, or end");
     const worldFolder = await realpath(args.world);
@@ -146,14 +142,14 @@ try {
         if (!Array.isArray(parsed) || !parsed.length || parsed.length > 64) throw new Error("--route needs 1 to 64 chunk centers");
         route = parsed.map(coordinates);
     } else {
-        const center = args.center ? coordinates(args.center.split(",").map(Number)) : await nearestChunk(files);
+        const center = await nearestChunk(files);
         const step = Math.max(8, 2 * unloadRadius + 1);
         route = Array.from({ length: 4 }, (_, index) => coordinates([center.x + index * step, center.z]));
     }
     const config = {
         version: args.version, route, loadRadius, unloadRadius,
-        settleMs: integer("settle-ms", 100, 60000), cameraHeight: integer("camera-height", 1, 4096),
-        maxCachedRegions: integer("max-cached-regions", 0), maxCachedBytes: integer("max-cached-bytes", 0),
+        settleMs: integer("settle-ms", 100, 60000),
+        maxCachedRegions: integer("max-cached-regions", 0),
         biomeBlendRadius: integer("biome-blend-radius", 0, 7), sectionMeshing: !args["no-section-meshing"],
         savedLighting: args["saved-lighting"], ambientOcclusion: args["ambient-occlusion"], renderEntities: args["render-entities"],
     };
@@ -198,7 +194,7 @@ try {
     await new Promise((resolve, reject) => { server.once("error", reject); server.listen(0, "127.0.0.1", resolve); });
     const chromeArgs = ["--enable-precise-memory-info", "--js-flags=--expose-gc"];
     if (args["software-rendering"]) chromeArgs.push("--enable-unsafe-swiftshader", "--use-angle=swiftshader", "--ignore-gpu-blocklist");
-    browser = await puppeteer.launch({ executablePath: chrome, headless: !args.headed, args: chromeArgs });
+    browser = await puppeteer.launch({ executablePath: chrome, headless: !args.headed, args: chromeArgs, protocolTimeout: timeout + 1000 });
     page = await browser.newPage();
     await page.setViewport({ width: 1280, height: 720, deviceScaleFactor: 1 });
     page.setDefaultTimeout(timeout);

@@ -15,9 +15,9 @@ export interface WorldBenchmarkConfig {
     biomeBlendRadius: number;
     renderEntities: boolean;
     maxCachedRegions: number;
-    maxCachedBytes: number;
-    cameraHeight: number;
 }
+
+const CAMERA_HEIGHT = 160;
 
 type Pass = "cold" | "warm";
 type Phase = "outbound" | "return" | "cleanup";
@@ -99,8 +99,8 @@ async function runWorldBenchmark(config: WorldBenchmarkConfig) {
     if (!config.route.length || config.route.some(({ x, z }) => !Number.isSafeInteger(x) || !Number.isSafeInteger(z))) {
         throw new Error("The benchmark route must contain integer chunk coordinates");
     }
-    if (!Number.isFinite(config.settleMs) || config.settleMs < 0 || !Number.isFinite(config.cameraHeight)) {
-        throw new Error("Settle time must be nonnegative and camera height must be finite");
+    if (!Number.isFinite(config.settleMs) || config.settleMs < 0) {
+        throw new Error("Settle time must be nonnegative");
     }
     const viewport = document.getElementById("viewport");
     const status = document.getElementById("status");
@@ -234,7 +234,7 @@ async function runWorldBenchmark(config: WorldBenchmarkConfig) {
             gpuVendor: debug ? gl.getParameter(debug.UNMASKED_VENDOR_WEBGL) : gl.getParameter(gl.VENDOR),
             heapAvailable: heap() !== null, garbageCollectionAvailable: typeof (window as Window & { gc?: () => void }).gc === "function",
             timing: "Wall times overlap; render timings measure CPU submission, and heap samples exclude GPU memory.",
-            coldAssets: "Requires a fresh browser profile; in-memory caches are cleared before the first pass."
+            coldAssets: "The first pass starts cold because each run launches Chrome with a new temporary profile and loads a new page."
         };
         const runs = [];
         for (const pass of ["cold", "warm"] as const) {
@@ -245,7 +245,7 @@ async function runWorldBenchmark(config: WorldBenchmarkConfig) {
                 renderEntities: config.renderEntities
             });
             const source = new AnvilWorldSource((x, z, signal) => readFile("region", x, z, `/world-files/region/r.${x}.${z}.mca`, signal), {
-                maxCachedRegions: config.maxCachedRegions, maxCachedBytes: config.maxCachedBytes,
+                maxCachedRegions: config.maxCachedRegions,
                 readExternalChunk: (x, z, signal) => readFile("external", x, z, `/world-files/region/c.${x}.${z}.mcc`, signal),
                 readEntityRegion: config.renderEntities ? (x, z, signal) => readFile("entity-region", x, z, `/world-files/entities/r.${x}.${z}.mca`, signal) : undefined
             });
@@ -262,7 +262,7 @@ async function runWorldBenchmark(config: WorldBenchmarkConfig) {
                 for (const [index, position] of route.entries()) {
                     context = { pass, phase: position.phase, waypoint: index };
                     status.textContent = `${pass} pass · ${position.phase} ${index + 1}/${route.length} · chunk ${position.x}, ${position.z}`;
-                    const x = position.x * 256 + 128, z = position.z * 256 + 128, y = config.cameraHeight * 16;
+                    const x = position.x * 256 + 128, z = position.z * 256 + 128, y = CAMERA_HEIGHT * 16;
                     renderer.camera.position.set(x + 256, y, z + 256);
                     renderer.camera.lookAt(x, 64 * 16, z);
                     const operationStart = operations.length;

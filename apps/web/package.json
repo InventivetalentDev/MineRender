@@ -10,7 +10,6 @@
     "typecheck:editor": "tsc -p tsconfig.editor.json",
     "check": "node ./scripts/check-pages.mjs",
     "benchmark:world": "node ./scripts/benchmark-world.mjs",
-    "typecheck:benchmark": "tsc -p tsconfig.benchmark.json",
     "build:production": "yarn typecheck && yarn typecheck:editor && node ./build.mjs --production",
     "deploy": "yarn build:production && wrangler deploy",
     "preview:cf": "yarn build:production && wrangler dev"
