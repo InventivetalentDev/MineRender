@@ -28,6 +28,9 @@ let threshold: LogThreshold = "warn";
 let namespaces: Map<string, LogThreshold> | undefined;
 let logHandler: LogHandler | undefined;
 let tagStyle: "plain" | "ansi" | "browser" | undefined;
+let switchRead = false;
+let switchThreshold: LogThreshold | undefined;
+let switchNamespaces: Map<string, LogThreshold> | undefined;
 
 /** Global log settings for every MineRender logger. */
 export class Logging {
@@ -46,13 +49,43 @@ export class Logging {
 /** Creates a logger whose messages are tagged and filtered as `namespace`. */
 export function logger(namespace: string): Logger {
     const write = (level: LogLevel, args: unknown[]): void => {
-        if (levels[level] < levels[namespaces?.get(namespace) ?? threshold]) return;
+        const runtime = globalThis as {
+            process?: { versions?: { node?: string }; stdout?: { isTTY?: boolean }; env?: Record<string, string | undefined> };
+            localStorage?: { getItem(key: string): string | null };
+        };
+        if (!switchRead) {
+            switchRead = true;
+            let value: string | null | undefined;
+            if (typeof runtime.process?.versions?.node === "string") {
+                value = runtime.process.env?.MINERENDER_LOG;
+            } else {
+                try {
+                    value = runtime.localStorage?.getItem("minerender:log");
+                } catch {
+                    // Sandboxed pages can deny access to storage.
+                }
+            }
+            if (value) {
+                for (const entry of value.split(",")) {
+                    const separator = entry.indexOf("=");
+                    const name = separator < 0 ? undefined : entry.slice(0, separator).trim();
+                    const setting = (separator < 0 ? entry : entry.slice(separator + 1)).trim();
+                    if (!Object.prototype.hasOwnProperty.call(levels, setting) || name === "") continue;
+                    if (name === undefined) {
+                        switchThreshold = setting as LogThreshold;
+                    } else {
+                        switchNamespaces ??= new Map();
+                        switchNamespaces.set(name, setting as LogThreshold);
+                    }
+                }
+            }
+        }
+        if (levels[level] < levels[switchNamespaces?.get(namespace) ?? switchThreshold ?? namespaces?.get(namespace) ?? threshold]) return;
         if (logHandler) {
             logHandler(level, namespace, args);
             return;
         }
         if (tagStyle === undefined) {
-            const runtime = globalThis as { process?: { versions?: { node?: string }; stdout?: { isTTY?: boolean } } };
             tagStyle = typeof runtime.process?.versions?.node === "string"
                 ? runtime.process.stdout?.isTTY === true ? "ansi" : "plain"
                 : "browser";

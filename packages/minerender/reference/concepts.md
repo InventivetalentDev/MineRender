@@ -244,6 +244,14 @@ Logging.configure({
 
 Levels from most to least verbose are `debug`, `info`, `warn`, and `error`; `silent` prints nothing. `configure` changes only the settings you pass, and `namespaces` replaces earlier overrides. Chrome shows `debug` messages only when the console's **Verbose** level is enabled.
 
+To change logging on a deployed page without changing its code, save a setting in the browser console and reload the page:
+
+```js
+localStorage.setItem("minerender:log", "warn,HostedAssetSource=debug");
+```
+
+In Node, set the `MINERENDER_LOG` environment variable to the same text. The setting is a comma-separated list: a level on its own sets the default, and `Name=level` sets one component. MineRender reads it once, at its first log message, and it takes precedence over `Logging.configure`. Remove it with `localStorage.removeItem("minerender:log")` and reload. Pages in iframes with `sandbox="allow-scripts"` cannot read `localStorage`; open the embed URL in its own tab instead.
+
 To send messages to your own logger, set a handler. It receives each message that passes the levels, without the tag. Call `setHandler()` without an argument to restore console output.
 
 ```ts
