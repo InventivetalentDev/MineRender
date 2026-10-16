@@ -7,6 +7,9 @@ import { AssetParser } from "../source/parser/AssetParsers";
 import { createCanvas, type CompatCanvas } from "../../canvas/CanvasCompat";
 import type { BitmapGlyph } from "../Fonts";
 import type { BinaryAsset } from "../source/HostedAssetSource";
+import { logger } from "../../util/log";
+
+const log = logger("Unihex");
 
 export interface UnihexProvider {
     type: "unihex" | "minecraft:unihex";
@@ -119,7 +122,7 @@ async function parseUnihex(key: AssetKey): Promise<UnihexFile | undefined> {
         }
         return { indices, rows, metrics };
     } catch (error) {
-        console.warn(`Could not load Unihex file ${key.toNamespacedString()}`, error);
+        log.warn(`Could not load Unihex file ${key.toNamespacedString()}`, error);
         return undefined;
     }
 }
@@ -142,7 +145,7 @@ export async function loadUnihex(provider: UnihexProvider, fontKey: AssetKey, ch
             return { ...override, from: from!, to: to! };
         });
     } catch (error) {
-        console.warn(`Could not load Unihex file ${key.toNamespacedString()}`, error);
+        log.warn(`Could not load Unihex file ${key.toNamespacedString()}`, error);
         return glyphs;
     }
     const file = await Caching.unihexCache.get(key.serialize(), () => parseUnihex(key));
