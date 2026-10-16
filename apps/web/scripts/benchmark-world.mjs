@@ -254,6 +254,10 @@ try {
     process.exitCode = 1;
 } finally {
     await page?.close().catch(() => undefined);
+    const browserProcess = browser?.process();
     await browser?.close().catch(() => undefined);
+    // Chrome's crash handler can keep these pipes open after the browser closes.
+    browserProcess?.stdout?.destroy();
+    browserProcess?.stderr?.destroy();
     if (server) { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
 }
