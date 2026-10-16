@@ -164,6 +164,7 @@ export class Materials {
         //  + support for instanced meshes
         const vertShader =`
             uniform bool SHADE;
+            attribute float shade;
             
             // Keep MSAA edge pixels from sampling outside the face's atlas region.
             #if __VERSION__ >= 300
@@ -186,7 +187,7 @@ export class Materials {
             void main()
             {
 
-                if (SHADE) {
+                if (SHADE && shade > 0.5) {
 
                     #ifdef USE_INSTANCING
                         vec3 N = vec3( modelMatrix * instanceMatrix * vec4(normal, 0.0) );
@@ -295,7 +296,7 @@ export class Materials {
                 side: transparent ? DoubleSide : FrontSide,
                 alphaTest: 0.5,
             });
-            Object.assign(material.defaultAttributeValues, { uvBounds: [0, 0, 1, 1] });
+            Object.assign(material.defaultAttributeValues, { shade: [1], uvBounds: [0, 0, 1, 1] });
             return material;
         } catch (e) {
             log.warn(e)

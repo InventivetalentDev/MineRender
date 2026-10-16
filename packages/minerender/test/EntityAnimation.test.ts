@@ -1,5 +1,5 @@
 import test, { ExecutionContext } from "ava";
-import { Euler, Matrix4, MeshBasicMaterial, Object3D } from "three";
+import { Box3, Euler, Matrix4, MeshBasicMaterial, Object3D } from "three";
 import { AssetKey, BasicAssetKey } from "../src/assets/AssetKey";
 import { AssetLoader } from "../src/assets/AssetLoader";
 import { Entities } from "../src/assets/Entities";
@@ -8,6 +8,7 @@ import { AssetParser } from "../src/assets/source/parser/AssetParsers";
 import { Caching } from "../src/cache/Caching";
 import { Materials } from "../src/Materials";
 import { EntityObject } from "../src/entity/scene/EntityObject";
+import { EntityAnimationPlayer } from "../src/entity/scene/EntityAnimationPlayer";
 import { EntityAnimation, EntityAnimationFile, EntityAnimationKeyframe, entityAnimationTime, sampleEntityAnimation, sampleEntityKeyframes } from "../src/entity/EntityAnimation";
 import type { EntityLayer, EntityModelPart } from "../src/entity/EntityModel";
 import type { MinecraftAsset } from "../src/MinecraftAsset";
@@ -121,7 +122,7 @@ const part = (options: Partial<EntityModelPart> = {}): EntityModelPart => ({
     pose: { offset: [0, 0, 0], rotation: [0, 0, 0] }, cubes: [], children: {}, ...options
 });
 
-function fixture(t: ExecutionContext) {
+function fixture(t: ExecutionContext, cubes = false) {
     const original = Materials.getImage;
     const material = new MeshBasicMaterial();
     Materials.getImage = () => material;
@@ -133,13 +134,14 @@ function fixture(t: ExecutionContext) {
     });
     const root = () => part({
         pose: { offset: [1, 2, 3], rotation: [0, 0, 0] },
+        cubes: cubes ? [{ origin: [0, 0, 0], size: [2, 2, 2], uv: [0, 0] }] : [],
         children: {
             body: part({ pose: { offset: [0, -21, 0], rotation: [0.1, 0.2, 0.3], scale: [1, 2, 1] }, children: { head: part({ pose: { offset: [0, -13, 0], rotation: [0, 0, 0] } }) } })
         }
     });
     const layer = (): EntityLayer => ({ key: new BasicAssetKey("minecraft", "fixture"), layer: { texture: [64, 64], root: root() } });
-    const main = layer();
-    const layers = { main, "main#2": main, wool: layer() };
+    const main = layer(), wool = layer();
+    const layers = { main, "main#2": main, wool, "wool#2": wool };
     const object = new EntityObject({ ...layers.main, id: "minecraft:fixture", layers });
     object["createMeshes"]();
     const scene = Object.assign(new Object3D(), { isMineRenderScene: true, dirty: false });
@@ -167,6 +169,213 @@ const animation: EntityAnimation = {
         left_ear: { rotation: [keyframe(0, [1, 1, 1])] }
     }
 };
+
+const overlay: EntityAnimation = {
+    length: 2, loop: true, bones: {
+        root: { position: [keyframe(0, [2, 0, -2])] },
+        body: {
+            position: [keyframe(0, [-4, 8, 2])],
+            rotation: [keyframe(0, [-0.5, 1, 0.5])],
+            scale: [keyframe(0, [0.25, -0.5, 1])]
+        },
+        head: { rotation: [keyframe(0, [0.2, 0.4, 0.6])] }
+    }
+};
+
+test("bone names inherited from Object.prototype keep independent blended offsets", t => {
+    const player = new EntityAnimationPlayer();
+    const layer = new Object3D();
+    const groups = ["constructor", "toString"].map(name => Object.assign(new Object3D(), { name: `group:${name}` }));
+    layer.add(...groups);
+    const clip: EntityAnimation = { length: 1, loop: false, bones: Object.fromEntries(["constructor", "toString"].map(name => [name, {
+        position: [keyframe(0, [4, 8, -4])]
+    }])) };
+    player.playAnimations([layer], [clip, clip], { weights: [0.25, 0.5] });
+    player.setTime(0);
+    for (const group of groups) t.deepEqual(rounded(group.position.toArray()), [3, 6, -3]);
+    player.stop();
+    for (const group of groups) t.deepEqual(group.position.toArray(), [0, 0, 0]);
+});
+
+test("raw playback animates every clip's bones and restores their starting poses", t => {
+    const player = new EntityAnimationPlayer();
+    const layer = new Object3D();
+    const groups = ["a", "b"].map(name => Object.assign(new Object3D(), { name: `group:${name}` }));
+    groups.forEach(group => group.position.set(1, 2, 3));
+    layer.add(...groups);
+    const clips: EntityAnimation[] = ["a", "b"].map(bone => ({
+        length: 1, loop: false, bones: { [bone]: { position: [keyframe(0, [4, 0, 0])] } }
+    }));
+    player.playAnimations([layer], clips);
+    for (const group of groups) t.deepEqual(group.position.toArray(), [5, 2, 3]);
+    player.stop();
+    for (const group of groups) t.deepEqual(group.position.toArray(), [1, 2, 3]);
+});
+
+test("same-layer clips add weighted offsets to the baked pose without normalizing weights", t => {
+    const { object, state, wasDirty } = fixture(t);
+    object.playAnimations([animation, overlay], { time: 1 });
+    t.deepEqual(object.animationWeights, [1, 1]);
+    t.deepEqual(state("body"), [-3, -11, 5, 0.1, 0.95, 0.925, 1, 1.5, 1.5]);
+
+    const weights = [0.5, 0.25];
+    object.playAnimations([animation, overlay], { weights, speed: 2, time: 1 });
+    weights[0] = 4;
+    t.deepEqual(object.activeAnimations, [animation, overlay]);
+    t.deepEqual(object.animationWeights, [0.5, 0.25]);
+    t.true(wasDirty());
+    for (const layer of ["main", "main#2", "wool", "wool#2"]) {
+        t.deepEqual(state("root", layer), [1.5, 4, 2.5, 0, 0, 0, 1, 1, 1]);
+        t.deepEqual(state("body", layer), [-0.5, -18, 2, 0.225, 0.325, 0.4875, 0.9375, 1.875, 1]);
+        t.deepEqual(state("head", layer), [0, -13, 0, 0.05, 0.1, 0.15, 1, 1, 1]);
+    }
+
+    object.setAnimationWeights([0, 2]);
+    t.is(object.animationTime, 1);
+    t.true(wasDirty());
+    t.deepEqual(state("body"), [-8, -5, 4, -0.9, 2.2, 1.3, 1.5, 1, 3]);
+    object.advanceAnimation(0.25);
+    t.is(object.animationTime, 1.5);
+    t.deepEqual(state("body"), [-8, -5, 4, -0.9, 2.2, 1.3, 1.5, 1, 3]);
+    object.setAnimationWeights([0.5, 0.25]);
+    object.setAnimationTime(1);
+    object.setAnimationTime(0.5);
+    object.setAnimationTime(1);
+    t.deepEqual(state("body"), [-0.5, -18, 2, 0.225, 0.325, 0.4875, 0.9375, 1.875, 1]);
+});
+
+test("interleaved layer clips keep input order and explicit layers override the main blend", t => {
+    const { object, state } = fixture(t);
+    const wool: EntityAnimation = { length: 2, loop: false, layer: "wool", bones: {
+        body: { position: [keyframe(0, [0, 4, 0])] }
+    } };
+    const woolOverlay: EntityAnimation = { ...overlay, layer: "wool" };
+    const clips = [animation, wool, overlay, woolOverlay];
+    object.playAnimations(clips, { weights: [1, 0.5, 0.25, 0.5], time: 1 });
+    t.deepEqual(object.activeAnimations, clips);
+    t.deepEqual(object.animationWeights, [1, 0.5, 0.25, 0.5]);
+    t.is(object.animation, animation);
+    for (const layer of ["main", "main#2"]) {
+        t.deepEqual(state("body", layer), [0, -17, 3.5, 0.475, 0.2, 0.55, 0.8125, 1.875, 0.75]);
+    }
+    for (const layer of ["wool", "wool#2"]) {
+        t.deepEqual(state("body", layer), [-2, -15, 1, -0.15, 0.7, 0.55, 1.125, 1.75, 1.5]);
+        t.deepEqual(state("head", layer).slice(3, 6), [0.1, 0.2, 0.3]);
+    }
+
+    object.setAnimationWeights([1, 0, 0.25, 0]);
+    for (const layer of ["wool", "wool#2"]) {
+        t.deepEqual(state("body", layer), [0, -21, 0, 0.1, 0.2, 0.3, 1, 2, 1]);
+        t.deepEqual(state("head", layer).slice(3, 6), [0, 0, 0]);
+    }
+    t.deepEqual(state("body", "main#2"), state("body"));
+
+    object.playAnimations([wool, animation, overlay], { weights: [0.5, 1, 0.25], time: 1 });
+    t.deepEqual(object.activeAnimations, [wool, animation, overlay]);
+    t.is(object.animation, wool);
+    t.deepEqual(state("body", "wool").slice(0, 3), [0, -19, 0]);
+    t.deepEqual(state("head", "wool").slice(3, 6), [0, 0, 0]);
+});
+
+test("blended clips retain their own loop lengths unless playback overrides looping", t => {
+    const { object, state } = fixture(t);
+    const looping: EntityAnimation = { length: 1, loop: true, bones: {
+        root: { position: [keyframe(0, [0, 0, 0]), keyframe(1, [4, 0, 0])] }
+    } };
+    const held: EntityAnimation = { length: 2, loop: false, bones: {
+        root: { position: [keyframe(0, [0, 0, 0]), keyframe(2, [0, 8, 0])] }
+    } };
+    object.playAnimations([looping, held], { weights: [0.5, 0.25], time: 2.5 });
+    t.deepEqual(state("root").slice(0, 3), [2, 4, 3]);
+    looping.loop = false;
+    held.loop = true;
+    object.setAnimationTime(2.5);
+    t.deepEqual(state("root").slice(0, 3), [2, 4, 3]);
+    object.playAnimations([looping, held], { weights: [0.5, 0.25], time: 2.5, loop: true });
+    t.deepEqual(state("root").slice(0, 3), [2, 2.5, 3]);
+    object.playAnimations([looping, held], { weights: [0.5, 0.25], time: 2.5, loop: false });
+    t.deepEqual(state("root").slice(0, 3), [3, 4, 3]);
+});
+
+test("invalid weights and layers leave the active blend, clock, and pose unchanged", t => {
+    const { object, state, wasDirty } = fixture(t);
+    object.playAnimations([animation, overlay], { weights: [0.5, 0.25], time: 1 });
+    const before = state("body");
+    wasDirty();
+    const expected = { message: "Animation weights must match the clip count and contain only finite nonnegative numbers" };
+    for (const weights of [[], [1], [1, 2, 3], [-1, 1], [NaN, 1], [Infinity, 1], [1, -Infinity], new Array<number>(2)]) {
+        t.throws(() => object.setAnimationWeights(weights), expected);
+        t.throws(() => object.playAnimations([animation, overlay], { weights, time: 0 }), expected);
+        t.deepEqual(object.activeAnimations, [animation, overlay]);
+        t.deepEqual(object.animationWeights, [0.5, 0.25]);
+        t.is(object.animationTime, 1);
+        t.deepEqual(state("body"), before);
+        t.false(wasDirty());
+    }
+    t.throws(() => object.playAnimations([animation, { ...overlay, layer: "missing" }], { weights: [1, 1] }), {
+        message: 'Entity minecraft:fixture has no selected animation layer "missing"'
+    });
+    t.deepEqual(object.activeAnimations, [animation, overlay]);
+    t.deepEqual(object.animationWeights, [0.5, 0.25]);
+    t.is(object.animationTime, 1);
+    t.deepEqual(state("body"), before);
+    t.false(wasDirty());
+});
+
+test("zero-weight playback restores baked poses and stopping a blend restores the caller's pose", t => {
+    const { object, state, wasDirty } = fixture(t);
+    const body = object.getGroupByName("body", "main")!;
+    body.position.set(4, 5, 6);
+    body.rotation.set(0.7, 0.8, 0.9, "ZYX");
+    body.scale.set(2, 3, 4);
+    const caller = state("body");
+    object.playAnimations([animation, overlay], { weights: [0, 0], time: 1 });
+    t.deepEqual(state("body"), [0, -21, 0, 0.1, 0.2, 0.3, 1, 2, 1]);
+    object.setAnimationWeights([0.5, 0.25]);
+    object.playAnimation(overlay, { weights: [0.5], time: 1 });
+    t.deepEqual(state("body"), [-2, -17, 1, -0.15, 0.7, 0.55, 1.125, 1.75, 1.5]);
+    object.stopAnimation();
+    t.true(wasDirty());
+    t.deepEqual(state("body"), caller);
+    t.deepEqual(object.activeAnimations, []);
+    t.deepEqual(object.animationWeights, []);
+    t.is(object.animationTime, 0);
+    object.setAnimationWeights([]);
+    t.false(wasDirty());
+});
+
+test("weight changes without playback neither throw nor mark the object dirty", t => {
+    const { object, wasDirty } = fixture(t);
+    const player = new EntityAnimationPlayer();
+    const check = () => {
+        for (const weights of [[1], [-1]]) {
+            t.notThrows(() => object.setAnimationWeights(weights));
+            t.false(wasDirty());
+            t.false(player.setWeights(weights));
+        }
+    };
+    check();
+    object.playAnimation(animation);
+    object.stopAnimation();
+    player.play([], animation);
+    player.stop();
+    wasDirty();
+    check();
+});
+
+test("blend weight changes update visible bounds before another scene frame", t => {
+    const { object, wasDirty } = fixture(t, true);
+    const horizontal: EntityAnimation = { length: 1, loop: false, bones: { root: { position: [keyframe(0, [4, 0, 0])] } } };
+    const vertical: EntityAnimation = { length: 1, loop: false, bones: { root: { position: [keyframe(0, [0, 8, 0])] } } };
+    object.playAnimations([horizontal, vertical], { weights: [0.5, 0.25] });
+    wasDirty();
+    object.setAnimationWeights([1, 1]);
+    t.true(wasDirty());
+    const bounds = new Box3().setFromObject(object);
+    t.deepEqual(rounded(bounds.min.toArray()), [-7, -12, 3]);
+    t.deepEqual(rounded(bounds.max.toArray()), [-5, -10, 5]);
+    object.dispose();
+});
 
 test("main playback poses repeated draws and layers without their own clip", t => {
     const { object, state, wasDirty } = fixture(t);
@@ -254,7 +463,6 @@ test("layer clips share playback time, validate before replacing, and restore th
     t.deepEqual(state("body").slice(0, 3), [1, -19, 3]);
     t.deepEqual(state("body", "main#2"), state("body"));
     t.deepEqual(state("body", "wool").slice(0, 3), [0, -17, 0]);
-    t.throws(() => object.playAnimations([animation, animation]), { message: 'Multiple animations target layer "main"' });
     t.throws(() => object.playAnimation({ ...wool, layer: "missing" }), {
         message: 'Entity minecraft:fixture has no selected animation layer "missing"'
     });
@@ -274,7 +482,7 @@ test("layer clips share playback time, validate before replacing, and restore th
 
 test("disposal ends playback", t => {
     const { object, wasDirty } = fixture(t);
-    object.playAnimation(animation);
+    object.playAnimations([animation, overlay], { weights: [0.5, 0.25] });
     const body = object.getGroupByName("body", "main")!;
     object.setAnimationTime(1);
     const posed = body.position.toArray();
@@ -282,6 +490,8 @@ test("disposal ends playback", t => {
     wasDirty();
     t.is(object.animation, undefined);
     t.is(object.animationTime, 0);
+    t.deepEqual(object.activeAnimations, []);
+    t.deepEqual(object.animationWeights, []);
     object.advanceAnimation(1);
     object.setAnimationTime(2);
     object.stopAnimation();
