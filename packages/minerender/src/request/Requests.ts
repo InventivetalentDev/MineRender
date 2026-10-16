@@ -1,7 +1,7 @@
 import { JobCancelledError, JobQueue } from "jobqu";
-import { prefix } from "../util/log";
+import { logger } from "../util/log";
 
-const p = prefix("Requests");
+const log = logger("Requests");
 
 /** Fetch settings passed to {@link Requests.genericRequest} or {@link Requests.mcAssetRequest}. */
 export interface RequestConfig extends RequestInit {
@@ -105,7 +105,7 @@ class RequestQueue {
                 try {
                     return await abortable(this.queue.add(request), signal);
                 } catch (error) {
-                    console.debug(p, "Request failed", error);
+                    log.debug("Request failed", error);
                     const delay = this.retryDelay(error, request, retries);
                     if (delay === undefined) {
                         throw error;

@@ -227,6 +227,31 @@ Ambient occlusion defaults to `false`; `world.ambientOcclusion` reports the sett
 
 Enabling ambient occlusion adds work during placement and geometry updates, with no extra per-frame rendering pass. Keep it disabled when load or edit performance matters more than corner shading.
 
+## Logging
+
+MineRender prints warnings and errors to the console and hides debug and info messages. Each message starts with a tag that names the component that logged it, such as `UVMapper` or `HostedAssetSource`.
+
+To change what is printed, set a default level and per-component overrides:
+
+```ts
+import { Logging } from "minerender";
+
+Logging.configure({
+    level: "error",
+    namespaces: { HostedAssetSource: "debug" },
+});
+```
+
+Levels from most to least verbose are `debug`, `info`, `warn`, and `error`; `silent` prints nothing. `configure` changes only the settings you pass, and `namespaces` replaces earlier overrides. Chrome shows `debug` messages only when the console's **Verbose** level is enabled.
+
+To send messages to your own logger, set a handler. It receives each message that passes the levels, without the tag. Call `setHandler()` without an argument to restore console output.
+
+```ts
+Logging.setHandler((level, namespace, args) => {
+    appLogger.log({ level, source: `minerender:${namespace}`, args });
+});
+```
+
 ## Ownership and cleanup
 
 Choose cleanup according to the resource you own:

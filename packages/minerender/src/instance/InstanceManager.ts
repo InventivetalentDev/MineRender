@@ -1,9 +1,9 @@
 import { InstanceReference } from "./InstanceReference";
 import { SceneObject } from "../renderer/SceneObject";
 import { Maybe } from "../util/util";
-import { prefix } from "../util/log";
+import { logger } from "../util/log";
 
-const p = prefix("InstanceManager");
+const log = logger("InstanceManager");
 
 /** Shares initialized model objects by cache key and allocates references to their placements. */
 export class InstanceManager {
@@ -18,7 +18,7 @@ export class InstanceManager {
     /** Allocates a new placement of a cached model, or returns `undefined` if the key is unknown. */
     public async get<T extends SceneObject>(key: string): Promise<Maybe<InstanceReference<T>>> {
         if (key in this.instanceCache) {
-            console.debug(p, "key in cache", key)
+            log.debug("key in cache", key)
             // create next instance of existing object
             return (await this.instanceCache[key]).nextInstance() as InstanceReference<T>;
         }
@@ -30,7 +30,7 @@ export class InstanceManager {
         if (key in this.instanceCache) {
             return await (this.get<T>(key)) as InstanceReference<T>;
         }
-        console.debug(p, "key not in cache", key)
+        log.debug("key not in cache", key)
         const pending = Promise.resolve().then(supplier).then(obj => obj.nextInstance());
         this.instanceCache[key] = pending;
         try {

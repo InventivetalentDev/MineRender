@@ -11,7 +11,7 @@ import { addBox3WireframeToObject, addWireframeToMesh, addWireframeToObject, app
 import { merge } from "../../util/_internal/merge";
 import type { BufferGeometry, Texture } from "three";
 import { BlockObject } from "../block/scene/BlockObject";
-import { prefix } from "../../util/log";
+import { logger } from "../../util/log";
 import { CUBE_FACES } from "../../CubeFace";
 import { DisplayPosition } from "../DisplayPosition";
 import { DisplayTransforms } from "../DisplayTransforms";
@@ -24,7 +24,7 @@ import { ItemTints } from "../ItemTints";
 import { ItemGlint } from "../ItemGlint";
 
 
-const p = prefix("ModelObject");
+const log = logger("ModelObject");
 
 //TODO: might want to abstract this out into a generic model, and create a separate class for Block models
 /** Builds render geometry from a merged Java model. Create it through {@link MineRenderScene.addModel}. */
@@ -244,10 +244,10 @@ export class ModelObject extends SceneObject {
                     }
                 });
             } else {
-                console.debug(p, this.atlas.model, "has no elements")
+                log.debug(this.atlas.model, "has no elements")
             }
         } else {
-            console.debug(p, "Missing atlas for", this);
+            log.debug("Missing atlas for", this);
         }
 
         if (this.options.mergeMeshes) {

@@ -16,9 +16,7 @@ import { merge } from "../util/_internal/merge";
 import { Instanceable } from "../instance/Instanceable";
 import type { MineRenderScene } from "./MineRenderScene";
 import { Transformable } from "../Transformable";
-import { prefix } from "../util/log";
 
-const p = prefix("SceneObject");
 
 /**
  * Base for renderable Minecraft objects, with named parts and optional shared instances.
@@ -50,7 +48,6 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
     constructor(options?: Partial<SceneObjectOptions>) {
         super();
         this.options = merge({}, SceneObject.DEFAULT_OPTIONS, options ?? {});
-        console.log("SceneObject options", this.options);
     }
 
     public set scene(scene: MineRenderScene) {
@@ -87,7 +84,6 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
             }
         }
 
-        console.log("add", group, group.name);
         this.add(group);
         this.notifyDirty();
         return group;
@@ -133,11 +129,9 @@ export class SceneObject extends Object3D<Object3DEventMap & { change: {} }> imp
         if (name) {
             const existing = parent.getObjectByName(mesh.name);
             if (existing) {
-                console.log("remove", existing.name, existing);
                 parent.remove(existing);
             }
         }
-        console.log("add", mesh, mesh.name);
         parent.add(mesh);
     }
 

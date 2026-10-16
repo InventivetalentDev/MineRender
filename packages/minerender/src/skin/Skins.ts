@@ -1,6 +1,9 @@
 import { Requests } from "../request/Requests";
 import { Maybe } from "../util/util";
 import { Caching } from "../cache/Caching";
+import { logger } from "../util/log";
+
+const log = logger("Skins");
 
 //TODO: cache stuff
 /** Resolves player names, UUIDs, and service IDs to skin or cape texture URLs. */
@@ -93,7 +96,7 @@ export class Skins {
             }
             return undefined;
         }).catch(err => {
-            console.warn(err);
+            log.warn(err);
             return undefined;
         })
     }
@@ -109,7 +112,7 @@ export class Skins {
             }
             return undefined;
         }).catch(err => {
-            console.warn(err);
+            log.warn(err);
             return undefined;
         })
     }
@@ -124,7 +127,7 @@ export class Skins {
             }
             return undefined;
         }).catch(err => {
-            console.warn(err);
+            log.warn(err);
             return undefined;
         })
     }
@@ -150,7 +153,7 @@ export class Skins {
             }
             return undefined;
         }).catch(err => {
-            console.warn(err);
+            log.warn(err);
             return undefined;
         })
     }

@@ -1,3 +1,7 @@
+import { logger } from "./util/log";
+
+const log = logger("Ticker");
+
 /** A synchronous callback registered with {@link Ticker.add}. */
 export interface TickerFunction {
     (): void;
@@ -47,7 +51,7 @@ export class Ticker {
                 try {
                     t();
                 } catch (e) {
-                    console.warn(e);
+                    log.warn(e);
                 }
             });
             Ticker.oneSecondTicks++;

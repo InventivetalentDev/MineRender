@@ -1,7 +1,7 @@
 import { PersistentCache } from "../../cache/PersistentCache";
-import { prefix } from "../../util/log";
+import { logger } from "../../util/log";
 
-const p = prefix("BrowserCache");
+const log = logger("BrowserCache");
 
 /**
  * {@link PersistentCache} backed by localforage (IndexedDB / WebSQL / localStorage).
@@ -22,7 +22,7 @@ export class BrowserCache extends PersistentCache<LocalForage> {
             return true;
         } catch (error) {
             this.memory = new Map();
-            console.warn(p, "Could not open browser storage; using an in-memory store", error);
+            log.warn("Could not open browser storage; using an in-memory store", error);
             return false;
         }
     }
