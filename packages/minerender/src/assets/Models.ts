@@ -4,7 +4,7 @@ import { Caching } from "../cache/Caching";
 import { Maybe } from "../util/util";
 import { ModelMerger } from "../model/ModelMerger";
 import { AssetLoader } from "./AssetLoader";
-import { DEFAULT_NAMESPACE } from "./Assets";
+import { DEFAULT_NAMESPACE } from "./AssetDefaults";
 import { PersistentCache } from "../cache/PersistentCache";
 import { AssetKey, isAssetKey, isResourceLocation } from "./AssetKey";
 import { ListAsset } from "../ListAsset";

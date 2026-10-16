@@ -1,3 +1,4 @@
+import { Logging } from "../src/util/log";
 import { installMineRenderDataFixtures } from "./helpers/minerender-data";
 import test, { ExecutionContext } from "ava";
 import { BoxGeometry, Mesh, MeshBasicMaterial, Object3D, Raycaster, Vector3 } from "three";
@@ -388,9 +389,9 @@ test.serial("an entity initialization failure skips the failed entity and keeps 
     t.timeout(3000);
     const gate = deferred(), started = deferred();
     const failure = new Error("texture decode failed");
-    const warn = console.warn, warnings: unknown[][] = [];
-    console.warn = (...args) => { warnings.push(args); };
-    t.teardown(() => { console.warn = warn; });
+    const warnings: unknown[][] = [];
+    Logging.setHandler((level, namespace, args) => { warnings.push(args); });
+    t.teardown(() => { Logging.setHandler(); });
     const { world, objects, initialized, disposed } = fixture(t, true, async object => {
         if (object.entity.id === "minecraft:cow") started.resolve();
         if (object.entity.id === "minecraft:pig") {

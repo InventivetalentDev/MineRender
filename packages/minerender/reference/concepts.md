@@ -18,6 +18,8 @@ Use the units expected by the API you call:
 
 For GUI camera fitting, use [GuiObject](/api/index/classes/GuiObject)'s `bounds`. It includes item-model overhang as well as layer rectangles, in GUI coordinates.
 
+GUI text accepts literal Unicode strings or styled text runs. [Fonts](/api/index/classes/Fonts) loads bitmap, Unihex, space, and reference providers from the selected assets and resource packs. Unihex ZIPs use vanilla glyph metrics and size overrides, with shared atlas pages allocated as glyphs are drawn. A Unihex file downloads only when text needs a character that earlier providers lack, so plain ASCII text in the default font never loads `unifont.zip`. TrueType fonts, translation keys, and right-to-left shaping remain unsupported.
+
 `render.pixelRatio` sets drawing-buffer pixels per CSS pixel, with a default of `1`. It changes image-export resolution; layout and inspector picking use CSS pixels.
 
 ## Await initialization
@@ -71,6 +73,22 @@ Recording runs in real time. Keep the tab visible; browser scheduling and `rende
 
 Only one video can record per renderer. A stopped renderer starts for the recording and stops again afterward. Pass an `AbortSignal` as `signal` to cancel. Calling `stop()` or disposing the renderer also cancels the recording and rejects its promise. Calling `start()` while the renderer is running leaves the recording active.
 
+## Entity animation blending
+
+`Entities.getAnimations(modelKey)` loads native and sampled vanilla clips. `entity.playAnimation(clip, options)` plays one clip; `entity.playAnimations(clips, options)` plays several with a shared clock. Call `entity.advanceAnimation(delta)` from `renderer.onFrame`, or set an explicit time with `entity.setAnimationTime(seconds)` before a capture.
+
+Pass `weights` in clip order to combine animations on the same geometry layer. Each weight must be finite and nonnegative, and the array must have one entry per clip. Omitted weights default to `1`; without playback, `setAnimationWeights` does nothing. Given walking and head-look clips, apply both and adjust the look strength without restarting playback:
+
+```ts
+entity.playAnimations([walk, look], { weights: [1, 0.5] });
+const unsubscribe = renderer.onFrame(({ delta }) => entity.advanceAnimation(delta));
+entity.setAnimationWeights([1, 0.25]);
+```
+
+Each update adds the weighted position, Euler-angle, and scale offsets to the baked part pose. Weights are not normalized: `[1, 1]` adds both clips at full strength, while `[0.25, 0.75]` blends between their offsets. A zero weight contributes no offset. `activeAnimations` and `animationWeights` retain the input clip order. Without a `loop` override, each clip uses its own loop flag; `speed` and time are shared.
+
+A clip targets its `layer`, which defaults to `main`, including repeated draws of that geometry. The main-layer blend also poses selected layers without clips of their own. An explicit layer clip takes precedence, including when its weight is zero. Call `unsubscribe()` when playback ends; `entity.stopAnimation()` restores the caller's pose from before playback. Automatic gameplay-state selection, part visibility changes, and animated renderer transforms remain unsupported.
+
 ## Item state
 
 `Models.getMerged(key, context)` evaluates an item definition with the supplied [ItemModelContext](/api/index/interfaces/ItemModelContext): data `components`, item-model `properties`, a stack `count`, a `displayContext`, and `itemReferences` for nodes such as `minecraft:bundle/selected_item`. The same state selects models, special renderers, and automatic tints.
@@ -93,6 +111,8 @@ With model instancing enabled, scene methods can return an [InstanceReference](/
 Calling `removeFromScene()` or `dispose()` on an instance reference releases its slot. A released reference rejects transform access; create another placement to obtain a usable reference.
 
 With `sectionMeshing: true`, [MineRenderWorld](/api/index/classes/MineRenderWorld) merges eligible blocks into section meshes. A merged block has no individual `BlockInfo.object`. Edit it through the world or chunk setters so geometry and neighbor culling update together.
+
+Block model elements with `shade: false` skip directional face shading in separate, merged, and instanced models, including world section meshes. Tints, saved world light, and ambient occlusion still apply. Item previews keep directional shading because vanilla's item renderer ignores the flag. Omitted or `true` values retain directional shading; GUI items with `gui_light: "front"` disable it for the whole model.
 
 World placement selects weighted block models from absolute block coordinates, so unloading and reloading preserves their appearance in both rendering modes. Standalone `scene.addBlock` previews remain random unless you supply `variantPosition: [x, y, z]` in block units. The position is copied at construction; moving the object does not change its selection. The pick is vanilla-identical for the same coordinates and ordered weights. Position-based selection rejects total weights above 2,147,483,647.
 
@@ -226,6 +246,39 @@ await world.setAmbientOcclusion(false); // Rebuilds loaded terrain without reloa
 Ambient occlusion defaults to `false`; `world.ambientOcclusion` reports the setting. It shades axis-aligned faces on block boundaries and honors a model's `ambientocclusion: false`. Inset and non-axis-aligned faces keep their existing shading. Partial boundary faces interpolate full-face corners; this does not reproduce exact vanilla shading for partial shapes. Light-emitting blocks are not automatically exempt. Block edits, visibility changes, and chunk loading or unloading refresh affected corners, including across section boundaries. Fluids, entities, and block entities are unchanged.
 
 Enabling ambient occlusion adds work during placement and geometry updates, with no extra per-frame rendering pass. Keep it disabled when load or edit performance matters more than corner shading.
+
+## Logging
+
+MineRender prints warnings and errors to the console and hides debug and info messages. Each message starts with a tag that names the component that logged it, such as `UVMapper` or `HostedAssetSource`.
+
+To change what is printed, set a default level and per-component overrides:
+
+```ts
+import { Logging } from "minerender";
+
+Logging.configure({
+    level: "error",
+    namespaces: { HostedAssetSource: "debug" },
+});
+```
+
+Levels from most to least verbose are `debug`, `info`, `warn`, and `error`; `silent` prints nothing. `configure` changes only the settings you pass, and `namespaces` replaces earlier overrides. Chrome shows `debug` messages only when the console's **Verbose** level is enabled.
+
+To change logging on a deployed page without changing its code, save a setting in the browser console and reload the page:
+
+```js
+localStorage.setItem("minerender:log", "warn,HostedAssetSource=debug");
+```
+
+In Node, set the `MINERENDER_LOG` environment variable to the same text. The setting is a comma-separated list: a level on its own sets the default, and `Name=level` sets one component. MineRender reads it once, at its first log message, and it takes precedence over `Logging.configure`. Remove it with `localStorage.removeItem("minerender:log")` and reload. Pages in iframes with `sandbox="allow-scripts"` cannot read `localStorage`; open the embed URL in its own tab instead.
+
+To send messages to your own logger, set a handler. It receives each message that passes the levels, without the tag. Call `setHandler()` without an argument to restore console output.
+
+```ts
+Logging.setHandler((level, namespace, args) => {
+    appLogger.log({ level, source: `minerender:${namespace}`, args });
+});
+```
 
 ## Ownership and cleanup
 

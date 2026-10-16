@@ -7,9 +7,9 @@ import { Requests } from "../request/Requests";
 import { WrappedImage } from "../WrappedImage";
 import { ExtractableImageData } from "../ExtractableImageData";
 import { base64ToBytes, bytesToBase64 } from "../util/_internal/base64";
-import { prefix } from "../util/log";
+import { logger } from "../util/log";
 
-const p = prefix("ImageLoader");
+const log = logger("ImageLoader");
 
 /** Encoded image bytes with dimensions and format detected from the file header. */
 export interface ImageInfo {
@@ -50,7 +50,7 @@ export class ImageLoader {
     }
 
     public static async loadData(src: string): Promise<ImageData> {
-        console.debug(p, "loadData", src);
+        log.debug("loadData", src);
         const image = await this.loadCanvasData(src);
         return image.data.getImageData(0, 0, image.width, image.height);
     }
