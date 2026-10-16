@@ -5,7 +5,6 @@ import { BlockState } from "../model/block/BlockState";
 import { BlockStates } from "./BlockStates";
 import { AssetKey, AssetType } from "./AssetKey";
 
-
 /** Convenience accessors for model and blockstate loading. */
 export class Assets {
 
