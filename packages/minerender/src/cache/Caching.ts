@@ -16,6 +16,7 @@ import type { BlockEntityIndex } from "../assets/BlockEntities";
 import type { ListAsset } from "../ListAsset";
 import { BlockState } from "../model/block/BlockState";
 import type { AssetKey } from "../assets/AssetKey";
+import type { UnihexFile } from "../assets/_fonts/Unihex";
 import type { BitmapFont } from "../assets/Fonts";
 import type { BannerPattern } from "../assets/BannerPatterns";
 import type { Biome } from "../assets/Biomes";
@@ -116,6 +117,7 @@ export class Caching {
 
     static readonly entityAnimationCache: AsyncLoadingCache<CacheKey, EntityAnimationFile> = Caching.createAssetCache<EntityAnimationFile>();
     static readonly blockEntityIndexCache: AsyncLoadingCache<CacheKey, BlockEntityIndex> = Caching.createAssetCache<BlockEntityIndex>();
+    static readonly unihexCache: AsyncLoadingCache<CacheKey, UnihexFile> = Caching.createAssetCache<UnihexFile>();
     static readonly fontCache: AsyncLoadingCache<CacheKey, BitmapFont> = Caching.createAssetCache<BitmapFont>();
     static readonly bannerPatternCache: AsyncLoadingCache<CacheKey, BannerPattern> = Caching.createAssetCache<BannerPattern>();
     static readonly mineRenderDataCache: AsyncLoadingCache<CacheKey, unknown> = Caching.createAssetCache<unknown>();
@@ -158,6 +160,7 @@ export class Caching {
             this.entityAnimationCache,
             this.blockEntityIndexCache,
             this.fontCache,
+            this.unihexCache,
             this.bannerPatternCache,
             this.mineRenderDataCache,
             this.usernameUuidCache,
