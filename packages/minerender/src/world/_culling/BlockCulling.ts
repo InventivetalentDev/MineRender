@@ -1,4 +1,4 @@
-import { DEFAULT_NAMESPACE } from "../../assets/Assets";
+import { DEFAULT_NAMESPACE } from "../../assets/AssetDefaults";
 import { MineRenderData, MineRenderDatasets } from "../../assets/MineRenderData";
 import { CUBE_FACES, CubeFace } from "../../CubeFace";
 import type { Block } from "../../model/block/Block";

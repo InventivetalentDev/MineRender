@@ -2,9 +2,10 @@ import test from "ava";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { createHash } from "node:crypto";
-import { existsSync, globSync, readFileSync } from "node:fs";
+import { existsSync, globSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { createRequire } from "node:module";
-import { dirname, resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { buildSync } from "esbuild";
 import * as esm from "minerender/browser";
@@ -37,6 +38,25 @@ test("an esbuild bundle of part of the browser build initializes what it imports
     });
     const module = await import("data:text/javascript;base64," + Buffer.from(result.outputFiles[0].contents).toString("base64"));
     t.is(module.default, "a:b");
+});
+
+test("a code-split esbuild bundle of the browser build initializes AssetLoader.ROOT", async t => {
+    const dir = mkdtempSync(join(tmpdir(), "minerender-split-"));
+    t.teardown(() => rmSync(dir, { recursive: true, force: true }));
+    buildSync({
+        entryPoints: { index: resolve(import.meta.dirname, "../dist/browser/esm/index.browser.mjs") },
+        bundle: true,
+        splitting: true,
+        outdir: dir,
+        format: "esm",
+        platform: "browser",
+        external: ["zlib", "assert"],
+        logLevel: "silent"
+    });
+    const module = await import(pathToFileURL(join(dir, "index.js")).href);
+    t.is(module.AssetLoader.ROOT, module.DEFAULT_ROOT);
+    t.is(typeof module.DEFAULT_ROOT, "string");
+    t.true(module.DEFAULT_ROOT.length > 0);
 });
 
 test("every browser module can be imported first", async t => {

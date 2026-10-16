@@ -2,7 +2,7 @@ import { Maybe } from "../util/util";
 import { BlockState } from "../model/block/BlockState";
 import { Caching } from "../cache/Caching";
 import { AssetLoader } from "./AssetLoader";
-import { DEFAULT_NAMESPACE } from "./Assets";
+import { DEFAULT_NAMESPACE } from "./AssetDefaults";
 import { BlockStatePropertyDefaults } from "../model/block/BlockStateProperties";
 import { AssetKey } from "./AssetKey";
 import { PersistentCache } from "../cache/PersistentCache";
