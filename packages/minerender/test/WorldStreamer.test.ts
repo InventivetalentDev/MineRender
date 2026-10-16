@@ -45,7 +45,6 @@ test("streaming retains biome-only sections until eviction and restores them on 
 function fixture(options: { loadRadius?: number; unloadRadius?: number } = { loadRadius: 0, unloadRadius: 0 }, hooks: {
     get?: (x: number, z: number, signal?: AbortSignal) => Promise<AnvilChunk | undefined>;
     place?: (value: AnvilChunk) => Promise<void>;
-    unload?: (x: number, z: number) => Promise<void>;
     unloadColumns?: (columns: readonly { x: number; z: number }[]) => Promise<void>;
 } = {}) {
     const events: string[] = [], resident = new Set<string>();
@@ -68,19 +67,13 @@ function fixture(options: { loadRadius?: number; unloadRadius?: number } = { loa
             resident.add(key(value.x, value.z));
             await hooks.place?.(value);
         }),
-        unloadChunkColumn: (x: number, z: number) => operation(`unload:${key(x, z)}`, async () => {
-            await hooks.unload?.(x, z);
-            resident.delete(key(x, z));
-        })
-    };
-    if (hooks.unloadColumns) Object.assign(world, {
         unloadChunkColumns: (columns: readonly { x: number; z: number }[]) => operation("unload-many", async () => {
             const requested = columns.map(position => ({ ...position }));
             bulkCalls.push(requested);
-            await hooks.unloadColumns!(columns);
+            await hooks.unloadColumns?.(columns);
             for (const { x, z } of requested) resident.delete(key(x, z));
         })
-    });
+    };
     return { streamer: new WorldStreamer(world, source, options), events, resident, bulkCalls, peak: () => peak, world, source };
 }
 
@@ -118,12 +111,13 @@ test("the default square loads nearest columns first and retains columns inside 
     t.is(new Set(requested.map(([x, z]) => key(x, z))).size, 25);
     await setup.streamer.update(1, 0);
     t.is(setup.streamer.loadedChunks.length, 30);
-    t.false(setup.events.some(value => value.startsWith("unload:")));
+    t.false(setup.events.some(value => value === "unload-many"));
     setup.events.length = 0;
     await setup.streamer.update(2, 0);
     t.is(setup.streamer.loadedChunks.length, 30);
-    t.deepEqual(setup.events.slice(0, 5).sort(), [-2, -1, 0, 1, 2].map(z => `unload:-2,${z}`).sort());
-    t.true(setup.events[5].startsWith("get:"));
+    t.deepEqual(setup.bulkCalls[0].map(({ x, z }) => key(x, z)).sort(), [-2, -1, 0, 1, 2].map(z => key(-2, z)).sort());
+    t.is(setup.events[0], "unload-many");
+    t.true(setup.events[1].startsWith("get:"));
     t.is(setup.peak(), 1);
     await setup.streamer.dispose();
 });
@@ -259,7 +253,7 @@ test("a completed stale placement is unloaded before loading the latest target",
     const latest = setup.streamer.update(4, 0);
     gate.resolve();
     await Promise.all([first, latest]);
-    t.deepEqual(setup.events, ["get:0,0", "place:0,0", "unload:0,0", "get:4,0", "place:4,0"]);
+    t.deepEqual(setup.events, ["get:0,0", "place:0,0", "unload-many", "get:4,0", "place:4,0"]);
     t.deepEqual([...setup.resident], ["4,0"]);
     t.is(setup.peak(), 1);
     await setup.streamer.dispose();
@@ -392,7 +386,7 @@ test("placement failures stop the drain and an explicit update retries after cle
     t.deepEqual(setup.streamer.loadedChunks, []);
     t.deepEqual(setup.streamer.failedChunks, []);
     t.is(setup.streamer.pendingChunks, 1);
-    t.deepEqual(setup.events, ["get:0,0", "place:0,0", "unload:0,0"]);
+    t.deepEqual(setup.events, ["get:0,0", "place:0,0", "unload-many"]);
     await setup.streamer.update(0, 0);
     t.deepEqual(setup.streamer.loadedChunks, [{ x: 0, z: 0 }]);
     t.is(setup.streamer.pendingChunks, 0);
@@ -402,7 +396,7 @@ test("placement failures stop the drain and an explicit update retries after cle
 test("failed unloads remain owned and are retried before subsequent loads", async t => {
     const error = new Error("unload failed");
     let fail = true;
-    const setup = fixture(undefined, { unload: async () => {
+    const setup = fixture(undefined, { unloadColumns: async () => {
         if (fail) {
             fail = false;
             throw error;
@@ -410,10 +404,10 @@ test("failed unloads remain owned and are retried before subsequent loads", asyn
     } });
     await setup.streamer.update(0, 0);
     await t.throwsAsync(setup.streamer.update(1, 0), { is: error });
-    t.deepEqual(setup.streamer.loadedChunks, [{ x: 0, z: 0 }]);
+    t.deepEqual(setup.streamer.loadedChunks, []);
     t.false(setup.events.includes("get:1,0"));
     await setup.streamer.update(1, 0);
-    t.deepEqual(setup.events.slice(2), ["unload:0,0", "unload:0,0", "get:1,0", "place:1,0"]);
+    t.deepEqual(setup.events.slice(2), ["unload-many", "unload-many", "get:1,0", "place:1,0"]);
     t.deepEqual([...setup.resident], ["1,0"]);
     await setup.streamer.dispose();
 });
@@ -451,7 +445,7 @@ test("failed placement cleanup is retried before reloading the same column", asy
                 throw placementError;
             }
         },
-        unload: async () => {
+        unloadColumns: async () => {
             if (failUnload) {
                 failUnload = false;
                 throw cleanupError;
@@ -464,7 +458,7 @@ test("failed placement cleanup is retried before reloading the same column", asy
     t.deepEqual(setup.streamer.failedChunks, []);
     t.deepEqual([...setup.resident], ["0,0"]);
     await setup.streamer.update(0, 0);
-    t.deepEqual(setup.events, ["get:0,0", "place:0,0", "unload:0,0", "unload:0,0", "get:0,0", "place:0,0"]);
+    t.deepEqual(setup.events, ["get:0,0", "place:0,0", "unload-many", "unload-many", "get:0,0", "place:0,0"]);
     t.deepEqual(setup.streamer.loadedChunks, [{ x: 0, z: 0 }]);
     await setup.streamer.dispose();
 });
@@ -475,7 +469,7 @@ test("cleanup failures preserve frozen or primitive placement errors as the prim
         let failUnload = true;
         const setup = fixture(undefined, {
             place: async () => { throw placementError; },
-            unload: async () => {
+            unloadColumns: async () => {
                 if (failUnload) {
                     failUnload = false;
                     throw cleanupError;
@@ -510,7 +504,7 @@ test("disposal aborts a cooperative source read without waiting for its result",
     await started.promise;
     await Promise.all([update, setup.streamer.dispose()]);
     t.true(activeSignal?.aborted);
-    t.deepEqual(setup.events, ["get:0,0", "place:0,0", "get:1,0", "unload:0,0"]);
+    t.deepEqual(setup.events, ["get:0,0", "place:0,0", "get:1,0", "unload-many"]);
     t.deepEqual([...setup.resident], []);
     t.deepEqual(setup.streamer.failedChunks, []);
     t.deepEqual(setup.streamer.loadedChunks, []);
@@ -539,7 +533,7 @@ test("disposal waits for an active decode and removes owned columns without plac
     t.deepEqual([...setup.resident], ["0,0"]);
     gate.resolve(chunk(1, 0));
     await Promise.all([update, dispose]);
-    t.deepEqual(setup.events, ["get:0,0", "place:0,0", "get:1,0", "unload:0,0"]);
+    t.deepEqual(setup.events, ["get:0,0", "place:0,0", "get:1,0", "unload-many"]);
     t.deepEqual(setup.streamer.loadedChunks, []);
     t.is(setup.streamer.pendingChunks, 0);
     t.is(setup.peak(), 1);
@@ -560,7 +554,7 @@ test("disposal waits for an active placement and cleans up the completed column"
     t.deepEqual(setup.events, ["get:0,0", "place:0,0"]);
     gate.resolve();
     await Promise.all([update, dispose]);
-    t.deepEqual(setup.events, ["get:0,0", "place:0,0", "unload:0,0"]);
+    t.deepEqual(setup.events, ["get:0,0", "place:0,0", "unload-many"]);
     t.deepEqual([...setup.resident], []);
     t.is(setup.peak(), 1);
 });
@@ -568,7 +562,7 @@ test("disposal waits for an active placement and cleans up the completed column"
 test("disposal waits for an active unload without starting or repeating world mutations", async t => {
     t.timeout(3000);
     const gate = deferred(), started = deferred();
-    const setup = fixture(undefined, { unload: async () => {
+    const setup = fixture(undefined, { unloadColumns: async () => {
         started.resolve();
         await gate.promise;
     } });
@@ -583,7 +577,7 @@ test("disposal waits for an active unload without starting or repeating world mu
     t.deepEqual([...setup.resident], ["0,0"]);
     gate.resolve();
     await Promise.all([update, dispose]);
-    t.deepEqual(setup.events, ["get:0,0", "place:0,0", "unload:0,0"]);
+    t.deepEqual(setup.events, ["get:0,0", "place:0,0", "unload-many"]);
     t.deepEqual([...setup.resident], []);
     t.deepEqual(setup.streamer.loadedChunks, []);
     t.is(setup.peak(), 1);
@@ -607,25 +601,6 @@ test("a source rejection during disposal does not leave failure records or allow
     t.deepEqual(setup.streamer.failedChunks, []);
     t.deepEqual(setup.streamer.loadedChunks, []);
     t.is(setup.streamer.pendingChunks, 0);
-});
-
-test("disposal attempts every owned column and can retry failed cleanup", async t => {
-    const error = new Error("cleanup failed");
-    let fail = true;
-    const setup = fixture({ loadRadius: 1, unloadRadius: 1 }, { unload: async (x, z) => {
-        if (x === 0 && z === 0 && fail) {
-            fail = false;
-            throw error;
-        }
-    } });
-    await setup.streamer.update(0, 0);
-    await t.throwsAsync(setup.streamer.dispose());
-    t.is(setup.events.filter(value => value.startsWith("unload:")).length, 9);
-    t.deepEqual([...setup.resident], ["0,0"]);
-    await setup.streamer.dispose();
-    t.deepEqual([...setup.resident], []);
-    t.deepEqual(setup.streamer.loadedChunks, []);
-    await t.throwsAsync(() => setup.streamer.update(0, 0));
 });
 
 test("streaming groups obsolete columns while keeping neighbors inside the retention radius", async t => {

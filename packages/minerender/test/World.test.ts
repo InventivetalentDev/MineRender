@@ -266,41 +266,6 @@ test.serial("bulk column unloading snapshots its input before waiting for active
     t.is(world.getBlockAt(0, 0, 0), survivor);
 });
 
-for (const failure of [new Error("column removal failed"), undefined, null]) {
-    test.serial(`bulk column unloading attempts later columns and preserves the first removal error (${String(failure)})`, async t => {
-        const { world, scene } = fixture(t);
-        for (const x of [0, 16, 32, 48]) await world.setBlockAt(x, 0, 0, block);
-        const survivor = world.getBlockAt(48, 0, 0);
-        const clear = world["clearChunkColumn"], culling = world["updateCulling"];
-        const attempts: number[] = [];
-        let failed = true;
-        world["clearChunkColumn"] = async function (x, z) {
-            attempts.push(x);
-            if (x === 1 && failed) throw failure;
-            return clear.call(this, x, z);
-        };
-        if (failure === undefined) world["updateCulling"] = async () => { throw new Error("later flush failed"); };
-        t.teardown(() => { world["clearChunkColumn"] = clear; world["updateCulling"] = culling; });
-        const positions = [{ x: 1, z: 0 }, { x: 0, z: 0 }, { x: 2, z: 0 }, { x: 1, z: 0 }];
-        let rejected = false, caught: unknown;
-        try { await world.unloadChunkColumns(positions); } catch (error) { rejected = true; caught = error; }
-        t.true(rejected);
-        t.is(caught, failure);
-        t.deepEqual(attempts, [1, 0, 2]);
-        t.truthy(world.getBlockAt(16, 0, 0));
-        t.is(world.getBlockAt(0, 0, 0), undefined);
-        t.is(world.getBlockAt(32, 0, 0), undefined);
-        t.is(world.getBlockAt(48, 0, 0), survivor);
-        t.is(scene.stats.instanceCount, 2);
-        failed = false;
-        world["updateCulling"] = culling;
-        await world.unloadChunkColumns(positions);
-        t.is(world.getBlockAt(16, 0, 0), undefined);
-        t.is(world.getBlockAt(48, 0, 0), survivor);
-        t.is(scene.stats.instanceCount, 1);
-    });
-}
-
 test.serial("world placement snapshots block data without changing BlockInfo or render object identity", async t => {
     const { world, scene } = fixture(t);
     const input = { type: "test:stone", properties: { facing: "north" }, nbt: { items: [{ count: 2 }], bytes: new Uint8Array([3, 4]) } };

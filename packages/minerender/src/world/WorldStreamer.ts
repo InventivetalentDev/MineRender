@@ -35,8 +35,7 @@ export class WorldStreamer {
     private disposed = false;
 
     constructor(
-        private readonly world: Pick<MineRenderWorld<boolean>, "placeChunk" | "unloadChunkColumn">
-            & Partial<Pick<MineRenderWorld<boolean>, "unloadChunkColumns">>,
+        private readonly world: Pick<MineRenderWorld<boolean>, "placeChunk" | "unloadChunkColumns">,
         private readonly source: WorldChunkSource,
         options: WorldStreamerOptions = {}
     ) {
@@ -139,8 +138,7 @@ export class WorldStreamer {
                 const obsolete = [...this.owned.values()].filter(position =>
                     !this.loaded.has(this.key(position)) || !this.within(position, this.unloadRadius));
                 if (obsolete.length) {
-                    if (this.world.unloadChunkColumns) await this.unloadMany(obsolete);
-                    else await this.unload(obsolete[0]);
+                    await this.unloadMany(obsolete);
                     continue;
                 }
                 const position = this.desired.find(position => this.needsLoad(position));
@@ -170,7 +168,7 @@ export class WorldStreamer {
                     this.loaded.set(this.key(position), position);
                 } catch (error) {
                     try {
-                        await this.unload(position);
+                        await this.unloadMany([position]);
                     } catch (cleanupError) {
                         const failure = error instanceof Error ? error : new Error(String(error));
                         try {
@@ -193,36 +191,19 @@ export class WorldStreamer {
         return !this.loaded.has(key) && !this.missing.has(key) && !this.failed.has(key);
     }
 
-    private async unload(position: ChunkPosition): Promise<void> {
-        await this.world.unloadChunkColumn(position.x, position.z);
-        this.owned.delete(this.key(position));
-        this.loaded.delete(this.key(position));
-    }
-
     private async unloadMany(positions: readonly ChunkPosition[]): Promise<void> {
         if (!positions.length) return;
-        if (this.world.unloadChunkColumns) {
-            try {
-                await this.world.unloadChunkColumns(positions.map(({ x, z }) => ({ x, z })));
-            } catch (error) {
-                // A rejected batch may have removed any subset; retry every owner before reloading it.
-                for (const position of positions) this.loaded.delete(this.key(position));
-                throw error;
-            }
-            for (const position of positions) {
-                this.owned.delete(this.key(position));
-                this.loaded.delete(this.key(position));
-            }
-            return;
+        try {
+            await this.world.unloadChunkColumns(positions.map(({ x, z }) => ({ x, z })));
+        } catch (error) {
+            // A rejected batch may have removed any subset; retry every owner before reloading it.
+            for (const position of positions) this.loaded.delete(this.key(position));
+            throw error;
         }
-        let failed = false, failure: unknown;
         for (const position of positions) {
-            try { await this.unload(position); } catch (error) {
-                if (!failed) failure = error;
-                failed = true;
-            }
+            this.owned.delete(this.key(position));
+            this.loaded.delete(this.key(position));
         }
-        if (failed) throw failure;
     }
 
     private validateChunk(chunk: AnvilChunk, position: ChunkPosition): void {

@@ -31,7 +31,6 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
     public readonly scene: MineRenderScene;
 
     private readonly _chunks: Map<string, Chunk<SectionMeshing>> = new Map();
-    private readonly pendingUnloads = new Set<Chunk<SectionMeshing>>();
     private readonly biomes = new Map<string, Map<number, readonly string[]>>();
     private readonly light = new Map<string, Map<number, SectionLightData>>();
     private readonly lightValidity = new Map<string, boolean>();
@@ -474,7 +473,6 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
     /**
      * Removes chunk columns together and refreshes surviving neighbors once.
      * Coordinates are absolute chunk columns. Duplicate and missing columns are ignored.
-     * Every removal is attempted after validation; failed section clears remain owned for retry.
      */
     public async unloadChunkColumns(positions: readonly { x: number; z: number }[]): Promise<void> {
         const columns = new Map<string, { x: number; z: number }>();
@@ -487,31 +485,21 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         }
         if (!columns.size) return;
         await this.culling;
-        let failed = false, failure: unknown;
-        const recordFailure = (error: unknown) => {
-            if (!failed) failure = error;
-            failed = true;
-        };
         let sliceStart = performance.now();
         try {
             for (const { x, z } of columns.values()) {
-                try { this.entities?.clearColumn(x, z); } catch (error) { recordFailure(error); }
-                try { await this.clearChunkColumn(x, z); } catch (error) { recordFailure(error); }
+                this.entities?.clearColumn(x, z);
+                await this.clearChunkColumn(x, z);
                 if (performance.now() - sliceStart > 8) {
                     await yieldToEventLoop();
                     sliceStart = performance.now();
                 }
             }
-        } catch (error) {
-            recordFailure(error);
         } finally {
-            try {
-                const failures = await this.refreshBiomes(true);
-                if (failures.size) console.warn("Failed to refresh biome colors", failures.values().next().value);
-            } catch (error) { recordFailure(error); }
-            try { await this.updateCulling([]); } catch (error) { recordFailure(error); }
+            const failures = await this.refreshBiomes(true);
+            if (failures.size) console.warn("Failed to refresh biome colors", failures.values().next().value);
+            await this.updateCulling([]);
         }
-        if (failed) throw failure;
     }
 
     private async clearChunkColumn(x: number, z: number): Promise<void> {
@@ -523,26 +511,14 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         this.light.delete(`${x}_${z}`);
         this.lightValidity.delete(`${x}_${z}`);
         this.highestSkySection.delete(`${x}_${z}`);
-        const previous = new Set([...this._chunks.values(), ...this.pendingUnloads].filter(section => section.x === x && section.z === z));
-        let failed = false, failure: unknown;
-        for (const section of previous) {
-            const key = `${section.x}_${section.y}_${section.z}`;
-            if (this._chunks.get(key) === section) this._chunks.delete(key);
+        const previous = [...this._chunks.entries()].filter(([, section]) => section.x === x && section.z === z);
+        for (const [key, section] of previous) {
+            this._chunks.delete(key);
             this.pendingCulling.delete(section);
             this.pendingBiomes.delete(section);
-            try {
-                await section.clear(false);
-                this.pendingUnloads.delete(section);
-            } catch (error) {
-                // Keep failed clears reachable without making removed block data visible again.
-                this.pendingUnloads.add(section);
-                if (!failed) failure = error;
-                failed = true;
-            } finally {
-                this.markSectionChanged(section);
-            }
+            await section.clear(false);
+            this.markSectionChanged(section);
         }
-        if (failed) throw failure;
     }
 
     private markSectionChanged(chunk: { x: number; y: number; z: number }): void {
@@ -573,7 +549,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
     public async clear(): Promise<void> {
         this.entities?.clear();
         await this.culling;
-        const chunks = new Set([...this._chunks.values(), ...this.pendingUnloads]);
+        const chunks = [...this._chunks.values()];
         this._chunks.clear();
         this.biomes.clear();
         this.biomeBlend?.clear();
@@ -581,18 +557,9 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         this.light.clear();
         this.lightValidity.clear();
         this.highestSkySection.clear();
-        let failed = false, failure: unknown;
         for (const chunk of chunks) {
-            try {
-                await chunk.dispose();
-                this.pendingUnloads.delete(chunk);
-            } catch (error) {
-                this.pendingUnloads.add(chunk);
-                if (!failed) failure = error;
-                failed = true;
-            }
+            await chunk.dispose();
         }
-        if (failed) throw failure;
         this.sectionModels?.clear();
     }
 
@@ -628,52 +595,66 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
             try {
                 const culling = await loadBlockCulling();
                 while (this.pendingCulling.size) {
-                    const batch = [...this.pendingCulling];
+                    const batch = new Map(this.pendingCulling);
                     this.pendingCulling.clear();
-                    for (const [chunk, indices] of batch) {
-                        const neighbors = CUBE_FACE_OFFSETS.map(([x, y, z]) =>
-                            this._chunks.get(`${chunk.x + x}_${chunk.y + y}_${chunk.z + z}`));
-                        const neighborAt = (x: number, y: number, z: number): [Maybe<Chunk<SectionMeshing>>, number] => {
-                            const lx = x - chunk.x * 16, ly = y - chunk.y * 16, lz = z - chunk.z * 16;
-                            const section = neighbors[lx >= 16 ? 0 : lx < 0 ? 1 : ly >= 16 ? 2 : ly < 0 ? 3 : lz >= 16 ? 4 : 5];
-                            return [section, (ly & 15) * 256 + (lz & 15) * 16 + (lx & 15)];
-                        };
-                        const masks = chunk.updateCullMasks(indices === "all" ? undefined : indices, (x, y, z) => {
-                            const [section, i] = neighborAt(x, y, z);
-                            return section?.isOccludingIndex(i) ?? false;
-                        }, culling, (x, y, z) => {
-                            const [section, i] = neighborAt(x, y, z);
-                            return section?.visibleBlockIndex(i);
-                        });
-                        const fluidIndices = indices === "all" ? (function* () {
-                            for (let index = 0; index < 4096; index++) yield index;
-                        })() : indices;
-                        for (const index of fluidIndices) {
-                            if (!chunk.fluidByteIndex(index) || !chunk.isBlockVisibleIndex(index)) continue;
-                            const lx = index % 16, ly = Math.floor(index / 256), lz = Math.floor(index / 16) % 16;
-                            const wx = chunk.x * 16 + lx, wy = chunk.y * 16 + ly, wz = chunk.z * 16 + lz;
-                            const block = chunk.getBlockAt(neighbor.set(wx, wy, wz))!;
-                            if (block.object?.fluidKind) {
-                                await block.object.updateFluid((x, y, z) => {
-                                    const nx = lx + x, ny = ly + y, nz = lz + z;
-                                    const section = nx >= 0 && nx < 16 && ny >= 0 && ny < 16 && nz >= 0 && nz < 16 ? chunk
-                                        : this._chunks.get(`${chunk.x + Math.floor(nx / 16)}_${chunk.y + Math.floor(ny / 16)}_${chunk.z + Math.floor(nz / 16)}`);
-                                    const neighborIndex = (ny & 15) * 256 + (nz & 15) * 16 + (nx & 15);
-                                    const byte = section?.fluidByteIndex(neighborIndex) ?? 0;
-                                    return { fluid: fluidKindOf(byte), level: byte & 15,
-                                        solid: section?.isOccludingIndex(neighborIndex) ?? false };
-                                });
+                    try {
+                        for (const [chunk, indices] of batch) {
+                            const neighbors = CUBE_FACE_OFFSETS.map(([x, y, z]) =>
+                                this._chunks.get(`${chunk.x + x}_${chunk.y + y}_${chunk.z + z}`));
+                            const neighborAt = (x: number, y: number, z: number): [Maybe<Chunk<SectionMeshing>>, number] => {
+                                const lx = x - chunk.x * 16, ly = y - chunk.y * 16, lz = z - chunk.z * 16;
+                                const section = neighbors[lx >= 16 ? 0 : lx < 0 ? 1 : ly >= 16 ? 2 : ly < 0 ? 3 : lz >= 16 ? 4 : 5];
+                                return [section, (ly & 15) * 256 + (lz & 15) * 16 + (lx & 15)];
+                            };
+                            const masks = chunk.updateCullMasks(indices === "all" ? undefined : indices, (x, y, z) => {
+                                const [section, i] = neighborAt(x, y, z);
+                                return section?.isOccludingIndex(i) ?? false;
+                            }, culling, (x, y, z) => {
+                                const [section, i] = neighborAt(x, y, z);
+                                return section?.visibleBlockIndex(i);
+                            });
+                            const fluidIndices = indices === "all" ? (function* () {
+                                for (let index = 0; index < 4096; index++) yield index;
+                            })() : indices;
+                            for (const index of fluidIndices) {
+                                if (!chunk.fluidByteIndex(index) || !chunk.isBlockVisibleIndex(index)) continue;
+                                const lx = index % 16, ly = Math.floor(index / 256), lz = Math.floor(index / 16) % 16;
+                                const wx = chunk.x * 16 + lx, wy = chunk.y * 16 + ly, wz = chunk.z * 16 + lz;
+                                const block = chunk.getBlockAt(neighbor.set(wx, wy, wz))!;
+                                if (block.object?.fluidKind) {
+                                    await block.object.updateFluid((x, y, z) => {
+                                        const nx = lx + x, ny = ly + y, nz = lz + z;
+                                        const section = nx >= 0 && nx < 16 && ny >= 0 && ny < 16 && nz >= 0 && nz < 16 ? chunk
+                                            : this._chunks.get(`${chunk.x + Math.floor(nx / 16)}_${chunk.y + Math.floor(ny / 16)}_${chunk.z + Math.floor(nz / 16)}`);
+                                        const neighborIndex = (ny & 15) * 256 + (nz & 15) * 16 + (nx & 15);
+                                        const byte = section?.fluidByteIndex(neighborIndex) ?? 0;
+                                        return { fluid: fluidKindOf(byte), level: byte & 15,
+                                            solid: section?.isOccludingIndex(neighborIndex) ?? false };
+                                    });
+                                }
+                            }
+                            for (const [index, mask] of masks) await chunk.setCullMaskIndex(index, mask);
+                            await chunk.refreshLight(indices === "all" ? undefined : indices);
+                            chunk.refreshAmbientOcclusion(this._ambientOcclusion);
+                            if ((this._ambientOcclusion || this.ambientOcclusionPending) && performance.now() - sliceStart > 8) {
+                                await yieldToEventLoop();
+                                sliceStart = performance.now();
                             }
                         }
-                        for (const [index, mask] of masks) await chunk.setCullMaskIndex(index, mask);
-                        await chunk.refreshLight(indices === "all" ? undefined : indices);
-                        chunk.refreshAmbientOcclusion(this._ambientOcclusion);
-                        if ((this._ambientOcclusion || this.ambientOcclusionPending) && performance.now() - sliceStart > 8) {
-                            await yieldToEventLoop();
-                            sliceStart = performance.now();
+                        const builds = await Promise.allSettled([...batch.keys()].map(async chunk => {
+                            await chunk.rebuildSectionMesh();
+                            batch.delete(chunk);
+                        }));
+                        const failure = builds.find(result => result.status === "rejected");
+                        if (failure?.status === "rejected") throw failure.reason;
+                    } catch (error) {
+                        for (const [chunk, indices] of batch) {
+                            const pending = this.pendingCulling.get(chunk);
+                            this.pendingCulling.set(chunk, indices === "all" || pending === "all" ? "all"
+                                : new Set([...indices, ...pending ?? []]));
                         }
+                        throw error;
                     }
-                    await Promise.all(batch.map(([chunk]) => chunk.rebuildSectionMesh()));
                 }
             } finally {
                 this.culling = undefined;

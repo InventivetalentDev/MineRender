@@ -1601,6 +1601,42 @@ test.serial("bulk unloading skips meshes in removed columns and rebuilds a survi
     t.is(scene.children.filter(child => child instanceof SectionMesh).length, 0);
 });
 
+test.serial("bulk unloading retries a failed surviving neighbor rebuild on the next unload", async t => {
+    const { world, place } = fixture(t, { sectionMeshing: true });
+    for (const x of [15, 16, 31, 32]) await place([x, 0, 0]);
+    const survivor = world.getChunkAt(new Vector3(32, 0, 0))!;
+    const geometry = () => survivor["sectionMesh"]!.children.map(child => {
+        const geometry = (child as Mesh).geometry;
+        return {
+            indices: Array.from(geometry.index!.array),
+            positions: Array.from(geometry.getAttribute("position").array),
+            normals: Array.from(geometry.getAttribute("normal").array),
+            colors: Array.from(geometry.getAttribute("color").array)
+        };
+    });
+    const columns = [{ x: 0, z: 0 }, { x: 1, z: 0 }];
+    await world.unloadChunkColumns(columns);
+    const expected = geometry();
+    for (const x of [15, 16, 31]) await place([x, 0, 0]);
+    const previous = geometry();
+    t.notDeepEqual(previous, expected);
+    const build = SectionMesh.buildAsync, failure = new Error("neighbor rebuild failed");
+    let builds = 0;
+    SectionMesh.buildAsync = async function (...args) {
+        if (++builds === 1) throw failure;
+        return build.apply(this, args);
+    };
+    t.teardown(() => { SectionMesh.buildAsync = build; });
+    await t.throwsAsync(world.unloadChunkColumns(columns), { is: failure });
+    t.is(builds, 1);
+    t.deepEqual(geometry(), previous);
+    t.is(world.getBlockAt(15, 0, 0), undefined);
+    t.is(world.getBlockAt(16, 0, 0), undefined);
+    await world.unloadChunkColumns(columns);
+    t.is(builds, 2);
+    t.deepEqual(geometry(), expected);
+});
+
 test.serial("bulk unloading restores surviving fluid surfaces, saved lighting, and ambient occlusion in one rebuild", async t => {
     const { world, scene } = fixture(t, { sectionMeshing: true, savedLighting: true, ambientOcclusion: true });
     const data = new ChunkData();
@@ -1639,36 +1675,6 @@ test.serial("bulk unloading restores surviving fluid surfaces, saved lighting, a
     t.is(world.getLightAt(16, 0, 12), undefined);
     t.is(world.getLightAt(16, 0, 16), undefined);
     t.is(world.getBlockAt(15, 0, 15), survivor);
-});
-
-for (const cleanup of ["column retry", "world clear"]) test.serial(`bulk unloading retains failed geometry for ${cleanup} and attempts every later section`, async t => {
-    const { world, scene, place } = fixture(t, { sectionMeshing: true });
-    for (const position of [[0, 0, 0], [0, 16, 0], [16, 0, 0]] as TripleArray[]) await place(position);
-    const failed = world.getChunkAt(new Vector3())!, failedMesh = failed["sectionMesh"]!;
-    const clear = failed.clear, failure = new Error("section clear failed");
-    let disposals = 0;
-    (failedMesh.children[0] as Mesh).geometry.addEventListener("dispose", () => { disposals++; });
-    let reject = true;
-    failed.clear = async function (...args) {
-        if (reject) throw failure;
-        return clear.apply(this, args);
-    };
-    t.teardown(() => { failed.clear = clear; });
-    await t.throwsAsync(world.unloadChunkColumns([{ x: 0, z: 0 }, { x: 1, z: 0 }]), { is: failure });
-    t.is(world.getChunkAt(new Vector3()), undefined);
-    t.is(world.getBlockAt(0, 0, 0), undefined);
-    t.is(world.getBlockAt(0, 16, 0), undefined);
-    t.is(world.getBlockAt(16, 0, 0), undefined);
-    t.is(failedMesh.parent, scene);
-    t.is(disposals, 0);
-    reject = false;
-    if (cleanup === "world clear") await world.clear();
-    else await world.unloadChunkColumns([{ x: 0, z: 0 }, { x: 1, z: 0 }]);
-    t.is(world.getBlockAt(0, 0, 0), undefined);
-    t.is(failedMesh.parent, null);
-    t.is(failedMesh.children.length, 0);
-    t.is(disposals, 1);
-    t.is(scene.children.filter(child => child instanceof SectionMesh).length, 0);
 });
 
 test.serial("standalone edits finish culling while another bulk placement is waiting for an asset", async t => {
@@ -2133,22 +2139,28 @@ function biomeBlendFixture(t: ExecutionContext, radius = 0, options: MineRenderW
 
 test.serial("bulk unloading refreshes biome colors in each surviving section with one rebuild", async t => {
     const { world, colorAt } = biomeBlendFixture(t, 1);
-    const data = new ChunkData();
-    data.set(15 + 8 * 16, { type: "oak_leaves" });
     for (const z of [0, 1]) {
+        const data = new ChunkData();
+        data.set(15 + (z === 0 ? 15 : 0) * 16, { type: "oak_leaves" });
         await world.placeChunk({ x: 0, z, sections: [{ y: 0, data, biomes: Array(64).fill("test:red") }] });
-        await world.placeChunk({ x: 1, z, sections: [{ y: 0, data: new ChunkData(), biomes: Array(64).fill("test:blue") }] });
+        const neighbor = new ChunkData();
+        neighbor.set((z === 0 ? 15 : 0) * 16, { type: "test:cube" });
+        await world.placeChunk({ x: 1, z, sections: [{ y: 0, data: neighbor, biomes: Array(64).fill("test:blue") }] });
     }
-    t.is(colorAt([15, 0, 8]), 0xaa0055);
-    t.is(colorAt([15, 0, 24]), 0xaa0055);
+    t.is(colorAt([15, 0, 15]), 0xaa0055);
+    t.is(colorAt([15, 0, 16]), 0xaa0055);
     const build = SectionMesh.buildAsync;
-    let builds = 0;
-    SectionMesh.buildAsync = async function (...args) { builds++; return build.apply(this, args); };
+    const builds = new Map<number, number>();
+    SectionMesh.buildAsync = async function (...args) {
+        const key = args[0][0].index;
+        builds.set(key, (builds.get(key) ?? 0) + 1);
+        return build.apply(this, args);
+    };
     t.teardown(() => { SectionMesh.buildAsync = build; });
     await world.unloadChunkColumns([{ x: 1, z: 0 }, { x: 1, z: 1 }]);
-    t.is(builds, 2);
-    t.is(colorAt([15, 0, 8]), 0xff0000);
-    t.is(colorAt([15, 0, 24]), 0xff0000);
+    t.deepEqual([...builds].sort((a, b) => a[0] - b[0]), [[15, 1], [255, 1]]);
+    t.is(colorAt([15, 0, 15]), 0xff0000);
+    t.is(colorAt([15, 0, 16]), 0xff0000);
     t.is(world.getBiomeAt(16, 0, 8), undefined);
     t.is(world.getBiomeAt(16, 0, 24), undefined);
 });
