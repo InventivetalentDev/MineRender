@@ -9,13 +9,13 @@ import { DEFAULT_NAMESPACE, DEFAULT_ROOT } from "./AssetDefaults";
 import { ListAsset } from "../ListAsset";
 import { AssetKey } from "./AssetKey";
 import { NBTAsset, NBTHelper } from "../nbt/NBTHelper";
-import { prefix } from "../util/log";
+import { logger } from "../util/log";
 import { AssetSource } from "./source/AssetSource";
 import { AssetParser } from "./source/parser/AssetParsers";
 import { HostedAssetSource } from "./source";
 import { Caching } from "../cache/Caching";
 
-const p = prefix("AssetLoader");
+const log = logger("AssetLoader");
 
 
 /** Loads assets from a shared, ordered registry of hosted sources and resource packs. */
@@ -87,12 +87,12 @@ export class AssetLoader {
         if (override) {
             const existing = this.removeSource(key);
             if (existing) {
-                console.log(p, "Removed existing AssetSource", key);
+                log.info("Removed existing AssetSource", key);
             }
         }
 
         this._SOURCES.unshift({key, source});
-        console.log(p, "Added AssetSource", key);
+        log.info("Added AssetSource", key);
     }
 
     /** Removes and returns the first source with this name. Call {@link Caching.clear} to reload assets. */

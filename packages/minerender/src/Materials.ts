@@ -5,6 +5,9 @@ import { TextureLoader } from "./texture/TextureLoader";
 import { Caching } from "./cache/Caching";
 import { AssetKey } from "./assets/AssetKey";
 import type { EntityRenderMode } from "./entity/EntityModel";
+import { logger } from "./util/log";
+
+const log = logger("Materials");
 
 /** Creates Minecraft model, entity, and GUI materials, with shared caches for image materials. */
 export class Materials {
@@ -296,7 +299,7 @@ export class Materials {
             Object.assign(material.defaultAttributeValues, { shade: [1], uvBounds: [0, 0, 1, 1] });
             return material;
         } catch (e) {
-            console.warn(e)
+            log.warn(e)
         }
 
         // fallback

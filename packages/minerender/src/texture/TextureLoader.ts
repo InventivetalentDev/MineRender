@@ -5,6 +5,9 @@ import { ImageLoader } from "../image/ImageLoader";
 import { createCanvas } from "../canvas/CanvasCompat";
 import type { CanvasRenderingContext2D } from "canvas";
 import { Textures } from "./Textures";
+import { logger } from "../util/log";
+
+const log = logger("TextureLoader");
 
 /** Creates sRGB textures immediately and fills their pixels after asynchronous image loading. */
 export class TextureLoader {
@@ -27,7 +30,7 @@ export class TextureLoader {
             texture.needsUpdate = true;
         }, error => {
             this.failedTextures.add(texture);
-            console.warn("Failed to load texture", src, error);
+            log.warn("Failed to load texture", src, error);
         });
         texture.image = image;
         texture.format = format;
@@ -45,7 +48,7 @@ export class TextureLoader {
             texture.needsUpdate = true;
         }).catch(error => {
             this.failedTextures.add(texture);
-            console.warn("Failed to load texture", src, error);
+            log.warn("Failed to load texture", src, error);
         });
         texture.format = format;
         texture.rotation = rotation;

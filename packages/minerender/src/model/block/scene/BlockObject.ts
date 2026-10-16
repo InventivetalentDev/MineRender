@@ -21,6 +21,9 @@ import { Entities } from "../../../assets/Entities";
 import type { EntityObject } from "../../../entity/scene/EntityObject";
 import { Biomes } from "../../../assets/Biomes";
 import type { TripleArray } from "../../Model";
+import { logger } from "../../../util/log";
+
+const log = logger("BlockObject");
 
 /** Controls the model parts selected by a blockstate. Create it through {@link MineRenderScene.addBlock}. */
 export class BlockObject extends SceneObject {
@@ -155,7 +158,7 @@ export class BlockObject extends SceneObject {
                 created.push(await this.scene.addEntity(entity, { wireframe: this.options.wireframe }) as EntityObject);
             }
         } catch (error) {
-            console.warn(`Could not draw block entity ${key.toNamespacedString()}, using its block model`, error);
+            log.warn(`Could not draw block entity ${key.toNamespacedString()}, using its block model`, error);
             this.removeEntities(created);
             return false;
         }

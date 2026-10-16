@@ -1,3 +1,4 @@
+import { Logging } from "../src/util/log";
 import { installMineRenderDataFixtures, mineRenderDataFixtures } from "./helpers/minerender-data";
 import test, { ExecutionContext } from "ava";
 import { Color, Mesh, MeshBasicMaterial, Raycaster, Vector3 } from "three";
@@ -2295,9 +2296,9 @@ test.serial("failed neighbor biomes do not reject column operations or distant b
     t.is(colorAt([15, 0, 8]), 0xff0000);
     // A failing center stays queued while unrelated operations complete.
     await t.throwsAsync(world.getChunkAt(new Vector3())!.setBiomes(Array(64).fill("test:bad")), { is: failure });
-    const warnings: unknown[][] = [], warn = console.warn;
-    console.warn = (...args) => { warnings.push(args); };
-    t.teardown(() => { console.warn = warn; });
+    const warnings: unknown[][] = [];
+    Logging.setHandler((level, namespace, args) => { warnings.push(args); });
+    t.teardown(() => { Logging.setHandler(); });
     await world.placeChunk({ x: 5, z: 5, sections: [{ y: 0, data: neighbor, biomes: Array(64).fill("test:red") }] });
     t.truthy(world.getBlockAt(80, 0, 80));
     await world.unloadChunkColumn(5, 5);

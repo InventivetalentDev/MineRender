@@ -1,3 +1,4 @@
+import { Logging } from "../src/util/log";
 import test from "ava";
 import { TextReader, Uint8ArrayWriter, ZipWriter } from "@zip.js/zip.js";
 import { Env, type EnvProvider } from "../src/Env";
@@ -222,9 +223,9 @@ test.serial("Unihex atlas rollover preserves rendered glyphs and override column
 });
 
 test.serial("missing and malformed Unihex archives warn and can be retried after repair", async t => {
-    const warn = console.warn, warnings: unknown[][] = [];
-    console.warn = (...args) => { warnings.push(args); };
-    t.teardown(() => { console.warn = warn; });
+    const warnings: unknown[][] = [];
+    Logging.setHandler((level, namespace, args) => { warnings.push(args); });
+    t.teardown(() => { Logging.setHandler(); });
     let archive: { data: Uint8Array } | undefined;
     AssetLoader.addSource("test", new StubSource((_key, parser) => parser === AssetParser.BINARY ? archive :
         { providers: [{ type: "unihex", hex_file: "minecraft:font/unifont.zip" }] }));
@@ -366,9 +367,9 @@ test.serial("Unihex before bitmap wins and archive paths are used as written", a
 
 test.serial("failing Unihex providers preserve other glyphs and draw missing-glyph boxes", async t => {
     const archive = await unihexArchive({ "glyphs.hex": hexGlyph("03A9", Array(16).fill("FF")) });
-    const warn = console.warn, warnings: unknown[][] = [];
-    console.warn = (...args) => { warnings.push(args); };
-    t.teardown(() => { console.warn = warn; });
+    const warnings: unknown[][] = [];
+    Logging.setHandler((level, namespace, args) => { warnings.push(args); });
+    t.teardown(() => { Logging.setHandler(); });
     for (const invalidOverride of [false, true]) {
         Caching.clear();
         AssetLoader["_SOURCES"] = [];
