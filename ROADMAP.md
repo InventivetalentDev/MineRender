@@ -2,7 +2,7 @@
 
 Track V1 feature parity and the remaining V2 work here. Commands and architecture are in [AGENTS.md](./AGENTS.md).
 
-Library paths below are relative to `packages/minerender/`; `res/` remains at the repository root.
+Library paths below are relative to `packages/minerender/`.
 
 ## Monorepo imports
 
@@ -12,8 +12,7 @@ Library paths below are relative to `packages/minerender/`; `res/` remains at th
 | MineRender/example-vite | `examples/vite/` | `1c2fc275d8b3dc9f6c8beb0bcf7d5538975b577d` |
 | MineRender/example-bundle | `examples/script-tag/` | `411044c1edf241bff8b919296a72183e53fcf709` |
 
-V1 `master`, tags, bundles, and website URLs must remain available. V2 targets `main`;
-legacy website cleanup is a separate task.
+V1 `master`, tags, bundles, and website URLs must remain available. V2 targets `main`.
 
 ## Feature-parity matrix (V1 → V2)
 
@@ -82,12 +81,12 @@ legacy website cleanup is a separate task.
 Small, high-impact: (1) ~~`Axis.X = "X"` → lowercase (x-rotations silently no-op)~~; (2) ~~await `BlockStates.getDefaultState`~~; (3) ~~texPosition-undefined crash~~; (4) ~~ModelMerger: child `elements` must override, not concat~~; (5) ~~remove the 150ms rotation workaround and preserve multipart rotations during placement~~; (6) ~~multipart AND/OR + `apply` arrays + weighted variants~~; (7) ~~`AssetKey.parse` extension fallback + broken `isAssetKey`~~. Then ~~tintindex with explicit colors~~, ~~automatic block preview colors~~, ~~uvlock~~, ~~display transforms~~.
 
 ### 8. Skins and capes — medium
-~~Correct slim arm/sleeve UVs and preserve named parts, poses, visibility, and shared resources when switching classic/slim.~~ ~~Add 64×32 legacy layout and slim/legacy auto-detection.~~ ~~Match vanilla base opacity, overlay blending, dimensions, UVs, and joint pivots.~~ Consider sharing geometry construction with `EntityObject`; the unused `src/skin/playerModels.json` needs conversion from the legacy schema before reuse. ~~Add vanilla cape meshes wired to the existing `Skins.ts` resolvers.~~ ~~Add OptiFine/LabyMod layouts and capes.dev lookup.~~ Animated capes remain.
+~~Correct slim arm/sleeve UVs and preserve named parts, poses, visibility, and shared resources when switching classic/slim.~~ ~~Add 64×32 legacy layout and slim/legacy auto-detection.~~ ~~Match vanilla base opacity, overlay blending, dimensions, UVs, and joint pivots.~~ Consider sharing geometry construction with `EntityObject`. ~~Add vanilla cape meshes wired to the existing `Skins.ts` resolvers.~~ ~~Add OptiFine/LabyMod layouts and capes.dev lookup.~~ Animated capes remain.
 
 ### 9. Entity rendering completion — high
 ~~Recurse `ModelPart.children`.~~ ~~Implement `mirror`.~~ ~~Verify the face UVs and pivot translation.~~ ~~Compose selected entity layers with separate textures and named groups (e.g. sheep body and wool).~~ ~~Support dataset render passes, emissive and scrolling materials, tint overrides, and renderer-specific root transforms.~~ ~~Render supported block entities during block placement.~~
 
-Default textures and root transforms come from the versioned entity dataset; callers can override textures and select conditional passes. `flip: false` explicitly keeps raw model space rather than applying the dataset transform. The old `res/tools` intermediary-name remapping task is superseded by the `minecraft-entity-models` dataset integration.
+Default textures and root transforms come from the versioned entity dataset; callers can override textures and select conditional passes. `flip: false` explicitly keeps raw model space rather than applying the dataset transform.
 
 ~~Play native and sampled procedural clips with synchronized, layer-specific playback.~~ ~~Blend clips within a layer with explicit weights and update weights without restarting playback.~~ Runtime gameplay state selection, visibility changes, and animated renderer transforms remain.
 
@@ -127,4 +126,4 @@ Immediate fixes: ~~fix `getChunkAt` to use `Map.get(key)`~~; ~~remove the 4×4×
 
 ~~Build the V2 website with live examples.~~ ~~Rework the demos into configurable playgrounds.~~ ~~Add portable scene documents and a browser scene editor.~~ ~~Add TypeDoc/VitePress reference tooling and library API JSDoc.~~ ~~Host the playgrounds and editor on Cloudflare.~~ ~~Add browser video export with recording controls.~~
 
-~~Add scene-driven iframe embeds with shorthand URLs, portable scene links, and editor copy support.~~ Deploy the embed Worker at its configured V2 routes. Remove unused V1 website files from the V2 tree while preserving V1 delivery URLs. Extend existing regression coverage as remaining model and blockstate features land; keep the consumer API contract in AGENTS.md as the beta compatibility baseline.
+~~Add scene-driven iframe embeds with shorthand URLs, portable scene links, and editor copy support.~~ Deploy the embed Worker at its configured V2 routes. ~~Remove unused V1 website files from the V2 tree while preserving V1 delivery URLs.~~ Extend existing regression coverage as remaining model and blockstate features land; keep the consumer API contract in AGENTS.md as the beta compatibility baseline.
