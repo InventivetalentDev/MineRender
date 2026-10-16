@@ -82,14 +82,14 @@ export function applyElementRotation(rotation: ElementRotation, geometry: Buffer
     //     }
     // }
     if (rotation.rescale) {
-        //TODO: y height seems a bit too tall (1 pixel)
-        if (Math.abs(rotation.angle) === 22.5) {
-            const s = 1.0 / Math.cos(0.39269909262657166);
-            geometry.scale(s, 1, s);
-        }else {
-            const s = 1.0 / Math.cos(0.7853981852531433);
-            geometry.scale(s, 1, s);
-        }
+        // As in vanilla 1.21.6+, the element keeps its unrotated size along the nearest grid axis.
+        const angle = toRadians(rotation.angle);
+        const s = 1 / Math.max(Math.abs(Math.cos(angle)), Math.abs(Math.sin(angle)));
+        geometry.scale(
+            rotation.axis === Axis.X ? 1 : s,
+            rotation.axis === Axis.Y ? 1 : s,
+            rotation.axis === Axis.Z ? 1 : s
+        );
     }
 
     // add back origin
