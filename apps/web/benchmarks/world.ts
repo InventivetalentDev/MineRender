@@ -2,6 +2,7 @@ import {
     AnvilParser, AnvilWorldSource, AssetLoader, Env, MineRenderWorld, Renderer,
     SectionMesh, SectionWorker, WorldStreamer
 } from "minerender";
+import { installPlacementProfiler } from "./placement-profile";
 
 export interface WorldBenchmarkConfig {
     version: string;
@@ -15,6 +16,7 @@ export interface WorldBenchmarkConfig {
     biomeBlendRadius: number;
     renderEntities: boolean;
     maxCachedRegions: number;
+    profilePlacement: boolean;
 }
 
 const CAMERA_HEIGHT = 160;
@@ -114,6 +116,7 @@ async function runWorldBenchmark(config: WorldBenchmarkConfig) {
     const operations: Operation[] = [];
     const observedDataVersions = new Set<number>();
     let context: Pick<Operation, "pass" | "phase" | "waypoint"> = { pass: "cold", phase: "outbound", waypoint: null };
+    const placementProfile = config.profilePlacement ? installPlacementProfiler(started, () => context) : undefined;
     let frames: ReturnType<typeof frameSampler> | undefined;
     const worker = { created: 0, buildRequests: 0, buildReplies: 0, buildFailures: 0, synchronousBuilds: 0 };
     const workerStats = () => ({ ...worker, fallbackBuilds: worker.buildFailures + worker.synchronousBuilds });
@@ -316,7 +319,8 @@ async function runWorldBenchmark(config: WorldBenchmarkConfig) {
             runs.push({ pass, cacheStatus: `fresh source; ${pass === "cold" ? "cold" : "warm"} assets`, waypoints, cleanupMs, heapBytesAfterCleanupGc });
         }
         status.textContent = "Benchmark complete";
-        return { settings, environment, observedDataVersions: [...observedDataVersions].sort((a, b) => a - b), runs, operations, worker: workerStats() };
+        return { settings, environment, observedDataVersions: [...observedDataVersions].sort((a, b) => a - b), runs, operations,
+            worker: workerStats(), placementProfile: placementProfile?.report() };
     } catch (error) {
         status.textContent = `Benchmark failed: ${errorMessage(error)}`;
         throw error;
@@ -332,6 +336,7 @@ async function runWorldBenchmark(config: WorldBenchmarkConfig) {
             SectionWorker.prototype.build = original.buildWorker;
             if (createWorkerDescriptor) Object.defineProperty(provider, "createWorker", createWorkerDescriptor);
             else delete provider.createWorker;
+            placementProfile?.restore();
             running = false;
         }
     }
