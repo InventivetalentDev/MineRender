@@ -89,6 +89,10 @@ async function visit(url, name) {
             if (!await page.$("#viewport canvas")) {
                 problems.add("Editor canvas missing");
             }
+        } else if (await page.$("#camera-angle")) {
+            const result = await page.evaluate(() => window.transparencyTest);
+            status = await page.$eval("#summary", element => element.textContent ?? "");
+            if (result?.error) problems.add(result.error);
         } else {
             await new Promise(resolve => setTimeout(resolve, 3000));
             status = (await page.evaluate(() => document.body.innerText)).split("\n").find(line => /PASS|FAIL/.test(line)) ?? "(no status)";
