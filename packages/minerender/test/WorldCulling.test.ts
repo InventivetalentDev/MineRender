@@ -1406,6 +1406,107 @@ test.serial("chunk column placement culls across sections and empty replacement 
     t.is(scene.stats.instanceCount, 1);
 });
 
+test.serial("column batches match sequential meshes across signed fluid, lighting, AO, and biome boundaries", async t => {
+    const { world, scene, colorAt } = biomeBlendFixture(t, 1, { savedLighting: true, ambientOcclusion: true });
+    const left = new ChunkData(), right = new ChunkData(), north = new ChunkData(), diagonal = new ChunkData();
+    left.set(15 + 12 * 16, { type: "test:cube" });
+    left.set(15 + 8 * 16, { type: "oak_leaves" });
+    left.set(255, { type: "water", properties: { level: "4" } });
+    right.set(12 * 16, { type: "test:cube" });
+    right.set(12 * 16 + 256, { type: "test:cube" });
+    right.set(13 * 16 + 256, { type: "test:cube" });
+    right.set(15 * 16, { type: "water" });
+    north.set(15, { type: "water", properties: { level: "4" } });
+    diagonal.set(0, { type: "water" });
+    const columns = [
+        { x: -1, z: -1, data: left, biome: "test:red", light: 0xaa },
+        { x: 0, z: -1, data: right, biome: "test:blue", light: 0x44 },
+        { x: -1, z: 0, data: north, biome: "test:red", light: 0x77 },
+        { x: 0, z: 0, data: diagonal, biome: "test:blue", light: 0xee }
+    ].map(({ x, z, data, biome, light }) => ({ x, z, lightValid: true, sections: [
+        { y: 0, data, biomes: Array(64).fill(biome), light: { sky: new Uint8Array(2048).fill(light) } }
+    ] }));
+    const meshState = () => scene.children.filter(child => child instanceof SectionMesh).flatMap(section =>
+        section.children.flatMap(child => {
+            const geometry = (child as Mesh).geometry;
+            const attributes = ["position", "normal", "color", "shade"].map(name => geometry.getAttribute(name));
+            return Array.from({ length: geometry.getAttribute("position").count / 4 }, (_, quad) =>
+                JSON.stringify([section.position.toArray(), ...attributes.map(attribute =>
+                    Array.from(attribute.array.slice(quad * 4 * attribute.itemSize, (quad + 1) * 4 * attribute.itemSize)))]));
+        })).sort();
+    let isolatedColor: number | undefined;
+    for (const [index, column] of columns.entries()) {
+        await world.placeChunk(column);
+        if (index === 0) isolatedColor = colorAt([-1, 0, -8]);
+    }
+    const expected = meshState(), corners = topCornerColors(world, [-1, 0, -4]);
+    const fluidPositions: TripleArray[] = [[-1, 0, -1], [0, 0, -1], [-1, 0, 0], [0, 0, 0]];
+    const fluids = fluidPositions.map(position => assertFluidPositions(t, world, scene, [position]));
+    const color = colorAt([-1, 0, -8]);
+    t.not(color, isolatedColor);
+    t.true(new Set(corners).size > 1);
+    t.is(cullMaskAt(world, [-1, 0, -4]), 1);
+    await world.clear();
+    const build = SectionMesh.buildAsync;
+    let builds = 0;
+    SectionMesh.buildAsync = async function (...args) { builds++; return build.apply(this, args); };
+    t.teardown(() => { SectionMesh.buildAsync = build; });
+    await world.placeChunks(columns);
+    t.is(builds, 4);
+    t.deepEqual(meshState(), expected);
+    t.deepEqual(topCornerColors(world, [-1, 0, -4]), corners);
+    t.is(colorAt([-1, 0, -8]), color);
+    t.is(cullMaskAt(world, [-1, 0, -4]), 1);
+    for (const [index, position] of fluidPositions.entries()) {
+        t.deepEqual(assertFluidPositions(t, world, scene, [position]), fluids[index]);
+    }
+    t.deepEqual(world.getLightAt(-1, 0, -4), { block: 0, sky: 10 });
+    t.is(world.getBiomeAt(-1, 0, -8), "test:red");
+    t.is(world.getBiomeAt(0, 0, -8), "test:blue");
+});
+
+for (const failure of [new Error("column asset failed"), undefined]) {
+    test.serial(`column batches flush partial writes before rejecting and leave later columns untouched (${String(failure)})`, async t => {
+        const { world, scene, place } = fixture(t, { sectionMeshing: true });
+        const survivor = await place([15, 0, 0]), untouched = await place([48, 0, 0]);
+        const first = new ChunkData(), broken = new ChunkData(), later = new ChunkData();
+        first.set(0, { type: "test:cube" });
+        broken.set(0, { type: "test:failure" });
+        broken.set(1, { type: "test:cube" });
+        later.set(1, { type: "test:cube" });
+        const get = BlockStates.get, build = SectionMesh.buildAsync;
+        BlockStates.get = async key => { if (key.path === "failure") throw failure; return get(key); };
+        if (failure === undefined) SectionMesh.buildAsync = async () => { throw new Error("later section flush failed"); };
+        t.teardown(() => { BlockStates.get = get; SectionMesh.buildAsync = build; });
+        let rejected = false, caught: unknown;
+        try {
+            await world.placeChunks([
+                { x: 1, z: 0, sections: [{ y: 0, data: first }] },
+                { x: 2, z: 0, sections: [{ y: 0, data: broken }] },
+                { x: 3, z: 0, sections: [{ y: 0, data: later }] }
+            ]);
+        } catch (error) { rejected = true; caught = error; }
+        t.true(rejected);
+        t.is(caught, failure);
+        SectionMesh.buildAsync = build;
+        if (failure === undefined) await world.unloadChunkColumns([{ x: 99, z: 99 }]);
+        t.is(world.getBlockAt(15, 0, 0), survivor);
+        t.is(world.getBlockAt(48, 0, 0), untouched);
+        t.is(world.getBlockAt(49, 0, 0), undefined);
+        t.is(world.getBlockAt(32, 0, 0), undefined);
+        t.is(world.getBlockAt(33, 0, 0)!.block.type, "test:cube");
+        t.is(renderedIndexCountAt(world, [15, 0, 0]), 30);
+        t.is(renderedIndexCountAt(world, [16, 0, 0]), 30);
+        t.is(renderedIndexCountAt(world, [33, 0, 0]), 36);
+        t.is(broken.get(0)!.type, "test:failure");
+        await world.unloadChunkColumns([{ x: 1, z: 0 }, { x: 2, z: 0 }]);
+        t.is(world.getBlockAt(16, 0, 0), undefined);
+        t.is(world.getBlockAt(33, 0, 0), undefined);
+        t.is(renderedIndexCountAt(world, [15, 0, 0]), 36);
+        t.is(scene.children.filter(child => child instanceof SectionMesh).length, 2);
+    });
+}
+
 test.serial("parsed columns match single edits for section geometry and per-block cull masks", async t => {
     const { world, scene, states, place } = fixture(t, { sectionMeshing: true });
     states.set("test:entity", { key: AssetKey.parse("blockstates", "test:entity"),

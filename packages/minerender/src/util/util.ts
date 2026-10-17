@@ -40,10 +40,11 @@ export async function sleep(timeout: number): Promise<void> {
     });
 }
 
-/** Yields to the next macrotask without timer clamping when the platform supports it. */
+/**
+ * Yields to the next macrotask without timer clamping when the platform supports it.
+ * Not `scheduler.yield()`: Chrome runs its continuations ahead of rendering, so chained yields delay frames.
+ */
 export function yieldToEventLoop(): Promise<void> {
-    const scheduler = (globalThis as typeof globalThis & { scheduler?: { yield?: () => Promise<void> } }).scheduler;
-    if (scheduler?.yield) return scheduler.yield();
     return new Promise(resolve => {
         if (typeof MessageChannel !== "undefined") {
             const channel = new MessageChannel();

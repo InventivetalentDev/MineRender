@@ -262,6 +262,14 @@ async function runWorldBenchmark(config: WorldBenchmarkConfig) {
                     try { await world.placeChunk(chunk); }
                     finally { operation = null; }
                 }),
+                placeChunks: chunks => {
+                    const columns = chunks.map(({ x, z }) => ({ x, z }));
+                    return timed("placement", { columnCount: chunks.length, columns }, async () => {
+                        operation = { id: ++nextOperationId, kind: "placement", columns };
+                        try { await world.placeChunks(chunks); }
+                        finally { operation = null; }
+                    });
+                },
                 unloadChunkColumns: columns => timed("unload", {
                     columnCount: columns.length, columns: columns.map(({ x, z }) => ({ x, z }))
                 }, async () => {

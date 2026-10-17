@@ -22,6 +22,7 @@ import { loadBlockCulling } from "./_culling/BlockCulling";
 import { logger } from "../util/log";
 
 const log = logger("MineRenderWorld");
+const YIELD_INTERVAL_MS = 8;
 
 //TODO: maybe make this an Object3D to add children
 /**
@@ -165,7 +166,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                         failures.set(chunk, error);
                         if (this._chunks.get(`${chunk.x}_${chunk.y}_${chunk.z}`) === chunk) this.pendingBiomes.set(chunk, undefined);
                     }
-                    if (performance.now() - sliceStart > 8) {
+                    if (performance.now() - sliceStart > YIELD_INTERVAL_MS) {
                         await yieldToEventLoop();
                         sliceStart = performance.now();
                     }
@@ -366,7 +367,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                     chunk.y * 16 + Math.floor(index / 256), chunk.z * 16 + Math.floor(index / 16) % 16));
                 for (const pos of positions) changes.set(`${pos.x},${pos.y},${pos.z}`, pos);
             }
-            if (performance.now() - sliceStart > 8) {
+            if (performance.now() - sliceStart > YIELD_INTERVAL_MS) {
                 await yieldToEventLoop();
                 sliceStart = performance.now();
             }
@@ -376,6 +377,58 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
 
     /** Replaces a chunk column's blocks, biomes, and saved light and, with `renderEntities`, its supported saved mobs. */
     public async placeChunk(chunk: AnvilChunk, executor?: BatchedExecutor): Promise<void> {
+        return this.placeColumn(chunk, executor);
+    }
+
+    /**
+     * Replaces parsed columns in input order, then refreshes neighboring geometry once.
+     * Duplicate coordinates retain their order. A failed column stops placement; queued refreshes finish before rejection.
+     */
+    public async placeChunks(chunks: readonly AnvilChunk[]): Promise<void> {
+        const columns: AnvilChunk[] = [];
+        for (const chunk of chunks) {
+            const { x, z } = chunk ?? {};
+            if (![x, z].every(Number.isSafeInteger)) {
+                throw new RangeError("Chunk column coordinates must be safe integers");
+            }
+            const sections = Array.from(chunk.sections, section => {
+                const { y } = section ?? {};
+                if (!Number.isSafeInteger(y)) throw new RangeError("Chunk section coordinates must be safe integers");
+                return { ...section, y };
+            });
+            columns.push({ ...chunk, x, z, sections });
+        }
+        if (!columns.length) return;
+        await this.culling;
+        let failed = false, failure: unknown, sliceStart = performance.now();
+        try {
+            for (const column of columns) {
+                await this.placeColumn(column, undefined, true);
+                if (performance.now() - sliceStart > YIELD_INTERVAL_MS) {
+                    await yieldToEventLoop();
+                    sliceStart = performance.now();
+                }
+            }
+        } catch (error) {
+            failed = true;
+            failure = error;
+        } finally {
+            try {
+                const failures = await this.refreshBiomes(true);
+                if (failures.size) log.warn("Failed to refresh biome colors", failures.values().next().value);
+            } catch (error) {
+                if (!failed) { failed = true; failure = error; }
+            }
+            try {
+                await this.updateCulling([]);
+            } catch (error) {
+                if (!failed) { failed = true; failure = error; }
+            }
+        }
+        if (failed) throw failure;
+    }
+
+    private async placeColumn(chunk: AnvilChunk, executor?: BatchedExecutor, deferCulling = false): Promise<void> {
         if (![chunk.x, chunk.z].every(Number.isSafeInteger)) {
             throw new RangeError("Chunk column coordinates must be safe integers");
         }
@@ -438,7 +491,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                     } finally {
                         this.markSectionChanged(target);
                     }
-                    if (performance.now() - sliceStart > 8) {
+                    if (performance.now() - sliceStart > YIELD_INTERVAL_MS) {
                         await yieldToEventLoop();
                         sliceStart = performance.now();
                     }
@@ -459,9 +512,12 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
             await placeEntities?.();
         } finally {
             this.markBiomesChanged(chunk.x, chunk.z, undefined, false);
-            const failures = await this.refreshBiomes();
-            if (failures.size) log.warn("Failed to refresh biome colors", failures.values().next().value);
-            await this.updateCulling([...changes.values()]);
+            if (deferCulling) await this.updateCulling([...changes.values()], true);
+            else {
+                const failures = await this.refreshBiomes();
+                if (failures.size) log.warn("Failed to refresh biome colors", failures.values().next().value);
+                await this.updateCulling([...changes.values()]);
+            }
         }
     }
 
@@ -493,7 +549,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
             for (const { x, z } of columns.values()) {
                 this.entities?.clearColumn(x, z);
                 await this.clearChunkColumn(x, z);
-                if (performance.now() - sliceStart > 8) {
+                if (performance.now() - sliceStart > YIELD_INTERVAL_MS) {
                     await yieldToEventLoop();
                     sliceStart = performance.now();
                 }
@@ -639,15 +695,26 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                             for (const [index, mask] of masks) await chunk.setCullMaskIndex(index, mask);
                             await chunk.refreshLight(indices === "all" ? undefined : indices);
                             chunk.refreshAmbientOcclusion(this._ambientOcclusion);
-                            if ((this._ambientOcclusion || this.ambientOcclusionPending) && performance.now() - sliceStart > 8) {
+                            if (performance.now() - sliceStart > YIELD_INTERVAL_MS) {
                                 await yieldToEventLoop();
                                 sliceStart = performance.now();
                             }
                         }
-                        const builds = await Promise.allSettled([...batch.keys()].map(async chunk => {
-                            await chunk.rebuildSectionMesh();
-                            batch.delete(chunk);
-                        }));
+                        const pending: Promise<void>[] = [];
+                        for (const chunk of [...batch.keys()]) {
+                            const build = (async () => {
+                                await chunk.rebuildSectionMesh();
+                                batch.delete(chunk);
+                            })();
+                            // Handle rejections while dispatch yields; all started builds settle before their results are checked.
+                            void build.catch(() => undefined);
+                            pending.push(build);
+                            if (performance.now() - sliceStart > YIELD_INTERVAL_MS) {
+                                await yieldToEventLoop();
+                                sliceStart = performance.now();
+                            }
+                        }
+                        const builds = await Promise.allSettled(pending);
                         const failure = builds.find(result => result.status === "rejected");
                         if (failure?.status === "rejected") throw failure.reason;
                     } catch (error) {

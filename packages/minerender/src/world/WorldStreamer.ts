@@ -14,6 +14,18 @@ interface ChunkPosition {
     z: number;
 }
 
+interface ChunkRead {
+    position: ChunkPosition;
+    controller: AbortController;
+    promise: Promise<void>;
+    ready: boolean;
+    chunk?: AnvilChunk;
+    failed: boolean;
+    error?: unknown;
+}
+
+const MAX_PREFETCHED_COLUMNS = 4;
+
 /**
  * Loads nearby chunk columns in distance order and unloads distant columns.
  * Updates coalesce to the latest center and serialize world mutations. Use a dedicated world:
@@ -30,12 +42,14 @@ export class WorldStreamer {
     private desired: ChunkPosition[] = [];
     private center?: ChunkPosition;
     private loading?: { position: ChunkPosition; controller: AbortController };
+    private readonly reads = new Map<string, ChunkRead>();
     private running?: Promise<void>;
     private disposal?: Promise<void>;
     private disposed = false;
 
     constructor(
-        private readonly world: Pick<MineRenderWorld<boolean>, "placeChunk" | "unloadChunkColumns">,
+        private readonly world: Pick<MineRenderWorld<boolean>, "placeChunk" | "unloadChunkColumns">
+            & Partial<Pick<MineRenderWorld<boolean>, "placeChunks">>,
         private readonly source: WorldChunkSource,
         options: WorldStreamerOptions = {}
     ) {
@@ -88,6 +102,12 @@ export class WorldStreamer {
             if (this.loading && !this.within(this.loading.position, this.loadRadius)) {
                 this.loading.controller.abort();
             }
+            for (const [key, read] of this.reads) {
+                if (!this.within(read.position, this.loadRadius)) {
+                    read.controller.abort();
+                    if (read.ready) this.reads.delete(key);
+                }
+            }
         }
         return this.running ??= Promise.resolve().then(() => this.drain());
     }
@@ -111,8 +131,11 @@ export class WorldStreamer {
         this.desired = [];
         this.center = undefined;
         this.loading?.controller.abort();
+        for (const read of this.reads.values()) read.controller.abort();
         return this.disposal ??= Promise.resolve().then(async () => {
             await this.running?.catch(() => undefined);
+            await Promise.all([...this.reads.values()].map(read => read.promise));
+            this.reads.clear();
             try {
                 await this.unloadMany([...this.owned.values()]);
             } finally {
@@ -141,6 +164,10 @@ export class WorldStreamer {
                     await this.unloadMany(obsolete);
                     continue;
                 }
+                if (this.world.placeChunks) {
+                    if (await this.placeReadyChunks()) continue;
+                    return;
+                }
                 const position = this.desired.find(position => this.needsLoad(position));
                 if (!position) return;
                 let chunk: AnvilChunk | undefined;
@@ -163,26 +190,105 @@ export class WorldStreamer {
                     continue;
                 }
                 this.owned.set(this.key(position), position);
-                try {
-                    await this.world.placeChunk(chunk);
-                    this.loaded.set(this.key(position), position);
-                } catch (error) {
-                    try {
-                        await this.unloadMany([position]);
-                    } catch (cleanupError) {
-                        const failure = error instanceof Error ? error : new Error(String(error));
-                        try {
-                            Object.defineProperty(failure, "cause", { value: cleanupError, configurable: true });
-                        } catch {
-                            throw Object.assign(new Error(failure.message), { cause: cleanupError });
-                        }
-                        throw failure;
-                    }
-                    throw error;
-                }
+                await this.placeOwnedColumns([position], () => this.world.placeChunk(chunk!));
             }
         } finally {
+            for (const [key, read] of this.reads) {
+                read.controller.abort();
+                if (read.ready) this.reads.delete(key);
+            }
             this.running = undefined;
+        }
+    }
+
+    private fillReadSlots(): void {
+        while (!this.disposed && this.reads.size < MAX_PREFETCHED_COLUMNS) {
+            const position = this.desired.find(position => this.needsLoad(position) && !this.reads.has(this.key(position)));
+            if (!position) return;
+            const key = this.key(position);
+            const read: ChunkRead = {
+                position, controller: new AbortController(), promise: Promise.resolve(), ready: false, failed: false
+            };
+            this.reads.set(key, read);
+            read.promise = (async () => {
+                try {
+                    read.chunk = await this.source.getChunk(position.x, position.z, read.controller.signal);
+                    if (read.chunk) this.validateChunk(read.chunk, position);
+                } catch (error) {
+                    read.failed = true;
+                    read.error = error;
+                } finally {
+                    read.ready = true;
+                    if (read.controller.signal.aborted || this.disposed || !this.within(position, this.loadRadius)) {
+                        this.reads.delete(key);
+                    }
+                }
+            })();
+        }
+    }
+
+    /** Places only the ready prefix, so later source reads cannot delay the nearest ready column. */
+    private async placeReadyChunks(): Promise<boolean> {
+        this.fillReadSlots();
+        const position = this.desired.find(position => this.needsLoad(position));
+        if (!position) {
+            if (!this.reads.size) return false;
+            await Promise.all([...this.reads.values()].map(read => read.promise));
+            return true;
+        }
+        const head = this.reads.get(this.key(position));
+        if (!head) {
+            for (let index = this.desired.length - 1; index >= 0; index--) {
+                const key = this.key(this.desired[index]);
+                if (this.reads.get(key)?.ready) {
+                    this.reads.delete(key);
+                    return true;
+                }
+            }
+            // Aborted reads still occupy slots until their source work settles.
+            await Promise.race([...this.reads.values()].map(read => read.promise));
+            return true;
+        }
+        if (!head.ready) {
+            await head.promise;
+            return true;
+        }
+        const chunks: AnvilChunk[] = [], positions: ChunkPosition[] = [];
+        for (const desired of this.desired) {
+            if (!this.needsLoad(desired)) continue;
+            const key = this.key(desired), read = this.reads.get(key);
+            if (!read?.ready) break;
+            this.reads.delete(key);
+            if (read.failed) this.failed.set(key, { ...desired, error: read.error });
+            else if (!read.chunk) this.missing.set(key, desired);
+            else {
+                chunks.push(read.chunk);
+                positions.push(desired);
+            }
+        }
+        if (!chunks.length) return true;
+        for (const position of positions) this.owned.set(this.key(position), position);
+        await this.placeOwnedColumns(positions, () => this.world.placeChunks!(chunks));
+        return true;
+    }
+
+    private async placeOwnedColumns(positions: readonly ChunkPosition[], place: () => Promise<void>): Promise<void> {
+        try {
+            await place();
+            for (const position of positions) this.loaded.set(this.key(position), position);
+        } catch (error) {
+            try {
+                await this.unloadMany(positions);
+            } catch (cleanupError) {
+                const failure = error instanceof Error ? error : new Error(String(error));
+                try {
+                    Object.defineProperty(failure, "cause", { value: cleanupError, configurable: true });
+                } catch {
+                    throw Object.assign(new Error(failure.message), { cause: cleanupError });
+                }
+                throw failure;
+            }
+            throw error;
         }
     }
 
