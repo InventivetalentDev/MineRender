@@ -1,5 +1,6 @@
 import { Matrix4 } from "three";
 import { AssetKey } from "./AssetKey";
+import { Entities } from "./Entities";
 import { AssetLoader } from "./AssetLoader";
 import { AssetParser } from "./source";
 import { Caching } from "../cache/Caching";
@@ -58,6 +59,7 @@ export class BlockEntities {
         key.rootType = undefined!;
         const index = await Caching.blockEntityIndexCache.get(key.serialize(), async () => {
             try {
+                key.root = await Entities.getDatasetRoot(root);
                 return await AssetLoader.get<BlockEntityIndex>(key, AssetParser.JSON) ?? {};
             } catch (error) {
                 log.warn("Could not load the block entity index; block entities are drawn as plain block models", error);

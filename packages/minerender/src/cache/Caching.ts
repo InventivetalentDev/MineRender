@@ -117,6 +117,7 @@ export class Caching {
 
     static readonly entityAnimationCache: AsyncLoadingCache<CacheKey, EntityAnimationFile> = Caching.createAssetCache<EntityAnimationFile>();
     static readonly blockEntityIndexCache: AsyncLoadingCache<CacheKey, BlockEntityIndex> = Caching.createAssetCache<BlockEntityIndex>();
+    static readonly entityDatasetVersionCache: AsyncLoadingCache<CacheKey, string> = Caching.createAssetCache<string>();
     static readonly unihexCache: AsyncLoadingCache<CacheKey, UnihexFile> = Caching.createAssetCache<UnihexFile>();
     static readonly fontCache: AsyncLoadingCache<CacheKey, BitmapFont> = Caching.createAssetCache<BitmapFont>();
     static readonly bannerPatternCache: AsyncLoadingCache<CacheKey, BannerPattern> = Caching.createAssetCache<BannerPattern>();
@@ -159,6 +160,7 @@ export class Caching {
             this.entityTextureCache,
             this.entityAnimationCache,
             this.blockEntityIndexCache,
+            this.entityDatasetVersionCache,
             this.fontCache,
             this.unihexCache,
             this.bannerPatternCache,
