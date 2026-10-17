@@ -53,7 +53,7 @@ Pass an explicit asset root as the second argument to `MineRenderData.get(datase
 
 The former synchronous data lookups now return promises: `ItemDefaults.get`, `ItemTints.getPotionList`, `getBlockFluidState`, `getFluidKind`, and `resolveLegacyBlock`. For repeated synchronous calculations, load `fluids` or `legacyBlocks` once with `MineRenderData.get` and pass the table to `resolveBlockFluidState` or `resolveLegacyBlockState`. Rendering and parser entry points await their data automatically. `BannerPatterns.getColors(root?)` provides versioned texture dyes; `DYE_COLORS` and `BannerPatterns.getColor` retain the fixed 1.21.11 palette for compatibility and are deprecated.
 
-Entity and block-entity geometry from `entity-models/` use the same version selection when the exact dataset version is missing. This also applies to entity lists, animations, and the block-entity index. An unpublished snapshot keeps its own version and draws block entities with their block models. Textures keep the requested asset version.
+Entity and block-entity geometry from `entity-models/` uses the same version selection when the exact dataset version is missing. This also applies to entity lists, animations, and the block-entity index. An unpublished snapshot keeps its own version and draws block entities with their block models. Textures keep the requested asset version.
 
 ## Redrawing after changes
 

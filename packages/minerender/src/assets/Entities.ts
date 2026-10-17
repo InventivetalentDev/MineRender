@@ -1,7 +1,7 @@
 import { AssetKey, BasicAssetKey, isAssetKey } from "./AssetKey";
 import type { EntityLayer, EntityModel, EntityModelFile, EntityModelPass } from "../entity/EntityModel";
 import type { EntityAnimation, EntityAnimationFile } from "../entity/EntityAnimation";
-import { parseRelease, nearestRelease } from "./DatasetVersions";
+import { parseRelease, nearestRelease } from "./_versions/DatasetVersions";
 import { AssetLoader } from "./AssetLoader";
 import { AssetParser } from "./source";
 import { Maybe } from "../util";
@@ -27,7 +27,7 @@ export class Entities {
         const selected = await Caching.entityDatasetVersionCache.get(root ?? `sources:${AssetLoader.ROOT}`, async () => {
             const key = new AssetKey("entity-models", "version", undefined, undefined, undefined, ".json", root);
             key.rootType = undefined!;
-            if (await AssetLoader.get(key, AssetParser.JSON) !== undefined || !parseRelease(requestedVersion)) return requestedVersion;
+            if (!parseRelease(requestedVersion) || await AssetLoader.get(key, AssetParser.JSON) !== undefined) return requestedVersion;
             const indexKey = new AssetKey("entity-models", "versions", undefined, undefined, undefined, ".json", base);
             indexKey.rootType = undefined!;
             const index = await AssetLoader.get<MinecraftAsset & { versions: { name: string }[] }>(indexKey, AssetParser.JSON);

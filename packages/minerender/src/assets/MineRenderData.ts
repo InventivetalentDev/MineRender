@@ -1,4 +1,4 @@
-import { parseRelease, nearestRelease } from "./DatasetVersions";
+import { parseRelease, nearestRelease } from "./_versions/DatasetVersions";
 import { AssetKey } from "./AssetKey";
 import { AssetLoader } from "./AssetLoader";
 import { AssetParser } from "./source/parser/AssetParsers";

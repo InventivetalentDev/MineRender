@@ -73,12 +73,12 @@ test.serial("the block index is cached per root and read from next to the namesp
     // Versions without an index have no block entities, and are asked only once.
     t.deepEqual(await BlockEntities.getIndex("https://example.test/old"), {});
     t.deepEqual(await BlockEntities.getIndex("https://example.test/old"), {});
-    t.is(keys.length, 4);
-    t.is(hosted.assetBasePath(keys[3]), "https://example.test/old/entity-models/");
+    t.is(keys.length, 3);
+    t.is(hosted.assetBasePath(keys[2]), "https://example.test/old/entity-models/");
 
     AssetLoader.ROOT = "https://example.test/1.21.10";
     await BlockEntities.getIndex();
-    t.is(keys.length, 6);
+    t.is(keys.length, 5);
 });
 
 test.serial("a failed index load yields no block entities instead of an error", async t => {

@@ -130,7 +130,7 @@ test.serial("selected layer texture locations skip probing and explicit textures
     const texture = new AssetKey("custom", "cow/checkered", "textures", "entity", "assets", ".png");
     const explicit = await Entities.getEntity(key, texture, { layer: "saddle" });
     t.is(explicit!.texture, texture);
-    t.deepEqual(keys.slice(1), [key]);
+    t.deepEqual(keys, [key]);
     t.is(decodedImages, 0);
 });
 
@@ -265,7 +265,6 @@ test.serial("version changes fetch entity files and resolved textures from the s
         "https://assets.mcasset.cloud/1.20.1/entity-models/version.json",
         "https://assets.mcasset.cloud/1.20.1/entity-models/minecraft/cow.json",
         "https://assets.mcasset.cloud/1.20.1/assets/minecraft/textures/entity/cow.png",
-        "https://pack.example/custom/entity-models/version.json",
         "https://pack.example/custom/entity-models/minecraft/cow.json",
         "https://pack.example/custom/assets/minecraft/textures/entity/cow.png"
     ]);
