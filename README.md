@@ -2,8 +2,9 @@
 
 A TypeScript library for rendering Minecraft skins, models, blocks, entities, and worlds.
 This monorepo contains the `minerender` package, demo pages, and examples.
-V2 is in beta; see [ROADMAP.md](./ROADMAP.md) for progress and remaining work,
-including headless Node rendering.
+V2 is in beta; see [ROADMAP.md](./ROADMAP.md) for progress and remaining work.
+Live examples: [beta.minerender.org](https://beta.minerender.org/).
+API reference: [beta-docs.minerender.org](https://beta-docs.minerender.org/).
 
 ## Develop locally
 
@@ -22,6 +23,8 @@ Choose a workspace to work on:
 | [packages/minerender](./packages/minerender) | Public library | `yarn build:watch` |
 | [apps/web](./apps/web) | Demo and manual test pages | `yarn dev:web` |
 | [apps/site](./apps/site) | V2 website with live examples and docs | `yarn dev:site` |
+| [apps/embed](./apps/embed) | Scene-driven iframe embed page | `yarn dev:embed` |
+| [apps/api](./apps/api) | HTTP rendering service for scene documents | `yarn build:api && yarn start:api` |
 | [examples/vite](./examples/vite) | Vue/Vite example | `yarn dev:vite` |
 | [examples/script-tag](./examples/script-tag) | Plain HTML example | `yarn dev:script-tag` |
 

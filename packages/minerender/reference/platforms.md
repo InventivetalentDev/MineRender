@@ -34,6 +34,8 @@ import { Renderer } from "minerender";
 
 Rollup, which Vite uses for production builds, keeps every exported class in that chunk when the application uses `await import("minerender")`.
 
+World section meshing starts its Web Worker with `new Worker(new URL("./section.worker.mjs", import.meta.url))`. Bundlers that recognize this pattern emit the worker file with your build; check that a `section.worker` file appears in the output. Without it, and in the CommonJS and script-tag builds, which have no `import.meta.url`, sections build synchronously on the main thread.
+
 ## Platform requirements
 
 The supported environments have these requirements:
@@ -100,7 +102,7 @@ Use the environment that supports the operation:
 | ZIP resource packs | [BrowserArchiveProxy](/api/index/classes/BrowserArchiveProxy) | No Node-specific archive proxy is provided |
 | glTF and GLB export | Supported through [SceneExporter](/api/index/classes/SceneExporter) | Requires browser canvas and `FileReader` |
 | Video export | `Renderer.toVideo()` requires canvas `captureStream()` and `MediaRecorder`; formats depend on the browser | Requires a browser environment |
-| World section meshing | Geometry builds in a Web Worker when the ESM build's `section.worker` file ships beside the module; the IIFE bundle and bundlers that drop it build synchronously | Synchronous |
+| World section meshing | Geometry builds in a Web Worker when the ESM build's `section.worker` file ships beside the module; the CommonJS and IIFE builds and bundlers that drop the file build synchronously | Synchronous |
 
 `Renderer.toImage()` returns a data URL from its browser canvas. `NodeRenderer.renderToBuffer()` returns PNG bytes. DOM controls, displays, and glTF/GLB export remain browser-only; importing the Node build does not supply those browser APIs.
 

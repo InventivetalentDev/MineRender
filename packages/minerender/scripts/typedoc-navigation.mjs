@@ -37,6 +37,11 @@ const sections = [
         description: "Compose ordered texture and item layers in GUI pixel coordinates."
     },
     {
+        id: "scenes", title: "Scene documents", match: /^scene\//,
+        primary: ["SceneDocument", "SceneDocumentLoader", "encodeSceneDocument", "decodeSceneDocument", "SceneItemContext"],
+        description: "Validate, load, and share versioned scene JSON."
+    },
+    {
         id: "assets", title: "Assets & resource packs", match: /^(assets\/(?!ModelTextures\.ts)|MinecraftAsset\.ts|ListAsset\.ts)/,
         primary: ["AssetLoader", "AssetKey", "HostedAssetSource", "ArchiveAssetSource", "BrowserArchiveProxy"],
         description: "Address versioned assets, layer hosted sources and resource packs, and parse loaded data."
@@ -48,9 +53,9 @@ const sections = [
         description: "Work with image decoding, texture atlases, animated textures, and shared materials."
     },
     {
-        id: "platforms", title: "Platforms & lifecycle", match: /^(env\/|Env\.ts|shutdown\.ts|Disposable\.ts|cache\/|request\/)/,
-        primary: ["Env", "EnvProvider", "BrowserEnv", "NodeEnv", "shutdown"],
-        description: "Inspect platform providers, shared caches, request queues, and final shutdown. Browser and Node entry points add their own providers."
+        id: "platforms", title: "Platforms & lifecycle", match: /^(env\/|Env\.ts|shutdown\.ts|Disposable\.ts|cache\/|request\/|util\/log\.ts)/,
+        primary: ["NodeRenderer", "Env", "EnvProvider", "Logging", "shutdown"],
+        description: "Render in Node, inspect platform providers, configure logging, and manage shared caches, request queues, and final shutdown. Browser and Node entry points add their own providers."
     },
     {
         id: "utilities", title: "Utilities & supporting types", match: /.*/,
