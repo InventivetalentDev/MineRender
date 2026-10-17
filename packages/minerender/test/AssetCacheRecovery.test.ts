@@ -26,7 +26,8 @@ for (const fixture of cases) {
         let reject!: (error: Error) => void;
         const pending = new Promise<never>((_, rejectPromise) => { reject = rejectPromise; });
         let calls = 0;
-        AssetLoader.get = (async () => {
+        AssetLoader.get = (async (key: AssetKey) => {
+            if (key.namespace === "entity-models" && key.path === "version") return { id: AssetLoader.version };
             calls++;
             if (calls === 1) return pending;
             return calls === 2 ? undefined : fixture.asset;
@@ -34,6 +35,7 @@ for (const fixture of cases) {
 
         const first = fixture.load();
         const second = fixture.load();
+        await new Promise(resolve => setImmediate(resolve));
         t.is(calls, 1);
         const failures = [t.throwsAsync(first, { is: failure }), t.throwsAsync(second, { is: failure })];
         reject(failure);

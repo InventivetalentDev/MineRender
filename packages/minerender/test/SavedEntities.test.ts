@@ -3,6 +3,7 @@ import { installMineRenderDataFixtures } from "./helpers/minerender-data";
 import test, { ExecutionContext } from "ava";
 import { BoxGeometry, Mesh, MeshBasicMaterial, Object3D, Raycaster, Vector3 } from "three";
 import type { Compound } from "prismarine-nbt";
+import { AssetLoader } from "../src/assets/AssetLoader";
 import { AssetKey } from "../src/assets/AssetKey";
 import { BlockStates } from "../src/assets/BlockStates";
 import { MineRenderData } from "../src/assets/MineRenderData";
@@ -205,6 +206,7 @@ async function appearanceFixture(t: ExecutionContext) {
     Entities.getEntity = getEntity;
     Caching.clear();
     t.teardown(() => Caching.clear());
+    await Caching.entityDatasetVersionCache.get(`sources:${AssetLoader.ROOT}`, async () => AssetLoader.version);
     for (const model of ["sheep", "fox", "axolotl", "parrot"]) {
         const layers = model === "sheep" ? ["main", "wool_undercoat", "wool"] : ["main"];
         const file: EntityModelFile = {
