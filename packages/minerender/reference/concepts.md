@@ -89,6 +89,20 @@ Each update adds the weighted position, Euler-angle, and scale offsets to the ba
 
 A clip targets its `layer`, which defaults to `main`, including repeated draws of that geometry. The main-layer blend also poses selected layers without clips of their own. An explicit layer clip takes precedence, including when its weight is zero. Call `unsubscribe()` when playback ends; `entity.stopAnimation()` restores the caller's pose from before playback. Automatic gameplay-state selection, part visibility changes, and animated renderer transforms remain unsupported.
 
+Scene documents store a blend in an entity's `animation.clips` list. For example, a camel's animation settings can combine walking and idle offsets:
+
+```json
+{
+  "clips": [{ "name": "walk", "weight": 0.5 }, { "name": "idle" }],
+  "loop": true,
+  "speed": 1,
+  "time": 0,
+  "paused": false
+}
+```
+
+Each omitted weight defaults to `1`. Loop, speed, elapsed time, and pause apply to the blend; without a loop override, each clip uses its own loop flag. Existing `animation: { "name": "walk" }` documents still load. Supply either `name` or a nonempty `clips` list. Every named clip must exist and target a selected entity layer, or document loading rejects before the document attaches to the scene. The editor's JSON and copied embeds preserve these settings.
+
 ## Item state
 
 `Models.getMerged(key, context)` evaluates an item definition with the supplied [ItemModelContext](/api/index/interfaces/ItemModelContext): data `components`, item-model `properties`, a stack `count`, a `displayContext`, and `itemReferences` for nodes such as `minecraft:bundle/selected_item`. The same state selects models, special renderers, and automatic tints.

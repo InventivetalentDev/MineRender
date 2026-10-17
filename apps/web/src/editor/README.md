@@ -60,6 +60,15 @@ use another host or a local embed server; the default is
 `https://beta.minerender.org/embed/`. See the [embed workspace README](../../../embed/README.md)
 for local development and deployment commands.
 
+In an entity's **Animation** controls, select **Add clip** to combine clips, then
+adjust each **Weight**. Weight 0 removes that clip's offset; weight 1 applies it
+fully. Weights add together without normalization, and the numeric field also
+accepts values above 1. Weight changes keep playback at its current time. **Loop**,
+**Speed**, **Time (seconds)**, and the playback buttons control all selected clips.
+Until you change **Loop**, each clip uses its own loop setting. Setting a time or
+scrubbing pauses at that frame. JSON saves and copied embeds retain the selected
+clips, weights, and shared playback time, including while paused.
+
 Use **GUI layers** to add, edit, reorder, or remove texture, item, and text layers,
 or to insert the layers of a chest background, boss bar, book page, or tooltip. The
 controls expose positions, sizes, and each layer's content, including an item layer's

@@ -193,10 +193,20 @@ export class SceneDocumentLoader {
                     const entity = await content.addEntity(model, { ...definition.options, instanceMeshes: false }) as EntityObject;
                     object = entity;
                     if (definition.animation) {
+                        const animation = definition.animation;
                         const animations = await Entities.getAnimations(key);
-                        const clip = animations?.[definition.animation.name];
-                        if (!clip) throw new Error(`Entity ${definition.asset} has no animation "${definition.animation.name}"`);
-                        entity.playAnimation(clip, definition.animation);
+                        if (animation.name !== undefined) {
+                            const clip = animations?.[animation.name];
+                            if (!clip) throw new Error(`Entity ${definition.asset} has no animation "${animation.name}"`);
+                            entity.playAnimation(clip, animation);
+                        } else {
+                            const clips = animation.clips.map(({ name }) => {
+                                const clip = animations?.[name];
+                                if (!clip) throw new Error(`Entity ${definition.asset} has no animation "${name}"`);
+                                return clip;
+                            });
+                            entity.playAnimations(clips, { ...animation, weights: animation.clips.map(clip => clip.weight ?? 1) });
+                        }
                     }
                     break;
                 }
