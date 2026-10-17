@@ -137,7 +137,7 @@
                 <span class="feature-icon" data-icon="versions"></span>
                 <div>
                     <h3>Any game version</h3>
-                    <p>Defaults to Minecraft 1.21.11, including modern item definitions. Switch versions with one call; item defaults, potion colors and block tints follow the selected version, and caches are keyed by version.</p>
+                    <p>Defaults to Minecraft 1.21.11, including modern item definitions. Switch versions with one call; item defaults, potion colors and block tints follow the selected version, older block, item and entity IDs resolve to their renamed replacements, and caches are keyed by version.</p>
                     <a href="#assets">Choosing a game version</a>
                 </div>
             </li>
@@ -185,7 +185,7 @@
                 <span class="feature-icon" data-icon="world"></span>
                 <div>
                     <h3>Worlds, not just structures</h3>
-                    <p>Loads structure, schematic, Litematica and Anvil region files, streams chunk columns around the camera, and colors grass, foliage and water from saved biomes. Optional section meshing merges each 16³ section into a few meshes with hidden faces culled.</p>
+                    <p>Loads structure, schematic, Litematica and Anvil region files, streams chunk columns around the camera, and colors grass, foliage and water from saved biomes. Optional section meshing merges each 16³ section into a few meshes and can add saved light, ambient occlusion and biome blending. Raycasts find the block or mob under the pointer.</p>
                     <a href="#structures">See structures and worlds</a>
                 </div>
             </li>
@@ -193,7 +193,7 @@
                 <span class="feature-icon" data-icon="gui"></span>
                 <div>
                     <h3>GUIs with items, text and recipes</h3>
-                    <p>Build inventory screens and HUD elements from textures, bitmap text and item models with stack counts and durability bars. Helpers lay out crafting recipes, container backgrounds, boss bars, book pages and tooltips.</p>
+                    <p>Build inventory screens and HUD elements from textures, bitmap and Unihex text and item models with stack counts and durability bars. Helpers lay out crafting recipes, container backgrounds, boss bars, book pages and tooltips.</p>
                     <a href="#guis">See GUIs</a>
                 </div>
             </li>
@@ -209,8 +209,16 @@
                 <span class="feature-icon" data-icon="types"></span>
                 <div>
                     <h3>Typed and tree-shakeable</h3>
-                    <p>TypeScript declarations, ESM and CommonJS builds, no work at import time, and a classic script-tag bundle for pages without a build step.</p>
+                    <p>TypeScript declarations, per-module ESM and CommonJS builds, no work at import time, and a classic script-tag bundle for pages without a build step. Model, entity and GUI code loads on first use.</p>
                     <a href="#getting-started">Install</a>
+                </div>
+            </li>
+            <li class="feature">
+                <span class="feature-icon" data-icon="embed"></span>
+                <div>
+                    <h3>Embeds from a URL</h3>
+                    <p>An iframe page renders a skin, block, item, entity or full scene from URL parameters. The scene editor copies an embed link for the current scene.</p>
+                    <a href="#embeds">Embed a scene</a>
                 </div>
             </li>
         </ul>
@@ -256,13 +264,16 @@
             <a href="#assets">Assets and versions</a>
             <a href="#worlds">Worlds and files</a>
             <a href="#export">Exporting</a>
+            <a href="#embeds">Embeds</a>
             <a href="#lifecycle">Lifecycle</a>
+            <a href="#logging">Logging</a>
             <a href="#node">Node</a>
             <a href="#performance">Performance</a>
             <strong>Reference</strong>
             <a href="https://beta-docs.minerender.org/">API reference</a>
             <a href="https://beta-docs.minerender.org/concepts">Behavior notes</a>
             <a href="https://beta-docs.minerender.org/platforms">Browser &amp; Node</a>
+            <a href="https://beta-docs.minerender.org/embeds">Embed URLs</a>
         </aside>
         <div class="docs-body">
             <div class="section-heading">
@@ -387,13 +398,16 @@ await Models.getMerged(bundle, {
     properties: { "minecraft:bundle/has_selected_item": true },
     itemReferences: { "minecraft:bundle/selected_item": apple }   // AssetKey of the item drawn inside
 });</code></pre>
-                <p>Mobs with keyframe animations (warden, frog, camel, breeze, armadillo, sniffer, bat and others) expose them through <code>Entities.getAnimations</code>. The entity owns no clock, so advance it from a frame callback.</p>
+                <p>Mobs with keyframe animations (warden, frog, camel, breeze, armadillo, sniffer, bat and others) expose them through <code>Entities.getAnimations</code>. The entity owns no clock, so advance it from a frame callback. <code>playAnimations</code> plays several clips on one clock and adds their weighted offsets.</p>
                 <pre><code data-lang="ts">const animations = await Entities.getAnimations(key);   // undefined without any
 warden.playAnimation(animations!.roar, { loop: true, speed: 1 });
 const stop = renderer.onFrame(({ delta }) => warden.advanceAnimation(delta));
 warden.setAnimationTime(1.5);   // or pose at an explicit time
-warden.stopAnimation();         // restores the default pose</code></pre>
-                <p>GUIs take ordered texture, item and text layers in GUI pixels, with y growing down. Item layers draw stack counts and durability bars from their <code>context</code>; set <code>decorations: false</code> to hide both. <code>gui.bounds</code> reports the drawn area for fitting an orthographic camera, <code>GuiHelper.inventorySlot</code> turns a slot index into a position, and <code>GuiHelper.recipe</code> lays out a crafting recipe, including the result count. Text layers draw bitmap fonts from the resource pack, and <code>GuiHelper.container</code>, <code>bossBar</code>, <code>book</code> and <code>tooltip</code> return ready layer lists.</p>
+warden.stopAnimation();         // restores the default pose
+
+warden.playAnimations([animations!.roar, animations!.sniff], { weights: [1, 0.5] });
+warden.setAnimationWeights([1, 0.25]);   // without restarting playback</code></pre>
+                <p>GUIs take ordered texture, item and text layers in GUI pixels, with y growing down. Item layers draw stack counts and durability bars from their <code>context</code>; set <code>decorations: false</code> to hide both. <code>gui.bounds</code> reports the drawn area for fitting an orthographic camera, <code>GuiHelper.inventorySlot</code> turns a slot index into a position, and <code>GuiHelper.recipe</code> lays out a crafting recipe, including the result count. Text layers draw the resource pack's bitmap and Unihex fonts, and <code>GuiHelper.container</code>, <code>bossBar</code>, <code>book</code> and <code>tooltip</code> return ready layer lists.</p>
                 <pre><code data-lang="ts">const gui = await scene.addGui([
     { texture: "minecraft:gui/container/generic_54", crop: [0, 0, 176, 222] },
     { item: "minecraft:item/apple", position: GuiHelper.inventorySlot(0, [8, 18]), context: { count: 16 } },
@@ -450,14 +464,14 @@ await Models.clearCache();</code></pre>
 
             <article id="worlds" class="doc">
                 <h3>Worlds and files</h3>
-                <p><code>MineRenderWorld</code> stores blocks in 16³ chunks with signed coordinates and keeps faces against opaque neighbors from being drawn. With <code>sectionMeshing</code>, block models of any shape, animated textures, and fluid surfaces are merged into solid, translucent, and fluid meshes per section; block entities stay individual objects.</p>
+                <p><code>MineRenderWorld</code> stores blocks in 16³ chunks with signed coordinates. Faces against opaque neighbors are not drawn, nor are faces between touching glass, ice or connected panes, as in vanilla. With <code>sectionMeshing</code>, block models of any shape, animated textures, and fluid surfaces are merged into solid, translucent, and fluid meshes per section; block entities stay individual objects.</p>
                 <pre><code data-lang="ts">import { AnvilParser, AnvilWorldSource, MineRenderWorld, NBTHelper, SchematicParser, StructureParser, WorldStreamer } from "minerender";
 
 const world = new MineRenderWorld(renderer.scene, { sectionMeshing: true });
 
 // Blocks from code
 await world.setBlockAt(0, 0, 0, { type: "minecraft:stone" });
-await world.setBlockAt(0, 1, 0, { type: "minecraft:oak_fence", state: { north: "true" } });
+await world.setBlockAt(0, 1, 0, { type: "minecraft:oak_fence", properties: { north: "true" } });
 
 // Vanilla structure files and legacy schematics
 const nbt = await NBTHelper.fromBuffer(bytes);
@@ -480,7 +494,22 @@ const streamer = new WorldStreamer(world, source, { loadRadius: 2, unloadRadius:
 await streamer.updatePosition(renderer.orbitControls!.target);   // call again whenever the view moves
 await streamer.dispose();                                    // unloads its columns</code></pre>
                 <p>The library also loads Sponge <code>.schem</code> files through <code>SpongeSchematicParser</code> and Litematica <code>.litematic</code> files through <code>LitematicaParser</code>. Anvil loading reads numeric and paletted chunks with gzip, zlib or LZ4 compression; the optional <code>readExternalChunk</code> and <code>readEntityRegion</code> callbacks add external <code>.mcc</code> payloads and the separate entity region files.</p>
-                <p>Bulk placement resolves each block state once and yields to the page every few milliseconds, and section meshes are built in a worker when your bundle keeps the package's <code>section.worker</code> file next to the module. Saved biomes supply grass, foliage and water colors. The world has no lighting, biome blending or level of detail.</p>
+                <p>Bulk placement resolves each block state once and yields to the page every few milliseconds, and section meshes are built in a worker when your bundle keeps the package's <code>section.worker</code> file next to the module. Saved biomes supply grass, foliage and water colors.</p>
+                <p>With section meshing, a world can also shade terrain from the light saved in Anvil chunks, darken corners with ambient occlusion and blend biome colors across borders. <code>renderEntities</code> draws supported saved mobs, and raycasts return the block or mob under the pointer. Light propagation and level of detail are not supported.</p>
+                <pre><code data-lang="ts">import { Raycaster } from "three";
+
+const world = new MineRenderWorld(renderer.scene, {
+    sectionMeshing: true,
+    savedLighting: true,      // sky and block light from the save
+    ambientOcclusion: true,   // corner shading next to opaque blocks
+    biomeBlendRadius: 3,      // average biome colors over 3 blocks
+    renderEntities: true      // supported mobs at their saved positions
+});
+
+const raycaster = new Raycaster();
+raycaster.setFromCamera(pointer, renderer.camera);   // pointer in normalized device coordinates
+const block = world.raycast(raycaster);              // { position, block, point, normal, distance }
+const mob = world.raycastEntities(raycaster);        // { type, position, object, ... }</code></pre>
             </article>
 
             <article id="export" class="doc">
@@ -498,6 +527,17 @@ const video = await renderer.toVideo({ duration: 4, fps: 30 });            // re
                 <p>glTF export needs a browser. Custom shading is not baked into the exported materials. Video recording runs in real time through <code>MediaRecorder</code>, keeps the canvas size at the start, fills transparent pixels with black and can be cancelled with an <code>AbortSignal</code>.</p>
             </article>
 
+            <article id="embeds" class="doc">
+                <h3>Embeds</h3>
+                <p>To show a render on another page without bundling the library, use the embed page in an iframe. It takes one source: <code>skin</code>, <code>block</code>, <code>item</code>, <code>entity</code>, <code>model</code>, a scene link from the editor's <strong>Copy embed</strong> button, or an HTTPS <code>src</code> pointing to a scene document.</p>
+                <pre><code data-lang="html">&lt;iframe
+  src="https://beta.minerender.org/embed/?item=minecraft:diamond_sword"
+  title="Diamond sword"
+  width="320" height="320" loading="lazy"
+  style="border:0"&gt;&lt;/iframe&gt;</code></pre>
+                <p>The embed fits the scene to the iframe when no camera is given, and releases its WebGL context while scrolled out of view. The <a href="https://beta-docs.minerender.org/embeds">embed reference</a> lists every URL parameter.</p>
+            </article>
+
             <article id="lifecycle" class="doc">
                 <h3>Lifecycle</h3>
                 <p><code>stop()</code> pauses the loop and <code>start()</code> resumes it. <code>dispose()</code> is final: it releases the WebGL context, the controls and owned helpers. Shared assets stay cached.</p>
@@ -508,6 +548,15 @@ renderer.dispose();
 // In Node, or before unloading a page: end caches, queues and timers
 import { shutdown } from "minerender";
 shutdown();</code></pre>
+            </article>
+
+            <article id="logging" class="doc">
+                <h3>Logging</h3>
+                <p>The library prints only warnings and errors. Raise the level for one component while investigating a problem:</p>
+                <pre><code data-lang="ts">import { Logging } from "minerender";
+
+Logging.configure({ level: "warn", namespaces: { HostedAssetSource: "debug" } });</code></pre>
+                <p>On a deployed page, set <code>localStorage["minerender:log"] = "debug"</code> and reload; in Node, set <code>MINERENDER_LOG=debug</code>. See <a href="https://beta-docs.minerender.org/concepts#logging">logging</a> for handlers and the setting format.</p>
             </article>
 
             <article id="node" class="doc">

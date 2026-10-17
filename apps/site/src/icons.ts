@@ -142,6 +142,16 @@ const ICONS: Record<string, string[]> = {
         ".k....k.",
         ".kkkkkk."
     ],
+    embed: [
+        "........",
+        "..k..k..",
+        ".k....k.",
+        "k..gg..k",
+        "k..gg..k",
+        ".k....k.",
+        "..k..k..",
+        "........"
+    ],
     entity: [
         "........",
         ".gggggg.",

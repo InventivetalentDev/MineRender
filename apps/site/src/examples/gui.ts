@@ -254,7 +254,7 @@ const LAYOUTS: Record<string, { label: string; build: () => Promise<GuiLayer[]> 
 const layouts: Example = {
     id: "gui-layouts",
     title: "Tooltips, boss bars and books",
-    description: "GuiHelper builds the layer lists for common screens from the active resource pack: tooltips sized around bitmap text, boss bars, book pages with arrows, and container backgrounds with their slot layout.",
+    description: "GuiHelper builds the layer lists for common screens from the active resource pack: tooltips sized around their text, boss bars, book pages with arrows, and container backgrounds with their slot layout.",
     renderer: GUI_RENDERER,
     placeholder: "/placeholder-block.png",
     async setup(context) {
@@ -306,11 +306,11 @@ await renderer.scene.addGui([{ text: [{ text: "Bold", bold: true }, { text: " an
 export const guis: ExampleGroup = {
     id: "guis",
     title: "GUIs",
-    lead: "Inventory screens, HUD elements, tooltips and crafting recipes built from texture crops, bitmap text and item models, rendered flat with an orthographic camera.",
+    lead: "Inventory screens, HUD elements, tooltips and crafting recipes built from texture crops, bitmap and Unihex text and item models, rendered flat with an orthographic camera.",
     playgrounds: [{ url: "https://beta.minerender.org/demo/gui/", label: "GUI playground" }],
     examples: [chest, hotbar, recipe, layouts],
     notes: [
         "Item layers draw stack counts and durability bars from their context; durability falls back to the selected version's vanilla value. Set decorations to false to hide both.",
-        "Text uses the resource pack's bitmap fonts. Unihex and TrueType providers, translations and right-to-left shaping are not supported; missing glyphs draw as boxes."
+        "Text uses the resource pack's bitmap and Unihex fonts. TrueType providers, translations and right-to-left shaping are not supported; missing glyphs draw as boxes."
     ]
 };
