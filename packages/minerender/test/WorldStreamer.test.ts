@@ -45,18 +45,26 @@ test("streaming retains biome-only sections until eviction and restores them on 
 function fixture(options: { loadRadius?: number; unloadRadius?: number } = { loadRadius: 0, unloadRadius: 0 }, hooks: {
     get?: (x: number, z: number, signal?: AbortSignal) => Promise<AnvilChunk | undefined>;
     place?: (value: AnvilChunk) => Promise<void>;
+    placeChunks?: (chunks: readonly AnvilChunk[]) => Promise<void>;
     unloadColumns?: (columns: readonly { x: number; z: number }[]) => Promise<void>;
 } = {}) {
     const events: string[] = [], resident = new Set<string>();
     const bulkCalls: { x: number; z: number }[][] = [];
+    const placements: { x: number; z: number }[][] = [];
     let active = 0, peak = 0;
+    let activeReads = 0, peakReads = 0, activeMutations = 0, peakMutations = 0;
     async function operation<T>(event: string, action: () => Promise<T>): Promise<T> {
         events.push(event);
         peak = Math.max(peak, ++active);
+        const reading = event.startsWith("get:");
+        if (reading) peakReads = Math.max(peakReads, ++activeReads);
+        else peakMutations = Math.max(peakMutations, ++activeMutations);
         try {
             return await action();
         } finally {
             active--;
+            if (reading) activeReads--;
+            else activeMutations--;
         }
     }
     const source = {
@@ -74,7 +82,17 @@ function fixture(options: { loadRadius?: number; unloadRadius?: number } = { loa
             for (const { x, z } of requested) resident.delete(key(x, z));
         })
     };
-    return { streamer: new WorldStreamer(world, source, options), events, resident, bulkCalls, peak: () => peak, world, source };
+    if (hooks.placeChunks) Object.assign(world, {
+        placeChunks: (chunks: readonly AnvilChunk[]) => operation("place-many", async () => {
+            placements.push(chunks.map(({ x, z }) => ({ x, z })));
+            for (const { x, z } of chunks) resident.add(key(x, z));
+            await hooks.placeChunks!(chunks);
+        })
+    });
+    return {
+        streamer: new WorldStreamer(world, source, options), events, resident, bulkCalls, placements,
+        peak: () => peak, peakReads: () => peakReads, peakMutations: () => peakMutations, world, source
+    };
 }
 
 test("streaming validates bounded radii and floors signed scene coordinates into chunk coordinates", async t => {
@@ -829,4 +847,379 @@ test("disposing an empty bulk-capable streamer does not call world unload method
     t.deepEqual(setup.bulkCalls, []);
     t.deepEqual(setup.streamer.loadedChunks, []);
     await t.throwsAsync(() => setup.streamer.update(0, 0));
+});
+
+test("bulk placement prefetches four columns and groups ready columns in distance order", async t => {
+    t.timeout(3000);
+    const reads: { x: number; z: number; gate: ReturnType<typeof deferred<AnvilChunk>> }[] = [];
+    const started = deferred(), placing = deferred(), release = deferred();
+    let first = true;
+    const setup = fixture({ loadRadius: 1, unloadRadius: 1 }, {
+        get: async (x, z) => {
+            if (reads.length < 4) {
+                const gate = deferred<AnvilChunk>();
+                reads.push({ x, z, gate });
+                if (reads.length === 4) started.resolve();
+                return gate.promise;
+            }
+            return chunk(x, z);
+        },
+        placeChunks: async () => {
+            if (first) {
+                first = false;
+                placing.resolve();
+                await release.promise;
+            }
+        }
+    });
+    t.teardown(() => { reads.forEach(({ x, z, gate }) => gate.resolve(chunk(x, z))); release.resolve(); });
+    const update = setup.streamer.update(0, 0);
+    await started.promise;
+    t.deepEqual(setup.placements, []);
+    for (const { x, z, gate } of reads) gate.resolve(chunk(x, z));
+    await placing.promise;
+    t.deepEqual(setup.placements[0], reads.map(({ x, z }) => ({ x, z })));
+    t.is(setup.placements[0].length, 4);
+    t.is(setup.events.filter(event => event.startsWith("get:")).length, 4);
+    release.resolve();
+    await update;
+    const requested = setup.events.filter(event => event.startsWith("get:")).map(event => event.slice(4));
+    t.deepEqual(setup.placements.flat().map(({ x, z }) => key(x, z)), requested);
+    const distances = setup.placements.flat().map(({ x, z }) => x * x + z * z);
+    t.deepEqual(distances, distances.slice().sort((a, b) => a - b));
+    t.true(setup.placements.every(group => group.length > 0 && group.length <= 4));
+    t.is(setup.streamer.loadedChunks.length, 9);
+    t.is(setup.peakReads(), 4);
+    t.is(setup.peakMutations(), 1);
+    t.false(setup.events.some(event => event.startsWith("place:")));
+    await setup.streamer.dispose();
+});
+
+test("a ready nearest column is placed before slow later source reads finish", async t => {
+    t.timeout(3000);
+    const placing = deferred(), release = deferred();
+    const reads: { x: number; z: number; gate: ReturnType<typeof deferred<AnvilChunk>> }[] = [];
+    let allowReads = false, first = true;
+    const setup = fixture({ loadRadius: 1, unloadRadius: 1 }, {
+        get: async (x, z) => {
+            if (x === 0 && z === 0 || allowReads) return chunk(x, z);
+            const gate = deferred<AnvilChunk>();
+            reads.push({ x, z, gate });
+            return gate.promise;
+        },
+        placeChunks: async () => {
+            if (first) {
+                first = false;
+                placing.resolve();
+                await release.promise;
+            }
+        }
+    });
+    t.teardown(() => { reads.forEach(({ x, z, gate }) => gate.resolve(chunk(x, z))); release.resolve(); });
+    const update = setup.streamer.update(0, 0);
+    await placing.promise;
+    t.deepEqual(setup.placements, [[{ x: 0, z: 0 }]]);
+    t.is(reads.length, 3);
+    t.deepEqual(setup.streamer.loadedChunks, []);
+    allowReads = true;
+    for (const { x, z, gate } of reads) gate.resolve(chunk(x, z));
+    release.resolve();
+    await update;
+    t.is(setup.streamer.loadedChunks.length, 9);
+    t.is(setup.peakMutations(), 1);
+    await setup.streamer.dispose();
+});
+
+test("ready later columns occupy the prefetch window without bypassing an unresolved nearer column", async t => {
+    t.timeout(3000);
+    const initial = deferred(), firstPlacement = deferred(), fifthRead = deferred();
+    const reads: { x: number; z: number; gate: ReturnType<typeof deferred<AnvilChunk>> }[] = [];
+    let allowReads = false;
+    const setup = fixture({ loadRadius: 1, unloadRadius: 1 }, {
+        get: async (x, z) => {
+            if (allowReads) return chunk(x, z);
+            const gate = deferred<AnvilChunk>();
+            reads.push({ x, z, gate });
+            if (reads.length === 4) initial.resolve();
+            if (reads.length === 5) fifthRead.resolve();
+            return gate.promise;
+        },
+        placeChunks: async () => { firstPlacement.resolve(); }
+    });
+    t.teardown(() => reads.forEach(({ x, z, gate }) => gate.resolve(chunk(x, z))));
+    const update = setup.streamer.update(0, 0);
+    await initial.promise;
+    for (const index of [0, 2, 3]) {
+        const { x, z, gate } = reads[index];
+        gate.resolve(chunk(x, z));
+    }
+    await firstPlacement.promise;
+    await fifthRead.promise;
+    await new Promise<void>(resolve => setImmediate(resolve));
+    t.is(reads.length, 5);
+    t.deepEqual(setup.placements, [[{ x: 0, z: 0 }]]);
+    allowReads = true;
+    for (const { x, z, gate } of reads) gate.resolve(chunk(x, z));
+    await update;
+    const requested = setup.events.filter(event => event.startsWith("get:")).map(event => event.slice(4));
+    t.deepEqual(setup.placements.flat().map(({ x, z }) => key(x, z)), requested);
+    t.is(setup.streamer.loadedChunks.length, 9);
+    await setup.streamer.dispose();
+});
+
+test("moving the bulk target aborts every obsolete read and discards ignored late results", async t => {
+    t.timeout(3000);
+    const started = deferred();
+    const reads: { x: number; z: number; gate: ReturnType<typeof deferred<AnvilChunk>>; signal?: AbortSignal }[] = [];
+    let allowReads = false;
+    const setup = fixture({ loadRadius: 1, unloadRadius: 1 }, {
+        get: async (x, z, signal) => {
+            if (allowReads) return chunk(x, z);
+            const gate = deferred<AnvilChunk>();
+            reads.push({ x, z, gate, signal });
+            if (reads.length === 4) started.resolve();
+            return gate.promise;
+        },
+        placeChunks: async () => {}
+    });
+    t.teardown(() => reads.forEach(({ x, z, gate }) => gate.resolve(chunk(x, z))));
+    const first = setup.streamer.update(0, 0);
+    await started.promise;
+    const latest = setup.streamer.update(6, 0);
+    t.true(reads.every(read => read.signal?.aborted));
+    t.is(setup.events.length, 4);
+    allowReads = true;
+    for (const { x, z, gate } of reads) gate.resolve(chunk(x, z));
+    await Promise.all([first, latest]);
+    t.is(setup.streamer.loadedChunks.length, 9);
+    t.true(setup.placements.flat().every(({ x, z }) => Math.abs(x - 6) <= 1 && Math.abs(z) <= 1));
+    t.deepEqual(setup.streamer.failedChunks, []);
+    t.is(setup.peakReads(), 4);
+    t.is(setup.peakMutations(), 1);
+    await setup.streamer.dispose();
+});
+
+test("a center change during grouped placement unloads that whole group before placing the new area", async t => {
+    t.timeout(3000);
+    const started = deferred(), gate = deferred();
+    let first = true;
+    const setup = fixture({ loadRadius: 1, unloadRadius: 1 }, { placeChunks: async () => {
+        if (first) {
+            first = false;
+            started.resolve();
+            await gate.promise;
+        }
+    } });
+    t.teardown(() => gate.resolve());
+    const initial = setup.streamer.update(0, 0);
+    await started.promise;
+    const placed = setup.placements[0];
+    const latest = setup.streamer.update(6, 0);
+    t.deepEqual(setup.bulkCalls, []);
+    gate.resolve();
+    await Promise.all([initial, latest]);
+    t.deepEqual(setup.bulkCalls[0], placed);
+    t.true(setup.placements.slice(1).flat().every(({ x, z }) => Math.abs(x - 6) <= 1 && Math.abs(z) <= 1));
+    t.is(setup.resident.size, 9);
+    t.is(setup.streamer.loadedChunks.length, 9);
+    t.is(setup.peakMutations(), 1);
+    await setup.streamer.dispose();
+});
+
+test("disposal aborts bulk prefetch and waits for active grouped placement before cleanup", async t => {
+    t.timeout(3000);
+    const started = deferred(), placement = deferred();
+    const signals: AbortSignal[] = [];
+    const reads: ReturnType<typeof deferred<AnvilChunk>>[] = [];
+    const setup = fixture({ loadRadius: 1, unloadRadius: 1 }, {
+        get: async (x, z, signal) => {
+            if (x === 0 && z === 0) return chunk(x, z);
+            const read = deferred<AnvilChunk>();
+            reads.push(read);
+            signals.push(signal!);
+            signal!.addEventListener("abort", () => read.reject(signal!.reason), { once: true });
+            return read.promise;
+        },
+        placeChunks: async () => { started.resolve(); await placement.promise; }
+    });
+    t.teardown(() => { reads.forEach(read => read.resolve(chunk(0, 0))); placement.resolve(); });
+    const update = setup.streamer.update(0, 0);
+    await started.promise;
+    const dispose = setup.streamer.dispose();
+    t.true(signals.every(signal => signal.aborted));
+    t.is(signals.length, 3);
+    t.deepEqual(setup.bulkCalls, []);
+    placement.resolve();
+    await Promise.all([update, dispose]);
+    t.deepEqual(setup.bulkCalls, [[{ x: 0, z: 0 }]]);
+    t.deepEqual(setup.streamer.loadedChunks, []);
+    t.deepEqual(setup.streamer.failedChunks, []);
+    t.deepEqual([...setup.resident], []);
+    t.is(setup.streamer.pendingChunks, 0);
+    t.is(setup.peakMutations(), 1);
+});
+
+test("bulk source failures, missing columns, and coordinate mismatches do not prevent later ready columns", async t => {
+    const error = new Error("unreadable center");
+    let fail = true;
+    const setup = fixture({ loadRadius: 1, unloadRadius: 1 }, {
+        get: async (x, z) => {
+            if (fail && x === 0 && z === 0) throw error;
+            if (x === 0 && z === -1) return undefined;
+            return chunk(fail && x === -1 && z === 0 ? x + 1 : x, z);
+        },
+        placeChunks: async () => {}
+    });
+    await setup.streamer.update(0, 0);
+    t.is(setup.streamer.loadedChunks.length, 6);
+    t.is(setup.streamer.failedChunks.length, 2);
+    t.is(setup.streamer.failedChunks[0].error, error);
+    t.is(setup.streamer.pendingChunks, 0);
+    const count = setup.events.filter(event => event.startsWith("get:")).length;
+    await setup.streamer.update(0, 0);
+    t.is(setup.events.filter(event => event.startsWith("get:")).length, count);
+    fail = false;
+    await setup.streamer.retryFailedChunks();
+    t.is(setup.streamer.loadedChunks.length, 8);
+    t.deepEqual(setup.streamer.failedChunks, []);
+    t.is(setup.streamer.pendingChunks, 0);
+    await setup.streamer.dispose();
+});
+
+test("a failed grouped placement cleans every attempted owner before retrying", async t => {
+    for (const error of [new Error("partial placement"), null, undefined]) {
+        let fail = true;
+        const setup = fixture({ loadRadius: 1, unloadRadius: 1 }, { placeChunks: async chunks => {
+            if (fail) {
+                fail = false;
+                for (const { x, z } of chunks.slice(1)) setup.resident.delete(key(x, z));
+                throw error;
+            }
+        } });
+        let rejected = false;
+        try { await setup.streamer.update(0, 0); }
+        catch (failure) { rejected = true; t.is(failure, error); }
+        t.true(rejected);
+        t.deepEqual(setup.bulkCalls[0], setup.placements[0]);
+        t.deepEqual(setup.streamer.loadedChunks, []);
+        t.deepEqual(setup.streamer.failedChunks, []);
+        t.deepEqual([...setup.resident], []);
+        await setup.streamer.update(0, 0);
+        t.is(setup.streamer.loadedChunks.length, 9);
+        t.is(setup.resident.size, 9);
+        t.is(setup.peakMutations(), 1);
+        await setup.streamer.dispose();
+    }
+});
+
+test("failed grouped-placement cleanup retains even unattempted owners for a later retry", async t => {
+    const placementError = Object.freeze(new Error("partial placement")), cleanupError = new Error("cleanup failed");
+    let failPlace = true, failUnload = true;
+    const setup = fixture({ loadRadius: 1, unloadRadius: 1 }, {
+        placeChunks: async chunks => {
+            if (failPlace) {
+                failPlace = false;
+                for (const { x, z } of chunks.slice(1)) setup.resident.delete(key(x, z));
+                throw placementError;
+            }
+        },
+        unloadColumns: async () => {
+            if (failUnload) {
+                failUnload = false;
+                throw cleanupError;
+            }
+        }
+    });
+    const error = await t.throwsAsync(setup.streamer.update(0, 0), { message: placementError.message });
+    t.is((error as Error & { cause?: unknown }).cause, cleanupError);
+    const attempted = setup.placements[0];
+    t.is(attempted.length, 4);
+    t.deepEqual(setup.bulkCalls[0], attempted);
+    t.deepEqual(setup.streamer.loadedChunks, []);
+    t.is(setup.resident.size, 1);
+    const resumedAt = setup.events.length;
+    await setup.streamer.update(0, 0);
+    t.is(setup.events[resumedAt], "unload-many");
+    t.deepEqual(setup.bulkCalls[1], attempted);
+    t.is(setup.streamer.loadedChunks.length, 9);
+    t.is(setup.resident.size, 9);
+    t.is(setup.peakMutations(), 1);
+    await setup.streamer.dispose();
+});
+
+test("a placement rejection does not await unrelated reads, but disposal still waits for them", async t => {
+    t.timeout(3000);
+    const error = new Error("placement failed");
+    const reads: { x: number; z: number; gate: ReturnType<typeof deferred<AnvilChunk>>; signal?: AbortSignal }[] = [];
+    const setup = fixture({ loadRadius: 1, unloadRadius: 1 }, {
+        get: async (x, z, signal) => {
+            if (x === 0 && z === 0) return chunk(x, z);
+            const gate = deferred<AnvilChunk>();
+            reads.push({ x, z, gate, signal });
+            return gate.promise;
+        },
+        placeChunks: async () => { throw error; }
+    });
+    t.teardown(() => reads.forEach(({ x, z, gate }) => gate.resolve(chunk(x, z))));
+    await t.throwsAsync(setup.streamer.update(0, 0), { is: error });
+    t.is(reads.length, 3);
+    t.true(reads.every(read => read.signal?.aborted));
+    t.deepEqual(setup.bulkCalls, [[{ x: 0, z: 0 }]]);
+    t.deepEqual([...setup.resident], []);
+    let disposed = false;
+    const dispose = setup.streamer.dispose().then(() => { disposed = true; });
+    await new Promise<void>(resolve => setImmediate(resolve));
+    t.false(disposed);
+    for (const { x, z, gate } of reads) gate.resolve(chunk(x, z));
+    await dispose;
+    t.true(disposed);
+    t.deepEqual(setup.streamer.loadedChunks, []);
+    t.deepEqual(setup.streamer.failedChunks, []);
+    t.is(setup.placements.length, 1);
+    t.is(setup.peakMutations(), 1);
+});
+
+test("retrying after placement failure keeps aborted reads bounded and discards their late in-area results", async t => {
+    t.timeout(3000);
+    const error = new Error("first placement failed"), placing = deferred(), release = deferred();
+    const reads: { x: number; z: number; gate: ReturnType<typeof deferred<AnvilChunk>>; signal?: AbortSignal }[] = [];
+    let firstPass = true, firstRetry = true;
+    const setup = fixture({ loadRadius: 1, unloadRadius: 1 }, {
+        get: async (x, z, signal) => {
+            if (!firstPass || x === 0 && z === 0) return chunk(x, z);
+            const gate = deferred<AnvilChunk>();
+            reads.push({ x, z, gate, signal });
+            return gate.promise;
+        },
+        placeChunks: async () => {
+            if (firstPass) throw error;
+            if (firstRetry) {
+                firstRetry = false;
+                placing.resolve();
+                await release.promise;
+            }
+        }
+    });
+    t.teardown(() => { reads.forEach(({ x, z, gate }) => gate.resolve(chunk(x, z))); release.resolve(); });
+    await t.throwsAsync(setup.streamer.update(0, 0), { is: error });
+    t.is(reads.length, 3);
+    t.true(reads.every(read => read.signal?.aborted));
+    firstPass = false;
+    const retry = setup.streamer.update(0, 0);
+    await placing.promise;
+    t.deepEqual(setup.placements, [[{ x: 0, z: 0 }], [{ x: 0, z: 0 }]]);
+    t.is(setup.events.filter(event => event.startsWith("get:")).length, 5);
+    t.is(setup.peakReads(), 4);
+    for (const { x, z, gate } of reads) gate.resolve(chunk(x, z));
+    release.resolve();
+    await retry;
+    for (const { x, z } of reads) t.is(setup.events.filter(event => event === `get:${x},${z}`).length, 2);
+    t.is(setup.events.filter(event => event.startsWith("get:")).length, 13);
+    t.is(setup.placements.slice(1).flat().length, 9);
+    t.is(setup.streamer.loadedChunks.length, 9);
+    t.is(setup.resident.size, 9);
+    t.deepEqual(setup.streamer.failedChunks, []);
+    t.is(setup.peakReads(), 4);
+    t.is(setup.peakMutations(), 1);
+    await setup.streamer.dispose();
 });

@@ -322,6 +322,86 @@ for (const useExecutor of [false, true]) test.serial(`parsed chunk columns repla
     if (executor) t.is(await executor.submit(() => "reusable"), "reusable");
 });
 
+test.serial("column batches preserve signed replacements and repeated column order", async t => {
+    const { world, scene } = fixture(t);
+    const getIndex = BlockEntities.getIndex;
+    BlockEntities.getIndex = async () => ({});
+    t.teardown(() => { BlockEntities.getIndex = getIndex; });
+    await world.setBlockAt(-32, 100, 48, block);
+    const neighbor = await world.setBlockAt(-16, 100, 48, block);
+    const first = new ChunkData(), last = new ChunkData(), removed = new ChunkData();
+    first.set(0, { ...block, properties: { axis: "x" } });
+    last.set(4095, { ...block, properties: { axis: "z" }, nbt: { items: [1] } });
+    removed.set(0, block);
+    const columns = Object.freeze([
+        Object.freeze({ x: -2, z: 3, sections: [{ y: 0, data: first }] }),
+        Object.freeze({ x: 1, z: -1, sections: [{ y: 1, data: removed }] }),
+        Object.freeze({ x: -2, z: 3, sections: [{ y: -4, data: last }] }),
+        Object.freeze({ x: 1, z: -1, sections: [] })
+    ]);
+    await world.placeChunks(columns);
+    t.is(world.getBlockAt(-32, 100, 48), undefined);
+    t.is(world.getBlockAt(-32, 0, 48), undefined);
+    t.deepEqual(world.getBlockAt(-17, -49, 63)!.block, last.get(4095));
+    t.deepEqual(world.getBlockAt(-17, -49, 63)!.object.getPosition().toArray(), [-272, -784, 1008]);
+    t.is(world.getBlockAt(16, 16, -16), undefined);
+    t.is(world.getBlockAt(-16, 100, 48), neighbor);
+    t.is(scene.stats.instanceCount, 2);
+    t.deepEqual(first.get(0)!.properties, { axis: "x" });
+    scene.dirty = false;
+    await world.placeChunks([]);
+    t.false(scene.dirty);
+    t.is(scene.stats.instanceCount, 2);
+});
+
+test.serial("column batches validate every location before changing existing columns", async t => {
+    const { world, scene, loads } = fixture(t);
+    const existing = await world.setBlockAt(0, 0, 0, block);
+    const data = new ChunkData();
+    data.set(0, block);
+    loads.length = 0;
+    for (const value of [0.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1]) {
+        for (const invalid of [
+            { x: value, z: 1, sections: [] },
+            { x: 1, z: value, sections: [] },
+            { x: 1, z: 1, sections: [{ y: value, data }] }
+        ]) {
+            await t.throwsAsync(world.placeChunks([{ x: 0, z: 0, sections: [] }, invalid]), { instanceOf: RangeError });
+            t.is(world.getBlockAt(0, 0, 0), existing);
+            t.is(scene.stats.instanceCount, 1);
+            t.deepEqual(loads, []);
+        }
+    }
+});
+
+test.serial("column batches snapshot column and section locations before awaiting active culling", async t => {
+    const { world } = fixture(t);
+    const getIndex = BlockEntities.getIndex;
+    BlockEntities.getIndex = async () => ({});
+    t.teardown(() => { BlockEntities.getIndex = getIndex; });
+    const data = new ChunkData();
+    data.set(4095, block);
+    let release!: () => void;
+    world["culling"] = new Promise<void>(resolve => {
+        release = () => { world["culling"] = undefined; resolve(); };
+    });
+    t.teardown(() => release());
+    const section = { y: -1, data };
+    const column = { x: -2, z: -1, sections: [section] };
+    const columns = [column];
+    const placing = world.placeChunks(columns);
+    column.x = 3;
+    column.z = 4;
+    section.y = 2;
+    column.sections.length = 0;
+    columns.length = 0;
+    t.is(world.getBlockAt(-17, -1, -1), undefined);
+    release();
+    await placing;
+    t.deepEqual(world.getBlockAt(-17, -1, -1)!.block, block);
+    t.is(world.getBlockAt(63, 47, 79), undefined);
+});
+
 test.serial("parsed columns clear unknown states, place remaining cells and reject with the first error", async t => {
     const { world, scene, loads } = fixture(t);
     await world.setBlockAt(0, 16, 0, block);
