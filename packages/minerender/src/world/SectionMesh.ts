@@ -1,4 +1,4 @@
-import { BufferGeometry, Color, DoubleSide, Float32BufferAttribute, FrontSide, Group, Material, Mesh, MeshBasicMaterial, ShaderMaterial, Texture, Uint32BufferAttribute } from "three";
+import { BufferGeometry, Color, DoubleSide, DynamicDrawUsage, Float32BufferAttribute, FrontSide, Group, Material, Matrix4, Mesh, MeshBasicMaterial, ShaderMaterial, Texture, Uint32BufferAttribute } from "three";
 import { createCanvas } from "../canvas/CanvasCompat";
 import { Materials } from "../Materials";
 import type { MineRenderScene } from "../renderer/MineRenderScene";
@@ -126,6 +126,45 @@ function toInput(entries: readonly SectionMeshEntry[], maxAtlasSize: number, flu
     return { input, atlases };
 }
 
+function sortTransparentQuads(mesh: Mesh<BufferGeometry, Material>): void {
+    const index = mesh.geometry.getIndex()!;
+    if (index.count <= 6) return;
+    index.setUsage(DynamicDrawUsage);
+    const source = new Uint32Array(index.array);
+    const count = source.length / 6;
+    const centers = new Float32Array(count * 3), depths = new Float64Array(count);
+    const order = Uint32Array.from({ length: count }, (_, quad) => quad);
+    const positions = mesh.geometry.getAttribute("position");
+    for (let quad = 0; quad < count; quad++) {
+        for (let axis = 0; axis < 3; axis++) {
+            let center = 0;
+            for (let corner = 0; corner < 4; corner++) center += positions.getComponent(quad * 4 + corner, axis);
+            centers[quad * 3 + axis] = center / 4;
+        }
+    }
+    const view = new Matrix4(), previous = new Matrix4();
+    let initialized = false;
+    mesh.onBeforeRender = (_renderer, _scene, camera) => {
+        // Three updates mesh.modelViewMatrix after this callback.
+        view.multiplyMatrices(camera.matrixWorldInverse, mesh.matrixWorld);
+        if (initialized && view.equals(previous)) return;
+        previous.copy(view);
+        initialized = true;
+        const elements = view.elements;
+        for (let quad = 0; quad < count; quad++) {
+            // Translation adds the same depth to every quad and cannot change their order.
+            depths[quad] = elements[2] * centers[quad * 3] + elements[6] * centers[quad * 3 + 1]
+                + elements[10] * centers[quad * 3 + 2];
+        }
+        order.sort((a, b) => depths[a] - depths[b] || a - b);
+        if (!order.some((quad, offset) => index.array[offset * 6] !== source[quad * 6])) return;
+        for (let offset = 0; offset < count; offset++) {
+            for (let corner = 0; corner < 6; corner++) index.array[offset * 6 + corner] = source[order[offset] * 6 + corner];
+        }
+        index.needsUpdate = true;
+    };
+}
+
 /** Merged terrain geometry and atlas pages for one 16×16×16 section. Owns its generated render resources. */
 export class SectionMesh extends Group {
 
@@ -135,7 +174,12 @@ export class SectionMesh extends Group {
     /** Returns the owning section cell for a triangle hit on this mesh's merged geometry. */
     public getBlockIndex(hit: Intersection): number | undefined {
         if (hit.faceIndex === undefined || hit.faceIndex === null) return undefined;
-        return this.blockIndices.get(hit.object as Mesh)?.[Math.floor(hit.faceIndex / 2)];
+        const mesh = hit.object as Mesh;
+        const owners = this.blockIndices.get(mesh);
+        if (!owners) return undefined;
+        // Sorted triangles still refer to each quad's original four consecutive vertices.
+        const vertex = mesh.geometry.getIndex()!.getX(hit.faceIndex * 3);
+        return owners[Math.floor(vertex / 4)];
     }
 
     /** Builds section-local meshes from visible quads. `maxAtlasSize` limits each atlas dimension in pixels. */
@@ -175,15 +219,16 @@ export class SectionMesh extends Group {
             geometry.computeBoundingSphere();
             const transparent = page.layer === 2 ? atlases[page.placements[0].atlas].hasTranslucency : page.layer === 1;
             const material = Materials.createShadedCanvasMaterial(canvas as HTMLCanvasElement, transparent, false, true);
+            material.depthWrite = !transparent;
             material.side = FrontSide;
             if (page.layer === 2) {
                 material.side = DoubleSide;
                 material.forceSinglePass = true;
-                material.depthWrite = !material.transparent;
             }
             material.vertexColors = true;
             const texture = (material as ShaderMaterial).uniforms?.map?.value ?? (material as MeshBasicMaterial).map;
             const mesh = new Mesh(geometry, material);
+            if (transparent) sortTransparentQuads(mesh);
             section.add(mesh);
             section.blockIndices.set(mesh, page.blockIndices);
             const unsubscribe: (() => void)[] = [];

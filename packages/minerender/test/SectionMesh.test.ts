@@ -1,6 +1,6 @@
 import { installMineRenderDataFixtures } from "./helpers/minerender-data";
 import test, { ExecutionContext } from "ava";
-import { BoxGeometry, Color, DoubleSide, Float32BufferAttribute, FrontSide, Group, Matrix4, Mesh, Raycaster, ShaderMaterial, Texture, Vector3 } from "three";
+import { BoxGeometry, Camera, Color, DoubleSide, DynamicDrawUsage, Float32BufferAttribute, FrontSide, Group, Matrix4, Mesh, OrthographicCamera, PerspectiveCamera, Raycaster, ShaderMaterial, Texture, Vector3 } from "three";
 import { CanvasImage } from "../src/canvas/CanvasImage";
 import { CompatCanvas } from "../src/canvas/CanvasCompat";
 import { Env, EnvProvider } from "../src/Env";
@@ -37,6 +37,19 @@ function fixture(t: ExecutionContext, createWorker?: EnvProvider["createWorker"]
         return { geometry, atlas: new TextureAtlas({}, new CanvasImage(2, 2), {}, {}, false, {}, layer === 1, layer === 1),
             cullFaces: new Uint8Array([1, 2, 4, 8, 16, 32]), occludes: layer === 0, layer };
     };
+}
+
+function beforeRender(section: SectionMesh, camera: Camera) {
+    section.updateWorldMatrix(true, true);
+    camera.updateWorldMatrix(true, false);
+    for (const child of section.children) {
+        const mesh = child as Mesh;
+        mesh.onBeforeRender(null!, null!, camera, mesh.geometry, mesh.material as ShaderMaterial, null!);
+    }
+}
+
+function quadOrder(mesh: Mesh): number[] {
+    return Array.from(mesh.geometry.getIndex()!.array).filter((_, index) => index % 6 === 0).map(vertex => Math.floor(vertex / 4));
 }
 
 test.serial("section faces retain baked rotation, tint and atlas UVs without changing shared templates", t => {
@@ -117,6 +130,106 @@ test.serial("section materials blend only translucent pages", t => {
     const materials = section.children.map(child => (child as Mesh).material as ShaderMaterial);
     t.deepEqual(materials.map(material => material.transparent), [false, true]);
     t.deepEqual(materials.map(material => material.side), [FrontSide, FrontSide]);
+    t.deepEqual(materials.map(material => material.depthWrite), [true, false]);
+    const opaque = section.children[0] as Mesh;
+    const original = Array.from(opaque.geometry.getIndex()!.array), version = opaque.geometry.getIndex()!.version;
+    const camera = new PerspectiveCamera();
+    for (const z of [100, -100]) {
+        camera.position.z = z;
+        camera.lookAt(0, 0, 0);
+        beforeRender(section, camera);
+    }
+    t.deepEqual(Array.from(opaque.geometry.getIndex()!.array), original);
+    t.is(opaque.geometry.getIndex()!.version, version);
+});
+
+test.serial("translucent sections reverse quad depth order, retain original ties, and skip unchanged index uploads", t => {
+    const template = fixture(t)(1);
+    const section = SectionMesh.build([0, 16, 1].map(index => ({ index, template, cullMask: 47 })));
+    t.teardown(() => section.dispose());
+    const mesh = section.children[0] as Mesh;
+    const index = mesh.geometry.getIndex()!;
+    const attributes = Object.fromEntries(Object.entries(mesh.geometry.attributes).map(([name, attribute]) => [name, attribute.array.slice()]));
+    const bounds = mesh.geometry.boundingBox!.clone(), sphere = mesh.geometry.boundingSphere!.clone();
+    const camera = new OrthographicCamera(-64, 64, 64, -64);
+    camera.position.z = 100;
+    beforeRender(section, camera);
+    t.deepEqual(quadOrder(mesh), [0, 2, 1]);
+    t.is(index.usage, DynamicDrawUsage);
+    const version = index.version;
+    beforeRender(section, camera);
+    t.is(index.version, version);
+    camera.position.z = 120;
+    beforeRender(section, camera);
+    t.is(index.version, version);
+    camera.position.z = -100;
+    camera.lookAt(0, 0, 0);
+    beforeRender(section, camera);
+    t.deepEqual(quadOrder(mesh), [1, 0, 2]);
+    t.is(index.version, version + 1);
+    camera.position.set(-100, 0, 0);
+    camera.lookAt(0, 0, 0);
+    beforeRender(section, camera);
+    t.is(quadOrder(mesh)[0], 2);
+    camera.position.set(0, 0, 100);
+    camera.lookAt(0, 0, 0);
+    beforeRender(section, camera);
+    t.deepEqual(quadOrder(mesh), [0, 2, 1]);
+    t.deepEqual(Object.fromEntries(Object.entries(mesh.geometry.attributes).map(([name, attribute]) => [name, attribute.array])), attributes);
+    t.deepEqual(mesh.geometry.boundingBox, bounds);
+    t.deepEqual(mesh.geometry.boundingSphere, sphere);
+});
+
+test.serial("translucent sorting uses camera and mesh parent transforms before model-view matrices are refreshed", t => {
+    const template = fixture(t)(1);
+    const section = SectionMesh.build([0, 16].map(index => ({ index, template, cullMask: 47 })));
+    t.teardown(() => section.dispose());
+    const mesh = section.children[0] as Mesh;
+    const parent = new Group();
+    parent.position.set(13, 5, -40);
+    parent.rotation.y = Math.PI;
+    parent.scale.set(2, 3, 4);
+    parent.add(section);
+    const camera = new PerspectiveCamera();
+    camera.position.set(13, 5, 100);
+    mesh.modelViewMatrix.identity();
+    beforeRender(section, camera);
+    t.deepEqual(quadOrder(mesh), [1, 0]);
+    const cameraParent = new Group();
+    cameraParent.position.copy(parent.position);
+    cameraParent.rotation.y = Math.PI;
+    cameraParent.add(camera);
+    camera.position.set(0, 0, 100);
+    mesh.modelViewMatrix.makeRotationY(Math.PI);
+    beforeRender(section, camera);
+    t.deepEqual(quadOrder(mesh), [0, 1]);
+    mesh.rotation.y = Math.PI;
+    mesh.modelViewMatrix.identity();
+    beforeRender(section, camera);
+    t.deepEqual(quadOrder(mesh), [1, 0]);
+});
+
+test.serial("sorted translucent quads retain block ownership for ray hits on both triangles", t => {
+    const template = fixture(t)(1);
+    const section = SectionMesh.build([0, 18].map(index => ({ index, template, cullMask: 47 })));
+    t.teardown(() => section.dispose());
+    const camera = new PerspectiveCamera();
+    for (const z of [100, -100]) {
+        camera.position.z = z;
+        camera.lookAt(0, 0, 0);
+        beforeRender(section, camera);
+        for (const [x, owner] of [[0, 0], [32, 18]]) {
+            const triangles = new Set<number>();
+            for (const [dx, y] of [[-4, 2], [4, -2]]) {
+                const ray = new Raycaster(new Vector3(x + dx, y, 100), new Vector3(0, 0, -1));
+                const hit = ray.intersectObject(section, true)[0];
+                t.truthy(hit);
+                t.is(section.getBlockIndex(hit), owner);
+                triangles.add(hit.faceIndex! % 2);
+            }
+            t.deepEqual([...triangles].sort(), [0, 1]);
+        }
+    }
 });
 
 for (const transparent of [false, true]) {
@@ -125,8 +238,8 @@ for (const transparent of [false, true]) {
         const atlas = new TextureAtlas({}, new CanvasImage(4, 2), { still: [2, 2], flow: [2, 2] },
             { still: [0, 0], flow: [2, 0] }, false, {}, transparent, transparent);
         const cells = new Uint8Array(18 ** 3);
-        cells[18 * 18 + 18 + 1] = 16;
-        const section = SectionMesh.build([], 4, { cells, water: atlas });
+        cells[18 * 18 + 18 + 1] = transparent ? 16 : 32;
+        const section = SectionMesh.build([], 4, { cells, [transparent ? "water" : "lava"]: atlas });
         t.teardown(() => section.dispose());
         t.is(section.children.length, 1);
         const material = (section.children[0] as Mesh).material as ShaderMaterial;
@@ -136,6 +249,22 @@ for (const transparent of [false, true]) {
         t.is(material.depthWrite, !transparent);
         t.true(material.vertexColors);
         t.deepEqual(Array.from((section.children[0] as Mesh).geometry.getAttribute("shade").array), Array(24).fill(1));
+        const mesh = section.children[0] as Mesh, index = mesh.geometry.getIndex()!;
+        const original = Array.from(index.array), version = index.version;
+        const camera = new PerspectiveCamera();
+        camera.position.set(8, 8, 100);
+        beforeRender(section, camera);
+        const forward = Array.from(index.array);
+        camera.position.z = -100;
+        camera.lookAt(8, 8, 0);
+        beforeRender(section, camera);
+        if (transparent) {
+            t.notDeepEqual(Array.from(index.array), forward);
+            t.is(index.usage, DynamicDrawUsage);
+        } else {
+            t.deepEqual(Array.from(index.array), original);
+            t.is(index.version, version);
+        }
     });
 }
 
@@ -257,7 +386,7 @@ test.serial("async section builds use the shared worker without copying its geom
         terminate() {}
     }) as unknown as Worker;
     const create = fixture(t, () => { workers++; return worker; });
-    const first = create(), second = create();
+    const first = create(1), second = create(1);
     first.geometry.applyMatrix4(new Matrix4().makeRotationY(Math.PI / 2));
     first.biomeTint = new Uint8Array([1, 0, 1, 0, 1, 0]);
     first.geometry.setAttribute("shade", new Float32BufferAttribute([0, 1, 0, 1, 0, 1].flatMap(value => Array(4).fill(value)), 1));
@@ -293,6 +422,19 @@ test.serial("async section builds use the shared worker without copying its geom
             const ray = new Raycaster(new Vector3(x, 100, z), new Vector3(0, -1, 0));
             const hit = ray.intersectObject(actual[i], true)[0];
             t.is(actual[i].getBlockIndex(hit), index);
+        }
+    }
+    const camera = new PerspectiveCamera();
+    for (const z of [100, -100]) {
+        camera.position.z = z;
+        camera.lookAt(0, 0, 0);
+        for (const section of [...expected, ...actual]) beforeRender(section, camera);
+        t.deepEqual(actual.map(geometryData), expected.map(geometryData));
+        for (const section of actual) {
+            for (const [x, z, index] of [[16, 0, 1], [0, 16, 16], [64, 48, 564]]) {
+                const ray = new Raycaster(new Vector3(x, 100, z), new Vector3(0, -1, 0));
+                t.is(section.getBlockIndex(ray.intersectObject(section, true)[0]), index);
+            }
         }
     }
 });
