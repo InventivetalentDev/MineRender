@@ -2,6 +2,7 @@ import {
     AnvilParser, AnvilWorldSource, AssetLoader, Env, MineRenderWorld, Renderer,
     SectionMesh, SectionWorker, WorldStreamer
 } from "minerender";
+import { installPlacementProfiler, PlacementProfileContext } from "./placement-profile";
 
 export interface WorldBenchmarkConfig {
     version: string;
@@ -15,6 +16,7 @@ export interface WorldBenchmarkConfig {
     biomeBlendRadius: number;
     renderEntities: boolean;
     maxCachedRegions: number;
+    profilePlacement: boolean;
 }
 
 const CAMERA_HEIGHT = 160;
@@ -114,6 +116,9 @@ async function runWorldBenchmark(config: WorldBenchmarkConfig) {
     const operations: Operation[] = [];
     const observedDataVersions = new Set<number>();
     let context: Pick<Operation, "pass" | "phase" | "waypoint"> = { pass: "cold", phase: "outbound", waypoint: null };
+    let operation: PlacementProfileContext["operation"] = null;
+    let nextOperationId = 0;
+    const placementProfile = config.profilePlacement ? installPlacementProfiler(started, () => ({ ...context, operation })) : undefined;
     let frames: ReturnType<typeof frameSampler> | undefined;
     const worker = { created: 0, buildRequests: 0, buildReplies: 0, buildFailures: 0, synchronousBuilds: 0 };
     const workerStats = () => ({ ...worker, fallbackBuilds: worker.buildFailures + worker.synchronousBuilds });
@@ -252,10 +257,18 @@ async function runWorldBenchmark(config: WorldBenchmarkConfig) {
                 readEntityRegion: config.renderEntities ? (x, z, signal) => readFile("entity-region", x, z, `/world-files/entities/r.${x}.${z}.mca`, signal) : undefined
             });
             const streamer = new WorldStreamer({
-                placeChunk: chunk => timed("placement", { x: chunk.x, z: chunk.z }, () => world.placeChunk(chunk)),
+                placeChunk: chunk => timed("placement", { x: chunk.x, z: chunk.z }, async () => {
+                    operation = { id: ++nextOperationId, kind: "placement", columns: [{ x: chunk.x, z: chunk.z }] };
+                    try { await world.placeChunk(chunk); }
+                    finally { operation = null; }
+                }),
                 unloadChunkColumns: columns => timed("unload", {
                     columnCount: columns.length, columns: columns.map(({ x, z }) => ({ x, z }))
-                }, () => world.unloadChunkColumns(columns))
+                }, async () => {
+                    operation = { id: ++nextOperationId, kind: "unload", columns: columns.map(({ x, z }) => ({ x, z })) };
+                    try { await world.unloadChunkColumns(columns); }
+                    finally { operation = null; }
+                })
             }, {
                 getChunk: (x, z, signal) => timed("source", { x, z }, () => source.getChunk(x, z, signal))
             }, { loadRadius: config.loadRadius, unloadRadius: config.unloadRadius });
@@ -316,7 +329,8 @@ async function runWorldBenchmark(config: WorldBenchmarkConfig) {
             runs.push({ pass, cacheStatus: `fresh source; ${pass === "cold" ? "cold" : "warm"} assets`, waypoints, cleanupMs, heapBytesAfterCleanupGc });
         }
         status.textContent = "Benchmark complete";
-        return { settings, environment, observedDataVersions: [...observedDataVersions].sort((a, b) => a - b), runs, operations, worker: workerStats() };
+        return { settings, environment, observedDataVersions: [...observedDataVersions].sort((a, b) => a - b), runs, operations,
+            worker: workerStats(), placementProfile: placementProfile?.report() };
     } catch (error) {
         status.textContent = `Benchmark failed: ${errorMessage(error)}`;
         throw error;
@@ -332,6 +346,7 @@ async function runWorldBenchmark(config: WorldBenchmarkConfig) {
             SectionWorker.prototype.build = original.buildWorker;
             if (createWorkerDescriptor) Object.defineProperty(provider, "createWorker", createWorkerDescriptor);
             else delete provider.createWorker;
+            placementProfile?.restore();
             running = false;
         }
     }

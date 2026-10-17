@@ -18,6 +18,36 @@ The default load radius is 1, unload radius is 2, viewport is 1280×720 at pixel
 
 Chrome uses its selected GPU by default. `--software-rendering` requests SwiftShader for validation on machines without usable GPU rendering; those results describe software rendering. `--headed` shows the browser. The report records the browser, actual WebGL renderer, operating system, revision, settings, and hashes of every world file requested. Missing files are listed separately. Benchmark results and save files do not belong in Git.
 
+## Profile placement
+
+Add `--profile-placement` to the command above. This option records placement stages and requires section meshing.
+
+The runner instruments four built ESM modules in memory while bundling the benchmark. It leaves library source, package files, and the section worker unchanged. If a method or measured boundary has changed, bundling fails instead of silently omitting that measurement. Without the flag, the runner uses the ordinary benchmark bundle.
+
+The report's `placementProfile` contains:
+
+- `events`: timed spans with IDs, explicit parent IDs, pass, phase, and waypoint. Section builds and their child stages include absolute section coordinates, including the vertical section coordinate. State and model preparation events identify their block or model; they have no section assignment.
+- `summary`: build totals per pass, split into `ownColumnBuilds`, `neighborBuilds`, `unloadBuilds`, and `otherBuilds`, plus `sectionsBuiltTwiceInOneOperation` for sections built at least twice within one operation.
+- `sections`: counts by pass and section coordinates (`x`, `y`, `z`), with `builds`, `succeeded`, the same operation split, `maxBuildsPerOperation`, `inclusiveMs`, and `unionMs`.
+- `stages`: call counts, successes, summed `inclusiveMs`, and `unionMs` by pass and stage, including cleanup. The union counts overlapping intervals of that stage once. Different stages can overlap or contain each other, so neither column can be added across stages to calculate total streaming time. Filter `events` by `phase` to exclude cleanup.
+- `issues` and `incompleteSpans`: missing ownership or unfinished instrumentation. The runner exits unsuccessfully if it detects these issues.
+
+Stage boundaries are:
+
+| Stage | Includes |
+|---|---|
+| `state-preparation` | Selecting prepared state/templates and resolving tints, including cache hits and waits |
+| `state-resolution` | The state cache's loader: model resolution, model atlases, and rotation data |
+| `template-preparation` / `template-build` | Template cache lookup/wait / the cache loader's geometry creation |
+| `model-atlas` | Creating a model texture atlas, including awaited texture loads; warm caches can skip this stage |
+| `section-rebuild` | A rebuild attempt, including neighborhood preparation, mesh replacement, and attempts that need no build |
+| `section-build` / `section-input` | A mesh build / conversion of its entries and templates to worker input |
+| `worker-roundtrip` | Worker dispatch through reply, including queueing, message cloning, and main-thread scheduling; this is not worker CPU time |
+| `synchronous-geometry` | Geometry built on the main thread when no worker is available or a worker rejects |
+| `mesh-assembly` / `atlas-paint` | Page canvases, geometry, materials, bounds, and subscriptions / its nested canvas allocation and image painting |
+
+Profiling adds clock reads, span records, promise continuations, and retained JavaScript memory. Use ordinary runs for performance comparisons. Profiled times describe the instrumented run, and its heap includes profiler records. The worker hash stays unchanged; the instrumented main script has a different hash. Both are recorded in the report.
+
 ## Read the report
 
 Each invocation has two passes. The first starts with fresh browser asset storage and a fresh `AnvilWorldSource`; the second keeps loaded assets and the renderer but creates a fresh world and source. Shared GPU resources and shader programs can also remain warm. Within each pass, returning to earlier stops reloads columns while raw region files can remain cached. The runner serves save files with `Cache-Control: no-store`.

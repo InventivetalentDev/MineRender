@@ -4,6 +4,7 @@ import glob from "glob";
 import { parseArgs } from "node:util";
 import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, relative, sep } from "node:path";
+import { instrumentPlacementModule } from "./scripts/placement-profile.mjs";
 
 const { values: args } = parseArgs({
     options: {
@@ -73,4 +74,9 @@ if (args.serve) {
         });
         await writeFile(output, html);
     }));
+}
+
+for (const name of ["Chunk", "SectionMesh", "SectionModels", "UVMapper"]) {
+    const file = `../../packages/minerender/dist/browser/esm/${name === "UVMapper" ? "" : "world/"}${name}.mjs`;
+    instrumentPlacementModule(await readFile(file, "utf8"), name);
 }

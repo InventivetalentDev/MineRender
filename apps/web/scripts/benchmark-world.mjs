@@ -27,6 +27,7 @@ const { values: args } = parseArgs({ options: {
     "saved-lighting": { type: "boolean", default: false },
     "ambient-occlusion": { type: "boolean", default: false },
     "render-entities": { type: "boolean", default: false },
+    "profile-placement": { type: "boolean", default: false },
     "software-rendering": { type: "boolean", default: false },
     headed: { type: "boolean", default: false },
     "timeout-ms": { type: "string", default: "1800000" },
@@ -43,6 +44,7 @@ if (args.help) {
 --saved-lighting --ambient-occlusion --biome-blend-radius N --render-entities
 --no-section-meshing --max-cached-regions N
 --software-rendering           Use SwiftShader instead of Chrome's selected GPU
+--profile-placement            Record section rebuilds and placement stages (adds timing overhead)
 --headed --timeout-ms N --output REPORT.json
 
 Set CHROME_PATH for a Chrome binary outside the default macOS installation.
@@ -152,10 +154,12 @@ try {
         maxCachedRegions: integer("max-cached-regions", 0),
         biomeBlendRadius: integer("biome-blend-radius", 0, 7), sectionMeshing: !args["no-section-meshing"],
         savedLighting: args["saved-lighting"], ambientOcclusion: args["ambient-occlusion"], renderEntities: args["render-entities"],
+        profilePlacement: args["profile-placement"],
     };
     if (!config.sectionMeshing && (config.savedLighting || config.ambientOcclusion || config.biomeBlendRadius)) {
         throw new Error("Saved lighting, ambient occlusion, and biome blending require section meshing");
     }
+    if (config.profilePlacement && !config.sectionMeshing) throw new Error("Placement profiling requires section meshing");
     const timeout = integer("timeout-ms", 1000);
     const chrome = process.env.CHROME_PATH ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
     await stat(chrome);
@@ -163,7 +167,7 @@ try {
     const bundle = await esbuild.build({
         entryPoints: [path.join(root, "benchmarks/world.ts")], bundle: true, write: false,
         format: "esm", platform: "browser", target: "es2020", logLevel: "warning",
-        plugins: [polyfillNode({ polyfills: { zlib: true } })],
+        plugins: [...(config.profilePlacement ? [(await import("./placement-profile.mjs")).placementProfilePlugin()] : []), polyfillNode({ polyfills: { zlib: true } })],
     });
     const requests = new Map();
     const html = '<!doctype html><html lang="en"><meta charset="utf-8"><title>World streaming benchmark</title><style>html,body{margin:0;width:100%;height:100%;overflow:hidden}#viewport{width:100%;height:100%}#status{position:absolute;top:8px;left:8px;background:white;color:black;padding:8px;font:14px monospace}</style><div id="viewport"></div><output id="status">Starting benchmark</output><script type="module" src="/world.mjs"></script></html>';
@@ -218,6 +222,10 @@ try {
             }),
         ]);
     } finally { clearTimeout(timeoutTimer); }
+    if (config.profilePlacement) {
+        if (!result.placementProfile) throw new Error("The browser returned no placement profile");
+        problems.push(...result.placementProfile.issues.map(issue => `Placement profile: ${issue}`));
+    }
     const manifest = [];
     for (const relative of [...requests.keys()].sort()) {
         const file = files.get(relative);
@@ -246,6 +254,10 @@ try {
         const updateMs = run.waypoints.reduce((sum, point) => sum + point.updateMs, 0);
         const maxGap = Math.max(...run.waypoints.map(point => point.frames.maxMs ?? 0));
         console.log(`${run.pass}: ${updateMs.toFixed(0)} ms streaming, ${maxGap.toFixed(1)} ms maximum frame gap`);
+        if (report.placementProfile) {
+            const summary = report.placementProfile.summary.find(summary => summary.pass === run.pass);
+            console.log(`  placement profile: ${summary.builds} section builds (own column ${summary.ownColumnBuilds}, neighbouring columns ${summary.neighborBuilds}, unloads ${summary.unloadBuilds})`);
+        }
     }
     console.log(`Report: ${output}`);
     if (problems.length || report.runs.some(run => run.waypoints.some(point => point.failedChunks > 0))) process.exitCode = 1;
