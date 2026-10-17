@@ -112,7 +112,7 @@ Calling `removeFromScene()` or `dispose()` on an instance reference releases its
 
 With `sectionMeshing: true`, [MineRenderWorld](/api/index/classes/MineRenderWorld) merges eligible blocks into section meshes. A merged block has no individual `BlockInfo.object`. Edit it through the world or chunk setters so geometry and neighbor culling update together.
 
-Transparent model and fluid pages sort their quads back to front by their centers in camera space, with depth writes disabled. Sorting stays within each atlas page. Quads in different pages or sections rely on Three.js sorting their meshes as whole objects. Intersecting surfaces can still blend incorrectly.
+Translucent blocks and water in a section mesh draw back to front. Perspective views sort them by distance from the camera and re-sort when the camera enters another block; orthographic views sort by view depth. Separate section meshes rely on Three.js sorting the meshes as whole objects, and intersecting surfaces can still blend incorrectly.
 
 Block model elements with `shade: false` skip directional face shading in separate, merged, and instanced models, including world section meshes. Tints, saved world light, and ambient occlusion still apply. Item previews keep directional shading because vanilla's item renderer ignores the flag. Omitted or `true` values retain directional shading; GUI items with `gui_light: "front"` disable it for the whole model.
 

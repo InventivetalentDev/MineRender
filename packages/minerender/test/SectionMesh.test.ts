@@ -130,7 +130,7 @@ test.serial("section materials blend only translucent pages", t => {
     const materials = section.children.map(child => (child as Mesh).material as ShaderMaterial);
     t.deepEqual(materials.map(material => material.transparent), [false, true]);
     t.deepEqual(materials.map(material => material.side), [FrontSide, FrontSide]);
-    t.deepEqual(materials.map(material => material.depthWrite), [true, false]);
+    t.deepEqual(materials.map(material => material.depthWrite), [true, true]);
     const opaque = section.children[0] as Mesh;
     const original = Array.from(opaque.geometry.getIndex()!.array), version = opaque.geometry.getIndex()!.version;
     const camera = new PerspectiveCamera();
@@ -143,7 +143,41 @@ test.serial("section materials blend only translucent pages", t => {
     t.is(opaque.geometry.getIndex()!.version, version);
 });
 
-test.serial("translucent sections reverse quad depth order, retain original ties, and skip unchanged index uploads", t => {
+test.serial("perspective sections sort by distance only after entering another block or changing camera kind", t => {
+    const template = fixture(t)(1);
+    const section = SectionMesh.build([0, 1].map(index => ({ index, template, cullMask: 47 })));
+    t.teardown(() => section.dispose());
+    const mesh = section.children[0] as Mesh, index = mesh.geometry.getIndex()!;
+    const camera = new PerspectiveCamera();
+    camera.position.set(1, 0, 100);
+    beforeRender(section, camera);
+    t.deepEqual(quadOrder(mesh), [1, 0]);
+    const version = index.version;
+    camera.rotation.y = Math.PI;
+    beforeRender(section, camera);
+    t.is(index.version, version);
+    camera.position.x = 15;
+    beforeRender(section, camera);
+    t.deepEqual(quadOrder(mesh), [1, 0]);
+    t.is(index.version, version);
+    camera.position.x = 16;
+    beforeRender(section, camera);
+    t.deepEqual(quadOrder(mesh), [0, 1]);
+    t.is(index.version, version + 1);
+    camera.position.x = 32;
+    beforeRender(section, camera);
+    t.is(index.version, version + 1);
+    camera.position.x = 1;
+    beforeRender(section, camera);
+    const orthographic = new OrthographicCamera();
+    orthographic.position.copy(camera.position);
+    beforeRender(section, orthographic);
+    t.deepEqual(quadOrder(mesh), [0, 1]);
+    beforeRender(section, camera);
+    t.deepEqual(quadOrder(mesh), [1, 0]);
+});
+
+test.serial("orthographic sections sort by view depth, retain original ties, and skip translation uploads", t => {
     const template = fixture(t)(1);
     const section = SectionMesh.build([0, 16, 1].map(index => ({ index, template, cullMask: 47 })));
     t.teardown(() => section.dispose());
