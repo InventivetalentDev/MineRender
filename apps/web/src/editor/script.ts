@@ -1,6 +1,7 @@
 import {
     AssetKey, AssetLoader, Entities, Renderer, SceneDocumentLoader, SceneExporter, encodeSceneDocument, isEntityObject,
-    type LoadedSceneObject, type SceneDocument, type SceneObjectDefinition, type SceneSkinDefinition, type SceneEntityDefinition
+    type EntityAnimation, type EntityObject, type LoadedSceneObject, type SceneDocument, type SceneObjectDefinition,
+    type SceneSkinDefinition, type SceneEntityDefinition
 } from "minerender";
 import { Box3, Box3Helper, Color, GridHelper, Group, Raycaster, Vector2, Vector3 } from "three";
 import { TransformControls } from "three/examples/jsm/controls/TransformControls.js";
@@ -27,6 +28,22 @@ function equalJson(left: unknown, right: unknown): boolean {
     const keys = Object.keys(a);
     return keys.length === Object.keys(b).length
         && keys.every(key => Object.prototype.hasOwnProperty.call(b, key) && equalJson(a[key], b[key]));
+}
+
+function animationClips(animation: NonNullable<SceneEntityDefinition["animation"]>): { name: string; weight: number }[] {
+    return animation.name !== undefined ? [{ name: animation.name, weight: 1 }]
+        : animation.clips.map(clip => ({ name: clip.name, weight: clip.weight ?? 1 }));
+}
+
+function playEntityAnimation(object: EntityObject, asset: string, animation: NonNullable<SceneEntityDefinition["animation"]>,
+                             clips: Record<string, EntityAnimation> | undefined): void {
+    const selected = animationClips(animation);
+    const resolved = selected.map(({ name }) => {
+        const clip = clips && Object.prototype.hasOwnProperty.call(clips, name) ? clips[name] : undefined;
+        if (!clip) throw new Error(`Entity ${asset} has no animation "${name}"`);
+        return clip;
+    });
+    object.playAnimations(resolved, { ...animation, weights: selected.map(clip => clip.weight) });
 }
 
 function report(message: string, error = false): void {
@@ -88,13 +105,20 @@ async function start(): Promise<void> {
 
     const selected = () => sceneDocument.objects.find(object => object.id === selectedId);
     const currentObject = () => selectedId ? objects.get(selectedId) : undefined;
-    const snapshot = (): SceneDocument => ({
-        ...clone(sceneDocument),
-        camera: {
+    const snapshot = (): SceneDocument => {
+        const next = clone(sceneDocument);
+        for (const definition of next.objects) {
+            const object = objects.get(definition.id)?.object;
+            if (definition.type === "entity" && definition.animation && object && isEntityObject(object)) {
+                definition.animation.time = object.animationTime;
+            }
+        }
+        next.camera = {
             position: renderer.camera.position.toArray() as [number, number, number],
             target: renderer.orbitControls!.target.toArray() as [number, number, number]
-        }
-    });
+        };
+        return next;
+    };
     const historySnapshot = (): string => {
         const { camera, ...definition } = sceneDocument;
         return JSON.stringify(definition);
@@ -105,7 +129,7 @@ async function start(): Promise<void> {
         element<HTMLButtonElement>("redo").disabled = busy || loadingObjects.size > 0 || historyIndex >= history.length - 1;
         element<HTMLButtonElement>("duplicate").disabled = busy || !selected();
         element<HTMLButtonElement>("delete").disabled = busy || !selected();
-        for (const id of ["new-scene", "import-scene", "restore-scene", "apply-version", "export-scene", "copy-embed"]) element<HTMLButtonElement>(id).disabled = busy;
+        for (const id of ["new-scene", "import-scene", "restore-scene", "apply-version", "save-scene", "export-scene", "copy-embed"]) element<HTMLButtonElement>(id).disabled = busy;
         for (const id of ["export-format", "video-duration", "video-fps", "show-grid", "transparent"]) element<HTMLInputElement | HTMLSelectElement>(id).disabled = busy;
         element("add-form").querySelector<HTMLButtonElement>("button[type=submit]")!.disabled = busy;
     }
@@ -428,20 +452,35 @@ async function start(): Promise<void> {
         return update;
     }
 
-    function applyAnimation(animation: SceneEntityDefinition["animation"]): Promise<void> {
+    function applyAnimation(animation: SceneEntityDefinition["animation"], seek = false): Promise<void> {
         const initial = selected();
         if (busy || disposed || initial?.type !== "entity") return Promise.resolve();
         const token = Symbol();
         animationRequests.set(initial.id, token);
         return trackUpdate((async () => {
-            const clips = animation ? await Entities.getAnimations(AssetKey.parse("entities", initial.asset)) : undefined;
+            const before = objects.get(initial.id);
+            const sameClips = animation && before?.definition.type === "entity" && before.definition.animation
+                && equalJson(animationClips(animation).map(clip => clip.name), animationClips(before.definition.animation).map(clip => clip.name));
+            const clips = animation && !sameClips ? await Entities.getAnimations(AssetKey.parse("entities", initial.asset)) : undefined;
             const definition = sceneDocument.objects.find(object => object.id === initial.id), loaded = objects.get(initial.id);
             if (disposed || animationRequests.get(initial.id) !== token || definition?.type !== "entity"
                 || definition.asset !== initial.asset || loaded?.definition.type !== "entity" || !isEntityObject(loaded.object)) return;
             if (animation) {
-                const clip = clips?.[animation.name];
-                if (!clip) throw new Error(`Entity ${definition.asset} has no animation "${animation.name}"`);
-                loaded.object.playAnimation(clip, animation);
+                const previous = loaded.definition.animation;
+                const selected = animationClips(animation);
+                if (sameClips) {
+                    if (previous?.loop === animation.loop && (previous?.speed ?? 1) === (animation.speed ?? 1)) {
+                        loaded.object.setAnimationWeights(selected.map(clip => clip.weight));
+                        if (seek) loaded.object.setAnimationTime(animation.time ?? 0);
+                    } else {
+                        loaded.object.playAnimations(loaded.object.activeAnimations, {
+                            ...animation, time: animation.time ?? loaded.object.animationTime, weights: selected.map(clip => clip.weight)
+                        });
+                    }
+                } else {
+                    playEntityAnimation(loaded.object, definition.asset,
+                        !seek && previous ? { ...animation, time: loaded.object.animationTime } : animation, clips);
+                }
                 definition.animation = clone(animation);
                 loaded.definition.animation = definition.animation;
             } else {
@@ -489,11 +528,13 @@ async function start(): Promise<void> {
                     next.animation = current.animation;
                     if (isEntityObject(staged.object)) {
                         if (next.animation) {
-                            const clip = clips?.[next.animation.name];
-                            if (!clip) throw new Error(`Entity ${next.asset} has no animation "${next.animation.name}"`);
-                            staged.object.playAnimation(clip, next.animation);
+                            playEntityAnimation(staged.object, next.asset, next.animation, clips);
                         } else staged.object.stopAnimation();
                     }
+                }
+                if (next.type === "entity" && current.type === "entity" && next.asset === current.asset && next.animation
+                    && equalJson(next.animation, current.animation) && isEntityObject(old.object) && isEntityObject(staged.object)) {
+                    staged.object.setAnimationTime(old.object.animationTime);
                 }
                 Object.assign(staged.definition, next);
                 staged.root.name = next.name ?? next.id;
@@ -756,7 +797,9 @@ async function start(): Promise<void> {
     element("new-scene").addEventListener("click", () => { void run("Creating empty scene…", async () => {
         await replaceDocument(emptyDocument()); report("Empty scene ready. Use Undo to restore the previous scene."); remember();
     }); });
-    element("save-scene").addEventListener("click", () => { download(snapshot(), "scene.json"); report("Scene JSON downloaded."); });
+    element("save-scene").addEventListener("click", () => { void run("Saving scene…", () => {
+        download(snapshot(), "scene.json"); report("Scene JSON downloaded.");
+    }); });
     element("import-scene").addEventListener("click", () => element<HTMLInputElement>("file-input").click());
     element("file-input").addEventListener("change", event => {
         const input = event.target as HTMLInputElement;
