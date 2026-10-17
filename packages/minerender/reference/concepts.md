@@ -18,8 +18,6 @@ Use the units expected by the API you call:
 
 For GUI camera fitting, use [GuiObject](/api/index/classes/GuiObject)'s `bounds`. It includes item-model overhang as well as layer rectangles, in GUI coordinates.
 
-GUI text accepts literal Unicode strings or styled text runs. [Fonts](/api/index/classes/Fonts) loads bitmap, Unihex, space, and reference providers from the selected assets and resource packs. Unihex ZIPs use vanilla glyph metrics and size overrides, with shared atlas pages allocated as glyphs are drawn. A Unihex file downloads only when text needs a character that earlier providers lack, so plain ASCII text in the default font never loads `unifont.zip`. TrueType fonts, translation keys, and right-to-left shaping remain unsupported.
-
 `render.pixelRatio` sets drawing-buffer pixels per CSS pixel, with a default of `1`. It changes image-export resolution; layout and inspector picking use CSS pixels.
 
 ## Await initialization
@@ -34,7 +32,7 @@ With `sectionMeshing: true`, changed sections rebuild after the placement promis
 
 ## Versioned registry data
 
-`AssetLoader.setVersion(version)` selects both vanilla assets and the registry data used for item defaults, potion colors, block properties, preview tints, fluids, dyes, legacy numeric mappings, and renamed IDs. These datasets load from `assets.mcasset.cloud/<version>/minerender-data/` when needed.
+`AssetLoader.setVersion(version)` selects both vanilla assets and the registry data used for item defaults, potion colors, block properties, preview tints, face culling rules, fluids, dyes, legacy numeric mappings, and renamed IDs. These datasets load from `assets.mcasset.cloud/<version>/minerender-data/` when needed.
 
 When the exact dataset version is missing, MineRender selects the nearest published patch in the same release line, preferring the older patch on a tie. Otherwise it uses the latest earlier published release. Releases older than the published data use the oldest available release; an unpublished snapshot rejects. Models and textures retain the requested asset version. A missing dataset or failed request rejects rather than returning an empty registry.
 
@@ -115,7 +113,11 @@ await scene.addGui([{ item: "minecraft:item/shield", context: { components: {
 } } }]);
 ```
 
-Bundled vanilla 1.21.11 stack-size, durability, and glint defaults apply unless overridden by supplied components. Supply any other components a selector reads. GUI item layers and scene-document item definitions take the same `context`; documents name item references by item ID. Explicit `tints` still override automatic colors. See the [AGENTS.md item notes](https://github.com/InventivetalentDev/MineRender/blob/main/AGENTS.md#gotchas) for the supported components and renderers.
+The selected version's stack-size, durability, and glint defaults from [ItemDefaults](/api/index/classes/ItemDefaults) apply unless overridden by supplied components. Supply any other components a selector reads. GUI item layers and scene-document item definitions take the same `context`; documents name item references by item ID. Explicit `tints` still override automatic colors. See the [AGENTS.md item notes](https://github.com/InventivetalentDev/MineRender/blob/main/AGENTS.md#gotchas) for the supported components and renderers.
+
+## GUI text
+
+GUI text accepts literal Unicode strings or styled text runs. [Fonts](/api/index/classes/Fonts) loads bitmap, Unihex, space, and reference providers from the selected assets and resource packs. Unihex ZIPs use vanilla glyph metrics and size overrides, with shared atlas pages allocated as glyphs are drawn. A Unihex file downloads only when text needs a character that earlier providers lack, so plain ASCII text in the default font never loads `unifont.zip`. TrueType fonts, translation keys, and right-to-left shaping remain unsupported.
 
 ## Objects and instance references
 
@@ -123,13 +125,21 @@ With model instancing enabled, scene methods can return an [InstanceReference](/
 
 Calling `removeFromScene()` or `dispose()` on an instance reference releases its slot. A released reference rejects transform access; create another placement to obtain a usable reference.
 
-With `sectionMeshing: true`, [MineRenderWorld](/api/index/classes/MineRenderWorld) merges eligible blocks into section meshes. A merged block has no individual `BlockInfo.object`. Edit it through the world or chunk setters so geometry and neighbor culling update together.
-
-Translucent blocks and water in a section mesh draw back to front. Perspective views sort them by distance from the camera and re-sort when the camera enters another block; orthographic views sort by view depth. Separate section meshes rely on Three.js sorting the meshes as whole objects, and intersecting surfaces can still blend incorrectly.
-
 Block model elements with `shade: false` skip directional face shading in separate, merged, and instanced models, including world section meshes. Tints, saved world light, and ambient occlusion still apply. Item previews keep directional shading because vanilla's item renderer ignores the flag. Omitted or `true` values retain directional shading; GUI items with `gui_light: "front"` disable it for the whole model.
 
 World placement selects weighted block models from absolute block coordinates, so unloading and reloading preserves their appearance in both rendering modes. Standalone `scene.addBlock` previews remain random unless you supply `variantPosition: [x, y, z]` in block units. The position is copied at construction; moving the object does not change its selection. The pick is vanilla-identical for the same coordinates and ordered weights. Position-based selection rejects total weights above 2,147,483,647.
+
+## World section meshes
+
+With `sectionMeshing: true`, [MineRenderWorld](/api/index/classes/MineRenderWorld) merges the block models in each 16 × 16 × 16 section into a few meshes. This includes cutout, translucent, multipart, and animated models, plus fluid surfaces. Solid, translucent, and fluid geometry use separate atlas pages of at most `maxAtlasSize` pixels per side, 2048 by default, with one mesh per page; animated textures get their own pages. Block entities keep individual objects.
+
+A merged block has no individual `BlockInfo.object`. Edit it through the world or chunk setters so geometry and neighbor culling update together.
+
+Translucent blocks and water in a section mesh draw back to front. Perspective views sort them by distance from the camera and re-sort when the camera enters another block; orthographic views sort by view depth. Separate section meshes rely on Three.js sorting the meshes as whole objects, and intersecting surfaces can still blend incorrectly.
+
+In both rendering modes, a face whose model `cullface` touches an opaque full cube is hidden. The selected version's `blockCulling` dataset adds vanilla's other rules: glass, ice, slime, and similar blocks hide faces toward the same block, mangrove roots toward the same block above or below, and connected panes or bars toward each other. Leaves keep their faces.
+
+`await world.setBlockVisibleAt(position, false)` hides a block without deleting its data and reveals its neighbors' faces. Replacing or removing the block resets its visibility.
 
 ## Inspecting world blocks
 
@@ -229,6 +239,8 @@ Await `stream.dispose()` before editing or clearing the world; it unloads its co
 Numeric and paletted Java chunks support gzip, zlib, LZ4, and uncompressed payloads, including external `.mcc` files. Pre-1.13 numeric chunks use the same block mappings as legacy schematics. Pass `legacyMappings: { "id:metadata": "namespace:block[property=value]" }` to `AnvilParser.parse`, `AnvilParser.parseChunk`, or `AnvilWorldSource` to override those mappings. Set `lenient: true` to try metadata 0 for unmapped numeric states and skip unknown IDs; malformed arrays still fail validation.
 
 Numeric mappings do not reconstruct states that depend on neighbors or block-entity NBT, such as paired doors or bed colors. DataVersion migration remains unsupported.
+
+## Biomes, light, and ambient occlusion
 
 Modern Anvil sections retain their biome palettes as 64 IDs in `section.biomes`, ordered by `x + z * 4 + y * 16`. Each sample covers 4×4×4 blocks. `placeChunk` copies these samples, including in air-only sections. Call `world.getBiomeAt(x, y, z)` with integer world block coordinates to read the saved ID, or `undefined` when biome data is absent. Block edits preserve samples; replacing or unloading the column removes its previous biome data.
 
