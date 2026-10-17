@@ -1,6 +1,6 @@
 # MineRender V2
 
-A TypeScript library for interactive Minecraft skins, models, blocks, entities, and worlds.
+A TypeScript library for interactive Minecraft skins, models, blocks, entities, GUIs, and worlds.
 V2 is in beta. See the [roadmap](https://github.com/InventivetalentDev/MineRender/blob/main/ROADMAP.md) for feature parity and remaining work.
 
 Live examples and usage docs: [beta.minerender.org](https://beta.minerender.org/). API reference: [beta-docs.minerender.org](https://beta-docs.minerender.org/).
@@ -28,6 +28,11 @@ an injected WebGL 2 context or the optional native `gl` backend. See
 [Node rendering and setup](https://github.com/InventivetalentDev/MineRender/blob/main/packages/minerender/reference/platforms.md#render-a-png-in-nodejs).
 
 Requires Node.js 22.12+ or a browser with WebGL 2, Fetch, `AbortSignal.any()`, and `AbortSignal.timeout()`.
+
+The library prints only warnings and errors. To see debug output, call
+`Logging.configure({ level: "debug" })`, or set the `minerender:log` localStorage key
+in a browser or the `MINERENDER_LOG` environment variable in Node. See
+[Logging](https://beta-docs.minerender.org/concepts#logging).
 
 ## Resource-pack ZIPs
 
@@ -123,3 +128,7 @@ Supported object types are `skin`, `block`, `item`, `model`, `entity`, and `gui`
 Positions use model units (16 per block); JSON rotations use radians.
 
 Callers apply the saved camera settings and select the matching asset version.
+
+`encodeSceneDocument` and `decodeSceneDocument` convert a document to and from the compact
+link format used by the editor. To show a scene on another page without bundling the library,
+use the [iframe embed page](https://beta-docs.minerender.org/embeds).
