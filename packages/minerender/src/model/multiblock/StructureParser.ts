@@ -106,7 +106,7 @@ interface Palette {
     }
 }
 
-// Minecraft 26.x (DataVersion 5023) saves these as `id` and `properties`; older versions use `Name` and `Properties`.
+// Since DataVersion 5006 (26.3 snapshot 7), Minecraft saves these as `id` and `properties`; older versions use `Name` and `Properties`.
 interface PaletteEntry {
     Name?: {
         type: "string";

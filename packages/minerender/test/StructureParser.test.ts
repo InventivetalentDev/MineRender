@@ -54,7 +54,7 @@ test("structure parsing preserves block/entity NBT, positions and DataVersion", 
     }]);
 });
 
-test("structure parsing reads 26.x palette entries named id and properties", async t => {
+test("structure parsing reads 26.3 palette entries named id and properties", async t => {
     const nbt = fixture();
     nbt.value.DataVersion = int(5023);
     nbt.value.palette = list(comp([
