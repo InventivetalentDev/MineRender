@@ -20,23 +20,17 @@ Chrome uses its selected GPU by default. `--software-rendering` requests SwiftSh
 
 ## Profile placement
 
-Add `--profile-placement` to record placement stages and identify sections built more than once during a stop. This option requires section meshing. For example:
-
-```sh
-yarn workspace @minerender/web benchmark:world \
-  --world "SAVE_FOLDER" --version 1.16.2 \
-  --route '[[-15,8],[-7,8],[1,8],[9,8]]' \
-  --profile-placement --output /tmp/world-placement.json
-```
+Add `--profile-placement` to the command above. This option records placement stages and requires section meshing.
 
 The runner instruments four built ESM modules in memory while bundling the benchmark. It leaves library source, package files, and the section worker unchanged. If a method or measured boundary has changed, bundling fails instead of silently omitting that measurement. Without the flag, the runner uses the ordinary benchmark bundle.
 
 The report's `placementProfile` contains:
 
 - `events`: timed spans with IDs, explicit parent IDs, pass, phase, and waypoint. Section builds and their child stages include absolute section coordinates, including the vertical section coordinate. State and model preparation events identify their block or model; they have no section assignment.
-- `sections`: build counts by pass, waypoint, and section. `repeatedBuilds` counts calls after the first at that stop. Loading an adjacent column can change a section's border, so repeated calls do not by themselves prove unnecessary work. Returning to a previously visited section is a separate stop.
-- `stages`: call counts, failures, summed `inclusiveMs`, and `unionMs` by pass and stage, including cleanup. The union counts overlapping intervals of that stage once. Different stages can overlap or contain each other, so neither column can be added across stages to calculate total streaming time. Filter `events` by `phase` to exclude cleanup.
-- `issues` and `incompleteSpans`: missing ownership or unfinished instrumentation. The runner exits unsuccessfully if it detects these issues or if the profiler's section-build count differs from the benchmark's count.
+- `summary`: build totals per pass, split into `ownColumnBuilds`, `neighborBuilds`, `unloadBuilds`, and `otherBuilds`, plus `sectionsBuiltTwiceInOneOperation` for sections built at least twice within one operation.
+- `sections`: counts by pass and section coordinates (`x`, `y`, `z`), with `builds`, `succeeded`, the same operation split, `maxBuildsPerOperation`, `inclusiveMs`, and `unionMs`.
+- `stages`: call counts, successes, summed `inclusiveMs`, and `unionMs` by pass and stage, including cleanup. The union counts overlapping intervals of that stage once. Different stages can overlap or contain each other, so neither column can be added across stages to calculate total streaming time. Filter `events` by `phase` to exclude cleanup.
+- `issues` and `incompleteSpans`: missing ownership or unfinished instrumentation. The runner exits unsuccessfully if it detects these issues.
 
 Stage boundaries are:
 
@@ -52,7 +46,7 @@ Stage boundaries are:
 | `synchronous-geometry` | Geometry built on the main thread when no worker is available or a worker rejects |
 | `mesh-assembly` / `atlas-paint` | Page canvases, geometry, materials, bounds, and subscriptions / its nested canvas allocation and image painting |
 
-Profiling adds clock reads, span records, promise continuations, and retained JavaScript memory. Run at least three ordinary and three profiled invocations under matching conditions to assess its overhead. Use ordinary runs for performance comparisons. Profiled times describe the instrumented run, and its heap includes profiler records. The worker hash stays unchanged; the instrumented main script has a different hash. Both are recorded in the report.
+Profiling adds clock reads, span records, promise continuations, and retained JavaScript memory. Use ordinary runs for performance comparisons. Profiled times describe the instrumented run, and its heap includes profiler records. The worker hash stays unchanged; the instrumented main script has a different hash. Both are recorded in the report.
 
 ## Read the report
 

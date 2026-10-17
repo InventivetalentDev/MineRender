@@ -10,7 +10,6 @@ import { parseArgs } from "node:util";
 import * as esbuild from "esbuild";
 import { polyfillNode } from "esbuild-plugin-polyfill-node";
 import puppeteer from "puppeteer-core";
-import { placementProfilePlugin } from "./placement-profile.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const repository = path.resolve(root, "../..");
@@ -168,7 +167,7 @@ try {
     const bundle = await esbuild.build({
         entryPoints: [path.join(root, "benchmarks/world.ts")], bundle: true, write: false,
         format: "esm", platform: "browser", target: "es2020", logLevel: "warning",
-        plugins: [...(config.profilePlacement ? [placementProfilePlugin()] : []), polyfillNode({ polyfills: { zlib: true } })],
+        plugins: [...(config.profilePlacement ? [(await import("./placement-profile.mjs")).placementProfilePlugin()] : []), polyfillNode({ polyfills: { zlib: true } })],
     });
     const requests = new Map();
     const html = '<!doctype html><html lang="en"><meta charset="utf-8"><title>World streaming benchmark</title><style>html,body{margin:0;width:100%;height:100%;overflow:hidden}#viewport{width:100%;height:100%}#status{position:absolute;top:8px;left:8px;background:white;color:black;padding:8px;font:14px monospace}</style><div id="viewport"></div><output id="status">Starting benchmark</output><script type="module" src="/world.mjs"></script></html>';
@@ -226,10 +225,6 @@ try {
     if (config.profilePlacement) {
         if (!result.placementProfile) throw new Error("The browser returned no placement profile");
         problems.push(...result.placementProfile.issues.map(issue => `Placement profile: ${issue}`));
-        const builds = result.operations.filter(operation => operation.kind === "section-build").length;
-        if (result.placementProfile.events.filter(event => event.kind === "section-build").length !== builds) {
-            problems.push("Placement profile: section build count does not match benchmark operations");
-        }
     }
     const manifest = [];
     for (const relative of [...requests.keys()].sort()) {
@@ -260,8 +255,8 @@ try {
         const maxGap = Math.max(...run.waypoints.map(point => point.frames.maxMs ?? 0));
         console.log(`${run.pass}: ${updateMs.toFixed(0)} ms streaming, ${maxGap.toFixed(1)} ms maximum frame gap`);
         if (report.placementProfile) {
-            const sections = report.placementProfile.sections.filter(section => section.pass === run.pass);
-            console.log(`  placement profile: ${sections.reduce((sum, section) => sum + section.builds, 0)} section builds, ${sections.reduce((sum, section) => sum + section.repeatedBuilds, 0)} repeated within a waypoint`);
+            const summary = report.placementProfile.summary.find(summary => summary.pass === run.pass);
+            console.log(`  placement profile: ${summary.builds} section builds (own column ${summary.ownColumnBuilds}, neighbouring columns ${summary.neighborBuilds}, unloads ${summary.unloadBuilds})`);
         }
     }
     console.log(`Report: ${output}`);

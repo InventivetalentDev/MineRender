@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import ts from "typescript";
+import path from "node:path";
 
 const modules = ["Chunk", "SectionMesh", "SectionModels", "UVMapper"];
 const hooks = "globalThis.__minerenderPlacementProfile";
@@ -20,6 +21,19 @@ export function instrumentPlacementModule(contents, name) {
         return matches[0];
     }
     const method = name => find(source, node => ts.isMethodDeclaration(node) && node.name.getText(source) === name, `${name} method`);
+    function bindings(target, names) {
+        const declared = new Set();
+        function binding(name) {
+            if (ts.isIdentifier(name)) declared.add(name.text);
+            else for (const element of name.elements) if (ts.isBindingElement(element)) binding(element.name);
+        }
+        function visit(node) {
+            if (ts.isParameter(node) || ts.isVariableDeclaration(node)) binding(node.name);
+            ts.forEachChild(node, visit);
+        }
+        visit(target);
+        for (const name of names) if (!declared.has(name)) fail(`missing ${name} binding in ${target.name.getText(source)}`);
+    }
     const call = (root, name) => find(root, node => ts.isCallExpression(node) && node.expression.getText(source) === name, `${name} call`);
     const text = node => node.getText(source);
     const measure = (kind, metadata, parent, action, asynchronous = false) =>
@@ -47,6 +61,7 @@ export function instrumentPlacementModule(contents, name) {
             wrap("section-rebuild", "{x: this.x, y: this.y, z: this.z}", value));
     } else if (name === "SectionMesh") {
         const target = method("buildAsync");
+        bindings(target, ["entries", "fluids"]);
         parameter(target, 4, "__placementParent");
         const input = call(target, "toInput"), worker = call(target, "worker.build"), assembly = call(target, "this.fromPages");
         const fallback = [];
@@ -63,6 +78,7 @@ export function instrumentPlacementModule(contents, name) {
             ...fallback.map(node => ({ node, value: measure("synchronous-geometry", "{}", "__placementSpan", `() => ${text(node)}`) }))
         ], value => wrap("section-build", "{entries: entries.length, fluids: !!fluids}", value, "__placementParent"));
         const assemble = method("fromPages");
+        bindings(assemble, ["pages", "page", "canvas", "context"]);
         parameter(assemble, 2, "__placementParent");
         const loop = find(assemble, node => ts.isForOfStatement(node) && node.expression.getText(source) === "pages", "page loop");
         const statements = loop.statement.statements;
@@ -80,6 +96,7 @@ export function instrumentPlacementModule(contents, name) {
     } else if (name === "SectionModels") {
         for (const [name, kind] of [["prepareState", "state-preparation"], ["prepare", "state-resolution"], ["template", "template-preparation"]]) {
             const target = method(name);
+            bindings(target, [name === "template" ? "model" : "blockState"]);
             const changes = [];
             if (name === "template") {
                 const load = call(target, "cached").arguments.at(-1);
@@ -91,7 +108,9 @@ export function instrumentPlacementModule(contents, name) {
                 : "{block: blockState.key?.toNamespacedString()}", value));
         }
     } else if (name === "UVMapper") {
-        body(method("createAtlas"), [], value => wrap("model-atlas", "{model: originalModel.key?.toNamespacedString()}", value));
+        const target = method("createAtlas");
+        bindings(target, ["originalModel"]);
+        body(target, [], value => wrap("model-atlas", "{model: originalModel.key?.toNamespacedString()}", value));
     } else fail("unexpected module");
     for (const edit of edits.sort((a, b) => b.start - a.start)) contents = contents.slice(0, edit.start) + edit.value + contents.slice(edit.end);
     return contents;
@@ -102,9 +121,9 @@ export function placementProfilePlugin() {
     return {
         name: "placement-profile",
         setup(build) {
-            build.onLoad({ filter: /\/dist\/browser\/esm\/(?:world\/(?:Chunk|SectionMesh|SectionModels)|UVMapper)\.mjs$/ }, async ({ path }) => {
-                const name = path.split("/").at(-1).slice(0, -4);
-                const contents = instrumentPlacementModule(await readFile(path, "utf8"), name);
+            build.onLoad({ filter: /\/dist\/browser\/esm\/(?:world\/(?:Chunk|SectionMesh|SectionModels)|UVMapper)\.mjs$/ }, async ({ path: file }) => {
+                const name = path.basename(file, ".mjs");
+                const contents = instrumentPlacementModule(await readFile(file, "utf8"), name);
                 instrumented.add(name);
                 return { contents, loader: "js" };
             });
