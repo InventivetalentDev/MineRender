@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>World transparency issue | MineRender</title>
+    <title>World transparency comparison | MineRender</title>
     <link rel="stylesheet" href="../../demo_shared.css">
     <style>
         html { height: auto; min-height: 100%; overflow: auto; }
@@ -32,9 +32,9 @@
 <body class="playground-index">
     <main>
         <a href="../../">All playgrounds</a>
-        <h1>A glass panel disappears behind another</h1>
-        <p>Panel <strong>A is red</strong>; panel <strong>B is blue</strong>. Both are glass. You should see the rear panel’s letter and grid through the translucent parts of the front panel.</p>
-        <p>The merged section can hide that detail. Compare it with the same panels in separate sections, then move the shared camera to see their spacing.</p>
+        <h1>Compare translucent panels across world sections</h1>
+        <p>Panel <strong>A is red</strong>; panel <strong>B is blue</strong>. Both are translucent fixture blocks. You should see the rear panel’s letter and grid through the translucent parts of the front panel.</p>
+        <p>Compare the panels merged into one world section with the same panels split across two sections, then move the shared camera to see their spacing.</p>
         <div class="camera-control">
             <label for="camera-angle">Camera angle</label>
             <input id="camera-angle" type="range" min="0" max="180" value="180" step="1" disabled>
@@ -46,6 +46,7 @@
             <button type="button" data-angle="0" disabled>B in front</button>
         </div>
         <p id="status" role="status" aria-live="polite">Loading the two panels…</p>
+        <p id="summary" role="status"></p>
         <div class="pair">
             <figure>
                 <figcaption>Merged section — actual<span class="note">Both panels share one mesh.</span></figcaption>
@@ -61,7 +62,7 @@
             <button id="reverse" type="button" disabled>Reverse placement order</button>
             <span id="order">Placement: A, then B</span>
         </div>
-        <p>Reversing placement keeps both panels in place. It changes which camera side exposes the bug.</p>
+        <p>Reversing placement keeps both panels in place. It changes their draw order.</p>
         <details>
             <summary>Reproduction details</summary>
             <p>This uses real <code>MineRenderWorld</code> placement with <code>sectionMeshing: true</code>. The comparison shifts the panels and camera together by 15 blocks, putting the panels on opposite sides of a section boundary. Geometry, textures, spacing, and materials stay the same.</p>
