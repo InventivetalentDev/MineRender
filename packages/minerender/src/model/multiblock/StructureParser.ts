@@ -30,14 +30,17 @@ export class StructureParser {
             nbt.blocks.value.value.map(block => {
                 const state = palette.value.value[block.state.value];
                 if (!state) throw new MineRenderError(`Structure palette index ${block.state.value} does not exist`);
-                if (["minecraft:air", "minecraft:cave_air", "minecraft:void_air"].includes(state.Name.value)) return undefined;
+                const name = (state.Name ?? state.id)?.value;
+                if (!name) throw new MineRenderError(`Structure palette entry ${block.state.value} has no block name`);
+                if (["minecraft:air", "minecraft:cave_air", "minecraft:void_air"].includes(name)) return undefined;
 
                 const props: BlockStateProperties = {};
-                for (let k in state.Properties?.value) {
-                    props[k] = state.Properties.value[k].value;
+                const properties = (state.Properties ?? state.properties)?.value;
+                for (let k in properties) {
+                    props[k] = properties[k].value;
                 }
                 return <MultiBlockBlock>{
-                    type: state.Name.value,
+                    type: name,
                     properties: props,
                     position: block.pos.value.value,
                     nbt: block.nbt
@@ -103,12 +106,21 @@ interface Palette {
     }
 }
 
+// Since DataVersion 5006 (26.3 snapshot 7), Minecraft saves these as `id` and `properties`; older versions use `Name` and `Properties`.
 interface PaletteEntry {
-    Name: {
+    Name?: {
         type: "string";
         value: string;
     }
-    Properties: {
+    id?: {
+        type: "string";
+        value: string;
+    }
+    Properties?: {
+        type: "compound";
+        value: { [property: string]: PalettePropertyValue; };
+    }
+    properties?: {
         type: "compound";
         value: { [property: string]: PalettePropertyValue; };
     }

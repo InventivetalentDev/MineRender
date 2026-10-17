@@ -54,6 +54,24 @@ test("structure parsing preserves block/entity NBT, positions and DataVersion", 
     }]);
 });
 
+test("structure parsing reads 26.3 palette entries named id and properties", async t => {
+    const nbt = fixture();
+    nbt.value.DataVersion = int(5023);
+    nbt.value.palette = list(comp([
+        { id: string("minecraft:air") },
+        { id: string("minecraft:oak_log"), properties: comp({ axis: string("x") }) }
+    ])) as NBT["value"][string];
+    nbt.value.blocks = list(comp([
+        { pos: list(int([0, 0, 0])), state: int(0) },
+        { pos: list(int([1, 0, 0])), state: int(1) }
+    ])) as NBT["value"][string];
+    const structure = await StructureParser.parse(nbt);
+    t.deepEqual(structure.blocks, [{ type: "minecraft:oak_log", properties: { axis: "x" }, position: [1, 0, 0], nbt: undefined }]);
+    t.is(structure.dataVersion, 5023);
+    nbt.value.palette = list(comp([{ properties: comp({ axis: string("x") }) }])) as NBT["value"][string];
+    await t.throwsAsync(StructureParser.parse(nbt), { message: /has no block name/ });
+});
+
 test("structure palettes use the selected nested NBT list and reject missing entries", async t => {
     const nbt = fixture();
     delete nbt.value.palette;

@@ -53,6 +53,8 @@ Pass an explicit asset root as the second argument to `MineRenderData.get(datase
 
 The former synchronous data lookups now return promises: `ItemDefaults.get`, `ItemTints.getPotionList`, `getBlockFluidState`, `getFluidKind`, and `resolveLegacyBlock`. For repeated synchronous calculations, load `fluids` or `legacyBlocks` once with `MineRenderData.get` and pass the table to `resolveBlockFluidState` or `resolveLegacyBlockState`. Rendering and parser entry points await their data automatically. `BannerPatterns.getColors(root?)` provides versioned texture dyes; `DYE_COLORS` and `BannerPatterns.getColor` retain the fixed 1.21.11 palette for compatibility and are deprecated.
 
+Entity and block-entity geometry from `entity-models/` uses the same version selection when the exact dataset version is missing. This also applies to entity lists, animations, and the block-entity index. An unpublished snapshot keeps its own version and draws block entities with their block models. Textures keep the requested asset version.
+
 ## Redrawing after changes
 
 [Renderer](/api/index/classes/Renderer) draws only when the scene is dirty, `render.renderAlways` is enabled, an `onFrame` subscription is active, or a video is recording. Calling `start()` runs this loop; it does not force an unchanged scene to redraw continuously.
@@ -88,6 +90,17 @@ entity.setAnimationWeights([1, 0.25]);
 Each update adds the weighted position, Euler-angle, and scale offsets to the baked part pose. Weights are not normalized: `[1, 1]` adds both clips at full strength, while `[0.25, 0.75]` blends between their offsets. A zero weight contributes no offset. `activeAnimations` and `animationWeights` retain the input clip order. Without a `loop` override, each clip uses its own loop flag; `speed` and time are shared.
 
 A clip targets its `layer`, which defaults to `main`, including repeated draws of that geometry. The main-layer blend also poses selected layers without clips of their own. An explicit layer clip takes precedence, including when its weight is zero. Call `unsubscribe()` when playback ends; `entity.stopAnimation()` restores the caller's pose from before playback. Automatic gameplay-state selection, part visibility changes, and animated renderer transforms remain unsupported.
+
+Scene documents store a blend in an entity's `animation.clips` list. For example, a camel's animation settings can combine walking and idle offsets:
+
+```json
+{
+  "clips": [{ "name": "walk", "weight": 0.5 }, { "name": "idle" }],
+  "loop": true
+}
+```
+
+`name` plays one clip. Supply either `name` or a nonempty `clips` list. Every named clip must exist and target a selected entity layer, or document loading rejects before the document attaches to the scene.
 
 ## Item state
 

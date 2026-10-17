@@ -94,6 +94,7 @@ test.serial("animations load from the dataset's animation tree per version and a
     AssetLoader.addSource("test", new StubSource((key, parser) => {
         t.is(parser, AssetParser.JSON);
         t.is(key.assetType, undefined);
+        if (key.path === "version") return { id: "published" };
         const root = key.root ?? AssetLoader.ROOT;
         requests.push(`${ root }/${ key.rootType }/${ key.namespace }/${ key.path }${ key.extension }`);
         return root !== "https://example.test/1.18.2" && key.path === "warden" ? file : undefined;

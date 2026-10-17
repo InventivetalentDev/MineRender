@@ -6,7 +6,13 @@ import { decodeSceneDocument, encodeSceneDocument, SCENE_DOCUMENT_MAX_BYTES } fr
 const scene: SceneDocument = {
     format: "minerender-scene", version: 1, minecraftVersion: "1.21.11",
     camera: { position: [60, 40, 60], target: [0, 16, 0] },
-    objects: [{ id: "sign", type: "gui", name: "Grüße 🌍", layers: [{ text: "こんにちは", position: [0, 9] }] }]
+    objects: [
+        { id: "sign", type: "gui", name: "Grüße 🌍", layers: [{ text: "こんにちは", position: [0, 9] }] },
+        { id: "single", type: "entity", asset: "minecraft:bat", animation: { name: "flying", time: 0.5 } },
+        { id: "blend", type: "entity", asset: "minecraft:bat", animation: {
+            clips: [{ name: "flying", weight: 0.25 }, { name: "looking" }], loop: true, speed: 2, time: 1, paused: true
+        } }
+    ]
 };
 
 function encoded(value: string | Uint8Array): string {
