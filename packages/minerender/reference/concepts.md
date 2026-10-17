@@ -53,6 +53,8 @@ Pass an explicit asset root as the second argument to `MineRenderData.get(datase
 
 The former synchronous data lookups now return promises: `ItemDefaults.get`, `ItemTints.getPotionList`, `getBlockFluidState`, `getFluidKind`, and `resolveLegacyBlock`. For repeated synchronous calculations, load `fluids` or `legacyBlocks` once with `MineRenderData.get` and pass the table to `resolveBlockFluidState` or `resolveLegacyBlockState`. Rendering and parser entry points await their data automatically. `BannerPatterns.getColors(root?)` provides versioned texture dyes; `DYE_COLORS` and `BannerPatterns.getColor` retain the fixed 1.21.11 palette for compatibility and are deprecated.
 
+Entity and block-entity geometry from `entity-models/` uses the same version selection when the exact dataset version is missing. This also applies to entity lists, animations, and the block-entity index. An unpublished snapshot keeps its own version and draws block entities with their block models. Textures keep the requested asset version.
+
 ## Redrawing after changes
 
 [Renderer](/api/index/classes/Renderer) draws only when the scene is dirty, `render.renderAlways` is enabled, an `onFrame` subscription is active, or a video is recording. Calling `start()` runs this loop; it does not force an unchanged scene to redraw continuously.
@@ -89,6 +91,17 @@ Each update adds the weighted position, Euler-angle, and scale offsets to the ba
 
 A clip targets its `layer`, which defaults to `main`, including repeated draws of that geometry. The main-layer blend also poses selected layers without clips of their own. An explicit layer clip takes precedence, including when its weight is zero. Call `unsubscribe()` when playback ends; `entity.stopAnimation()` restores the caller's pose from before playback. Automatic gameplay-state selection, part visibility changes, and animated renderer transforms remain unsupported.
 
+Scene documents store a blend in an entity's `animation.clips` list. For example, a camel's animation settings can combine walking and idle offsets:
+
+```json
+{
+  "clips": [{ "name": "walk", "weight": 0.5 }, { "name": "idle" }],
+  "loop": true
+}
+```
+
+`name` plays one clip. Supply either `name` or a nonempty `clips` list. Every named clip must exist and target a selected entity layer, or document loading rejects before the document attaches to the scene.
+
 ## Item state
 
 `Models.getMerged(key, context)` evaluates an item definition with the supplied [ItemModelContext](/api/index/interfaces/ItemModelContext): data `components`, item-model `properties`, a stack `count`, a `displayContext`, and `itemReferences` for nodes such as `minecraft:bundle/selected_item`. The same state selects models, special renderers, and automatic tints.
@@ -111,6 +124,8 @@ With model instancing enabled, scene methods can return an [InstanceReference](/
 Calling `removeFromScene()` or `dispose()` on an instance reference releases its slot. A released reference rejects transform access; create another placement to obtain a usable reference.
 
 With `sectionMeshing: true`, [MineRenderWorld](/api/index/classes/MineRenderWorld) merges eligible blocks into section meshes. A merged block has no individual `BlockInfo.object`. Edit it through the world or chunk setters so geometry and neighbor culling update together.
+
+Translucent blocks and water in a section mesh draw back to front. Perspective views sort them by distance from the camera and re-sort when the camera enters another block; orthographic views sort by view depth. Separate section meshes rely on Three.js sorting the meshes as whole objects, and intersecting surfaces can still blend incorrectly.
 
 Block model elements with `shade: false` skip directional face shading in separate, merged, and instanced models, including world section meshes. Tints, saved world light, and ambient occlusion still apply. Item previews keep directional shading because vanilla's item renderer ignores the flag. Omitted or `true` values retain directional shading; GUI items with `gui_light: "front"` disable it for the whole model.
 

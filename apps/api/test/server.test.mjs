@@ -124,6 +124,8 @@ test("request errors reject before rendering and methods advertise their allowed
         { scene: { ...scene().scene, objects: Array.from({ length: 33 }, (_, i) => ({ id: String(i), type: "skin" })) } },
         { ...scene(), output: { width: 0 } },
         { ...scene(), output: { height: 2049 } },
+        { scene: { ...scene().scene, objects: [{ id: "entity", type: "entity", asset: "pig", animation: { clips: Array.from({ length: 33 }, (_, index) => ({ name: `clip${index}` })) } }] } },
+        { scene: { ...scene().scene, objects: [{ id: "entity", type: "entity", asset: "pig", animation: { clips: [{ name: "walk", weight: 1025 }] } }] } },
         { ...scene(), output: { width: 1.5 } },
         { ...scene(), output: { format: "jpeg" } },
         { ...scene(), output: { background: 0x1000000 } },

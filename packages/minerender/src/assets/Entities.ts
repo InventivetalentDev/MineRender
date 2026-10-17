@@ -1,6 +1,7 @@
 import { AssetKey, BasicAssetKey, isAssetKey } from "./AssetKey";
 import type { EntityLayer, EntityModel, EntityModelFile, EntityModelPass } from "../entity/EntityModel";
 import type { EntityAnimation, EntityAnimationFile } from "../entity/EntityAnimation";
+import { parseRelease, nearestRelease } from "./_versions/DatasetVersions";
 import { AssetLoader } from "./AssetLoader";
 import { AssetParser } from "./source";
 import { Maybe } from "../util";
@@ -14,11 +15,38 @@ import type { MinecraftAsset } from "../MinecraftAsset";
 /** Loads entity and block-entity geometry, texture selections, and animation clips from the dataset. */
 export class Entities {
 
+    /**
+     * Resolves `root` (default: the active version). Uses the exact dataset when published or when the
+     * version is not a release; otherwise selects the nearest published release, like {@link MineRenderData.resolve}.
+     * Textures keep the requested root.
+     */
+    public static async getDatasetRoot(root?: string): Promise<Maybe<string>> {
+        const requestRoot = (root ?? AssetLoader.ROOT).replace(/\/+$/, "");
+        const requestedVersion = requestRoot.slice(requestRoot.lastIndexOf("/") + 1);
+        const base = requestRoot.slice(0, requestRoot.lastIndexOf("/"));
+        const selected = await Caching.entityDatasetVersionCache.get(root ?? `sources:${AssetLoader.ROOT}`, async () => {
+            const key = new AssetKey("entity-models", "version", undefined, undefined, undefined, ".json", root);
+            key.rootType = undefined!;
+            if (!parseRelease(requestedVersion) || await AssetLoader.get(key, AssetParser.JSON) !== undefined) return requestedVersion;
+            const indexKey = new AssetKey("entity-models", "versions", undefined, undefined, undefined, ".json", base);
+            indexKey.rootType = undefined!;
+            const index = await AssetLoader.get<MinecraftAsset & { versions: { name: string }[] }>(indexKey, AssetParser.JSON);
+            if (index === undefined) return requestedVersion;
+            if (!index || typeof index !== "object" || Array.isArray(index) || !Array.isArray(index.versions)
+                || !index.versions.every(entry => entry && typeof entry === "object" && !Array.isArray(entry) && typeof entry.name === "string")) {
+                throw new MineRenderError(`Invalid entity model version index at ${base}/entity-models/versions.json`);
+            }
+            return nearestRelease(requestedVersion, index.versions.map(entry => entry.name)) ?? requestedVersion;
+        });
+        return selected === requestedVersion ? root : `${base}/${selected}`;
+    }
+
     /** Lists model paths in the `minecraft` namespace, including subdirectories and excluding `.json`. */
     public static async getEntityList(): Promise<string[]> {
+        const root = await this.getDatasetRoot();
         const collect = async (path: string): Promise<string[]> => {
             const prefix = path ? `${path}/` : "";
-            const key = new AssetKey(DEFAULT_NAMESPACE, `${prefix}_list`, undefined, undefined, "entity-models", ".json");
+            const key = new AssetKey(DEFAULT_NAMESPACE, `${prefix}_list`, undefined, undefined, "entity-models", ".json", root);
             const list = await Caching.listAssetCache.get(key.serialize(), () => AssetLoader.get<ListAsset>(key, AssetParser.LIST));
             if (!list) return [];
             const files = list.files.filter(file => file.endsWith(".json") && file !== "_list.json")
@@ -31,7 +59,7 @@ export class Entities {
 
     private static async getModelFile(modelKey: BasicAssetKey): Promise<Maybe<EntityModelFile>> {
         const path = isAssetKey(modelKey) ? modelKey.getFullPath() : modelKey.path;
-        const key = new AssetKey(modelKey.namespace, path, undefined, undefined, "entity-models", ".json", isAssetKey(modelKey) ? modelKey.root : undefined);
+        const key = new AssetKey(modelKey.namespace, path, undefined, undefined, "entity-models", ".json", await this.getDatasetRoot(isAssetKey(modelKey) ? modelKey.root : undefined));
         return Caching.entityModelCache.get(key.serialize(), () => AssetLoader.get<EntityModelFile>(key, AssetParser.JSON));
     }
 
@@ -101,7 +129,7 @@ export class Entities {
      */
     public static async getAnimations(modelKey: BasicAssetKey): Promise<Maybe<Record<string, EntityAnimation>>> {
         const path = isAssetKey(modelKey) ? modelKey.getFullPath() : modelKey.path;
-        const key = new AssetKey(modelKey.namespace, path, undefined, undefined, "entity-models/animations", ".json", isAssetKey(modelKey) ? modelKey.root : undefined);
+        const key = new AssetKey(modelKey.namespace, path, undefined, undefined, "entity-models/animations", ".json", await this.getDatasetRoot(isAssetKey(modelKey) ? modelKey.root : undefined));
         const file = await Caching.entityAnimationCache.get(key.serialize(), () => AssetLoader.get<EntityAnimationFile>(key, AssetParser.JSON));
         return file?.animations;
     }

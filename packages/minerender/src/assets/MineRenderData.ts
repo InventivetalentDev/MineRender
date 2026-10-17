@@ -1,3 +1,4 @@
+import { parseRelease, nearestRelease } from "./_versions/DatasetVersions";
 import { AssetKey } from "./AssetKey";
 import { AssetLoader } from "./AssetLoader";
 import { AssetParser } from "./source/parser/AssetParsers";
@@ -48,14 +49,6 @@ export interface ResolvedMineRenderData {
 }
 
 const object = (value: unknown): value is Record<string, any> => value !== null && typeof value === "object" && !Array.isArray(value);
-const release = (value: string): number[] | undefined => /^\d+\.\d+(?:\.\d+)?$/.test(value) ? value.split(".").map(Number) : undefined;
-const compare = (left: number[], right: number[]): number => {
-    for (let i = 0; i < 3; i++) {
-        const difference = (left[i] ?? 0) - (right[i] ?? 0);
-        if (difference) return difference;
-    }
-    return 0;
-};
 
 /** Loads extracted Minecraft registries from the active asset sources and version. */
 export class MineRenderData {
@@ -88,9 +81,9 @@ export class MineRenderData {
         const scope = AssetLoader.persistentScope;
         return this.cached(`resolve:${requestRoot === undefined ? "sources" : "explicit"}:${root}`, scope, defaultRoot, async () => {
             const requestedVersion = root.slice(root.lastIndexOf("/") + 1);
-            let manifest = await this.manifest(root, requestRoot !== undefined && release(requestedVersion) ? requestedVersion : undefined, requestRoot);
+            let manifest = await this.manifest(root, requestRoot !== undefined && parseRelease(requestedVersion) ? requestedVersion : undefined, requestRoot);
             if (manifest) return { requestedVersion, version: manifest.minecraftVersion, root, manifest };
-            const requested = release(requestedVersion);
+            const requested = parseRelease(requestedVersion);
             if (!requested) {
                 throw new Error(`No MineRender data is published for ${requestedVersion}; automatic fallback requires a release`);
             }
@@ -103,19 +96,12 @@ export class MineRenderData {
                 }
                 return value.versions as { name: string }[];
             });
-            const versions = index.map(entry => ({ name: entry.name, number: release(entry.name) }))
-                .filter((entry): entry is { name: string; number: number[] } => !!entry.number)
-                .sort((left, right) => compare(left.number, right.number));
-            const sameLine = versions.filter(entry => entry.number[0] === requested[0] && entry.number[1] === requested[1]);
-            const selected = sameLine.sort((left, right) => Math.abs((left.number[2] ?? 0) - (requested[2] ?? 0))
-                - Math.abs((right.number[2] ?? 0) - (requested[2] ?? 0)) || compare(left.number, right.number))[0]
-                ?? versions.filter(entry => compare(entry.number, requested) <= 0).pop()
-                ?? versions[0];
+            const selected = nearestRelease(requestedVersion, index.map(entry => entry.name));
             if (!selected) throw new Error(`No compatible MineRender data is published for ${requestedVersion}`);
-            const resolvedRoot = `${base}/${selected.name}`;
-            manifest = await this.manifest(resolvedRoot, selected.name, resolvedRoot);
-            if (!manifest) throw new Error(`Missing MineRender manifest for published version ${selected.name}`);
-            return { requestedVersion, version: selected.name, root: resolvedRoot, manifest };
+            const resolvedRoot = `${base}/${selected}`;
+            manifest = await this.manifest(resolvedRoot, selected, resolvedRoot);
+            if (!manifest) throw new Error(`Missing MineRender manifest for published version ${selected}`);
+            return { requestedVersion, version: selected, root: resolvedRoot, manifest };
         });
     }
 
