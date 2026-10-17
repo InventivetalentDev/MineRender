@@ -94,14 +94,11 @@ Scene documents store a blend in an entity's `animation.clips` list. For example
 ```json
 {
   "clips": [{ "name": "walk", "weight": 0.5 }, { "name": "idle" }],
-  "loop": true,
-  "speed": 1,
-  "time": 0,
-  "paused": false
+  "loop": true
 }
 ```
 
-Each omitted weight defaults to `1`. Loop, speed, elapsed time, and pause apply to the blend; without a loop override, each clip uses its own loop flag. Existing `animation: { "name": "walk" }` documents still load. Supply either `name` or a nonempty `clips` list. Every named clip must exist and target a selected entity layer, or document loading rejects before the document attaches to the scene. The editor's JSON and copied embeds preserve these settings.
+`name` plays one clip. Supply either `name` or a nonempty `clips` list. Every named clip must exist and target a selected entity layer, or document loading rejects before the document attaches to the scene.
 
 ## Item state
 

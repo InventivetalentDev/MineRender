@@ -196,12 +196,12 @@ export class SceneDocumentLoader {
                         const animation = definition.animation;
                         const animations = await Entities.getAnimations(key);
                         if (animation.name !== undefined) {
-                            const clip = animations?.[animation.name];
+                            const clip = animations && Object.prototype.hasOwnProperty.call(animations, animation.name) ? animations[animation.name] : undefined;
                             if (!clip) throw new Error(`Entity ${definition.asset} has no animation "${animation.name}"`);
                             entity.playAnimation(clip, animation);
                         } else {
                             const clips = animation.clips.map(({ name }) => {
-                                const clip = animations?.[name];
+                                const clip = animations && Object.prototype.hasOwnProperty.call(animations, name) ? animations[name] : undefined;
                                 if (!clip) throw new Error(`Entity ${definition.asset} has no animation "${name}"`);
                                 return clip;
                             });

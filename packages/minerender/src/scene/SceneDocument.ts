@@ -192,6 +192,11 @@ function entityAnimation(value: unknown, path: string): void {
     fields(value, path, { name: text, clips: (value, path) => {
         list((value, path) => { fields(value, path, { name: text, weight: nonnegative }, ["name"]); })(value, path);
         if (!(value as unknown[]).length) fail(path, "expected at least one clip");
+        const names = new Set<string>();
+        for (const [index, clip] of (value as { name: string }[]).entries()) {
+            if (names.has(clip.name)) fail(`${path}[${index}].name`, `duplicate clip "${clip.name}"`);
+            names.add(clip.name);
+        }
     }, loop: boolean, speed: nonnegative, time: nonnegative, paused: boolean });
 }
 

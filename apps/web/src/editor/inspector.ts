@@ -350,14 +350,12 @@ export function renderInspector(container: HTMLElement, definition: SceneObjectD
                     }
                 }
             };
-            note(animation, "Clip offsets add together. Weight 0 removes an offset; weight 1 applies it fully. Weights are not normalized.");
             const selected = document.createElement("div");
             animation.append(selected);
             const add = document.createElement("div");
             add.className = "editor-row";
             animation.append(add);
-            const available = entries.find(([, clip]) => drawn.includes(clip.layer ?? "main"))?.[0];
-            const picker = select(add, "Add clip", choices, available ?? "", () => {});
+            const picker = select(add, "Clip to add", choices, "", () => {});
             enableLayers(picker);
             const addClip = button(add, "Add clip", () => {
                 setClips([...selectedClips(), { name: picker.value, weight: 1 }]);
@@ -365,12 +363,18 @@ export function renderInspector(container: HTMLElement, definition: SceneObjectD
                 renderPlayback(false);
                 selected.querySelectorAll("select").item(selectedClips().length - 1)?.focus();
             });
-            picker.disabled = addClip.disabled = !available;
-            if (!available) note(animation, "Enable a clip's entity layer to add an animation.");
+            if (!entries.some(([, clip]) => drawn.includes(clip.layer ?? "main"))) note(animation, "Enable a clip's entity layer to add an animation.");
             const playback = document.createElement("div");
             animation.append(playback);
             function renderClips() {
                 selected.replaceChildren();
+                for (const option of Array.from(picker.options)) {
+                    option.disabled = !drawn.includes(clips![option.value].layer ?? "main")
+                        || selectedClips().some(clip => clip.name === option.value);
+                }
+                const available = Array.from(picker.options).find(option => !option.disabled);
+                picker.value = available?.value ?? "";
+                picker.disabled = addClip.disabled = !available;
                 if (!selectedClips().length) note(selected, "Add a clip to start playback.");
                 selectedClips().forEach((selection, index) => {
                     const group = document.createElement("fieldset");
@@ -378,9 +382,13 @@ export function renderInspector(container: HTMLElement, definition: SceneObjectD
                     selected.append(group);
                     const clip = select(group, `Clip ${index + 1}`, choices, selection.name, name => {
                         setClips(selectedClips().map((value, i) => i === index ? { ...value, name } : value));
+                        renderClips();
                         renderPlayback(false);
                     });
                     enableLayers(clip);
+                    for (const option of Array.from(clip.options)) {
+                        if (selectedClips().some((value, i) => i !== index && value.name === option.value)) option.disabled = true;
+                    }
                     const row = document.createElement("div");
                     row.className = "editor-row";
                     group.append(row);
@@ -421,9 +429,10 @@ export function renderInspector(container: HTMLElement, definition: SceneObjectD
                 const duration = Math.max(0, ...activeClips.map(clip => clip.length));
                 const loop = check(playback, "Loop", entity.animation.loop ?? activeClips.every(clip => clip.loop), loop => { keepTime(); entity.animation!.loop = loop; emitAnimation(); });
                 loop.indeterminate = entity.animation.loop === undefined && activeClips.some(clip => clip.loop) && !activeClips.every(clip => clip.loop);
-                if (entity.animation.loop === undefined) note(playback, "Clips use their own loop settings until you change Loop.");
                 number(playback, "Speed", entity.animation.speed ?? 1, 0, undefined, 0.1, speed => { keepTime(); entity.animation!.speed = speed; emitAnimation(); });
-                const time = (liveTime ? context.getAnimationTime?.() : undefined) ?? entity.animation.time ?? 0;
+                const displayTime = (time: number) => activeClips.length === 1 && (entity.animation?.loop ?? activeClips[0].loop) && duration > 0
+                    ? time % duration : time;
+                const time = displayTime((liveTime ? context.getAnimationTime?.() : undefined) ?? entity.animation.time ?? 0);
                 const seek = (time: number) => {
                     entity.animation!.time = time;
                     entity.animation!.paused = true;
@@ -436,7 +445,7 @@ export function renderInspector(container: HTMLElement, definition: SceneObjectD
                 scrub.min = "0";
                 scrub.max = String(duration);
                 scrub.step = "0.01";
-                scrub.value = String(time);
+                scrub.value = String(Math.min(duration, time));
                 scrub.disabled = !duration;
                 scrub.addEventListener("input", () => seek(scrub.valueAsNumber));
                 field(playback, "Scrub animation", scrub);
@@ -450,8 +459,9 @@ export function renderInspector(container: HTMLElement, definition: SceneObjectD
                     emitAnimation();
                 });
                 function syncPlayback(time: number) {
+                    time = displayTime(time);
                     timeInput.value = String(Number(time.toFixed(3)));
-                    scrub.value = String(time);
+                    scrub.value = String(Math.min(duration, time));
                     play.textContent = entity.animation!.paused ? "Play" : "Pause";
                 }
                 button(row, "Restart", () => { entity.animation!.time = 0; entity.animation!.paused = false; syncPlayback(0); emitAnimation(true); });

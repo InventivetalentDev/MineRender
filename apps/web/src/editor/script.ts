@@ -39,7 +39,7 @@ function playEntityAnimation(object: EntityObject, asset: string, animation: Non
                              clips: Record<string, EntityAnimation> | undefined): void {
     const selected = animationClips(animation);
     const resolved = selected.map(({ name }) => {
-        const clip = clips?.[name];
+        const clip = clips && Object.prototype.hasOwnProperty.call(clips, name) ? clips[name] : undefined;
         if (!clip) throw new Error(`Entity ${asset} has no animation "${name}"`);
         return clip;
     });
@@ -468,7 +468,7 @@ async function start(): Promise<void> {
             if (animation) {
                 const previous = loaded.definition.animation;
                 const selected = animationClips(animation);
-                if (sameClips && loaded === before) {
+                if (sameClips) {
                     if (previous?.loop === animation.loop && (previous?.speed ?? 1) === (animation.speed ?? 1)) {
                         loaded.object.setAnimationWeights(selected.map(clip => clip.weight));
                         if (seek) loaded.object.setAnimationTime(animation.time ?? 0);
@@ -478,8 +478,8 @@ async function start(): Promise<void> {
                         });
                     }
                 } else {
-                    if (!seek && previous) animation = { ...animation, time: loaded.object.animationTime };
-                    playEntityAnimation(loaded.object, definition.asset, animation, clips);
+                    playEntityAnimation(loaded.object, definition.asset,
+                        !seek && previous ? { ...animation, time: loaded.object.animationTime } : animation, clips);
                 }
                 definition.animation = clone(animation);
                 loaded.definition.animation = definition.animation;

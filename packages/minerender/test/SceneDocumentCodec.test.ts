@@ -10,7 +10,7 @@ const scene: SceneDocument = {
         { id: "sign", type: "gui", name: "Grüße 🌍", layers: [{ text: "こんにちは", position: [0, 9] }] },
         { id: "single", type: "entity", asset: "minecraft:bat", animation: { name: "flying", time: 0.5 } },
         { id: "blend", type: "entity", asset: "minecraft:bat", animation: {
-            clips: [{ name: "flying", weight: 0.25 }, { name: "looking" }, { name: "flying", weight: 0 }], loop: true, speed: 2, time: 1, paused: true
+            clips: [{ name: "flying", weight: 0.25 }, { name: "looking" }], loop: true, speed: 2, time: 1, paused: true
         } }
     ]
 };
