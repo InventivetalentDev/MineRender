@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>World transparency issue | MineRender</title>
+    <link rel="stylesheet" href="../../demo_shared.css">
+    <style>
+        .controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 24px 0; }
+        button { font: inherit; color: inherit; background: #222b35; border: 1px solid #586575; border-radius: 4px; padding: 8px 12px; cursor: pointer; }
+        button:hover { background: #334339; border-color: #9bdca4; }
+        button:disabled { opacity: .55; cursor: default; }
+        :focus-visible { outline: 2px solid #a5e8b0; outline-offset: 3px; }
+        #status { min-height: 26px; }
+        section { margin-top: 36px; }
+        h2 { font-size: 20px; margin-bottom: 12px; }
+        .pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+        figure { margin: 0; min-width: 0; }
+        img { display: block; width: 100%; height: auto; background: #000; }
+        figcaption { margin: 8px 0; }
+        .sample { display: block; font-size: 14px; color: #bdc8d2; font-variant-numeric: tabular-nums; }
+        #order { color: #bdc8d2; }
+        @media (max-width: 600px) {
+            .playground-index main { padding: 28px 16px; }
+            .pair { grid-template-columns: minmax(0, 1fr); }
+        }
+    </style>
+</head>
+<body class="playground-index">
+    <main>
+        <a href="../../">All playgrounds</a>
+        <h1>World transparency issue</h1>
+        <p>Two translucent slabs overlap: red at the lower Z coordinate, blue at the higher Z coordinate. Both textures have alpha 128/255. Each row shows the same camera view.</p>
+        <p>Compare one merged section with the same geometry placed across a section boundary. Separate section meshes receive Three.js object sorting. A missing color in the merged image exposes the ordering issue.</p>
+        <div class="controls">
+            <button id="reverse" type="button" disabled>Reverse placement order</button>
+            <span id="order">Preparing fixture assets…</span>
+        </div>
+        <p id="status" role="status" aria-live="polite">Rendering…</p>
+        <div id="renders"></div>
+        <p>This fixture uses <code>MineRenderWorld</code> with <code>sectionMeshing: true</code>, generated local textures, and no external asset requests. Reversing placement changes insertion order while preserving the blocks and camera views.</p>
+    </main>
+    <script type="module" src="script.bundle.js"></script>
+</body>
+</html>
