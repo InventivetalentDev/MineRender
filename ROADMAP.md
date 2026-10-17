@@ -106,7 +106,7 @@ Immediate fixes: ~~fix `getChunkAt` to use `Map.get(key)`~~; ~~remove the 4×4×
 
 ~~Pick rendered mobs through `world.raycastEntities` and inspect their type and saved position in the world demo.~~
 
-~~Resolve each block state once per placement group and yield to the event loop instead of a timer-driven batch queue.~~ ~~Build section geometry in a browser worker.~~ ~~Group ready streamed columns with a four-column read window and refresh shared borders once per placement group.~~ Frame pacing during grouped placement remains unresolved: fixed-route measurements showed longer frame-callback gaps despite fewer section builds. Region decoding still runs on the main thread; wasm or worker-side chunk parsing remains a scale option once placement stops dominating.
+~~Resolve each block state once per placement group and yield to the event loop instead of a timer-driven batch queue.~~ ~~Build section geometry in a browser worker.~~ ~~Group ready streamed columns with a four-column read window and refresh shared borders once per placement group.~~ Region decoding still runs on the main thread; wasm or worker-side chunk parsing remains a scale option once placement stops dominating.
 
 ~~Render sloped water/lava surfaces with still/flow textures and waterlogged blocks.~~ ~~Cover intrinsic water in kelp, seagrass, and bubble columns.~~ For remaining fluid parity, obtain vanilla block-state fluid definitions, face-occlusion shapes, and solidity/flow-blocking flags; add water overlays against glass/leaves. Keep 1 block = 16 units.
 
