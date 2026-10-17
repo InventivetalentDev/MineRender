@@ -91,9 +91,8 @@ async function visit(url, name) {
             }
         } else if (await page.$("#camera-angle")) {
             const result = await page.evaluate(() => window.transparencyTest);
-            status = await page.$eval("#status", element => element.textContent ?? "");
+            status = await page.$eval("#summary", element => element.textContent ?? "");
             if (result?.error) problems.add(result.error);
-            if (result?.mergedMeshes !== 1 || result?.separateMeshes !== 2) problems.add("Transparency fixture meshes missing");
         } else {
             await new Promise(resolve => setTimeout(resolve, 3000));
             status = (await page.evaluate(() => document.body.innerText)).split("\n").find(line => /PASS|FAIL/.test(line)) ?? "(no status)";

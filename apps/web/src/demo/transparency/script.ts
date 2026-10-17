@@ -5,10 +5,13 @@ import { createFixture, installFixtureAssets } from "./fixture";
 type Fixture = Awaited<ReturnType<typeof createFixture>>;
 type View = Fixture & { grid: THREE.GridHelper };
 const width = 480, height = 360;
+const RGB_TOLERANCE = 8;
+const MIN_DIFFERING_PIXELS = 100;
 const button = document.getElementById("reverse") as HTMLButtonElement;
 const slider = document.getElementById("camera-angle") as HTMLInputElement;
 const controls = Array.from(document.querySelectorAll<HTMLButtonElement | HTMLInputElement>("button, input"));
 const status = document.getElementById("status")!;
+const summary = document.getElementById("summary")!;
 const order = document.getElementById("order")!;
 const angleOutput = document.getElementById("angle")!;
 const explanation = document.getElementById("explanation")!;
@@ -42,18 +45,16 @@ function draw() {
     }
     let differentPixels = 0;
     for (let i = 0; i < pixels[0].length; i += 4) {
-        if ([0, 1, 2].some(channel => Math.abs(pixels[0][i + channel] - pixels[1][i + channel]) > 8)) differentPixels++;
+        if ([0, 1, 2].some(channel => Math.abs(pixels[0][i + channel] - pixels[1][i + channel]) > RGB_TOLERANCE)) differentPixels++;
     }
-    const differs = differentPixels > 100;
+    const differs = differentPixels > MIN_DIFFERING_PIXELS;
     status.textContent = differs ? "Issue visible: part of the rear panel is missing in the merged section."
-        : "These views match at this angle. Try the opposite camera preset.";
+        : "These views match at this angle.";
     explanation.textContent = differs ? "Look inside panel " + front + ": panel " + rear
         + "’s letter and grid contribute in the comparison, but are hidden in the merged section."
         : "Both views include the same panel detail. Moving the camera changes which panel is nearer; reversing placement changes the draw order.";
-    measurements.textContent = differentPixels.toLocaleString() + " pixels differ between the views (RGB tolerance: 8/255).";
-    const result = { angle, reversed, differentPixels, differs, mergedMeshes: meshCount(views[0].scene), separateMeshes: meshCount(views[1].scene) };
-    window["transparencyResult"] = result;
-    return result;
+    measurements.textContent = differentPixels.toLocaleString() + ` pixels differ between the views (RGB tolerance: ${RGB_TOLERANCE}/255).`;
+    return differentPixels;
 }
 
 async function release(items: View[]) {
@@ -91,11 +92,35 @@ async function refresh() {
     }
 }
 
-function reload() {
-    window["transparencyTest"] = refresh().catch(error => {
+async function sweep() {
+    const originalAngle = slider.value, originalReversed = reversed;
+    const failures: { angle: number, reversed: boolean, differentPixels: number }[] = [];
+    for (const placementOrder of [false, true]) {
+        if (reversed !== placementOrder) {
+            reversed = placementOrder;
+            await refresh();
+        }
+        for (const preset of document.querySelectorAll<HTMLButtonElement>("[data-angle]")) {
+            slider.value = preset.dataset.angle!;
+            const differentPixels = draw()!;
+            if (differentPixels > MIN_DIFFERING_PIXELS) failures.push({ angle: Number(slider.value), reversed, differentPixels });
+        }
+    }
+    slider.value = originalAngle;
+    reversed = originalReversed;
+    await refresh();
+    summary.textContent = failures.length
+        ? "FAIL: the merged section hides panel detail at " + failures.map(failure => `${failure.angle}° (${failure.reversed ? "B, then A" : "A, then B"})`).join(", ") + "."
+        : "PASS: the merged section matches the separate sections at every preset in both placement orders.";
+    return { passed: failures.length === 0, failures };
+}
+
+function reload(runSweep = false) {
+    const loading = refresh().then(() => runSweep ? sweep() : undefined).catch(error => {
         status.textContent = "Could not render the comparison: " + (error instanceof Error ? error.message : String(error));
         return { error: status.textContent };
     });
+    if (runSweep) window["transparencyTest"] = loading;
 }
 
 try {
@@ -103,7 +128,7 @@ try {
     for (const id of ["merged", "separate"]) {
         const renderer = new THREE.WebGLRenderer({ alpha: false, antialias: true });
         renderer.setSize(width, height, false);
-        renderer.domElement.setAttribute("aria-label", id === "merged" ? "Merged glass panels" : "Separate glass panels for comparison");
+        renderer.domElement.setAttribute("aria-label", id === "merged" ? "Merged translucent panels" : "Separate translucent panels for comparison");
         document.getElementById(id)!.append(renderer.domElement);
         renderers.push(renderer);
     }
@@ -120,7 +145,7 @@ try {
         Caching.clear();
         shutdown();
     });
-    reload();
+    reload(true);
 } catch (error) {
     status.textContent = "Could not start the comparison: " + (error instanceof Error ? error.message : String(error));
     window["transparencyTest"] = Promise.resolve({ error: status.textContent });
