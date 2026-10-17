@@ -30,6 +30,7 @@ These paths are relative to the development server root:
 | `demo/custom_model/` | Java model JSON editor |
 | `demo/exports/` | Image, video, and 3D export of a small instanced scene |
 | `demo/materials/` | Canvas material shader regression check |
+| `demo/transparency/` | Compares translucent face ordering with labeled panels, a shared camera, and separate-section reference |
 
 The sidebar from `src/playground/Playground.ts` provides presets, renderer and camera settings, Minecraft version / hosted root / resource-pack ZIP, image, video, and 3D exports, and a shareable link or JSON that restores the page state. Local files are not part of shared links and have to be selected again.
 

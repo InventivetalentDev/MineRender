@@ -9,11 +9,13 @@ import { Entities } from "../src/assets/Entities";
 import { ItemModelContext, Models } from "../src/assets/Models";
 import { Caching } from "../src/cache/Caching";
 import { EntityObject } from "../src/entity/scene/EntityObject";
+import type { EntityAnimation } from "../src/entity/EntityAnimation";
+import type { EntityModel } from "../src/entity/EntityModel";
 import { Materials } from "../src/Materials";
 import { BlockObject } from "../src/model/block/scene/BlockObject";
 import { ModelObject } from "../src/model/scene/ModelObject";
 import { MineRenderScene } from "../src/renderer/MineRenderScene";
-import { SceneDocument, SceneObjectDefinition, SceneSkinDefinition } from "../src/scene/SceneDocument";
+import { SceneDocument, SceneEntityDefinition, SceneObjectDefinition, SceneSkinDefinition } from "../src/scene/SceneDocument";
 import { SceneDocumentLoader } from "../src/scene/SceneDocumentLoader";
 import { SkinTextures } from "../src/skin/SkinTextures";
 import { GuiObject } from "../src/gui/scene/GuiObject";
@@ -47,6 +49,9 @@ test("scene documents round-trip portable options and copy the caller's data", t
         { id: "bundle", type: "item", asset: "minecraft:bundle", context: { displayContext: "none", count: 3, properties: { "minecraft:bundle/has_selected_item": true },
             components: { "minecraft:bundle_contents": [{ id: "minecraft:apple", count: 1 }] }, itemReferences: { "minecraft:bundle/selected_item": "minecraft:apple" } } },
         { id: "entity", type: "entity", asset: "minecraft:bat", layers: ["main"], animation: { name: "flying", paused: true, speed: 2 } },
+        { id: "blend", type: "entity", asset: "minecraft:bat", animation: {
+            clips: [{ name: "flying", weight: 0.25 }, { name: "looking" }], loop: false, time: 1, speed: 2, paused: true
+        } },
         { id: "gui", type: "gui", layers: [{ text: [{ text: "Hello", color: 0xff0000 }], position: [0, 9] },
             { item: "minecraft:item/diamond" }, { item: "minecraft:leather_helmet", context: { components: { "minecraft:dyed_color": 0x3f76e4 } } }] }
     ]);
@@ -56,6 +61,28 @@ test("scene documents round-trip portable options and copy the caller's data", t
     const copy = SceneDocumentLoader.parse(input);
     copy.objects[1].position![0] = 64;
     t.is(input.objects[1].position![0], 16);
+});
+
+test("scene animations require one named clip or a nonempty blend with finite nonnegative weights", t => {
+    const invalid: [unknown, RegExp][] = [
+        [{}, /animation: expected exactly one/],
+        [{ name: "walk", clips: [{ name: "walk" }] }, /animation: expected exactly one/],
+        [{ clips: [{ name: "walk" }, { name: "walk", weight: 0 }] }, /animation.clips\[1\].name: duplicate clip "walk"/],
+        [{ clips: [] }, /animation.clips: expected at least one clip/],
+        [{ clips: "walk" }, /animation.clips: expected an array/],
+        [{ clips: [{}] }, /animation.clips\[0\].name: required/],
+        [{ clips: [{ name: " " }] }, /animation.clips\[0\].name/],
+        [{ clips: [{ name: "walk", speed: 2 }] }, /animation.clips\[0\].speed: unsupported/],
+        [{ clips: [{ name: "walk" }], time: -1 }, /animation.time/],
+        [{ clips: [{ name: "walk" }], loop: 1 }, /animation.loop/],
+        [{ clips: [{ name: "walk" }], paused: "true" }, /animation.paused/]
+    ];
+    for (const weight of [-1, NaN, Infinity, -Infinity, "1", null]) {
+        invalid.push([{ clips: [{ name: "walk", weight }] }, /animation.clips\[0\].weight/]);
+    }
+    for (const [animation, message] of invalid) {
+        t.throws(() => SceneDocumentLoader.parse({ ...document(), objects: [{ id: "bad", type: "entity", asset: "pig", animation }] }), { message });
+    }
 });
 
 test("scene validation reports the malformed field before requesting assets", t => {
@@ -267,17 +294,26 @@ test.serial("item definitions and GUI item layers pass their item state with ite
     t.is(layer.context!.itemReferences!["minecraft:bundle/selected_item"].toNamespacedString(), "minecraft:item/apple");
 });
 
-test.serial("entity animations load by name, start at saved time, and respect pause and disposal", async t => {
+function entityFixture(t: ExecutionContext) {
     const material = new MeshBasicMaterial();
     stub(t, Materials, "getImage", () => material);
     Caching.clear();
     t.teardown(() => { material.dispose(); Caching.clear(); });
     const key = new AssetKey("minecraft", "fixture");
-    stub(t, Entities, "getEntity", async () => ({ id: "minecraft:fixture", key,
+    const model: EntityModel = { id: "minecraft:fixture", key,
         layer: { texture: [16, 16], root: { pose: { offset: [0, 0, 0], rotation: [0, 0, 0] }, cubes: [], children: {} } }
-    }));
-    stub(t, EntityObject.prototype, "init", async function () { this["createMeshes"](); });
+    };
+    const created: EntityObject[] = [], disposed: EntityObject[] = [];
+    const originalDispose = EntityObject.prototype.dispose;
+    stub(t, Entities, "getEntity", async () => model);
+    stub(t, EntityObject.prototype, "init", async function () { created.push(this); this["createMeshes"](); });
+    stub(t, EntityObject.prototype, "dispose", function () { disposed.push(this); originalDispose.call(this); });
     stub(t, Entities, "getAnimations", async () => ({ walk: { length: 4, loop: true, bones: {} } }));
+    return { model, created, disposed };
+}
+
+test.serial("entity animations load by name, start at saved time, and respect pause and disposal", async t => {
+    entityFixture(t);
     const scene = new MineRenderScene();
     const loaded = await SceneDocumentLoader.loadObject(scene, {
         id: "animated", type: "entity", asset: "minecraft:fixture", animation: { name: "walk", time: 1, speed: 2, paused: true }
@@ -295,6 +331,85 @@ test.serial("entity animations load by name, start at saved time, and respect pa
     loaded.advanceAnimation(1);
     t.is(entity.animation, undefined);
     t.deepEqual(entity.children, []);
+});
+
+test.serial("entity blends retain clip order and additive weights across layers with a shared paused clock", async t => {
+    const { model } = entityFixture(t);
+    model.layers = Object.fromEntries(["main", "main#2", "wool", "wool#2", "overlay"].map(name => [name, { key: model.key, layer: model.layer }]));
+    const walk: EntityAnimation = { length: 2, loop: true, bones: { root: { position: [
+        { time: 0, value: [0, 0, 0], interpolation: "linear" }, { time: 2, value: [4, 0, 0], interpolation: "linear" }
+    ] } } };
+    const look: EntityAnimation = { length: 4, loop: false, bones: { root: { rotation: [
+        { time: 0, value: [0, 0, 0], interpolation: "linear" }, { time: 4, value: [0, 0, 4], interpolation: "linear" }
+    ] } } };
+    const wool: EntityAnimation = { length: 4, loop: false, layer: "wool", bones: { root: { position: [
+        { time: 0, value: [0, 0, 0], interpolation: "linear" }, { time: 4, value: [0, 8, 0], interpolation: "linear" }
+    ] } } };
+    stub(t, Entities, "getAnimations", async () => ({ walk, look, wool }));
+    const scene = new MineRenderScene();
+    const loaded = await SceneDocumentLoader.load(scene, document([{ id: "blended", type: "entity", asset: "minecraft:fixture", animation: {
+        clips: [{ name: "walk", weight: 0.75 }, { name: "look" }, { name: "wool", weight: 2 }],
+        loop: true, time: 1, speed: 2, paused: true
+    } }]));
+    t.teardown(() => loaded.dispose());
+    const entity = loaded.objects[0].object as EntityObject;
+    t.deepEqual(entity.activeAnimations, [walk, look, wool]);
+    t.deepEqual(entity.animationWeights, [0.75, 1, 2]);
+    t.is(entity.getGroupByName("root", "main")!.position.x, 1.5);
+    loaded.advanceAnimations(0.25);
+    t.is(entity.animationTime, 1);
+    if (loaded.objects[0].definition.type === "entity") loaded.objects[0].definition.animation!.paused = false;
+    scene.dirty = false;
+    loaded.advanceAnimations(0.25);
+    t.is(entity.animationTime, 1.5);
+    t.true(scene.dirty);
+    loaded.advanceAnimations(1.5);
+    t.is(entity.animationTime, 4.5);
+    for (const layer of ["main", "main#2", "overlay"]) {
+        const root = entity.getGroupByName("root", layer)!;
+        t.deepEqual(root.position.toArray(), [0.75, 0, 0]);
+        t.is(root.rotation.z, 0.5);
+    }
+    for (const layer of ["wool", "wool#2"]) t.deepEqual(entity.getGroupByName("root", layer)!.position.toArray(), [0, 2, 0]);
+    loaded.dispose();
+    loaded.advanceAnimations(1);
+    t.deepEqual(entity.activeAnimations, []);
+    t.deepEqual(entity.children, []);
+    t.deepEqual(scene.children, []);
+});
+
+test.serial("scene animations reject inherited clip names", async t => {
+    entityFixture(t);
+    for (const [animation, name] of [
+        [{ clips: [{ name: "walk" }, { name: "constructor", weight: 0 }] }, "constructor"],
+        [{ name: "toString" }, "toString"]
+    ] as [NonNullable<SceneEntityDefinition["animation"]>, string][]) {
+        await t.throwsAsync(SceneDocumentLoader.loadObject(new MineRenderScene(), {
+            id: "inherited", type: "entity", asset: "minecraft:fixture", animation
+        }), { message: `Scene object "inherited": Entity minecraft:fixture has no animation "${name}"` });
+    }
+});
+
+test.serial("a missing blend clip rejects the whole document and disposes staged objects before starting partial playback", async t => {
+    const models = modelFixture(t);
+    const entities = entityFixture(t);
+    const played: EntityObject[] = [];
+    const originalPlay = EntityObject.prototype.playAnimations;
+    stub(t, EntityObject.prototype, "playAnimations", function (clips, options) { played.push(this); originalPlay.call(this, clips, options); });
+    const scene = new MineRenderScene();
+    const existing = new Group();
+    scene.add(existing);
+    await t.throwsAsync(SceneDocumentLoader.load(scene, document([
+        { id: "model", type: "model", asset: "minecraft:block/stone" },
+        { id: "valid", type: "entity", asset: "minecraft:fixture", animation: { clips: [{ name: "walk" }] } },
+        { id: "missing", type: "entity", asset: "minecraft:fixture", animation: { clips: [{ name: "walk" }, { name: "absent", weight: 0 }] } }
+    ])), { message: /Scene object "missing": Entity minecraft:fixture has no animation "absent"/ });
+    t.deepEqual(played, [entities.created[0]]);
+    t.is(entities.created.length, 2);
+    t.is(entities.disposed.length, 2);
+    t.true(entities.created.every(entity => entities.disposed.includes(entity) && entity.parent === null && entity.children.length === 0 && !entity.animation));
+    t.deepEqual(models.disposed, models.created);
+    t.deepEqual(scene.children, [existing]);
 });
 
 test.serial("embedded skin and cape textures stay portable and base parts hide independently of overlays", async t => {

@@ -7,7 +7,7 @@ interface InspectorContext {
     onError: (error: unknown) => void;
     getAnimationTime?: () => number;
     onSkinPoseChange?: (pose: SceneSkinDefinition["pose"]) => void;
-    onAnimationChange?: (animation: SceneEntityDefinition["animation"]) => void | Promise<void>;
+    onAnimationChange?: (animation: SceneEntityDefinition["animation"], seek?: boolean) => void | Promise<void>;
 }
 
 let nextListId = 0;
@@ -325,47 +325,128 @@ export function renderInspector(container: HTMLElement, definition: SceneObjectD
             animationStatus.textContent = entries.length ? "" : "This entity has no available animation clips.";
             if (!entries.length) return;
             const drawn = entity.layers ?? ["main", ...passes.filter(pass => pass.when === undefined || entity.when?.includes(pass.when)).map(pass => pass.layer)];
-            const emitAnimation = () => {
-                if (context.onAnimationChange) submit(() => context.onAnimationChange!(structuredClone(entity.animation)));
+            const emitAnimation = (seek = false) => {
+                if (context.onAnimationChange) submit(() => context.onAnimationChange!(structuredClone(entity.animation), seek));
                 else emit();
             };
-            const picker = select(animation, "Clip", [["", "None"], ...entries.map(([name, clip]) => [name, `${name} (${clip.layer ?? "main"})`] as [string, string])], entity.animation?.name ?? "", name => {
-                entity.animation = name ? { name, loop: clips![name].loop, speed: 1, time: 0 } : undefined;
+            const selectedClips = (): { name: string; weight?: number }[] => entity.animation?.clips
+                ?? (entity.animation?.name ? [{ name: entity.animation.name }] : []);
+            const keepTime = () => {
+                if (entity.animation) entity.animation.time = context.getAnimationTime?.() ?? entity.animation.time ?? 0;
+            };
+            const setClips = (selected: { name: string; weight?: number }[]) => {
+                keepTime();
+                const { loop, speed, time, paused } = entity.animation ?? { speed: 1, time: 0 };
+                entity.animation = selected.length ? { clips: selected, loop, speed, time, paused } : undefined;
                 emitAnimation();
-                renderPlayback(false);
-            });
-            for (const entry of Array.from(picker.options)) {
-                const clip = clips?.[entry.value];
-                if (clip && !drawn.includes(clip.layer ?? "main")) {
-                    entry.disabled = true;
-                    entry.title = `Enable the ${clip.layer ?? "main"} layer to play this clip.`;
+            };
+            const choices = entries.map(([name, clip]) => [name, `${name} (${clip.layer ?? "main"})`] as [string, string]);
+            const enableLayers = (picker: HTMLSelectElement) => {
+                for (const entry of Array.from(picker.options)) {
+                    const clip = clips?.[entry.value];
+                    if (clip && !drawn.includes(clip.layer ?? "main")) {
+                        entry.disabled = true;
+                        entry.title = `Enable the ${clip.layer ?? "main"} layer to play this clip.`;
+                    }
                 }
-            }
+            };
+            const selected = document.createElement("div");
+            animation.append(selected);
+            const add = document.createElement("div");
+            add.className = "editor-row";
+            animation.append(add);
+            const picker = select(add, "Clip to add", choices, "", () => {});
+            enableLayers(picker);
+            const addClip = button(add, "Add clip", () => {
+                setClips([...selectedClips(), { name: picker.value, weight: 1 }]);
+                renderClips();
+                renderPlayback(false);
+                selected.querySelectorAll("select").item(selectedClips().length - 1)?.focus();
+            });
+            if (!entries.some(([, clip]) => drawn.includes(clip.layer ?? "main"))) note(animation, "Enable a clip's entity layer to add an animation.");
             const playback = document.createElement("div");
             animation.append(playback);
+            function renderClips() {
+                selected.replaceChildren();
+                for (const option of Array.from(picker.options)) {
+                    option.disabled = !drawn.includes(clips![option.value].layer ?? "main")
+                        || selectedClips().some(clip => clip.name === option.value);
+                }
+                const available = Array.from(picker.options).find(option => !option.disabled);
+                picker.value = available?.value ?? "";
+                picker.disabled = addClip.disabled = !available;
+                if (!selectedClips().length) note(selected, "Add a clip to start playback.");
+                selectedClips().forEach((selection, index) => {
+                    const group = document.createElement("fieldset");
+                    group.className = "editor-section";
+                    selected.append(group);
+                    const clip = select(group, `Clip ${index + 1}`, choices, selection.name, name => {
+                        setClips(selectedClips().map((value, i) => i === index ? { ...value, name } : value));
+                        renderClips();
+                        renderPlayback(false);
+                    });
+                    enableLayers(clip);
+                    for (const option of Array.from(clip.options)) {
+                        if (selectedClips().some((value, i) => i !== index && value.name === option.value)) option.disabled = true;
+                    }
+                    const row = document.createElement("div");
+                    row.className = "editor-row";
+                    group.append(row);
+                    const range = document.createElement("input");
+                    range.type = "range";
+                    range.min = "0";
+                    range.max = String(Math.max(1, Math.ceil(selection.weight ?? 1)));
+                    range.step = "0.01";
+                    range.value = String(selection.weight ?? 1);
+                    range.setAttribute("aria-label", `Clip ${index + 1} weight slider`);
+                    field(row, "Weight", range);
+                    const changeWeight = (weight: number) => {
+                        keepTime();
+                        if (entity.animation?.clips) entity.animation.clips[index].weight = weight;
+                        else if (entity.animation) {
+                            const { name, ...settings } = entity.animation;
+                            entity.animation = { ...settings, clips: [{ name: name!, weight }] };
+                        }
+                        range.max = String(Math.max(1, Math.ceil(weight)));
+                        range.value = value.value = String(weight);
+                        emitAnimation();
+                    };
+                    const value = number(row, "Weight value", selection.weight ?? 1, 0, undefined, "any", changeWeight);
+                    value.setAttribute("aria-label", `Clip ${index + 1} weight value`);
+                    range.addEventListener("input", () => changeWeight(range.valueAsNumber));
+                    button(group, `Remove clip ${index + 1}`, () => {
+                        setClips(selectedClips().filter((_, i) => i !== index));
+                        renderClips();
+                        renderPlayback(false);
+                        picker.focus();
+                    });
+                });
+            }
             function renderPlayback(liveTime = true) {
                 playback.replaceChildren();
                 if (!entity.animation) return;
-                const clip = clips?.[entity.animation.name];
-                const keepTime = () => { entity.animation!.time = context.getAnimationTime?.() ?? entity.animation!.time ?? 0; };
-                const displayTime = (time: number) => clip?.length ? (entity.animation!.loop ?? clip.loop) ? time % clip.length : Math.min(time, clip.length) : time;
-                check(playback, "Loop", entity.animation.loop ?? clip?.loop ?? false, loop => { keepTime(); entity.animation!.loop = loop; emitAnimation(); });
+                const activeClips = selectedClips().map(selection => clips?.[selection.name]).filter(clip => clip !== undefined);
+                const duration = Math.max(0, ...activeClips.map(clip => clip.length));
+                const loop = check(playback, "Loop", entity.animation.loop ?? activeClips.every(clip => clip.loop), loop => { keepTime(); entity.animation!.loop = loop; emitAnimation(); });
+                loop.indeterminate = entity.animation.loop === undefined && activeClips.some(clip => clip.loop) && !activeClips.every(clip => clip.loop);
                 number(playback, "Speed", entity.animation.speed ?? 1, 0, undefined, 0.1, speed => { keepTime(); entity.animation!.speed = speed; emitAnimation(); });
+                const displayTime = (time: number) => activeClips.length === 1 && (entity.animation?.loop ?? activeClips[0].loop) && duration > 0
+                    ? time % duration : time;
                 const time = displayTime((liveTime ? context.getAnimationTime?.() : undefined) ?? entity.animation.time ?? 0);
                 const seek = (time: number) => {
                     entity.animation!.time = time;
                     entity.animation!.paused = true;
                     syncPlayback(time);
-                    emitAnimation();
+                    emitAnimation(true);
                 };
-                const timeInput = number(playback, "Time (seconds)", time, 0, clip?.length, "any", seek);
+                const timeInput = number(playback, "Time (seconds)", time, 0, undefined, "any", seek);
                 const scrub = document.createElement("input");
                 scrub.type = "range";
                 scrub.min = "0";
-                scrub.max = String(clip?.length ?? 0);
+                scrub.max = String(duration);
                 scrub.step = "0.01";
-                scrub.value = String(time);
-                scrub.disabled = !clip?.length;
+                scrub.value = String(Math.min(duration, time));
+                scrub.disabled = !duration;
                 scrub.addEventListener("input", () => seek(scrub.valueAsNumber));
                 field(playback, "Scrub animation", scrub);
                 const row = document.createElement("div");
@@ -374,18 +455,20 @@ export function renderInspector(container: HTMLElement, definition: SceneObjectD
                 const play = button(row, entity.animation.paused ? "Play" : "Pause", () => {
                     keepTime();
                     entity.animation!.paused = !entity.animation!.paused;
-                    syncPlayback(displayTime(entity.animation!.time!));
+                    syncPlayback(entity.animation!.time!);
                     emitAnimation();
                 });
                 function syncPlayback(time: number) {
+                    time = displayTime(time);
                     timeInput.value = String(Number(time.toFixed(3)));
-                    scrub.value = String(time);
+                    scrub.value = String(Math.min(duration, time));
                     play.textContent = entity.animation!.paused ? "Play" : "Pause";
                 }
-                button(row, "Restart", () => { entity.animation!.time = 0; entity.animation!.paused = false; syncPlayback(0); emitAnimation(); });
-                button(row, "Stop", () => { delete entity.animation; picker.value = ""; emitAnimation(); renderPlayback(); });
-                if (clip) note(playback, `Clip duration: ${clip.length.toFixed(2)} seconds. Set time to pause at a frame.`);
+                button(row, "Restart", () => { entity.animation!.time = 0; entity.animation!.paused = false; syncPlayback(0); emitAnimation(true); });
+                button(row, "Stop", () => { delete entity.animation; emitAnimation(); renderClips(); renderPlayback(); });
+                note(playback, `${activeClips.length === 1 ? "Clip duration" : "Longest clip"}: ${duration.toFixed(2)} seconds. Set time to pause at a frame.`);
             }
+            renderClips();
             renderPlayback();
         }).catch(error => {
             if (active) { animationStatus.textContent = "Could not load animation clips."; fail(error, animation); }
@@ -614,6 +697,7 @@ function check(parent: HTMLElement, title: string, value: boolean, change: (valu
     input.addEventListener("change", () => change(input.checked));
     label.append(input, document.createTextNode(title));
     parent.append(label);
+    return input;
 }
 
 function number(parent: HTMLElement, title: string, value: number, min: number | undefined, max: number | undefined, step: number | "any", change: (value: number) => void) {

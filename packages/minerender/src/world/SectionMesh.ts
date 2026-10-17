@@ -1,11 +1,11 @@
-import { BufferGeometry, Color, DoubleSide, Float32BufferAttribute, FrontSide, Group, Material, Mesh, MeshBasicMaterial, ShaderMaterial, Texture, Uint32BufferAttribute } from "three";
+import { BufferGeometry, Color, DoubleSide, DynamicDrawUsage, Float32BufferAttribute, FrontSide, Group, Material, Matrix4, Mesh, MeshBasicMaterial, ShaderMaterial, Texture, Uint32BufferAttribute, Vector3 } from "three";
 import { createCanvas } from "../canvas/CanvasCompat";
 import { Materials } from "../Materials";
 import type { MineRenderScene } from "../renderer/MineRenderScene";
 import { TextureAtlas } from "../texture/TextureAtlas";
 import { buildSectionGeometry, SectionGeometryInput, SectionGeometryPage, SectionTemplateData } from "./SectionGeometry";
 import { SectionWorker } from "./SectionWorker";
-import type { Intersection } from "three";
+import type { Camera, Intersection } from "three";
 
 /** Shared quad geometry and atlas data prepared for section merging. */
 export interface SectionMeshTemplate {
@@ -37,6 +37,10 @@ export interface SectionFluids {
     water?: TextureAtlas;
     lava?: TextureAtlas;
 }
+
+const BLOCK_SIZE = 16;
+const QUAD_VERTICES = 4;
+const QUAD_INDICES = 6;
 
 const templateCache = new WeakMap<SectionMeshTemplate, SectionTemplateData>();
 const WATER_TINT = new Color(0x3f76e4).toArray() as [number, number, number];
@@ -70,13 +74,13 @@ function toInput(entries: readonly SectionMeshEntry[], maxAtlasSize: number, flu
             if (!data) {
                 const indices = template.geometry.getIndex()!;
                 const position = template.geometry.getAttribute("position");
-                const quads = indices.count / 6;
-                if (indices.count % 6 !== 0 || position.count !== quads * 4) {
+                const quads = indices.count / QUAD_INDICES;
+                if (indices.count % QUAD_INDICES !== 0 || position.count !== quads * QUAD_VERTICES) {
                     throw new RangeError("Section template geometry must hold four vertices and six indices per quad");
                 }
                 data = {
                     quads, positions: new Float32Array(quads * 12), normals: new Float32Array(quads * 12), uvs: new Float32Array(quads * 8),
-                    uvBounds: new Float32Array(quads * 16), colors: new Float32Array(quads * 12), shade: new Float32Array(quads * 4), indices: new Uint16Array(quads * 6),
+                    uvBounds: new Float32Array(quads * 16), colors: new Float32Array(quads * 12), shade: new Float32Array(quads * QUAD_VERTICES), indices: new Uint16Array(quads * QUAD_INDICES),
                     cullFaces: new Uint8Array(template.cullFaces), biomeTint: template.biomeTint ? new Uint8Array(template.biomeTint) : undefined, atlas: 0, layer: template.layer, ambientOcclusion: template.ambientOcclusion
                 };
                 const normal = template.geometry.getAttribute("normal");
@@ -84,7 +88,7 @@ function toInput(entries: readonly SectionMeshEntry[], maxAtlasSize: number, flu
                 const bounds = template.geometry.getAttribute("uvBounds");
                 const color = template.geometry.getAttribute("color");
                 const shade = template.geometry.getAttribute("shade");
-                for (let vertex = 0; vertex < quads * 4; vertex++) {
+                for (let vertex = 0; vertex < quads * QUAD_VERTICES; vertex++) {
                     data.positions.set([position.getX(vertex), position.getY(vertex), position.getZ(vertex)], vertex * 3);
                     data.normals.set([normal.getX(vertex), normal.getY(vertex), normal.getZ(vertex)], vertex * 3);
                     data.uvs.set([uv.getX(vertex), uv.getY(vertex)], vertex * 2);
@@ -93,7 +97,7 @@ function toInput(entries: readonly SectionMeshEntry[], maxAtlasSize: number, flu
                     data.colors.set([color?.getX(vertex) ?? 1, color?.getY(vertex) ?? 1, color?.getZ(vertex) ?? 1], vertex * 3);
                     data.shade![vertex] = shade?.getX(vertex) ?? 1;
                 }
-                for (let i = 0; i < data.indices.length; i++) data.indices[i] = indices.getX(i) - 4 * Math.floor(i / 6);
+                for (let i = 0; i < data.indices.length; i++) data.indices[i] = indices.getX(i) - QUAD_VERTICES * Math.floor(i / QUAD_INDICES);
                 templateCache.set(template, data);
             }
             id = input.templateData.length;
@@ -126,6 +130,57 @@ function toInput(entries: readonly SectionMeshEntry[], maxAtlasSize: number, flu
     return { input, atlases };
 }
 
+function sortTransparentQuads(mesh: Mesh<BufferGeometry, Material>): void {
+    const index = mesh.geometry.getIndex()!;
+    if (index.count <= QUAD_INDICES) return;
+    index.setUsage(DynamicDrawUsage);
+    const count = index.count / QUAD_INDICES;
+    let source: Uint32Array, centers: Float32Array, depths: Float32Array, order: Uint32Array;
+    const view = new Matrix4(), localCamera = new Vector3(), key = new Vector3(), previous = new Vector3();
+    let previousOrthographic: boolean | undefined;
+    mesh.onBeforeRender = (_renderer, _scene, camera) => {
+        localCamera.setFromMatrixPosition(camera.matrixWorld).applyMatrix4(view.copy(mesh.matrixWorld).invert());
+        const orthographic = !!(camera as Camera & { isOrthographicCamera?: boolean }).isOrthographicCamera;
+        if (orthographic) {
+            // Three updates mesh.modelViewMatrix after this callback.
+            view.multiplyMatrices(camera.matrixWorldInverse, mesh.matrixWorld);
+            key.set(view.elements[2], view.elements[6], view.elements[10]);
+        } else {
+            key.copy(localCamera).divideScalar(BLOCK_SIZE).floor();
+        }
+        if (orthographic === previousOrthographic && key.equals(previous)) return;
+        previous.copy(key);
+        previousOrthographic = orthographic;
+        if (!centers) {
+            source = new Uint32Array(index.array);
+            centers = new Float32Array(count * 3);
+            depths = new Float32Array(count);
+            order = Uint32Array.from({ length: count }, (_, quad) => quad);
+            const positions = mesh.geometry.getAttribute("position");
+            for (let quad = 0; quad < count; quad++) {
+                for (let axis = 0; axis < 3; axis++) {
+                    let center = 0;
+                    for (let corner = 0; corner < QUAD_VERTICES; corner++) center += positions.getComponent(quad * QUAD_VERTICES + corner, axis);
+                    centers[quad * 3 + axis] = center / QUAD_VERTICES;
+                }
+            }
+        }
+        for (let quad = 0; quad < count; quad++) {
+            const x = centers[quad * 3], y = centers[quad * 3 + 1], z = centers[quad * 3 + 2];
+            depths[quad] = orthographic ? key.x * x + key.y * y + key.z * z
+                : -((x - localCamera.x) ** 2 + (y - localCamera.y) ** 2 + (z - localCamera.z) ** 2);
+        }
+        order.sort((a, b) => depths[a] - depths[b] || a - b);
+        if (!order.some((quad, offset) => index.array[offset * QUAD_INDICES] !== source[quad * QUAD_INDICES])) return;
+        for (let offset = 0; offset < count; offset++) {
+            for (let indexOffset = 0; indexOffset < QUAD_INDICES; indexOffset++) {
+                index.array[offset * QUAD_INDICES + indexOffset] = source[order[offset] * QUAD_INDICES + indexOffset];
+            }
+        }
+        index.needsUpdate = true;
+    };
+}
+
 /** Merged terrain geometry and atlas pages for one 16×16×16 section. Owns its generated render resources. */
 export class SectionMesh extends Group {
 
@@ -135,7 +190,12 @@ export class SectionMesh extends Group {
     /** Returns the owning section cell for a triangle hit on this mesh's merged geometry. */
     public getBlockIndex(hit: Intersection): number | undefined {
         if (hit.faceIndex === undefined || hit.faceIndex === null) return undefined;
-        return this.blockIndices.get(hit.object as Mesh)?.[Math.floor(hit.faceIndex / 2)];
+        const mesh = hit.object as Mesh;
+        const owners = this.blockIndices.get(mesh);
+        if (!owners) return undefined;
+        // Sorted triangles still refer to each quad's original four consecutive vertices.
+        const vertex = mesh.geometry.getIndex()!.getX(hit.faceIndex * 3);
+        return owners[Math.floor(vertex / QUAD_VERTICES)];
     }
 
     /** Builds section-local meshes from visible quads. `maxAtlasSize` limits each atlas dimension in pixels. */
@@ -177,13 +237,14 @@ export class SectionMesh extends Group {
             const material = Materials.createShadedCanvasMaterial(canvas as HTMLCanvasElement, transparent, false, true);
             material.side = FrontSide;
             if (page.layer === 2) {
+                material.depthWrite = !material.transparent;
                 material.side = DoubleSide;
                 material.forceSinglePass = true;
-                material.depthWrite = !material.transparent;
             }
             material.vertexColors = true;
             const texture = (material as ShaderMaterial).uniforms?.map?.value ?? (material as MeshBasicMaterial).map;
             const mesh = new Mesh(geometry, material);
+            if (transparent) sortTransparentQuads(mesh);
             section.add(mesh);
             section.blockIndices.set(mesh, page.blockIndices);
             const unsubscribe: (() => void)[] = [];
