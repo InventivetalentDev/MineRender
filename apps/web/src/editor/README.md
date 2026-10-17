@@ -60,6 +60,10 @@ use another host or a local embed server; the default is
 `https://beta.minerender.org/embed/`. See the [embed workspace README](../../../embed/README.md)
 for local development and deployment commands.
 
+In an entity's **Animation** controls, use **Clip to add** and **Add clip** to combine
+clips, then adjust each **Weight** without restarting playback. Weights add without
+normalization. Until you change **Loop**, each clip uses its own loop setting.
+
 Use **GUI layers** to add, edit, reorder, or remove texture, item, and text layers,
 or to insert the layers of a chest background, boss bar, book page, or tooltip. The
 controls expose positions, sizes, and each layer's content, including an item layer's

@@ -68,7 +68,9 @@ export interface SceneEntityDefinition extends SceneObjectDefinitionBase {
     when?: string[];
     textures?: Record<string, string>;
     options?: { flip?: boolean; wireframe?: boolean; tints?: Record<string, string | number> };
-    animation?: { name: string; loop?: boolean; speed?: number; time?: number; paused?: boolean };
+    /** Plays one named clip or blends clips with weights defaulting to 1, without normalization. */
+    animation?: ({ name: string; clips?: never } | { name?: never; clips: { name: string; weight?: number }[] })
+        & { loop?: boolean; speed?: number; time?: number; paused?: boolean };
 }
 
 export type SceneGuiLayer = (Omit<GuiTextureLayer, "texture"> & { texture: string })
@@ -182,6 +184,22 @@ const itemContext = (withDisplayContext: boolean): Validator => (value, path) =>
     });
 };
 
+function entityAnimation(value: unknown, path: string): void {
+    const animation = object(value, path);
+    if (["name", "clips"].filter(key => animation[key] !== undefined).length !== 1) {
+        fail(path, "expected exactly one of name or clips");
+    }
+    fields(value, path, { name: text, clips: (value, path) => {
+        list((value, path) => { fields(value, path, { name: text, weight: nonnegative }, ["name"]); })(value, path);
+        if (!(value as unknown[]).length) fail(path, "expected at least one clip");
+        const names = new Set<string>();
+        for (const [index, clip] of (value as { name: string }[]).entries()) {
+            if (names.has(clip.name)) fail(`${path}[${index}].name`, `duplicate clip "${clip.name}"`);
+            names.add(clip.name);
+        }
+    }, loop: boolean, speed: nonnegative, time: nonnegative, paused: boolean });
+}
+
 function guiLayer(value: unknown, path: string): void {
     const layer = object(value, path);
     if (["texture", "item", "text"].filter(key => layer[key] !== undefined).length !== 1) {
@@ -239,7 +257,7 @@ function validateObject(value: unknown, path: string): void {
             fields(value, path, { ...common, asset, texture: asset, layers: list(text), when: list(text), textures: dictionary(asset),
                 options: (value, path) => { fields(value, path, { ...renderOptions, flip: boolean,
                     tints: dictionary((value, path) => { typeof value === "string" ? text(value, path) : color(value, path); }) }); },
-                animation: (value, path) => { fields(value, path, { name: text, loop: boolean, speed: nonnegative, time: nonnegative, paused: boolean }, ["name"]); }
+                animation: entityAnimation
             }, [...required, "asset"]);
             if (Array.isArray(input.layers) && !input.layers.length) fail(`${path}.layers`, "expected at least one layer");
             break;
