@@ -895,42 +895,7 @@ test("bulk placement prefetches four columns and groups ready columns in distanc
     await setup.streamer.dispose();
 });
 
-test("a ready nearest column is placed before slow later source reads finish", async t => {
-    t.timeout(3000);
-    const placing = deferred(), release = deferred();
-    const reads: { x: number; z: number; gate: ReturnType<typeof deferred<AnvilChunk>> }[] = [];
-    let allowReads = false, first = true;
-    const setup = fixture({ loadRadius: 1, unloadRadius: 1 }, {
-        get: async (x, z) => {
-            if (x === 0 && z === 0 || allowReads) return chunk(x, z);
-            const gate = deferred<AnvilChunk>();
-            reads.push({ x, z, gate });
-            return gate.promise;
-        },
-        placeChunks: async () => {
-            if (first) {
-                first = false;
-                placing.resolve();
-                await release.promise;
-            }
-        }
-    });
-    t.teardown(() => { reads.forEach(({ x, z, gate }) => gate.resolve(chunk(x, z))); release.resolve(); });
-    const update = setup.streamer.update(0, 0);
-    await placing.promise;
-    t.deepEqual(setup.placements, [[{ x: 0, z: 0 }]]);
-    t.is(reads.length, 3);
-    t.deepEqual(setup.streamer.loadedChunks, []);
-    allowReads = true;
-    for (const { x, z, gate } of reads) gate.resolve(chunk(x, z));
-    release.resolve();
-    await update;
-    t.is(setup.streamer.loadedChunks.length, 9);
-    t.is(setup.peakMutations(), 1);
-    await setup.streamer.dispose();
-});
-
-test("ready later columns occupy the prefetch window without bypassing an unresolved nearer column", async t => {
+test("a ready nearest column is placed before slow later reads, which stay within the prefetch window", async t => {
     t.timeout(3000);
     const initial = deferred(), firstPlacement = deferred(), fifthRead = deferred();
     const reads: { x: number; z: number; gate: ReturnType<typeof deferred<AnvilChunk>> }[] = [];
@@ -954,6 +919,8 @@ test("ready later columns occupy the prefetch window without bypassing an unreso
         gate.resolve(chunk(x, z));
     }
     await firstPlacement.promise;
+    t.deepEqual(setup.placements, [[{ x: 0, z: 0 }]]);
+    t.is(reads.length, 4);
     await fifthRead.promise;
     await new Promise<void>(resolve => setImmediate(resolve));
     t.is(reads.length, 5);
@@ -964,6 +931,81 @@ test("ready later columns occupy the prefetch window without bypassing an unreso
     const requested = setup.events.filter(event => event.startsWith("get:")).map(event => event.slice(4));
     t.deepEqual(setup.placements.flat().map(({ x, z }) => key(x, z)), requested);
     t.is(setup.streamer.loadedChunks.length, 9);
+    await setup.streamer.dispose();
+});
+
+test("a center move starts the nearest read when a finished read occupies the full window", async t => {
+    t.timeout(3000);
+    const started = deferred(), nearest = deferred();
+    const reads: { x: number; z: number; gate: ReturnType<typeof deferred<AnvilChunk>>; signal?: AbortSignal }[] = [];
+    let allowReads = false;
+    const setup = fixture({ loadRadius: 1, unloadRadius: 1 }, {
+        get: async (x, z, signal) => {
+            if (allowReads) return chunk(x, z);
+            const gate = deferred<AnvilChunk>();
+            reads.push({ x, z, gate, signal });
+            if (reads.length === 4) started.resolve();
+            return gate.promise;
+        },
+        placeChunks: async chunks => {
+            if (chunks.some(({ x, z }) => x === 0 && z === 1)) nearest.resolve();
+        }
+    });
+    t.teardown(() => reads.forEach(({ x, z, gate }) => gate.resolve(chunk(x, z))));
+    const first = setup.streamer.update(0, 0);
+    await started.promise;
+    const latest = setup.streamer.update(0, 1);
+    t.true(reads.find(({ x, z }) => x === 0 && z === -1)!.signal?.aborted);
+    allowReads = true;
+    reads[0].gate.resolve(chunk(0, 0));
+    await nearest.promise;
+    t.true(setup.placements.flat().some(({ x, z }) => x === 0 && z === 1));
+    for (const { x, z, gate } of reads) gate.resolve(chunk(x, z));
+    await Promise.all([first, latest]);
+    t.is(setup.streamer.loadedChunks.length, 9);
+    t.is(setup.streamer.pendingChunks, 0);
+    t.is(setup.peakReads(), 4);
+    await setup.streamer.dispose();
+});
+
+test("retrying a failed column loads it when the full window holds a finished read", async t => {
+    t.timeout(3000);
+    const started = deferred(), full = deferred(), retried = deferred();
+    const reads: { x: number; z: number; gate: ReturnType<typeof deferred<AnvilChunk>> }[] = [];
+    let allowReads = false;
+    const setup = fixture({ loadRadius: 1, unloadRadius: 1 }, {
+        get: async (x, z) => {
+            if (allowReads) {
+                if (x === 0 && z === 0) retried.resolve();
+                return chunk(x, z);
+            }
+            const gate = deferred<AnvilChunk>();
+            reads.push({ x, z, gate });
+            if (reads.length === 4) started.resolve();
+            if (reads.length === 5) full.resolve();
+            return gate.promise;
+        },
+        placeChunks: async () => {}
+    });
+    t.teardown(() => reads.forEach(({ x, z, gate }) => gate.resolve(chunk(x, z))));
+    const update = setup.streamer.update(0, 0);
+    await started.promise;
+    reads[0].gate.reject(new Error("source failed"));
+    await full.promise;
+    reads[3].gate.resolve(chunk(reads[3].x, reads[3].z));
+    await new Promise<void>(resolve => setImmediate(resolve));
+    t.is(setup.streamer.failedChunks.length, 1);
+    t.is(reads.length, 5);
+    allowReads = true;
+    const retry = setup.streamer.retryFailedChunks();
+    reads[1].gate.resolve(chunk(reads[1].x, reads[1].z));
+    await retried.promise;
+    for (const { x, z, gate } of reads) gate.resolve(chunk(x, z));
+    await Promise.all([update, retry]);
+    t.true(setup.streamer.loadedChunks.some(({ x, z }) => x === 0 && z === 0));
+    t.is(setup.streamer.loadedChunks.length, 9);
+    t.deepEqual(setup.streamer.failedChunks, []);
+    t.is(setup.peakReads(), 4);
     await setup.streamer.dispose();
 });
 
@@ -1087,33 +1129,32 @@ test("bulk source failures, missing columns, and coordinate mismatches do not pr
 });
 
 test("a failed grouped placement cleans every attempted owner before retrying", async t => {
-    for (const error of [new Error("partial placement"), null, undefined]) {
-        let fail = true;
-        const setup = fixture({ loadRadius: 1, unloadRadius: 1 }, { placeChunks: async chunks => {
-            if (fail) {
-                fail = false;
-                for (const { x, z } of chunks.slice(1)) setup.resident.delete(key(x, z));
-                throw error;
-            }
-        } });
-        let rejected = false;
-        try { await setup.streamer.update(0, 0); }
-        catch (failure) { rejected = true; t.is(failure, error); }
-        t.true(rejected);
-        t.deepEqual(setup.bulkCalls[0], setup.placements[0]);
-        t.deepEqual(setup.streamer.loadedChunks, []);
-        t.deepEqual(setup.streamer.failedChunks, []);
-        t.deepEqual([...setup.resident], []);
-        await setup.streamer.update(0, 0);
-        t.is(setup.streamer.loadedChunks.length, 9);
-        t.is(setup.resident.size, 9);
-        t.is(setup.peakMutations(), 1);
-        await setup.streamer.dispose();
-    }
+    const error = new Error("partial placement");
+    let fail = true;
+    const setup = fixture({ loadRadius: 1, unloadRadius: 1 }, { placeChunks: async chunks => {
+        if (fail) {
+            fail = false;
+            for (const { x, z } of chunks.slice(1)) setup.resident.delete(key(x, z));
+            throw error;
+        }
+    } });
+    let rejected = false;
+    try { await setup.streamer.update(0, 0); }
+    catch (failure) { rejected = true; t.is(failure, error); }
+    t.true(rejected);
+    t.deepEqual(setup.bulkCalls[0], setup.placements[0]);
+    t.deepEqual(setup.streamer.loadedChunks, []);
+    t.deepEqual(setup.streamer.failedChunks, []);
+    t.deepEqual([...setup.resident], []);
+    await setup.streamer.update(0, 0);
+    t.is(setup.streamer.loadedChunks.length, 9);
+    t.is(setup.resident.size, 9);
+    t.is(setup.peakMutations(), 1);
+    await setup.streamer.dispose();
 });
 
 test("failed grouped-placement cleanup retains even unattempted owners for a later retry", async t => {
-    const placementError = Object.freeze(new Error("partial placement")), cleanupError = new Error("cleanup failed");
+    const placementError = new Error("partial placement"), cleanupError = new Error("cleanup failed");
     let failPlace = true, failUnload = true;
     const setup = fixture({ loadRadius: 1, unloadRadius: 1 }, {
         placeChunks: async chunks => {

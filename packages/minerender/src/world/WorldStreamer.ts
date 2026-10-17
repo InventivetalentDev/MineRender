@@ -190,23 +190,7 @@ export class WorldStreamer {
                     continue;
                 }
                 this.owned.set(this.key(position), position);
-                try {
-                    await this.world.placeChunk(chunk);
-                    this.loaded.set(this.key(position), position);
-                } catch (error) {
-                    try {
-                        await this.unloadMany([position]);
-                    } catch (cleanupError) {
-                        const failure = error instanceof Error ? error : new Error(String(error));
-                        try {
-                            Object.defineProperty(failure, "cause", { value: cleanupError, configurable: true });
-                        } catch {
-                            throw Object.assign(new Error(failure.message), { cause: cleanupError });
-                        }
-                        throw failure;
-                    }
-                    throw error;
-                }
+                await this.placeOwnedColumns([position], () => this.world.placeChunk(chunk!));
             }
         } finally {
             for (const [key, read] of this.reads) {
@@ -254,6 +238,13 @@ export class WorldStreamer {
         }
         const head = this.reads.get(this.key(position));
         if (!head) {
+            for (let index = this.desired.length - 1; index >= 0; index--) {
+                const key = this.key(this.desired[index]);
+                if (this.reads.get(key)?.ready) {
+                    this.reads.delete(key);
+                    return true;
+                }
+            }
             // Aborted reads still occupy slots until their source work settles.
             await Promise.race([...this.reads.values()].map(read => read.promise));
             return true;
@@ -268,7 +259,6 @@ export class WorldStreamer {
             const key = this.key(desired), read = this.reads.get(key);
             if (!read?.ready) break;
             this.reads.delete(key);
-            if (read.controller.signal.aborted || this.disposed || !this.within(desired, this.loadRadius)) continue;
             if (read.failed) this.failed.set(key, { ...desired, error: read.error });
             else if (!read.chunk) this.missing.set(key, desired);
             else {
@@ -278,8 +268,13 @@ export class WorldStreamer {
         }
         if (!chunks.length) return true;
         for (const position of positions) this.owned.set(this.key(position), position);
+        await this.placeOwnedColumns(positions, () => this.world.placeChunks!(chunks));
+        return true;
+    }
+
+    private async placeOwnedColumns(positions: readonly ChunkPosition[], place: () => Promise<void>): Promise<void> {
         try {
-            await this.world.placeChunks!(chunks);
+            await place();
             for (const position of positions) this.loaded.set(this.key(position), position);
         } catch (error) {
             try {
@@ -295,7 +290,6 @@ export class WorldStreamer {
             }
             throw error;
         }
-        return true;
     }
 
     private needsLoad(position: ChunkPosition): boolean {

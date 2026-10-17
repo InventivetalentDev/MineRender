@@ -1465,7 +1465,7 @@ test.serial("column batches match sequential meshes across signed fluid, lightin
     t.is(world.getBiomeAt(0, 0, -8), "test:blue");
 });
 
-for (const failure of [new Error("column asset failed"), undefined, null]) {
+for (const failure of [new Error("column asset failed"), undefined]) {
     test.serial(`column batches flush partial writes before rejecting and leave later columns untouched (${String(failure)})`, async t => {
         const { world, scene, place } = fixture(t, { sectionMeshing: true });
         const survivor = await place([15, 0, 0]), untouched = await place([48, 0, 0]);

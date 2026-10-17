@@ -66,7 +66,7 @@ The report separates these measurements:
 
 Each stop records loaded, pending, missing, and failed columns, drawing calls and triangles, Three.js geometry and texture counts, and evidence of worker replies or synchronous fallback. Cleanup is timed separately. Garbage collection runs after frame sampling, so its pause is excluded from streaming and frame measurements. Heap samples include shared assets and benchmark records that remain after world cleanup. The runner exits unsuccessfully for source failures or browser errors and preserves completed reports for inspection.
 
-Placement and unloading record one operation per group of columns the streamer handles together, with its `columnCount` and `columns`. The streamer keeps at most four source reads or decoded results in its placement window and groups the ready prefix without waiting for a later unfinished read. Compare total columns as well as operation counts. Source reads can overlap; their summed wall times are not total streaming time.
+Placement and unloading record one operation per group of columns the streamer handles together, with its `columnCount` and `columns`. Compare total columns as well as operation counts. Source reads can overlap; their summed wall times are not total streaming time.
 
 ## Compare runs
 

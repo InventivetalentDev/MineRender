@@ -22,6 +22,7 @@ import { loadBlockCulling } from "./_culling/BlockCulling";
 import { logger } from "../util/log";
 
 const log = logger("MineRenderWorld");
+const YIELD_INTERVAL_MS = 8;
 
 //TODO: maybe make this an Object3D to add children
 /**
@@ -165,7 +166,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                         failures.set(chunk, error);
                         if (this._chunks.get(`${chunk.x}_${chunk.y}_${chunk.z}`) === chunk) this.pendingBiomes.set(chunk, undefined);
                     }
-                    if (performance.now() - sliceStart > 8) {
+                    if (performance.now() - sliceStart > YIELD_INTERVAL_MS) {
                         await yieldToEventLoop();
                         sliceStart = performance.now();
                     }
@@ -366,7 +367,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                     chunk.y * 16 + Math.floor(index / 256), chunk.z * 16 + Math.floor(index / 16) % 16));
                 for (const pos of positions) changes.set(`${pos.x},${pos.y},${pos.z}`, pos);
             }
-            if (performance.now() - sliceStart > 8) {
+            if (performance.now() - sliceStart > YIELD_INTERVAL_MS) {
                 await yieldToEventLoop();
                 sliceStart = performance.now();
             }
@@ -403,7 +404,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
         try {
             for (const column of columns) {
                 await this.placeColumn(column, undefined, true);
-                if (performance.now() - sliceStart > 8) {
+                if (performance.now() - sliceStart > YIELD_INTERVAL_MS) {
                     await yieldToEventLoop();
                     sliceStart = performance.now();
                 }
@@ -490,7 +491,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                     } finally {
                         this.markSectionChanged(target);
                     }
-                    if (performance.now() - sliceStart > 8) {
+                    if (performance.now() - sliceStart > YIELD_INTERVAL_MS) {
                         await yieldToEventLoop();
                         sliceStart = performance.now();
                     }
@@ -548,7 +549,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
             for (const { x, z } of columns.values()) {
                 this.entities?.clearColumn(x, z);
                 await this.clearChunkColumn(x, z);
-                if (performance.now() - sliceStart > 8) {
+                if (performance.now() - sliceStart > YIELD_INTERVAL_MS) {
                     await yieldToEventLoop();
                     sliceStart = performance.now();
                 }
@@ -694,33 +695,26 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                             for (const [index, mask] of masks) await chunk.setCullMaskIndex(index, mask);
                             await chunk.refreshLight(indices === "all" ? undefined : indices);
                             chunk.refreshAmbientOcclusion(this._ambientOcclusion);
-                            if (performance.now() - sliceStart > 8) {
+                            if (performance.now() - sliceStart > YIELD_INTERVAL_MS) {
                                 await yieldToEventLoop();
                                 sliceStart = performance.now();
                             }
                         }
                         const pending: Promise<void>[] = [];
-                        let dispatchFailed = false, dispatchFailure: unknown;
-                        try {
-                            for (const chunk of [...batch.keys()]) {
-                                const build = (async () => {
-                                    await chunk.rebuildSectionMesh();
-                                    batch.delete(chunk);
-                                })();
-                                // Handle rejections while dispatch yields; all started builds settle before their results are checked.
-                                void build.catch(() => undefined);
-                                pending.push(build);
-                                if (performance.now() - sliceStart > 8) {
-                                    await yieldToEventLoop();
-                                    sliceStart = performance.now();
-                                }
+                        for (const chunk of [...batch.keys()]) {
+                            const build = (async () => {
+                                await chunk.rebuildSectionMesh();
+                                batch.delete(chunk);
+                            })();
+                            // Handle rejections while dispatch yields; all started builds settle before their results are checked.
+                            void build.catch(() => undefined);
+                            pending.push(build);
+                            if (performance.now() - sliceStart > YIELD_INTERVAL_MS) {
+                                await yieldToEventLoop();
+                                sliceStart = performance.now();
                             }
-                        } catch (error) {
-                            dispatchFailed = true;
-                            dispatchFailure = error;
                         }
                         const builds = await Promise.allSettled(pending);
-                        if (dispatchFailed) throw dispatchFailure;
                         const failure = builds.find(result => result.status === "rejected");
                         if (failure?.status === "rejected") throw failure.reason;
                     } catch (error) {
