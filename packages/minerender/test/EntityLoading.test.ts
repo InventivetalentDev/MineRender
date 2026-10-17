@@ -1,6 +1,7 @@
 import test from "ava";
 import { AssetKey, BasicAssetKey } from "../src/assets/AssetKey";
 import { AssetLoader } from "../src/assets/AssetLoader";
+import { BlockEntities } from "../src/assets/BlockEntities";
 import { Entities } from "../src/assets/Entities";
 import { ModelTextures } from "../src/assets/ModelTextures";
 import { Env, EnvProvider } from "../src/Env";
@@ -76,7 +77,7 @@ test.serial("entity files preserve nested IDs and share layers while explicit te
     t.is(saddle!.key, texture);
     t.is(saddle!.layer, file.layers.saddle);
     t.deepEqual(await Entities.getBlock(key, texture, { layer: "saddle" }), saddle);
-    t.deepEqual(keys, [new AssetKey("custom", "boat/oak", undefined, undefined, "entity-models", ".json")]);
+    t.deepEqual(keys.slice(1), [new AssetKey("custom", "boat/oak", undefined, undefined, "entity-models", ".json")]);
     t.is(lowerCalls, 0);
     t.deepEqual(file, original);
 });
@@ -87,13 +88,14 @@ test.serial("parsed entity and texture keys retain their complete paths", async 
     const keys: AssetKey[] = [];
     AssetLoader.addSource("test", new StubSource(key => {
         keys.push(key);
+        if (key.path === "version") return { id: "1.21.11" };
         return key.namespace === "custom" && key.path === "boat/oak" ? file : undefined;
     }));
     const key = AssetKey.parse("entities", "custom:boat/oak");
     const entity = await Entities.getEntity(key, key);
     const primary = { key, texture: new AssetKey("custom", "boat/oak", "textures", "entity", "assets", ".png"), layer: file.layers.main };
     t.deepEqual(entity, { ...primary, id: file.id, layers: { main: primary } });
-    t.deepEqual(keys, [new AssetKey("custom", "boat/oak", undefined, undefined, "entity-models", ".json")]);
+    t.deepEqual(keys.slice(1), [new AssetKey("custom", "boat/oak", undefined, undefined, "entity-models", ".json")]);
     const textured = await Entities.getEntity(key, AssetKey.parse("textures", "painted:boat/checkered"));
     t.deepEqual(textured!.texture, new AssetKey("painted", "boat/checkered", "textures", "entity", "assets", ".png"));
     const rootedTexture = new AssetKey("painted", "boat/checkered", "textures", "entity", "assets", ".png", "https://pack.example/custom");
@@ -103,7 +105,7 @@ test.serial("parsed entity and texture keys retain their complete paths", async 
 
 test.serial("the dataset's root transform is passed on with the entity", async t => {
     const file: EntityModelFile = { ...model(), id: "minecraft:chest", transform: [{ scale: [-1, -1, 1] }] };
-    AssetLoader.addSource("test", new StubSource(key => key.path === "chest" ? file : undefined));
+    AssetLoader.addSource("test", new StubSource(key => key.path === "version" ? { id: "1.21.11" } : key.path === "chest" ? file : undefined));
     const entity = await Entities.getEntity(new BasicAssetKey("minecraft", "chest"), new BasicAssetKey("minecraft", "chest"));
     t.deepEqual(entity!.transform, [{ scale: [-1, -1, 1] }]);
 });
@@ -139,6 +141,7 @@ test.serial("selected layers retain their order and dataset textures while named
     const original = structuredClone(file);
     let requests = 0;
     AssetLoader.addSource("test", new StubSource((key, parser) => {
+        if (key.path === "version") return file;
         t.is(key.rootType, "entity-models");
         t.is(parser, AssetParser.JSON);
         requests++;
@@ -174,6 +177,7 @@ test.serial("layer discovery shares the entity file cache without loading textur
     const file = model();
     const requests: string[] = [];
     AssetLoader.addSource("test", new StubSource((key, parser) => {
+        if (key.path === "version") return { id: "1.21.11" };
         t.is(key.rootType, "entity-models");
         t.is(parser, AssetParser.JSON);
         requests.push(key.path);
@@ -200,7 +204,7 @@ test.serial("layer discovery shares the entity file cache without loading textur
 test.serial("missing layers identify the model and available layers without selecting a substitute", async t => {
     const file = model();
     delete file.layers.main;
-    AssetLoader.addSource("test", new StubSource(key => key.path === "cow" ? file : undefined));
+    AssetLoader.addSource("test", new StubSource(key => key.path === "version" ? { id: "1.21.11" } : key.path === "cow" ? file : undefined));
     const key = new BasicAssetKey("minecraft", "cow");
     await t.throwsAsync(Entities.getEntity(key), { message: 'Entity minecraft:cow has no layer "main". Available layers: saddle' });
     await t.throwsAsync(Entities.getEntity(key, undefined, { layer: "armor" }), {
@@ -218,6 +222,7 @@ test.serial("entity lists recurse through dataset directories and return bare ID
         "boat/cargo/_list": { files: ["bamboo.json"], directories: [] }
     };
     AssetLoader.addSource("test", new StubSource((key, parser) => {
+        if (key.path === "version") return { id: "1.21.11" };
         t.is(key.namespace, "minecraft");
         t.is(key.rootType, "entity-models");
         t.is(key.assetType, undefined);
@@ -254,8 +259,10 @@ test.serial("version changes fetch entity files and resolved textures from the s
     t.is(custom!.texture!.root, explicitRoot.root);
     t.is(decodedImages, 3);
     t.deepEqual(urls, [
+        "https://assets.mcasset.cloud/1.21.11/entity-models/version.json",
         "https://assets.mcasset.cloud/1.21.11/entity-models/minecraft/cow.json",
         "https://assets.mcasset.cloud/1.21.11/assets/minecraft/textures/entity/cow.png",
+        "https://assets.mcasset.cloud/1.20.1/entity-models/version.json",
         "https://assets.mcasset.cloud/1.20.1/entity-models/minecraft/cow.json",
         "https://assets.mcasset.cloud/1.20.1/assets/minecraft/textures/entity/cow.png",
         "https://pack.example/custom/entity-models/minecraft/cow.json",
@@ -275,6 +282,7 @@ test.serial("layers without texture locations use direct or nested textures and 
         const texture = new AssetKey("minecraft", path, "textures", "entity", "assets", ".png", "https://pack.example/custom");
         AssetLoader.addSource("test", new StubSource((key, parser) => {
             t.is(key.root, texture.root);
+            if (key.path === "version") return file;
             if (key.rootType === "entity-models") return file;
             t.is(parser, AssetParser.IMAGE);
             calls.push(key.toNamespacedString());
@@ -303,6 +311,7 @@ test.serial("variant textures prefer temperate, otherwise the first file, and su
         const root = "https://pack.example/custom";
         AssetLoader.addSource("test", new StubSource((key, parser) => {
             t.is(key.root, root);
+            if (key.path === "version") return model();
             if (key.rootType === "entity-models") return model();
             if (parser === AssetParser.IMAGE) {
                 calls.push(key.toNamespacedString());
@@ -321,4 +330,54 @@ test.serial("variant textures prefer temperate, otherwise the first file, and su
         t.truthy(await ModelTextures.get(entity.texture!));
         t.is(calls.at(-1), entry.texture);
     }
+});
+
+test.serial("unpublished releases use published entity geometry while textures keep the requested root", async t => {
+    AssetLoader.ROOT = "https://example.test/26.3";
+    const keys: AssetKey[] = [];
+    const file = model();
+    file.layers.main.textureLocation = "minecraft:textures/entity/bell/bell_body.png";
+    const index = { "minecraft:bell": { parts: [{ model: "minecraft:bell" }] } };
+    AssetLoader.addSource("test", new StubSource(key => {
+        keys.push(key);
+        if (key.path === "versions") return { versions: [{ name: "26.1.2" }, { name: "1.21.11" }] };
+        if (key.root !== "https://example.test/26.1.2") return undefined;
+        return key.path === "blocks" ? index : file;
+    }));
+    const entity = (await Entities.getEntity(new AssetKey("minecraft", "bell", undefined, undefined, "entity-models", ".json", "https://example.test/26.3")))!;
+    t.is(keys.find(key => key.path === "bell")!.root, "https://example.test/26.1.2");
+    t.is(entity.layers!.main.texture!.root, "https://example.test/26.3");
+    t.is(await BlockEntities.getIndex("https://example.test/26.3"), index);
+    t.is(keys.filter(key => key.path === "version").length, 1);
+    t.is(keys.filter(key => key.path === "versions").length, 1);
+});
+
+test.serial("published versions and snapshots never request the published version list", async t => {
+    AssetLoader.ROOT = "https://example.test/26.3";
+    const keys: AssetKey[] = [];
+    AssetLoader.addSource("test", new StubSource(key => {
+        keys.push(key);
+        if (key.path === "version") return key.root?.endsWith("26w14a") ? undefined : { id: "26.3" };
+        return model();
+    }));
+    await Entities.getLayerList(new BasicAssetKey("minecraft", "bell"));
+    Caching.clear();
+    await Entities.getLayerList(new AssetKey("minecraft", "bell", undefined, undefined, "entity-models", ".json", AssetLoader.ROOT));
+    t.deepEqual(keys.filter(key => key.path === "bell").map(key => key.root), [undefined, AssetLoader.ROOT]);
+    t.is(await Entities.getDatasetRoot("https://example.test/26w14a"), "https://example.test/26w14a");
+    t.false(keys.some(key => key.path === "versions"));
+});
+
+test.serial("missing version indexes keep the root and malformed indexes reject with an optional block index", async t => {
+    AssetLoader.ROOT = "https://example.test/26.3";
+    const warn = console.warn;
+    console.warn = () => undefined;
+    t.teardown(() => console.warn = warn);
+    let versions: unknown;
+    AssetLoader.addSource("test", new StubSource(key => key.path === "versions" ? versions : undefined));
+    t.is(await Entities.getDatasetRoot(AssetLoader.ROOT), AssetLoader.ROOT);
+    versions = { versions: [{ name: 42 }] };
+    Caching.clear();
+    await t.throwsAsync(Entities.getDatasetRoot(AssetLoader.ROOT), { message: /Invalid entity model version index/ });
+    t.deepEqual(await BlockEntities.getIndex(), {});
 });

@@ -60,24 +60,25 @@ test.serial("the block index is cached per root and read from next to the namesp
     AssetLoader.addSource("test", new StubSource((key, parser) => {
         t.is(parser, AssetParser.JSON);
         keys.push(key);
+        if (key.path === "version") return { id: "1.21.11" };
         return key.root === "https://example.test/old" ? undefined : index;
     }));
     AssetLoader.ROOT = "https://example.test/1.21.11";
     t.is(await BlockEntities.getIndex(), index);
     t.is(await BlockEntities.getIndex(), index);
-    t.is(keys.length, 1);
+    t.is(keys.length, 2);
     const hosted = new HostedAssetSource(AssetLoader.ROOT);
-    t.is(hosted.assetBasePath(keys[0]) + keys[0].path + keys[0].extension, "https://example.test/1.21.11/entity-models/blocks.json");
+    t.is(hosted.assetBasePath(keys[1]) + keys[1].path + keys[1].extension, "https://example.test/1.21.11/entity-models/blocks.json");
 
     // Versions without an index have no block entities, and are asked only once.
     t.deepEqual(await BlockEntities.getIndex("https://example.test/old"), {});
     t.deepEqual(await BlockEntities.getIndex("https://example.test/old"), {});
-    t.is(keys.length, 2);
-    t.is(hosted.assetBasePath(keys[1]), "https://example.test/old/entity-models/");
+    t.is(keys.length, 3);
+    t.is(hosted.assetBasePath(keys[2]), "https://example.test/old/entity-models/");
 
     AssetLoader.ROOT = "https://example.test/1.21.10";
     await BlockEntities.getIndex();
-    t.is(keys.length, 3);
+    t.is(keys.length, 5);
 });
 
 test.serial("a failed index load yields no block entities instead of an error", async t => {

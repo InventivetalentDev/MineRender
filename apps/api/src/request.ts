@@ -2,6 +2,9 @@ import { parseSceneDocument } from "minerender/node";
 import type { SceneDocument } from "minerender/node";
 import { ApiError } from "./problem.js";
 
+const MAX_ANIMATION_CLIPS = 32;
+const MAX_ANIMATION_WEIGHT = 1024;
+
 export interface RenderRequest {
     scene: SceneDocument & { minecraftVersion: string };
     output: {
@@ -83,6 +86,10 @@ export function parseRenderRequest(value: unknown): RenderRequest {
             }
         }
         if (definition.type === "entity" && definition.animation) {
+            if ((definition.animation.clips?.length ?? 0) > MAX_ANIMATION_CLIPS) {
+                throw new ApiError(422, `${path}.animation.clips: at most ${MAX_ANIMATION_CLIPS} clips are supported`);
+            }
+            bounded(definition.animation.clips?.map(clip => clip.weight ?? 1), MAX_ANIMATION_WEIGHT, `${path}.animation.clips.weight`);
             bounded([definition.animation.time ?? 0, definition.animation.speed ?? 1], 1_000_000, `${path}.animation`);
         }
         if (definition.type !== "gui") continue;
