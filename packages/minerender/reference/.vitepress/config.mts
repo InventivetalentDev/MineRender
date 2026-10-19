@@ -11,8 +11,9 @@ export default defineConfig({
     themeConfig: {
         nav: [
             { text: "API reference", link: "/" },
-            { text: "Behavior", link: "/concepts" },
+            { text: "Concepts", link: "/concepts" },
             { text: "Browser & Node", link: "/platforms" },
+            { text: "Embeds", link: "/embeds" },
             { text: version, link: "https://github.com/InventivetalentDev/MineRender/releases" }
         ],
         sidebar: [
@@ -20,7 +21,7 @@ export default defineConfig({
                 text: "Reference",
                 items: [
                     { text: "Overview", link: "/" },
-                    { text: "Rendering & ownership", link: "/concepts" },
+                    { text: "Core concepts", link: "/concepts" },
                     { text: "Browser & Node", link: "/platforms" },
                     { text: "Iframe embeds", link: "/embeds" }
                 ]

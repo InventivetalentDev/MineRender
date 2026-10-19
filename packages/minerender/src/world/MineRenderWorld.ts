@@ -826,7 +826,7 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
 export interface MineRenderWorldOptions<SectionMeshing extends boolean = boolean> {
     /** Render supported saved mobs at their position and yaw, including supported appearance fields. Defaults to false. */
     renderEntities?: boolean;
-    /** Merge static opaque cubes into section meshes. Merged blocks have no individual object. */
+    /** Merge block models of any shape and fluid surfaces into per-section meshes; block entities keep individual objects. Merged blocks have no individual object. */
     sectionMeshing?: SectionMeshing;
     /** Shade blocks and fluids with saved sky/block light. Missing or invalid data keeps preview brightness. Defaults to false. Requires `sectionMeshing`. */
     savedLighting?: boolean;
@@ -836,6 +836,6 @@ export interface MineRenderWorldOptions<SectionMeshing extends boolean = boolean
     ambientOcclusion?: boolean;
     /** Average neighboring biome colors within this horizontal radius, from 0 to 7 blocks. Defaults to 0 (off). Requires `sectionMeshing`. */
     biomeBlendRadius?: number;
-    /** Maximum width and height of each section atlas page, in pixels. */
+    /** Maximum width and height of each section atlas page, in pixels. Defaults to 2048. */
     maxAtlasSize?: number;
 }
