@@ -38,7 +38,10 @@ export class NodeEnv implements EnvProvider {
     openCache(name: string, version: number): PersistentCache {
         return new NodeCache(NodePersist.create({
             dir: name + version,
-            encoding: "utf8"
+            encoding: "utf8",
+            // node-persist's unref'd one-second write queue delays loads and lets Node exit before writes finish.
+            // In-memory loading caches serialize persistent writes for each key, so one file is not written concurrently.
+            writeQueue: false
         }));
     }
 
