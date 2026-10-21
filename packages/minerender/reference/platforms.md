@@ -34,7 +34,13 @@ import { Renderer } from "minerender";
 
 Rollup, which Vite uses for production builds, keeps every exported class in that chunk when the application uses `await import("minerender")`.
 
-World section meshing starts its Web Worker with `new Worker(new URL("./section.worker.mjs", import.meta.url))`. Bundlers that recognize this pattern emit the worker file with your build; check that a `section.worker` file appears in the output. Without it, and in the CommonJS and script-tag builds, which have no `import.meta.url`, sections build synchronously on the main thread.
+World section meshing starts its Web Worker with `new Worker(new URL("./section.worker.mjs", import.meta.url))`. Bundlers that recognize this pattern emit the worker file with your build; check that a `section.worker` file appears in the output. The CommonJS and script-tag builds have no `import.meta.url`, and some bundlers drop the file. There, copy `minerender/section.worker` (`dist/browser/esm/env/browser/section.worker.mjs`) to a path on the page's origin and pass its URL before you create a world:
+
+```ts
+registerBrowserEnv({ sectionWorker: "/assets/section.worker.mjs" });
+```
+
+Script-tag pages call `MineRender.registerBrowserEnv`. `sectionWorker` also accepts a function that returns a `Worker`. Without a worker, sections build synchronously on the main thread, and a failed worker start logs a warning.
 
 ## Platform requirements
 
@@ -102,7 +108,7 @@ Use the environment that supports the operation:
 | ZIP resource packs | [BrowserArchiveProxy](/api/index/classes/BrowserArchiveProxy) | No Node-specific archive proxy is provided |
 | glTF and GLB export | Supported through [SceneExporter](/api/index/classes/SceneExporter) | Requires browser canvas and `FileReader` |
 | Video export | `Renderer.toVideo()` requires canvas `captureStream()` and `MediaRecorder`; formats depend on the browser | Requires a browser environment |
-| World section meshing | Geometry builds in a Web Worker when the ESM build's `section.worker` file ships beside the module; the CommonJS and IIFE builds and bundlers that drop the file build synchronously | Synchronous |
+| World section meshing | Geometry builds in a Web Worker loaded from beside the ESM module or from `registerBrowserEnv({ sectionWorker })`; otherwise it builds synchronously | Synchronous |
 
 `Renderer.toImage()` returns a data URL from its browser canvas. `NodeRenderer.renderToBuffer()` returns PNG bytes. DOM controls, displays, and glTF/GLB export remain browser-only; importing the Node build does not supply those browser APIs.
 
