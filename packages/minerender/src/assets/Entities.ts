@@ -139,7 +139,7 @@ export class Entities {
         const path = isAssetKey(modelKey) ? modelKey.getFullPath() : modelKey.path;
         const root = isAssetKey(modelKey) ? modelKey.root : undefined;
         const key = new AssetKey(modelKey.namespace, path, undefined, undefined, "entity-models", ".json", root);
-        return Caching.entityTextureCache.get(key.serialize(), async () => {
+        const texture = await Caching.entityTextureCache.get(key.serialize(), async () => {
             const name = path.split("/").pop()!;
             for (const candidate of [path, `${path}/${name}`]) {
                 const texture = new AssetKey(modelKey.namespace, candidate, "textures", "entity", "assets", ".png", root);
@@ -149,17 +149,18 @@ export class Entities {
             const list = await AssetLoader.get<ListAsset>(listKey, AssetParser.LIST);
             const files = list?.files.filter(file => file.endsWith(".json") && file !== "_list.json");
             const file = files?.find(file => file === "temperate.json") ?? files?.[0];
-            if (!file) return undefined;
+            if (!file) return Caching.MISSING;
             const variantKey = new AssetKey(modelKey.namespace, file.slice(0, -5), `${name}_variant`, undefined, "data", ".json", root);
             const variant = await AssetLoader.get<EntityVariant>(variantKey, AssetParser.JSON);
             const assets = variant?.assets;
             const textureId = variant?.asset_id ?? (typeof assets?.wild === "string" ? assets.wild :
                 Object.values(assets ?? {}).find(value => typeof value === "string"));
-            if (typeof textureId !== "string") return undefined;
+            if (typeof textureId !== "string") return Caching.MISSING;
             const texture = AssetKey.parse("textures", textureId);
             texture.root = root;
             return texture;
         });
+        return texture === Caching.MISSING ? undefined : texture;
     }
 
     /** @deprecated Use getEntityList(); block entities share the entity dataset. */

@@ -110,6 +110,24 @@ test.serial("the dataset's root transform is passed on with the entity", async t
     t.deepEqual(entity!.transform, [{ scale: [-1, -1, 1] }]);
 });
 
+test.serial("unresolvable entity textures run their probes once per cache lifetime", async t => {
+    const originals = { get: ModelTextures.get, asset: AssetLoader.get };
+    t.teardown(() => { ModelTextures.get = originals.get; AssetLoader.get = originals.asset; });
+    for (const hasVariant of [false, true]) {
+        Caching.clear();
+        const calls: string[] = [];
+        ModelTextures.get = async key => { calls.push(key.toNamespacedString()); return undefined; };
+        AssetLoader.get = async (key, parser) => {
+            calls.push(key.path);
+            return hasVariant && parser === AssetParser.LIST ? { files: ["temperate.json"], directories: [] } as never : undefined;
+        };
+        const key = new BasicAssetKey("minecraft", "missing");
+        t.is(await Entities.resolveTexture(key), undefined);
+        t.is(await Entities.resolveTexture(key), undefined);
+        t.deepEqual(calls, ["minecraft:entity/missing", "minecraft:entity/missing/missing", "_list", ...(hasVariant ? ["temperate"] : [])]);
+    }
+});
+
 test.serial("selected layer texture locations skip probing and explicit textures take precedence", async t => {
     const file = model();
     file.layers.main.textureLocation = "minecraft:textures/entity/cow/temperate_cow.png";
