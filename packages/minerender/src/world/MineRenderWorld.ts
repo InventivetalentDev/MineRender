@@ -10,6 +10,7 @@ import { MultiBlockBlock, MultiBlockStructure } from "../model/multiblock/MultiB
 import { BatchedExecutor } from "../util/BatchedExecutor";
 import { AssetKey } from "../assets/AssetKey";
 import { BlockStates } from "../assets/BlockStates";
+import { BlockEntities } from "../assets/BlockEntities";
 import { CUBE_FACE_OFFSETS } from "../CubeFace";
 import type { AnvilChunk } from "./AnvilParser";
 import { SectionModels } from "./SectionModels";
@@ -338,7 +339,11 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                 // States that first appear in later chunks load while earlier chunks are placed.
                 for (const block of distinct.values()) {
                     const state = states.get(AssetKey.parse("blockstates", block.type).serialize());
-                    if (state) this.sectionModels.preload(state, block.properties).catch(() => undefined);
+                    if (!state) continue;
+                    void (async () => {
+                        if (state.key && BlockEntities.entry(await BlockEntities.getIndex(state.key.root), state.key.toNamespacedString())) return;
+                        await this.sectionModels!.preload(state, block.properties);
+                    })().catch(() => undefined);
                 }
             }
             await this.placeChunkGroups(groups, changes);

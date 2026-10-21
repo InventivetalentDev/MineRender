@@ -489,20 +489,16 @@ export class Chunk<SectionMeshing extends boolean = false> {
                 biomePosition: this.biomePosition(index, blockState, this.data.stateAt(this.data.idAt(index))!)
             })));
         for (const [i, { index }] of perBlocks.entries()) {
-            let object: BlockObject | undefined;
-            try {
-                const result = objects[i];
-                if (result.status === "rejected") throw result.reason;
-                object = result.value;
-                this.renderedBlocks.get(index)!.object = object;
+            const result = objects[i];
+            if (result.status === "fulfilled") {
+                this.renderedBlocks.get(index)!.object = result.value;
                 this.objectBlocks.add(index);
-            } catch (error) {
+            } else {
                 this.data.assign(index, 0);
                 this.fluidCells[index] = 0;
                 this.renderedBlocks.delete(index);
                 this.objectBlocks.delete(index);
-                object?.removeFromScene();
-                if (!failed) failure = error;
+                if (!failed) failure = result.reason;
                 failed = true;
             }
         }

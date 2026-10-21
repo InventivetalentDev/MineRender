@@ -34,7 +34,7 @@ test.serial("preparation starts every variant load and keeps choices in group or
     t.deepEqual([...prepared.choices.values()].map(choice => choice.model), models);
 });
 
-test.serial("preparation preserves the first variant's result when a later model is missing", async t => {
+test.serial("preparation returns undefined for a missing model and throws the first variant's rejection", async t => {
     const getMerged = Models.getMerged, getAtlas = UVMapper.getAtlas;
     t.teardown(() => { Models.getMerged = getMerged; UVMapper.getAtlas = getAtlas; });
     const failure = new Error("first variant failed"), models = new SectionModels();

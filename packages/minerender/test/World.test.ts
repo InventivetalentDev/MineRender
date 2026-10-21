@@ -572,3 +572,25 @@ test.serial("structure placement preloads distinct non-air states without waitin
     ]);
     t.is(world.getBlockAt(32, 0, 0)!.block.type, "test:other");
 });
+
+test.serial("structure placement skips block entities when preloading section models", async t => {
+    const { scene } = fixture(t), world = new MineRenderWorld(scene, { sectionMeshing: true });
+    const getIndex = BlockEntities.getIndex, preload = SectionModels.prototype.preload, prepare = SectionModels.prototype.prepareState;
+    const calls: string[] = [];
+    BlockEntities.getIndex = async () => ({ "test:container": { parts: [] } });
+    SectionModels.prototype.preload = async state => { calls.push(state.key.toNamespacedString()); };
+    SectionModels.prototype.prepareState = async () => undefined;
+    t.teardown(async () => {
+        await world.clear();
+        BlockEntities.getIndex = getIndex;
+        SectionModels.prototype.preload = preload;
+        SectionModels.prototype.prepareState = prepare;
+    });
+    await world.placeMultiBlock({ size: [17, 1, 1], blocks: [
+        { position: [0, 0, 0], type: "test:container" },
+        { position: [16, 0, 0], ...block }
+    ] });
+    t.deepEqual(calls, ["test:stone"]);
+    t.is(world.getBlockAt(0, 0, 0)!.block.type, "test:container");
+    t.is(world.getBlockAt(16, 0, 0)!.block.type, "test:stone");
+});
