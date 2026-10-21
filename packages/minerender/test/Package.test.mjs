@@ -148,6 +148,12 @@ test("renderer and skin static imports exclude non-skin modules and dependencies
     }
 });
 
+test("the section worker package export resolves to the built worker file", t => {
+    const worker = import.meta.resolve("minerender/section.worker");
+    t.is(worker, new URL("../dist/browser/esm/env/browser/section.worker.mjs", import.meta.url).href);
+    t.true(existsSync(new URL(worker)));
+});
+
 for (const [format, library] of [["ESM", esm], ["CJS", cjs]]) {
     test(`${format} package exports geometry without browser globals`, t => {
         const mesh = new Mesh(new BoxGeometry(), new MeshBasicMaterial());
