@@ -4,6 +4,7 @@ import { BoxGeometry, Camera, Color, DoubleSide, DynamicDrawUsage, Float32Buffer
 import { CanvasImage } from "../src/canvas/CanvasImage";
 import { CompatCanvas } from "../src/canvas/CanvasCompat";
 import { Env, EnvProvider } from "../src/Env";
+import { Logging, LogHandler } from "../src/util/log";
 import { TextureAtlas } from "../src/texture/TextureAtlas";
 import { Ticker } from "../src/Ticker";
 import { buildSectionGeometry, SectionGeometryInput, SectionGeometryPage } from "../src/world/SectionGeometry";
@@ -474,6 +475,9 @@ test.serial("async section builds use the shared worker without copying its geom
 });
 
 test.serial("async section builds fall back after a worker error and disable the shared worker", async t => {
+    const messages: Parameters<LogHandler>[] = [];
+    Logging.setHandler((...message) => { messages.push(message); });
+    t.teardown(() => Logging.setHandler());
     const target = new EventTarget();
     let workers = 0, terminations = 0;
     const worker = Object.assign(target, {
@@ -491,9 +495,13 @@ test.serial("async section builds fall back after a worker error and disable the
     t.is(SectionWorker.shared(), undefined);
     t.is(workers, 1);
     t.is(terminations, 1);
+    t.deepEqual(messages, [["warn", "SectionWorker", ["Section worker failed, so sections build on the main thread"]]]);
 });
 
 test.serial("async section builds fall back after a message error and disable the shared worker", async t => {
+    const messages: Parameters<LogHandler>[] = [];
+    Logging.setHandler((...message) => { messages.push(message); });
+    t.teardown(() => Logging.setHandler());
     const target = new EventTarget();
     let terminations = 0;
     const worker = Object.assign(target, {
@@ -507,6 +515,7 @@ test.serial("async section builds fall back after a message error and disable th
     t.deepEqual(geometryData(actual), geometryData(expected));
     t.is(SectionWorker.shared(), undefined);
     t.is(terminations, 1);
+    t.deepEqual(messages, [["warn", "SectionWorker", ["Section worker message could not be deserialized, so sections build on the main thread"]]]);
 });
 
 test.serial("async section builds fall back for a rejected build without disabling the worker", async t => {

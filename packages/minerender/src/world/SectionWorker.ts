@@ -1,5 +1,8 @@
 import { Env } from "../Env";
+import { logger } from "../util/log";
 import type { SectionGeometryInput, SectionGeometryPage } from "./SectionGeometry";
+
+const log = logger("SectionWorker");
 
 /** Runs section geometry builds in the environment's shared worker. */
 export class SectionWorker {
@@ -24,8 +27,12 @@ export class SectionWorker {
             else pending.reject(new Error(reply.message));
         });
         // A failed worker or an undeliverable message leaves the pending builds unanswerable, so stop using it.
-        worker!.addEventListener("error", event => this.fail(event.message || "Section worker failed"));
-        worker!.addEventListener("messageerror", () => this.fail("Section worker message could not be deserialized"));
+        const fallBack = (message: string) => {
+            log.warn(`${message}, so sections build on the main thread`);
+            this.fail(message);
+        };
+        worker!.addEventListener("error", event => fallBack(event.message || "Section worker failed"));
+        worker!.addEventListener("messageerror", () => fallBack("Section worker message could not be deserialized"));
     }
 
     /** The shared worker, or undefined when the environment has none or a previous worker failed. */

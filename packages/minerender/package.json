@@ -1,6 +1,6 @@
 {
   "name": "minerender",
-  "version": "2.1.0-alpha.143",
+  "version": "2.1.0-alpha.145",
   "description": "Interactive 3D renders of Minecraft skins, models, blocks, entities and worlds",
   "main": "./dist/node/index.js",
   "module": "./dist/browser/esm/index.browser.mjs",
@@ -62,6 +62,7 @@
       }
     },
     "./bundle": "./dist/bundle.js",
+    "./section.worker": "./dist/browser/esm/env/browser/section.worker.mjs",
     "./package.json": "./package.json"
   },
   "sideEffects": [

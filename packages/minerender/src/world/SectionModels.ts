@@ -114,6 +114,11 @@ export class SectionModels {
         };
     }
 
+    /** Starts loading the state's models and atlases so a later `prepareState` with the same properties finds them loaded. */
+    public async preload(blockState: BlockState, properties: BlockStateProperties = {}): Promise<void> {
+        await this.state(blockState, properties);
+    }
+
     private async state(blockState: BlockState, properties: BlockStateProperties): Promise<PreparedState | undefined> {
         let states = this.states.get(blockState);
         if (!states) this.states.set(blockState, states = new Map());
@@ -138,23 +143,25 @@ export class SectionModels {
     private async prepare(blockState: BlockState, properties: BlockStateProperties): Promise<PreparedState | undefined> {
         const state = { ...await BlockStateResolver.defaults(blockState), ...properties };
         const groups = BlockStateResolver.matching(blockState, state);
-        if (!groups.length) return undefined;
+        if (!groups.length || groups.some(group => Array.isArray(group) && !group.length)) return undefined;
+        const variants = groups.flatMap(group => Array.isArray(group) ? group : [group]);
+        if (variants.some(variant => !variant.model)) return undefined;
+        const settled = await Promise.allSettled(variants.map(async variant => {
+            const modelKey = AssetKey.parse("models", variant.model!);
+            modelKey.root = blockState.key?.root;
+            const model = await Models.getMerged(modelKey);
+            if (!model?.elements?.length) return undefined;
+            const atlas = await UVMapper.getAtlas(model);
+            const rotation = BlockStateResolver.rotation(variant);
+            if (!atlas
+                || atlas.image.width > this.maxAtlasSize || atlas.image.height > this.maxAtlasSize) return undefined;
+            return { model, atlas, rotation };
+        }));
         const prepared = new Map<BlockStateVariant, PreparedVariant>();
-        for (const group of groups) {
-            const choices = Array.isArray(group) ? group : [group];
-            if (!choices.length) return undefined;
-            for (const variant of choices) {
-                if (!variant.model) return undefined;
-                const modelKey = AssetKey.parse("models", variant.model);
-                modelKey.root = blockState.key?.root;
-                const model = await Models.getMerged(modelKey);
-                if (!model?.elements?.length) return undefined;
-                const atlas = await UVMapper.getAtlas(model);
-                const rotation = BlockStateResolver.rotation(variant);
-                if (!atlas
-                    || atlas.image.width > this.maxAtlasSize || atlas.image.height > this.maxAtlasSize) return undefined;
-                prepared.set(variant, { model, atlas, rotation });
-            }
+        for (const [i, result] of settled.entries()) {
+            if (result.status === "rejected") throw result.reason;
+            if (!result.value) return undefined;
+            prepared.set(variants[i], result.value);
         }
         return { state, groups, choices: prepared };
     }
