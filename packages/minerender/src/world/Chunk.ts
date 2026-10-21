@@ -1,5 +1,5 @@
 import { Block } from "../model/block/Block";
-import { BlockObject } from "../model/block/scene/BlockObject";
+import { BlockObject, BlockObjectOptions } from "../model/block/scene/BlockObject";
 import { Color, Mesh, Object3D, Raycaster, Vector3 } from "three";
 import { Maybe } from "../util/util";
 import { BlockInfo } from "./BlockInfo";
@@ -333,8 +333,11 @@ export class Chunk<SectionMeshing extends boolean = false> {
             if (rejected?.status === "rejected") throw rejected.reason;
         }
         const positions: Vector3[] = [];
-        let failed = false, failure: unknown;
-        for (const { index, key, block } of placements) {
+        const jobs = new Map<number, { order: number; readBlock: () => Block; blockState: BlockState;
+            position: Vector3; options: Partial<BlockObjectOptions> }>();
+        let failureOrder = Infinity, failure: unknown;
+        for (const [order, { index, key, block }] of placements.entries()) {
+            jobs.delete(index);
             this.hiddenBlocks.delete(index);
             this.data.assign(index, this.data.intern(block), block?.nbt);
             const readBlock = this.data.snapshot(index);
@@ -347,7 +350,6 @@ export class Chunk<SectionMeshing extends boolean = false> {
             const worldPos = new Vector3(this.x * 16 + index % 16, this.y * 16 + Math.floor(index / 256),
                 this.z * 16 + Math.floor(index / 16) % 16);
             positions.push(worldPos);
-            let object: BlockObject | undefined;
             try {
                 if (!readBlock) continue;
                 const resolved = resolutions.get(key!)!;
@@ -369,30 +371,44 @@ export class Chunk<SectionMeshing extends boolean = false> {
                     this.sectionBlocks.set(index, templates.map(template => ({ index, template, cullMask: 0, biomeTint: context?.tint })));
                     this.meshDirty = true;
                 } else {
-                    object = await this.scene.addBlock(blockState, {
+                    jobs.set(index, { order, readBlock, blockState, position: MineRenderWorld.worldToScenePosition(worldPos), options: {
                         mergeMeshes: true,
                         instanceMeshes: true,
                         maxInstanceCount: 2000,
                         initialState: stored.properties,
                         variantPosition, biome: context?.biome,
                         biomePosition: this.biomePosition(index, blockState, stored)
-                    }) as BlockObject;
-                    object.setPosition(MineRenderWorld.worldToScenePosition(worldPos));
+                    } });
+                    continue;
                 }
-                this.renderedBlocks.set(index, { get block() { return readBlock(); }, object } as BlockInfo<SectionMeshing>);
-                if (object) this.objectBlocks.add(index);
+                this.renderedBlocks.set(index, { get block() { return readBlock(); }, object: undefined } as BlockInfo<SectionMeshing>);
             } catch (error) {
                 if (preserveDataOnFailure && readBlock) {
                     // Keep saved block data available for a failed color refresh to retry.
                     this.renderedBlocks.set(index, { get block() { return readBlock(); }, object: undefined } as BlockInfo<SectionMeshing>);
                 } else this.data.assign(index, 0);
                 this.fluidCells[index] = 0;
-                object?.removeFromScene();
-                if (!failed) failure = error;
-                failed = true;
+                if (order < failureOrder) { failureOrder = order; failure = error; }
             }
         }
-        if (failed) throw failure;
+        const pending = [...jobs];
+        const objects = await Promise.allSettled(pending.map(([, job]) =>
+            this.createBlockObject(job.blockState, job.position, job.options)));
+        for (const [i, [index, { order, readBlock }]] of pending.entries()) {
+            const result = objects[i];
+            if (result.status === "fulfilled") {
+                this.renderedBlocks.set(index, { get block() { return readBlock(); }, object: result.value } as BlockInfo<SectionMeshing>);
+                this.objectBlocks.add(index);
+            } else {
+                if (preserveDataOnFailure) {
+                    // Keep saved block data available for a failed color refresh to retry.
+                    this.renderedBlocks.set(index, { get block() { return readBlock(); }, object: undefined } as BlockInfo<SectionMeshing>);
+                } else this.data.assign(index, 0);
+                this.fluidCells[index] = 0;
+                if (order < failureOrder) { failureOrder = order; failure = result.reason; }
+            }
+        }
+        if (failureOrder < Infinity) throw failure;
         return positions;
     }
 
@@ -462,19 +478,22 @@ export class Chunk<SectionMeshing extends boolean = false> {
                 failed = true;
             }
         }
-        for (const { index, blockState, biome } of perBlocks) {
+        const objects = await Promise.allSettled(perBlocks.map(({ index, blockState, biome }) =>
+            this.createBlockObject(blockState, new Vector3(this.x * 256 + index % 16 * 16,
+                this.y * 256 + Math.floor(index / 256) * 16, this.z * 256 + Math.floor(index / 16) % 16 * 16), {
+                mergeMeshes: true,
+                instanceMeshes: true,
+                maxInstanceCount: 2000,
+                initialState: this.data.stateAt(this.data.idAt(index))!.properties,
+                variantPosition: this.positionAt(index), biome,
+                biomePosition: this.biomePosition(index, blockState, this.data.stateAt(this.data.idAt(index))!)
+            })));
+        for (const [i, { index }] of perBlocks.entries()) {
             let object: BlockObject | undefined;
             try {
-                object = await this.scene.addBlock(blockState, {
-                    mergeMeshes: true,
-                    instanceMeshes: true,
-                    maxInstanceCount: 2000,
-                    initialState: this.data.stateAt(this.data.idAt(index))!.properties,
-                    variantPosition: this.positionAt(index), biome,
-                    biomePosition: this.biomePosition(index, blockState, this.data.stateAt(this.data.idAt(index))!)
-                }) as BlockObject;
-                object.setPosition(new Vector3(this.x * 256 + index % 16 * 16,
-                    this.y * 256 + Math.floor(index / 256) * 16, this.z * 256 + Math.floor(index / 16) % 16 * 16));
+                const result = objects[i];
+                if (result.status === "rejected") throw result.reason;
+                object = result.value;
                 this.renderedBlocks.get(index)!.object = object;
                 this.objectBlocks.add(index);
             } catch (error) {
@@ -488,6 +507,14 @@ export class Chunk<SectionMeshing extends boolean = false> {
             }
         }
         if (failed) throw failure;
+    }
+
+    private createBlockObject(blockState: BlockState, position: Vector3, options: Partial<BlockObjectOptions>): Promise<BlockObject> {
+        return this.scene.addSceneObject(blockState, () => {
+            const object = new BlockObject(blockState, options);
+            object.position.copy(position);
+            return object;
+        }, options) as Promise<BlockObject>;
     }
 
     private positionAt(index: number): TripleArray {

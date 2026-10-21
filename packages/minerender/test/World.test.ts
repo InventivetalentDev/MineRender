@@ -14,6 +14,7 @@ import { MineRenderScene } from "../src/renderer/MineRenderScene";
 import { ChunkData } from "../src/world/ChunkData";
 import { BatchedExecutor } from "../src/util/BatchedExecutor";
 import { MineRenderWorld } from "../src/world/MineRenderWorld";
+import { SectionModels } from "../src/world/SectionModels";
 
 const block = { type: "test:stone" };
 
@@ -499,4 +500,75 @@ test.serial("Chunk.placeBlocks clears failed cells and places the remaining cell
     t.is(scene.stats.instanceCount, 2);
     t.is(failedLoads, 1);
     t.deepEqual(loads, ["test:stone"]);
+});
+
+for (const parsed of [false, true]) test.serial(`block objects initialize concurrently at their scene positions (parsed=${parsed})`, async t => {
+    const { world } = fixture(t);
+    const init = BlockObject.prototype.init, positions: number[][] = [];
+    let release!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    BlockObject.prototype.init = async function () {
+        positions.push(this.position.toArray());
+        await gate;
+        await init.call(this);
+    };
+    t.teardown(() => { release(); BlockObject.prototype.init = init; });
+    const blocks = [1, 2].map(x => ({ ...block, position: [x - 32, -16, 48] as TripleArray }));
+    const data = new ChunkData();
+    for (const [index, value] of blocks.entries()) data.set(index + 1, value);
+    const pending = parsed ? world.placeChunk({ x: -2, z: 3, sections: [{ y: -1, data }] })
+        : world.placeMultiBlock({ size: [2, 1, 1], blocks });
+    await new Promise<void>(resolve => setImmediate(resolve));
+    t.deepEqual(positions, [[-496, -256, 768], [-480, -256, 768]]);
+    release();
+    await pending;
+    for (const value of blocks) {
+        t.deepEqual(world.getBlockAt(value.position)!.object.getPosition().toArray(), value.position.map(axis => axis * 16));
+    }
+});
+
+test.serial("structure placement creates only the last block object at a repeated index", async t => {
+    const { world } = fixture(t);
+    const init = BlockObject.prototype.init, created: string[] = [];
+    BlockObject.prototype.init = async function () {
+        created.push(this.blockState.key.toNamespacedString());
+        await init.call(this);
+    };
+    t.teardown(() => { BlockObject.prototype.init = init; });
+    await world.placeMultiBlock({ size: [1, 1, 1], blocks: [
+        { position: [1, 2, 3], type: "test:first" },
+        { position: [1, 2, 3], type: "test:last" }
+    ] });
+    t.deepEqual(created, ["test:last"]);
+    t.is(world.getBlockAt(1, 2, 3)!.block.type, "test:last");
+});
+
+test.serial("structure placement preloads distinct non-air states without waiting for them", async t => {
+    const { scene } = fixture(t), world = new MineRenderWorld(scene, { sectionMeshing: true });
+    const preload = SectionModels.prototype.preload, prepare = SectionModels.prototype.prepareState;
+    const calls: { type: string; properties: unknown }[] = [];
+    SectionModels.prototype.preload = function (state, properties) {
+        calls.push({ type: state.key.toNamespacedString(), properties });
+        return new Promise<void>(() => {});
+    };
+    SectionModels.prototype.prepareState = async () => undefined;
+    t.teardown(async () => {
+        await world.clear();
+        SectionModels.prototype.preload = preload;
+        SectionModels.prototype.prepareState = prepare;
+    });
+    await world.placeMultiBlock({ size: [33, 1, 1], blocks: [
+        { position: [0, 0, 0], ...block, properties: { axis: "x" } },
+        { position: [1, 0, 0], ...block, properties: { axis: "x" } },
+        { position: [16, 0, 0], ...block, properties: { axis: "z" } },
+        { position: [32, 0, 0], type: "test:other" },
+        { position: [2, 0, 0], type: "minecraft:air" },
+        { position: [3, 0, 0], type: "cave_air" }
+    ] });
+    t.deepEqual(calls, [
+        { type: "test:stone", properties: { axis: "x" } },
+        { type: "test:stone", properties: { axis: "z" } },
+        { type: "test:other", properties: undefined }
+    ]);
+    t.is(world.getBlockAt(32, 0, 0)!.block.type, "test:other");
 });

@@ -4,6 +4,7 @@ import { Raycaster, Vector3 } from "three";
 import { isTripleArray, TripleArray } from "../model/Model";
 import { Maybe, yieldToEventLoop } from "../util/util";
 import { Chunk } from "./Chunk";
+import { ChunkData } from "./ChunkData";
 import { BlockInfo } from "./BlockInfo";
 import { MultiBlockBlock, MultiBlockStructure } from "../model/multiblock/MultiBlockStructure";
 import { BatchedExecutor } from "../util/BatchedExecutor";
@@ -329,6 +330,16 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
                 let group = groups.get(chunk);
                 if (!group) groups.set(chunk, group = []);
                 group.push({ index: (y - cy * 16) * 256 + (z - cz * 16) * 16 + x - cx * 16, block });
+            }
+            if (this.sectionModels) {
+                // States that first appear in later chunks load while earlier chunks are placed.
+                const distinct = new Map(multiblock.blocks.filter(block => !Chunk.isAir(block))
+                    .map(block => [ChunkData.paletteKey(block), block]));
+                for (const block of distinct.values()) {
+                    BlockStates.get(AssetKey.parse("blockstates", block.type))
+                        .then(state => state && this.sectionModels!.preload(state, block.properties))
+                        .catch(() => undefined);
+                }
             }
             await this.placeChunkGroups(groups, changes);
             return;
