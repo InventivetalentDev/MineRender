@@ -28,7 +28,7 @@ Texture changes can also be asynchronous. Await `SkinObject.setSkinTexture` befo
 
 World edits such as `setBlockAt`, `placeMultiBlock`, and `clear` also return promises. Await them before reading the resulting rendered state. Bulk placement resolves each distinct block state once, yields to the event loop every few milliseconds, and refreshes neighbor culling once at the end; pass a `BatchedExecutor` to keep per-position batches instead. A failed bulk placement can leave successfully placed blocks in the world; it is not a transaction that rolls back earlier placements.
 
-With `sectionMeshing: true`, changed sections rebuild after the placement promise resolves. The browser build prepares section geometry in a Web Worker when the bundle keeps `section.worker` beside the module; otherwise it builds synchronously. See [Browser and Node.js](./platforms.md#capability-boundaries).
+With `sectionMeshing: true`, changed sections rebuild after the placement promise resolves. The browser build prepares section geometry in a Web Worker when the bundle keeps `section.worker` beside the module or `registerBrowserEnv({ sectionWorker })` names its URL; otherwise it builds synchronously. See [Browser and Node.js](./platforms.md#capability-boundaries).
 
 ## Versioned registry data
 

@@ -62,6 +62,7 @@
       }
     },
     "./bundle": "./dist/bundle.js",
+    "./section.worker": "./dist/browser/esm/env/browser/section.worker.mjs",
     "./package.json": "./package.json"
   },
   "sideEffects": [
