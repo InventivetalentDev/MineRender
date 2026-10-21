@@ -41,7 +41,7 @@ test.serial("browser section workers accept a function without calling the Worke
     t.deepEqual(messages, []);
 });
 
-test.serial("browser section workers warn once when the Worker constructor throws", t => {
+test.serial("browser section workers warn when the Worker constructor throws", t => {
     const messages = fixture(t), error = new Error("Worker blocked");
     globalThis.Worker = class {
         constructor() { throw error; }
