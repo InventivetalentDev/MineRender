@@ -310,7 +310,8 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
             const key = AssetKey.parse("blockstates", block.type);
             keys.set(key.serialize(), key);
         }
-        await BlockStates.getAll(keys.values());
+        const loaded = await BlockStates.getAll(keys.values());
+        const states = new Map([...keys.keys()].map((key, i) => [key, loaded[i]]));
 
         if (!useBatches) {
             for (const block of multiblock.blocks) await place(block);
@@ -336,9 +337,8 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
             if (this.sectionModels) {
                 // States that first appear in later chunks load while earlier chunks are placed.
                 for (const block of distinct.values()) {
-                    BlockStates.get(AssetKey.parse("blockstates", block.type))
-                        .then(state => state && this.sectionModels!.preload(state, block.properties))
-                        .catch(() => undefined);
+                    const state = states.get(AssetKey.parse("blockstates", block.type).serialize());
+                    if (state) this.sectionModels.preload(state, block.properties).catch(() => undefined);
                 }
             }
             await this.placeChunkGroups(groups, changes);
