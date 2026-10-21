@@ -512,6 +512,7 @@ export class Chunk<SectionMeshing extends boolean = false> {
     private createBlockObject(blockState: BlockState, position: Vector3, options: Partial<BlockObjectOptions>): Promise<BlockObject> {
         return this.scene.addSceneObject(blockState, () => {
             const object = new BlockObject(blockState, options);
+            // Init places models, the fluid surface, and block entities here so they never draw at the origin.
             object.position.copy(position);
             return object;
         }, options) as Promise<BlockObject>;

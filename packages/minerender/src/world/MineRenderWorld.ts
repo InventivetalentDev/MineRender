@@ -319,8 +319,10 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
 
         if (!executor) {
             const groups = new Map<Chunk<SectionMeshing>, { index: number; block: Maybe<Block> }[]>();
+            const distinct = new Map<string, MultiBlockBlock>();
             const position = new Vector3();
             for (const block of multiblock.blocks) {
+                if (this.sectionModels && !Chunk.isAir(block)) distinct.set(ChunkData.paletteKey(block), block);
                 const [x, y, z] = block.position;
                 this.validatePosBounds(position.set(x, y, z));
                 const cx = Math.floor(x / 16), cy = Math.floor(y / 16), cz = Math.floor(z / 16);
@@ -333,8 +335,6 @@ export class MineRenderWorld<SectionMeshing extends boolean = false> {
             }
             if (this.sectionModels) {
                 // States that first appear in later chunks load while earlier chunks are placed.
-                const distinct = new Map(multiblock.blocks.filter(block => !Chunk.isAir(block))
-                    .map(block => [ChunkData.paletteKey(block), block]));
                 for (const block of distinct.values()) {
                     BlockStates.get(AssetKey.parse("blockstates", block.type))
                         .then(state => state && this.sectionModels!.preload(state, block.properties))
