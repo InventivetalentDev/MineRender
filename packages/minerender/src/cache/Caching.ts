@@ -24,6 +24,9 @@ import type { Biome } from "../assets/Biomes";
 /** Shared in-memory caches for loaded assets and render resources. Persistent stores are managed separately. */
 export class Caching {
 
+    /** Cached in place of a missing asset. The caches drop `undefined` results, which would request the asset again. */
+    public static readonly MISSING = false as const;
+
     private static _generation = 0;
 
     /** Changes when shared assets are cleared, so derived caches can discard their old values. */
@@ -79,11 +82,11 @@ export class Caching {
         .expireAfterAccess(Time.minutes(5))
         .expirationInterval(Time.seconds(30))
         .buildAsync<CacheKey, TextureAsset>();
-    static readonly textureMetaCache: AsyncLoadingCache<CacheKey, MinecraftTextureMeta> = Caches.builder()
+    static readonly textureMetaCache: AsyncLoadingCache<CacheKey, MinecraftTextureMeta | typeof Caching.MISSING> = Caches.builder()
         .expireAfterWrite(Time.minutes(10))
         .expireAfterAccess(Time.minutes(5))
         .expirationInterval(Time.seconds(30))
-        .buildAsync<CacheKey, MinecraftTextureMeta>();
+        .buildAsync<CacheKey, MinecraftTextureMeta | typeof Caching.MISSING>();
 
     static readonly rawModelCache: AsyncLoadingCache<CacheKey, Model> = Caches.builder()
         .expireAfterWrite(Time.minutes(10))
@@ -113,7 +116,7 @@ export class Caching {
 
     static readonly entityModelCache: AsyncLoadingCache<CacheKey, EntityModelFile> = Caching.createAssetCache<EntityModelFile>();
 
-    static readonly entityTextureCache: AsyncLoadingCache<CacheKey, AssetKey> = Caching.createAssetCache<AssetKey>();
+    static readonly entityTextureCache: AsyncLoadingCache<CacheKey, AssetKey | typeof Caching.MISSING> = Caching.createAssetCache<AssetKey | typeof Caching.MISSING>();
 
     static readonly entityAnimationCache: AsyncLoadingCache<CacheKey, EntityAnimationFile> = Caching.createAssetCache<EntityAnimationFile>();
     static readonly blockEntityIndexCache: AsyncLoadingCache<CacheKey, BlockEntityIndex> = Caching.createAssetCache<BlockEntityIndex>();

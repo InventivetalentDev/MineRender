@@ -144,18 +144,26 @@ export class BlockObject extends SceneObject {
         if (!key || this.options.displayPosition) return false;
         const generation = this._entityGeneration;
         const created: EntityObject[] = [];
+        const placement = new Matrix4();
         let resolved: Maybe<ResolvedBlockEntity>;
         try {
             resolved = BlockEntities.resolve(await BlockEntities.getIndex(key.root), key.toNamespacedString(), this.state);
             if (!resolved) return false;
+            BlockEntities.matrix(resolved, placement);
             for (const part of resolved.parts) {
                 const [namespace, path] = part.model.includes(":") ? part.model.split(":") : [key.namespace, part.model];
-                const texture = part.textureLocation === undefined ? undefined
+                let texture = part.textureLocation === undefined ? undefined
                     : AssetKey.parse("textures", part.textureLocation.replace(/^([^:]+:)?textures\//, "$1"));
+                if (part.textureLocation === undefined && namespace === "minecraft" && path === "player_head") {
+                    const { PlayerHeadTextures } = await import("../../../skin/PlayerHeadTextures");
+                    texture = (await PlayerHeadTextures.get(undefined, key.root)).texture;
+                }
                 if (texture) texture.root = key.root;
                 const entity = await Entities.getEntity(new BasicAssetKey(namespace, path), texture, { layer: part.layer });
                 if (!entity) throw new MineRenderError(`Missing entity model ${part.model}`);
-                created.push(await this.scene.addEntity(entity, { wireframe: this.options.wireframe }) as EntityObject);
+                const object = await this.scene.addEntity(entity, { wireframe: this.options.wireframe }) as EntityObject;
+                this.placeEntity(object, placement);
+                created.push(object);
             }
         } catch (error) {
             log.warn(`Could not draw block entity ${key.toNamespacedString()}, using its block model`, error);
@@ -167,7 +175,7 @@ export class BlockObject extends SceneObject {
             this.removeEntities(created);
             return true;
         }
-        BlockEntities.matrix(resolved, this._entityPlacement);
+        this._entityPlacement.copy(placement);
         this._entities = created;
         this.placeEntities();
         this.setVisible(this.visible);
@@ -175,11 +183,15 @@ export class BlockObject extends SceneObject {
     }
 
     private placeEntities() {
-        // Block models are centred on the block position; entity transforms use the block's 0..16 space.
-        const matrix = new Matrix4().makeTranslation(this.position.x - 8, this.position.y - 8, this.position.z - 8).multiply(this._entityPlacement);
         for (const entity of this._entities) {
-            matrix.decompose(entity.position, entity.quaternion, entity.scale);
+            this.placeEntity(entity, this._entityPlacement);
         }
+    }
+
+    private placeEntity(entity: EntityObject, placement: Matrix4) {
+        // Block models are centred on the block position; entity transforms use the block's 0..16 space.
+        const matrix = new Matrix4().makeTranslation(this.position.x - 8, this.position.y - 8, this.position.z - 8).multiply(placement);
+        matrix.decompose(entity.position, entity.quaternion, entity.scale);
     }
 
     public get isOccluding(): boolean {

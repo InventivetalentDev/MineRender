@@ -9,6 +9,7 @@ import { MinecraftTextureMeta } from "../MinecraftTextureMeta";
 import { PersistentCache } from "../cache/PersistentCache";
 import { AssetKey } from "./AssetKey";
 import { AssetParser } from "./source/parser/AssetParsers";
+import type { ListAsset } from "../ListAsset";
 
 /** Loads texture pixels and `.mcmeta` files through the active asset sources. */
 export class ModelTextures {
@@ -59,15 +60,21 @@ export class ModelTextures {
         }
         const keyStr = key.serialize();
 
-        return Caching.textureMetaCache.get(keyStr, k => {
-            return this.PERSISTENT_META_CACHE.getOrLoad(AssetLoader.persistentKey(keyStr), k1 => {
-                return AssetLoader.get<MinecraftTextureMeta>(key, AssetParser.META).then(asset => {
-                    if (asset)
-                        asset.key = key;
-                    return asset;
-                })
+        const meta = await Caching.textureMetaCache.get(keyStr, k => {
+            return this.PERSISTENT_META_CACHE.getOrLoad(AssetLoader.persistentKey(keyStr), async k1 => {
+                if (AssetLoader.persistentScope === "") {
+                    const path = key.getFullPath();
+                    const slash = path.lastIndexOf("/");
+                    const listKey = new AssetKey(key.namespace, `${path.slice(0, slash + 1)}_list`, "textures", undefined, "assets", ".json", key.root);
+                    const list = await Caching.listAssetCache.get(listKey.serialize(), () => AssetLoader.get<ListAsset>(listKey, AssetParser.LIST)).catch(() => undefined);
+                    if (list && !list.files.includes(`${path.slice(slash + 1)}${key.extension}`)) return Caching.MISSING;
+                }
+                const asset = await AssetLoader.get<MinecraftTextureMeta>(key, AssetParser.META);
+                if (asset) asset.key = key;
+                return asset ?? Caching.MISSING;
             })
-        })
+        });
+        return meta === Caching.MISSING ? undefined : meta;
     }
 
     /** Clears persisted texture metadata. Use {@link Caching.clear} to discard in-memory textures and metadata. */

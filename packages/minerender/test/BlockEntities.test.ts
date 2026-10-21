@@ -7,6 +7,7 @@ import { BlockEntities, BlockEntityIndex } from "../src/assets/BlockEntities";
 import { BlockStates } from "../src/assets/BlockStates";
 import { Entities } from "../src/assets/Entities";
 import { Models } from "../src/assets/Models";
+import { ModelTextures } from "../src/assets/ModelTextures";
 import { AssetSource } from "../src/assets/source/AssetSource";
 import { HostedAssetSource } from "../src/assets/source/HostedAssetSource";
 import { AssetParser } from "../src/assets/source/parser/AssetParsers";
@@ -241,6 +242,58 @@ test.serial("block models with geometry stay next to the entity, and blocks with
     t.deepEqual(entities(), [...sign.blockEntities]);
     sign.dispose();
     t.is(entities().length, 0);
+});
+
+test.serial("placed player heads pass the default slim Steve texture to the entity loader", async t => {
+    const { scene, requests } = fixture(t);
+    const preload = ModelTextures.preload;
+    t.teardown(() => { ModelTextures.preload = preload; });
+    ModelTextures.preload = async key => ({ key, width: 64, height: 64, type: "png", data: Buffer.from([1]) });
+    BlockEntities.getIndex = async () => ({ "minecraft:player_head": { parts: [{ model: "minecraft:player_head" }] } });
+    const key = AssetKey.parse("blockstates", "minecraft:player_head");
+    key.root = "https://example.test/1.21.11";
+    const block = await scene.addBlock((await BlockStates.get(key))!) as BlockObject;
+    t.is(block.blockEntities.length, 1);
+    t.deepEqual(requests, [{
+        model: "minecraft:player_head", layer: undefined,
+        texture: new AssetKey("minecraft", "player/slim/steve", "textures", "entity", "assets", ".png", key.root).serialize()
+    }]);
+    block.dispose();
+});
+
+test.serial("each block-entity part is placed while the next part is still loading", async t => {
+    const { scene, entities } = fixture(t);
+    BlockEntities.getIndex = async () => ({
+        "minecraft:oak_sign": {
+            parts: [{ model: "minecraft:sign" }, { model: "minecraft:sign_back" }],
+            rotation: { property: "rotation", step: 22.5 }, translation: [0, 4, 4]
+        }
+    });
+    const getEntity = Entities.getEntity;
+    let release!: () => void, started!: () => void;
+    const pending = new Promise<void>(resolve => { release = resolve; });
+    const loading = new Promise<void>(resolve => { started = resolve; });
+    Entities.getEntity = async (...args) => {
+        if (args[0].path === "sign_back") { started(); await pending; }
+        return getEntity(...args);
+    };
+    const block = new BlockObject((await BlockStates.get(AssetKey.parse("blockstates", "minecraft:oak_sign")))!, { initialState: { rotation: "4" } });
+    block.scene = scene;
+    block.setPosition(new Vector3(48, 32, -64));
+    t.teardown(() => block.dispose());
+    const placement = block.init();
+    await loading;
+    const first = entities()[0];
+    try {
+        t.is(entities().length, 1);
+        t.deepEqual(first.position.toArray().map(Math.round), [44, 28, -56]);
+        t.true(Math.abs(first.rotation.y - Math.PI / 2) < 1e-9);
+        t.deepEqual(first.scale.toArray(), [1, 1, 1]);
+    } finally {
+        release();
+        await placement;
+    }
+    t.deepEqual(entities().map(entity => entity.position.toArray()), [first.position.toArray(), first.position.toArray()]);
 });
 
 test.serial("block visibility preserves entity poses and hides only the matching frame instance", async t => {
