@@ -40,7 +40,7 @@ export class NodeEnv implements EnvProvider {
             dir: name + version,
             encoding: "utf8",
             // node-persist's unref'd one-second write queue delays loads and lets Node exit before writes finish.
-            // In-memory loading caches serialize persistent writes for each key, so one file is not written concurrently.
+            // NodeCache serializes writes to each key while allowing different files to write concurrently.
             writeQueue: false
         }));
     }

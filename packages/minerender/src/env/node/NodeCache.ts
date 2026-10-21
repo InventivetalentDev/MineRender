@@ -10,6 +10,7 @@ import { PersistentCache } from "../../cache/PersistentCache";
 export class NodeCache extends PersistentCache<LocalStorage> {
 
     private initialized: Promise<unknown> | undefined;
+    private readonly pendingWrites = new Map<string, Promise<unknown>>();
 
     constructor(backing: LocalStorage) {
         super(backing);
@@ -26,7 +27,16 @@ export class NodeCache extends PersistentCache<LocalStorage> {
 
     async put<T>(key: string, value: T): Promise<T> {
         await this.ready();
-        return this.backing.setItem(key, value).then(res => res.content);
+        const previous = this.pendingWrites.get(key);
+        const write = (previous ? previous.catch(() => undefined) : Promise.resolve())
+            .then(() => this.backing.setItem(key, value))
+            .then(() => value);
+        this.pendingWrites.set(key, write);
+        try {
+            return await write;
+        } finally {
+            if (this.pendingWrites.get(key) === write) this.pendingWrites.delete(key);
+        }
     }
 
     async delete<T>(key: string): Promise<void> {
