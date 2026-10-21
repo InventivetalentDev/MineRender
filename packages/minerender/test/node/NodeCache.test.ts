@@ -4,6 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { NodeEnv, PersistentCache, shutdown } from "../../dist/node/index.js";
 
+// Match node-persist's default writeQueueIntervalMs.
+const WRITE_QUEUE_INTERVAL_MS = 1000;
+
 const cacheDirectory = mkdtempSync(join(tmpdir(), "minerender-node-cache-test-"));
 class TestNodeEnv extends NodeEnv {
     openCache(name: string, version: number) {
@@ -27,7 +30,7 @@ test("persistent puts resolve without waiting for the write queue interval", asy
     const third = cache.put("third", 3);
     await Promise.all([second, third]);
     const elapsed = performance.now() - start;
-    t.true(elapsed < 500, `three puts took ${elapsed.toFixed(1)} ms`);
+    t.true(elapsed < WRITE_QUEUE_INTERVAL_MS / 2, `three puts took ${elapsed.toFixed(1)} ms`);
     t.is(await cache.get("first"), 1);
     t.is(await cache.get("second"), 2);
     t.is(await cache.get("third"), 3);

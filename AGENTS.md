@@ -139,7 +139,7 @@ The private Yarn workspace root contains the public library and its consumers. U
 
 ## Gotchas
 
-- Idle caches and request queues let Node exit. Node persistent caches write directly (node-persist `writeQueue: false`), so a pending write never waits on an unref'd timer. `shutdown()` clears shared caches, permanently ends request queues, and stops Ticker.
+- Idle caches and request queues let Node exit. `shutdown()` clears shared caches, permanently ends request queues, and stops Ticker.
 - Requests require Fetch and `AbortSignal.any/timeout`, with bounded GET retries and timeouts through body reading. Cancellation aborts a call; shutdown rejects waiting work and lets active calls finish.
 - Async list/dictionary caches evict missing and rejected loads. Clear in-memory caches when sources change; persistent storage must be cleared separately.
 - Image decode failures reject and evict the matching cache entry. Failed synchronous image placeholders are retried on the next lookup.
