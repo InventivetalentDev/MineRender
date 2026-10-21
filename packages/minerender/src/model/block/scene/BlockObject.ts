@@ -22,7 +22,6 @@ import type { EntityObject } from "../../../entity/scene/EntityObject";
 import { Biomes } from "../../../assets/Biomes";
 import type { TripleArray } from "../../Model";
 import { logger } from "../../../util/log";
-import { PlayerHeadTextures } from "../../../skin/PlayerHeadTextures";
 
 const log = logger("BlockObject");
 
@@ -153,9 +152,12 @@ export class BlockObject extends SceneObject {
             BlockEntities.matrix(resolved, placement);
             for (const part of resolved.parts) {
                 const [namespace, path] = part.model.includes(":") ? part.model.split(":") : [key.namespace, part.model];
-                const texture = part.textureLocation === undefined
-                    ? namespace === "minecraft" && path === "player_head" ? (await PlayerHeadTextures.get(undefined, key.root)).texture : undefined
+                let texture = part.textureLocation === undefined ? undefined
                     : AssetKey.parse("textures", part.textureLocation.replace(/^([^:]+:)?textures\//, "$1"));
+                if (part.textureLocation === undefined && namespace === "minecraft" && path === "player_head") {
+                    const { PlayerHeadTextures } = await import("../../../skin/PlayerHeadTextures");
+                    texture = (await PlayerHeadTextures.get(undefined, key.root)).texture;
+                }
                 if (texture) texture.root = key.root;
                 const entity = await Entities.getEntity(new BasicAssetKey(namespace, path), texture, { layer: part.layer });
                 if (!entity) throw new MineRenderError(`Missing entity model ${part.model}`);

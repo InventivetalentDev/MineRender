@@ -79,6 +79,9 @@ async function open(t, source, { sandbox, intercept } = {}) {
                 if (url.pathname.endsWith("/textures/block/embed_test.png")) {
                     return await request.respond({ status: 200, contentType: "image/png", headers, body: Buffer.from(red.split(",")[1], "base64") });
                 }
+                if (url.pathname.endsWith("/textures/block/_list.json")) {
+                    return await request.respond({ status: 200, contentType: "application/json", headers, body: JSON.stringify({ directories: [], files: ["embed_test.png"] }) });
+                }
                 if (url.pathname.endsWith(".mcmeta")) return await request.respond({ status: 404, headers });
             }
             unexpected.push(request.url());

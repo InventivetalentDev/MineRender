@@ -76,6 +76,21 @@ test.serial("the vanilla directory list skips missing metadata and permits liste
     t.deepEqual(calls, [AssetParser.LIST, AssetParser.META]);
 });
 
+test.serial("failed directory lists fall back to metadata requests without caching the list failure", async t => {
+    fixture(t);
+    const meta: MinecraftTextureMeta = { texture: { blur: true } };
+    const calls: (AssetParser | string)[] = [];
+    AssetLoader.get = async (key, parser) => {
+        calls.push(parser);
+        if (parser === AssetParser.LIST) throw new Error("Network request failed");
+        t.is(parser, AssetParser.META);
+        return key.path === "stone" ? meta as never : undefined;
+    };
+    t.is(await ModelTextures.getMeta(AssetKey.parse("textures", "minecraft:block/stone")), meta);
+    t.is(await ModelTextures.getMeta(AssetKey.parse("textures", "minecraft:block/water_still")), undefined);
+    t.deepEqual(calls, [AssetParser.LIST, AssetParser.META, AssetParser.LIST, AssetParser.META]);
+});
+
 test.serial("added sources request metadata without consulting a directory list", async t => {
     fixture(t);
     AssetLoader.addSource("pack", new HostedAssetSource("https://pack.example/assets"));

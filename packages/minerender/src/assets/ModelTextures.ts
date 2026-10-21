@@ -66,7 +66,7 @@ export class ModelTextures {
                     const path = key.getFullPath();
                     const slash = path.lastIndexOf("/");
                     const listKey = new AssetKey(key.namespace, `${path.slice(0, slash + 1)}_list`, "textures", undefined, "assets", ".json", key.root);
-                    const list = await Caching.listAssetCache.get(listKey.serialize(), () => AssetLoader.get<ListAsset>(listKey, AssetParser.LIST));
+                    const list = await Caching.listAssetCache.get(listKey.serialize(), () => AssetLoader.get<ListAsset>(listKey, AssetParser.LIST)).catch(() => undefined);
                     if (list && !list.files.includes(`${path.slice(slash + 1)}${key.extension}`)) return Caching.MISSING;
                 }
                 const asset = await AssetLoader.get<MinecraftTextureMeta>(key, AssetParser.META);
