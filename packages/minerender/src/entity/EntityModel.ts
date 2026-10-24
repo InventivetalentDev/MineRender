@@ -10,6 +10,12 @@ export interface EntityLayer {
     render?: EntityRenderMode;
     /** Label of the state colour that multiplies the texture, from the pass that selected this draw. */
     tint?: string;
+    /** Fixed sRGB colour that multiplies the texture. A tint label with a colour in `EntityObjectOptions.tints` takes precedence. */
+    color?: number;
+    /** Recolours pixels matching `key` with the colour at the same index in `permutation`, as vanilla's `paletted_permutations` does. */
+    palette?: { key: AssetKey; permutation: AssetKey };
+    /** Draws vanilla's armor enchantment glint over this draw. */
+    glint?: boolean;
 }
 
 /** Selected entity data returned by {@link Entities.getEntity} for rendering. */

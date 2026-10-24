@@ -124,6 +124,8 @@ export class Caching {
     static readonly unihexCache: AsyncLoadingCache<CacheKey, UnihexFile> = Caching.createAssetCache<UnihexFile>();
     static readonly fontCache: AsyncLoadingCache<CacheKey, BitmapFont> = Caching.createAssetCache<BitmapFont>();
     static readonly bannerPatternCache: AsyncLoadingCache<CacheKey, BannerPattern> = Caching.createAssetCache<BannerPattern>();
+    static readonly equipmentCache: AsyncLoadingCache<CacheKey, unknown> = Caching.createAssetCache<unknown>();
+    static readonly trimCache: AsyncLoadingCache<CacheKey, unknown> = Caching.createAssetCache<unknown>();
     static readonly mineRenderDataCache: AsyncLoadingCache<CacheKey, unknown> = Caching.createAssetCache<unknown>();
     static readonly usernameUuidCache: AsyncLoadingCache<CacheKey, string> = Caches.builder()
         .expireAfterWrite(Time.minutes(5))
@@ -167,6 +169,8 @@ export class Caching {
             this.fontCache,
             this.unihexCache,
             this.bannerPatternCache,
+            this.equipmentCache,
+            this.trimCache,
             this.mineRenderDataCache,
             this.usernameUuidCache,
             this.biomeCache
