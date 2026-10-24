@@ -81,12 +81,12 @@ test.serial("legacy skins mirror every limb face into modern regions without mut
 test.serial("legacy hat alpha uses the vanilla threshold and a square image can explicitly use its legacy top half", async t => {
     const opaque = image(64, 32, 128);
     const transparent = image(64, 32, 128);
-    transparent.data[(2 * 64 + 32) * 4 + 3] = 127;
+    transparent.data[(7 * 64 + 32) * 4 + 3] = 127;
     const square = image(64, 64, 128);
     const get = fixture(t, { opaque, transparent, square });
     t.is(pixel(pixels(await get("opaque")), 64, 40, 5)[3], 0);
     const retained = pixels(await get("transparent"));
-    t.is(pixel(retained, 64, 32, 2)[3], 127);
+    t.is(pixel(retained, 64, 32, 7)[3], 127);
     t.is(pixel(retained, 64, 40, 5)[3], 128);
     t.is(pixel(retained, 64, 44, 24)[3], 255);
     const modern = await get("square");
@@ -140,10 +140,10 @@ test.serial("modern opacity preserves hidden RGB and overlay alpha at every base
     const get = fixture(t, { skin: source });
     const skin = await get("skin");
     const data = pixels(skin);
-    for (const [x, y] of [[0, 0], [31, 15], [0, 16], [63, 31], [16, 48], [47, 63]]) {
+    for (const [x, y] of [[0, 0], [31, 15], [0, 16], [63, 31], [16, 48], [47, 63], [32, 0], [37, 6]]) {
         t.deepEqual(pixel(data, 64, x, y), [x, y, 99, 255]);
     }
-    for (const [x, y] of [[32, 0], [63, 15], [0, 32], [63, 47], [15, 48], [48, 63]]) {
+    for (const [x, y] of [[38, 0], [32, 7], [63, 15], [0, 32], [63, 47], [15, 48], [48, 63]]) {
         t.deepEqual(pixel(data, 64, x, y), [x, y, 99, 0]);
     }
     t.true(skin.slim);

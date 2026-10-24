@@ -21,6 +21,9 @@ const box4_12_3outer: TripleArray = [4.504, 12.504, 3.504];
 
 const box10_16_1: TripleArray = [10, 16, 1];
 
+// Vanilla inflates the 6x6x1 ear cube by one unit on each side.
+const box8_8_3ear: TripleArray = [8, 8, 3];
+
 const baseSkinGeometries: SkinGeometries = {
     head: box8inner,
     hat: box8outer,
@@ -40,7 +43,10 @@ const baseSkinGeometries: SkinGeometries = {
     rightLeg: box4_12_4inner,
     rightTrousers: box4_12_4outer,
 
-    cape: box10_16_1
+    cape: box10_16_1,
+
+    leftEar: box8_8_3ear,
+    rightEar: box8_8_3ear
 }
 
 export const classicSkinGeometries: SkinGeometries = {...{}, ...baseSkinGeometries};

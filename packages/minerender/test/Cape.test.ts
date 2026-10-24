@@ -96,7 +96,7 @@ test.serial("cape layouts normalize all six faces while preserving pre-init mesh
     group.visible = true;
     t.is(skin.getGroupByName("cape"), group);
     t.is(skin.getMeshByName("cape"), mesh);
-    t.is(skin.children.length, 6);
+    t.deepEqual(skin.children.map(child => child.children.length), [6]);
     t.is(group.parent, skin.getGroupByName("body"));
     t.is(mesh.parent, group);
     t.is(mesh.material, capeMaterial);
@@ -169,11 +169,11 @@ test.serial("layout changes reuse geometry without mutating another cape or rese
     await skin.setSkinTexture("skin");
     t.is(skin.getMeshByName("head")!.material, body);
     t.is(mesh.material, second);
-    t.is(skin.children.length, 6);
+    t.deepEqual(skin.children.map(child => child.children.length), [6]);
     await skin.setCapeTexture(undefined);
     t.is(skin.getGroupByName("cape"), undefined);
     t.is(skin.getMeshByName("cape"), undefined);
-    t.is(skin.children.length, 6);
+    t.deepEqual(skin.children.map(child => child.children.length), [6]);
     t.is(disposals, 0);
 });
 

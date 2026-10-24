@@ -1,6 +1,6 @@
 import { installMineRenderDataFixtures } from "./helpers/minerender-data";
 import test, { ExecutionContext } from "ava";
-import { Group, Matrix4, MeshBasicMaterial, Object3D } from "three";
+import { Box3, Group, Matrix4, MeshBasicMaterial, Object3D } from "three";
 import { AssetKey } from "../src/assets/AssetKey";
 import { AssetLoader } from "../src/assets/AssetLoader";
 import { BlockEntities } from "../src/assets/BlockEntities";
@@ -43,7 +43,7 @@ function gate() {
 
 test("scene documents round-trip portable options and copy the caller's data", t => {
     const input = document([
-        { id: "player", type: "skin", skin: "data:image/png;base64,AA==", hiddenParts: ["hat", "leftSleeve"], options: { slim: true }, pose: { head: [0.2, -0.4, 0], cape: [0, 0.3, 0] } },
+        { id: "player", type: "skin", skin: "data:image/png;base64,AA==", hiddenParts: ["hat", "leftSleeve", "rightEar"], options: { slim: true, ears: true, upsideDown: true }, pose: { head: [0.2, -0.4, 0], cape: [0, 0.3, 0] } },
         { id: "block", type: "block", asset: "minecraft:oak_stairs", state: { facing: "east" }, position: [16, 0, 0] },
         { id: "item", type: "item", asset: "minecraft:diamond", options: { tints: { 0: 0xff0000 } } },
         { id: "bundle", type: "item", asset: "minecraft:bundle", context: { displayContext: "none", count: 3, properties: { "minecraft:bundle/has_selected_item": true },
@@ -458,6 +458,22 @@ test.serial("players without a skin source use the active version's Steve or Ale
         "https://assets.example.test/1.21.11/assets/minecraft/textures/entity/player/slim/alex.png"
     ]);
     t.true(loaded.objects.every(object => object.object.getMeshByName("head")!.material === material));
+});
+
+test.serial("saved skin options add ears that hidden parts can hide and turn the player upside down", async t => {
+    const material = new MeshBasicMaterial();
+    t.teardown(() => { material.dispose(); Caching.clear(); });
+    stub(t, SkinTextures, "get", async () => ({ material, slim: false, legacy: false }));
+    const scene = new MineRenderScene();
+    const loaded = await SceneDocumentLoader.load(scene, document([
+        { id: "player", type: "skin", skin: "data:image/png;base64,AA==", hiddenParts: ["rightEar"], options: { ears: true, upsideDown: true } }
+    ]));
+    t.teardown(() => loaded.dispose());
+    const skin = loaded.objects[0].object;
+    t.is(skin.getMeshByName("leftEar")!.material, material);
+    t.false(skin.getMeshByName("rightEar")!.visible);
+    scene.updateMatrixWorld(true);
+    t.true(new Box3().setFromObject(skin.getMeshByName("head")!).max.y < 9);
 });
 
 test.serial("saved skin poses rotate actual joint groups and their overlays for classic, slim, and legacy skins", async t => {
