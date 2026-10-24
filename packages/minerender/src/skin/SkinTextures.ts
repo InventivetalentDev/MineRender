@@ -104,7 +104,8 @@ export class SkinTextures {
     }
 
     private static makeBaseOpaque(pixels: Uint8Array, width: number, scale: number): void {
-        for (const [x0, y0, x1, y1] of [[0, 0, 32, 16], [0, 16, 64, 32], [16, 48, 48, 64]]) {
+        // Vanilla draws deadmau5's ears without alpha; no other part samples their hat-side strip.
+        for (const [x0, y0, x1, y1] of [[0, 0, 32, 16], [0, 16, 64, 32], [16, 48, 48, 64], [32, 0, 38, 7]]) {
             for (let y = y0 * scale; y < y1 * scale; y++) {
                 for (let x = x0 * scale; x < x1 * scale; x++) pixels[(y * width + x) * 4 + 3] = 255;
             }

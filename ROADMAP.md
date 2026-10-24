@@ -145,6 +145,7 @@ Done:
 - Match vanilla base opacity, overlay blending, dimensions, UVs, and joint pivots.
 - Add vanilla cape meshes wired to the existing `Skins.ts` resolvers.
 - Add OptiFine/LabyMod layouts and capes.dev lookup.
+- Add opt-in deadmau5 ears and Dinnerbone/Grumm upside-down players.
 
 Remaining:
 
@@ -175,6 +176,7 @@ Default textures and root transforms come from the versioned entity dataset. Cal
 Remaining:
 
 - Runtime gameplay state selection, visibility changes, and animated renderer transforms.
+- Upside-down mobs named Dinnerbone or Grumm. Vanilla raises them by their bounding-box height, which no published dataset provides yet.
 
 ### 10. Instance lifecycle overhaul — high (prerequisite for worlds)
 
