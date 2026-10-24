@@ -18,6 +18,7 @@ import { MineRenderScene } from "../src/renderer/MineRenderScene";
 import { SceneDocument, SceneEntityDefinition, SceneObjectDefinition, SceneSkinDefinition } from "../src/scene/SceneDocument";
 import { SceneDocumentLoader } from "../src/scene/SceneDocumentLoader";
 import { SkinTextures } from "../src/skin/SkinTextures";
+import { SkinObject } from "../src/skin/scene/SkinObject";
 import { GuiObject } from "../src/gui/scene/GuiObject";
 import type { GuiItemLayer } from "../src/gui/GuiLayer";
 
@@ -83,6 +84,41 @@ test("scene animations require one named clip or a nonempty blend with finite no
     for (const [animation, message] of invalid) {
         t.throws(() => SceneDocumentLoader.parse({ ...document(), objects: [{ id: "bad", type: "entity", asset: "pig", animation }] }), { message });
     }
+});
+
+test("skin armor accepts equipment state and rejects unknown slots, missing assets, invalid colours, and incomplete trims", t => {
+    const input = document([{ id: "player", type: "skin", armor: {
+        head: "minecraft:diamond", chest: { asset: "minecraft:leather", color: 0x3c44aa,
+            trim: { pattern: "minecraft:sentry", material: "minecraft:iron" }, glint: true },
+        legs: { asset: "iron", color: 0 }, feet: "gold"
+    } }]);
+    t.deepEqual(SceneDocumentLoader.parse(input), input);
+    const invalid: [unknown, RegExp][] = [
+        [{ hand: "diamond" }, /armor.hand/], [{ head: {} }, /armor.head.asset/],
+        [{ chest: { asset: "leather", color: -1 } }, /armor.chest.color/],
+        [{ chest: { asset: "leather", color: 0x1000000 } }, /armor.chest.color/],
+        [{ chest: { asset: "leather", color: 1.5 } }, /armor.chest.color/],
+        [{ head: { asset: "iron", trim: { pattern: "sentry" } } }, /trim.material/],
+        [{ head: { asset: "iron", trim: { material: "iron" } } }, /trim.pattern/],
+        [{ head: { asset: "iron", glint: 1 } }, /glint/]
+    ];
+    for (const [armor, message] of invalid) {
+        t.throws(() => SceneDocumentLoader.parse({ ...document(), objects: [{ id: "bad", type: "skin", armor }] }), { message });
+    }
+});
+
+test.serial("skin documents load armor after the cape", async t => {
+    const material = new MeshBasicMaterial(), calls: string[] = [];
+    t.teardown(() => { material.dispose(); Caching.clear(); });
+    stub(t, SkinTextures, "get", async () => ({ material, slim: false, legacy: false }));
+    stub(t, SkinObject.prototype, "setCapeTexture", async () => { calls.push("cape"); });
+    const armor = { head: "minecraft:diamond" };
+    stub(t, SkinObject.prototype, "setArmor", async value => { t.deepEqual(value, armor); calls.push("armor"); });
+    const loaded = await SceneDocumentLoader.loadObject(new MineRenderScene(), {
+        id: "player", type: "skin", skin: "data:image/png;base64,AA==", cape: { texture: "data:image/png;base64,AA==" }, armor
+    });
+    t.teardown(() => loaded.dispose());
+    t.deepEqual(calls, ["cape", "armor"]);
 });
 
 test("scene validation reports the malformed field before requesting assets", t => {

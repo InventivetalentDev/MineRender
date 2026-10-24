@@ -20,6 +20,7 @@ export * from './Transformable';
 export * from './UVMapper';
 export * from './WrappedImage';
 export * from './shutdown';
+export * from './armor';
 export * from './assets';
 export * from './bedrock';
 export * from './cache';

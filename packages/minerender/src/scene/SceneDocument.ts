@@ -1,4 +1,5 @@
 import type { CapeLayout } from "../skin/CapeLayout";
+import type { ArmorSet } from "../armor/Armor";
 import { SKIN_PARTS } from "../skin/SkinPart";
 import type { TripleArray } from "../model/Model";
 import { DISPLAY_POSITIONS, DisplayPosition } from "../model/DisplayPosition";
@@ -29,6 +30,7 @@ export interface SceneSkinDefinition extends SceneObjectDefinitionBase {
     /** Texture URL, Minecraft username, or UUID. Omit for Steve, or Alex with slim: true, from the active asset version. */
     skin?: string;
     cape?: { texture: string; layout?: CapeLayout };
+    armor?: ArmorSet;
     options?: { slim?: boolean; legacy?: boolean };
     /** Mesh names from SkinPart; hiding a base part does not hide its overlay. */
     hiddenParts?: string[];
@@ -231,9 +233,16 @@ function validateObject(value: unknown, path: string): void {
     const required = ["id", "type"];
     const renderOptions = { wireframe: boolean };
     switch (input.type) {
-        case "skin":
+        case "skin": {
+            const piece: Validator = (value, path) => {
+                if (typeof value === "string") text(value, path);
+                else fields(value, path, { asset: text, color, glint: boolean,
+                    trim: (value, path) => { fields(value, path, { pattern: text, material: text }, ["pattern", "material"]); }
+                }, ["asset"]);
+            };
             fields(value, path, { ...common, skin: text,
                 cape: (value, path) => { fields(value, path, { texture: text, layout: enumeration(["minecraft", "optifine", "labymod"]) }, ["texture"]); },
+                armor: (value, path) => { fields(value, path, { head: piece, chest: piece, legs: piece, feet: piece }); },
                 hiddenParts: list(enumeration(SKIN_PARTS)),
                 pose: (value, path) => { fields(value, path, {
                     head: tuple(3), body: tuple(3), rightArm: tuple(3), leftArm: tuple(3),
@@ -242,6 +251,7 @@ function validateObject(value: unknown, path: string): void {
                 options: (value, path) => { fields(value, path, { slim: boolean, legacy: boolean }); }
             }, required);
             break;
+        }
         case "block":
             fields(value, path, { ...common, asset, state: dictionary(text),
                 options: (value, path) => { fields(value, path, { ...renderOptions, tints: dictionary(color, true) }); }
