@@ -208,7 +208,7 @@ export class SkinObject extends SceneObject {
                     }
                     const first = Object.values(layers)[0];
                     if (!first) continue;
-                    const object = new EntityObject({ ...model, ...first, layers }, { flip: false });
+                    const object = new EntityObject({ ...first, id: model.id, layers }, { flip: false });
                     object.rotation.x = Math.PI;
                     objects.push({ part, object });
                 }
