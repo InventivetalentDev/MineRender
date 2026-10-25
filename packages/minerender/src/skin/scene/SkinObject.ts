@@ -221,6 +221,7 @@ export class SkinObject extends SceneObject {
     private updateEars(): void {
         const head = this.getGroupByName(SkinPart.HEAD);
         if (!head) return;
+        // Vanilla's left_ear is on the player's right; these names follow the player's own sides, like the arms.
         for (const [part, x] of [[SkinPart.LEFT_EAR, 6], [SkinPart.RIGHT_EAR, -6]] as const) {
             const ear = this.getMeshByName(part);
             if (!this.options.ears) {
