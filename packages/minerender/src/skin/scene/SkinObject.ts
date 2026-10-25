@@ -17,6 +17,10 @@ import type { EntityLayer, EntityModelPart } from "../../entity/EntityModel";
 let ArmorClass: typeof Armor | undefined;
 let EntityObjectClass: typeof EntityObject | undefined;
 
+function hasCubes(part: EntityModelPart): boolean {
+    return part.cubes.length > 0 || Object.values(part.children).some(hasCubes);
+}
+
 /** A player model facing +Z. Left and right parts are the player's own: left is +X, right is -X. */
 export class SkinObject extends SceneObject {
 
@@ -199,7 +203,7 @@ export class SkinObject extends SceneObject {
                     const layers: Record<string, EntityLayer> = {};
                     for (const [draw, layer] of Object.entries(model.layers!)) {
                         const child = layer.layer.root.children[name];
-                        if (!child) continue;
+                        if (!child || !hasCubes(child)) continue;
                         // The skin group supplies the dataset part's pivot; nested parts retain their own poses.
                         const pose: EntityModelPart["pose"] = { offset: [0, 0, 0], rotation: [0, 0, 0] };
                         layers[draw] = { ...layer, layer: { ...layer.layer, root: {

@@ -51,7 +51,7 @@ export class Armor {
             const equipment = await Caching.equipmentCache.get(key.serialize(), () => AssetLoader.get(key, AssetParser.JSON)) as Maybe<{
                 layers: Record<string, { texture: string; dyeable?: { color_when_undyed?: number | [number, number, number] } }[]>;
             }>;
-            if (!equipment) throw new MineRenderError(`Missing equipment asset ${piece.asset}; armor needs Minecraft 1.21.4 or later`);
+            if (!equipment) throw new MineRenderError(`Missing equipment asset ${piece.asset}; armor takes equipment asset IDs such as minecraft:diamond and needs Minecraft 1.21.4 or later`);
             // HumanoidArmorLayer.usesInnerModel selects the inner texture only for leggings.
             const layerType = slot === "legs" ? "humanoid_leggings" : "humanoid";
             const equipmentLayers = equipment.layers[layerType];
@@ -102,7 +102,9 @@ export class Armor {
     }
 
     private static identifier(value: string): BasicAssetKey {
-        if (!isResourceLocation(value)) throw new MineRenderError(`Invalid armor identifier ${value}`);
+        if (!isResourceLocation(value) || value.split(/[:/]/).some(part => !part || part === "." || part === "..")) {
+            throw new MineRenderError(`Invalid armor identifier ${value}`);
+        }
         const [namespace, path] = value.includes(":") ? value.split(":") : ["minecraft", value];
         return new BasicAssetKey(namespace, path);
     }

@@ -95,6 +95,10 @@ test("skin armor accepts equipment state and rejects unknown slots, missing asse
     t.deepEqual(SceneDocumentLoader.parse(input), input);
     const invalid: [unknown, RegExp][] = [
         [{ hand: "diamond" }, /armor.hand/], [{ head: {} }, /armor.head.asset/],
+        [{ head: "minecraft:../x" }, /armor.head/],
+        [{ head: { asset: "minecraft:../x" } }, /armor.head.asset/],
+        [{ head: { asset: "iron", trim: { pattern: "minecraft:../x", material: "iron" } } }, /trim.pattern/],
+        [{ head: { asset: "iron", trim: { pattern: "sentry", material: "minecraft:../x" } } }, /trim.material/],
         [{ chest: { asset: "leather", color: -1 } }, /armor.chest.color/],
         [{ chest: { asset: "leather", color: 0x1000000 } }, /armor.chest.color/],
         [{ chest: { asset: "leather", color: 1.5 } }, /armor.chest.color/],

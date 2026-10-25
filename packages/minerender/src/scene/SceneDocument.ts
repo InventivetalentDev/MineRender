@@ -235,9 +235,9 @@ function validateObject(value: unknown, path: string): void {
     switch (input.type) {
         case "skin": {
             const piece: Validator = (value, path) => {
-                if (typeof value === "string") text(value, path);
-                else fields(value, path, { asset: text, color, glint: boolean,
-                    trim: (value, path) => { fields(value, path, { pattern: text, material: text }, ["pattern", "material"]); }
+                if (typeof value === "string") asset(value, path);
+                else fields(value, path, { asset, color, glint: boolean,
+                    trim: (value, path) => { fields(value, path, { pattern: asset, material: asset }, ["pattern", "material"]); }
                 }, ["asset"]);
             };
             fields(value, path, { ...common, skin: text,

@@ -18,8 +18,11 @@ import type { Maybe } from "../../util/util";
 import { isMesh } from "../../util/three";
 import type { EntityAnimation } from "../EntityAnimation";
 import { EntityAnimationOptions, EntityAnimationPlayer, validateAnimationWeights } from "./EntityAnimationPlayer";
-import { PalettedTextures } from "../../texture/PalettedTextures";
-import { ItemGlint } from "../../model/ItemGlint";
+import type { PalettedTextures } from "../../texture/PalettedTextures";
+import type { ItemGlint } from "../../model/ItemGlint";
+
+let ItemGlintClass: typeof ItemGlint | undefined;
+let PalettedTexturesClass: typeof PalettedTextures | undefined;
 
 /** Renders selected entity layers as named part groups. Create it through {@link MineRenderScene.addEntity}. */
 export class EntityObject extends SceneObject {
@@ -61,6 +64,7 @@ export class EntityObject extends SceneObject {
             const meshes: Mesh[] = [];
             for (const [name] of layers) this.getLayerGroup(name)?.traverse(object => { if (isMesh(object)) meshes.push(object); });
             if (meshes.length) {
+                const ItemGlint = ItemGlintClass ??= (await import("../../model/ItemGlint")).ItemGlint;
                 this.glint = await ItemGlint.create(this, undefined, this.getTextureKey(layers[0][1]).root, meshes.map(mesh => ({ mesh })), "armor");
                 this.glint.updateSubscription(!!this.parent);
             }
@@ -249,7 +253,10 @@ export class EntityObject extends SceneObject {
     }
 
     protected async loadTextures(layer: EntityLayer = this.entity): Promise<Maybe<ExtractableImageData>> {
-        if (layer.palette) return PalettedTextures.get(this.getTextureKey(layer), layer.palette.key, layer.palette.permutation);
+        if (layer.palette) {
+            const PalettedTextures = PalettedTexturesClass ??= (await import("../../texture/PalettedTextures")).PalettedTextures;
+            return PalettedTextures.get(this.getTextureKey(layer), layer.palette.key, layer.palette.permutation);
+        }
         return ModelTextures.get(this.getTextureKey(layer));
     }
 

@@ -39,6 +39,11 @@ function fixture(t: ExecutionContext) {
         leggings: geometry({ body: part(), left_leg: part([1.9, 12, 0]), right_leg: part([-1.9, 12, 0]) }),
         boots: geometry({ left_leg: part([1.9, 12, 0]), right_leg: part([-1.9, 12, 0]) })
     } };
+    for (const layer of Object.values(file.layers)) {
+        for (const name of ["head", "body", "left_arm", "right_arm", "left_leg", "right_leg"]) {
+            layer.root.children[name] ??= { ...part(), cubes: [] };
+        }
+    }
     const assets: Record<string, unknown> = {};
     for (const name of ["iron", "diamond", "gold", "leather"]) assets[`equipment/minecraft:${name}`] = { layers: {
         humanoid: [{ texture: name }], humanoid_leggings: [{ texture: name }]
@@ -143,9 +148,17 @@ test.serial("empty or absent equipment layer types skip trims and return no mode
 
 test.serial("missing equipment or geometry reports the Minecraft 1.21.4 floor", async t => {
     const f = fixture(t);
-    await t.throwsAsync(Armor.getEntity({ head: "diamond_helmet" }), { instanceOf: MineRenderError, message: /diamond_helmet.*1\.21\.4/ });
+    await t.throwsAsync(Armor.getEntity({ head: "diamond_helmet" }), { instanceOf: MineRenderError,
+        message: "Missing equipment asset diamond_helmet; armor takes equipment asset IDs such as minecraft:diamond and needs Minecraft 1.21.4 or later" });
     delete f.file.layers.helmet;
     await t.throwsAsync(Armor.getEntity({ head: "diamond" }), { instanceOf: MineRenderError, message: /helmet.*1\.21\.4/ });
+});
+
+test.serial("armor identifiers reject empty and relative path segments", async t => {
+    fixture(t);
+    for (const id of ["minecraft:../x", "minecraft:./x", "minecraft:x//y", "minecraft:/x", "minecraft:x/"]) {
+        await t.throwsAsync(Armor.getEntity({ head: id }), { instanceOf: MineRenderError, message: `Invalid armor identifier ${id}` });
+    }
 });
 
 test.serial("trims use registry asset IDs, equipment overrides, palette paths, and decal mode", async t => {
@@ -235,6 +248,18 @@ test.serial("entity armor glint owns its meshes and ticker and releases its mate
     t.deepEqual(object.children, []);
 });
 
+test.serial("a worn helmet creates only a head object, including when only its hat child has cubes", async t => {
+    const f = fixture(t), skin = await f.skin();
+    for (const onlyHat of [false, true]) {
+        if (onlyHat) f.file.layers.helmet.root.children.head.cubes = [];
+        await skin.setArmor({ head: "iron" });
+        const armor = skin.children.flatMap(group => group.children.filter(child => child instanceof EntityObject) as EntityObject[]);
+        t.is(armor.length, 1);
+        t.is(armor[0].parent, skin.getGroupByName("head"));
+        t.deepEqual(Object.keys(armor[0].entity.layers!), ["helmet"]);
+    }
+});
+
 test.serial("worn armor attaches by part, follows poses, survives slim changes and reinitialization, and can be removed", async t => {
     const f = fixture(t), skin = await f.skin(false);
     const set: ArmorSet = { head: "diamond", chest: "leather", legs: "iron", feet: "gold" };
@@ -244,6 +269,10 @@ test.serial("worn armor attaches by part, follows poses, survives slim changes a
     const armor = skin.children.map(group => group.children.find(child => child instanceof EntityObject) as EntityObject);
     t.is(armor.length, 6);
     t.true(armor.every(Boolean));
+    t.deepEqual(skin.children.map(group => group.children.filter(child => child instanceof EntityObject).length), [1, 1, 1, 1, 1, 1]);
+    const draws = armor.map(object => Object.keys(object.entity.layers!).length);
+    t.deepEqual(draws, [1, 2, 1, 1, 2, 2]);
+    t.is(draws.reduce((total, count) => total + count, 0), 9);
     t.deepEqual(armor.map(object => object.parent!.name), ["group:head", "group:body", "group:leftArm", "group:rightArm", "group:leftLeg", "group:rightLeg"]);
     const leftArm = skin.getGroupByName("leftArm")!, arm = armor[2];
     leftArm.rotation.x = -Math.PI / 2;
