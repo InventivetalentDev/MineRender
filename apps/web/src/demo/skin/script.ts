@@ -134,7 +134,7 @@ const app = new Playground<SkinState>({
         if (state.pose !== "neutral" || state.hiddenParts.length || state.hiddenOverlays.length) code += "skin.notifyDirty();\n";
         const armor = armorSet(state);
         if (armor) {
-            const json = JSON.stringify(armor).replace(/"color":(\d+)/, (_, color) => `"color":0x${Number(color).toString(16).padStart(6, "0")}`);
+            const json = JSON.stringify(armor).replace(/"color":(\d+)/g, (_, color) => `"color":0x${Number(color).toString(16).padStart(6, "0")}`);
             code += `const armor = ${json};\nawait skin.setArmor(armor);\n`;
             if (state.standalone) code += "const standalone = await renderer.scene.addEntity(await MineRender.Armor.getEntity(armor));\nstandalone.position.x = -32;\n";
         }
