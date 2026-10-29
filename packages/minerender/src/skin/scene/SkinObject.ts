@@ -38,8 +38,14 @@ export class SkinObject extends SceneObject {
 
     async init(): Promise<void> {
         const cape = this.getGroupByName(SkinPart.CAPE);
+        const capeOnBody = cape?.parent === this.getGroupByName(SkinPart.BODY);
         this.createMeshes();
-        if (cape) this.getGroupByName(SkinPart.BODY)!.attach(cape);
+        if (cape) {
+            const body = this.getGroupByName(SkinPart.BODY)!;
+            // Existing capes keep their body-relative pose; pre-init capes use skin coordinates.
+            if (capeOnBody) body.add(cape);
+            else body.attach(cape);
+        }
         this.updateEars();
         this.updateUpsideDown();
     }

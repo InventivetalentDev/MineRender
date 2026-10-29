@@ -199,6 +199,13 @@ test.serial("upside-down players turn around vanilla's raised pivot under caller
     await late.setCapeTexture("cape");
     late.position.set(10, 0, 0);
     t.deepEqual(bounds(skin, "cape"), bounds(late, "cape"));
+    const capeBounds = bounds(skin, "cape");
+    const cape = skin.getGroupByName("cape")!;
+    const capePose = [cape.position.toArray(), cape.rotation.toArray()];
+    await skin.init();
+    t.deepEqual(bounds(skin, "cape"), capeBounds);
+    t.is(skin.getGroupByName("cape"), cape);
+    t.deepEqual([cape.position.toArray(), cape.rotation.toArray()], capePose);
     const head = skin.getGroupByName("head")!;
     head.rotation.x = 0.4;
     let changes = 0;
