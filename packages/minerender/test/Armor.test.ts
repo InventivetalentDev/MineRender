@@ -253,7 +253,8 @@ test.serial("a worn helmet creates only a head object, including when only its h
     for (const onlyHat of [false, true]) {
         if (onlyHat) f.file.layers.helmet.root.children.head.cubes = [];
         await skin.setArmor({ head: "iron" });
-        const armor = skin.children.flatMap(group => group.children.filter(child => child instanceof EntityObject) as EntityObject[]);
+        const armor: EntityObject[] = [];
+        skin.traverse(object => { if (object instanceof EntityObject) armor.push(object); });
         t.is(armor.length, 1);
         t.is(armor[0].parent, skin.getGroupByName("head"));
         t.deepEqual(Object.keys(armor[0].entity.layers!), ["helmet"]);
@@ -266,10 +267,11 @@ test.serial("worn armor attaches by part, follows poses, survives slim changes a
     await skin.setArmor(set);
     t.deepEqual(skin.children, []);
     await skin.init();
-    const armor = skin.children.map(group => group.children.find(child => child instanceof EntityObject) as EntityObject);
+    const groups = ["head", "body", "leftArm", "rightArm", "leftLeg", "rightLeg"].map(part => skin.getGroupByName(part)!);
+    const armor = groups.map(group => group.children.find(child => child instanceof EntityObject) as EntityObject);
     t.is(armor.length, 6);
     t.true(armor.every(Boolean));
-    t.deepEqual(skin.children.map(group => group.children.filter(child => child instanceof EntityObject).length), [1, 1, 1, 1, 1, 1]);
+    t.deepEqual(groups.map(group => group.children.filter(child => child instanceof EntityObject).length), [1, 1, 1, 1, 1, 1]);
     const draws = armor.map(object => Object.keys(object.entity.layers!).length);
     t.deepEqual(draws, [1, 2, 1, 1, 2, 2]);
     t.is(draws.reduce((total, count) => total + count, 0), 9);

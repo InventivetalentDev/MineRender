@@ -31,7 +31,7 @@ export interface SceneSkinDefinition extends SceneObjectDefinitionBase {
     skin?: string;
     cape?: { texture: string; layout?: CapeLayout };
     armor?: ArmorSet;
-    options?: { slim?: boolean; legacy?: boolean };
+    options?: { slim?: boolean; legacy?: boolean; ears?: boolean; upsideDown?: boolean };
     /** Mesh names from SkinPart; hiding a base part does not hide its overlay. */
     hiddenParts?: string[];
     /** Absolute local XYZ joint rotations in radians; omitted joints keep their default pose. */
@@ -248,7 +248,7 @@ function validateObject(value: unknown, path: string): void {
                     head: tuple(3), body: tuple(3), rightArm: tuple(3), leftArm: tuple(3),
                     rightLeg: tuple(3), leftLeg: tuple(3), cape: tuple(3)
                 }); },
-                options: (value, path) => { fields(value, path, { slim: boolean, legacy: boolean }); }
+                options: (value, path) => { fields(value, path, { slim: boolean, legacy: boolean, ears: boolean, upsideDown: boolean }); }
             }, required);
             break;
         }

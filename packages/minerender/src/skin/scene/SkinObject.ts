@@ -1,5 +1,5 @@
 import { SceneObject } from "../../renderer/SceneObject";
-import { BoxGeometry, Material } from "three";
+import { BoxGeometry, Material, Object3D } from "three";
 import { SKIN_PARTS, SkinPart } from "../SkinPart";
 import { classicSkinTextureCoordinates, SkinTextureCoordinates, slimSkinTextureCoordinates } from "../SkinTextureCoordinates";
 import { classicSkinGeometries, SkinGeometries, slimSkinGeometries } from "../SkinGeometries";
@@ -21,6 +21,9 @@ function hasCubes(part: EntityModelPart): boolean {
     return part.cubes.length > 0 || Object.values(part.children).some(hasCubes);
 }
 
+// Vanilla raises upside-down players by their 1.8-block height plus 0.1, before the 15/16 player scale.
+const UPSIDE_DOWN_OFFSET = (1.8 + 0.1) * 16 / 0.9375;
+
 /** A player model facing +Z. Left and right parts are the player's own: left is +X, right is -X. */
 export class SkinObject extends SceneObject {
 
@@ -36,6 +39,8 @@ export class SkinObject extends SceneObject {
     private armorLoad: number = 0;
     private armorObjects: { part: string; object: EntityObject }[] = [];
 
+    private model?: Object3D;
+
 
     constructor(options?: DeepPartial<SkinObjectOptions>) {
         super();
@@ -45,9 +50,17 @@ export class SkinObject extends SceneObject {
 
     async init(): Promise<void> {
         const cape = this.getGroupByName(SkinPart.CAPE);
+        const capeOnBody = cape?.parent === this.getGroupByName(SkinPart.BODY);
         this.createMeshes();
-        if (cape) this.getGroupByName(SkinPart.BODY)!.attach(cape);
+        if (cape) {
+            const body = this.getGroupByName(SkinPart.BODY)!;
+            // Existing capes keep their body-relative pose; pre-init capes use skin coordinates.
+            if (capeOnBody) body.add(cape);
+            else body.attach(cape);
+        }
         for (const { part, object } of this.armorObjects) this.getGroupByName(part)!.add(object);
+        this.updateEars();
+        this.updateUpsideDown();
     }
 
     protected removeMeshes(): void {
@@ -56,9 +69,14 @@ export class SkinObject extends SceneObject {
 
     protected createMeshes() {
         const mat = this.skinMaterial ?? Materials.MISSING_TEXTURE;
+        // The parts share one root so the upside-down transform keeps caller placement and joint poses.
+        this.model?.removeFromParent();
+        const model = this.model = new Object3D();
+        this.add(model);
 
         {
-            const headGroup = this.createAndAddGroup("head", 0, 28, 0, Axis.Y, -4);
+            const headGroup = this.createGroup("head", 0, 28, 0, Axis.Y, -4);
+            model.add(headGroup);
 
             const headGeo = this.getBoxGeometry(SkinPart.HEAD);
             const head = this.createAndAddMesh("head", headGroup, headGeo, mat, Axis.Y, 4);
@@ -68,7 +86,8 @@ export class SkinObject extends SceneObject {
         }
 
         {
-            const bodyGroup = this.createAndAddGroup("body", 0, 24, 0);
+            const bodyGroup = this.createGroup("body", 0, 24, 0);
+            model.add(bodyGroup);
 
             const bodyGeo = this.getBoxGeometry(SkinPart.BODY);
             const body = this.createAndAddMesh("body", bodyGroup, bodyGeo, mat, Axis.Y, -6);
@@ -79,7 +98,8 @@ export class SkinObject extends SceneObject {
 
         {
             {
-                const leftArmGroup = this.createAndAddGroup("leftArm", 5, 22, 0);
+                const leftArmGroup = this.createGroup("leftArm", 5, 22, 0);
+                model.add(leftArmGroup);
 
                 const leftArmGeo = this.getBoxGeometry(SkinPart.LEFT_ARM);
                 const leftArm = this.createAndAddMesh("leftArm", leftArmGroup, leftArmGeo, mat, Axis.Y, -4);
@@ -90,7 +110,8 @@ export class SkinObject extends SceneObject {
                 leftSleeve.position.x = this.slim ? 0.5 : 1;
             }
             {
-                const rightArmGroup = this.createAndAddGroup("rightArm", -5, 22, 0);
+                const rightArmGroup = this.createGroup("rightArm", -5, 22, 0);
+                model.add(rightArmGroup);
 
                 const rightArmGeo = this.getBoxGeometry(SkinPart.RIGHT_ARM);
                 const rightArm = this.createAndAddMesh("rightArm", rightArmGroup, rightArmGeo, mat, Axis.Y, -4);
@@ -104,7 +125,8 @@ export class SkinObject extends SceneObject {
 
         {
             {
-                const leftLegGroup = this.createAndAddGroup("leftLeg", 1.9, 12, 0);
+                const leftLegGroup = this.createGroup("leftLeg", 1.9, 12, 0);
+                model.add(leftLegGroup);
 
                 const leftLegGeo = this.getBoxGeometry(SkinPart.LEFT_LEG);
                 const leftLeg = this.createAndAddMesh("leftLeg", leftLegGroup, leftLegGeo, mat, Axis.Y, -6);
@@ -113,7 +135,8 @@ export class SkinObject extends SceneObject {
                 const leftTrousers = this.createAndAddMesh("leftTrousers", leftLegGroup, leftTrousersGeo, mat, Axis.Y, -6);
             }
             {
-                const rightLegGroup = this.createAndAddGroup("rightLeg", -1.9, 12, 0);
+                const rightLegGroup = this.createGroup("rightLeg", -1.9, 12, 0);
+                model.add(rightLegGroup);
 
                 const rightLegGeo = this.getBoxGeometry(SkinPart.RIGHT_LEG);
                 const rightLeg = this.createAndAddMesh("rightLeg", rightLegGroup, rightLegGeo, mat, Axis.Y, -6);
@@ -252,6 +275,44 @@ export class SkinObject extends SceneObject {
         this.notifyDirty();
     }
 
+    /** Shows or hides deadmau5's ears, which vanilla draws from the skin texture at 24,0 for that player only. */
+    public setEars(ears: boolean): void {
+        if (ears === (this.options.ears ?? false)) return;
+        this.options.ears = ears;
+        this.updateEars();
+    }
+
+    private updateEars(): void {
+        const head = this.getGroupByName(SkinPart.HEAD);
+        if (!head) return;
+        // Vanilla's left_ear is on the player's right; these names follow the player's own sides, like the arms.
+        for (const [part, x] of [[SkinPart.LEFT_EAR, 6], [SkinPart.RIGHT_EAR, -6]] as const) {
+            const ear = this.getMeshByName(part);
+            if (!this.options.ears) {
+                ear?.removeFromParent();
+            } else if (!ear) {
+                const mesh = this.createAndAddMesh(part, head, this.getBoxGeometry(part), this.skinMaterial ?? Materials.MISSING_TEXTURE);
+                mesh.position.set(x, 9, 0.5);
+            }
+        }
+        this.notifyDirty();
+    }
+
+    /** Turns the player upside down, as vanilla does for players named Dinnerbone or Grumm. */
+    public setUpsideDown(upsideDown: boolean): void {
+        if (upsideDown === (this.options.upsideDown ?? false)) return;
+        this.options.upsideDown = upsideDown;
+        this.updateUpsideDown();
+    }
+
+    private updateUpsideDown(): void {
+        if (!this.model) return;
+        const upsideDown = this.options.upsideDown ?? false;
+        this.model.position.y = upsideDown ? UPSIDE_DOWN_OFFSET : 0;
+        this.model.rotation.z = upsideDown ? Math.PI : 0;
+        this.notifyDirty();
+    }
+
     /** Select the texture layout, or pass undefined to detect it from image dimensions. */
     public async setLegacy(legacy?: boolean): Promise<void> {
         if (legacy === this.options.legacy) return;
@@ -285,4 +346,8 @@ export interface SkinObjectOptions extends SceneObjectOptions {
     slim?: boolean;
     /** Forces the legacy (`true`) or modern (`false`) texture layout. Omit it to detect the layout. */
     legacy?: boolean;
+    /** Draws deadmau5's ears from the skin texture. Vanilla shows them only for that player name. */
+    ears?: boolean;
+    /** Turns the player upside down. Vanilla does this for players named Dinnerbone or Grumm. */
+    upsideDown?: boolean;
 }

@@ -51,7 +51,7 @@ test.serial("slim selected before initialization uses three-unit arms and the sl
     skin.setSlim(true);
     t.is(skin.children.length, 0);
     await skin.init();
-    t.is(skin.children.length, 6);
+    t.deepEqual(skin.children.map(child => child.children.length), [6]);
     t.is(skin.getGroupByName("leftArm")!.position.x, 5);
     t.is(skin.getGroupByName("rightArm")!.position.x, -5);
     for (const part of arms) {
@@ -135,6 +135,89 @@ test.serial("the player faces +Z with its right side on -X and raises limbs forw
     skin.updateMatrixWorld(true);
     const arm = new Box3().setFromObject(skin.getMeshByName("rightArm")!);
     t.deepEqual([arm.min.z, arm.max.z].map(Math.round), [-2, 10]);
+});
+
+test.serial("deadmau5 ears are opt-in head parts with vanilla's inflated 6x6x1 cube from 24,0", async t => {
+    const create = fixture(t);
+    const skin = create();
+    await skin.init();
+    t.is(skin.getMeshByName("leftEar"), undefined);
+    const loaded = texture(t);
+    SkinTextures.get = async () => loaded;
+    await skin.setSkinTexture("deadmau5");
+    let changes = 0;
+    skin.addEventListener("change", () => changes++);
+    skin.setEars(true);
+    const added = changes;
+    t.true(added > 0);
+    skin.setEars(true);
+    t.is(changes, added);
+    skin.updateMatrixWorld(true);
+    for (const [part, [x1, x2]] of [["leftEar", [2, 10]], ["rightEar", [-10, -2]]] as const) {
+        const ear = skin.getMeshByName(part)!;
+        t.is(ear.parent, skin.getGroupByName("head"));
+        t.is(ear.material, loaded.material);
+        const box = new Box3().setFromObject(ear);
+        t.deepEqual([box.min.toArray(), box.max.toArray()], [[x1, 29, -1], [x2, 37, 2]]);
+        for (const [face, [u1, v1, u2, v2]] of [[4, [25, 1, 31, 7]], [5, [32, 1, 38, 7]], [2, [25, 0, 31, 1]]] as const) {
+            t.deepEqual(facePixels(skin, part, face), [[u1, v1], [u2, v1], [u1, v2], [u2, v2]], `${part} ${face}`);
+        }
+    }
+    const replaced = texture(t);
+    SkinTextures.get = async () => replaced;
+    await skin.setSkinTexture("other");
+    t.is(skin.getMeshByName("rightEar")!.material, replaced.material);
+    skin.setEars(false);
+    t.is(skin.getMeshByName("leftEar"), undefined);
+    t.is(skin.getMeshByName("rightEar"), undefined);
+    const preset = create({ ears: true });
+    await preset.init();
+    t.is(preset.getMeshByName("leftEar")!.parent, preset.getGroupByName("head"));
+});
+
+test.serial("upside-down players turn around vanilla's raised pivot under caller placement and joint poses", async t => {
+    const create = fixture(t);
+    const originalCape = SkinTextures.getCape;
+    const capeMaterial = new MeshBasicMaterial();
+    SkinTextures.getCape = async () => capeMaterial;
+    t.teardown(() => { SkinTextures.getCape = originalCape; capeMaterial.dispose(); });
+    const skin = create({ upsideDown: true });
+    await skin.setCapeTexture("cape");
+    await skin.init();
+    skin.position.set(10, 0, 0);
+    const bounds = (object: SkinObject, part: string) => {
+        object.updateMatrixWorld(true);
+        const box = new Box3().setFromObject(object.getMeshByName(part)!);
+        return [box.min.toArray(), box.max.toArray()].map(point => point.map(value => Math.round(value * 1e6) / 1e6 || 0));
+    };
+    // Vanilla's head top lands 0.024 blocks above the ground, 0.4267 units before its 15/16 player scale.
+    t.deepEqual(bounds(skin, "head"), [[6, 0.426667, -4], [14, 8.426667, 4]]);
+    t.deepEqual(bounds(skin, "leftArm"), [[2, 8.426667, -2], [6, 20.426667, 2]]);
+    t.deepEqual(bounds(skin, "rightLeg"), [[9.9, 20.426667, -2], [13.9, 32.426667, 2]]);
+    const late = create({ upsideDown: true });
+    await late.init();
+    await late.setCapeTexture("cape");
+    late.position.set(10, 0, 0);
+    t.deepEqual(bounds(skin, "cape"), bounds(late, "cape"));
+    const capeBounds = bounds(skin, "cape");
+    const cape = skin.getGroupByName("cape")!;
+    const capePose = [cape.position.toArray(), cape.rotation.toArray()];
+    await skin.init();
+    t.deepEqual(bounds(skin, "cape"), capeBounds);
+    t.is(skin.getGroupByName("cape"), cape);
+    t.deepEqual([cape.position.toArray(), cape.rotation.toArray()], capePose);
+    const head = skin.getGroupByName("head")!;
+    head.rotation.x = 0.4;
+    let changes = 0;
+    skin.addEventListener("change", () => changes++);
+    skin.setUpsideDown(true);
+    t.is(changes, 0);
+    skin.setUpsideDown(false);
+    t.is(changes, 1);
+    t.deepEqual(bounds(skin, "leftArm"), [[14, 12, -2], [18, 24, 2]]);
+    t.is(head.rotation.x, 0.4);
+    t.deepEqual(skin.position.toArray(), [10, 0, 0]);
+    t.deepEqual([skin.rotation.x, skin.rotation.y, skin.rotation.z], [0, 0, 0]);
 });
 
 test.serial("switching arm variants preserves the existing skin graph and caller state and only dirties changes", async t => {
@@ -229,7 +312,7 @@ test.serial("loaded skins detect the model unless overridden and retain pre-init
     await skin.init();
     skin.iterateAllMeshes(mesh => t.is(mesh.material, textures.legacy.material));
     t.true(skin.getMeshByName("hat")!.visible);
-    const parts = skin.children.flatMap(group => group.children);
+    const parts = skin.children[0].children.flatMap(group => group.children);
     skin.getGroupByName("head")!.rotation.x = 0.4;
     skin.getMeshByName("jacket")!.visible = false;
     await skin.setSkinTexture("slim");
@@ -255,7 +338,7 @@ test.serial("loaded skins detect the model unless overridden and retain pre-init
     t.true(skin.getMeshByName("hat")!.visible);
     t.is(skin.getGroupByName("head")!.rotation.x, 0.4);
     t.false(skin.getMeshByName("jacket")!.visible);
-    t.true(skin.children.flatMap(group => group.children).every((part, index) => part === parts[index]));
+    t.true(skin.children[0].children.flatMap(group => group.children).every((part, index) => part === parts[index]));
     const forced = create({ slim: true, legacy: true });
     await forced.setSkinTexture("classic");
     await forced.init();

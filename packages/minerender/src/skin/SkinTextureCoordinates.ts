@@ -7,6 +7,16 @@ export type SkinTextureCoordinates = Record<SkinPart, ModelFaces>;
 // The player faces +Z: south is the front, north the back and east the player's left.
 // down UVs are flipped on Y - v0 is v1, v1 is v0
 
+// deadmau5's ears use the 6x6x1 box at 24,0 for both sides.
+const earCoordinates: ModelFaces = {
+    west: { uv: [24, 1, 25, 7] },
+    east: { uv: [31, 1, 32, 7] },
+    south: { uv: [25, 1, 31, 7] },
+    north: { uv: [32, 1, 38, 7] },
+    up: { uv: [25, 0, 31, 1] },
+    down: { uv: [31, 1, 37, 0] }
+};
+
 const baseSkinCoordinates: SkinTextureCoordinates = {
     head: {
         west: { // left
@@ -634,7 +644,9 @@ const baseSkinCoordinates: SkinTextureCoordinates = {
         south: { uv: [12, 1, 22, 17] },
         up: { uv: [11, 1, 1, 0] },
         down: { uv: [21, 0, 11, 1] }
-    }
+    },
+    leftEar: earCoordinates,
+    rightEar: earCoordinates
 }
 
 
