@@ -159,6 +159,7 @@ export class SceneDocumentLoader {
                     await skin.setSkinTexture(texture);
                     await content.initialize(skin);
                     if (definition.cape) await skin.setCapeTexture(await skinTexture(definition.cape.texture, true), definition.cape.layout);
+                    if (definition.armor) await skin.setArmor(definition.armor);
                     for (const [part, rotation] of Object.entries(definition.pose ?? {})) {
                         skin.getGroupByName(part)?.rotation.set(...rotation, "XYZ");
                     }

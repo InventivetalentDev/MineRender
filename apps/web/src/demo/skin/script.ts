@@ -1,4 +1,4 @@
-import { CapeLayout, SkinObject, Skins } from "minerender";
+import { Armor, ArmorPiece, ArmorSet, ArmorSlot, CapeLayout, EntityObject, SkinObject, Skins } from "minerender";
 import { Playground } from "../../playground/Playground";
 
 interface SkinState {
@@ -14,6 +14,15 @@ interface SkinState {
     pose: string;
     hiddenParts: string[];
     hiddenOverlays: string[];
+    /** Equipment asset ID per slot; an empty string leaves the slot empty. */
+    armor: Record<ArmorSlot, string>;
+    /** Leather dye as `#rrggbb`; empty for undyed. */
+    armorColor: string;
+    trimPattern: string;
+    trimMaterial: string;
+    glint: boolean;
+    /** Also show the same armor without a player. */
+    standalone: boolean;
 }
 
 const parts = ["head", "body", "leftArm", "rightArm", "leftLeg", "rightLeg", "cape"];
@@ -22,6 +31,11 @@ const labels: Record<string, string> = {
     head: "Head", body: "Body", leftArm: "Left arm", rightArm: "Right arm", leftLeg: "Left leg", rightLeg: "Right leg", cape: "Cape",
     hat: "Hat", jacket: "Jacket", leftSleeve: "Left sleeve", rightSleeve: "Right sleeve", leftTrousers: "Left trousers", rightTrousers: "Right trousers"
 };
+const slots: ArmorSlot[] = ["head", "chest", "legs", "feet"];
+const materials = ["leather", "chainmail", "iron", "gold", "diamond", "netherite", "copper", "turtle_scute"];
+const trimPatterns = ["bolt", "coast", "dune", "eye", "flow", "host", "raiser", "rib", "sentry", "shaper", "silence", "snout", "spire", "tide", "vex", "ward", "wayfinder", "wild"];
+const trimMaterials = ["amethyst", "copper", "diamond", "emerald", "gold", "iron", "lapis", "netherite", "quartz", "redstone", "resin"];
+const titleCase = (id: string) => id.replace(/_/g, " ").replace(/^./, letter => letter.toUpperCase());
 /** Rotations in degrees per part. */
 const poses: Record<string, Record<string, [number, number, number]>> = {
     neutral: {},
@@ -39,13 +53,20 @@ const app = new Playground<SkinState>({
     title: "Player skins",
     defaults: {
         skin: "inventivetalent", skinFile: "", cape: "", capeFile: "", model: "auto", layout: "auto",
-        capeLayout: "minecraft", pose: "neutral", hiddenParts: [], hiddenOverlays: []
+        capeLayout: "minecraft", pose: "neutral", hiddenParts: [], hiddenOverlays: [],
+        armor: { head: "", chest: "", legs: "", feet: "" }, armorColor: "", trimPattern: "", trimMaterial: "iron", glint: false, standalone: false
     },
     renderer: { camera: { near: 1, far: 2000, position: [50, 35, 50] } },
     presets: {
         wave: { label: "Waving", state: { pose: "wave" } },
         walk: { label: "Walking", state: { pose: "walk" } },
-        base: { label: "Base layer only", state: { hiddenOverlays: [...overlays] } }
+        base: { label: "Base layer only", state: { hiddenOverlays: [...overlays] } },
+        diamond: { label: "Diamond armor", state: { armor: { head: "diamond", chest: "diamond", legs: "diamond", feet: "diamond" } } },
+        trimmed: {
+            label: "Trimmed netherite",
+            state: { armor: { head: "netherite", chest: "netherite", legs: "netherite", feet: "netherite" }, trimPattern: "silence", trimMaterial: "gold", glint: true }
+        },
+        leather: { label: "Dyed leather", state: { armor: { head: "leather", chest: "leather", legs: "leather", feet: "leather" }, armorColor: "#3c44aa" } }
     },
     async load(ctx, state) {
         validateState(state);
@@ -66,6 +87,23 @@ const app = new Playground<SkinState>({
         applyPose(object, state.pose);
         for (const part of parts) object.toggleGroupVisibility(part, !state.hiddenParts.includes(part));
         for (const part of overlays) object.toggleMeshVisibility(part, !state.hiddenOverlays.includes(part));
+        const armor = armorSet(state);
+        if (armor) {
+            await object.setArmor(armor);
+            if (!ctx.isCurrent()) return;
+            if (state.standalone) {
+                const model = await Armor.getEntity(armor);
+                if (!ctx.isCurrent()) return;
+                if (model) {
+                    const standalone = new EntityObject(model);
+                    standalone.scene = ctx.renderer.scene;
+                    ctx.onCleanup(() => standalone.dispose());
+                    await standalone.init();
+                    standalone.position.x = -32;
+                    ctx.renderer.scene.add(standalone);
+                }
+            }
+        }
         ctx.renderer.scene.add(object);
         return {
             object,
@@ -94,6 +132,12 @@ const app = new Playground<SkinState>({
         for (const name of state.hiddenParts) code += `skin.toggleGroupVisibility(${JSON.stringify(name)}, false);\n`;
         for (const name of state.hiddenOverlays) code += `skin.toggleMeshVisibility(${JSON.stringify(name)}, false);\n`;
         if (state.pose !== "neutral" || state.hiddenParts.length || state.hiddenOverlays.length) code += "skin.notifyDirty();\n";
+        const armor = armorSet(state);
+        if (armor) {
+            const json = JSON.stringify(armor).replace(/"color":(\d+)/g, (_, color) => `"color":0x${Number(color).toString(16).padStart(6, "0")}`);
+            code += `const armor = ${json};\nawait skin.setArmor(armor);\n`;
+            if (state.standalone) code += "const standalone = await renderer.scene.addEntity(await MineRender.Armor.getEntity(armor));\nstandalone.position.x = -32;\n";
+        }
         return code;
     }
 });
@@ -119,6 +163,19 @@ app.controls.innerHTML = `
         <select id="skin-pose" aria-label="Pose"><option value="neutral">Neutral</option><option value="wave">Wave</option><option value="walk">Walk</option><option value="arms">Arms out</option></select>
         <p class="control-note">Left and right are the player's own. Use the inspector for individual parts.</p>
     </fieldset>
+    <fieldset><legend>Armor</legend>
+        ${slots.map(slot => `<label for="armor-${slot}">${titleCase(slot)}</label>
+        <select id="armor-${slot}"><option value="">None</option>${materials.map(id => `<option value="${id}">${titleCase(id)}</option>`).join("")}</select>`).join("\n")}
+        <label for="armor-color">Leather dye</label><input id="armor-color" type="color" value="#a06540">
+        <label><input id="armor-undyed" type="checkbox"> Undyed</label>
+        <label for="armor-trim">Trim pattern</label>
+        <select id="armor-trim"><option value="">None</option>${trimPatterns.map(id => `<option value="${id}">${titleCase(id)}</option>`).join("")}</select>
+        <label for="armor-trim-material">Trim material</label>
+        <select id="armor-trim-material">${trimMaterials.map(id => `<option value="${id}">${titleCase(id)}</option>`).join("")}</select>
+        <label><input id="armor-glint" type="checkbox"> Enchantment glint</label>
+        <label><input id="armor-standalone" type="checkbox"> Also show without a player</label>
+        <p class="control-note">Armor needs Minecraft 1.21.4 or later.</p>
+    </fieldset>
     <fieldset><legend>Visible parts</legend><div id="skin-parts"></div></fieldset>
     <fieldset><legend>Visible overlays</legend><div id="skin-overlays"></div></fieldset>
 `;
@@ -128,12 +185,28 @@ function select(id: string): HTMLSelectElement { return document.getElementById(
 function update(patch: Partial<SkinState>) { void app.update(patch); }
 
 function validateState(state: SkinState) {
-    if (![state.skin, state.skinFile, state.cape, state.capeFile].every(value => typeof value === "string")
+    if (![state.skin, state.skinFile, state.cape, state.capeFile, state.armorColor, state.trimPattern, state.trimMaterial].every(value => typeof value === "string")
+        || typeof state.armor !== "object" || !slots.every(slot => typeof state.armor?.[slot] === "string")
+        || typeof state.glint !== "boolean" || typeof state.standalone !== "boolean"
         || !["auto", "classic", "slim"].includes(state.model) || !["auto", "modern", "legacy"].includes(state.layout)
         || !["minecraft", "optifine", "labymod"].includes(state.capeLayout) || !Object.prototype.hasOwnProperty.call(poses, state.pose)
         || ![state.hiddenParts, state.hiddenOverlays].every(values => Array.isArray(values) && values.every(value => typeof value === "string"))) {
         throw new Error("Invalid skin configuration.");
     }
+}
+
+function armorSet(state: SkinState): ArmorSet | undefined {
+    const set: ArmorSet = {};
+    for (const slot of slots) {
+        const asset = state.armor[slot];
+        if (!asset) continue;
+        const piece: Exclude<ArmorPiece, string> = { asset: `minecraft:${asset}` };
+        if (asset === "leather" && state.armorColor) piece.color = parseInt(state.armorColor.slice(1), 16);
+        if (state.trimPattern) piece.trim = { pattern: `minecraft:${state.trimPattern}`, material: `minecraft:${state.trimMaterial}` };
+        if (state.glint) piece.glint = true;
+        set[slot] = Object.keys(piece).length > 1 ? piece : piece.asset;
+    }
+    return Object.keys(set).length ? set : undefined;
 }
 
 async function resolveTexture(value: string, filename: string, file?: LocalFile, capeLayout?: CapeLayout): Promise<string | undefined> {
@@ -191,6 +264,14 @@ function syncControls(state: SkinState) {
     select("skin-layout").value = state.layout;
     select("cape-type").value = state.capeLayout;
     select("skin-pose").value = state.pose;
+    for (const slot of slots) select(`armor-${slot}`).value = state.armor[slot];
+    if (state.armorColor) input("armor-color").value = state.armorColor;
+    input("armor-undyed").checked = !state.armorColor;
+    select("armor-trim").value = state.trimPattern;
+    select("armor-trim-material").value = state.trimMaterial;
+    select("armor-trim-material").disabled = !state.trimPattern;
+    input("armor-glint").checked = state.glint;
+    input("armor-standalone").checked = state.standalone;
     for (const [container, hidden] of [["skin-parts", state.hiddenParts], ["skin-overlays", state.hiddenOverlays]] as const) {
         document.getElementById(container)!.querySelectorAll<HTMLInputElement>("input").forEach(checkbox => {
             checkbox.checked = !hidden.includes(checkbox.dataset.part!);
@@ -219,6 +300,15 @@ select("skin-pose").addEventListener("change", () => {
     app.record({ pose });
     if (activeSkin) applyPose(activeSkin, pose);
 });
+for (const slot of slots) {
+    select(`armor-${slot}`).addEventListener("change", () => update({ armor: { ...app.state.armor, [slot]: select(`armor-${slot}`).value } }));
+}
+input("armor-color").addEventListener("change", () => update({ armorColor: input("armor-color").value }));
+input("armor-undyed").addEventListener("change", () => update({ armorColor: input("armor-undyed").checked ? "" : input("armor-color").value }));
+select("armor-trim").addEventListener("change", () => update({ trimPattern: select("armor-trim").value }));
+select("armor-trim-material").addEventListener("change", () => update({ trimMaterial: select("armor-trim-material").value }));
+input("armor-glint").addEventListener("change", () => update({ glint: input("armor-glint").checked }));
+input("armor-standalone").addEventListener("change", () => update({ standalone: input("armor-standalone").checked }));
 document.getElementById("cape-clear")!.addEventListener("click", () => update({ cape: "", capeFile: "" }));
 visibilityControls(parts, "skin-parts", "hiddenParts");
 visibilityControls(overlays, "skin-overlays", "hiddenOverlays");

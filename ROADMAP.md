@@ -29,6 +29,7 @@ Details and remaining work for each row are in the [continuation plan](#continua
 | Skins — classic 64×64 | named toggleable parts | Vanilla dimensions, UVs, pivots, overlays, named parts | complete | — |
 | Skins — slim + legacy 64×32 | auto-detected | Slim/legacy UVs and detection; legacy skins normalized | complete | — |
 | Capes (vanilla/OptiFine/LabyMod) | 3 layouts, capes.dev | All three static layouts and capes.dev lookup | partial | medium |
+| Armor | none | Worn and standalone 1.21.4+ armor: dye, trims, glint | partial | medium |
 | Block/item model rendering | tints, display transforms | Tints, display poses, composite and special items, glint | partial | high |
 | Blockstate resolution | variants, weighted, multipart | Variants, weighted alternatives, multipart AND/OR | complete | — |
 | Animated textures | frametime | Frame grids, sequences, durations, interpolation | complete | — |
@@ -145,6 +146,7 @@ Done:
 - Match vanilla base opacity, overlay blending, dimensions, UVs, and joint pivots.
 - Add vanilla cape meshes wired to the existing `Skins.ts` resolvers.
 - Add OptiFine/LabyMod layouts and capes.dev lookup.
+- Add worn and standalone 1.21.4+ armor with dye, trims, glint, and skin scene-document support.
 - Add opt-in deadmau5 ears and Dinnerbone/Grumm upside-down players.
 
 Remaining:

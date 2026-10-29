@@ -18,6 +18,11 @@ import type { Maybe } from "../../util/util";
 import { isMesh } from "../../util/three";
 import type { EntityAnimation } from "../EntityAnimation";
 import { EntityAnimationOptions, EntityAnimationPlayer, validateAnimationWeights } from "./EntityAnimationPlayer";
+import type { PalettedTextures } from "../../texture/PalettedTextures";
+import type { ItemGlint } from "../../model/ItemGlint";
+
+let ItemGlintClass: typeof ItemGlint | undefined;
+let PalettedTexturesClass: typeof PalettedTextures | undefined;
 
 /** Renders selected entity layers as named part groups. Create it through {@link MineRenderScene.addEntity}. */
 export class EntityObject extends SceneObject {
@@ -37,12 +42,13 @@ export class EntityObject extends SceneObject {
     public age: number = 0;
     private readonly animationPlayers: { player: EntityAnimationPlayer, indices: number[] }[] = [];
     private readonly partPoses = new Map<Object3D, EntityModelPart["pose"]>();
+    private glint?: ItemGlint;
 
     constructor(readonly entity: EntityModel, options?: Partial<EntityObjectOptions>) {
         super();
         this.options = merge({}, EntityObject.DEFAULT_OPTIONS, options ?? {});
-        this.addEventListener("added", () => this.updateScrollSubscription());
-        this.addEventListener("removed", () => this.updateScrollSubscription());
+        this.addEventListener("added", () => { this.updateScrollSubscription(); this.glint?.updateSubscription(!!this.parent); });
+        this.addEventListener("removed", () => { this.updateScrollSubscription(); this.glint?.updateSubscription(!!this.parent); });
     }
 
     /** An optional shared material replaces texture loading for every selected draw; its owner retains disposal. */
@@ -52,7 +58,17 @@ export class EntityObject extends SceneObject {
             this.clearScrollMaterials();
             this.iterateAllMeshes(mesh => { mesh.material = material; });
             this.notifyDirty();
-        } else await this.applyTextures();
+        } else {
+            await this.applyTextures();
+            const layers = Object.entries(this.entityLayers).filter(([, layer]) => layer.glint);
+            const meshes: Mesh[] = [];
+            for (const [name] of layers) this.getLayerGroup(name)?.traverse(object => { if (isMesh(object)) meshes.push(object); });
+            if (meshes.length) {
+                const ItemGlint = ItemGlintClass ??= (await import("../../model/ItemGlint")).ItemGlint;
+                this.glint = await ItemGlint.create(this, undefined, this.getTextureKey(layers[0][1]).root, meshes.map(mesh => ({ mesh })), "armor");
+                this.glint.updateSubscription(!!this.parent);
+            }
+        }
     }
 
     dispose() {
@@ -60,6 +76,8 @@ export class EntityObject extends SceneObject {
     }
 
     public disposeAndRemoveAllChildren() {
+        this.glint?.dispose();
+        this.glint = undefined;
         this.clearScrollMaterials();
         for (const geometry of this.geometries) geometry.dispose();
         this.geometries.clear();
@@ -235,6 +253,10 @@ export class EntityObject extends SceneObject {
     }
 
     protected async loadTextures(layer: EntityLayer = this.entity): Promise<Maybe<ExtractableImageData>> {
+        if (layer.palette) {
+            const PalettedTextures = PalettedTexturesClass ??= (await import("../../texture/PalettedTextures")).PalettedTextures;
+            return PalettedTextures.get(this.getTextureKey(layer), layer.palette.key, layer.palette.permutation);
+        }
         return ModelTextures.get(this.getTextureKey(layer));
     }
 
@@ -314,10 +336,11 @@ export class EntityObject extends SceneObject {
         this.clearScrollMaterials();
         const results = await Promise.allSettled(Object.entries(this.entityLayers).map(async ([name, layer]) => {
             const mode = layer.render ?? layer.layer.render ?? "cutout";
-            const tint = layer.tint === undefined ? undefined : this.options.tints?.[layer.tint];
+            const tint = (layer.tint === undefined ? undefined : this.options.tints?.[layer.tint]) ?? layer.color;
             const scroll = Materials.entityModeScroll(mode);
             const assetKeyStr = this.getTextureKey(layer).serialize();
-            const keyStr = `entity:${ mode }:${ tint === undefined ? "" : new Color(tint).getHexString() }:${ assetKeyStr }`;
+            const keyStr = `entity:${ mode }:${ tint === undefined ? "" : new Color(tint).getHexString() }:${ assetKeyStr }`
+                + (layer.palette ? `:${layer.palette.key.serialize()}:${layer.palette.permutation.serialize()}` : "");
             let mat = scroll ? undefined : Caching.materialCache.getIfPresent(keyStr);
             if (!mat) {
                 const cachedAsset = Caching.textureAssetCache.getIfPresent(assetKeyStr);
@@ -360,7 +383,7 @@ export interface EntityObjectOptions extends SceneObjectOptions {
      * By default the model's dataset transform is used, or the flip for models without one.
      */
     flip?: boolean;
-    /** Colours for the dataset's tint labels, e.g. `{ wool_color: 0xf9801d }`; a pass whose label is absent stays untinted. */
+    /** Colours for the dataset's tint labels, e.g. `{ wool_color: 0xf9801d }`; an absent label uses the draw's fixed colour, if any. */
     tints?: Record<string, ColorRepresentation>;
     /** Cube faces by layer key; omitted layers draw all six faces. */
     faces?: Record<string, CubeFace[]>;

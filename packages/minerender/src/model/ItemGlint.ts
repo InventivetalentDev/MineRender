@@ -40,17 +40,17 @@ export class ItemGlint {
 
     /** @internal */
     public static async create(owner: SceneObject, baseMap?: Texture, root?: string,
-                               entityMeshes?: readonly { mesh: Mesh; parent?: Mesh }[]): Promise<ItemGlint> {
-        const key = new AssetKey("minecraft", "enchanted_glint_item", "textures", "misc", "assets", ".png", root);
+                               entityMeshes?: readonly { mesh: Mesh; parent?: Mesh }[], kind: "item" | "armor" = "item"): Promise<ItemGlint> {
+        const key = new AssetKey("minecraft", `enchanted_glint_${kind}`, "textures", "misc", "assets", ".png", root);
         const assetKey = key.serialize(), textureKey = `item-glint:${assetKey}`;
         let texture = Caching.textureCache.getIfPresent(textureKey);
         if (!texture) {
             const pending = ModelTextures.get(key);
             const cachedAsset = Caching.textureAssetCache.getIfPresent(assetKey);
             const [image, metadata] = await Promise.all([pending, ModelTextures.getMeta(key)]);
-            if (!image) throw new Error(`Missing item glint texture ${key.toNamespacedString()}`);
+            if (!image) throw new Error(`Missing ${kind} glint texture ${key.toNamespacedString()}`);
             // A cache clear during decoding must not restore an older source's texture.
-            if (cachedAsset && Caching.textureAssetCache.getIfPresent(assetKey) !== cachedAsset) return this.create(owner, baseMap, root, entityMeshes);
+            if (cachedAsset && Caching.textureAssetCache.getIfPresent(assetKey) !== cachedAsset) return this.create(owner, baseMap, root, entityMeshes, kind);
             texture = Caching.textureCache.get(textureKey, () => {
                 const texture = Textures.createCanvasTexture((image.data as CanvasRenderingContext2D).canvas);
                 texture.wrapS = texture.wrapT = metadata?.texture?.clamp ? ClampToEdgeWrapping : RepeatWrapping;
@@ -62,7 +62,8 @@ export class ItemGlint {
             name: "item-glint", transparent: true, depthWrite: false, depthFunc: EqualDepth, side: DoubleSide, forceSinglePass: true,
             blending: CustomBlending, blendSrc: SrcColorFactor, blendDst: OneFactor, blendSrcAlpha: ZeroFactor, blendDstAlpha: OneFactor,
             toneMapped: false,
-            defines: entityMeshes ? { ENTITY_GLINT: true } : {},
+            // TextureTransform.ARMOR_ENTITY_GLINT_TEXTURING uses a smaller UV scale than item glint.
+            defines: entityMeshes ? { ENTITY_GLINT: true, ENTITY_GLINT_SCALE: kind === "armor" ? "0.16" : "0.5" } : {},
             uniforms: { ...(!entityMeshes && { baseMap: { value: baseMap } }),
                 glintMap: { value: texture }, glintOffset: { value: new Vector2() }, glintAlpha: { value: 0.75 } },
             vertexShader: `
@@ -76,7 +77,7 @@ export class ItemGlint {
                 varying vec2 vGlintUv;
                 void main() {
                     #ifdef ENTITY_GLINT
-                    vec2 p = vec2(uv.x, 1.0 - uv.y) * 0.5;
+                    vec2 p = vec2(uv.x, 1.0 - uv.y) * ENTITY_GLINT_SCALE;
                     #else
                     vUv = uv;
                     vUvBounds = uvBounds;

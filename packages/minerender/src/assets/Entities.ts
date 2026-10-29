@@ -57,7 +57,8 @@ export class Entities {
         return collect("");
     }
 
-    private static async getModelFile(modelKey: BasicAssetKey): Promise<Maybe<EntityModelFile>> {
+    /** @internal */
+    public static async getModelFile(modelKey: BasicAssetKey): Promise<Maybe<EntityModelFile>> {
         const path = isAssetKey(modelKey) ? modelKey.getFullPath() : modelKey.path;
         const key = new AssetKey(modelKey.namespace, path, undefined, undefined, "entity-models", ".json", await this.getDatasetRoot(isAssetKey(modelKey) ? modelKey.root : undefined));
         return Caching.entityModelCache.get(key.serialize(), () => AssetLoader.get<EntityModelFile>(key, AssetParser.JSON));

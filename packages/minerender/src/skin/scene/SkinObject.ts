@@ -10,6 +10,16 @@ import { SceneObjectOptions } from "../../renderer/SceneObjectOptions";
 import { DeepPartial, toRadians } from "../../util/util";
 import { SkinTextures } from "../SkinTextures";
 import { CapeLayout, capeTextureSizes } from "../CapeLayout";
+import type { Armor, ArmorSet } from "../../armor/Armor";
+import type { EntityObject } from "../../entity/scene/EntityObject";
+import type { EntityLayer, EntityModelPart } from "../../entity/EntityModel";
+
+let ArmorClass: typeof Armor | undefined;
+let EntityObjectClass: typeof EntityObject | undefined;
+
+function hasCubes(part: EntityModelPart): boolean {
+    return part.cubes.length > 0 || Object.values(part.children).some(hasCubes);
+}
 
 // Vanilla raises upside-down players by their 1.8-block height plus 0.1, before the 15/16 player scale.
 const UPSIDE_DOWN_OFFSET = (1.8 + 0.1) * 16 / 0.9375;
@@ -26,6 +36,8 @@ export class SkinObject extends SceneObject {
     private skinLoad: number = 0;
 
     private capeLoad: number = 0;
+    private armorLoad: number = 0;
+    private armorObjects: { part: string; object: EntityObject }[] = [];
 
     private model?: Object3D;
 
@@ -46,6 +58,7 @@ export class SkinObject extends SceneObject {
             if (capeOnBody) body.add(cape);
             else body.attach(cape);
         }
+        for (const { part, object } of this.armorObjects) this.getGroupByName(part)!.add(object);
         this.updateEars();
         this.updateUpsideDown();
     }
@@ -196,6 +209,51 @@ export class SkinObject extends SceneObject {
         this.notifyDirty();
     }
 
+    /**
+     * Loads armor from 1.21.4+ equipment assets, or pass undefined to remove it.
+     * Each piece moves with the skin part it covers.
+     */
+    public async setArmor(armor?: ArmorSet): Promise<void> {
+        const load = ++this.armorLoad;
+        const objects: { part: string; object: EntityObject }[] = [];
+        if (armor) {
+            const Armor = ArmorClass ??= (await import("../../armor/Armor")).Armor;
+            const EntityObject = EntityObjectClass ??= (await import("../../entity/scene/EntityObject")).EntityObject;
+            const model = await Armor.getEntity(armor);
+            if (model) {
+                const parts = { head: "head", body: "body", left_arm: "leftArm", right_arm: "rightArm", left_leg: "leftLeg", right_leg: "rightLeg" };
+                for (const [name, part] of Object.entries(parts)) {
+                    const layers: Record<string, EntityLayer> = {};
+                    for (const [draw, layer] of Object.entries(model.layers!)) {
+                        const child = layer.layer.root.children[name];
+                        if (!child || !hasCubes(child)) continue;
+                        // The skin group supplies the dataset part's pivot; nested parts retain their own poses.
+                        const pose: EntityModelPart["pose"] = { offset: [0, 0, 0], rotation: [0, 0, 0] };
+                        layers[draw] = { ...layer, layer: { ...layer.layer, root: {
+                            pose, cubes: [], children: { [name]: { ...child, pose } }
+                        } } };
+                    }
+                    const first = Object.values(layers)[0];
+                    if (!first) continue;
+                    const object = new EntityObject({ ...first, id: model.id, layers }, { flip: false });
+                    object.rotation.x = Math.PI;
+                    objects.push({ part, object });
+                }
+            }
+        }
+        const results = await Promise.allSettled(objects.map(({ object }) => object.init()));
+        const failure = results.find(result => result.status === "rejected");
+        if (load !== this.armorLoad || failure) {
+            for (const { object } of objects) object.dispose();
+            if (load === this.armorLoad && failure?.status === "rejected") throw failure.reason;
+            return;
+        }
+        for (const { object } of this.armorObjects) { object.dispose(); object.removeFromParent(); }
+        this.armorObjects = objects;
+        for (const { part, object } of objects) this.getGroupByName(part)?.add(object);
+        this.notifyDirty();
+    }
+
     /** Select the arm model, or pass undefined to use texture detection. */
     public setSlim(slim?: boolean): void {
         this.options.slim = slim;
@@ -265,6 +323,8 @@ export class SkinObject extends SceneObject {
     public dispose(): void {
         this.skinLoad++;
         this.capeLoad++;
+        this.armorLoad++;
+        for (const { object } of this.armorObjects.splice(0)) { object.dispose(); object.removeFromParent(); }
         super.dispose();
     }
 
