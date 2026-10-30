@@ -5,6 +5,7 @@ import { BannerPatterns, type DyeColor } from "../assets/BannerPatterns";
 import { DecoratedPots } from "../assets/DecoratedPots";
 import { ModelTextures } from "../assets/ModelTextures";
 import { CubeFace } from "../CubeFace";
+import { Materials } from "../Materials";
 import { PlayerHeadTextures } from "../skin/PlayerHeadTextures";
 import type { EntityLayer, EntityModel, EntityModelLayer } from "../entity/EntityModel";
 import type { SpecialItemRenderer, TripleArray } from "./Model";
@@ -234,7 +235,7 @@ export class SpecialItems {
             };
             material.customProgramCacheKey = () => "special-item-side";
         }
-        return material;
+        return Materials.boundUvs(material);
     }
 
 }

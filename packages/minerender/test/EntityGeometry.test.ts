@@ -175,6 +175,22 @@ test.serial("cube growth preserves vanilla UV dimensions and mirrored cubes swap
         Array.from(object.getMeshByName("plain")!.geometry.getAttribute("position").array));
 });
 
+test.serial("every cube face carries its texture rectangle, including mirrored and zero-height cubes", t => {
+    const create = fixture(t);
+    const object = create(part({ children: {
+        plain: part({ cubes: [cube] }),
+        mirrored: part({ cubes: [{ ...cube, mirror: true }] }),
+        flat: part({ cubes: [{ ...cube, size: [2, 0, 4] }] })
+    } }));
+    const bounds = (name: string) => Array.from(object.getMeshByName(name)!.geometry.getAttribute("uvBounds").array);
+    const faces = (rects: number[][]) => rects.flatMap(([u0, v0, u1, v1]) => new Array(4).fill([u0 / 64, 1 - v1 / 32, u1 / 64, 1 - v0 / 32]).flat());
+    const sides = [[11, 6, 13, 10], [9, 6, 11, 10], [15, 10, 17, 13], [9, 10, 11, 13]];
+    t.deepEqual(bounds("plain"), faces([[11, 10, 15, 13], [5, 10, 9, 13], ...sides]));
+    t.deepEqual(bounds("mirrored"), faces([[5, 10, 9, 13], [11, 10, 15, 13], ...sides]));
+    const flat = bounds("flat");
+    for (const face of [0, 1, 4, 5]) t.is(flat[face * 16 + 1], flat[face * 16 + 3], `face ${face}`);
+});
+
 test.serial("texture dimensions inherit within each part subtree without leaking to siblings", t => {
     const create = fixture(t);
     const object = create(part({ children: {

@@ -1,5 +1,6 @@
 import test, { ExecutionContext } from "ava";
-import { Color, CustomBlending, Mesh, MeshBasicMaterial, NormalBlending, Object3D, OneFactor, RepeatWrapping, OneMinusSrcAlphaFactor } from "three";
+import { Color, CustomBlending, Mesh, MeshBasicMaterial, NormalBlending, Object3D, OneFactor, RepeatWrapping, OneMinusSrcAlphaFactor, ShaderLib, Texture } from "three";
+import type { WebGLProgramParametersWithUniforms, WebGLRenderer } from "three";
 import { AssetKey, BasicAssetKey } from "../src/assets/AssetKey";
 import { AssetLoader } from "../src/assets/AssetLoader";
 import { Entities } from "../src/assets/Entities";
@@ -143,9 +144,26 @@ test("each render mode maps to vanilla's blend, depth and colour state", t => {
         const scrolls = mode === "energy_swirl" || mode === "breeze_wind";
         t.is(created[mode].map!.wrapS === RepeatWrapping && created[mode].map!.wrapT === RepeatWrapping, scrolls, mode);
         t.is(Materials.entityModeScroll(mode) !== undefined, scrolls, mode);
+        t.is(created[mode].customProgramCacheKey().endsWith(":bound-uvs"), !scrolls, mode);
     }
     t.deepEqual(Materials.entityModeScroll("energy_swirl"), [0.01, 0.01]);
     t.deepEqual(Materials.entityModeScroll("breeze_wind"), [0.02, 0]);
+});
+
+test("bounded materials clamp map samples inside each face after earlier shader patches", t => {
+    const material = new MeshBasicMaterial({ map: new Texture() });
+    material.onBeforeCompile = shader => { shader.fragmentShader = `// earlier\n${shader.fragmentShader}`; };
+    material.customProgramCacheKey = () => "earlier";
+    Materials.boundUvs(material);
+    t.teardown(() => { material.map!.dispose(); material.dispose(); });
+    const shader = { ...ShaderLib.basic, uniforms: {} } as unknown as WebGLProgramParametersWithUniforms;
+    material.onBeforeCompile(shader, {} as WebGLRenderer);
+    t.true(shader.fragmentShader.startsWith("// earlier"));
+    t.true(shader.vertexShader.includes("vUvBounds = uvBounds;"));
+    t.true(shader.fragmentShader.includes("texture2D( map, clamp( vMapUv, vUvBounds.xy + uvInset, vUvBounds.zw - uvInset ) )"));
+    t.false(shader.fragmentShader.includes("#include <map_fragment>"));
+    t.is(material.customProgramCacheKey(), "earlier:bound-uvs");
+    t.deepEqual((material as MeshBasicMaterial & { defaultAttributeValues: object }).defaultAttributeValues, { uvBounds: [0, 0, 1, 1] });
 });
 
 test.serial("only modes that vanilla draws without culling get inward faces", async t => {
