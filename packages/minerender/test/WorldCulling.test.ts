@@ -1674,6 +1674,15 @@ for (const sectionMeshing of [false, true]) {
     });
 }
 
+test.serial("separate water draws inner faces from a pool before its outer faces while lava keeps both in one pool", async t => {
+    const { world, scene } = fixture(t);
+    const water = (await world.setBlockAt([0, 0, 0], { type: "water" }))!.object!;
+    const lava = (await world.setBlockAt([4, 0, 0], { type: "lava" }))!.object!;
+    t.deepEqual(water.models.map((_, index) => [indexCount(water, index), modelOf(water, index).children[0].renderOrder]), [[36, 0], [30, -1]]);
+    t.deepEqual(lava.models.map((_, index) => [indexCount(lava, index), modelOf(lava, index).children[0].renderOrder]), [[66, 0]]);
+    t.is(scene.stats.instanceCount, 3);
+});
+
 test.serial("unloading a chunk column rejects noninteger coordinates", async t => {
     const { world } = fixture(t);
     for (const value of [0.5, NaN, Infinity]) {

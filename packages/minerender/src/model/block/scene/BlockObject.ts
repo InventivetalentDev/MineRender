@@ -294,10 +294,12 @@ export class BlockObject extends SceneObject {
         const fluidKey = `${surface.key}|${tint ?? "default"}`;
         if (this._fluidKey === fluidKey) return;
         const options = { ...this.options, tints: tint === undefined ? this.options.tints : { ...this.options.tints, 0: tint } };
-        // Inner faces go in their own pool, which draws before the outer faces.
-        const faces: FluidFaces[] = buildFluidBackQuads(kind, surface.sample).sprites.length ? ["front", "back"] : ["front"];
+        // Translucent water draws its inner faces first from a separate pool. Lava writes depth, so draw order does not
+        // matter and one pool holds both sides.
+        const faces: FluidFaces[] = kind === "lava" ? ["both"]
+            : buildFluidBackQuads(kind, surface.sample).sprites.length ? ["front", "back"] : ["front"];
         const replacements = await Promise.all(faces.map(face => this.scene.addSceneObject({
-            key: new AssetKey("minecraft", `${kind}/${surface.key}${face === "back" ? "/back" : ""}`, "models", "fluid", "assets", ".json", this.blockState.key?.root)
+            key: new AssetKey("minecraft", `${kind}/${surface.key}${face === "front" ? "" : `/${face}`}`, "models", "fluid", "assets", ".json", this.blockState.key?.root)
         }, () => new FluidModelObject(kind, surface.sample, this.blockState.key, options, face))));
         const previous = this._fluidModels;
         const matrix = previous.length ? this.getModelMatrix(previous[0]) : new Matrix4().makeTranslation(...this.position.toArray());

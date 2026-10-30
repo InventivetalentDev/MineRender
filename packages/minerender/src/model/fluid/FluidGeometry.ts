@@ -37,8 +37,8 @@ export async function getFluidKind(key?: AssetKey, state?: BlockStateProperties)
     return (await getBlockFluidState(key, state))?.kind;
 }
 
-/** The fluid faces seen from outside, or the reverse sides vanilla adds to them ({@link buildFluidBackQuads}). */
-export type FluidFaces = "front" | "back";
+/** The fluid faces seen from outside, the reverse sides vanilla adds to them ({@link buildFluidBackQuads}), or both. */
+export type FluidFaces = "front" | "back" | "both";
 
 /**
  * Vanilla's reverse fluid faces, in front-face order: every side, and the top when a cell above it is neither this fluid
@@ -69,9 +69,21 @@ export function buildFluidBackQuads(kind: FluidKind, sample: FluidSampler): Flui
     return back;
 }
 
+/** Reverse faces come first, so each block draws its inner faces before its outer faces. */
+function selectFluidQuads(kind: FluidKind, sample: FluidSampler, faces: FluidFaces): FluidQuads {
+    if (faces === "front") return buildFluidQuads(kind, sample);
+    const back = buildFluidBackQuads(kind, sample);
+    if (faces === "back") return back;
+    const front = buildFluidQuads(kind, sample);
+    return {
+        positions: [...back.positions, ...front.positions], normals: [...back.normals, ...front.normals],
+        uvs: [...back.uvs, ...front.uvs], sprites: [...back.sprites, ...front.sprites]
+    };
+}
+
 /** Builds centered fluid faces with material groups 0 (still) and 1 (flowing). */
 export function createFluidGeometry(kind: FluidKind, sample: FluidSampler, faces: FluidFaces = "front"): BufferGeometry {
-    const { positions, normals, uvs, sprites } = faces === "back" ? buildFluidBackQuads(kind, sample) : buildFluidQuads(kind, sample);
+    const { positions, normals, uvs, sprites } = selectFluidQuads(kind, sample, faces);
     const geometry = new BufferGeometry();
     const indices: number[] = [];
     for (let quad = 0; quad < sprites.length; quad++) {
