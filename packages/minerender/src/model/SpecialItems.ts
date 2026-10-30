@@ -5,6 +5,7 @@ import { BannerPatterns, type DyeColor } from "../assets/BannerPatterns";
 import { DecoratedPots } from "../assets/DecoratedPots";
 import { ModelTextures } from "../assets/ModelTextures";
 import { CubeFace } from "../CubeFace";
+import { Materials } from "../Materials";
 import { PlayerHeadTextures } from "../skin/PlayerHeadTextures";
 import type { EntityLayer, EntityModel, EntityModelLayer } from "../entity/EntityModel";
 import type { SpecialItemRenderer, TripleArray } from "./Model";
@@ -223,6 +224,7 @@ export class SpecialItems {
     public static createMaterial(source: MeshBasicMaterial, shade: boolean): MeshBasicMaterial {
         const material = source.clone();
         if (shade) {
+            // Edits three's built-in shader text: a replace that finds nothing fails silently. test/ShaderPatches.test.ts checks every target.
             material.onBeforeCompile = shader => {
                 shader.vertexShader = `varying float itemLight;\n${shader.vertexShader}`.replace("#include <begin_vertex>", `
                     #include <begin_vertex>
@@ -234,7 +236,7 @@ export class SpecialItems {
             };
             material.customProgramCacheKey = () => "special-item-side";
         }
-        return material;
+        return Materials.boundUvs(material);
     }
 
 }

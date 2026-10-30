@@ -247,7 +247,7 @@ test.serial("player-head items keep the hat, skin materials, inherited display, 
     objects.push(composite);
     await composite.init();
     t.deepEqual(composite.children.map(object => ((object as ModelObject).getMeshByName("head")!.material as MeshBasicMaterial).map), skins.map(skin => skin.map));
-    t.is(((composite.children[1] as ModelObject).getMeshByName("head")!.material as MeshBasicMaterial).onBeforeCompile, skins[1].onBeforeCompile);
+    t.is(((composite.children[1] as ModelObject).getMeshByName("head")!.material as MeshBasicMaterial).customProgramCacheKey(), `${skins[1].customProgramCacheKey()}:bound-uvs`);
     const material = first.getMeshByName("head")!.material as MeshBasicMaterial;
     let disposedMaterial = 0, disposedTexture = 0, disposedSkin = 0;
     material.addEventListener("dispose", () => disposedMaterial++);
@@ -627,8 +627,8 @@ test.serial("composite shield components keep independent colors and dispose own
     const entities = object.children.map(child => specialPart(child));
     const palettes = entities.map(entity => entity.getMeshByName("plate", "pattern_base")!.material as MeshBasicMaterial);
     t.deepEqual(palettes.map(material => material.color.getHex()), [0xb02e26, 0x3c44aa]);
-    t.not(palettes[0].customProgramCacheKey(), "special-item-side");
-    t.is(palettes[1].customProgramCacheKey(), "special-item-side");
+    t.not(palettes[0].customProgramCacheKey(), "special-item-side:bound-uvs");
+    t.is(palettes[1].customProgramCacheKey(), "special-item-side:bound-uvs");
     const meshes: Mesh[] = [];
     object.iterateAllMeshes(mesh => meshes.push(mesh));
     t.deepEqual(meshes.map(mesh => mesh.renderOrder), [0, 1, 2, 3, 4, 5]);
@@ -711,8 +711,8 @@ test.serial("composite shulker items retain independent display poses, lighting,
     t.deepEqual([coordinates(bounds.min), coordinates(bounds.max)], [[-1.998, -0.998, 0.002], [5.998, 6.998, 7.998]]);
     const firstMaterial = first.getMeshByName("base")!.material as MeshBasicMaterial;
     const secondMaterial = second.getMeshByName("base")!.material as MeshBasicMaterial;
-    t.not(firstMaterial.customProgramCacheKey(), "special-item-side");
-    t.is(secondMaterial.customProgramCacheKey(), "special-item-side");
+    t.not(firstMaterial.customProgramCacheKey(), "special-item-side:bound-uvs");
+    t.is(secondMaterial.customProgramCacheKey(), "special-item-side:bound-uvs");
     let geometryDisposals = 0, ownedDisposals = 0, sharedDisposals = 0;
     composite.iterateAllMeshes(mesh => mesh.geometry.addEventListener("dispose", () => geometryDisposals++));
     firstMaterial.addEventListener("dispose", () => ownedDisposals++);

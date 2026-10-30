@@ -2,6 +2,22 @@ import { BoxGeometry, BufferAttribute, Float32BufferAttribute } from "three";
 import {  BoxGeometryKey, serializeBoxGeometryKey } from "./cache/CacheKey";
 import { Caching } from "./cache/Caching";
 
+/**
+ * Each face's UV rectangle (min u, min v, max u, max v) on its four vertices, which `Materials.boundUvs` keeps samples inside.
+ * Model atlases replace it with bounds inset to texel centres (`UVMapper.setAtlasUvBounds`).
+ */
+function faceUvBounds(uv: number[]): Float32BufferAttribute {
+    const bounds = new Float32Array(uv.length * 2);
+    for (let face = 0; face < uv.length / 8; face++) {
+        const us = [0, 1, 2, 3].map(corner => uv[(face * 4 + corner) * 2]);
+        const vs = [0, 1, 2, 3].map(corner => uv[(face * 4 + corner) * 2 + 1]);
+        for (let corner = 0; corner < 4; corner++) {
+            bounds.set([Math.min(...us), Math.min(...vs), Math.max(...us), Math.max(...vs)], (face * 4 + corner) * 4);
+        }
+    }
+    return new Float32BufferAttribute(bounds, 4);
+}
+
 /** Creates box geometry with optional face UVs and caches it by dimensions and UV values. */
 export class Geometries {
 
@@ -11,6 +27,7 @@ export class Geometries {
 
         if (key.uv) {
             geometry.setAttribute("uv", new Float32BufferAttribute(key.uv, 2));
+            geometry.setAttribute("uvBounds", faceUvBounds(key.uv));
         }
 
 
