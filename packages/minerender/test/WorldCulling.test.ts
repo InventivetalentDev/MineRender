@@ -1665,12 +1665,12 @@ for (const sectionMeshing of [false, true]) {
         t.is(indexCount(object), 36);
         t.is(height(), isolatedHeight);
         t.is(modelOf(object), baseline);
-        t.is(scene.stats.instanceCount, 1);
+        t.is(scene.stats.instanceCount, 2);
         t.throws(() => reference.getPosition(), { message: "Instance has been removed" });
         await world.placeChunk(column);
         t.is(indexCount(object), 30);
         t.is(height(), joinedHeight);
-        t.is(scene.stats.instanceCount, 3);
+        t.is(scene.stats.instanceCount, 6);
     });
 }
 
@@ -2109,7 +2109,7 @@ for (const sectionMeshing of [false, true]) {
         await world.setBlockAt(-17, -1, -2, undefined);
         t.is(modelOf(left), original);
         t.deepEqual(left.getPosition().toArray(), [-272, -16, -16]);
-        t.is(scene.stats.instanceCount, 4);
+        t.is(scene.stats.instanceCount, 8);
         await world.setBlockAt(-16, -1, -1, undefined);
         t.is(indexCount(left), 36);
         t.is(world.getBlockAt(-17, -1, -1)!.object, left);
@@ -2144,7 +2144,7 @@ for (const sectionMeshing of [false, true]) {
             return;
         }
         t.truthy(logged);
-        t.is(logged["_models"].length, 2);
+        t.is(logged["_models"].length, 3);
         t.is(logged.fluidLevel, 0);
         const ordinary = logged["_models"][0];
         const pose = [ordinary.getPosition().toArray(), ordinary.getRotation().toArray()];
@@ -2165,7 +2165,7 @@ for (const sectionMeshing of [false, true]) {
         t.is(logged["_models"].length, 0);
         t.throws(() => fluid.getPosition(), { message: "Instance has been removed" });
         t.is(dry.object?.fluidKind, undefined);
-        t.is(scene.stats.instanceCount, sectionMeshing ? 1 : 2);
+        t.is(scene.stats.instanceCount, sectionMeshing ? 1 : 3);
         await world.setBlockAt(-17, 0, 0, undefined);
         t.is(indexCount(water), 36);
         await world.clear();
