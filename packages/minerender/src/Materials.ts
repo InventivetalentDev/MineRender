@@ -109,6 +109,7 @@ export class Materials {
                 // nothing opaque is behind it. Its brightness serves as coverage, so the glow stays visible outside the body.
                 material.blendSrcAlpha = OneFactor;
                 material.blendDstAlpha = OneMinusSrcAlphaFactor;
+                // Edits three's built-in shader text: a replace that finds nothing fails silently. test/ShaderPatches.test.ts checks every target.
                 material.onBeforeCompile = shader => {
                     shader.fragmentShader = shader.fragmentShader.replace("#include <dithering_fragment>",
                         "gl_FragColor.a = max(gl_FragColor.r, max(gl_FragColor.g, gl_FragColor.b));\n#include <dithering_fragment>");
@@ -124,8 +125,36 @@ export class Materials {
         }
         if (Materials.entityModeScroll(mode)) {
             material.map!.wrapS = material.map!.wrapT = RepeatWrapping;
+        } else {
+            Materials.boundUvs(material);
         }
         if (tint !== undefined) material.color.multiply(new Color(tint));
+        return material;
+    }
+
+    /**
+     * Keeps texture samples half a texel inside each face's `uvBounds` rectangle, as box geometry from `Geometries` carries it.
+     * Antialiasing samples pixels that a triangle only partly covers, which would otherwise read the neighbouring texture region.
+     * Not for scrolling textures: their offset moves samples outside the face on purpose. Runs after any shader patch the
+     * material already has; `clone()` drops both, so apply it again to a clone.
+     */
+    public static boundUvs<T extends MeshBasicMaterial>(material: T): T {
+        const patch = material.onBeforeCompile, key = material.customProgramCacheKey();
+        // Edits three's built-in shader text: a replace that finds nothing fails silently. test/ShaderPatches.test.ts checks every target.
+        material.onBeforeCompile = (shader, renderer) => {
+            patch.call(material, shader, renderer);
+            shader.vertexShader = shader.vertexShader
+                .replace("#include <uv_pars_vertex>", "#include <uv_pars_vertex>\nattribute vec4 uvBounds;\nflat out vec4 vUvBounds;")
+                .replace("#include <uv_vertex>", "#include <uv_vertex>\nvUvBounds = uvBounds;");
+            shader.fragmentShader = shader.fragmentShader
+                .replace("#include <map_pars_fragment>", "#include <map_pars_fragment>\nflat in vec4 vUvBounds;")
+                .replace("#include <map_fragment>", ShaderChunk.map_fragment.replace("vec4 sampledDiffuseColor = texture2D( map, vMapUv );", `
+                    vec2 uvInset = min( 0.5 / vec2( textureSize( map, 0 ) ), ( vUvBounds.zw - vUvBounds.xy ) * 0.5 );
+                    vec4 sampledDiffuseColor = texture2D( map, clamp( vMapUv, vUvBounds.xy + uvInset, vUvBounds.zw - uvInset ) );`));
+        };
+        material.customProgramCacheKey = () => `${key}:bound-uvs`;
+        // Three reads default attribute values from any material: geometry without bounds samples the whole texture.
+        (material as T & { defaultAttributeValues: Record<string, number[]> }).defaultAttributeValues = { uvBounds: [0, 0, 1, 1] };
         return material;
     }
 
@@ -138,6 +167,7 @@ export class Materials {
             side: DoubleSide,
             toneMapped: false
         });
+        // Edits three's built-in shader text: a replace that finds nothing fails silently. test/ShaderPatches.test.ts checks every target.
         material.onBeforeCompile = shader => {
             // Keep MSAA edge pixels inside the layer's cropped texture region.
             for (const [stage, direction] of [["vertex", "out"], ["fragment", "in"]] as const) {

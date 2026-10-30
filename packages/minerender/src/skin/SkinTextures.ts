@@ -4,6 +4,7 @@ import { serializeImageKey } from "../cache/CacheKey";
 import { MineRenderError } from "../error/MineRenderError";
 import { SkinImage } from "./SkinImage";
 import { Textures } from "../texture/Textures";
+import { Materials } from "../Materials";
 import { CapeLayout } from "./CapeLayout";
 
 /** A prepared shared skin material with detected arm-model and texture-layout flags. */
@@ -53,7 +54,7 @@ export class SkinTextures {
         texture.colorSpace = SRGBColorSpace;
         texture.flipY = true;
         texture.needsUpdate = true;
-        return new MeshBasicMaterial({ map: texture, transparent, side: transparent ? DoubleSide : FrontSide, alphaTest: transparent ? 0.1 : 0 });
+        return Materials.boundUvs(new MeshBasicMaterial({ map: texture, transparent, side: transparent ? DoubleSide : FrontSide, alphaTest: transparent ? 0.1 : 0 }));
     }
 
     private static isSlim(image: ImageData, scale: number): boolean {

@@ -149,6 +149,7 @@ test.serial("modern opacity preserves hidden RGB and overlay alpha at every base
     t.true(skin.slim);
     t.is(source.data[3], 0);
     t.is((await get("skin")).material, skin.material);
+    t.true(skin.material.customProgramCacheKey().endsWith(":bound-uvs"));
 });
 
 test.serial("scaled legacy skins retain pixel detail and invalid or forced-modern half-height layouts reject", async t => {
