@@ -14,7 +14,7 @@ import { AssetKey, BasicAssetKey } from "../../../assets/AssetKey";
 import { BlockTints } from "../BlockTints";
 import { ModelCulling } from "../../ModelCulling";
 import { BlockStateResolver } from "../BlockStateResolver";
-import { FluidKind, FluidRules, FluidSampler, resolveBlockFluidState } from "../../fluid/FluidGeometry";
+import { buildFluidBackQuads, FluidFaces, FluidKind, FluidRules, FluidSampler, resolveBlockFluidState } from "../../fluid/FluidGeometry";
 import { MineRenderData } from "../../../assets/MineRenderData";
 import { BlockEntities, ResolvedBlockEntity } from "../../../assets/BlockEntities";
 import { Entities } from "../../../assets/Entities";
@@ -52,7 +52,7 @@ export class BlockObject extends SceneObject {
     private _fluidSampler?: FluidSampler;
     private readonly biomePosition?: TripleArray;
     private waterTint?: number;
-    private _fluidModel?: ModelObject | InstanceReference<ModelObject>;
+    private _fluidModels: (ModelObject | InstanceReference<ModelObject>)[] = [];
     private _entities: EntityObject[] = [];
     private _entityPlacement = new Matrix4();
     private _entityGeneration = 0;
@@ -90,7 +90,7 @@ export class BlockObject extends SceneObject {
         this._entityGeneration++;
         this.removeEntities(this._entities.splice(0));
         this._fluidKey = undefined;
-        this._fluidModel = undefined;
+        this._fluidModels = [];
         this._isInstanced = false;
         this._instanceCounter = 0;
     }
@@ -232,7 +232,7 @@ export class BlockObject extends SceneObject {
         const replacements: (ModelObject | InstanceReference<ModelObject>)[] = [];
         try {
             for (const model of this._models) {
-                if (model === this._fluidModel) {
+                if (this._fluidModels.includes(model)) {
                     replacements.push(model);
                     continue;
                 }
@@ -293,22 +293,27 @@ export class BlockObject extends SceneObject {
         const tint = this.options.tints?.[0] ?? this.waterTint;
         const fluidKey = `${surface.key}|${tint ?? "default"}`;
         if (this._fluidKey === fluidKey) return;
-        const key = new AssetKey("minecraft", `${kind}/${surface.key}`, "models", "fluid", "assets", ".json", this.blockState.key?.root);
-        const replacement = await this.scene.addSceneObject({ key },
-            () => new FluidModelObject(kind, surface.sample, this.blockState.key, {
-                ...this.options, tints: tint === undefined ? this.options.tints : { ...this.options.tints, 0: tint }
-            }));
-        const previous = this._fluidModel;
-        const matrix = previous ? this.getModelMatrix(previous) : new Matrix4().makeTranslation(...this.position.toArray());
-        if (isInstanceReference(replacement)) replacement.setMatrix(matrix);
-        else matrix.decompose(replacement.position, replacement.quaternion, replacement.scale);
-        this._models = this._models.filter(model => model !== previous);
-        this._models.push(replacement);
-        this._fluidModel = replacement;
+        const options = { ...this.options, tints: tint === undefined ? this.options.tints : { ...this.options.tints, 0: tint } };
+        // Translucent water draws its inner faces first from a separate pool. Lava writes depth, so draw order does not
+        // matter and one pool holds both sides.
+        const faces: FluidFaces[] = kind === "lava" ? ["both"]
+            : buildFluidBackQuads(kind, surface.sample).sprites.length ? ["front", "back"] : ["front"];
+        const replacements = await Promise.all(faces.map(face => this.scene.addSceneObject({
+            key: new AssetKey("minecraft", `${kind}/${surface.key}${face === "front" ? "" : `/${face}`}`, "models", "fluid", "assets", ".json", this.blockState.key?.root)
+        }, () => new FluidModelObject(kind, surface.sample, this.blockState.key, options, face))));
+        const previous = this._fluidModels;
+        const matrix = previous.length ? this.getModelMatrix(previous[0]) : new Matrix4().makeTranslation(...this.position.toArray());
+        for (const replacement of replacements) {
+            if (isInstanceReference(replacement)) replacement.setMatrix(matrix);
+            else matrix.decompose(replacement.position, replacement.quaternion, replacement.scale);
+        }
+        this._models = this._models.filter(model => !previous.includes(model));
+        this._models.push(...replacements);
+        this._fluidModels = replacements;
         this._fluidKey = fluidKey;
-        this._isInstanced ||= isInstanceReference(replacement);
+        this._isInstanced ||= replacements.some(isInstanceReference);
         this._instanceCounter = this._isInstanced ? 1 : 0;
-        if (previous) this.removeModels([previous]);
+        if (previous.length) this.removeModels(previous);
         if (!this.visible) {
             this.setVisible(false);
         }

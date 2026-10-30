@@ -3,7 +3,7 @@ import type { AssetKey } from "../../assets/AssetKey";
 import type { BlockStateProperties } from "../block/BlockStateProperties";
 import { MineRenderData, MineRenderDatasets } from "../../assets/MineRenderData";
 import { buildFluidQuads } from "./FluidQuads";
-import type { FluidKind, FluidSampler } from "./FluidQuads";
+import type { FluidKind, FluidQuads, FluidSampler } from "./FluidQuads";
 
 export * from "./FluidQuads";
 
@@ -37,9 +37,53 @@ export async function getFluidKind(key?: AssetKey, state?: BlockStateProperties)
     return (await getBlockFluidState(key, state))?.kind;
 }
 
+/** The fluid faces seen from outside, the reverse sides vanilla adds to them ({@link buildFluidBackQuads}), or both. */
+export type FluidFaces = "front" | "back" | "both";
+
+/**
+ * Vanilla's reverse fluid faces, in front-face order: every side, and the top when a cell above it is neither this fluid
+ * nor solid, so the surface shows from below. Bottoms have none. Reversed faces keep their front normals, so they are
+ * shaded like the faces they back, as vanilla shades them.
+ */
+export function buildFluidBackQuads(kind: FluidKind, sample: FluidSampler): FluidQuads {
+    const front = buildFluidQuads(kind, sample);
+    let topShowsBelow = false;
+    for (let x = -1; x <= 1; x++) {
+        for (let z = -1; z <= 1; z++) {
+            const above = sample(x, 1, z);
+            if (above.fluid !== kind && !above.solid) topShowsBelow = true;
+        }
+    }
+    const back: FluidQuads = { positions: [], normals: [], uvs: [], sprites: [] };
+    for (let quad = 0; quad < front.sprites.length; quad++) {
+        const up = front.normals[quad * 12 + 1];
+        if (up < 0 || (up > 0 && !topShowsBelow)) continue;
+        back.sprites.push(front.sprites[quad]);
+        for (const corner of [0, 3, 2, 1]) {
+            const vertex = quad * 4 + corner;
+            back.positions.push(...front.positions.slice(vertex * 3, vertex * 3 + 3));
+            back.normals.push(...front.normals.slice(vertex * 3, vertex * 3 + 3));
+            back.uvs.push(...front.uvs.slice(vertex * 2, vertex * 2 + 2));
+        }
+    }
+    return back;
+}
+
+/** Reverse faces come first, so each block draws its inner faces before its outer faces. */
+function selectFluidQuads(kind: FluidKind, sample: FluidSampler, faces: FluidFaces): FluidQuads {
+    if (faces === "front") return buildFluidQuads(kind, sample);
+    const back = buildFluidBackQuads(kind, sample);
+    if (faces === "back") return back;
+    const front = buildFluidQuads(kind, sample);
+    return {
+        positions: [...back.positions, ...front.positions], normals: [...back.normals, ...front.normals],
+        uvs: [...back.uvs, ...front.uvs], sprites: [...back.sprites, ...front.sprites]
+    };
+}
+
 /** Builds centered fluid faces with material groups 0 (still) and 1 (flowing). */
-export function createFluidGeometry(kind: FluidKind, sample: FluidSampler): BufferGeometry {
-    const { positions, normals, uvs, sprites } = buildFluidQuads(kind, sample);
+export function createFluidGeometry(kind: FluidKind, sample: FluidSampler, faces: FluidFaces = "front"): BufferGeometry {
+    const { positions, normals, uvs, sprites } = selectFluidQuads(kind, sample, faces);
     const geometry = new BufferGeometry();
     const indices: number[] = [];
     for (let quad = 0; quad < sprites.length; quad++) {

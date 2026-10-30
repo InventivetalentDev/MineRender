@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>World water comparison | MineRender</title>
+    <link rel="stylesheet" href="../../demo_shared.css">
+    <style>
+        html { height: auto; min-height: 100%; overflow: auto; }
+        .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 12px 0; }
+        button { font: inherit; color: inherit; background: #222b35; border: 1px solid #586575; border-radius: 4px; padding: 8px 12px; cursor: pointer; }
+        button:hover { background: #334339; border-color: #9bdca4; }
+        button:disabled, input:disabled { opacity: .55; cursor: default; }
+        :focus-visible { outline: 2px solid #a5e8b0; outline-offset: 3px; }
+        #status { min-height: 26px; font-weight: 650; color: #ecf1f5; }
+        .pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin: 24px 0; }
+        figure { margin: 0; min-width: 0; }
+        .view { aspect-ratio: 4 / 3; position: relative; }
+        .view canvas { display: block; }
+        figcaption { margin-bottom: 8px; font-weight: 650; }
+        .note { display: block; font-size: 14px; font-weight: 400; color: #bdc8d2; }
+        @media (max-width: 600px) {
+            .playground-index main { padding: 28px 16px; }
+            .pair { grid-template-columns: minmax(0, 1fr); }
+        }
+    </style>
+</head>
+<body class="playground-index">
+    <main>
+        <a href="../../">All playgrounds</a>
+        <h1>Compare world water with and without section meshing</h1>
+        <p>Both views place the same blocks: a single floating water block, a floating 4×4 pool, and a pool in a stone basin. Drag either view to orbit both cameras.</p>
+        <div class="controls" aria-label="Camera presets">
+            <button type="button" data-view="above" disabled>Above</button>
+            <button type="button" data-view="edge" disabled>Level with the surface</button>
+            <button type="button" data-view="below" disabled>Below</button>
+            <label><input id="animate" type="checkbox" disabled> Animate textures</label>
+        </div>
+        <p id="status" role="status" aria-live="polite">Loading water…</p>
+        <div class="pair">
+            <figure>
+                <figcaption>Separate blocks<span class="note">The default world mode: one instanced object per surface shape.</span></figcaption>
+                <div class="view" id="blocks"></div>
+            </figure>
+            <figure>
+                <figcaption>Section meshing<span class="note">Merged section surfaces, sorted back to front.</span></figcaption>
+                <div class="view" id="sections"></div>
+            </figure>
+        </div>
+        <details>
+            <summary>Expected differences</summary>
+            <p>Section meshes draw both sides of every water face, so they also show the inside of the bottom face. Vanilla, and separate blocks, draw the inner side faces and the underside of an exposed surface only.</p>
+            <p id="measurements"></p>
+        </details>
+    </main>
+    <script type="module" src="script.bundle.js"></script>
+</body>
+</html>

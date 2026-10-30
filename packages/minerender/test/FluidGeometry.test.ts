@@ -1,5 +1,11 @@
 import test from "ava";
-import { buildFluidQuads, createFluidGeometry, FluidKind, FluidSample, FluidSampler, getBlockFluidState, getFluidKind, resolveBlockFluidState } from "../src/model/fluid/FluidGeometry";
+import { DoubleSide, FrontSide, Material, Mesh, MeshBasicMaterial } from "three";
+import type { CanvasImage } from "../src/canvas/CanvasImage";
+import { Materials } from "../src/Materials";
+import { FluidModelObject } from "../src/model/fluid/FluidModelObject";
+import { TextureAtlas } from "../src/texture/TextureAtlas";
+import { UVMapper } from "../src/UVMapper";
+import { buildFluidBackQuads, buildFluidQuads, createFluidGeometry, FluidKind, FluidSample, FluidSampler, getBlockFluidState, getFluidKind, resolveBlockFluidState } from "../src/model/fluid/FluidGeometry";
 import { AssetKey } from "../src/assets/AssetKey";
 import { MineRenderData } from "../src/assets/MineRenderData";
 import { installMineRenderDataFixtures } from "./helpers/minerender-data";
@@ -97,4 +103,68 @@ test("solid neighbors hide sides and bottom while a recessed top remains visible
     const differentFluid = createFluidGeometry("water", (x, y, z) => x === 1 && y === 0 && z === 0 ? { fluid: "lava" } : covered(x, y, z));
     t.is(differentFluid.index!.count, 6);
     t.is(differentFluid.getAttribute("normal").getX(0), 1);
+});
+
+test("inner faces reverse the sides and an exposed top but never the bottom", t => {
+    const floating: FluidSampler = (x, y, z) => x === 0 && y === 0 && z === 0 ? { fluid: "water" } : {};
+    const front = buildFluidQuads("water", floating);
+    const back = buildFluidBackQuads("water", floating);
+    t.is(front.sprites.length, 6);
+    t.is(back.sprites.length, 5);
+    // The winding gives the facing; the normal attribute keeps the front face's shading.
+    const facing = (quads: typeof back) => quads.sprites.map((_, quad) => {
+        const [a, b, c] = [0, 1, 2].map(corner => quads.positions.slice((quad * 4 + corner) * 3, (quad * 4 + corner) * 3 + 3));
+        return Math.sign((b[2] - a[2]) * (c[0] - a[0]) - (b[0] - a[0]) * (c[2] - a[2]));
+    });
+    t.deepEqual(facing(back).filter(up => up !== 0), [-1]);
+    const top = facing(front).indexOf(1), underside = facing(back).indexOf(-1);
+    for (const [corner, source] of [0, 3, 2, 1].entries()) {
+        t.deepEqual(back.positions.slice((underside * 4 + corner) * 3, (underside * 4 + corner) * 3 + 3),
+            front.positions.slice((top * 4 + source) * 3, (top * 4 + source) * 3 + 3));
+        t.deepEqual(back.normals.slice((underside * 4 + corner) * 3, (underside * 4 + corner) * 3 + 3), [0, 1, 0]);
+    }
+    const enclosed: FluidSampler = (x, y, z) => x === 0 && y === 0 && z === 0 ? { fluid: "water" } : { solid: true };
+    t.is(buildFluidBackQuads("water", enclosed).sprites.length, 0);
+    const corner = buildFluidBackQuads("water", (x, y, z) => x === 1 && y === 1 && z === 1 ? {} : enclosed(x, y, z));
+    t.deepEqual(facing(corner), [-1]);
+    t.is(createFluidGeometry("water", floating, "back").index!.count, 30);
+    const both = createFluidGeometry("lava", floating, "both").getAttribute("position").array;
+    const lava = [buildFluidBackQuads("lava", floating), buildFluidQuads("lava", floating)];
+    t.deepEqual(both, new Float32Array([...lava[0].positions, ...lava[1].positions]));
+});
+
+test.serial("per-block water draws inner faces first, lava holds both sides, and both sample inside their sprites", async t => {
+    const originals = { atlas: UVMapper.getAtlas, material: Materials.createShadedCanvasMaterial };
+    const objects: FluidModelObject[] = [];
+    UVMapper.getAtlas = async model => new TextureAtlas(model, { width: 32, height: 16, canvas: {} } as CanvasImage,
+        { still: [16, 16], flow: [16, 16] }, { still: [0, 0], flow: [16, 0] }, false, {}, model.key!.path === "water", model.key!.path === "water");
+    Materials.createShadedCanvasMaterial = (_canvas, transparent) => new MeshBasicMaterial({ transparent, side: transparent ? DoubleSide : FrontSide });
+    t.teardown(() => {
+        UVMapper.getAtlas = originals.atlas;
+        Materials.createShadedCanvasMaterial = originals.material;
+        for (const object of objects) object.dispose();
+    });
+    const sprites = [[0.5 / 32, 0.5 / 16, 15.5 / 32, 15.5 / 16], [16.5 / 32, 0.5 / 16, 31.5 / 32, 15.5 / 16]].map(bounds => bounds.map(round));
+    for (const [kind, faces] of [["water", "front"], ["water", "back"], ["lava", "both"]] as const) {
+        const object = new FluidModelObject(kind, (x, y, z) => x === 0 && y === 0 && z === 0 ? { fluid: kind, level: 0 } : {}, undefined, undefined, faces);
+        objects.push(object);
+        await object.init();
+        const meshes: Mesh[] = [];
+        object.iterateAllMeshes(mesh => meshes.push(mesh));
+        t.is(meshes.length, 1, `${kind} ${faces}`);
+        const material = meshes[0].material as Material;
+        t.is(material.side, FrontSide);
+        t.is(material.depthWrite, kind === "lava");
+        t.is(meshes[0].renderOrder, faces === "back" ? -1 : 0);
+        const uv = meshes[0].geometry.getAttribute("uv"), bounds = meshes[0].geometry.getAttribute("uvBounds");
+        t.is(uv.count, faces === "both" ? 44 : faces === "back" ? 20 : 24);
+        const used = new Set<number>();
+        for (let vertex = 0; vertex < uv.count; vertex++) {
+            const sprite = sprites.findIndex(rect => rect.every((value, i) => value === round(bounds.getComponent(vertex, i))));
+            t.not(sprite, -1);
+            used.add(sprite);
+            t.true(uv.getX(vertex) >= sprites[sprite][0] - 0.5 / 32 && uv.getX(vertex) <= sprites[sprite][2] + 0.5 / 32);
+        }
+        t.deepEqual([...used].sort(), [0, 1]);
+    }
 });
