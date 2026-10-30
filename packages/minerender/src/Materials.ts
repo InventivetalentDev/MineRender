@@ -109,6 +109,7 @@ export class Materials {
                 // nothing opaque is behind it. Its brightness serves as coverage, so the glow stays visible outside the body.
                 material.blendSrcAlpha = OneFactor;
                 material.blendDstAlpha = OneMinusSrcAlphaFactor;
+                // Edits three's built-in shader text: a replace that finds nothing fails silently. test/ShaderPatches.test.ts checks every target.
                 material.onBeforeCompile = shader => {
                     shader.fragmentShader = shader.fragmentShader.replace("#include <dithering_fragment>",
                         "gl_FragColor.a = max(gl_FragColor.r, max(gl_FragColor.g, gl_FragColor.b));\n#include <dithering_fragment>");
@@ -139,6 +140,7 @@ export class Materials {
      */
     public static boundUvs<T extends MeshBasicMaterial>(material: T): T {
         const patch = material.onBeforeCompile, key = material.customProgramCacheKey();
+        // Edits three's built-in shader text: a replace that finds nothing fails silently. test/ShaderPatches.test.ts checks every target.
         material.onBeforeCompile = (shader, renderer) => {
             patch.call(material, shader, renderer);
             shader.vertexShader = shader.vertexShader
@@ -165,6 +167,7 @@ export class Materials {
             side: DoubleSide,
             toneMapped: false
         });
+        // Edits three's built-in shader text: a replace that finds nothing fails silently. test/ShaderPatches.test.ts checks every target.
         material.onBeforeCompile = shader => {
             // Keep MSAA edge pixels inside the layer's cropped texture region.
             for (const [stage, direction] of [["vertex", "out"], ["fragment", "in"]] as const) {

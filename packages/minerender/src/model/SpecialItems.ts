@@ -224,6 +224,7 @@ export class SpecialItems {
     public static createMaterial(source: MeshBasicMaterial, shade: boolean): MeshBasicMaterial {
         const material = source.clone();
         if (shade) {
+            // Edits three's built-in shader text: a replace that finds nothing fails silently. test/ShaderPatches.test.ts checks every target.
             material.onBeforeCompile = shader => {
                 shader.vertexShader = `varying float itemLight;\n${shader.vertexShader}`.replace("#include <begin_vertex>", `
                     #include <begin_vertex>
